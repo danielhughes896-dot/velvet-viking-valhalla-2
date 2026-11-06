@@ -253,11 +253,15 @@ test('HERO: the panel circle is for figures, and a word is carried by its chip',
     'the accent rule still divides a circle that is not there');
 });
 
-test('LINES: section boundaries are gone, row separators are not', () => {
-  /* Valhalla labels every section -- "THE READING", "THE ATHLETE STATUS" --
-     so a plain hairline between hero, call and sections said again, worse,
-     what the labelled rule already said. Today draws no horizontal line at
-     all and is the cleanest screen in the product. */
+test('LINES: no plain hairline separates one detail from the next', () => {
+  /* THIS GUARD CHANGED SIDES, and the reason is recorded rather than
+     quietly swapped. It used to read "section boundaries are gone, row
+     separators are not", on the argument that a rule BETWEEN repeated rows
+     does work nothing else does. Tested on a phone against the rest of the
+     product, that argument lost: the screens read better with the lines
+     gone and spacing doing the separating, which is how Today -- the
+     cleanest screen here -- has always worked. So the founder's call is
+     that the plain hairlines go app-wide, and this asserts that. */
   [['.view-planhq .v-hero', 'border-bottom'],
    ['.view-planhq .v-call', 'border-bottom'],
    ['.wk-hero', 'border-bottom'],
@@ -265,15 +269,31 @@ test('LINES: section boundaries are gone, row separators are not', () => {
     assert.doesNotMatch(rule(sel), new RegExp(side + ':1px'),
       sel + ' took its section boundary back');
   });
-  /* A rule BETWEEN repeated rows is doing work nothing else does, so those
-     stay -- and this one is written so it cannot draw above the first row.
-     It used to be a border on every signal cancelled by :first-child, but
-     each of these lists is introduced by a .setup-section-title inside the
-     same parent, so the first signal is the second child and the cancel
-     never fired: a line sat directly under "Training Signals" separating it
-     from nothing. */
-  assert.match(rule('.coach-signal + .coach-signal'), /border-top:1px/,
-    'signals no longer separate from one another');
+  /* The row separators now too. .coach-signal and .hq-pattern each had an
+     adjacent-sibling rule whose ONLY declaration was the border, so those
+     rules are gone outright rather than left as empty shells. */
+  assert.doesNotMatch(SRC, /\.coach-signal \+ \.coach-signal\{/,
+    'the rule between training signals is back');
+  assert.doesNotMatch(SRC, /\.hq-pattern \+ \.hq-pattern\{/,
+    'the rule between recent patterns is back');
+  assert.doesNotMatch(rule('.rp-rows .hq-row'), /border-bottom:1px/,
+    'the Reading panel rows are ruled again');
   assert.doesNotMatch(SRC, /\.coach-signal:first-child\{border-top:none;\}/,
     'the :first-child cancel that never fired is back');
+
+  /* WHAT THE PASS WAS NOT ALLOWED TO TOUCH. The founder drew the line at
+     "hairlines that separate details": the GOLD and CHERRY rules are
+     decoration and signal, not separators, and they stay. The gold ones are
+     gradient-filled elements rather than borders, which is also why the
+     sweep could not have reached them by accident -- asserted so that a
+     future sweep written differently still cannot. */
+  /* Anchored to the start of the rule, NOT read through rule(): that helper
+     is indexOf(sel + '{'), and '.sec-rule-line{' also occurs inside
+     '.sec-rule.is-left .sec-rule-line{', which is earlier in the sheet. The
+     obvious spelling therefore reads the is-left variant and passes while
+     the rule it names is blanked -- caught by mutating it. */
+  assert.match(SRC, /\n\s*\.sec-rule-line\{[^}]*linear-gradient/,
+    'the gold section rule either side of a heading was swept away with the hairlines');
+  assert.match(SRC, /border-top:1px solid var\(--cherry-line\)/,
+    'the cherry rule that marks race week was swept away with the hairlines');
 });

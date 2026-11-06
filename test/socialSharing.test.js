@@ -544,7 +544,12 @@ test('finishing a session opens no modal, from any path', () => {
   }
   /* And the review itself is not lost -- it is in the card, where it can
      see the figures the athlete actually typed. */
-  assert.ok(/<div id="exec-review-'\+dd\.id\+'">'\+renderExecutionReview\(dd\)/.test(src),
+  /* Matched on the mount and the call rather than on one exact string: the
+     review has since moved UP the card, to sit with Share under "Session
+     complete" instead of below the whole log, and this guard is about it
+     being in the card at all -- not about which line of renderDayCard
+     emits it. */
+  assert.ok(/id="exec-review-'\+dd\.id\+'">'\+renderExecutionReview\(dd\)/.test(src),
     'the execution review left the day card');
 });
 

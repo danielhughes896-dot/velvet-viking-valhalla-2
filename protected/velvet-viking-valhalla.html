@@ -835,7 +835,7 @@
   .week.is-taper .week-head{background:var(--c-gold-soft);}
   .taper-note{
     display:flex; align-items:center; gap:7px; color:var(--bronze-text);
-    padding:8px 16px; background:var(--c-gold-soft); border-top:1px dashed var(--line);
+    padding:8px 16px; background:var(--c-gold-soft);
   }
   .taper-note svg{width:13px; height:13px; flex:none;}
   /* ---- A STRUCTURAL WEEK BEYOND THE MATERIALISED HORIZON (AEROBIC BASE) ----
@@ -1064,7 +1064,7 @@
   .fuel-chevron svg{width:16px; height:16px; display:block;}
   .fuel-card[open] .fuel-chevron{transform:rotate(180deg);}
   .fuel-body{padding:2px 12px 10px;}
-  .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:var(--fs-body); border-bottom:1px solid var(--line-soft);}
+  .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:var(--fs-body);}
   .fuel-row:last-of-type{border-bottom:none;}
   .fuel-row .k{color:var(--ink-dim);}
   .fuel-row .v{color:var(--ink);}
@@ -1081,7 +1081,7 @@
      rather than faint ink, wider letter-spacing, a hair more bottom margin
      before its value starts. No new container, no banner -- the existing
      hairline-separated row is unchanged, just the label inside it. */
-  .how-row{padding:10px 0; border-bottom:1px solid var(--line-soft);}
+  .how-row{padding:10px 0;}
   .how-row:first-of-type{padding-top:0;}
   .how-row:last-of-type{border-bottom:none; padding-bottom:0;}
   .how-row .k{display:block; font-family:var(--label-face); font-size:12.5px; font-weight:var(--label-weight);
@@ -1094,14 +1094,13 @@
      upgrade as .how-row .k above, for the same reason: it is also a section
      heading (Execution, Fuel) that was reading as body text. */
   .how-row-heading{font-family:var(--label-face); font-size:12.5px; font-weight:var(--label-weight); letter-spacing:var(--label-track);
-                   text-transform:uppercase; color:var(--bronze-text); margin:14px 0 6px; padding-top:10px;
-                   border-top:1px solid var(--line-soft);}
+                   text-transform:uppercase; color:var(--bronze-text); margin:14px 0 6px; padding-top:10px;}
   .how-row-heading:first-child{margin-top:0; padding-top:0; border-top:none;}
   /* Execution Strategy phases -- a staged reading of the prescription, not a
      second set of numbers. Each phase is its own compact block so a race's
      four-to-six stages stay scannable rather than one dense paragraph. */
   .strat-phases{display:flex; flex-direction:column; gap:8px;}
-  .strat-phase{padding:6px 0; border-bottom:1px solid var(--line-soft);}
+  .strat-phase{padding:6px 0;}
   .strat-phase:last-of-type{border-bottom:none; padding-bottom:0;}
   .strat-phase-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
   .strat-phase-label{font-size:var(--fs-body); font-weight:600; color:var(--ink);}
@@ -2076,7 +2075,7 @@
      rather than framed, values on the data tier under a gold rule, labels on
      the label tier, sentences on the support tier, and no box anywhere. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-panel{
-    margin-top:30px; padding-top:30px; border-top:1px solid var(--line-soft); gap:26px 18px;}
+    margin-top:30px; padding-top:30px; gap:26px 18px;}
 
   /* SESSION COMPLETE. Lit exactly as the Coach's Note is lit -- a blurred
      radial that overspills the content and dissolves into the page ground --
@@ -2112,6 +2111,15 @@
      this product marks the brand and the one thing being offered, not every
      box an athlete can type in. One hairline now, the quiet one, on every
      field including the textarea. */
+  /* THE FIELD UNDERLINE SURVIVED THE HAIRLINE PASS, and it is not an
+     exception to it. These inputs carry no fill and no box, so the line
+     below each one is not separating one detail from the next -- it IS the
+     field. Remove it and an empty input is an invisible one: nothing on
+     screen says there is anywhere to type. Settings keeps the underline on
+     its name row for the same reason.
+     It is also why the declaration below is written on ONE line with
+     border:0 -- completedSessionSurface reads the pair together, so a
+     comment between them fails a guard that is otherwise satisfied. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field{gap:8px; padding:0 0 2px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field > label{
     font-family:var(--label-face); font-size:var(--label-size);
@@ -2690,7 +2698,6 @@
     margin:6px 0 8px; padding:2px 2px 2px 0;
     /* The scroll is the only thing that says "there is more" on a short list,
        so the edge is drawn rather than left to chance. */
-    border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft);
   }
   .swap-week{
     font-size:var(--fs-meta); letter-spacing:1px; text-transform:uppercase;
@@ -2799,7 +2806,7 @@
   .day-actions button:hover{color:var(--bronze); background:var(--bg-4);}
   .day-actions svg{width:16px; height:16px;}
 
-  .actual-panel{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .actual-panel{margin-top:10px; padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .actual-field{display:flex; flex-direction:column; gap:3px;}
   .actual-field label{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
   .actual-field input, .actual-field textarea{
@@ -2978,7 +2985,7 @@
   .dlap-rows{margin-top:2px;}
   .dlap-row{
     display:grid; grid-template-columns:18px 1fr 58px 62px; gap:6px; align-items:baseline;
-    padding:4px 0; border-bottom:1px solid var(--line-soft); font-size:11.5px;
+    padding:4px 0; font-size:11.5px;
   }
   .dlap-row:last-child{border-bottom:none;}
   .dlap-idx{font-size:9.5px; color:var(--ink-faint); text-align:right;}
@@ -3024,7 +3031,7 @@
   .zone-paces-card{ margin:14px 0 0; padding:14px 0; }
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
   .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
+  .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0;}
   .pzr:last-of-type{border-bottom:none;}
   .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
   .pzr-tag{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px; font-weight:var(--label-weight);}
@@ -3549,7 +3556,7 @@
      introducing a palette, sits inside the day's detail column, and is set one
      step quieter than the running prescription above it -- because that is
      exactly what it is. */
-  .support-block{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+  .support-block{margin-top:12px; padding-top:10px;}
   .support-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px;}
   .support-tag{font-size:var(--fs-meta); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
   .support-dur{font-size:var(--fs-meta); color:var(--ink-faint);}
@@ -3869,7 +3876,7 @@
 
   /* The screen's secondary decision, set back below a rule rather than given
      the same weight as the question the screen is actually asking. */
-  .bld-secondary{margin-top:20px; padding-top:16px; border-top:1px solid var(--line-soft);}
+  .bld-secondary{margin-top:20px; padding-top:16px;}
   .bld-secondary .opt-grid button{min-height:44px;}
 
   /* A follow-up that appeared BECAUSE of the answer above it, rather than a
@@ -3891,7 +3898,7 @@
   .field.bld-consent{margin:0;}
   /* A permission is not part of the summary above it, so it is separated by a
      rule and named rather than tucked in beside the plan's facts. */
-  .bld-permission{margin-top:22px; padding-top:16px; border-top:1px solid var(--line-soft);}
+  .bld-permission{margin-top:22px; padding-top:16px;}
   .field.bld-consent > label{
     display:flex; align-items:flex-start; gap:8px;
     text-transform:none; letter-spacing:0; opacity:1;
@@ -3917,10 +3924,10 @@
      names for .week: a tile as loud as the surface holding it, and the
      hierarchy between them flattened. The padding stays. */
   #bld-review{ padding:6px 16px; }
-  .bld-review-hero{text-align:center; padding:16px 0 8px; border-bottom:1px solid var(--line-soft); margin-bottom:2px;}
+  .bld-review-hero{text-align:center; padding:16px 0 8px; margin-bottom:2px;}
   .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--gold-text); line-height:1.1; font-weight:var(--label-weight);}
   .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
-  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0;}
   .bld-review-row:last-child{border-bottom:none;}
   .bld-review-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
   /* Words in this column take the words face, the same rule the Reading
@@ -4038,6 +4045,10 @@
      and wraps its own label in half. */
   .share-launch{display:flex; flex-direction:column; gap:0; grid-column:1/-1;
     margin:0 0 16px;}
+  /* The analysis tab sits beside Share in the completion stack, so it spans
+     the log grid exactly as Share and "Session complete" do. */
+  .exec-review-mount{grid-column:1/-1;}
+  .exec-review-mount:empty{display:none;}
   /* Open, the tab joins the panel beneath it into one object rather than
      floating above it. */
   .share-launch:has(.share-inline.is-open) .btn-share{
@@ -4306,7 +4317,7 @@
   .es-sec[open] > .es-sec-head .es-sec-chev{transform:rotate(180deg);}
   .es-sec-body{padding:2px 15px 15px;}
   .es-sec-body > .field:last-child{margin-bottom:0;}
-  .es-reset{margin-top:14px; padding-top:13px; border-top:1px solid var(--modal-border);}
+  .es-reset{margin-top:14px; padding-top:13px;}
   /* One action, full width, at the foot -- Reset moved in beside the fields
      it undoes, so nothing destructive sits next to the confirm. */
   .es-actions{margin-top:0;}
@@ -4760,17 +4771,13 @@
      "selected". */
   .view-plan .pp-phase, .view-plan .pp-phase.is-now{
     background:none; border:0; border-radius:0; box-shadow:none; overflow:visible;}
-  .view-plan .pp-phase + .pp-phase{border-top:1px solid var(--line-soft);}
   .view-plan .pp-head{padding:15px 2px;}
   .view-plan .pp-body{padding:0 2px 12px;}
   .view-plan .pp-body .week{
     background:none; border:0; border-radius:0; box-shadow:none; margin-bottom:0;}
-  .view-plan .pp-body .week + .week{border-top:1px solid var(--line-soft);}
   /* The session rows on a week screen are the same kind of thing. */
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row{
     background:none; border:0; border-radius:0; box-shadow:none; padding:14px 2px;}
-  :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row{
-    border-top:1px solid var(--line-soft);}
   /* THE CURRENT DAY KEEPS ITS GOLD WITHOUT THE RIM IT USED TO WEAR. .pw-row
      .is-today set border-color, and border:0 above takes the border it was
      colouring -- so the signal moves to the row's own text, which already
@@ -4975,7 +4982,6 @@
     box-shadow:0 0 18px color-mix(in srgb, var(--gold) 20%, transparent);}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
   .view-plan .pp-body .week + .week,
-  .view-plan .pp-phase + .pp-phase{border-top:1px solid var(--line-soft);}
   .view-plan-week .pw-progress{padding:0 0 14px;}
 
   /* ---- THE NAVIGATION IS LIT, NOT DRAWN ----
@@ -5228,21 +5234,17 @@
   .coach-metric .cm-k{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); line-height:1.2; font-weight:var(--label-weight);}
   .coach-metric .cm-v{font-family:var(--num-face); font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
   .coach-metric .cm-s{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
-  /* BETWEEN SIGNALS, NOT ABOVE EACH ONE. This was written as a border on
-     every row cancelled by :first-child -- but every one of these lists is
-     introduced by a .setup-section-title inside the same parent, so the
-     first signal is the second child, :first-child never matched it, and
-     the cancel never fired. The result was a rule directly under "Training
-     Signals" with nothing above it to separate: a line doing no work, in
-     the one place a line is supposed to mean something.
-     The adjacent-sibling form cannot have that bug, because it only ever
-     draws where one signal actually follows another. */
+  /* NO RULE BETWEEN SIGNALS ANY MORE -- see the hairline pass. The rule
+     that stood here was an adjacent-sibling border, written that way after
+     a :first-child cancel that never fired (these lists open with a
+     .setup-section-title, so the first signal is the second child). That
+     bug is moot now the line is gone; the padding below is what separates
+     one signal from the next. */
   .coach-signal{display:flex; gap:9px; align-items:flex-start; padding:9px 0;}
-  .coach-signal + .coach-signal{border-top:1px solid var(--line);}
   .coach-signal-body{min-width:0;}
   .coach-signal-label{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.3; font-weight:var(--label-weight);}
   .coach-signal-detail{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
-  .coach-bt{display:flex; gap:9px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--line);}
+  .coach-bt{display:flex; gap:9px; align-items:flex-start; padding:9px 0;}
   .coach-bt:first-child{border-top:none;}
   .coach-bt svg{width:15px; height:15px; flex:none; color:var(--gold); margin-top:1px;}
   .coach-bt-body{min-width:0; color:var(--ink-dim); overflow-wrap:anywhere;}
@@ -5422,7 +5424,6 @@
   .hq-empty{ color:var(--ink-faint);}
   /* Recent patterns: a label, a word, a sentence. No chart, no big number. */
   .hq-pattern{padding:6px 0;}
-  .hq-pattern + .hq-pattern{border-top:1px solid var(--line-soft);}
   .hq-pattern-top{display:flex; align-items:baseline; gap:10px;}
   /* ---------- ONE LABEL VOICE, AND THESE NOW SPEAK IT ----------
      --label-face/-size/-track/-weight were defined as the app's single
@@ -5472,7 +5473,7 @@
      by a hairline -- a reassurance, not a second instruction. */
   .setup-step .setup-note{
     font-size:var(--fs-support); color:var(--ink-faint); line-height:var(--lh-support);
-    margin:16px 0 0; padding-top:14px; border-top:1px solid var(--line-soft);
+    margin:16px 0 0; padding-top:14px;
   }
   /* Recovery, only when there is something to recover. Ghost weight and last
      in the box, so the build path stays the obvious default. */
@@ -5480,7 +5481,7 @@
 
   /* The returning-athlete route, set below the primary action and separated by
      a rule so the page still reads as one decision with an obvious default. */
-  .hero-return{ margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
+  .hero-return{ margin-top:18px; padding-top:16px; }
   .hero-return-q{ font-size:12.5px; color:var(--ink-dim); margin:0 0 10px; }
   .recover-card{
     border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px 14px;
@@ -5654,8 +5655,7 @@
   .v-hero-fig b{display:block; font-size:16px; color:var(--ink); font-weight:700;}
   .v-hero-fig span{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
   .v-status-line{
-    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; padding-top:14px;
-    border-top:1px solid var(--line-soft); color:var(--ink-dim);
+    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; padding-top:14px; color:var(--ink-dim);
   }
   .v-status-line b{color:var(--ink);}
   .v-status-dot{width:7px; height:7px; border-radius:50%; flex:none; display:inline-block;}
@@ -5741,8 +5741,7 @@
     letter-spacing:.02em; color:var(--cherry-text);}
   .cf-value.cf-value-empty{color:var(--ink-faint); font-weight:500;}
   .cf-value-cap{ color:var(--ink-faint); margin-top:4px;}
-  .cf-goal-row{display:flex; align-items:baseline; gap:7px; margin-top:14px; padding-top:12px;
-    border-top:1px solid var(--line-soft); flex-wrap:wrap;}
+  .cf-goal-row{display:flex; align-items:baseline; gap:7px; margin-top:14px; padding-top:12px; flex-wrap:wrap;}
   .cf-goal-dot{width:7px; height:7px; border-radius:50%; background:var(--gold); flex:none;}
   .cf-goal-lab{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
@@ -6175,7 +6174,7 @@
      Reschedule list and the goal-pace box already use for "this one". */
   .ef-type-list{border:1px solid var(--line-soft); border-radius:var(--tile-radius);
     overflow:hidden; margin-top:6px;}
-  .ev-card.ef-type-row{border-top:1px solid var(--line-soft); padding:11px 13px; gap:11px;}
+  .ev-card.ef-type-row{ padding:11px 13px; gap:11px;}
   .ev-card.ef-type-row:first-child{border-top:0;}
   /* The rail takes its colour from the same six tokens .day.type-* paints a
      card's left edge with, so a Tempo in this list is the colour a Tempo is
@@ -6344,7 +6343,7 @@
      box, which is one border too many for a list of five figures. The rows
      are separated by hairlines instead, and the panel is the surface. */
   .rp-rows{display:block; margin-top:2px;}
-  .rp-rows .hq-row{padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .rp-rows .hq-row{padding:11px 0;}
   .rp-rows .hq-row:last-child{border-bottom:0;}
   .hq-row-i{flex:none; display:inline-flex; width:17px; height:17px; color:var(--gold-text);}
   .hq-row-i svg{width:17px; height:17px;}
@@ -6380,7 +6379,7 @@
      from the Reading panels: a bordered box inside a bordered box. */
   .hq-panel .hub-card.tile-card{
     background:none; border:0; box-shadow:none; border-radius:0; padding:0; margin:0 0 4px;}
-  .hq-panel .hub-card.tile-card .hq-row{padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .hq-panel .hub-card.tile-card .hq-row{padding:11px 0;}
   .hq-panel .hub-card.tile-card .hq-row:last-child{border-bottom:0;}
   .hq-panel .hub-card.tile-card .hq-row-l,
   .hq-panel .hub-card.tile-card .hq-row-v{font-size:var(--fs-panel-row); color:#FFFFFF;}
@@ -6508,7 +6507,7 @@
   }
   .yr-preview li{margin:2px 0;}
   .yr-foot{ color:var(--ink-faint);
-    margin-top:12px; padding-top:10px; border-top:1px solid var(--line-soft);
+    margin-top:12px; padding-top:10px;
   }
   .yr-lead-pill{
     margin-left:auto; font-family:var(--label-face); font-size:var(--fs-meta);
@@ -6519,7 +6518,7 @@
   .yr-fit-main, .yr-fit-prev{
     display:grid; grid-template-columns:1fr auto; gap:2px 10px; align-items:baseline;
   }
-  .yr-fit-prev{margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);}
+  .yr-fit-prev{margin-top:12px; padding-top:12px;}
   .yr-fit-l{font-size:var(--fs-support); color:var(--ink-dim);}
   /* Was a bespoke 26px, off the app's own type scale -- the Measured Fitness
      panel is the only place renderMeasuredFitness() renders, so this is a
@@ -6532,7 +6531,7 @@
     font-family:var(--label-face); font-size:var(--fs-meta); letter-spacing:var(--label-track);
     text-transform:uppercase; margin-top:10px; color:var(--ink-faint); font-weight:var(--label-weight);}
   .yr-fit-delta.up{color:var(--c-easy);}
-  .yr-est{margin-top:14px; padding-top:12px; border-top:1px solid var(--line-soft);}
+  .yr-est{margin-top:14px; padding-top:12px;}
   .yr-est-head{
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
@@ -6758,8 +6757,7 @@
   .cf-goal-sub,
   .ws-h-presc{
     font-size:var(--fs-support); line-height:var(--lh-support);
-  }
-</style>
+ }}}</style>
 </head>
 <body>
 <div id="app" class="app-root"></div>
@@ -27354,6 +27352,18 @@ function renderDayCard(dd){
          unfolds in place underneath it. Still offered, never urged: no badge,
          no streak, no prompt that returns if ignored. */
       renderShareLaunch(dd)+
+      /* ---- THE COMPLETION IS THREE THINGS, IN THIS ORDER ----
+         Session complete / Share / View Analysis. The analysis mounted
+         BELOW the log before this, which put the coach's reading of the
+         session underneath every field the athlete might edit -- so the
+         one thing they are most likely to want after finishing was the
+         last thing on a very long card, and on a phone it was reached by
+         scrolling past the whole form. It is a tab like Share now: it sits
+         with the other two, and opens what it names directly beneath
+         itself.
+         The log keeps its place under all three. Editing what was logged
+         is a correction, not the point of the screen. */
+      '<div class="exec-review-mount" id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
       /* One control, in the same quiet voice the session breakdown already
@@ -27417,7 +27427,6 @@ function renderDayCard(dd){
       renderSplitsBlock(dd)+
     '</div>'+
     (dd.type === 'calibration' ? renderCalibrationResult(dd) : '')+
-    '<div id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>'+
     /* LAST, UNDER THE JUDGEMENT. Undoing a log is a recovery from a mistake,
        so it belongs after everything the log produced rather than wedged
        between the fields and the review of them. */
