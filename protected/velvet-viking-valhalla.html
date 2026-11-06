@@ -27256,33 +27256,22 @@ function renderDayCard(dd){
   // Completed sessions default shut (the prescription has served its purpose,
   // the EXEC pill is the summary), today's session always opens, and anything
   // still to run stays open. A manual toggle overrides all of that.
-  var focused = dayCardIsFocused(dd);
-  var isOpen = isDayExpanded(dd);
-  var openCls = isOpen ? ' open' : '';
-  return '<div class="'+cls+openCls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
-    /* role="button" + tabindex + Enter/Space activation (delegated,
-       document-level keydown below) -- .day-top is the single most-used
-       interactive control in the app, every card, and was a bare
-       non-semantic div: undiscoverable and unactivatable for a
-       screen-reader or keyboard-only athlete, unlike .dropzone elsewhere in
-       this file, which already does this correctly. aria-expanded mirrors
-       the accordion state this control actually owns. */
-    '<div class="day-top"'+(focused ? ''
-      : ' data-action="toggle-day" data-day="'+dd.id+'" role="button" tabindex="0"'+
-        ' aria-expanded="'+(isOpen?'true':'false')+'"')+'>'+
-      (focused ? (function(){
-        /* An empty .day-actions still occupies a rail slot and its gap, so a
-           day with nothing to edit left a 16px hole beside the tick. The
-           container is emitted only when it has something in it. */
-        var act = dayActionButton(dd);
-        return '<div class="day-rail">'+renderDayCheck(dd)+
-          (act ? '<div class="day-actions">'+act+'</div>' : '')+'</div>';
-      })() : renderDayCheck(dd))+
-      '<div class="day-main">'+
-        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
-        '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
-        renderDayHeroBlock(dd, targets)+
-        '<div class="day-detail">'+
+  /* ---- THE PRESCRIPTION, HELD SO IT CAN SIT EITHER SIDE OF THE LOG ----
+     On a session still to run, this is the point of the card and it stays
+     where it has always been, directly under the headline.
+     On a session already RUN it is reference, and it was burying the only
+     part that is about what happened: measured on This Week with the full
+     session open, "Session complete" sat 1349px down and Share to Socials
+     1457px -- two full screens of prescription, fuel table and coach's note
+     before the athlete reached the thing they had just done. So for a
+     completed session the order inverts: headline, then what you did, then
+     the prescription underneath as reference.
+     Held in a variable rather than branched twice, because renderDayCard()
+     must emit ONE string whatever the view -- completedSessionSurface asserts
+     Today, This Week and Full Plan are character-for-character identical, and
+     a view-conditional branch here would break that silently. The condition
+     is the DAY's state, never the screen's. */
+  var detailHtml = '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
           /* WHAT, then HOW and WHY. The step list is the execution
              prescription now, so the description is dropped where it only
@@ -27321,7 +27310,34 @@ function renderDayCard(dd){
           (optState
             ? renderOptionalRunCompanion(dd)+renderSupportCompanion(dd)
             : renderSupportCompanion(dd)+renderOptionalRunCompanion(dd))+
-        '</div>'+
+  '</div>';
+  var focused = dayCardIsFocused(dd);
+  var isOpen = isDayExpanded(dd);
+  var openCls = isOpen ? ' open' : '';
+  return '<div class="'+cls+openCls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
+    /* role="button" + tabindex + Enter/Space activation (delegated,
+       document-level keydown below) -- .day-top is the single most-used
+       interactive control in the app, every card, and was a bare
+       non-semantic div: undiscoverable and unactivatable for a
+       screen-reader or keyboard-only athlete, unlike .dropzone elsewhere in
+       this file, which already does this correctly. aria-expanded mirrors
+       the accordion state this control actually owns. */
+    '<div class="day-top"'+(focused ? ''
+      : ' data-action="toggle-day" data-day="'+dd.id+'" role="button" tabindex="0"'+
+        ' aria-expanded="'+(isOpen?'true':'false')+'"')+'>'+
+      (focused ? (function(){
+        /* An empty .day-actions still occupies a rail slot and its gap, so a
+           day with nothing to edit left a 16px hole beside the tick. The
+           container is emitted only when it has something in it. */
+        var act = dayActionButton(dd);
+        return '<div class="day-rail">'+renderDayCheck(dd)+
+          (act ? '<div class="day-actions">'+act+'</div>' : '')+'</div>';
+      })() : renderDayCheck(dd))+
+      '<div class="day-main">'+
+        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
+        '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
+        renderDayHeroBlock(dd, targets)+
+        (dd.completed ? '' : detailHtml)+
       '</div>'+
       (focused ? '' : '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
         '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>')+
@@ -27341,7 +27357,8 @@ function renderDayCard(dd){
        run this" that sit immediately above it. Underneath the log and the
        Execution Review it was the last thing on a long card, which is where
        the live test could not find it. */
-    '<div class="day-drawer">'+renderVoiceCard(dd)+actualHtml+'</div>'+
+    '<div class="day-drawer">'+renderVoiceCard(dd)+actualHtml+
+      (dd.completed ? detailHtml : '')+'</div>'+
   '</div>';
 }
 
@@ -31059,25 +31076,23 @@ function renderExecutionReview(dd){
       '</div>'+ body +
     '</div>';
   var open = isAnalysisOpen(dd);
-  return '<div class="wc'+(pastWeek?' is-past':'')+'">'+
-    '<div class="wc-top"><span class="wc-top-k">Workout Complete</span>'+
-      '<span class="wc-top-mark">'+ICONS.check+'</span></div>'+
-    /* THE BRANDED COMPOSITION IS NOT RENDERED HERE ANY MORE. It was the
-       Valhalla mark, the distance, the metrics and the photograph -- which
-       is the shareable image, and the shareable image now has a home: the
-       Share to Socials tab sits directly under "Session complete" a few
-       inches above this, composing the same picture. Two of it on one
-       screen made the completion card a preview of a card.
-       renderCompletionHero() and its .wc-hero* rules are left standing,
-       uncalled, so putting it back is a one-line change. */
-    (pastWeek
-      ? analysisBody
-      : '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+
-          'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-          (open ? 'Hide Analysis' : 'View Analysis')+'</button>'+
-        (open ? analysisBody : ''))+
-    '<button type="button" class="wc-continue" data-action="wc-continue" '+
-      'data-day="'+dd.id+'">Continue</button>'+
+  /* ---- ONE COMPLETION STATEMENT, AND ONE ACTION ----
+     This was a card headed "Workout Complete" holding the branded share
+     composition, View Analysis and Continue. The composition went when the
+     Share to Socials tab took it over, and what was left said "Workout
+     Complete" 440px under the lit "Session complete" banner -- the same fact
+     twice on one screen -- around two buttons, one of which (Continue) only
+     collapsed the card the athlete was already reading.
+     So: no heading, no card, no Continue. View Analysis is a tab like every
+     other tab in the product, opening what it names, directly under the log
+     it is the analysis of. A past week has nothing to open -- its analysis is
+     already shown -- so there it is the analysis itself, unwrapped. */
+  if (pastWeek) return '<div class="wc-review">'+analysisBody+'</div>';
+  return '<div class="wc-review">'+
+    '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+
+      'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
+      (open ? 'Hide Analysis' : 'View Analysis')+'</button>'+
+    (open ? analysisBody : '')+
   '</div>';
 }
 /* Whether the marking is showing. Defaults shut: the completion screen is the
@@ -47994,6 +48009,15 @@ function handleSetGoal(key){
   state.setup.activeGoal = key;
   scheduleSave();
   renderApp();
+  /* THE PICK IS MADE INSIDE THE GOAL PANEL, so the same two lines every other
+     in-panel edit carries (see handleSavePaceOverride) are needed here and
+     were missing. renderApp() replaces #app wholesale and knows nothing about
+     the modal in front of it, so without these the panel went on showing the
+     goal it had when it opened -- the toast said "Active goal set to A" while
+     B was still lit underneath it -- and the Valhalla page behind jumped to
+     the top. The panel redraws in place; nothing reopens. */
+  restorePlanHQScroll();
+  refreshOpenRecordPanel();
   showToast('Active goal set to '+key);
 }
 
@@ -57462,7 +57486,7 @@ function handleProgrammeEntryContinue(){
    after three seconds has been skipped rather than answered -- so the clock
    does not start until there is nothing left to ask. */
 var programmeEntryTimer = null;
-var PROGRAMME_ENTRY_HOLD_MS = 2600;
+var PROGRAMME_ENTRY_HOLD_MS = 2100;
 function programmeEntryAutoAdvance(){
   if (typeof window === 'undefined' || !window.setTimeout) return;
   if (!programmeEntryPending){
