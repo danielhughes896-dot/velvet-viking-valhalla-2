@@ -379,3 +379,74 @@ test('all four tabs are the same object, drawn from one helper', () => {
   assert.equal((src.match(/class="sess-tab-k"/g) || []).length, 1,
     'the tab title is emitted in more than one place again');
 });
+
+/* WHEN YOUR LOG IS OPEN, AND WHEN IT IS NOT.
+ * ===========================================================================
+ * Open on a completed session that carries nothing yet -- the athlete has
+ * just run, and asking them to press for the box they obviously want is a
+ * tap for nothing. Shut everywhere else, because the log is a CORRECTION
+ * once there are figures in it.
+ *
+ * The hard part is the middle. The default is derived from whether the day
+ * carries figures, so the first value typed flips it -- and typing does not
+ * re-render, so the tab is still open on screen when it does. Press
+ * "+ Add detail" next, which DOES re-render, and the tab closes under the
+ * athlete's hands. Asking at re-render time cannot fix it: by then the
+ * default already says shut. The answer is written down at the moment the
+ * tab is drawn open, and dropped again when the session is no longer the one
+ * in front of them.
+ */
+const logDrawn = (a, d) => /class="log-body"/.test(a.renderDayCard(d));
+
+test('Your Log opens on a session with nothing logged, and not otherwise', () => {
+  const a = app();
+  const d = a.state.days.filter(x => x.type === 'threshold')[0];
+
+  assert.equal(logDrawn(a, d), false, 'an unrun session drew a log tab open');
+
+  d.completed = true; d.actual = a.emptyActual();
+  assert.equal(logDrawn(a, d), true,
+    'a session just ticked complete makes the athlete press for the empty box');
+
+  delete a.logOpenFor[d.id];
+  d.actual.km = 11.5;
+  assert.equal(a.isLogOpen(d), false,
+    'the derived default still says open once there are figures in it');
+});
+
+test('typing does not shut the log the next time the card re-renders', () => {
+  /* THE SEQUENCE THAT BROKE. Open the card with nothing logged, type a
+     distance -- which only patches -- then press anything that re-renders. */
+  const a = app();
+  const d = a.state.days.filter(x => x.type === 'threshold')[0];
+  d.completed = true; d.actual = a.emptyActual();
+  assert.equal(logDrawn(a, d), true, 'it did not open to begin with');
+  d.actual.km = 11.5;
+  assert.equal(logDrawn(a, d), true,
+    'the log shut under the athlete as soon as they typed a figure');
+  d.actual.hr = 150;
+  assert.equal(logDrawn(a, d), true, 'it shut once the detail was filled in');
+});
+
+test('the log is shut again the next time the athlete comes to the session', () => {
+  const a = app();
+  const d = a.state.days.filter(x => x.type === 'threshold')[0];
+  d.completed = true; d.actual = a.emptyActual();
+  logDrawn(a, d);                 // drawn open, which records it
+  d.actual.km = 11.5;
+  a.state.view = 'today';         // the card is no longer the focused session
+  a.forgetLogPins();
+  assert.equal(logDrawn(a, d), false,
+    'the log stayed open on a session the athlete already finished with');
+});
+
+test('closing the log on purpose keeps it closed, empty or not', () => {
+  /* An explicit false, not a delete -- deleting hands it back to a default
+     that says open, and the tab would spring back on the next render. */
+  const a = app();
+  const d = a.state.days.filter(x => x.type === 'threshold')[0];
+  d.completed = true; d.actual = a.emptyActual();
+  a.handleToggleLog(d.id);
+  assert.equal(a.isLogOpen(d), false, 'it would not close');
+  assert.equal(logDrawn(a, d), false, 'it sprang back open on the next render');
+});

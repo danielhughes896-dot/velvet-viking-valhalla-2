@@ -27672,10 +27672,10 @@ function renderDayCard(dd){
          child of .actual-panel's. */
       '<div class="log-tab">'+
         '<button type="button" class="sess-tab sess-tab-btn" data-action="toggle-log" '+
-          'data-day="'+dd.id+'" aria-expanded="'+(isLogOpen(dd)?'true':'false')+'">'+
+          'data-day="'+dd.id+'" aria-expanded="'+(logTabOpen(dd)?'true':'false')+'">'+
           sessionTabHtml(ICONS.pencil, 'Your Log', 'Distance \u00b7 Pace \u00b7 Detail')+
         '</button>'+
-        (isLogOpen(dd) ? '<div class="log-body">'+
+        (logTabOpen(dd) ? '<div class="log-body">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
       /* One control, in the same quiet voice the session breakdown already
@@ -31584,14 +31584,65 @@ function renderExecutionReview(dd){
    are not, so the flag is kept here exactly as the analysis keeps its own
    and the body is rendered conditionally rather than hidden by the UA. */
 var logOpenFor = {};
+/* ---------- A PIN LASTS ONLY WHILE THE SESSION IS IN FRONT OF THEM ----------
+   replaceCard() pins the log open so a re-render cannot shut it mid-entry,
+   and that pin would otherwise outlive the visit: log a run, go to Today,
+   come back, and the tab would still be open because a flag set an hour ago
+   said so. The rule is that it opens on completion, stays while the athlete
+   is in it, and is shut again the next time they come to it -- so the pin is
+   dropped as soon as the card is no longer the focused session. */
+function forgetLogPins(){
+  for (var id in logOpenFor){
+    if (!Object.prototype.hasOwnProperty.call(logOpenFor, id)) continue;
+    var dd = findDay(id);
+    if (!dd || !dayCardIsFocused(dd)) delete logOpenFor[id];
+  }
+}
+/* Anything the athlete has actually recorded. Distance alone counts: a run
+   with a distance and no pace is a logged run, and the tab's job is done. */
+function logHasFigures(dd){
+  var a = (dd && dd.actual) || {};
+  return a.km != null || a.pace != null || dayHasDetail(dd) ||
+         !!(a.splits && a.splits.length);
+}
+/* ---------- OPEN WHEN THERE IS NOTHING IN IT, SHUT ONCE THERE IS ----------
+   The one moment the fields ARE the point is the moment a session is ticked
+   complete and carries no figures yet: the athlete has just run, and asking
+   them to press for the box they obviously want is a tap for nothing. Every
+   other time -- reopening a logged session, glancing at a past week -- the
+   log is a CORRECTION, and shut is right.
+   Same shape as isDetailOpen(): an explicit choice always wins, and the
+   default is derived from the day. */
 function isLogOpen(dd){
-  return !!(dd && logOpenFor[dd.id]);
+  if (!dd) return false;
+  if (Object.prototype.hasOwnProperty.call(logOpenFor, dd.id)) return !!logOpenFor[dd.id];
+  return !!dd.completed && !logHasFigures(dd);
+}
+/* ---------- READING THIS ALSO RECORDS IT, AND THAT IS THE POINT ----------
+   The default above is derived from whether the day carries figures, so the
+   first value the athlete types flips it -- and typing does not re-render,
+   so the tab is still open on screen when it does. Press "+ Add detail"
+   next (which DOES re-render) and the tab they are working in shuts under
+   their hands.
+
+   Asking at re-render time cannot fix that: by then the default has already
+   flipped and the answer is "closed". The only moment that knows the truth
+   is the moment the tab is DRAWN open, so that is where it is written down.
+   Every render of the card goes through here, so no handler has to remember
+   -- and forgetLogPins() drops it again the moment the session is no longer
+   the one in front of the athlete. */
+function logTabOpen(dd){
+  var open = isLogOpen(dd);
+  if (open && dd) logOpenFor[dd.id] = true;
+  return open;
 }
 function handleToggleLog(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
-  if (logOpenFor[dd.id]) delete logOpenFor[dd.id];
-  else logOpenFor[dd.id] = true;
+  /* An explicit false, not a delete: closing a log with nothing in it must
+     stay closed, and deleting would hand it back to a default that says
+     open. */
+  logOpenFor[dd.id] = !isLogOpen(dd);
   /* The whole card, because the log is most of it: patchExecutionUI only
      owns the analysis mount. */
   replaceCard(dd);
@@ -58271,6 +58322,7 @@ function viewMountClass(){
 }
 function renderApp(){
   applyThemeToDocument();
+  forgetLogPins();
   var app = document.getElementById('app');
   if (!app) return;
   /* THE ONE PLACE THE ROLLING BASE HORIZON ADVANCES. See
