@@ -55246,24 +55246,56 @@ function renderWeekSessionBox(weekNum){
    than a clean step. Same threshold, same axis bias and same haptic as every
    other commit in the product, so the gesture feels identical even though
    what it does to the pixels differs. */
+/* ---- A GESTURE BELONGS TO THE INNERMOST THING THAT WANTS IT ----
+   Same question pagerOwnedElsewhere() asks for the page pager, asked from
+   one level in: does anything BETWEEN the touched node and this card own
+   the sideways gesture? It has to stop at the card, because the card
+   carries data-hswipe itself -- that attribute is what makes the PAGE
+   pager stand down for it -- so a walk that did not stop would find the
+   card's own attribute and always answer yes.
+
+   WHY THIS EXISTS. The coaching rail inside an open session is a
+   [data-hswipe] region with its own handlers, and it calls preventDefault
+   but never stopPropagation, so its swipes bubbled to this card as well.
+   The rail moves its focus one module per 26px; this card commits a DAY
+   CHANGE at 13% of screen width, about 54px on a phone. So an ordinary
+   two-module swipe of the rail also changed the day out from under it,
+   re-rendering the card mid-gesture -- which reads as a rail that does not
+   work rather than as two handlers both firing. */
+function weekSwipeOwnedInside(node, card){
+  var el = node, hops = 0;
+  while (el && el.nodeType === 1 && el !== card && hops < 24){
+    if (el.hasAttribute && el.hasAttribute('data-hswipe')) return true;
+    try{
+      var ox = window.getComputedStyle(el).overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
+    }catch(e){}
+    el = el.parentElement; hops++;
+  }
+  return false;
+}
 function wireWeekFullSwipe(card){
   if (!card || card.__vvFullSwiped) return;
   card.__vvFullSwiped = true;
-  var sx = 0, sy = 0, claimed = false, decided = false;
+  var sx = 0, sy = 0, claimed = false, decided = false, inner = false;
   card.addEventListener('touchstart', function(e){
     if (!e.touches || e.touches.length !== 1) return;
     sx = e.touches[0].clientX; sy = e.touches[0].clientY;
     claimed = false; decided = false;
+    /* Decided once, at the start, from where the finger LANDED -- not per
+       move, which would hand the gesture over mid-swipe if the finger
+       crossed the rail's edge. */
+    inner = weekSwipeOwnedInside(e.target, card);
   }, { passive: true });
   card.addEventListener('touchmove', function(e){
-    if (decided || !e.touches || e.touches.length !== 1) return;
+    if (inner || decided || !e.touches || e.touches.length !== 1) return;
     var dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
     if (Math.abs(dx) < PAGER_CLAIM_PX && Math.abs(dy) < PAGER_CLAIM_PX) return;
     decided = true;
     claimed = Math.abs(dx) > Math.abs(dy) * PAGER_AXIS_BIAS;
   }, { passive: true });
   card.addEventListener('touchend', function(e){
-    if (!claimed) return;
+    if (inner || !claimed) return;
     claimed = false;
     var t = e.changedTouches && e.changedTouches[0];
     if (!t) return;

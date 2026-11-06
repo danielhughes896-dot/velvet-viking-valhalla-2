@@ -88,3 +88,47 @@ test('both regions still carry the attribute the overrides key off', () => {
   assert.match(RUNTIME, /class="fuel-body" data-hswipe="1"/,
     'the coaching stack no longer matches .how-card .fuel-body[data-hswipe]');
 });
+
+/* A GESTURE BELONGS TO THE INNERMOST THING THAT WANTS IT.
+ * ===========================================================================
+ * Swiping the coaching rail inside an open session on This Week changed the
+ * DAY instead of moving the rail. Both handlers were seeing the same touch:
+ * the rail calls preventDefault but never stopPropagation, so its swipes
+ * bubbled to .wk-session.is-open, which commits a day change at 13% of screen
+ * width -- about 54px on a phone, where the rail moves its focus one module
+ * per 26px. So an ordinary two-module swipe also flipped the day and
+ * re-rendered the card mid-gesture.
+ *
+ * Measured at 412x915, a 200px horizontal drag on the rail:
+ *   before  day "Goal Pace Block 11.5km" -> "Easy Aerobic",  rail 0 -> 0
+ *   after   day unchanged,                                   rail 0 -> 1
+ */
+test('the day pager stands down for a gesture that starts inside the rail', () => {
+  const fn = RUNTIME.slice(RUNTIME.indexOf('function wireWeekFullSwipe('));
+  const body = fn.slice(0, fn.indexOf('\n}'));
+  assert.match(RUNTIME, /function weekSwipeOwnedInside\(node, card\)/,
+    'the ownership check is gone; the rail and the day pager share a swipe again');
+  assert.match(body, /inner = weekSwipeOwnedInside\(e\.target, card\)/,
+    'the card no longer asks who owns the gesture when the finger lands');
+  assert.match(body, /if \(inner \|\| decided/,
+    'touchmove no longer stands down for the rail');
+  assert.match(body, /if \(inner \|\| !claimed/,
+    'touchend no longer stands down for the rail -- the day still flips under the rail');
+});
+
+test('the ownership walk stops at the card, or the day swipe dies silently', () => {
+  /* .wk-session.is-open carries data-hswipe ITSELF -- that attribute is what
+     makes the PAGE pager stand down for it. A walk that did not stop at the
+     card would find the card's own attribute, answer "owned inside" for every
+     touch, and the day swipe would never fire again. Nothing else in the
+     suite would notice, so it is asserted here. */
+  const fn = RUNTIME.slice(RUNTIME.indexOf('function weekSwipeOwnedInside('));
+  const body = fn.slice(0, fn.indexOf('\n}'));
+  assert.match(body, /el !== card/,
+    'the walk no longer stops at the card, so every swipe reads as owned inside');
+  assert.match(body, /hasAttribute\('data-hswipe'\)/,
+    'the walk no longer looks for the attribute that marks an inner region');
+  /* And the rail it protects still carries that attribute. */
+  assert.match(RUNTIME, /class="fuel-body" data-hswipe="1"/,
+    'the coaching rail no longer advertises that it owns the sideways gesture');
+});
