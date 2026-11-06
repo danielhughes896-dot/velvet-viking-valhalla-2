@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/vvv-shell.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* palette lifted verbatim from the app so the two read as one product */
   /* Palette and controls come from /assets/vvv-shell.css -- this page used to
@@ -28,7 +28,7 @@
   html{-webkit-text-size-adjust:100%;}
   body{
     margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
-    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    font-family:var(--text-face);
     -webkit-font-smoothing:antialiased;
     display:flex; flex-direction:column; align-items:center;
     padding:calc(28px + env(safe-area-inset-top,0px)) 20px calc(32px + env(safe-area-inset-bottom,0px));
@@ -54,7 +54,7 @@
     padding:20px 18px; margin-bottom:14px; text-align:left;
   }
   .card h2{
-    font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase;
+    font-family:var(--text-face); font-size:11px; letter-spacing:1.5px; text-transform:uppercase;
     color:var(--bronze); margin:0 0 12px; display:flex; align-items:center; gap:8px;
   }
   .card h2 svg{width:15px; height:15px; flex:none;}
@@ -62,7 +62,7 @@
     display:flex; align-items:center; justify-content:center; gap:9px; width:100%;
     background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);
     border:none; border-radius:var(--radius-sm); padding:15px 18px; cursor:pointer;
-    font-family:'Oswald',sans-serif; font-size:14px; font-weight:600; letter-spacing:1px;
+    font-family:var(--text-face); font-size:14px; font-weight:600; letter-spacing:1px;
     text-transform:uppercase; text-decoration:none;
   }
   .btn:active{filter:brightness(.93);}

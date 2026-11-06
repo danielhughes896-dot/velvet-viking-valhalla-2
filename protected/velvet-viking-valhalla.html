@@ -55,8 +55,8 @@
 
      preconnect above is kept and now does its real job: the handshake starts
      early even though the stylesheet no longer holds the page hostage. -->
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null;">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null;">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
 
   :root{
@@ -268,7 +268,29 @@
     --glow-done-blur:18px;
     /* And the compact form, for a mark rather than a band. */
     --glow-done-mark:0 0 16px color-mix(in srgb, var(--ok) 36%, transparent);
-    --label-face:'Oswald',sans-serif;
+    /* ================= TWO RULES, AND ONLY TWO =================
+       ONE FACE FOR EVERY WORD, ONE FOR EVERY STANDALONE FIGURE. The product
+       ran four: Oswald on labels, Inter on prose, JetBrains Mono on figures
+       and Cinzel on the wordmark -- so the same row could carry a title in
+       one face and its sentence in another, and "is the text style the same
+       everywhere" had no answer that was yes.
+       Words are Oswald. It already carried 81 of the 96 font declarations in
+       here, it is what gives the product its voice, and checked against the
+       longest prose in the app (a Reading panel's Coach's Read) it reads.
+       Standalone figures -- the ones that ARE the reading: 18.5, 5:12, 84%,
+       44:00 -- stay in the mono face, because tabular numerals are what let
+       a column of paces line up.
+       A NUMBER INSIDE A SENTENCE IS NOT A STANDALONE FIGURE. "28-day
+       window", "Week 10 of 11", "2 of last 5 planned sessions" keep the
+       sentence's face; swapping face mid-sentence reads as broken type, not
+       as a system.
+       Cinzel is not a third voice -- it sets the wordmark, which is a logo. */
+    --text-face:'Oswald',sans-serif;
+    --num-face:'JetBrains Mono',monospace;
+    /* Kept, and now an alias: 71 rules already name it. A label is not a
+       different voice from a sentence any more, only a different size,
+       weight and case of the same one. */
+    --label-face:var(--text-face);
     --label-size:.71875rem;
     --label-track:.04em;
     --label-weight:700;
@@ -432,14 +454,19 @@
   html{-webkit-text-size-adjust:100%;}
   body{
     margin:0; background:var(--bg); color:var(--ink);
-    font-family:'Inter',-apple-system,sans-serif;
+    font-family:var(--text-face);
     transition:background .35s ease,color .35s ease;
     min-height:100vh;
     -webkit-font-smoothing:antialiased;
   }
-  .font-display{font-family:'Cinzel',serif;}
+  /* CINZEL IS THE LOGO, NOT A HEADING FACE. This set "Full Marathon Build"
+     and "Build Your Training Block" -- titles, which are words, and words
+     have one face. What stays in Cinzel is the wordmark itself
+     (.word-metallic) and the VALHALLA lockup inside the share image
+     (.wc-wordmark): both are marks rather than text. */
+  .font-display{font-family:var(--text-face);}
   .font-head{font-family:var(--label-face); text-transform:uppercase; font-weight:var(--label-weight);}
-  .font-mono{font-family:'JetBrains Mono',monospace;}
+  .font-mono{font-family:var(--num-face);}
   a{color:inherit;}
   button{font-family:inherit; cursor:pointer; color:inherit; background:none; border:none; padding:0; margin:0;}
   input,select,textarea{font-family:inherit;}
@@ -549,7 +576,7 @@
      a solid dark bronze fill with a soft warm glow instead of the gradient. */
   .unit-toggle{display:flex; border:1px solid var(--line); border-radius:99px; overflow:hidden;}
   .unit-toggle button{
-    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.5px;
+    font-family:var(--num-face); font-size:10px; font-weight:700; letter-spacing:.5px;
     padding:6px 9px; color:var(--ink-faint); background:transparent;
   }
   .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
@@ -897,7 +924,7 @@
   .taper-note.race-split{align-items:flex-start;}
   .taper-note.race-split svg{margin-top:2px;}
   .race-split-txt{line-height:1.45;}
-  .race-split-txt b{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--ink);}
+  .race-split-txt b{font-family:var(--num-face); font-weight:700; color:var(--ink);}
   /* SOFT SURFACE pass -- see --tile-* tokens. Same Level 2 recipe as
      .hub-card.tile-card/.ev-card: this was the one card on the page still
      using the plain flat --surface-3/--line/--radius-sm shell, which read as
@@ -1287,7 +1314,7 @@
      needs a rule to stop the two reading as one long block. Same hairline the
      rest of the card system uses; no colour of its own. */
   #garmin-section{margin-top:14px; padding-top:14px; border-top:1px solid var(--line-soft);}
-  .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
+  .build-tag{text-align:center; font-family:var(--num-face); font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
   .file-input-offscreen{position:absolute; width:1px; height:1px; padding:0; margin:-1px; border:0; opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
@@ -1389,7 +1416,7 @@
   .view-plan-session .day, .view-plan-session .day .font-head, .view-plan-session .day .font-display,
   .view-week .wk-overview, .view-week .wk-overview .font-head, .view-week .wk-overview .font-display,
   .topbar-inner-today .tb-today, .topbar-inner-today .tb-date{
-    font-family:'Inter',-apple-system,sans-serif;}
+    font-family:var(--text-face);}
   .topbar-inner-today .tb-today{font-weight:600;}
   /* Key metrics: bold, tabular, tight. */
   .view-today .th-dist span, .view-today .th-dist em, .view-today .ws-h-qty,
@@ -1397,7 +1424,7 @@
   .view-week .wk-full .ws-h-qty,
   .view-week .wk-overview .th-dist span, .view-week .wk-overview .th-dist em,
   .view-week .wk-overview .ws-h-qty{
-    font-family:'Inter',-apple-system,sans-serif;
+    font-family:var(--text-face);
     font-weight:700; font-variant-numeric:tabular-nums;}
 
   /* ---- TODAY: THREE STANDALONE BOXES ----
@@ -1609,7 +1636,7 @@
   /* Pure white, lit from behind rather than blurred: a tight 1px halo keeps
      the glyph edges crisp, a mid bloom gives the backlight, a wide faint one
      carries it into the card. */
-  .th-dist span{font-family:'Inter',-apple-system,sans-serif; font-weight:700; line-height:1;
+  .th-dist span{font-family:var(--text-face); font-weight:700; line-height:1;
     font-size:clamp(38px, 12vw, 48px); letter-spacing:-0.02em;
     font-variant-numeric:tabular-nums; color:#FFFFFF;
     /* Already pure white at peak 255; what it gains here is REACH -- a
@@ -2374,7 +2401,7 @@
      same fixed ramp. It measured 1.64:1 on --gold-text in light mode -- and
      this is the one line a pre-existing athlete sees, so it is the last place
      that can afford to be unreadable. */
-  .pe-ask-k{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.6px;
+  .pe-ask-k{font-family:var(--text-face); font-size:15px; letter-spacing:.6px;
     color:var(--gold); text-shadow:0 2px 10px rgba(0,0,0,0.55);}
   .pe-ask input{width:100%; text-align:center; font-size:16px;}
   .pe-ask-go{width:100%;}
@@ -2421,7 +2448,7 @@
      voice now: --fs-title, weight 700, which is the weight every other data
      face in the product sets its figure in. And the caption under it joins
      the one label voice rather than being a fifth near-miss at 10px/1.5px. */
-  .stat .v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-title); font-weight:700;
+  .stat .v{font-family:var(--num-face); font-size:var(--fs-title); font-weight:700;
     letter-spacing:.02em; color:var(--gold-text);}
   .stat .l{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
@@ -2438,7 +2465,7 @@
   /* 56px is the space RESERVED so the two rows' numbers line up, not a cap.
      "697.7/1190.4km" is wider than that, and a fixed width made it overflow
      the row rather than the row making room for it. */
-  .pbar-num{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim);
+  .pbar-num{font-family:var(--num-face); font-size:11px; color:var(--ink-dim);
             min-width:56px; flex:0 0 auto; text-align:right; white-space:nowrap;}
 
   /* ---------- section labels ---------- */
@@ -2479,12 +2506,12 @@
   .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink); transition:background .15s ease;}
   .week-head:hover{background:var(--bg-3);}
   .week-head:active{background:var(--bg-4);}
-  .week-num{font-family:'Cinzel',serif; font-weight:700; font-size:20px; color:var(--bronze-text); flex:none; width:34px;}
+  .week-num{font-family:var(--num-face); font-weight:700; font-size:20px; color:var(--bronze-text); flex:none; width:34px;}
   .week-meta{flex:1; min-width:0;}
   .week-phase{font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
-  .week-range{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
+  .week-range{font-family:var(--num-face); font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
   .week-vol{text-align:right; flex:none;}
-  .week-vol .v{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--ink);}
+  .week-vol .v{font-family:var(--num-face); font-weight:700; font-size:15px; color:var(--ink);}
   .week-vol .l{font-size:9px; color:var(--ink-faint); letter-spacing:1px; text-transform:uppercase;}
   .week-chevron{flex:none; color:var(--ink-faint); transition:transform .25s;}
   .week-chevron svg{width:18px; height:18px; display:block;}
@@ -2678,7 +2705,7 @@
   }
   .day-main{flex:1; min-width:0;}
   .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-  .day-date{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); color:var(--ink-faint);}
+  .day-date{font-family:var(--num-face); font-size:var(--fs-meta); color:var(--ink-faint);}
   .day-badge{font-family:var(--label-face); font-size:var(--fs-meta); letter-spacing:var(--label-track); text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:var(--label-weight);}
   .day-badge.type-rest{background:var(--c-rest-soft); color:var(--c-rest);}
   .day-badge.type-easy{background:var(--c-easy-soft); color:var(--c-easy);}
@@ -2696,9 +2723,9 @@
      against this same translucent-gold background (see --gold-text's own
      comment above), while dark mode is unchanged since --gold-text==--gold
      there. */
-  .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
+  .exec-pill{font-family:var(--num-face); font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
   .day-title{font-weight:600; font-size:var(--fs-title); margin-top:3px; color:var(--ink);}
-  .day-targets{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
+  .day-targets{font-family:var(--num-face); font-size:var(--fs-data); color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
   /* Goal pace is a pace, and it sits in a row of paces and distances -- so it
      takes the row's colour like the rest of them. Nothing is lost: the value
      already arrives labelled ('Goal 4:30/km'), so the word did the
@@ -2761,9 +2788,9 @@
   .actual-field label{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
   .actual-field input, .actual-field textarea{
     background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink);
-    padding:7px 8px; font-size:13px; font-family:'JetBrains Mono',monospace; width:100%;
+    padding:7px 8px; font-size:13px; font-family:var(--num-face); width:100%;
   }
-  .actual-field textarea{font-family:'Inter',sans-serif; resize:vertical; min-height:38px;}
+  .actual-field textarea{font-family:var(--text-face); resize:vertical; min-height:38px;}
   .actual-field.full{grid-column:1/-1;}
   /* The completed-state line, everywhere. On a focused session the rules
      further up turn this into the lit banner; in a list card it stays a
@@ -2779,7 +2806,7 @@
   .splits-toggle .st-k{display:inline; font-family:var(--label-face); font-weight:var(--label-weight);
     text-transform:uppercase;}
   .splits-toggle .st-sub{display:block; margin-top:3px; color:var(--ink-faint);
-    font-family:'Inter',sans-serif; font-weight:400; text-transform:none; letter-spacing:0;
+    font-family:var(--text-face); font-weight:400; text-transform:none; letter-spacing:0;
     font-size:var(--fs-support); line-height:var(--lh-support);}
   .field-hint{ color:var(--ink-faint); margin-top:2px;}
   /* Notes Wand: sits inside the textarea's corner so it reads as part of the
@@ -2896,7 +2923,7 @@
   .split-idx{font-size:10px; color:var(--ink-faint); text-align:center;}
   .split-row input{
     background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink);
-    padding:6px; font-size:12.5px; font-family:'JetBrains Mono',monospace; width:100%; min-height:32px;
+    padding:6px; font-size:12.5px; font-family:var(--num-face); width:100%; min-height:32px;
   }
   .split-remove{
     background:none; border:none; color:var(--ink-faint); font-size:16px; line-height:1;
@@ -2924,7 +2951,7 @@
   .slog-in{
     flex:1 1 0; min-width:0; background:var(--bg-4); border:1px solid var(--line);
     border-radius:6px; color:var(--ink); padding:6px; font-size:12.5px;
-    font-family:'JetBrains Mono',monospace; min-height:34px;
+    font-family:var(--num-face); min-height:34px;
   }
   .slog-in.slog-hr{flex:0 0 62px;}
   /* RECORDED LAPS -- read-only, and visibly not an input. The structured
@@ -2997,7 +3024,7 @@
      "editable" should be the same one everywhere. */
   .pzr-input{
     width:52px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);
-    color:var(--ink); padding:6px 6px; font-size:12.5px; font-family:'JetBrains Mono',monospace; text-align:center;
+    color:var(--ink); padding:6px 6px; font-size:12.5px; font-family:var(--num-face); text-align:center;
     box-shadow:inset 0 1px 3px rgba(0,0,0,.14);
   }
   .pzr-sep{color:var(--ink-faint); font-size:12px;}
@@ -3079,7 +3106,7 @@
     border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
     padding:10px 16px; text-align:center; min-width:88px; transition:.2s;
   }
-  .goal-opt .t{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; color:var(--ink);}
+  .goal-opt .t{font-family:var(--num-face); font-weight:700; font-size:16px; color:var(--ink);}
   .goal-opt .p{font-size:10px; color:var(--ink-faint); margin-top:2px;}
   .goal-opt.active{border-color:var(--gold); background:var(--tile-sheen), var(--c-gold-soft);}
   .goal-opt.active .t{color:var(--gold);}
@@ -3348,7 +3375,7 @@
   .bld-step.done{background:var(--cherry-dim);}
   .bld-step.now{background:var(--cherry);}
   .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
-  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
+  .bld-stage-no{font-family:var(--num-face); font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
   .bld-stage-name{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); font-weight:var(--label-weight);}
   .bld-stage-h{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px; font-weight:var(--label-weight);}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
@@ -3371,7 +3398,7 @@
   .bld-overview{margin-top:4px; padding:2px 0;}
   .bld-overview-row{padding:15px 0; border-bottom:1px solid var(--line-soft);}
   .bld-overview-row:last-child{border-bottom:none;}
-  .bor-t{display:block; font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
+  .bor-t{display:block; font-family:var(--text-face); font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
   .bor-d{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);}
 
   /* THE OPTIONAL STRAVA OFFER on the Overview screen. The SAME raised tile the
@@ -3430,7 +3457,7 @@
     border:1px solid var(--tile-border); box-shadow:var(--tile-shadow);
   }
   .ask-listening{display:flex; align-items:center; gap:9px; padding:6px 0 12px;
-    font-family:'Oswald',sans-serif; letter-spacing:.4px; color:var(--ink); font-size:var(--fs-body);}
+    font-family:var(--text-face); letter-spacing:.4px; color:var(--ink); font-size:var(--fs-body);}
   .ask-pulse{
     width:11px; height:11px; border-radius:50%; background:var(--c-easy); flex:none;
     animation:askPulse 1.1s ease-in-out infinite;
@@ -3610,7 +3637,7 @@
   .gl-options{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0 7px;}
   .gl-opt{
     min-height:44px; padding:8px 6px; text-align:center; cursor:pointer;
-    font-family:'Oswald',sans-serif; font-size:var(--fs-support); font-weight:600; letter-spacing:.3px;
+    font-family:var(--text-face); font-size:var(--fs-support); font-weight:600; letter-spacing:.3px;
     color:var(--ink-faint); background:var(--ctl-bg);
     border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
   }
@@ -3626,7 +3653,7 @@
   /* Inside the builder card -- see the note on #bld-review. */
   .bld-strava-offer{ margin-top:12px; padding:16px 0; }
   .bso-t{
-    font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600;
+    font-family:var(--text-face); font-size:var(--fs-body); font-weight:600;
     letter-spacing:.3px; color:var(--ink); margin-bottom:4px;
     display:flex; align-items:center; gap:7px;
   }
@@ -3651,7 +3678,7 @@
      Nothing about what the control IS changes: same markup, same handler,
      same value, same validation. */
   .opt-grid button{
-    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); font-weight:700;
+    font-family:var(--num-face); font-size:var(--fs-data); font-weight:700;
     letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
     border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
     background:var(--t-tile); color:var(--ink-dim);
@@ -3663,7 +3690,7 @@
     box-shadow:var(--t-lift);
     transition:box-shadow .18s, background .18s, color .18s, border-color .18s;
   }
-  .opt-grid button .sub{display:block; font-family:'Inter',sans-serif; font-weight:400;
+  .opt-grid button .sub{display:block; font-family:var(--text-face); font-weight:400;
     font-size:var(--fs-support); letter-spacing:0; color:var(--ink-faint); margin-top:3px;}
   .opt-grid button:disabled{opacity:.5;}
   .opt-grid button:active{transform:scale(.98);}
@@ -3715,7 +3742,7 @@
   .bld-purpose button:active{transform:scale(.995);}
   .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700;}
   .bpc-name{line-height:1.2;}
-  .bpc-why{display:block; font-family:'Inter',sans-serif; font-size:var(--fs-support);
+  .bpc-why{display:block; font-family:var(--text-face); font-size:var(--fs-support);
     line-height:var(--lh-support); color:var(--ink-faint); margin-top:6px; letter-spacing:0;}
   .bld-purpose button.active{
     color:var(--gold-bright); background:var(--t-tile);
@@ -3735,7 +3762,7 @@
      tinted to the control's own accent instead of sitting there as chrome. */
   .bld-date input[type="date"]{
     border-radius:12px; padding:14px 13px; min-height:52px;
-    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data);
+    font-family:var(--num-face); font-size:var(--fs-data);
     letter-spacing:.4px; color:var(--ctl-text);
   }
   .bld-date input[type="date"]::-webkit-calendar-picker-indicator{
@@ -3822,11 +3849,11 @@
   #bld-review{ padding:6px 16px; }
   .bld-review-hero{text-align:center; padding:16px 0 8px; border-bottom:1px solid var(--tile-border); margin-bottom:2px;}
   .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--gold-text); line-height:1.1; font-weight:var(--label-weight);}
-  .bld-review-hero .s{font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
+  .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
   .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--tile-border);}
   .bld-review-row:last-child{border-bottom:none;}
   .bld-review-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
-  .bld-review-v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
+  .bld-review-v{font-family:var(--num-face); font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
 
   /* TRAINING-DAY SELECTOR VISUAL REFINEMENT superseded the note that used to
      live here: the day selector's native checkbox square used to be drawn
@@ -3872,11 +3899,11 @@
   .wc-mark{display:block; width:62px; height:62px; margin:0 auto 2px;}
   .wc-wordmark{font-family:'Cinzel',serif; font-weight:600; font-size:17px;
     letter-spacing:7px; text-indent:7px; color:var(--wc-ink); margin-bottom:10px;}
-  .wc-headline{font-family:'Inter',sans-serif; font-weight:700; font-size:17px;
+  .wc-headline{font-family:var(--text-face); font-weight:700; font-size:17px;
     letter-spacing:.3px; color:var(--wc-ink);}
   .wc-verdict-word{color:var(--gold-bright);}
   .wc-distance{display:flex; align-items:baseline; justify-content:center; gap:7px; margin:2px 0 8px;}
-  .wc-distance span{font-family:'Oswald',sans-serif; font-weight:700; font-size:46px;
+  .wc-distance span{font-family:var(--text-face); font-weight:700; font-size:46px;
     line-height:1.04; color:var(--wc-ink);}
   .wc-distance em{font-style:normal; font-weight:600; font-size:19px; color:var(--wc-ink);}
   .wc-metrics{display:flex; align-items:center; justify-content:center;
@@ -3901,7 +3928,7 @@
     display:flex; align-items:center; justify-content:center; margin-top:1px;}
   .wc-verdict-mark svg{width:14px; height:14px;}
   .wc-verdict-k{font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--wc-faint);}
-  .wc-verdict-v{font-family:'Oswald',sans-serif; font-size:17px; letter-spacing:.6px;
+  .wc-verdict-v{font-family:var(--text-face); font-size:17px; letter-spacing:.6px;
     color:var(--wc-ink); font-weight:600;}
   .wc-verdict-why{ color:var(--wc-dim); margin-top:4px;}
   /* No verdict, no gold: the block states the session quietly instead. */
@@ -3910,7 +3937,7 @@
   /* Shape, ground, rim and voice shared with .btn-share / .wk-open: it is
      the same control -- a tab that opens what it names. */
   .wc-continue{display:block; width:100%; background:none; border:0; cursor:pointer;
-    color:var(--wc-dim); font-family:'Inter',sans-serif; font-size:14px;
+    color:var(--wc-dim); font-family:var(--text-face); font-size:14px;
     font-weight:600; padding:6px 0 2px;}
   /* Inside the completion environment the review card drops its own surface --
      it is a drawer that opened, not a second card sitting on the first. */
@@ -3975,7 +4002,7 @@
   .btn-share, .wk-open, .wc-analysis-btn{
     display:flex; width:100%; align-items:center; justify-content:center; gap:8px;
     background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
-    color:var(--gold); font-family:'Inter',-apple-system,sans-serif;
+    color:var(--gold); font-family:var(--text-face);
     font-size:14.5px; font-weight:600; letter-spacing:.01em; padding:11px 16px;}
   .btn-share svg{width:16px; height:16px;}
   /* The preview canvas is the export itself, drawn at 1080px wide and scaled
@@ -4145,7 +4172,7 @@
     color:var(--ctl-disabled-text); cursor:default;
   }
   .field select option{ background:var(--ctl-bg); color:var(--ctl-text); }
-  .field textarea{resize:vertical; min-height:70px; font-family:'Inter',sans-serif;}
+  .field textarea{resize:vertical; min-height:70px; font-family:var(--text-face);}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .field-hint{ color:var(--ink-faint); margin-top:4px;}
   .modal-actions{display:flex; gap:8px; margin-top:18px;}
@@ -4229,7 +4256,7 @@
   .stg-name-input{
     flex:0 1 128px; min-width:0; margin:0 10px 0 12px; padding:5px 2px;
     background:none; border:0; border-bottom:1px solid var(--line-soft);
-    color:var(--ink); font-family:'JetBrains Mono',monospace;
+    color:var(--ink); font-family:var(--text-face); /* the athlete's own name is a word */
     font-size:var(--fs-panel-row); text-align:right;}
   /* The rule is the quiet one, as it is on every field in the log panel.
      This rule's own comment said it took "the gold underline every editable
@@ -4304,16 +4331,16 @@
   .parse-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:12.5px;}
   .parse-row:last-of-type{border-bottom:none;}
   .parse-row .k{color:var(--ink-faint);}
-  .parse-row .v{font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .parse-row .v{font-family:var(--num-face); font-weight:600;}
   .csv-rows{max-height:220px; overflow-y:auto; margin-top:8px; border:1px solid var(--line-soft); border-radius:8px;}
   .csv-row-item{display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid var(--line-soft); font-size:11.5px; gap:8px;}
   .csv-row-item:last-child{border-bottom:none;}
-  .csv-row-item .meta{font-family:'JetBrains Mono',monospace; color:var(--ink-dim); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .csv-row-item .meta{font-family:var(--num-face); color:var(--ink-dim); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
   /* ---------- export text ---------- */
   .export-text{
     width:100%; min-height:280px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);
-    color:var(--ink-dim); font-family:'JetBrains Mono',monospace; padding:12px; white-space:pre-wrap;
+    color:var(--ink-dim); font-family:var(--num-face); padding:12px; white-space:pre-wrap;
   }
 
   /* ---------- toast ---------- */
@@ -4747,7 +4774,7 @@
     border:1px solid transparent; border-radius:14px;
     background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
       var(--t-rim-velvet) border-box;
-    color:var(--cherry-text); font-family:'Inter',-apple-system,sans-serif;
+    color:var(--cherry-text); font-family:var(--text-face);
     font-size:14px; font-weight:600;}
 
   /* =======================================================
@@ -5090,7 +5117,7 @@
      stays plain/flat -- only these three internal tiles gain depth. */
   .coach-metric{background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border); border-radius:var(--tile-radius); box-shadow:var(--tile-shadow); padding:9px 8px; min-width:0; text-align:center;}
   .coach-metric .cm-k{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); line-height:1.2; font-weight:var(--label-weight);}
-  .coach-metric .cm-v{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
+  .coach-metric .cm-v{font-family:var(--num-face); font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
   .coach-metric .cm-s{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
   /* BETWEEN SIGNALS, NOT ABOVE EACH ONE. This was written as a border on
      every row cancelled by :first-child -- but every one of these lists is
@@ -5277,7 +5304,11 @@
      could neither shrink nor wrap, so on a 320px screen the row ran off the
      side. It keeps its right alignment and its priority over the label -- it
      simply wraps rather than overflowing. */
-  .hq-row-v{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim);
+  /* A phrase in this column is words, and takes the words face. See
+     hqRowValueClass(): the column stays monospaced for measurements, which
+     is what keeps a run of them aligned. */
+  .hq-row-v.is-words{font-family:var(--text-face); letter-spacing:0;}
+  .hq-row-v{font-family:var(--num-face); font-size:11px; color:var(--ink-dim);
             text-align:right; flex:0 1 auto; min-width:0; overflow-wrap:anywhere;}
   .hq-empty{ color:var(--ink-faint);}
   /* Recent patterns: a label, a word, a sentence. No chart, no big number. */
@@ -5312,7 +5343,7 @@
     border:1.5px dashed var(--bronze-2); border-radius:var(--radius-lg); padding:26px 20px; margin:18px 0;
     background:var(--c-gold-soft); text-align:center;
   }
-  .setup-cta h2{font-family:'Cinzel',serif; font-size:19px; margin:0 0 8px; color:var(--gold-text); text-transform:uppercase; letter-spacing:.03em;}
+  .setup-cta h2{font-family:var(--text-face); font-size:19px; margin:0 0 8px; color:var(--gold-text); text-transform:uppercase; letter-spacing:.03em;}
   .setup-cta p{ color:var(--ink-dim); margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
 
   /* THE DOOR TO THE BUILDER, in the builder's own visual language.
@@ -5346,7 +5377,7 @@
     border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px 14px;
     margin-bottom:10px; background:var(--surface-2); text-align:left;
   }
-  .recover-card .rc-goal{ font-family:'Oswald',sans-serif; font-size:14px; color:var(--ink); letter-spacing:.02em; }
+  .recover-card .rc-goal{ font-family:var(--text-face); font-size:14px; color:var(--ink); letter-spacing:.02em; }
   .recover-card .rc-meta{ color:var(--ink-dim); margin-top:3px; }
   .recover-card .rc-why{ color:var(--ink-faint); margin-top:6px; }
 
@@ -5358,7 +5389,7 @@
   .plan-summary-bar:active{background:var(--bg-4);}
   .plan-summary-bar .psb-main{flex:1; min-width:0;}
   .plan-summary-bar .psb-title{font-family:var(--label-face); font-size:12.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
-  .plan-summary-bar .psb-sub{font-family:'JetBrains Mono',monospace; color:var(--ink-faint); margin-top:2px;}
+  .plan-summary-bar .psb-sub{font-family:var(--num-face); color:var(--ink-faint); margin-top:2px;}
   .plan-summary-bar svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
 
   /* ---------- THE RECORD ----------
@@ -5545,7 +5576,7 @@
   .oi-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
   .oi-label span{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--gold-text); font-weight:var(--label-weight);}
   .oi-label svg{width:11px; height:11px; color:var(--gold-text); opacity:.7; flex:none;}
-  .oi-dist{font-size:10px; letter-spacing:normal; text-transform:none; color:var(--ink-faint); font-family:'Inter',sans-serif;}
+  .oi-dist{font-size:10px; letter-spacing:normal; text-transform:none; color:var(--ink-faint); font-family:var(--text-face);}
   .oi-track{position:relative; height:6px; margin:22px 6px 24px;}
   .oi-line{position:absolute; inset:0; border-radius:3px; background:var(--line);}
   /* Cherry Lacquer is the measured band -- the athlete's own running, the same
@@ -5555,9 +5586,9 @@
   .oi-band{position:absolute; top:0; height:6px; border-radius:3px; background:var(--cherry);}
   .oi-goal{position:absolute; top:50%; width:9px; height:9px; margin-top:-4.5px; margin-left:-4.5px;
     border-radius:50%; background:var(--gold); box-shadow:0 0 0 3px var(--bg-3);}
-  .oi-goal-lbl{position:absolute; top:-20px; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:600; color:var(--gold-text); white-space:nowrap;}
+  .oi-goal-lbl{position:absolute; top:-20px; font-family:var(--text-face); /* reads "Goal 3:29:45" -- a label carrying a figure, so the sentence rule applies */ font-size:10.5px; font-weight:600; color:var(--gold-text); white-space:nowrap;}
   /* See the two-label fit rule in the Race Outlook renderer. */
-  .oi-band-lbl{position:absolute; bottom:-19px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-faint); white-space:nowrap;}
+  .oi-band-lbl{position:absolute; bottom:-19px; font-family:var(--num-face); font-size:10px; color:var(--ink-faint); white-space:nowrap;}
   .oi-empty{ color:var(--ink-faint);}
 
   /* ---------- CURRENT FITNESS, the hero's primary instrument ----------
@@ -5582,7 +5613,7 @@
   .cf-range-lab{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--cherry-text); margin-bottom:3px;}
-  .cf-value{font-family:'JetBrains Mono',monospace; font-size:var(--fs-title); font-weight:700;
+  .cf-value{font-family:var(--num-face); font-size:var(--fs-title); font-weight:700;
     letter-spacing:.02em; color:var(--cherry-text);}
   .cf-value.cf-value-empty{color:var(--ink-faint); font-weight:500;}
   .cf-value-cap{ color:var(--ink-faint); margin-top:4px;}
@@ -5680,7 +5711,7 @@
   .b-dial[data-rank="s"] .rd-val{min-height:0;}
   /* The counted noun under a Reading count is interface; a benchmark time or
      a goal time under its own headline is DATA, and takes the data face. */
-  .rd-sub-data{font-family:'JetBrains Mono',monospace; font-size:11px;
+  .rd-sub-data{font-family:var(--num-face); font-size:11px;
     letter-spacing:0; text-transform:none; color:var(--ink-dim); margin-top:3px;
     max-width:80px; min-height:13px;}
 
@@ -5796,7 +5827,7 @@
     max-width:62px; text-align:center; font-weight:var(--label-weight);}
   .rd-val b{display:block; text-align:center; line-height:1.08; max-width:50px;
     overflow-wrap:break-word; word-break:break-word;
-    font-family:'JetBrains Mono',monospace; color:var(--ink); font-weight:700;}
+    font-family:var(--num-face); color:var(--ink); font-weight:700;}
 
   /* ---------- AND ON A 360pt PHONE ----------
      MEASURED: 360pt leaves 328px inside the page gutter. The arc is
@@ -6045,14 +6076,14 @@
   .ev-card.ef-type-row[disabled]{opacity:.55; cursor:default;}
   .stg-nav-icon{flex:none; display:flex; color:var(--bronze-text);}
   .stg-nav-icon svg{width:16px; height:16px;}
-  .stg-nav-label{flex:1 1 auto; min-width:0; font-family:'Oswald',sans-serif; font-weight:600; letter-spacing:.2px; color:var(--ink);}
+  .stg-nav-label{flex:1 1 auto; min-width:0; font-family:var(--text-face); font-weight:600; letter-spacing:.2px; color:var(--ink);}
   .rs-head{display:flex; align-items:center; gap:12px;}
   .rs-dial{position:relative; width:44px; height:44px; flex:none;}
   .rs-dial b{position:absolute; inset:4px; display:flex; align-items:center; justify-content:center;
-    text-align:center; line-height:1.05; font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; color:var(--ink);}
+    text-align:center; line-height:1.05; font-family:var(--num-face); font-size:9.5px; font-weight:700; color:var(--ink);}
   .rs-medal{position:absolute; inset:5px; border-radius:50%; background:var(--bg-2); border:1px solid var(--line-soft);}
   .rs-head-text{flex:1 1 auto; min-width:0;}
-  .rs-head-text h3{font-family:'Oswald',sans-serif; font-weight:600; font-size:13px; color:var(--ink); margin:0;}
+  .rs-head-text h3{font-family:var(--text-face); font-weight:600; font-size:13px; color:var(--ink); margin:0;}
   .rs-chev{flex:none; display:flex; opacity:.6;}
   .rs-chev svg{width:15px; height:15px; color:var(--ink-faint);}
 
@@ -6084,7 +6115,7 @@
      the circles became the destination, and a stylesheet that describes a
      component the product no longer has is worse than nothing: it is what
      the next person edits. */
-  .rd-val b.rec-none{color:var(--ink-faint); font-family:'Inter',-apple-system,sans-serif;}
+  .rd-val b.rec-none{color:var(--ink-faint); font-family:var(--text-face);}
 
   /* ---------- THE ACTION TRIO ----------
      Three tiles at the foot of Plan HQ. They rhyme with the status chips
@@ -6243,8 +6274,8 @@
   .pace-table{width:100%; border-collapse:collapse; font-size:11.5px;}
   .pace-table th, .pace-table td{padding:9px 6px; text-align:center; border-bottom:1px solid var(--tile-border);}
   .pace-table th{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
-  .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:'JetBrains Mono',monospace; color:var(--ink-dim);}
-  .pace-table td{font-family:'JetBrains Mono',monospace; color:var(--ink);}
+  .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:var(--num-face); color:var(--ink-dim);}
+  .pace-table td{font-family:var(--num-face); color:var(--ink);}
   .pace-table tr:last-child td{border-bottom:none; font-weight:700; color:var(--gold);}
   /* Gold now means exactly one thing on this table -- the destination
      (Finish) row. The primary goal column (A) is distinguished instead by
@@ -6261,12 +6292,12 @@
      own tappable card. This is a label, not a control, so it never gets an
      active/selected state of its own. */
   .goal-input-row .gl{
-    font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--bronze-text); text-align:center;
+    font-family:var(--num-face); font-weight:700; color:var(--bronze-text); text-align:center;
     width:30px; height:30px; display:flex; align-items:center; justify-content:center;
     border-radius:50%; background:var(--tile-sheen), var(--bg-2); border:1px solid var(--tile-border);
     box-shadow:0 1px 2px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.08);
   }
-  .goal-input-row .gp{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); text-align:right;}
+  .goal-input-row .gp{font-family:var(--num-face); font-size:11px; color:var(--ink-faint); text-align:right;}
 
   .setup-section-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
   /* ---------- A SECTION TITLE WITH A RULE EITHER SIDE ----------
@@ -6406,7 +6437,7 @@
     cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
     text-transform:none; letter-spacing:normal; opacity:1; margin-bottom:0;
   }
-  .wd-name{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; transition:color .15s;}
+  .wd-name{font-family:var(--text-face); /* a weekday name is a word */ font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; transition:color .15s;}
   .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
 
   /* ===================================================================
@@ -42226,7 +42257,7 @@ function renderBlockSection(b, bts){
 
   return '<div class="evo-k">Block response</div>'+
     '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(BLOCK_META[b.state].label)+'</span>'+
-      '<span class="hq-row-v">'+escapeHtml(b.windowDays+'-day window')+'</span></div>'+
+      '<span class="'+hqRowValueClass(b.windowDays+'-day window')+'">'+escapeHtml(b.windowDays+'-day window')+'</span></div>'+
     (changing.length
       ? '<div class="evo-k" style="margin-top:8px;">What’s changing</div>'+
         '<ul class="evo-list">'+changing.slice(0,4).map(function(d){
@@ -44581,7 +44612,7 @@ function renderResponsePatternsSection(m){
   // reuses the existing section-key style rather than introducing a new one
   var body = '<div class="evo-k" style="margin-top:10px;">Your response</div>' + lines.map(function(l){
     return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(l.k)+'</span>'+
-           '<span class="hq-row-v">'+escapeHtml(l.v)+'</span></div>';
+           '<span class="'+hqRowValueClass(l.v)+'">'+escapeHtml(l.v)+'</span></div>';
   }).join('');
   var outcomes = (m.adjustmentOutcomes||[]).filter(function(o){ return o.outcome!=='unclear'; });
   if (outcomes.length){
@@ -44723,7 +44754,7 @@ function renderEvolutionSection(ev){
   if (!ev) return '<div class="hq-empty">No plan to evolve yet.</div>';
   var meta = EVOLUTION_META[ev.state];
   var head = '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(meta.label)+'</span>'+
-             '<span class="hq-row-v">'+escapeHtml(ev.confidence)+'</span></div>'+
+             '<span class="'+hqRowValueClass(ev.confidence)+'">'+escapeHtml(ev.confidence)+'</span></div>'+
              '<div class="hq-empty" style="margin:4px 0 8px;">'+escapeHtml(
                ev.changes.length ? (ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
                                     ' suggested across the next '+ev.horizonDays+' days.')
@@ -44736,7 +44767,7 @@ function renderEvolutionSection(ev){
 }
 function hqRow(label, value){
   return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(label)+'</span>'+
-         '<span class="hq-row-v">'+escapeHtml(value)+'</span></div>';
+         '<span class="'+hqRowValueClass(value)+'">'+escapeHtml(value)+'</span></div>';
 }
 /* THE READING — the five interpretations, as data rather than as markup.
    =======================================================================
@@ -55691,7 +55722,7 @@ function hqRow(label, value, icon){
   return '<div class="hq-row">'+
     '<span class="hq-row-i" aria-hidden="true">'+(icon || '')+'</span>'+
     '<div class="hq-row-l">'+escapeHtml(label)+'</div>'+
-    '<div class="hq-row-v">'+escapeHtml(value)+'</div></div>';
+    '<div class="'+hqRowValueClass(value)+'">'+escapeHtml(value)+'</div></div>';
 }
 
 function recordPanelFitness(){
@@ -56184,7 +56215,32 @@ var DIAL_WORD_PX = { '0':13.5, '1':12.5, '2':11, 's':13.5 };
 /* Two or more letters together: a grade ("A"), a count ("4"), a time
    ("44:00"), a range ("3:23-3:44") and a multiplier ("1.02x") all stay
    figures. */
-function dialIsWord(text){ return /[A-Za-z]{2,}/.test(String(text == null ? '' : text)); }   /* JetBrains Mono: 1ch = 0.6em */
+function dialIsWord(text){ return /[A-Za-z]{2,}/.test(String(text == null ? '' : text)); }
+/* ---- A VALUE IS A MEASUREMENT OR A PHRASE, AND THE TWO FACES ARE NOT
+   INTERCHANGEABLE. The Reading panels' evidence column was monospaced
+   wholesale, so "not logged" and "building baseline" sat in the figure face
+   beside "0 this week" -- words typeset as data.
+   dialIsWord() is the wrong test here and was checked before being reached
+   for: it asks whether two letters appear anywhere, which is right for a
+   circle face (Fresh, On track, 44:00) and wrong for a column carrying
+   UNITS -- it reads 5.2km, 30-60g/hr and ~55-105g as words and pushes three
+   real measurements out of the aligned column.
+   The question this column actually asks is whether every whitespace-
+   separated token carries a digit. A measurement does ("1h 47m", "5.2km",
+   "30-60g/hr"); a phrase has at least one token that does not ("0 this
+   week", "1 day", "28-day window"), which is the sentence rule: a number
+   inside a sentence keeps the sentence's face. */
+function valueIsFigure(text){
+  var t = String(text == null ? '' : text).trim();
+  if (!t || !/\d/.test(t)) return false;
+  return t.split(/\s+/).every(function(tok){ return /\d/.test(tok); });
+}
+/* Figures keep the column's default mono; a phrase is marked and takes the
+   words face. Marked rather than branched so the column's size, colour and
+   alignment stay in one rule. */
+function hqRowValueClass(text){
+  return 'hq-row-v' + (valueIsFigure(text) ? '' : ' is-words');
+}   /* JetBrains Mono: 1ch = 0.6em */
 var DIAL_CEILING_RATIO = 0.30; /* biggest a value may be, as a share of the diameter */
 function dialFaceFontPx(text, rank){
   var key = (rank == null) ? '2' : String(rank);

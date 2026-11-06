@@ -6,42 +6,46 @@ const path = require('path');
 
 /* TYPOGRAPHY CONSISTENCY
  * ===========================================================================
- * Valhalla has exactly four typographic roles, each with one canonical
- * font-family declaration (see protected/velvet-viking-valhalla.html's own
- * `body`/.font-display/.font-head/.font-mono rules, and the equivalent hand
- * -maintained declarations in assets/vvv-shell.css and the standalone
- * customer-journey pages that do not load it):
+ * TWO RULES, AND ONLY TWO. Valhalla ran four typographic roles -- Oswald on
+ * labels, Inter on prose, JetBrains Mono on figures, Cinzel on display --
+ * which meant the same row could carry its title in one face and its
+ * sentence in another, and "is the text style the same everywhere" had no
+ * answer that was yes. It now has exactly two:
  *
- *   brand/display   'Cinzel',serif
- *   condensed/label 'Oswald',sans-serif
- *   primary UI      'Inter',sans-serif (+ the root's fuller -apple-system fallback)
- *   numeric/data    'JetBrains Mono',monospace
+ *   every word              var(--text-face)  ->  'Oswald',sans-serif
+ *   every standalone figure var(--num-face)   ->  'JetBrains Mono',monospace
  *
- * This file protects the SET of strings a font-family declaration is allowed
- * to be, repo-wide across every athlete-facing surface -- not every element's
- * size or weight, which are free to differ for hierarchy. A new declaration
- * that reads 'Georgia' or bare 'sans-serif' fails immediately, loudly, at the
- * exact file and line, rather than drifting in unnoticed. It also protects
- * the specific rules this pass found using NO family at all despite carrying
- * a label's visual signature (uppercase + letter-spacing) -- those rules are
- * pinned to the family they were found missing. */
+ * A NUMBER INSIDE A SENTENCE IS NOT A STANDALONE FIGURE. "28-day window",
+ * "Week 10 of 11" keep the sentence's face; swapping face mid-sentence reads
+ * as broken type rather than as a system. A standalone figure is one that IS
+ * the reading: 18.5, 5:12, 84%, 44:00.
+ *
+ * Cinzel is not a third voice. It sets the wordmark and the VALHALLA lockup
+ * inside the share image -- marks, not text -- and the test below pins it to
+ * exactly those, so it cannot creep back onto headings.
+ *
+ * This file protects the SET of values a font-family declaration may take,
+ * repo-wide across every athlete-facing surface, and that every one of them
+ * goes through a TOKEN rather than naming a family directly -- which is what
+ * makes the rule changeable in one place instead of ninety-six. Sizes and
+ * weights are free to differ for hierarchy; a label is the same face as a
+ * sentence at a different size, weight and case.
+ */
 
 const ROOT = path.join(__dirname, '..');
 
 const CANONICAL = [
   /^inherit$/,
-  /^'Cinzel',serif$/,
-  /^'Oswald',sans-serif$/,
-  /^'Inter',sans-serif$/,
-  /^'Inter',-apple-system,sans-serif$/,
-  /^'Inter',-apple-system,BlinkMacSystemFont,sans-serif$/,
-  /^'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif$/,
-  /^'JetBrains Mono',monospace$/,
-  // The one-label-voice token. It is only allowed here because the test
-  // below pins what it resolves to -- if --label-face is ever set to a
-  // family outside the four roles, that test fails, so this entry cannot
-  // become a hole in the guard.
-  /^var\(--label-face\)$/
+  // The two rules. Every other declaration in the product resolves through
+  // one of these; what they resolve TO is pinned by the test below, so
+  // accepting the tokens here cannot become a hole in the guard.
+  /^var\(--text-face\)$/,
+  /^var\(--num-face\)$/,
+  // Kept as an alias of --text-face: 71 rules already name it, and a label
+  // is no longer a different voice from a sentence.
+  /^var\(--label-face\)$/,
+  // The wordmark, and only the wordmark -- pinned to its two rules below.
+  /^'Cinzel',serif$/
 ];
 
 // Extracts every `font-family: ...;` declaration's VALUE (normalised: no
@@ -79,21 +83,81 @@ function assertOnlyCanonicalFamilies(filePath){
   assert.ok(decls.length > 0, filePath + ': expected to find font-family declarations to check');
   const rogue = decls.filter(d => !CANONICAL.some(re => re.test(d.value)));
   assert.deepEqual(rogue.map(d => d.line + ': ' + d.value), [],
-    filePath + ' has font-family value(s) outside the four canonical roles');
+    filePath + ' has font-family value(s) outside the two canonical roles');
 }
 
-test('the --label-face token resolves to one of the four canonical roles', () => {
-  // font-family:var(--label-face) is accepted above as a canonical value.
-  // That acceptance is only safe while the token itself is canonical, so
-  // the token's own declared value is checked against the same list here.
+test('the two tokens resolve to the two faces, and --label-face is an alias', () => {
   const css = appCss();
-  const m = css.match(/--label-face\s*:\s*([^;]+);/);
-  assert.ok(m, '--label-face is not declared -- the applied label block would resolve to nothing');
-  const value = m[1].trim().replace(/\s*,\s*/g, ',');
-  assert.ok(CANONICAL.some(re => re.test(value)),
-    '--label-face is ' + value + ', which is outside the four canonical typographic roles');
+  const tok = name => {
+    const m = css.match(new RegExp('--' + name + '\\s*:\\s*([^;]+);'));
+    assert.ok(m, '--' + name + ' is not declared -- everything naming it resolves to nothing');
+    return m[1].trim().replace(/\s*,\s*/g, ',');
+  };
+  assert.equal(tok('text-face'), "'Oswald',sans-serif", 'the one face for words changed');
+  assert.equal(tok('num-face'), "'JetBrains Mono',monospace", 'the one face for figures changed');
+  assert.equal(tok('label-face'), 'var(--text-face)',
+    '--label-face stopped being an alias, so labels are a separate voice again');
 });
 
+test('no surface names a font family directly -- every one goes through a token', () => {
+  /* The point of two rules is that they can be changed in one place. A
+     literal 'Inter' or 'Oswald' in a rule somewhere is how four roles grew
+     out of one in the first place, and it is invisible until somebody
+     counts. Cinzel is the single exception and is pinned separately. */
+  ['protected/velvet-viking-valhalla.html', 'assets/vvv-shell.css',
+   'start.html', 'get.html', 'privacy.html', 'terms.html'].forEach(rel => {
+    const decls = extractFontFamilyDeclarations(path.join(ROOT, rel));
+    const literal = decls.filter(d => !/^(inherit|var\(--|'Cinzel')/.test(d.value));
+    assert.deepEqual(literal.map(d => d.line + ': ' + d.value), [],
+      rel + ' names a font family directly instead of through --text-face/--num-face');
+  });
+});
+
+test('a panel value is typeset by what it IS, not by which column it is in', () => {
+  /* The Reading panels' evidence column was monospaced wholesale, so "not
+     logged" and "building baseline" sat in the figure face beside
+     "0 this week" -- words typeset as data.
+     dialIsWord() is the wrong test here and was measured before being
+     reached for: it asks whether two letters appear anywhere, which is right
+     for a circle face (Fresh, On track, 44:00) and wrong for a column
+     carrying UNITS -- it reads 5.2km, 30-60g/hr and ~55-105g as words and
+     pushes three real measurements out of the aligned column.
+     The question is whether EVERY whitespace-separated token carries a
+     digit. A measurement does; a phrase has at least one token that does
+     not, which is the sentence rule: a number inside a sentence keeps the
+     sentence's face. */
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-03T09:00:00Z' });
+
+  const FIGURES = ['5.2km', '24h', '1h 47m', '30\u201360g/hr', '\u224855\u2013105g',
+                   '3:29:45', '94%', '45:33', '2'];
+  const PHRASES = ['0 this week', '1 day', 'not logged', 'building baseline',
+                   '28-day window', 'insufficient',
+                   '47.9km\u201363.2km with 3 demanding sessions',
+                   'usually normal again within about 24h'];
+
+  FIGURES.forEach(v => assert.ok(!/is-words/.test(a.hqRowValueClass(v)),
+    '"' + v + '" is a measurement and left the aligned figure column'));
+  PHRASES.forEach(v => assert.ok(/is-words/.test(a.hqRowValueClass(v)),
+    '"' + v + '" is words and is being typeset as data'));
+
+  /* And the mark has somewhere to land. */
+  assert.match(appCss(), /\.hq-row-v\.is-words\{font-family:var\(--text-face\)/,
+    'the words mark no longer changes the face, so every value is mono again');
+  /* Every call site goes through the helper, or the column drifts back one
+     emitter at a time. */
+  const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.doesNotMatch(src, /class="hq-row-v"/,
+    'a value is being emitted with the column class hard-coded again');
+});
+
+test('Cinzel sets the wordmark and nothing else', () => {
+  const css = appCss();
+  const rules = [...css.matchAll(/([^{}]+)\{[^}]*font-family:'Cinzel',serif/g)]
+    .map(m => m[1].trim().split('\n').pop().trim());
+  assert.deepEqual(rules.sort(), ['.wc-wordmark', '.word-metallic'],
+    'Cinzel is setting something other than the wordmark -- it is a mark, not a heading face');
+});
 test('the one label voice is the label Today actually renders, not the base rule under it', () => {
   // The standard was taken from the WHY/EXECUTION/FEEL/WATCH FOR label as
   // it renders on Today's card -- which is a FOCUSED session, so the
@@ -278,7 +342,7 @@ test('the pace band gets exactly one break opportunity, before the unit', () => 
     'a pace band is still being emitted without the break opportunity');
 });
 
-test('the runtime app declares only the four canonical typographic roles', () => {
+test('the runtime app declares only the two canonical typographic roles', () => {
   assertOnlyCanonicalFamilies(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'));
 });
 
@@ -348,10 +412,15 @@ test('start.html\'s plan-preview big figures use the numeric role (JetBrains Mon
   const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
   const body = ruleBody(src.match(/<style[^>]*>([\s\S]*?)<\/style>/g).join('\n'), '.big b');
   assert.ok(body);
-  assert.match(body, /font-family:'JetBrains Mono',monospace/);
+  /* Through the token now, not by name: the claim is that this is the
+     NUMERIC role rather than the brand serif, and --num-face is what that
+     role is called. The test above pins what the token resolves to. */
+  assert.match(body, /font-family:var\(--num-face\)/,
+    'the plan-preview figures left the numeric role');
+  assert.doesNotMatch(body, /Cinzel/, 'the big figures took the brand serif back');
 });
 
-test('no font-family declaration anywhere resolves to a name outside the four canonical roles', () => {
+test('no font-family declaration anywhere resolves to a name outside the two canonical roles', () => {
   // The stronger, precise version of a "no rogue font" check: scanning raw
   // CSS text for names like "Times" or "Arial" also matches ordinary English
   // prose in comments ("...reads the same two phrases three times..."), so
@@ -363,6 +432,6 @@ test('no font-family declaration anywhere resolves to a name outside the four ca
       const decls = extractFontFamilyDeclarations(path.join(ROOT, rel));
       const rogue = decls.filter(d => !CANONICAL.some(re => re.test(d.value)));
       assert.deepEqual(rogue.map(d => d.line + ': ' + d.value), [],
-        rel + ' has a font-family value outside the four canonical roles');
+        rel + ' has a font-family value outside the two canonical roles');
     });
 });

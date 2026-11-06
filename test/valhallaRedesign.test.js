@@ -448,10 +448,20 @@ test('TOKENS: a Record value carries its data typography by default, not by call
      asserted -- on .rd-val b, which both the Reading and the Status circles
      draw from, and which therefore cannot be loosened for one without the
      other noticing. */
-  assert.match(CODE, /\.rd-val b\{[^}]*font-family\s*:\s*'JetBrains Mono'/);
+  /* Named by token rather than by family: the product declares two faces
+     and nothing names one directly (see typographyConsistency). The law is
+     unchanged -- the component guarantees the FIGURE face -- and which
+     family that is, is pinned in one place instead of here. */
+  assert.match(CODE, /\.rd-val b\{[^}]*font-family\s*:\s*var\(--num-face\)/,
+    'a Record value stopped carrying the figure face by default');
   /* And the absence, which must NOT inherit it -- the defect that rule was
-     written for was an empty state rendering in the measurement's own face. */
-  assert.match(CODE, /\.rd-val b\.rec-none\{[^}]*font-family\s*:\s*'Inter'/);
+     written for was an empty state rendering in the measurement's own face.
+     It takes the words face, because an absence is language. */
+  assert.match(CODE, /\.rd-val b\.rec-none\{[^}]*font-family\s*:\s*var\(--text-face\)/,
+    'the absence is typeset as a measurement again');
+  /* The two must not be the same token, or this law is satisfied by a
+     product in which every value looks identical. */
+  assert.notEqual('var(--num-face)', 'var(--text-face)');
   const a = planHQ();
   assert.match(a.statusDialHtml(a.recordProgressFact()), /class="rd-val"/,
     'a Record value is no longer drawn in the slot this law protects');

@@ -28,7 +28,7 @@
 <script src="/assets/builder-spec.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/vvv-shell.css">
 <style>
   /* Page-specific only. Palette, controls and structure come from the shared
@@ -36,13 +36,13 @@
   body{display:flex; align-items:flex-start; justify-content:center;
        padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(40px + env(safe-area-inset-bottom,0px));}
   .vvv-shell{max-width:560px;}
-  .step{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.16em;
+  .step{font-family:var(--text-face); font-size:11px; letter-spacing:.16em;
         text-transform:uppercase; color:var(--ink-faint); margin:0 0 10px;}
   h1.lead{font-family:'Cinzel',serif; font-size:22px; line-height:1.25; margin:0 0 10px;}
   p.say{font-size:14px; line-height:1.6; margin:0 0 18px; color:var(--ink);}
   p.quiet{font-size:12px; line-height:1.55; color:var(--ink-faint); margin:14px 0 0;}
   label{display:block; font-size:12px; letter-spacing:.04em; text-transform:uppercase;
-        color:var(--ink-faint); margin:14px 0 5px; font-family:'Oswald',sans-serif;}
+        color:var(--ink-faint); margin:14px 0 5px; font-family:var(--text-face);}
   input,select{width:100%; padding:11px 12px; font:inherit; font-size:15px;
         color:var(--ink); background:var(--bg-2); border:1px solid var(--line);
         border-radius:8px; -webkit-appearance:none;}
@@ -54,7 +54,7 @@
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .card{border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0;
         background:var(--bg-2);}
-  .card h3{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:.1em;
+  .card h3{font-family:var(--text-face); font-size:12px; letter-spacing:.1em;
            text-transform:uppercase; color:var(--ink-faint); margin:0 0 8px; font-weight:500;}
   .row{display:flex; justify-content:space-between; gap:12px; font-size:13.5px;
        padding:4px 0; border-bottom:1px solid var(--line);}
@@ -67,8 +67,8 @@
      Valhalla hero's .v-hero-fig) is JetBrains Mono for the number, Oswald for
      the caption below it. This used Cinzel, the brand/display serif reserved
      for "VELVET VIKING" itself, which is a different role. */
-  .big b{display:block; font-family:'JetBrains Mono',monospace; font-size:24px; line-height:1.1;}
-  .big span{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
+  .big b{display:block; font-family:var(--num-face); font-size:24px; line-height:1.1;}
+  .big span{font-family:var(--text-face); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
   .err{color:var(--danger-ink); font-size:13px; margin:12px 0 0;}
 
   /* =========================================================
@@ -106,7 +106,7 @@
        themes, only --gold-text does. */
     --c-gold-soft:rgba(227,177,90,0.20);
   }
-  .font-head{font-family:'Oswald',sans-serif; text-transform:uppercase;}
+  .font-head{font-family:var(--text-face); text-transform:uppercase;}
 
   /* ---------- progress ---------- */
   .bld-progress{display:flex; align-items:center; gap:6px;}
@@ -114,9 +114,9 @@
   .bld-step.done{background:var(--cherry-dim);}
   .bld-step.now{background:var(--cherry);}
   .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
-  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
-  .bld-stage-name{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
-  .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
+  .bld-stage-no{font-family:var(--num-face); font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
+  .bld-stage-name{font-family:var(--text-face); text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
+  .bld-stage-h{font-family:var(--text-face); text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
 
   /* ---------- overview stage ----------
@@ -129,7 +129,7 @@
   .bld-overview{margin-top:4px; padding:2px 0;}
   .bld-overview-row{padding:15px 0; border-bottom:1px solid var(--line-soft);}
   .bld-overview-row:last-child{border-bottom:none;}
-  .bor-t{display:block; font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
+  .bor-t{display:block; font-family:var(--text-face); font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
   .bor-d{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);}
 
   /* ---------- fields ---------- */
@@ -149,7 +149,7 @@
   .bld-reveal{margin-top:16px;}
   .bld-skip{margin-top:12px;}
   .bld-reassure{text-align:center; margin-top:8px;}
-  .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  .setup-section-title{font-family:var(--text-face); font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
   .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
 
   /* ---------- option grids -- the selected state is GOLD, everywhere, not Cherry Lacquer.
@@ -160,7 +160,7 @@
   .opt-grid-32 > button:nth-child(-n+3){grid-column:span 2;}
   .opt-grid-32 > button:nth-child(n+4){grid-column:span 3;}
   .opt-grid button{
-    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); font-weight:700;
+    font-family:var(--num-face); font-size:var(--fs-data); font-weight:700;
     letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
     border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
     background:var(--t-tile); color:var(--ink-dim); box-shadow:var(--t-lift);
@@ -180,7 +180,7 @@
   .bld-date input[type="date"]{
     background:var(--t-tile); border-color:var(--t-tile-rim); box-shadow:var(--t-lift);
     border-radius:var(--tile-radius); padding:14px 13px; min-height:52px;
-    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); letter-spacing:.4px; color:var(--ctl-text);
+    font-family:var(--num-face); font-size:var(--fs-data); letter-spacing:.4px; color:var(--ctl-text);
   }
   .bld-date input[type="date"]::-webkit-calendar-picker-indicator{
     opacity:.75; cursor:pointer; padding:4px; border-radius:6px;
@@ -197,7 +197,7 @@
   }
   .bld-purpose button:active{transform:scale(.995);}
   .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700; line-height:1.2;}
-  .bpc-why{display:block; font-family:'Inter',sans-serif; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:6px; letter-spacing:0;}
+  .bpc-why{display:block; font-family:var(--text-face); font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:6px; letter-spacing:0;}
   .bld-purpose button.active{
     color:var(--gold-bright); background:var(--t-tile);
     border-color:var(--gold); font-weight:700;
@@ -232,7 +232,7 @@
     border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
     transform:translate(-50%,-50%) rotate(45deg);
   }
-  .wd-name{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); transition:color .15s;}
+  .wd-name{font-family:var(--num-face); font-size:10.5px; color:var(--ink-faint); transition:color .15s;}
   .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
 
   /* ---------- buttons -- the builder's own primary is Cherry Lacquer, and only
@@ -263,12 +263,12 @@
 
   /* ---------- review ---------- */
   .bld-review-hero{text-align:center; padding:18px 0 6px;}
-  .bld-review-hero .d{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; font-size:26px; color:var(--gold-text); line-height:1.1;}
-  .bld-review-hero .s{font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
+  .bld-review-hero .d{font-family:var(--text-face); text-transform:uppercase; letter-spacing:2px; font-size:26px; color:var(--gold-text); line-height:1.1;}
+  .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
   .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--line-soft);}
   .bld-review-row:last-child{border-bottom:none;}
-  .bld-review-k{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.2px; font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
-  .bld-review-v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
+  .bld-review-k{font-family:var(--text-face); text-transform:uppercase; letter-spacing:1.2px; font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
+  .bld-review-v{font-family:var(--num-face); font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
 </style>
 </head>
 <body>

@@ -19,7 +19,9 @@ const { buildPlan } = require('./fixtures.js');
  * inherits every other property --
  *
  *   COLOUR   --ink-faint, because an absence is not a warning.
- *   FAMILY   'Inter', because it is language rather than data. This is the
+ *   FAMILY   the words face (--text-face), because it is language rather
+ *            than data -- the product has exactly two faces now, and this
+ *            takes the one that is not for figures. This is the
  *            whole distinction and therefore the whole rule: a version that
  *            set colour alone was verified on a physical Android device
  *            still rendering in JetBrains Mono, identical to the measurement
@@ -142,7 +144,28 @@ function effectiveStyle(classes, prop, ancestors, tag){
 const SLOT_ANCESTORS = ['rd-val', 'b-medal', 'b-dial', 'b-stat', 'b-status'];
 const EMPTY_VALUE    = { tag:'b', classes:['rec-none'], ancestors:SLOT_ANCESTORS };
 const MEASURED_VALUE = { tag:'b', classes:[],           ancestors:SLOT_ANCESTORS };
-const styleOf = (v, prop) => effectiveStyle(v.classes, prop, v.ancestors, v.tag);
+/* RESOLVED, NOT AS DECLARED. effectiveStyle() returns the winning
+   declaration, which since the product moved to two type tokens is
+   "var(--text-face)" rather than a family name -- and a test comparing
+   token SPELLINGS would pass while both tokens pointed at the same face.
+   The tokens are read from :root and substituted, so these assertions stay
+   about the typeface an athlete actually sees. */
+const TOKENS = (() => {
+  const out = {};
+  const root = SRC.slice(SRC.indexOf(':root{'));
+  [...root.matchAll(/--((?:text|num|label)-face)\s*:\s*([^;]+);/g)]
+    .forEach(m => { out['var(--' + m[1] + ')'] = m[2].trim(); });
+  return out;
+})();
+const resolveFace = v => {
+  let seen = 0;
+  while (v && TOKENS[v.trim()] && seen++ < 5) v = TOKENS[v.trim()];
+  return (v || '').replace(/^['"]|['"]$/g, '').replace(/['"]/g, '');
+};
+const styleOf = (v, prop) => {
+  const raw = effectiveStyle(v.classes, prop, v.ancestors, v.tag);
+  return prop === 'font-family' ? resolveFace(raw) : raw;
+};
 
 function athleteWithNoMeasurement(){
   const a = loadApp({ pinnedDate: '2026-08-27T09:00:00Z' });
@@ -168,7 +191,12 @@ test('the empty value renders in the interface face, and the measured ones do no
   const empty = styleOf(EMPTY_VALUE, 'font-family');
   const measured = styleOf(MEASURED_VALUE, 'font-family');
   assert.ok(empty, 'no font-family resolves for the empty value at all');
-  assert.match(empty, /^'Inter'/,
+  /* The interface face is Oswald now: the product declares exactly two
+     faces, one for words and one for standalone figures, so "the interface
+     face" and "the words face" are the same thing. What this test is about
+     is unchanged and in fact sharpened -- an absence is LANGUAGE and takes
+     the words face; a measurement is a figure and takes the figure face. */
+  assert.match(empty, /^Oswald/,
     '"Nothing measured" effectively renders in ' + empty + ', not the interface face');
   assert.ok(!/JetBrains Mono/.test(empty),
     '"Nothing measured" still resolves to the monospace data face');
@@ -218,7 +246,7 @@ test('the measured values are untouched', () => {
   /* The quieting is the empty value's alone. A rule that reached the slot
      itself would restyle real measurements to suit a phrase that is not
      theirs -- which is the defect in the opposite direction. */
-  assert.match(declared('.rd-val b', 'font-family'), /JetBrains Mono/,
+  assert.match(resolveFace(declared('.rd-val b', 'font-family')), /JetBrains Mono/,
     'the measured values left the data face');
   assert.equal(declared('.rd-val b', 'font-weight'), '700',
     'the measured values changed weight');

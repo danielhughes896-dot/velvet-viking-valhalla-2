@@ -377,7 +377,11 @@ test('RECORD: an absence is not typeset as a measurement', () => {
     'the absence is no longer announced to a screen reader');
   assert.match(dial, /data-action="open-record"/, 'the absence stopped being tappable');
   // and the rule that makes rec-none a different face is actually there
-  assert.match(CODE, /\.rd-val b\.rec-none\{[^}]*font-family\s*:\s*'Inter'/);
+  /* Through the token: the product names no family directly any more, and
+     the claim is that an absence takes the WORDS face while the measurement
+     beside it keeps the figure face -- not which family that happens to be. */
+  assert.match(CODE, /\.rd-val b\.rec-none\{[^}]*font-family\s*:\s*var\(--text-face\)/,
+    'the absence is typeset as a measurement again');
 });
 
 // ===========================================================================
