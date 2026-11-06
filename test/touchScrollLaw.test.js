@@ -132,3 +132,53 @@ test('the ownership walk stops at the card, or the day swipe dies silently', () 
   assert.match(RUNTIME, /class="fuel-body" data-hswipe="1"/,
     'the coaching rail no longer advertises that it owns the sideways gesture');
 });
+
+/* A LAYER THAT MOVES MUST CARRY ITS OWN GROUND.
+ * ===========================================================================
+ * Swiping This Week flashed black on a phone. Measured in Chromium, the
+ * whole swiping stack is transparent: .wk-rail, .wk-track and .wk-slide are
+ * all rgba(0,0,0,0), and so is every ancestor up to BODY -- eight levels,
+ * with body's --bg the only paint in the chain. .wk-track carries
+ * will-change:transform, which promotes it to its own compositor layer.
+ *
+ * A promoted layer with nothing opaque in it has no backdrop of its own, so
+ * while it slides the compositor has nothing to sample for the area it is
+ * uncovering. Desktop resolves that against the page behind it and looks
+ * perfectly fine -- which is why this, like the pan-x scroll lock, could not
+ * be reproduced here at all. iOS paints black.
+ *
+ * Three surfaces move: the week rail's track, the screen pager while paging,
+ * and .view-peek -- the worst of them, being position:fixed over the ground,
+ * full width, with contain:paint and no background at all.
+ */
+const sliding = sel => {
+  const i = RUNTIME.indexOf(sel + '{');
+  assert.ok(i > -1, 'rule not found: ' + sel);
+  return RUNTIME.slice(i + sel.length + 1, RUNTIME.indexOf('}', i));
+};
+
+test('every surface that slides paints its own ground', () => {
+  [['.wk-track', 'the week rail\u2019s moving row'],
+   ['.view-pager.is-paging', 'the screen pager while paging'],
+   ['.view-peek', 'the screen being revealed']].forEach(([sel, what]) => {
+    assert.match(sliding(sel), /background:var\(--bg\)/,
+      what + ' is transparent while it moves, so the compositor has nothing to '+
+      'sample for the area it uncovers');
+  });
+});
+
+test('nothing opaque sits between those layers and the page, so --bg is the right ground', () => {
+  /* The ground has to be the page's own or the moving layer would show as a
+     differently-coloured slab at rest. body is the only painted surface in
+     the chain -- asserted here so that if something above ever takes a
+     background, this choice is revisited rather than silently wrong. */
+  const body = sliding('body');
+  assert.match(body, /background:var\(--bg\)/, 'body stopped painting --bg');
+  ['.app-root', '.view-pager', '.wrap', '.view-week', '.wk-rail'].forEach(sel => {
+    const i = RUNTIME.indexOf(sel + '{');
+    if (i === -1) return;
+    const r = RUNTIME.slice(i + sel.length + 1, RUNTIME.indexOf('}', i));
+    assert.doesNotMatch(r, /background:(?!none)/,
+      sel + ' now paints a ground of its own; the sliding layers assume --bg');
+  });
+});

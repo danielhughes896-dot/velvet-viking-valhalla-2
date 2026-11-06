@@ -4687,7 +4687,18 @@
      region wants the horizontal gesture and the page still owes a vertical
      scroll that starts on top of the card. */
   .view-week .wk-rail{position:relative; overflow:hidden; touch-action:pan-y;}
-  .wk-track{display:flex; align-items:stretch; will-change:transform;}
+  /* ---------- A LAYER THAT MOVES MUST CARRY ITS OWN GROUND ----------
+     will-change:transform promotes this row to its own compositor layer,
+     and every element from .wk-rail up to BODY is transparent -- eight
+     levels, with body's --bg the only paint in the stack. A promoted layer
+     with nothing opaque in it has no backdrop of its own, so while it
+     slides the compositor has nothing to sample for the area it is
+     uncovering. Desktop resolves that against the page behind and looks
+     fine; iOS flashes black.
+     The ground is the page's own, so nothing looks different at rest --
+     the layer simply stops being see-through while it is in flight. */
+  .wk-track{display:flex; align-items:stretch; will-change:transform;
+    background:var(--bg);}
   .wk-track.is-settling{transition:transform .24s cubic-bezier(.22,.61,.36,1);}
   @media (prefers-reduced-motion: reduce){ .wk-track.is-settling{transition:none;} }
   .wk-slide{flex:0 0 100%; min-width:0; box-sizing:border-box;}
@@ -5214,15 +5225,23 @@
      turn #app into a nested scroller, which breaks the page's own scrolling.
      Only while paging, so nothing is clipped at rest. */
   body.vv-paging #app{overflow-x:clip;}
-  .view-pager.is-paging{will-change:transform;}
+  /* Same reason as .wk-track: promoted while paging, transparent to body,
+     and the screen it slides away from leaves bare layer behind it. Scoped
+     to .is-paging so nothing is painted at rest. */
+  .view-pager.is-paging{will-change:transform; background:var(--bg);}
   /* THE SCREEN BEING REVEALED. Fixed rather than absolute so it is measured
      against the viewport and not against a parent that is itself being
      translated -- and so it needs no knowledge of the page's scroll
      position. It sits under the top bar and over the ground, never over the
      bottom nav, which stays where it is and stays tappable throughout. */
+  /* AND THE SCREEN BEING REVEALED, which is the worst of the three: it is
+     position:fixed over the ground, full width, with contain:paint and no
+     background of its own -- so the area it occupies had no paint at all
+     until its content drew some. */
   .view-peek{
     position:fixed; left:0; right:0; z-index:5;
     overflow:hidden; pointer-events:none;
+    background:var(--bg);
     contain:paint;}
   .view-peek > .wrap{height:100%; overflow:hidden;}
   /* No transition by default: during a drag the transform is written every
