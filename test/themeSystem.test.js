@@ -249,7 +249,6 @@ test('fills that carry state or semantics were not flattened', () => {
     ['.outlook-track', '--bg-3'],
     ['.switch-track::before', '--bg-2'],
     ['.plan-summary-bar:hover', '--bg-3'],
-    ['.goal-opt', '--bg-2'],
   ];
   STATEFUL.forEach(([sel, tok]) => {
     const re = new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
@@ -272,4 +271,25 @@ test('fills that carry state or semantics were not flattened', () => {
   });
   assert.match(RUNTIME, /\.ev-card\{[^}]*var\(--t-rim-grad\) border-box/,
     '.ev-card no longer carries the rim its hover fill was given up for');
+
+  /* .goal-opt MADE THE SAME MOVE, for the same reason and into the same
+     language. It was a raised tile whose selected state was a gold border
+     and a gold tint; it is now the bottom nav's law -- no box, the letter
+     crisp white at rest and lit gold when chosen -- plus the coaching
+     rail's radial pool behind it. So it is out of the fill list above, and
+     what must not happen is the SELECTION vanishing with the fill. Three
+     things carry it now, and all three are asserted, because any one of
+     them surviving alone would still read as a bug. */
+  assert.doesNotMatch(RUNTIME, /\.goal-opt\{[^}]*background:var\(--tile-sheen\)/,
+    '.goal-opt is a raised tile again -- the fill came back');
+  assert.match(RUNTIME, /\.goal-opt\.active::before\{opacity:1;\}/,
+    '.goal-opt.active lost its pool -- the lit selection was deleted, not moved');
+  assert.match(RUNTIME, /\.goal-opt\.active \.t\{color:var\(--gold-bright\);/,
+    '.goal-opt.active no longer lights its letter gold');
+  assert.match(RUNTIME, /\.goal-opt\.active \.t\{[^}]*text-shadow:[^}]*rgba\(245,208,97/,
+    '.goal-opt.active lost the four-layer illumination it borrows from .bn-item.active');
+  /* The resting letter is the nav's crisp white, not --ink: at rest these
+     have to read as the same kind of thing the nav tabs are. */
+  assert.match(RUNTIME, /\.goal-opt \.t\{[^}]*color:#FFFFFF;/,
+    '.goal-opt at rest is no longer the nav\'s crisp white');
 });

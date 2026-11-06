@@ -3112,21 +3112,53 @@
   /* .checkpoint{...} removed with the Full Plan panel it styled.
      .checkpoint-banner above is a DIFFERENT control (Plan HQ) and stays. */
   .goal-options{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
-  /* SOFT SURFACE pass -- see --tile-* tokens. Selected stays exactly the
-     same gold border/tint law it always had (Do NOT invent a filled gold
-     button); the sheen layer just carries that active fill the same way it
-     carries the resting one, so selecting a goal reads as the same soft
-     object switching state, not swapping to a different component. */
+  /* ---------- A GOAL IS CHOSEN THE WAY A VIEW IS CHOSEN ----------
+     This was a raised tile -- border, sheen fill, drop shadow -- sitting
+     inside the Goal panel's own card: an object on an object, which is the
+     one thing the card pass took out everywhere else. It is a choice
+     between three named things, which is what the bottom nav is, so it
+     takes the bottom nav's law instead of a tile's: no box at all, the
+     label crisp white at rest, and the chosen one LIT rather than filled.
+
+     Both lights are borrowed rather than invented. The letter takes
+     .bn-item.active's four-layer gold illumination unchanged. Behind it
+     sits the coaching rail's radial pool (.how-mod::before) -- the same
+     "lit, not boxed" treatment the Why and Execution panels wear on a
+     focused session. */
   .goal-opt{
-    border:1.5px solid var(--tile-border); background:var(--tile-sheen), var(--bg-2);
-    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
-    padding:10px 16px; text-align:center; min-width:88px; transition:.2s;
+    position:relative; background:none; border:0; box-shadow:none;
+    border-radius:var(--tile-radius);
+    padding:10px 16px; text-align:center; min-width:88px;
+    transition:color .2s, text-shadow .2s;
   }
-  .goal-opt .t{font-family:var(--num-face); font-weight:700; font-size:16px; color:var(--ink);}
+  /* The pool is painted UNDER the content rather than as the element's own
+     background, so its falloff may overspill the padding box without the
+     text ever sitting on an edge. Both radii stay under 50%: a radial's
+     ending-shape percentages are relative to the BOX, not the half-box, so
+     anything larger is still carrying colour when it reaches the edge and
+     the browser cuts it into a visible rounded rectangle. Same arithmetic
+     and the same stops as .how-mod::before. */
+  .goal-opt::before{
+    content:''; position:absolute; inset:0; border-radius:inherit;
+    pointer-events:none; z-index:0;
+    background:radial-gradient(48% 46% at 50% 46%,
+      rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
+    opacity:0; transition:opacity .34s ease;
+  }
+  .goal-opt > *{position:relative; z-index:1;}
+  /* CRISP MEANS THE TIGHT LAYER DOES THE WORK -- pure white at full
+     strength, a 1px halo to set the glyph off the ground, then one wide
+     layer. .bn-item's structure, radii scaled from 8.5px type up to 16px. */
+  .goal-opt .t{font-family:var(--num-face); font-weight:700; font-size:16px; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);}
   .goal-opt .p{font-size:10px; color:var(--ink-faint); margin-top:2px;}
-  .goal-opt.active{border-color:var(--gold); background:var(--tile-sheen), var(--c-gold-soft);}
-  .goal-opt.active .t{color:var(--gold);}
-  .goal-opt:hover{border-color:var(--bronze);}
+  .goal-opt.active::before{opacity:1;}
+  .goal-opt.active .t{color:var(--gold-bright);
+    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
+                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
+  .goal-opt.active .p{color:var(--gold-text);}
+  .goal-opt:hover:not(.active)::before{opacity:.38;}
+  .goal-opt:active{transform:scale(.95);}
 
   /* ---------- buttons ---------- */
   .btn{
@@ -6343,11 +6375,12 @@
 
   .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .goal-input-row{display:grid; grid-template-columns:34px 1fr 74px; gap:8px; align-items:center; margin-bottom:9px;}
-  /* A soft rounded badge, not bare bold text -- the same tile-sheen chip
-     language the Active Goal capsule (.goal-opt) already uses for A/B/C
-     elsewhere, scaled down to sit beside an input rather than stand as its
-     own tappable card. This is a label, not a control, so it never gets an
-     active/selected state of its own. */
+  /* A soft rounded badge, not bare bold text. This USED to be described as
+     the same chip language .goal-opt wore for A/B/C elsewhere; .goal-opt is
+     no longer a chip -- it took the bottom nav's lit law -- so the two are
+     deliberately different now, and this one stays a badge because it is a
+     LABEL beside an input, not a control. It never gets an active state of
+     its own, which is the whole reason it did not follow .goal-opt. */
   .goal-input-row .gl{
     font-family:var(--num-face); font-weight:700; color:var(--bronze-text); text-align:center;
     width:30px; height:30px; display:flex; align-items:center; justify-content:center;

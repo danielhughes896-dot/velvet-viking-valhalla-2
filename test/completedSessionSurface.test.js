@@ -69,20 +69,26 @@ test('the completion statement is the same markup in all three views', () => {
   assert.equal(views[1], views[2], 'This Week and Full Plan render different cards');
 });
 
-test('a focused session is not capped by the drawer it now renders the prescription in', () => {
-  /* WHY THIS GUARD EXISTS. On a completed session the prescription renders
-     INSIDE .day-drawer, under the log -- so one container now holds the log,
-     the analysis and the whole prescription, where before .day-detail and
-     .day-drawer had independent ceilings of 6000px and 4000px.
+test('a focused session is not capped by the drawer holding its log and analysis', () => {
+  /* WHY THIS GUARD EXISTS, AND WHAT CHANGED UNDER IT.
      .day-detail was already uncapped in the focused views, on the reasoning
-     that a focused session is never shut so its ceiling animates nothing and
-     only cuts things off. The drawer was not, and kept max-height:4000px.
-     Measured on a completed interval with the log detail, the splits and the
-     analysis all open: 3421px -- 579px of headroom where a second ceiling's
-     worth used to be. A card past that limit paints below the box without
+     that a focused session is never shut, so its ceiling animates nothing
+     and can only cut things off. The drawer was not, and kept
+     max-height:4000px. Measured on a completed interval with the log
+     detail, the splits and the analysis all open: 3421px -- 579px of
+     headroom. A card past that limit paints below the box without
      extending it, so the page stops scrolling with the rest of the session
-     visible underneath. Removed rather than raised: raising only moves the
-     cliff. */
+     still visible underneath.
+
+     THAT 3421px WAS MEASURED WHILE THE PRESCRIPTION RENDERED INSIDE THE
+     DRAWER, under the log. That ordering has since been reverted -- see
+     renderDayCard -- so the drawer is lighter than it was by the whole
+     prescription, and the number above is history rather than the current
+     height. The cap stays off regardless: the drawer still carries the
+     voice card, the entire log with its detail and splits, and the
+     Execution Review, and a ceiling over a section that is never collapsed
+     in these views has nothing to animate and everything to lose. Removed
+     rather than raised, because raising only moves the cliff. */
   const drawer = rule(F + ' .day-drawer');
   assert.match(drawer, /max-height:none/,
     'the focused drawer has a ceiling again, and the prescription is inside it');
