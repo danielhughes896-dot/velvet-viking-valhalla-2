@@ -1041,14 +1041,25 @@
   /* min-height, not more padding: this is a thumb target on a phone and it sat
      at roughly 29px, well under the ~44px a finger actually needs. The card is
      otherwise unchanged -- the row simply stops being a near-miss. */
-  .fuel-card summary{
+  /* :not(.sess-tab) for the same reason as the svg rule below: a session tab
+     is a <summary> that lives inside a .fuel-card, but it is a different
+     component with its own box -- and at (0,2,0) this block beat .sess-tab
+     (0,1,0), handing the Session Details tab 10px of padding and a 6px gap
+     where its three siblings have 15px and 13px. That put its title 12px
+     left of theirs. This block is the old disclosure row; a tab is not one. */
+  .fuel-card summary:not(.sess-tab){
     display:flex; align-items:center; gap:6px; padding:8px 10px; min-height:44px;
     font-size:11px; font-weight:600;
     color:var(--bronze-text); cursor:pointer; list-style:none; user-select:none;
     -webkit-tap-highlight-color:transparent;
   }
   .fuel-card summary::-webkit-details-marker{display:none;}
-  .fuel-card summary svg{width:13px; height:13px; flex:none;}
+  /* :not(.sess-tab) because a session tab is also a <summary> inside a
+     .fuel-card, and at (0,2,1) this rule beat .sess-tab-i svg (0,1,1) --
+     so the Session Details icon drew at 13px where the other three tabs
+     drew at 20px, and its title started 19px further left than theirs.
+     13px is the size for the old disclosure row, not for a tab. */
+  .fuel-card summary:not(.sess-tab) svg{width:13px; height:13px; flex:none;}
   /* The native marker was hidden with nothing put in its place, so this
      disclosure gave no visual cue that it opens. Same rotating-chevron
      grammar as .day-chevron/.week-chevron -- CSS-only, since <details>
@@ -1076,7 +1087,14 @@
   .sess-tab::-webkit-details-marker{display:none;}
   .sess-tab::marker{content:'';}
   .sess-tab:hover{border-color:var(--bronze);}
-  .sess-tab-i{flex:none; display:flex; align-items:center; color:var(--gold-text);}
+  /* A FIXED COLUMN, NOT AN ICON-SHAPED GAP. The four tabs stack, so their
+     titles read as a column -- and a column only reads as one if every
+     title starts at the same x. With the width taken from each icon, one
+     odd glyph moves its own title and jags the stack. The width is the
+     icon size, so nothing shifts for the icons we draw today; it holds
+     the line for whatever icon is used tomorrow. */
+  .sess-tab-i{flex:none; display:flex; align-items:center; justify-content:center;
+    width:20px; color:var(--gold-text);}
   .sess-tab-i svg{width:20px; height:20px; display:block;}
   .sess-tab-t{flex:1 1 auto; min-width:0;}
   /* The title takes the product's one label voice; the sub is a sentence
@@ -1086,8 +1104,10 @@
     color:#FFFFFF;}
   .sess-tab-s{display:block; font-family:var(--text-face); font-size:12.5px;
     color:var(--ink-faint); margin-top:3px; overflow-wrap:anywhere;}
-  .sess-tab-c{flex:none; display:flex; align-items:center; color:var(--gold-text);
+  .sess-tab-c{flex:none; display:flex; align-items:center; justify-content:center;
+    width:18px; color:var(--gold-text);
     transition:transform .25s;}
+  .sess-tab-c svg{width:18px; height:18px; display:block;}
   .sess-tab-c svg{width:18px; height:18px; display:block;}
   /* Open is open, whichever element is carrying the state. */
   details[open] > .sess-tab .sess-tab-c,
@@ -2186,6 +2206,16 @@
     padding:2px 0 8px; font-size:var(--fs-title); color:var(--ink);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input::placeholder{color:var(--ink-faint); opacity:.7;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea{padding:4px 0 8px;}
+  /* ---------- THE NOTES BOX KEEPS NO RULE UNDER IT ----------
+     The underline on every other field in this log marks where a figure
+     is typed, directly beneath it and only as wide as the column it
+     belongs to -- it does work. Under Notes it did something else: the
+     field spans both columns, so the same 1px ran the full 380px of the
+     card, under two wrapped lines of placeholder prose, and read as a
+     rule dividing the log rather than as the bottom of an input. The
+     label above it, the prose inside it and the wand beside it already
+     say what it is. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .notes-field textarea{border-bottom:0;}
   /* THE VERTICAL HAIRLINE BETWEEN FIGURES IS GONE, and it was wrong twice
      over. It was a white separator, which is the one thing this product's
      open surfaces are not allowed to draw -- lines come after titles, to do
@@ -2247,6 +2277,10 @@
       transparent 100%);
     filter:blur(20px);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card > *{position:relative; z-index:1;}
+  /* The verdict opens the same analysis this card continues, so it takes
+     the same horizontal inset -- 18px here against 12px elsewhere. Stated
+     beside the rule it mirrors so the two cannot drift apart. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .wc-verdict{padding:4px 18px 0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-head{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold); margin-bottom:9px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-summary{color:var(--ink); font-weight:600;}
@@ -2948,19 +2982,31 @@
      grading an answer the athlete has just given about their own body --
      feel is reported, not assessed, and the engine's reading of it already
      has somewhere to live. */
+  /* ---------- THE SAME SELECTOR AS EVERY OTHER SELECTOR ----------
+     Five labels, one of them chosen: the bottom nav's job, the unit
+     toggle's job, the goal options' job, the share segments' job. Every one
+     of those has stopped drawing a container and says "chosen" with light
+     on the word itself -- and this one was still a row of rimmed pills
+     ringed in gold, the last of the old shape left in the log.
+     So it takes .bn-item's recipe, which is the one this product uses when
+     the set is five across: crisp white with a tight halo at rest, the
+     brighter gold with the four-layer illumination when selected. The grid
+     keeps the five evenly spaced; nothing else is left to hold them. */
   .feel-row{display:grid; grid-template-columns:repeat(5,1fr); gap:5px;}
   .feel-btn{
-    padding:9px 4px; min-height:36px;
+    padding:9px 2px; min-height:36px;
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase;
-    background:var(--t-tile); color:var(--ink-dim);
-    border:1px solid var(--t-tile-rim); border-radius:99px; cursor:pointer;
-    transition:color .18s, border-color .18s, box-shadow .18s;
+    background:none; border:0; border-radius:0; cursor:pointer;
+    color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
+    transition:color .2s, text-shadow .2s, font-weight .2s;
   }
   .feel-btn.on{
-    color:var(--ink); border-color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 26%, transparent);}
+    color:var(--gold-bright); font-weight:700; background:none; box-shadow:none;
+    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
+                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
   .feel-btn:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2px;}
   .cr-compare{display:flex; flex-wrap:wrap; gap:6px;}
   .cr-cmp{font-size:10px; padding:2px 7px; border:1px solid var(--line); border-radius:99px; color:var(--ink-faint);}
@@ -3620,7 +3666,14 @@
     color:var(--ink-faint); margin-bottom:8px;}
   /* The disclosure is the app's own how-card; only its scale is reduced, so it
      reads as subordinate to the running session's identical control above it. */
-  .support-detail summary{font-size:var(--fs-meta);}
+  /* .fuel-card.support-detail, not .support-detail: the element carries BOTH
+     classes, so this rule and the disclosure-row block above both match its
+     summary. They used to tie at (0,2,0) and this one won on source order --
+     then the block above took a :not(.sess-tab) and went to (0,3,0), which
+     silently handed it this font-size. Matched here rather than reverting
+     there, because the exclusion is load-bearing: without it a session tab
+     inherits the disclosure row's whole box. */
+  .fuel-card.support-detail summary{font-size:var(--fs-meta);}
   .support-steps{margin-bottom:8px;}
   .support-step{display:flex; justify-content:space-between; gap:12px; color:var(--ink-dim);}
   .support-step .s-q{color:var(--ink-faint); white-space:nowrap;}
@@ -4055,19 +4108,38 @@
   .wc-hero-photo{height:132px; background:#07080C center 38%/cover no-repeat;
     background-image:linear-gradient(180deg, #07080C 0%, rgba(7,8,12,0) 34%),
       url('/assets/valhalla-mountains-820.jpg');}
-  .wc-verdict{display:flex; gap:11px; align-items:flex-start;
-    border:1px solid rgba(227,177,90,0.18); border-radius:13px;
-    background:rgba(227,177,90,0.05); padding:12px 13px;}
-  .wc-verdict-mark{flex:none; width:25px; height:25px; border-radius:50%;
+  /* ---------- THE VERDICT IS A SECTION, NOT A PANEL ----------
+     This block opens the analysis, and everything under it -- Execution
+     Review, the signal, the coach's prose -- is de-boxed and runs the full
+     width of the card. A gold-rimmed, gold-tinted panel at the top of that
+     made the verdict read as a different KIND of thing from the review it
+     introduces, when it is the same thing said shorter: the coach's reading.
+     So the rim, the ground and the radius go, and what is left is a label, a
+     word and a sentence -- the same three parts, in the same order, that
+     Execution Review itself uses below. The horizontal padding stays and is
+     matched to .exec-review-card's so the two share one left edge; the tick
+     stays because it is a mark of approval, not a container. */
+  .wc-verdict{border:0; border-radius:0; background:none; padding:4px 12px 0;}
+  /* Sized to sit on the label's own line without lifting it: the ring is a
+     shade taller than the cap height it stands beside, which is as large as
+     a mark can be before it becomes the thing being read. */
+  .wc-verdict-mark{flex:none; width:17px; height:17px; border-radius:50%;
     border:1.5px solid var(--gold); color:var(--gold-bright);
-    display:flex; align-items:center; justify-content:center; margin-top:1px;}
-  .wc-verdict-mark svg{width:14px; height:14px;}
-  .wc-verdict-k{font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--wc-faint);}
+    display:flex; align-items:center; justify-content:center;}
+  .wc-verdict-mark svg{width:10px; height:10px;}
+  /* Same label voice as .exec-review-head below it, because they are the
+     same rank: the two sections of the analysis. */
+  .wc-verdict-k{display:flex; align-items:center; gap:8px;
+    font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    text-transform:uppercase; color:var(--gold);}
   .wc-verdict-v{font-family:var(--text-face); font-size:17px; letter-spacing:.6px;
     color:var(--wc-ink); font-weight:600;}
   .wc-verdict-why{ color:var(--wc-dim); margin-top:4px;}
-  /* No verdict, no gold: the block states the session quietly instead. */
-  .wc-verdict.is-plain{border-color:rgba(246,242,234,0.14); background:rgba(255,255,255,0.03);}
+  /* No verdict, no gold: the block states the session quietly instead. It
+     has no ground of its own to dim any more -- the quiet is carried by the
+     label, which stays faint where a real verdict's goes gold. */
+  .wc-verdict.is-plain .wc-verdict-k{color:var(--wc-faint);}
   .wc-verdict.is-plain .wc-verdict-why{margin-top:3px;}
   /* Shape, ground, rim and voice shared with .btn-share / .wk-open: it is
      the same control -- a tab that opens what it names. */
@@ -4118,25 +4190,22 @@
   .exec-review-mount:empty{display:none;}
   /* Open, the tab joins the panel beneath it into one object rather than
      floating above it. */
-  .share-launch:has(.share-inline.is-open) .btn-share{
-    border-bottom-left-radius:0; border-bottom-right-radius:0;}
   .share-caret{display:inline-flex; margin-left:2px; transition:transform .18s;}
   .share-caret svg{width:17px; height:17px;}
   .btn-share[aria-expanded="true"] .share-caret{transform:rotate(180deg);}
   .share-inline{display:none;}
-  /* The composer is the tab's body, so it takes the tab's own ground and
-     rim and joins it into one object -- not a gold-edged panel on the old
-     --t-card-grad ramp hanging off a button. */
-  .share-inline.is-open{
-    display:block; border:1px solid var(--tile-border); border-top:0;
-    border-radius:0 0 var(--tile-radius) var(--tile-radius);
-    background:var(--tile-sheen), var(--bg-2);
-  }
-  .share-launch:has(.share-inline.is-open) .sess-tab{
-    border-bottom-left-radius:0; border-bottom-right-radius:0;}
-  /* The composer keeps the modal's own body rules; only the padding is the
-     card's rather than the modal's. */
-  .share-inline .share-body{padding:14px 13px 15px;}
+  /* ---------- A TAB BODY, NOT A PANEL UNDER A TAB ----------
+     Measured against its three siblings: the Session Details body, the log
+     body and the analysis all open flush at the card's own edge, 380px of a
+     380px card. The composer alone opened inside a rimmed, filled panel with
+     13px of its own padding, so its content ran 352px between x=30 and x=382
+     -- a narrower column than anything else in the stack, which is what made
+     this one tab read as older than the rest.
+     It loses the rim, the ground and the side padding and becomes what the
+     other three are: the tab's body, continuing at the tab's width. The tab
+     above keeps its full radius for the same reason Session Details does. */
+  .share-inline.is-open{display:block;}
+  .share-inline .share-body{padding:14px 0 15px;}
   /* A TAB, NOT A SLAB. This was a full-width gold gradient with near-black
      text and a cast shadow -- the loudest control in the product, built when
      it sat at the foot of the completion card competing with two buttons
@@ -4219,19 +4288,78 @@
     color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9);}
   .share-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   .share-row > span{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; opacity:.65;}
-  .share-seg{display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden;}
-  .share-seg button{background:transparent; border:0; color:var(--ink); padding:7px 13px;
-    font-size:11px; letter-spacing:.8px; text-transform:uppercase; cursor:pointer;}
-  .share-seg button + button{border-left:1px solid var(--line);}
-  .share-seg button.active{background:var(--gold); color:#120f0b;}
+  /* ---------- THE SAME TWO-STATE CONTROL AS KM / MI ----------
+     Valhalla|My photos and Story|Post are the same job as the unit toggle in
+     the hero: a small closed set, one of them chosen. They were the shape
+     that preceded it -- a bordered track with a solid gold lozenge and
+     near-black text on the selected half -- which is the one place left in
+     this tab still arguing with the colour law, where gold is the light on
+     the choice and not a slab behind it.
+     The recipe below is .tb-unit-toggle's, rim for rim and alpha for alpha,
+     so the three cannot drift. Only the padding differs: "My photos" is a
+     word and a half where "KM" is two letters. This composer renders only
+     inside the dark session card (openShareModal is unreferenced), so the
+     white resting label has a dark ground under it wherever it appears. */
+  /* align-self so it keeps its own width: inline-flex inside the controls'
+     flex COLUMN still stretches to the full track, and the unit toggle this
+     copies is a small closed control, not a full-width bar. Stretched, the
+     two labels sat at the left end of a 380px rim with nothing in the rest
+     of it -- which is what a filled lozenge used to hide. */
+  .share-seg{
+    display:inline-flex; align-self:flex-start; width:auto; align-items:center; gap:0;
+    border:1.5px solid transparent; border-radius:999px;
+    background:linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
+      var(--t-rim-white) border-box;
+    box-shadow:none; padding:2px 4px; overflow:visible;}
+  .share-seg button{
+    display:flex; align-items:center; justify-content:center;
+    min-height:34px; min-width:0; padding:0 11px;
+    font-family:var(--label-face); font-size:10.5px; font-weight:var(--label-weight);
+    letter-spacing:var(--label-track); text-transform:uppercase; line-height:1;
+    color:#FFFFFF; background:none; border:0; border-radius:0; cursor:pointer;
+    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
+    transition:color .2s, text-shadow .2s, font-weight .2s;}
+  .share-seg button.active{
+    color:var(--gold-bright); font-weight:700; background:none; box-shadow:none;
+    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
+                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
   /* Withholding an imported measurement is a decision the athlete is told
      about in words. It is never a silent omission. */
+  /* OUT OF THE BOX, ACROSS THE TAB. This is the one place the product
+     explains a decision it has made on the athlete's behalf, and it was
+     saying so from inside a gold-rimmed tray that made it look like an
+     alert the athlete had to clear. It is not an alert; it is the product
+     talking. Rim, tint and radius go, the width becomes the tab's, and the
+     gold sparkle is left to carry the voice -- the same way every other
+     piece of explanatory prose in this app sits directly on the card. */
   .share-note{display:flex; gap:10px;
-    background:rgba(227,177,90,.08); border:1px solid rgba(227,177,90,.28);
-    border-radius:12px; padding:11px 12px;}
+    background:none; border:0; border-radius:0; padding:2px 0 0;}
   .share-note svg{width:16px; height:16px; flex:0 0 auto; margin-top:2px; color:var(--gold-bright);}
   .share-actions{display:flex; flex-direction:column; gap:8px;}
   @media (min-width:560px){ .share-actions{flex-direction:row;} .share-actions .btn{flex:1;} }
+  /* ---------- NO SLABS LEFT IN THIS TAB ----------
+     Share was a full-width bronze gradient with near-black text -- the old
+     primary-button language, and the loudest thing on a screen whose point
+     is the session, not the posting of it. Save sat beneath it as a ghost
+     outline on --line, the hairline the rest of the app has stopped using.
+     Both take .wk-open's recipe, which is what a button looks like in this
+     product now: the card's own ground, the rim every bordered control
+     wears, and gold in the WORDS. They are the same shape because they are
+     the same rank of thing -- two ways to get the image out.
+     Share leads by illumination, not by fill: the layered gold glow the nav
+     puts on the tab you are on and the hero puts on the unit you chose. One
+     light, three places, no new colour introduced to this tab. */
+  .share-actions .btn{
+    display:flex; width:100%; align-items:center; justify-content:center; gap:8px;
+    background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
+    font-family:var(--text-face); font-size:14.5px; font-weight:600;
+    letter-spacing:.01em; padding:11px 16px; box-shadow:none;}
+  .share-actions .btn svg{width:16px; height:16px;}
+  .share-actions .btn-primary{
+    color:var(--gold-bright);
+    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
+                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
+  .share-actions .btn-ghost{color:var(--gold); text-shadow:none;}
   .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
   /* .goal-input-row is listed alongside .field because a goal time entry is a
      field like any other, and it is not always inside one -- the builder wraps
@@ -23176,6 +23304,21 @@ function nativeSaveBinaryFile(o){
    in which case the athlete is told plainly instead of being shown a success
    toast for a save that did not happen. The browser has no photo library at
    all, so there it stays a download, which is where a browser puts files. */
+/* ---------- THE LABEL IS READ OFF THE PATH THE FILE WILL TAKE ----------
+   saveImageToPhotos() has three outcomes, and only one of them is a photo
+   library: with @capacitor-community/media present the PNG goes into the
+   device's photos proper; in a native shell too old to carry the plugin the
+   save is refused outright; in a browser it is an ordinary download to
+   wherever that browser puts files.
+   "Save to photos" is the better of the two labels where it is TRUE -- it
+   tells the athlete exactly where to go and find the image -- so it is kept
+   for that case and only that case. Everywhere else the honest word is the
+   device, which is where the file does land. The button cannot promise an
+   album the shell it is running in has no way to reach. */
+function saveImageLabel(){
+  var Media = nativePlugin('Media');
+  return (Media && Media.savePhoto) ? 'Save to photos' : 'Save to device';
+}
 function saveImageToPhotos(o){
   var Media = nativePlugin('Media');
   if (Media && Media.savePhoto){
@@ -31229,7 +31372,7 @@ function shareComposerHtml(){
           '<button type="button" class="btn btn-primary btn-block" data-action="share-export" data-mode="share">'+
             ICONS.share+'Share</button>'+
           '<button type="button" class="btn btn-ghost btn-block" data-action="share-export" data-mode="save">'+
-            ICONS.download+'Save to photos</button>'+
+            ICONS.download+escapeHtml(saveImageLabel())+'</button>'+
         '</div>'+
       '</div>'+
     '</div>';
@@ -31491,6 +31634,35 @@ function renderExecutionReview(dd){
        The signal dot stays: it is one glyph carrying the state at a glance,
        and it is not prose. */
     var msg = coachDebrief(dd);
+    /* ---------- THE VERDICT IS SAID ONCE ----------
+       renderCompletionVerdict() leads this analysis with r.executionVerdict,
+       and coachDebrief() opens its message with that same sentence -- so the
+       two stood about an inch apart, word for word. The gold panel the
+       verdict used to sit in disguised it; de-boxed, with both sections now
+       sharing one left edge, it reads as a stutter.
+       The sentence belongs to the verdict, which is where the athlete reads
+       it first, so the review does not repeat it. What follows in the
+       review -- "That is 3 race-specific work sessions in a row..." -- then
+       continues FROM the verdict instead of restating it, which is how the
+       engine composed the paragraphs in the first place.
+
+       REMOVED HERE AND NOT IN coachDebrief(), deliberately. The spoken
+       debrief takes paragraphs.slice(0, 1) at concise depth, so that first
+       paragraph IS the whole spoken verdict; stripping it at the source
+       would have the coach say the wrong thing out loud, or nothing. This
+       is a presentation removal in one renderer, and the engine's message
+       is untouched everywhere else.
+
+       At brief depth the budget is one paragraph, so this empties the
+       review's prose entirely -- correctly: at that depth there genuinely
+       is nothing more to say than the verdict already said. The head is
+       withheld below when nothing is left under it. */
+    if (r.executionVerdict && msg && msg.paragraphs.length &&
+        msg.paragraphs[0].trim().toLowerCase() ===
+          String(r.executionVerdict).trim().toLowerCase()){
+      msg = { when:msg.when, depth:msg.depth,
+              paragraphs:msg.paragraphs.slice(1), signal:msg.signal };
+    }
     if (sigMeta){
       body += '<div class="cr-signal"><span class="cr-sig-dot">'+sigMeta.dot+'</span>'+
               '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>';
@@ -31590,13 +31762,19 @@ function renderExecutionReview(dd){
               (b.score != null ? b.score + '% execution' : '');
   /* The line itself is prepended by analysisTab(), which does it for every
      branch -- so it cannot end up on one and not the other. */
+  /* NO HEADING OVER NOTHING. Once the verdict owns its sentence, a brief
+     debrief with no signal and no evidence sections leaves this card with a
+     head and an empty body -- a section title, a score badge and white
+     space. The score is not lost: it is already on the line above the
+     verdict. A card with nothing in it simply does not appear. */
   var analysisBody =
     renderCompletionVerdict(dd)+
-    '<div class="exec-review-card wc-analysis">'+
-      '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
-        '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
-      '</div>'+ body +
-    '</div>';
+    (body ?
+      '<div class="exec-review-card wc-analysis">'+
+        '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
+          '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
+        '</div>'+ body +
+      '</div>' : '');
   return analysisTab(dd, analysisBody, vLine, true);
 }
 /* Whether the marking is showing. Defaults shut: the completion screen is the
@@ -31781,12 +31959,21 @@ function renderCompletionVerdict(dd){
      would be the one thing the safety rule exists to prevent, reintroduced as
      an icon. With no verdict the block keeps the coach's sentence and drops
      both the mark and the word. */
+  /* THE TICK RIDES IN THE LABEL ROW, not in a column of its own. In a left
+     column it indented the word and the sentence under it by the width of
+     the mark plus its gap, so the verdict's prose sat 28px right of the
+     Execution Review prose directly beneath it -- two sections of one
+     analysis with two different left edges. Inline, the mark still leads the
+     label exactly as the sparkle leads EXECUTION REVIEW, and every line of
+     body text in the analysis starts at the same x. */
   return '<div class="wc-verdict'+(v ? '' : ' is-plain')+'">'+
-    (v ? '<span class="wc-verdict-mark">'+ICONS.check+'</span>' : '')+
-    '<div><div class="wc-verdict-k">'+(v ? 'The Verdict' : 'The Session')+'</div>'+
-      (v ? '<div class="wc-verdict-v">'+escapeHtml(titleCase(v))+'</div>' : '')+
-      (why ? '<div class="wc-verdict-why">'+escapeHtml(why)+'</div>' : '')+
-    '</div></div>';
+    '<div class="wc-verdict-k">'+
+      (v ? '<span class="wc-verdict-mark">'+ICONS.check+'</span>' : '')+
+      '<span>'+(v ? 'The Verdict' : 'The Session')+'</span>'+
+    '</div>'+
+    (v ? '<div class="wc-verdict-v">'+escapeHtml(titleCase(v))+'</div>' : '')+
+    (why ? '<div class="wc-verdict-why">'+escapeHtml(why)+'</div>' : '')+
+  '</div>';
 }
 function titleCase(s){
   return String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase();

@@ -291,16 +291,36 @@ test('FEEL: the pills speak the product\'s own language, not the old one', () =>
     assert.ok(btn.indexOf('var(' + tok + ')') > -1,
       'the Feel pills are off the label voice (' + tok + ')'));
   assert.doesNotMatch(btn, /font-size:9px/, 'the 9px label is back');
-  assert.match(btn, /border-radius:99px/, 'the Feel options are slabs again, not pills');
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE LAW ABOVE IT ----
+     It used to require a 99px pill: that was this control's step AWAY from
+     a 6px slab, and at the time the pill was what every comparable control
+     wore. They have all since gone further. The bottom nav, the KM / MI
+     toggle, the goal options and the share segments now draw NO container
+     at all -- the chosen one is said with light on the word itself, and
+     Feel was the last rimmed pill left in the product.
+     What the test was protecting is unchanged and still asserted below:
+     one label voice, gold means SELECTED, and the state is carried by
+     light rather than by a fill. Only the vessel went. */
+  assert.match(btn, /background:none/, 'the Feel options grew a ground again');
+  assert.match(btn, /border:0/, 'the Feel options grew a rim again');
+  assert.match(btn, /color:#FFFFFF/, 'the resting word is crisp white, as everywhere else');
 
   const on = rule('.feel-btn.on');
-  /* THE WORD STAYS, THE LIGHT CHANGES. A solid fill with inverted text
-     shouts louder than the figures logged above it, and this is the quiet
-     answer at the end of a log rather than the headline of one. */
-  assert.match(on, /color:var\(--ink\)/, 'selecting a feel recolours the word again');
-  assert.match(on, /box-shadow:[^;]*var\(--gold\)/, 'the selected feel is no longer lit');
-  assert.doesNotMatch(on, /background:/,
+  /* THE WORD IS THE THING LIT. A solid fill with inverted text shouts louder
+     than the figures logged above it, and this is the quiet answer at the
+     end of a log rather than the headline of one. */
+  assert.match(on, /color:var\(--gold-bright\)/, 'the selected feel is no longer gold');
+  assert.match(on, /text-shadow:[^;]*rgba\(227,177,90/,
+    'the selected feel is no longer lit -- gold alone sits BELOW white in ' +
+    'luminance, so colour without illumination makes the chosen one the ' +
+    'quietest word in the row');
+  /* background:none is not a fill, so the old blanket /background:/ would now
+     fail on the very rule that satisfies the law. The thing forbidden is a
+     GROUND behind the chosen word, which is what a value other than none is. */
+  assert.doesNotMatch(on, /background:\s*(?!none)[^;]+;/,
     'the selected feel fills itself solid again instead of lighting up');
+  assert.doesNotMatch(on, /box-shadow:\s*(?!none)[^;]+;/,
+    'the gold ring is back around a control that no longer has an edge to ring');
 
   /* ONE SELECTION COLOUR, NOT A SCALE. Tinting POOR red and V.GOOD green
      would be the app grading an answer the athlete has just given about

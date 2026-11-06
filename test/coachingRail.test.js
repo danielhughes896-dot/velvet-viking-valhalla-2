@@ -308,9 +308,17 @@ test('the focused rail is behind a tab, and the header is the page\'s own ground
   assert.match(SRC, /sessionTabHtml\(ICONS\.notes, 'Session Details'/,
     'the rail lost the tab that opens it once the session is logged');
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
-  // The heading every other view still presses lives on .fuel-card summary,
-  // which .how-card inherits -- hiding it here must not have touched that.
-  assert.match(bare, /\.fuel-card summary\{[^}]*font-size/,
+  /* The heading every other view still presses lives on the disclosure-row
+     block, which .how-card inherits -- hiding it here must not have touched
+     that. The selector now carries :not(.sess-tab), and that exclusion is
+     load-bearing rather than cosmetic: a session tab is ALSO a <summary>
+     inside a .fuel-card, so at (0,2,0) against .sess-tab's (0,1,0) this
+     block was handing the Session Details tab the disclosure row's whole
+     box -- 10px of padding and a 6px gap where its three siblings had 15px
+     and 13px, which put its title 12px left of theirs. Asserted with the
+     exclusion present, so removing it fails here as well as in
+     sessionTabPolish. */
+  assert.match(bare, /\.fuel-card summary:not\(\.sess-tab\)\{[^}]*font-size/,
     'the summary lost its own heading, which every other view still presses');
   // The header carried rgba(21,17,13,.92) -- a warm near-black distinctly
   // browner than --bg -- so the top of every screen read as a separate
