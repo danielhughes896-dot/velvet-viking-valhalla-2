@@ -148,18 +148,24 @@ test('the verdict takes the same label voice as the section below it', () => {
     'everything under it and the two sections stop sharing a left edge');
 });
 
-test('the tick leads the label instead of indenting the prose', () => {
+/* ---- THIS ASSERTION OUTLIVED THE THING IT GUARDED ----
+   It required the gold tick to be emitted INSIDE the label row, because in
+   a column of its own it indented the word and the sentence beneath it. The
+   tick has since gone entirely -- it was the last glyph in front of a title
+   on this card, and the word under the label ("Controlled") is the approval
+   it was signalling. With no mark there is nothing left to put in the wrong
+   place, so what is held now is simply that the three parts are emitted in
+   the order they are read. */
+test('the verdict reads label, word, sentence, with nothing before the label', () => {
   const i = SRC.indexOf('function renderCompletionVerdict');
   assert.ok(i > -1);
   const fn = SRC.slice(i, SRC.indexOf('\nfunction ', i + 10));
-  const mark = fn.indexOf('wc-verdict-mark');
   const k = fn.indexOf('wc-verdict-k');
+  const v = fn.indexOf('wc-verdict-v');
   const why = fn.indexOf('wc-verdict-why');
-  assert.ok(k > -1 && mark > -1 && why > -1, 'the verdict parts are gone');
-  assert.ok(k < mark,
-    'the mark must be emitted INSIDE the label row -- before it, it is a ' +
-    'sibling column again and the sentence under it shifts right');
-  assert.ok(mark < why);
+  assert.ok(k > -1 && v > -1 && why > -1, 'the verdict parts are gone');
+  assert.ok(k < v && v < why, 'the verdict no longer reads label, word, sentence');
+  assert.ok(fn.indexOf('wc-verdict-mark') === -1, 'the tick is back in the verdict');
 });
 
 /* ======================================================================
@@ -382,12 +388,21 @@ test('closing is recorded, never un-recorded', () => {
 
 test('the analysis starts where the rest of the card starts', () => {
   const F = CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/)[0];
-  const card = rule(F + ' .exec-review-card');
-  assert.match(card, /padding:\s*24px 0 22px/,
+  /* The HORIZONTAL halves only. This guard is about the card's left and
+     right edges; the vertical values are the analysis's rhythm and are
+     asserted with the rest of that rhythm below, so pinning the whole
+     shorthand here made one concern fail for the other's reasons. */
+  const hsides = (decl) => {
+    const m = decl.match(/padding:\s*([^;}]+)/);
+    assert.ok(m, 'no padding declared');
+    const p = m[1].trim().split(/\s+/);
+    return p.length === 1 ? [p[0], p[0]] : p.length >= 4 ? [p[3], p[1]] : [p[1], p[1]];
+  };
+  assert.deepEqual(hsides(rule(F + ' .exec-review-card')), ['0', '0'],
     'the analysis is indented from the card again -- every tab, log field ' +
     'and the splits toggle start at the card edge, and a section inset from ' +
     'all of them reads as a quotation inside the card rather than part of it');
-  assert.match(rule(F + ' .wc-verdict'), /padding:\s*4px 0 0/);
+  assert.deepEqual(hsides(rule(F + ' .wc-verdict')), ['0', '0']);
 });
 
 test('the workout cells carry figures, and the stage name is still spoken', () => {
@@ -421,4 +436,44 @@ test('no glyph leads the taper line or the withholding note', () => {
   assert.doesNotMatch(SRC, /class="share-note">'\+ICONS\./, 'the note leads with a sparkle again');
   assert.ok(!/\.share-note svg\{/.test(CSS), 'the note glyph has a rule again');
   assert.ok(!/\.wk-taper svg\{/.test(CSS), 'the taper glyph has a rule again');
+});
+
+/* ======================================================================
+ * 8. THE ANALYSIS HAS ONE RHYTHM AND NO GLYPHS
+ * ==================================================================== */
+
+test('nothing is drawn in front of the verdict or the review head', () => {
+  assert.ok(!/wc-verdict-mark/.test(SRC), 'the verdict tick is back');
+  assert.ok(!/wc-verdict-mark/.test(CSS), 'the verdict tick has rules again');
+  assert.doesNotMatch(SRC, /exec-review-head">'\+ICONS\./,
+    'the review head leads with a sparkle again');
+  assert.ok(!/\.exec-review-head svg\{/.test(CSS),
+    'the review head glyph has a rule again, so something is drawing one');
+});
+
+test('the analysis spaces its blocks on one rhythm', () => {
+  /* Measured on the phone before this: 4px from the summary line to THE
+     VERDICT, 0px from THE VERDICT to the word under it, 4px to the
+     sentence, 52px to EXECUTION REVIEW, then an even 9px through the
+     review. Three rhythms in one card, and the middle gap six times
+     anything beside it.
+     9px inside a block, 26px between the two blocks -- and neither number
+     is invented: 9px is the review head's own margin and 26px is the log
+     panel's grid row gap. */
+  const F = CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/)[0];
+  assert.match(rule('.wc-verdict-k'), /margin-bottom:\s*9px/,
+    'THE VERDICT sits straight on top of the word under it again');
+  assert.match(rule('.wc-verdict-why'), /margin-top:\s*9px/);
+  assert.match(rule('.wc-verdict.is-plain .wc-verdict-why'), /margin-top:\s*9px/,
+    'the no-verdict variant keeps a rhythm of its own');
+  assert.match(rule(F + ' .exec-review-head'), /margin-bottom:\s*9px/,
+    'the value the other three are matched to has moved');
+
+  assert.match(rule(F + ' .wc-verdict'), /padding:\s*26px 0 0/,
+    'the gap above the verdict is no longer the section gap');
+  const card = rule(F + ' .exec-review-card');
+  assert.match(card, /margin-top:\s*26px/);
+  assert.match(card, /padding:\s*0 0 22px/,
+    'top padding here is ADDED to the margin above it -- that is how the ' +
+    'gap to EXECUTION REVIEW reached 52px while everything near it ran at 9');
 });

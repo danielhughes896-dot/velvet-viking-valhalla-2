@@ -2276,7 +2276,7 @@
      card rather than part of it. The vertical padding stays: that is the
      air the cherry glow needs, and it was never the problem. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card{
-    position:relative; margin-top:28px; padding:24px 0 22px;
+    position:relative; margin-top:26px; padding:0 0 22px;
     background:none; border:0; border-radius:0; box-shadow:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
@@ -2292,7 +2292,7 @@
   /* The verdict opens the same analysis this card continues, so it takes
      the same horizontal inset -- 18px here against 12px elsewhere. Stated
      beside the rule it mirrors so the two cannot drift apart. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .wc-verdict{padding:4px 0 0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .wc-verdict{padding:26px 0 0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-head{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold); margin-bottom:9px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-summary{color:var(--ink); font-weight:600;}
@@ -3182,7 +3182,6 @@
   /* ---------- AI post-session execution review ---------- */
   .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--surface-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .exec-review-head{display:flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
-  .exec-review-head svg{width:14px; height:14px; flex:none;}
   /* title yields first so the badge can never be pushed off or overlapped
      on a narrow phone; the badge itself never shrinks */
   .exec-review-head>span:first-of-type{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -4136,27 +4135,30 @@
      matched to .exec-review-card's so the two share one left edge; the tick
      stays because it is a mark of approval, not a container. */
   .wc-verdict{border:0; border-radius:0; background:none; padding:4px 0 0;}
-  /* Sized to sit on the label's own line without lifting it: the ring is a
-     shade taller than the cap height it stands beside, which is as large as
-     a mark can be before it becomes the thing being read. */
-  .wc-verdict-mark{flex:none; width:17px; height:17px; border-radius:50%;
-    border:1.5px solid var(--gold); color:var(--gold-bright);
-    display:flex; align-items:center; justify-content:center;}
-  .wc-verdict-mark svg{width:10px; height:10px;}
   /* Same label voice as .exec-review-head below it, because they are the
      same rank: the two sections of the analysis. */
-  .wc-verdict-k{display:flex; align-items:center; gap:8px;
+  /* ---------- ONE RHYTHM FOR THE WHOLE ANALYSIS ----------
+     Measured on the phone, the three blocks ran on three different spacings:
+     4px from the summary line to THE VERDICT, 0px from THE VERDICT to the
+     word under it, 4px to the sentence, then 52px to EXECUTION REVIEW --
+     which itself ran an even 9px head / signal / prose. So the top half was
+     crowded, the middle gap was six times anything near it, and only the
+     bottom half had a rhythm at all.
+     9px inside a block, 26px between the two blocks. Both numbers are the
+     ones already in the card: 9px is the review head's own margin and 26px
+     is the log panel's grid row gap. */
+  .wc-verdict-k{display:flex; align-items:center; gap:8px; margin-bottom:9px;
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--gold);}
   .wc-verdict-v{font-family:var(--text-face); font-size:17px; letter-spacing:.6px;
     color:var(--wc-ink); font-weight:600;}
-  .wc-verdict-why{ color:var(--wc-dim); margin-top:4px;}
+  .wc-verdict-why{ color:var(--wc-dim); margin-top:9px;}
   /* No verdict, no gold: the block states the session quietly instead. It
      has no ground of its own to dim any more -- the quiet is carried by the
      label, which stays faint where a real verdict's goes gold. */
   .wc-verdict.is-plain .wc-verdict-k{color:var(--wc-faint);}
-  .wc-verdict.is-plain .wc-verdict-why{margin-top:3px;}
+  .wc-verdict.is-plain .wc-verdict-why{margin-top:9px;}
   /* Shape, ground, rim and voice shared with .btn-share / .wk-open: it is
      the same control -- a tab that opens what it names. */
   .wc-continue{display:block; width:100%; background:none; border:0; cursor:pointer;
@@ -31662,7 +31664,7 @@ function renderExecutionReview(dd){
     var c = computeCompletionAssessment(dd);
     return analysisTab(dd,
       '<div class="exec-review-card">'+
-        '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span></div>'+
+        '<div class="exec-review-head"><span>Execution Review</span></div>'+
         '<div class="exec-review-summary">'+(c
           ? escapeHtml(completionSummaryLine(c))
           : 'Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.')+'</div>'+
@@ -31840,7 +31842,7 @@ function renderExecutionReview(dd){
     renderCompletionVerdict(dd)+
     (body ?
       '<div class="exec-review-card wc-analysis">'+
-        '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
+        '<div class="exec-review-head"><span>Execution Review</span>'+
           '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
         '</div>'+ body +
       '</div>' : '');
@@ -32035,9 +32037,14 @@ function renderCompletionVerdict(dd){
      analysis with two different left edges. Inline, the mark still leads the
      label exactly as the sparkle leads EXECUTION REVIEW, and every line of
      body text in the analysis starts at the same x. */
+  /* ---------- AND THE TICK GOES TOO ----------
+     It was kept when the block was de-boxed, on the grounds that a mark of
+     approval is not a container. It is still the only glyph left in front
+     of a title anywhere on this card, and the title it leads is followed
+     immediately by the verdict word itself -- "Controlled" -- which is the
+     approval, in the language the rest of the analysis speaks. */
   return '<div class="wc-verdict'+(v ? '' : ' is-plain')+'">'+
     '<div class="wc-verdict-k">'+
-      (v ? '<span class="wc-verdict-mark">'+ICONS.check+'</span>' : '')+
       '<span>'+(v ? 'The Verdict' : 'The Session')+'</span>'+
     '</div>'+
     (v ? '<div class="wc-verdict-v">'+escapeHtml(titleCase(v))+'</div>' : '')+
@@ -34339,7 +34346,10 @@ function renderCalibrationResult(dd){
   var hrOk = c.outcome === 'applied';
   var learned = paceOk || hrOk;
 
-  var head = '<div class="exec-review-head">'+ICONS.sparkles+
+  /* Same head, same absence of a glyph in front of it -- this one is drawn
+     from exec-review-head and would be the only one still carrying a
+     sparkle. */
+  var head = '<div class="exec-review-head">'+
     '<span>'+(learned ? 'Calibration complete' : 'Calibration not used')+'</span></div>';
   var body = '<div class="hub-card tile-card cal-result">'+head;
   if (learned){
