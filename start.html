@@ -124,7 +124,9 @@
      .bld-overview (protected/velvet-viking-valhalla.html). /start has no
      --tile-* token family of its own, so this uses the surface/radius/line
      tokens already shared with the app via vvv-shell.css instead. */
-  .bld-overview{margin-top:4px; padding:2px 16px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius);}
+  /* De-boxed in step with the app's copy -- see the note there. Three rows
+     of orientation are the content of this screen, not a tile laid on it. */
+  .bld-overview{margin-top:4px; padding:2px 0;}
   .bld-overview-row{padding:15px 0; border-bottom:1px solid var(--line-soft);}
   .bld-overview-row:last-child{border-bottom:none;}
   .bor-t{display:block; font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}

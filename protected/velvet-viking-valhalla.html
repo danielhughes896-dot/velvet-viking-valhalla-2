@@ -3348,12 +3348,18 @@
      three rows sharing one --tile-* card, the same recipe as .hub-card.tile-card
      and .ev-card, so the very first screen in the builder already belongs to
      the same family as the screens after it. */
-  .bld-overview{
-    margin-top:4px; padding:2px 16px;
-    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
-    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
-  }
-  .bld-overview-row{padding:15px 0; border-bottom:1px solid var(--tile-border);}
+  /* A BOX INSIDE A BOX. The three orientation rows sat on their own raised
+     tile -- ground, rim and lift -- inside a card that already has all
+     three, which is the arrangement the week's open session gave up its own
+     rim for ("leaving .wk-session's own rim around them put a box around
+     boxes"). The rows are the content of this card, not a card on it. The
+     padding stays, because the rhythm was never the problem.
+     The row rule also moves off --tile-border, which belongs to the raised
+     tile family this is leaving, and onto the hairline the rest of the
+     product rules with -- which is what start.html's copy of this already
+     used, so the two were drawing the same component with two tokens. */
+  .bld-overview{margin-top:4px; padding:2px 0;}
+  .bld-overview-row{padding:15px 0; border-bottom:1px solid var(--line-soft);}
   .bld-overview-row:last-child{border-bottom:none;}
   .bor-t{display:block; font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
   .bor-d{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);}
@@ -46108,6 +46114,16 @@ function openSetupModal(){
        every other stage is untouched. */
     var idAttr = i === 1 ? ' id="bld-stage0-h"' : '';
     var ledeId = i === 1 ? ' id="bld-stage0-lede"' : '';
+    /* NOTE, NOT A CHANGE: on stage 0 this heading is the same five words the
+       modal head above it already shows ("Build Your Training Block"), so
+       the builder's first screen says its name twice, forty pixels apart.
+       Suppressing it here is a one-line change and was tried -- and
+       builderNineStages calls that string "the approved heading" and
+       requires it in the stage-0 panel, so it is a copy decision to take
+       rather than a tidy-up to make. The duplication is not in the builder
+       itself: start.html runs the same stages as a PAGE with no modal head,
+       where this heading is the only title on screen. It is in the chrome
+       the app wraps them in, so the modal head is the other end to pull. */
     return '<h3 class="bld-stage-h"'+idAttr+'>'+stageMeta[i][1]+'</h3>'+
            '<p class="bld-lede"'+ledeId+'>'+stageMeta[i][2]+'</p>';
   }
