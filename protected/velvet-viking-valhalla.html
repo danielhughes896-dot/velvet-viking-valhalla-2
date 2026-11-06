@@ -2964,11 +2964,9 @@
      Renders only inside the Training Zone Paces Record panel (recordPanelZones()),
      a modal-themed builder-light hq-panel surface -- brought onto the same
      --tile-* recipe as the rest of that "Level 2" family. */
-  .zone-paces-card{
-    margin:14px 14px 0; padding:14px 15px;
-    background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border);
-    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
-  }
+  /* Rendered only as renderZonePacesCard(true), i.e. only ever inside a
+     panel -- see the note on #bld-review. */
+  .zone-paces-card{ margin:14px 0 0; padding:14px 0; }
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
   .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
@@ -3613,11 +3611,8 @@
   .gl-opt.active{color:var(--ink); border-color:var(--gold);
     box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 26%, transparent);}
 
-  .bld-strava-offer{
-    margin-top:12px; padding:16px;
-    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
-    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
-  }
+  /* Inside the builder card -- see the note on #bld-review. */
+  .bld-strava-offer{ margin-top:12px; padding:16px 0; }
   .bso-t{
     font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600;
     letter-spacing:.3px; color:var(--ink); margin-bottom:4px;
@@ -3805,11 +3800,14 @@
      inside this one host div, so giving IT the --tile-* card recipe turns the
      whole confirmation surface into one coherent soft-raised card instead of
      a bare stack of rows/dividers, with no change to bldRenderReview() itself. */
-  #bld-review{
-    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
-    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
-    padding:6px 16px;
-  }
+  /* NOT LIFTED, BECAUSE WHAT IT SITS ON IS. The raised-tile recipe --
+     ground, rim and lift together -- is the app's premium card, and it is
+     right on a page ground: measured across Today, This Week, Full Plan,
+     Valhalla and Settings, every tile that wears it has nothing above it
+     wearing it. Inside a modal card it is the same mistake weekShellElevation
+     names for .week: a tile as loud as the surface holding it, and the
+     hierarchy between them flattened. The padding stays. */
+  #bld-review{ padding:6px 16px; }
   .bld-review-hero{text-align:center; padding:16px 0 8px; border-bottom:1px solid var(--tile-border); margin-bottom:2px;}
   .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--gold-text); line-height:1.1; font-weight:var(--label-weight);}
   .bld-review-hero .s{font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
@@ -6227,12 +6225,9 @@
   /* Soft-raised frame around the table, same --tile-* recipe as every other
      reference surface -- the numbers themselves are untouched, only the
      surface they sit in. */
-  .pace-table-card{
-    margin-top:10px; padding:4px 10px;
-    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
-    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
-    overflow-x:auto;
-  }
+  /* Inside the pacing modal -- see the note on #bld-review.
+     overflow-x stays: a pace table is genuinely wider than a phone. */
+  .pace-table-card{ margin-top:10px; padding:4px 0; overflow-x:auto; }
   .pace-table{width:100%; border-collapse:collapse; font-size:11.5px;}
   .pace-table th, .pace-table td{padding:9px 6px; text-align:center; border-bottom:1px solid var(--tile-border);}
   .pace-table th{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
@@ -46114,18 +46109,19 @@ function openSetupModal(){
        every other stage is untouched. */
     var idAttr = i === 1 ? ' id="bld-stage0-h"' : '';
     var ledeId = i === 1 ? ' id="bld-stage0-lede"' : '';
-    /* NOTE, NOT A CHANGE: on stage 0 this heading is the same five words the
-       modal head above it already shows ("Build Your Training Block"), so
-       the builder's first screen says its name twice, forty pixels apart.
-       Suppressing it here is a one-line change and was tried -- and
-       builderNineStages calls that string "the approved heading" and
-       requires it in the stage-0 panel, so it is a copy decision to take
-       rather than a tidy-up to make. The duplication is not in the builder
-       itself: start.html runs the same stages as a PAGE with no modal head,
-       where this heading is the only title on screen. It is in the chrome
-       the app wraps them in, so the modal head is the other end to pull. */
-    return '<h3 class="bld-stage-h"'+idAttr+'>'+stageMeta[i][1]+'</h3>'+
-           '<p class="bld-lede"'+ledeId+'>'+stageMeta[i][2]+'</p>';
+    /* STAGE 0 SAYS ITS NAME ONCE. Its heading is the same five words the
+       modal head above it already shows, so the builder's first screen was
+       printing "Build Your Training Block" twice, forty pixels apart. The
+       approved copy is not dropped -- the modal head is where it is now
+       read, and the stage keeps its lede, which is the line that actually
+       orients: "A plan, built around you."
+       IN THE APP ONLY, and that is exactly why this lives here rather than
+       in BUILDER_SPEC: start.html runs the same stages as a PAGE with no
+       modal head, so there the stage heading is the only title on screen
+       and has to stay. The duplication was never in the builder; it was in
+       the chrome this copy wraps it in, so this is where it is answered. */
+    var head = (i === 0) ? '' : '<h3 class="bld-stage-h"'+idAttr+'>'+stageMeta[i][1]+'</h3>';
+    return head+'<p class="bld-lede"'+ledeId+'>'+stageMeta[i][2]+'</p>';
   }
   function navBtns(i){
     var back = i>0 ? '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">← Back</button>' : '';

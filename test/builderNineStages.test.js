@@ -419,7 +419,23 @@ test('Overview is stage zero, has no field and no validation rule, and Continue 
 test('Overview carries the approved heading and lede, and the rail starts on it', () => {
   const { html } = buildJourney();
   assert.match(html, /id="bld-name">Overview</, 'the stage-name label does not open on Overview');
+
+  /* THE APPROVED HEADING, ON THE SCREEN, ONCE. This used to ask only that
+     the string appeared inside the stage-0 PANEL, which it did -- and so
+     did the modal head wrapping it, so the builder's first screen printed
+     "Build Your Training Block" twice, forty pixels apart, and this test
+     was satisfied by the duplicate. Asked at the screen level it covers
+     both failures: the copy going missing, and it being said twice.
+     Which of the two carries it is the app's business and not the
+     builder's. start.html runs the same stages as a page with no modal
+     head, so there the stage heading is the only title on screen; here the
+     modal head is, and the panel keeps the lede, which is the line that
+     orients rather than names. */
+  assert.equal((html.match(/Build Your Training Block/g) || []).length, 1,
+    'the Overview screen names itself ' +
+    (html.match(/Build Your Training Block/g) || []).length +
+    ' times; the approved heading belongs on it exactly once');
+
   const overview = panels(html).find(p => p.stage === 0).body;
-  assert.match(overview, /Build Your Training Block/, 'the approved heading is missing');
   assert.match(overview, /A plan, built around you\./, 'the approved lede is missing');
 });

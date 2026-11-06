@@ -87,3 +87,32 @@ test('.week now owns the hairline-lift recipe outright, because the control it b
   assert.match(btn, /color\s*:\s*var\(--gold-bright\)/, 'the selected unit is not gold');
   assert.match(btn, /text-shadow/, 'the selected unit lost its illumination');
 });
+
+// ---------------------------------------------------------------------------
+// A TILE MAY BE LIFTED ONLY IF NOTHING ABOVE IT IS.
+//
+// The rule this file already states for .week -- "giving it the same
+// --tile-shadow would make the shell as loud as its contents and flatten the
+// hierarchy between them" -- is the same rule read the other way up. The
+// raised-tile recipe is the app's premium card and is right on a PAGE
+// ground: measured across Today, This Week, Full Plan, Valhalla and
+// Settings, every tile wearing it has nothing above it wearing it.
+//
+// These four render only inside a modal card, so each was a tile as loud as
+// the surface holding it. Named individually rather than swept, because the
+// test is cheap to read and the sweep is not: the question for any new tile
+// is not "does it use --tile-shadow" but "is there a card above it".
+test('a tile that lives inside a modal card is not lifted as well', () => {
+  [['#bld-review',        'the builder\u2019s review panel'],
+   ['.bld-strava-offer',  'the builder\u2019s Strava offer'],
+   ['.pace-table-card',   'the pacing modal\u2019s table'],
+   ['.zone-paces-card',   'zone paces, which only ever render in a panel'],
+  ].forEach(([sel, what]) => {
+    const body = ruleFor(sel);
+    assert.ok(body !== null && body !== undefined, 'rule not found: ' + sel);
+    assert.doesNotMatch(body, /--tile-shadow/,
+      what + ' is lifted again inside the card that already is: ' + sel);
+    assert.doesNotMatch(body, /--tile-sheen/,
+      what + ' took the raised tile\u2019s ground back: ' + sel);
+  });
+});
