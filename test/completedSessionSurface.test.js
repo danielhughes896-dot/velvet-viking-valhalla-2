@@ -450,3 +450,57 @@ test('closing the log on purpose keeps it closed, empty or not', () => {
   assert.equal(a.isLogOpen(d), false, 'it would not close');
   assert.equal(logDrawn(a, d), false, 'it sprang back open on the next render');
 });
+
+/* THE ANALYSIS TAB IS THE CONSTANT; WHAT IT OPENS IS NOT.
+ * ===========================================================================
+ * A session logged with a distance and no pace cannot be scored, and that
+ * branch used to return a bare card with no tab at all -- so a card that
+ * should have shown four tabs showed three, and the missing one was the one
+ * that would have said what was missing.
+ */
+const tabsOn = (a, d) => [...a.renderDayCard(d).matchAll(/sess-tab-k">([^<]*)</g)].map(m => m[1]);
+const analysisSub = (a, d) =>
+  (a.renderDayCard(d).match(/Valhalla Analysis<\/span><span class="sess-tab-s">([^<]*)</) || [])[1] || '';
+
+test('every finished session gets all four tabs, however little is logged', () => {
+  const a = app();
+  const ds = a.state.days.filter(x => x.type !== 'rest');
+  const WANT = ['Share', 'Session Details', 'Your Log', 'Valhalla Analysis'];
+
+  const nothing = ds[0];
+  nothing.completed = true; nothing.actual = a.emptyActual();
+  assert.deepEqual(tabsOn(a, nothing), WANT, 'a session with nothing logged lost a tab');
+
+  const distOnly = ds[1];
+  distOnly.completed = true;
+  distOnly.actual = Object.assign(a.emptyActual(), { km: distOnly.km });
+  assert.deepEqual(tabsOn(a, distOnly), WANT,
+    'a distance-only session lost the analysis tab -- the one that says what is missing');
+
+  const full = ds[2];
+  logAsPrescribed(a, full, { quality: 1 });
+  assert.deepEqual(tabsOn(a, full), WANT, 'a fully logged session lost a tab');
+});
+
+test('the analysis tab does not promise a verdict it has not got', () => {
+  /* "The verdict / Execution review / Next steps" on a session with none of
+     them is a promise the panel cannot keep. */
+  const a = app();
+  const ds = a.state.days.filter(x => x.type !== 'rest');
+
+  const distOnly = ds[0];
+  distOnly.completed = true;
+  distOnly.actual = Object.assign(a.emptyActual(), { km: distOnly.km });
+  assert.match(analysisSub(a, distOnly), /Not scored yet/,
+    'an unscored session advertises a verdict it cannot produce');
+
+  const full = ds[1];
+  logAsPrescribed(a, full, { quality: 1 });
+  assert.match(analysisSub(a, full), /The verdict/,
+    'a scored session stopped naming what it holds');
+
+  /* And opening the unscored one says what would score it. */
+  a.analysisOpenFor[distOnly.id] = true;
+  assert.match(a.renderDayCard(distOnly), /average pace/,
+    'the unscored analysis no longer says what is missing');
+});

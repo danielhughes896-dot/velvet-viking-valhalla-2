@@ -31383,6 +31383,36 @@ function shareExport(mode){
    raiseCompletionMoment() and .wc-modal are deleted rather than left
    unreferenced; handleCompletionContinue() keeps its modal branch because
    the share composer still opens over the card. */
+/* ---------- THE TAB IS THE CONSTANT; WHAT IT OPENS IS NOT ----------
+   A session logged with a distance and no pace cannot be scored, and that
+   branch used to return a bare card with no tab at all -- so a card that
+   should have shown four tabs showed three, and the missing one was the one
+   that would have said what was missing. Every finished session gets the
+   tab now; behind it is whatever the evidence supports, down to "add a pace
+   and this is scored against the session you were set".
+
+   The subtitle tells the truth about which of those it is, because "The
+   verdict / Execution review / Next steps" on a session that has none of
+   them is a promise the panel cannot keep. */
+function analysisTab(dd, body, vLine, scored){
+  /* A PAST WEEK OPENS BY DEFAULT. The analysis is the only reason to open
+     an old session, so it is not hidden behind a press there. The boundary
+     is the programme's own week, not a rolling seven days: a Sunday long
+     run does not become history on Thursday, and a block that has finished
+     has no current week, so every session in it is past. */
+  var cur = currentWeekNum();
+  var pastWeek = (dd.week != null) && (cur == null || dd.week < cur);
+  var open = isAnalysisOpen(dd) || pastWeek;
+  return '<div class="wc-review">'+
+    '<button type="button" class="sess-tab sess-tab-btn" data-action="view-analysis" '+
+      'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
+      sessionTabHtml(ICONS.trend, 'Valhalla Analysis',
+        scored ? 'The verdict \u00b7 Execution review \u00b7 Next steps'
+               : 'Not scored yet \u00b7 what is missing')+
+    '</button>'+
+    (open ? ((vLine ? '<div class="wc-line">'+escapeHtml(vLine)+'</div>' : '')+body) : '')+
+  '</div>';
+}
 function renderExecutionReview(dd){
   if (!dd.completed) return '';
   /* NOTHING WAS PRESCRIBED, SO THERE IS NOTHING TO REVIEW AGAINST. Every
@@ -31399,13 +31429,14 @@ function renderExecutionReview(dd){
        and gets a real -- deliberately broad -- assessment; only an athlete who
        has logged nothing usable is asked for more. */
     var c = computeCompletionAssessment(dd);
-    return '<div class="exec-review-card">'+
-      '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span></div>'+
-      '<div class="exec-review-summary">'+(c
-        ? escapeHtml(completionSummaryLine(c))
-        : 'Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.')+'</div>'+
-      (c ? '<div class="exec-review-more">Add an average pace and this is scored against the session you were set.</div>' : '')+
-    '</div>';
+    return analysisTab(dd,
+      '<div class="exec-review-card">'+
+        '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span></div>'+
+        '<div class="exec-review-summary">'+(c
+          ? escapeHtml(completionSummaryLine(c))
+          : 'Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.')+'</div>'+
+        (c ? '<div class="exec-review-more">Add an average pace and this is scored against the session you were set.</div>' : '')+
+      '</div>', '', false);
   }
   /* The per-component weighted calculation that used to close this card
      (Distance 100% x35%, Pace 100% x35%, ...) is deliberately not rendered.
@@ -31529,8 +31560,6 @@ function renderExecutionReview(dd){
      because the week is the unit this product plans and reviews in: a
      Sunday long run does not become history on Thursday. A block that has
      finished has no current week, so every session in it is past. */
-  var cur = currentWeekNum();
-  var pastWeek = (dd.week != null) && (cur == null || dd.week < cur);
   /* THE VERDICT IN ONE LINE, AND IT LEADS THE ANALYSIS. Computed HERE and
      not below: it is read by analysisBody, and a `var` declared after its
      own use is hoisted but undefined, so the line silently rendered as ''
@@ -31540,39 +31569,16 @@ function renderExecutionReview(dd){
   var vLine = (vWord ? titleCase(vWord) : '') +
               ((vWord && b.score != null) ? ' \u00b7 ' : '') +
               (b.score != null ? b.score + '% execution' : '');
+  /* The line itself is prepended by analysisTab(), which does it for every
+     branch -- so it cannot end up on one and not the other. */
   var analysisBody =
-    (vLine ? '<div class="wc-line">'+escapeHtml(vLine)+'</div>' : '')+
     renderCompletionVerdict(dd)+
     '<div class="exec-review-card wc-analysis">'+
       '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
         '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
       '</div>'+ body +
     '</div>';
-  /* A PAST WEEK OPENS BY DEFAULT rather than losing the tab. Its analysis
-     used to render unwrapped, because the analysis is the only reason to
-     open an old session -- so it now wears the same tab as everywhere else
-     and simply starts open. The hierarchy is identical on every session and
-     nothing that used to be on screen is hidden. */
-  var open = isAnalysisOpen(dd) || pastWeek;
-  /* ---- ONE COMPLETION STATEMENT, AND ONE ACTION ----
-     This was a card headed "Workout Complete" holding the branded share
-     composition, View Analysis and Continue. The composition went when the
-     Share to Socials tab took it over, and what was left said "Workout
-     Complete" 440px under the lit "Session complete" banner -- the same fact
-     twice on one screen -- around two buttons, one of which (Continue) only
-     collapsed the card the athlete was already reading.
-     So: no heading, no card, no Continue. View Analysis is a tab like every
-     other tab in the product, opening what it names, directly under the log
-     it is the analysis of. A past week has nothing to open -- its analysis is
-     already shown -- so there it is the analysis itself, unwrapped. */
-  return '<div class="wc-review">'+
-    '<button type="button" class="sess-tab sess-tab-btn" data-action="view-analysis" '+
-      'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      sessionTabHtml(ICONS.trend, 'Valhalla Analysis',
-        'The verdict \u00b7 Execution review \u00b7 Next steps')+
-    '</button>'+
-    (open ? analysisBody : '')+
-  '</div>';
+  return analysisTab(dd, analysisBody, vLine, true);
 }
 /* Whether the marking is showing. Defaults shut: the completion screen is the
    moment, and the analysis is what the athlete opens when they want it. */
