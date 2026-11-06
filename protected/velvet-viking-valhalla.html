@@ -3142,6 +3142,9 @@
      SOLID, not a gradient. The gradient was the violet's; Cherry Lacquer was
      chosen as a flat fill, and a flat fill is also what makes the button read
      as one deliberate colour rather than a surface with a sheen. */
+  /* The flow's buttons take the control radius the rest of the builder
+     uses, rather than .btn's global 10px. */
+  .builder-light .btn{border-radius:var(--tile-radius);}
   .builder-light .btn-primary{
     background:var(--cherry-fill); color:var(--cherry-btn-ink);
     box-shadow:inset 0 0 0 1px var(--cherry);
@@ -3346,7 +3349,12 @@
   /* The builder's shell takes the product's card face. Scoped to
      .builder-light so no other modal moves -- the --modal-* ramp is shared
      and deliberately fixed, and this pass is Build a Plan only. */
-  .modal-card.builder-light{background:var(--t-card-grad); border-color:var(--t-tile-rim);}
+  /* THE SAME GROUND EVERY OTHER OPEN CARD USES. This was --t-card-grad, a
+     100deg ramp starting at #24262D -- measurably lighter and bluer than
+     the #1C1E24 that Settings panels, Reading panels and the week's open
+     session all sit on, so the builder read as a different product opening
+     over the top of this one. Flat, and the same value. */
+  .modal-card.builder-light{background:var(--t-card); border-color:var(--t-tile-rim);}
   .modal-card.builder-light .modal-head{background:transparent; border-bottom-color:var(--t-tile-rim);}
   .modal-overlay:has(> .builder-light){
     align-items:center;
@@ -3374,9 +3382,12 @@
      NAME beside the numeral stays --ink-faint: it is a label, not progress. */
   .bld-step.done{background:var(--cherry-dim);}
   .bld-step.now{background:var(--cherry);}
-  .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
+  /* THE PAGE NAME IS GONE FROM THE CORNER. "GOAL" sat top-right above a
+     heading reading "Your goal", "REVIEW" above "What Valhalla understands"
+     -- the stage naming itself twice, once in a corner label nobody needs
+     to read. The counter stays: 02 / 10 is the thing that orients. */
+  .bld-progress-meta{display:flex; align-items:baseline; margin:9px 0 2px;}
   .bld-stage-no{font-family:var(--num-face); font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
-  .bld-stage-name{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); font-weight:var(--label-weight);}
   .bld-stage-h{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px; font-weight:var(--label-weight);}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
 
@@ -3396,7 +3407,9 @@
      product rules with -- which is what start.html's copy of this already
      used, so the two were drawing the same component with two tokens. */
   .bld-overview{margin-top:4px; padding:2px 0;}
-  .bld-overview-row{padding:15px 0; border-bottom:1px solid var(--line-soft);}
+  /* No rules between them. Three statements of what the next nine screens
+     do is a short list, and the gap says what a hairline was saying. */
+  .bld-overview-row{padding:13px 0;}
   .bld-overview-row:last-child{border-bottom:none;}
   .bor-t{display:block; font-family:var(--text-face); font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
   .bor-d{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);}
@@ -3736,20 +3749,29 @@
     display:block; width:100%; text-align:left; padding:14px 13px; min-height:118px;
     border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
     background:var(--t-tile); color:var(--ink-dim);
-    box-shadow:var(--t-lift);
-    transition:box-shadow .18s, background .18s, color .18s;
+    /* No lift: four raised tiles inside a card that is already raised is the
+       box-on-a-box the rest of the product gave up. The rim is the edge. */
+    transition:box-shadow .18s, border-color .18s, color .18s;
   }
   .bld-purpose button:active{transform:scale(.995);}
   .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700;}
   .bpc-name{line-height:1.2;}
   .bpc-why{display:block; font-family:var(--text-face); font-size:var(--fs-support);
     line-height:var(--lh-support); color:var(--ink-faint); margin-top:6px; letter-spacing:0;}
+  /* CHOSEN IS LIT, AND ONLY THE NAME ANSWERS. The whole card used to turn
+     gold -- title AND the sentence under it -- which made the card the
+     athlete had picked the loudest block of text on the screen and the
+     other three look switched off. Gold marks the CHOICE: the rim, its
+     glow, and the name. The reason underneath stays the colour it has in
+     the other three, because it is still just a description. */
   .bld-purpose button.active{
     color:var(--gold-bright); background:var(--t-tile);
-    border-color:var(--gold); font-weight:700;
-    box-shadow:0 0 0 1px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 26%, transparent), var(--t-lift);
+    /* No font-weight here: .bpc-name is already 700 whether the card is
+       chosen or not, so this only ever reached the DESCRIPTION -- bolding a
+       sentence that says the same thing it said before the card was picked. */
+    border-color:var(--gold);
+    box-shadow:0 0 0 1px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 26%, transparent);
   }
-  .bld-purpose button.active .bpc-why{color:var(--gold); opacity:.85;}
   /* A locked choice still shows what was chosen and why it cannot move -- the
      grid is dimmed, not removed, so "Speed uses the 5K block" is visible
      rather than mysterious. */
@@ -3777,9 +3799,9 @@
      '.bld-purpose{' and '.bld-date input' -- so the override silently
      collapsed that slice to an empty string and the stylesheet it was
      asserting on vanished. A rule's neighbours are part of its meaning. */
+  /* Same rim, same radius and no lift as every other control in here. */
   .builder-light .bld-date input[type="date"]{
     background:var(--t-tile); border-color:var(--t-tile-rim); border-radius:var(--tile-radius);
-    box-shadow:var(--t-lift);
   }
 
   /* The select each grid mirrors stays in the DOM, and stays the value the
@@ -3821,7 +3843,7 @@
   .field.bld-consent{margin:0;}
   /* A permission is not part of the summary above it, so it is separated by a
      rule and named rather than tucked in beside the plan's facts. */
-  .bld-permission{margin-top:22px; padding-top:16px; border-top:1px solid var(--line);}
+  .bld-permission{margin-top:22px; padding-top:16px; border-top:1px solid var(--line-soft);}
   .field.bld-consent > label{
     display:flex; align-items:flex-start; gap:8px;
     text-transform:none; letter-spacing:0; opacity:1;
@@ -3847,12 +3869,16 @@
      names for .week: a tile as loud as the surface holding it, and the
      hierarchy between them flattened. The padding stays. */
   #bld-review{ padding:6px 16px; }
-  .bld-review-hero{text-align:center; padding:16px 0 8px; border-bottom:1px solid var(--tile-border); margin-bottom:2px;}
+  .bld-review-hero{text-align:center; padding:16px 0 8px; border-bottom:1px solid var(--line-soft); margin-bottom:2px;}
   .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--gold-text); line-height:1.1; font-weight:var(--label-weight);}
   .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
-  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--tile-border);}
+  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--line-soft);}
   .bld-review-row:last-child{border-bottom:none;}
   .bld-review-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
+  /* Words in this column take the words face, the same rule the Reading
+     panels' evidence column follows -- "Established", "Sat", "Off" and
+     "Mon, Tue, Wed, Fri, Sat, Sun" are language, not measurements. */
+  .bld-review-v.is-words{font-family:var(--text-face); letter-spacing:0;}
   .bld-review-v{font-family:var(--num-face); font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
 
   /* TRAINING-DAY SELECTOR VISUAL REFINEMENT superseded the note that used to
@@ -46234,7 +46260,7 @@ function openSetupModal(){
   '<div class="modal-body">'+
     '<div class="bld-progress" id="bld-rail">'+railHtml+'</div>'+
     '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / 10</span>'+
-      '<span class="bld-stage-name" id="bld-name">Overview</span></div>'+
+      '</div>'+
 
     /* ---------- 01 OVERVIEW ----------
        Pure orientation, not a tenth question. One coherent soft-raised
@@ -47040,7 +47066,7 @@ function bldRenderReview(){
 
   function row(k, v){
     return '<div class="bld-review-row"><span class="bld-review-k">'+k+'</span>'+
-           '<span class="bld-review-v">'+escapeHtml(v)+'</span></div>';
+           '<span class="bld-review-v'+(valueIsFigure(v) ? '' : ' is-words')+'">'+escapeHtml(v)+'</span></div>';
   }
   var rows = '';
   rows += hasEvent
@@ -47109,13 +47135,12 @@ function bldStage(n){
   if (rail) Array.prototype.forEach.call(rail.children, function(seg, i){
     seg.className = 'bld-step' + (i < bldCurrentStage ? ' done' : i === bldCurrentStage ? ' now' : '');
   });
-  var no = document.getElementById('bld-no'), nm = document.getElementById('bld-name');
+  var no = document.getElementById('bld-no');
   /* Zero-padded to 2 digits regardless of stage count -- a plain '0'+n
      literal broke the moment the count reached double digits ('0'+10
      rendered as "010"), so pad explicitly instead of assuming one digit. */
   var padStage = function(n){ return (n < 10 ? '0' : '') + n; };
   if (no) no.textContent = padStage(bldCurrentStage + 1) + ' / ' + padStage(BLD_STAGE_NAMES.length);
-  if (nm) nm.textContent = BLD_STAGE_NAMES[bldCurrentStage];
   if (bldCurrentStage === BLD_STAGE_NAMES.length - 1) bldRenderReview();
   var card = document.querySelector('.modal-card');
   if (card) card.scrollTop = 0;
@@ -56233,7 +56258,15 @@ function dialIsWord(text){ return /[A-Za-z]{2,}/.test(String(text == null ? '' :
 function valueIsFigure(text){
   var t = String(text == null ? '' : text).trim();
   if (!t || !/\d/.test(t)) return false;
-  return t.split(/\s+/).every(function(tok){ return /\d/.test(tok); });
+  /* A token disqualifies the value only if it is a WORD -- two letters or
+     more. Requiring a digit in every token looked right until the rule met
+     the builder's review column, where it read "10K \u00b7 44:00" and
+     "A 3:16:42" as prose: the separator carries no digit, and neither does
+     the goal letter. Both are measurements. One letter is a unit or a grade;
+     two is language. */
+  return t.split(/\s+/).every(function(tok){
+    return /\d/.test(tok) || (tok.match(/[A-Za-z]/g) || []).length < 2;
+  });
 }
 /* Figures keep the column's default mono; a phrase is marked and takes the
    words face. Marked rather than branched so the column's size, colour and

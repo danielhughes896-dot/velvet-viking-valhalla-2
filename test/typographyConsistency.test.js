@@ -130,9 +130,16 @@ test('a panel value is typeset by what it IS, not by which column it is in', () 
   const a = loadApp({ pinnedDate: '2026-11-03T09:00:00Z' });
 
   const FIGURES = ['5.2km', '24h', '1h 47m', '30\u201360g/hr', '\u224855\u2013105g',
-                   '3:29:45', '94%', '45:33', '2'];
+                   '3:29:45', '94%', '45:33', '2', '2026-12-13',
+                   /* The builder's review column, which is where the first
+                      version of this rule was caught being too strict: it
+                      wanted a digit in EVERY token, so a separator and a
+                      goal letter turned two measurements into prose. */
+                   '10K \u00b7 44:00', 'A 3:16:42'];
   const PHRASES = ['0 this week', '1 day', 'not logged', 'building baseline',
-                   '28-day window', 'insufficient',
+                   '28-day window', 'insufficient', 'Established', 'Off',
+                   'Mon, Tue, Wed, Fri, Sat, Sun',
+                   'LTHR 168 (your estimate) \u00b7 Max 190',
                    '47.9km\u201363.2km with 3 demanding sessions',
                    'usually normal again within about 24h'];
 

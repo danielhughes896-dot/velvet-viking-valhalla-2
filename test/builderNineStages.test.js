@@ -418,7 +418,23 @@ test('Overview is stage zero, has no field and no validation rule, and Continue 
 
 test('Overview carries the approved heading and lede, and the rail starts on it', () => {
   const { html } = buildJourney();
-  assert.match(html, /id="bld-name">Overview</, 'the stage-name label does not open on Overview');
+  /* THE CORNER LABEL IS GONE and this asked for it by name. "GOAL" sat
+     top-right above a heading reading "Your goal", "REVIEW" above "What
+     Valhalla understands" -- the stage naming itself twice. What the test
+     is about is that the flow OPENS ON STAGE ONE, so it asks the two things
+     that still say so: the counter, and which rail segment is current. */
+  assert.match(html, /id="bld-no">01 \/ 10</,
+    'the builder does not open on the first of ten');
+  assert.match(html, /<div class="bld-progress" id="bld-rail">/, 'the progress rail is gone');
+  /* Matched on the segments themselves rather than on the rail's innerHTML:
+     a non-greedy span to the first </div> captures only segment one. */
+  const segs = html.match(/class="bld-step[^"]*"/g) || [];
+  assert.equal(segs.length, 10, 'the rail no longer has one segment per stage');
+  assert.match(segs[0], /\bnow\b/, 'the rail does not open on the first stage');
+  assert.ok(!segs.slice(1).some(s => /\b(now|done)\b/.test(s)),
+    'a later rail segment is already lit on arrival');
+  assert.doesNotMatch(html, /bld-stage-name/,
+    'the redundant corner label is back');
 
   /* THE APPROVED HEADING, ON THE SCREEN, ONCE. This used to ask only that
      the string appeared inside the stage-0 PANEL, which it did -- and so
