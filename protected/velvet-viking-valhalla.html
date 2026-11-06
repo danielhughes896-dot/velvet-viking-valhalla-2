@@ -5125,6 +5125,41 @@
      as being detected at runtime: pan-x lets the browser scroll them
      natively even while the pager is listening. */
   .fuel-body, .pp-chips, .pace-table-card, [data-hswipe]{touch-action:pan-x;}
+  /* ---------- pan-x IS FOR A REGION THAT SCROLLS SIDEWAYS, NOT FOR ONE
+       THAT MERELY LISTENS SIDEWAYS ----------
+     THE FAULT THIS FIXES: open a session on This Week and the page could
+     not be scrolled with a finger. Measured, 412x915, the full card open:
+     2137px of card, 1861px of page left to scroll, and a touch drag
+     starting on the card moved it 0px. A mouse wheel over the same pixel
+     moved it 600px -- which is why this survived every desktop probe and
+     only ever showed up on a real phone. touch-action is honoured for
+     touch input and ignored by the wheel.
+
+     THE CAUSE: .wk-session.is-open carries data-hswipe so the view pager
+     stands down, and the rule above then hands the whole 2137px card
+     touch-action:pan-x. pan-x tells the browser it may pan that subtree
+     HORIZONTALLY AND NOT VERTICALLY, so every finger that lands on the
+     card -- which, at that height, is every finger -- is refused.
+
+     WHY pan-y COSTS NOTHING: data-hswipe is what the pager checks, and it
+     is an ATTRIBUTE. The gesture handlers on both regions are registered
+     { passive: true } and never call preventDefault -- they observe the
+     touch and commit on touchend -- so neither one ever needed the browser
+     to withhold the vertical pan. wireWeekFullSwipe still changes day.
+     Confirmed by measurement: the same drag on the same pixel moves 570px
+     with pan-y, and the horizontal swipe still reaches the handler.
+
+     BOTH SITES, BECAUSE IT IS ONE LAW. .wk-rail and the FOCUSED .fuel-body
+     already carry their own pan-y for exactly this reason -- see both. The
+     two that did not are the open week card, and .fuel-body OUTSIDE a
+     focused session, where .how-mod is display:contents (see that rule) so
+     the rail is a tall vertical stack of coaching rows rather than a
+     sideways rail, and pan-x there blocks the page just as surely.
+     Scoped to [data-hswipe] on purpose: it may only ever relax an element
+     the rule above had already restricted, never take pinch-zoom away from
+     one that still has it. */
+  .wk-session.is-open[data-hswipe]{touch-action:pan-y;}
+  .how-card .fuel-body[data-hswipe]{touch-action:pan-y;}
   /* ONE CARD RADIUS. --radius (16px), the same value .hub-card.tile-card and
      .ev-card already use. The bare rule carried --radius-sm (10px), so the
      identical class rendered two different corners depending on whether the
