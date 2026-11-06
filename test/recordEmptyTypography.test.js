@@ -288,8 +288,14 @@ test('the measured facts are built exactly as before', () => {
      which fact sits in which face has swapped. */
   assert.match(a.statusDialHtml(facts[2]), /<b style="[^"]*">23:00<\/b>/,
     'the Benchmark circle no longer leads with the time');
-  assert.match(a.statusDialHtml(facts[2]), /class="rd-sub rd-sub-data">10K</,
-    'the Benchmark circle lost the distance under its time');
+  /* AND THE DISTANCE HAS NOW LEFT THE FACE ENTIRELY. It was the qualifier
+     under the time; the panel behind the circle states "10K - 45:33" in
+     full on its first line, so the face holds the figure and nothing else,
+     as Progress and Readiness do. `value` still carries both, which is what
+     the aria-label and the panel read. */
+  assert.doesNotMatch(a.statusDialHtml(facts[2]), /rd-sub-data">10K</,
+    'the distance is back under the Benchmark time');
+  assert.match(facts[2].value, /10K/, 'the distance left the fact altogether');
   assert.match(a.statusDialHtml(facts[3]), /<b style="[^"]*">\d+%<\/b>/,
     'the Progress circle changed');
 });

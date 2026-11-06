@@ -377,7 +377,23 @@
     --maxw:720px;
     /* dedicated dark-Viking palette for modals, dropdowns & selects --
        deliberately fixed regardless of the light/dark theme toggle */
-    --modal-surface:#141210; --modal-input-bg:#24201c; --modal-border:#3d352b;
+    /* ---------- A PANEL IS A CARD, AND CARDS ARE NEUTRAL NOW ----------
+       These were #141210 / #3d352b / #24201c -- the warm brown-black ramp
+       (H~30deg) that the RC2 palette refinement replaced with a near-neutral
+       one (H~255deg) at the top of this block. The pages moved; the modals
+       did not, so every panel that opened arrived a different colour from
+       the screen it opened over, and the eleven modals opened without a
+       theme class were a different colour again from the themed ones.
+       They now name the card tokens. #1C1E24 is --t-card, which is also the
+       midpoint of --t-card-grad, so a flat panel and a gradient one read as
+       the same surface rather than as two. */
+    /* ONLY THE SURFACE MOVES. --modal-input-bg and --modal-border are the
+       CONTROL ramp -- .modal-card re-pins --ctl-bg/--ctl-border to them, so
+       changing either drags every input inside every modal off the warm
+       control ramp the app uses for controls everywhere else. controlRamp
+       asserts that ramp character for character, and it is right to. The
+       card's own rim takes --t-tile-rim directly instead, below. */
+    --modal-surface:#1C1E24; --modal-input-bg:#24201c; --modal-border:#3d352b;
     --modal-active:#c5a059; --modal-active-rgb:197,160,89; --modal-text:#e6dfd5;
     /* the app's one metallic-gold gradient system -- shared by the header
        title and the confidence gauge, so both read as the same finish. */
@@ -422,7 +438,7 @@
     -webkit-font-smoothing:antialiased;
   }
   .font-display{font-family:'Cinzel',serif;}
-  .font-head{font-family:'Oswald',sans-serif; text-transform:uppercase;}
+  .font-head{font-family:var(--label-face); text-transform:uppercase; font-weight:var(--label-weight);}
   .font-mono{font-family:'JetBrains Mono',monospace;}
   a{color:inherit;}
   button{font-family:inherit; cursor:pointer; color:inherit; background:none; border:none; padding:0; margin:0;}
@@ -597,8 +613,8 @@
   .tb-unit-toggle button{
     display:flex; align-items:center; justify-content:center;
     min-height:34px; min-width:0; padding:0 5px;
-    font-family:'Oswald',sans-serif; font-size:10.5px; font-weight:600;
-    letter-spacing:.09em; text-transform:uppercase; line-height:1;
+    font-family:var(--label-face); font-size:10.5px; font-weight:var(--label-weight);
+    letter-spacing:var(--label-track); text-transform:uppercase; line-height:1;
     color:#FFFFFF; background:none; border-radius:0;
     text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
     transition:color .2s, text-shadow .2s, font-weight .2s;
@@ -615,7 +631,7 @@
     padding:4px 6px;
   }
   .cd-cell{font-weight:700; color:var(--gold-text); font-size:0.7rem; text-align:center; white-space:nowrap;}
-  .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold-text); font-weight:700;}
+  .cd-race-day{font-family:var(--label-face); font-size:12px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--gold-text); font-weight:var(--label-weight);}
 
   /* confidence score fuel gauge — the approved-concept full-circle hero.
      A ring, not a semicircle: 12 tick marks framing a single progress arc,
@@ -756,7 +772,7 @@
      already use. Same law, correct side of it. */
   .gauge-num b{font-size:32px; color:var(--gold-bright); line-height:1; font-weight:700;
     text-shadow:0 0 10px color-mix(in srgb, var(--gold-bright) 32%, transparent);}
-  .gauge-num span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-top:3px;}
+  .gauge-num span{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); margin-top:3px; font-weight:var(--label-weight);}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px;
     background:var(--tile-sheen), var(--c-gold-soft);
@@ -830,10 +846,9 @@
   /* The recommendation, said once and quietly. It is a label on a choice, not
      a second selected state, so it never takes the accent. */
   .rs-rec{
-    font-family:'Oswald',sans-serif; font-size:8px; letter-spacing:.1em;
+    font-family:var(--label-face); font-size:8px; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink-faint);
-    border:1px solid var(--line); border-radius:99px; padding:1px 5px;
-  }
+    border:1px solid var(--line); border-radius:99px; padding:1px 5px; font-weight:var(--label-weight);}
   .rs-chip.on .rs-rec{color:var(--cherry-btn-ink); border-color:rgba(255,255,255,.45);}
   /* Custom: one number, two buttons. Progressive disclosure -- it exists only
      while Custom is the selection, so the card does not carry a configuration
@@ -880,6 +895,10 @@
      and the figure would stop reading as the figure. Same relationship
      .ws-qty has to .ws-name. */
   .zone-time{color:var(--ink);}
+  .zone-time-wrap{display:inline-flex; align-items:baseline; gap:6px;}
+  .zone-time-k{font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    text-transform:uppercase; color:var(--ink-dim);}
   /* Dimensional capsule -- same restrained "Level 2" depth language as the
      Valhalla Race Outlook / Reading dials (a groove the segments sit inside,
      not a raised object of its own): an inset shadow gives the track real
@@ -1016,8 +1035,8 @@
   .how-row{padding:10px 0; border-bottom:1px solid var(--line-soft);}
   .how-row:first-of-type{padding-top:0;}
   .how-row:last-of-type{border-bottom:none; padding-bottom:0;}
-  .how-row .k{display:block; font-family:'Oswald',sans-serif; font-size:12.5px; font-weight:600;
-              letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
+  .how-row .k{display:block; font-family:var(--label-face); font-size:12.5px; font-weight:var(--label-weight);
+              letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
   /* overflow-wrap so a long pace range or an unbroken term cannot push the
      card sideways on a narrow phone; the page body must never scroll across. */
   .how-row .v{display:block; color:var(--ink-dim); overflow-wrap:anywhere;}
@@ -1025,7 +1044,7 @@
      where Execution or Fuel begins without becoming a card of its own. Same
      upgrade as .how-row .k above, for the same reason: it is also a section
      heading (Execution, Fuel) that was reading as body text. */
-  .how-row-heading{font-family:'Oswald',sans-serif; font-size:12.5px; font-weight:600; letter-spacing:1.3px;
+  .how-row-heading{font-family:var(--label-face); font-size:12.5px; font-weight:var(--label-weight); letter-spacing:var(--label-track);
                    text-transform:uppercase; color:var(--bronze-text); margin:14px 0 6px; padding-top:10px;
                    border-top:1px solid var(--line-soft);}
   .how-row-heading:first-child{margin-top:0; padding-top:0; border-top:none;}
@@ -1184,8 +1203,8 @@
      primary-value roles use (see .ws-h-detail-name's old value and .ws-qty
      respectively) -- consolidated off one-off hardcoded px so the blueprint
      stays on the shared type scale instead of its own. */
-  .ws-h-name{font-family:'Oswald',sans-serif; font-size:var(--fs-label); letter-spacing:.3px;
-             text-transform:uppercase; color:var(--ink); margin-top:7px; line-height:1.25;}
+  .ws-h-name{font-family:var(--label-face); font-size:var(--fs-label); letter-spacing:var(--label-track);
+             text-transform:uppercase; color:var(--ink); margin-top:7px; line-height:1.25; font-weight:var(--label-weight);}
   /* Wraps by default, not nowrap -- a compound quantity ("2 x 3 x 700m", a
      ladder's rung list) is exactly as long as the reps the coach prescribed,
      and forcing every shape onto one line is what collided into the
@@ -2391,7 +2410,7 @@
 
   /* ---------- section labels ---------- */
   .section-label{
-    font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px;
+    font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track);
     font-size:12px; color:var(--ink-faint); display:flex; align-items:center; gap:8px; margin:22px 0 10px;
   }
   .section-label .rule{flex:1; height:1px; background:var(--line);}
@@ -2429,7 +2448,7 @@
   .week-head:active{background:var(--bg-4);}
   .week-num{font-family:'Cinzel',serif; font-weight:700; font-size:20px; color:var(--bronze-text); flex:none; width:34px;}
   .week-meta{flex:1; min-width:0;}
-  .week-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text);}
+  .week-phase{font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
   .week-range{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
   .week-vol{text-align:right; flex:none;}
   .week-vol .v{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--ink);}
@@ -2440,7 +2459,7 @@
   .week-body{max-height:0; overflow:hidden; transition:max-height .35s ease;}
   .week.open .week-body{max-height:10000px;}
   .week-body-inner{padding:2px 12px 14px;}
-  .week-today-flag{display:inline-block; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:'Oswald',sans-serif;}
+  .week-today-flag{display:inline-block; font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:var(--label-face);}
 
   /* ---------- day card ---------- */
   .day{
@@ -2627,7 +2646,7 @@
   .day-main{flex:1; min-width:0;}
   .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .day-date{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); color:var(--ink-faint);}
-  .day-badge{font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px; text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:600;}
+  .day-badge{font-family:var(--label-face); font-size:var(--fs-meta); letter-spacing:var(--label-track); text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:var(--label-weight);}
   .day-badge.type-rest{background:var(--c-rest-soft); color:var(--c-rest);}
   .day-badge.type-easy{background:var(--c-easy-soft); color:var(--c-easy);}
   .day-badge.type-tempo{background:var(--c-tempo-soft); color:var(--c-tempo);}
@@ -2721,7 +2740,7 @@
     justify-content:center; border:1px solid var(--ok-text); border-radius:999px;}
   .actual-done-i svg{width:11px; height:11px;}
   .actual-done-k{font-family:var(--label-face); font-size:var(--fs-meta); font-weight:var(--label-weight);
-    letter-spacing:.08em; text-transform:uppercase;}
+    letter-spacing:var(--label-track); text-transform:uppercase;}
   /* A disclosure is a label and the line that explains it, not one long
      sentence wearing a plus sign. */
   .splits-toggle .st-k{display:inline; font-family:var(--label-face); font-weight:var(--label-weight);
@@ -2755,7 +2774,7 @@
   }
   .notes-wand:hover, .notes-wand:focus-visible{opacity:1; border-color:var(--modal-active); transform:translateY(-1px);}
   .note-chips{grid-column:1/-1; margin-top:7px;}
-  .note-chips-head{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px;}
+  .note-chips-head{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px; font-weight:var(--label-weight);}
   .note-chip-row{display:flex; flex-wrap:wrap; gap:5px;}
   .note-chip{
     display:inline-flex; align-items:center; gap:5px; font-size:10px; line-height:1;
@@ -2833,8 +2852,8 @@
   .splits-summary-icon{flex:none; display:flex; color:var(--bronze-text);}
   .splits-summary-icon svg{width:15px; height:15px;}
   .splits-summary-title{
-    flex:1 1 auto; min-width:0; font-family:'Oswald',sans-serif; font-size:11px;
-    letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text);
+    flex:1 1 auto; min-width:0; font-family:var(--label-face); font-size:11px;
+    letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .splits-summary-detail{ color:var(--ink-faint); margin-top:4px; padding-left:24px;}
@@ -2934,7 +2953,7 @@
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
   .pzr:last-of-type{border-bottom:none;}
   .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
-  .pzr-tag{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px;}
+  .pzr-tag{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px; font-weight:var(--label-weight);}
   /* target HR range, shown alongside the pace inputs on the same row --
      stacked under the zone label rather than a third flex column, so the
      row still fits on narrow phones without wrapping or crowding the
@@ -2975,7 +2994,7 @@
 
   /* ---------- AI post-session execution review ---------- */
   .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--surface-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .exec-review-head{display:flex; align-items:center; gap:8px; font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
+  .exec-review-head{display:flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
   .exec-review-head svg{width:14px; height:14px; flex:none;}
   /* title yields first so the badge can never be pushed off or overlapped
      on a narrow phone; the badge itself never shrinks */
@@ -3005,12 +3024,12 @@
   .coach-msg-p:last-child{margin-bottom:0;}
   .coach-msg-p:first-child{color:var(--ink);}
   .coach-msg-brief{margin-top:8px;}
-  .cr-k{font-family:'Oswald',sans-serif; font-size:var(--fs-label); letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
+  .cr-k{font-family:var(--label-face); font-size:var(--fs-label); letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
   .cr-v{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .cr-sub{ color:var(--ink-faint); margin-top:2px; overflow-wrap:anywhere;}
   .cr-signal{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
   .cr-sig-dot{font-size:12px; line-height:1;}
-  .cr-sig-label{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
+  .cr-sig-label{font-family:var(--label-face); font-size:12px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
   .cr-adjust{margin-top:11px; padding:11px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .cr-adjust-line{ color:var(--ink); overflow-wrap:anywhere;}
   .cr-adjust-why{ color:var(--ink-faint); margin-top:4px; overflow-wrap:anywhere;}
@@ -3127,7 +3146,7 @@
      different reason, and the radius closes on all four corners because a
      centred card has no edge to sit flush against. */
   .modal-card{
-    background:var(--modal-surface); border:1px solid var(--modal-border); width:100%; max-width:560px;
+    background:var(--modal-surface); border:1px solid var(--t-tile-rim); width:100%; max-width:560px;
     border-radius:20px 20px 0 0; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow);
     animation:slideup .22s ease; color-scheme:dark;
     /* A modal is a lit stage in both themes -- that was already true and stays
@@ -3301,8 +3320,8 @@
   .bld-step.now{background:var(--cherry);}
   .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
   .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
-  .bld-stage-name{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
-  .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
+  .bld-stage-name{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); font-weight:var(--label-weight);}
+  .bld-stage-h{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px; font-weight:var(--label-weight);}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
 
   /* ---------- OVERVIEW STAGE ----------
@@ -3337,8 +3356,8 @@
   .voice-btn{
     flex:1; display:inline-flex; align-items:center; justify-content:center; gap:7px;
     min-height:44px; padding:9px 10px;
-    font-family:'Oswald',sans-serif; font-size:var(--fs-support); font-weight:600;
-    letter-spacing:.4px; text-transform:uppercase;
+    font-family:var(--label-face); font-size:var(--fs-support); font-weight:var(--label-weight);
+    letter-spacing:var(--label-track); text-transform:uppercase;
     border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
     background:var(--ctl-bg); color:var(--ink-dim);
     box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.05);
@@ -3546,8 +3565,8 @@
     margin:4px 0 10px; padding:11px; border-radius:var(--tile-radius);
     background:var(--surface-2, var(--surface-3)); border:1px solid var(--tile-border);
   }
-  .ask-prop-head{font-family:'Oswald',sans-serif; font-size:var(--fs-support); text-transform:uppercase;
-    letter-spacing:.5px; color:var(--ink-faint); margin-bottom:4px;}
+  .ask-prop-head{font-family:var(--label-face); font-size:var(--fs-support); text-transform:uppercase;
+    letter-spacing:var(--label-track); color:var(--ink-faint); margin-bottom:4px;}
   .ask-prop-line{font-size:var(--fs-body); color:var(--ink); margin-bottom:10px;}
 
   /* Guidance Level, in Settings. The same segmented treatment the unit toggle
@@ -3760,11 +3779,11 @@
     padding:6px 16px;
   }
   .bld-review-hero{text-align:center; padding:16px 0 8px; border-bottom:1px solid var(--tile-border); margin-bottom:2px;}
-  .bld-review-hero .d{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; font-size:26px; color:var(--gold-text); line-height:1.1;}
+  .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--gold-text); line-height:1.1; font-weight:var(--label-weight);}
   .bld-review-hero .s{font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
   .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--tile-border);}
   .bld-review-row:last-child{border-bottom:none;}
-  .bld-review-k{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.2px; font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
+  .bld-review-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
   .bld-review-v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
 
   /* TRAINING-DAY SELECTOR VISUAL REFINEMENT superseded the note that used to
@@ -3781,7 +3800,7 @@
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--modal-border); position:sticky; top:0; background:var(--modal-surface); z-index:2;}
-  .modal-head h2{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:16px; margin:0; color:var(--modal-text);}
+  .modal-head h2{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:16px; margin:0; color:var(--modal-text);}
   .modal-body{padding:16px 18px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
   /* ---- THE COMPLETION MOMENT ----
@@ -3798,7 +3817,7 @@
     border:1px solid rgba(227,177,90,0.22); color:var(--wc-ink);
     display:flex; flex-direction:column; gap:14px;}
   .wc-top{display:flex; align-items:center; justify-content:center; gap:9px;}
-  .wc-top-k{font-family:'Oswald',sans-serif; font-size:13px; letter-spacing:2.2px;
+  .wc-top-k{font-family:var(--label-face); font-size:13px; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--wc-ink);}
   .wc-top-mark{width:21px; height:21px; border-radius:50%; border:1.5px solid var(--gold);
     color:var(--gold-bright); display:flex; align-items:center; justify-content:center;}
@@ -4141,7 +4160,7 @@
   .modal-actions .btn{flex:1;}
 
   fieldset{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin:0 0 14px;}
-  legend{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); padding:0 6px;}
+  legend{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); padding:0 6px; font-weight:var(--label-weight);}
 
   /* ---------- settings extras ---------- */
   .connect-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft);}
@@ -4321,8 +4340,13 @@
   .wk-bar-fill{height:100%; border-radius:99px;
     background:linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-bright));
     box-shadow:0 0 10px rgba(227,177,90,.34);}
+  /* The cherry hairline that sat here is gone. It was the one coloured rule
+     on the screen, directly under the gold progress bar, and it separated
+     the week's figures from the week's note -- two parts of the same hero
+     that the gap already separates. Same reasoning as the section
+     boundaries removed from Valhalla and This Week. */
   .wk-taper{display:flex; gap:9px; align-items:flex-start; margin-top:12px;
-    padding-top:11px; border-top:1px solid var(--cherry-line); color:var(--ink-dim);}
+    padding-top:11px; color:var(--ink-dim);}
   .wk-taper b{color:var(--gold-text); font-weight:600;}
   .wk-taper svg{width:17px; height:17px; flex:none; color:var(--gold); margin-top:1px;}
 
@@ -4811,15 +4835,15 @@
   }
   .bn-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0;
-    padding:7px 1px; font-family:'Oswald',sans-serif; font-size:8.5px;
-    text-transform:uppercase; letter-spacing:.2px; background:none; border-radius:0;
+    padding:7px 1px; font-family:var(--label-face); font-size:8.5px;
+    text-transform:uppercase; letter-spacing:var(--label-track); background:none; border-radius:0;
     transition:color .2s, text-shadow .2s, font-weight .2s;
     /* CRISP MEANS THE TIGHT LAYER DOES THE WORK. Pure white at full
        strength, and a 1px halo to set the glyph off the ground before any
        wide light is added -- the wide layer alone at this size stops
        reading as glow and starts reading as a blurred label. Same structure
        as the hero distance, radii scaled to 8.5px type. */
-    color:#FFFFFF; font-weight:600;
+    color:#FFFFFF; font-weight:var(--label-weight);
     text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
   }
   /* The icon is a stroked glyph, so its light has to come from a drop-shadow
@@ -4993,9 +5017,9 @@
   .coach-dot.good{background:var(--c-easy);} .coach-dot.watch{background:var(--gold);}
   .coach-dot.warn{background:var(--c-threshold);} .coach-dot.neutral{background:var(--ink-faint);}
   .coach-status-main{min-width:0; flex:1 1 auto;}
-  .coach-status-label{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink); line-height:1.25;}
+  .coach-status-label{font-family:var(--label-face); font-size:15px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.25; font-weight:var(--label-weight);}
   .coach-status-detail{ color:var(--ink-dim); margin-top:3px; overflow-wrap:anywhere;}
-  .coach-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px;}
+  .coach-phase{font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px; font-weight:var(--label-weight);}
   .coach-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px;}
   /* SOFT SURFACE pass -- see --tile-* tokens. All three tiles keep their
      identical resting look regardless of Load/Recovery/Trend's state: no
@@ -5003,7 +5027,7 @@
      (Recovery must not become "a giant green block"). The parent .hub-card
      stays plain/flat -- only these three internal tiles gain depth. */
   .coach-metric{background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border); border-radius:var(--tile-radius); box-shadow:var(--tile-shadow); padding:9px 8px; min-width:0; text-align:center;}
-  .coach-metric .cm-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); line-height:1.2;}
+  .coach-metric .cm-k{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); line-height:1.2; font-weight:var(--label-weight);}
   .coach-metric .cm-v{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
   .coach-metric .cm-s{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
   /* BETWEEN SIGNALS, NOT ABOVE EACH ONE. This was written as a border on
@@ -5018,7 +5042,7 @@
   .coach-signal{display:flex; gap:9px; align-items:flex-start; padding:9px 0;}
   .coach-signal + .coach-signal{border-top:1px solid var(--line);}
   .coach-signal-body{min-width:0;}
-  .coach-signal-label{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink); line-height:1.3;}
+  .coach-signal-label{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.3; font-weight:var(--label-weight);}
   .coach-signal-detail{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
   .coach-bt{display:flex; gap:9px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--line);}
   .coach-bt:first-child{border-top:none;}
@@ -5028,7 +5052,7 @@
   .coach-next{margin:0 0 14px;}
   .coach-next-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
   .coach-next-head svg{width:15px; height:15px; flex:none; color:var(--gold);}
-  .coach-next-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text);}
+  .coach-next-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
   .coach-next-session{font-size:var(--fs-body); color:var(--ink); line-height:var(--lh-body); margin-bottom:6px; overflow-wrap:anywhere;}
   .coach-next-rec{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
@@ -5042,7 +5066,7 @@
   /* PENDING vs SETTLED decision-state flag on the NEXT MOVE card -- a proposed
      adjustment is awaiting a tap (gold, active); a decided one is a record of
      what happened (muted, no action attached to it). */
-  .coach-decision-flag{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.1px; text-transform:uppercase; display:block; margin-bottom:5px;}
+  .coach-decision-flag{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; display:block; margin-bottom:5px; font-weight:var(--label-weight);}
   .coach-decision-flag.pending{color:var(--gold-text);}
   .coach-decision-flag.settled{color:var(--ink-faint);}
   /* ---------- decision state ----------
@@ -5061,12 +5085,11 @@
      so the dimensional face survives regardless of which state is shown. */
   .coach-state{
     display:inline-flex; align-items:center; gap:5px; margin-left:auto;
-    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px;
+    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
     text-transform:uppercase; padding:2px 8px; border-radius:99px;
     background:var(--tile-sheen), var(--c-rest-soft); color:var(--ink-dim);
     border:1px solid var(--tile-border);
-    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10);
-  }
+    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10); font-weight:var(--label-weight);}
   /* The dot carries the state colour; the word carries the meaning. The
      workout-type hues are deliberately identical in both themes (see the
      light-theme block), so they cannot legibly hold text on a light chip --
@@ -5084,10 +5107,9 @@
   .coach-state.recover .coach-state-dot{background:var(--c-threshold);}
   .coach-why-btn{
     background:none; border:none; padding:6px 0 0; margin:0; cursor:pointer;
-    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px;
+    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink-faint); text-decoration:underline;
-    text-underline-offset:3px;
-  }
+    text-underline-offset:3px; font-weight:var(--label-weight);}
   .coach-why-btn:hover, .coach-why-btn:focus-visible{color:var(--bronze);}
   .coach-why-list{
     margin:8px 0 0; padding:9px 11px 9px 26px; list-style:disc;
@@ -5103,12 +5125,12 @@
   .evo-link.is-progress:hover, .evo-link.is-progress:focus-visible{color:var(--bronze);}
   .evo-panel{margin-top:9px; padding:10px 11px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .evo-sec + .evo-sec{margin-top:9px;}
-  .evo-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
+  .evo-k{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px; font-weight:var(--label-weight);}
   .evo-v{ color:var(--ink-dim); overflow-wrap:anywhere;}
   .evo-list{margin:0; padding-left:17px; list-style:disc;}
   .evo-list li{ color:var(--ink); margin:2px 0; overflow-wrap:anywhere;}
   .readiness{margin-top:11px; padding:10px 11px; background:var(--surface-2); border:1px dashed var(--line); border-radius:var(--radius-sm);}
-  .readiness-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
+  .readiness-head{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px; font-weight:var(--label-weight);}
   .readiness-row{display:flex; align-items:center; gap:8px; margin-top:6px;}
   .readiness-label{font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-faint); width:44px; flex:none;}
   .readiness-opts{display:flex; gap:4px; flex-wrap:wrap; flex:1;}
@@ -5143,9 +5165,8 @@
     border-radius:var(--radius-sm); color:inherit;
   }
   .readiness-done-head{
-    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px;
-    text-transform:uppercase; color:var(--bronze-text); flex:none;
-  }
+    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:var(--bronze-text); flex:none; font-weight:var(--label-weight);}
   .readiness-done-line{ color:var(--ink-dim); overflow-wrap:anywhere;}
   .readiness-tick{color:var(--cherry-text);}
   .readiness-head-btn{
@@ -5222,7 +5243,7 @@
   .hub-card .setup-section-title{margin-top:0;}
 
   .empty-note{ color:var(--ink-faint); text-align:center; padding:10px 0;}
-  .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1px; text-transform:uppercase;}
+  .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track); text-transform:uppercase; font-weight:var(--label-weight);}
   .divider-or .rule{flex:1; height:1px; background:var(--line);}
   /* ---------- v2: distance-agnostic generator additions ---------- */
   .setup-cta{
@@ -5274,7 +5295,7 @@
   .plan-summary-bar:hover{background:var(--bg-3); border-color:var(--bronze-2);}
   .plan-summary-bar:active{background:var(--bg-4);}
   .plan-summary-bar .psb-main{flex:1; min-width:0;}
-  .plan-summary-bar .psb-title{font-family:'Oswald',sans-serif; font-size:12.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
+  .plan-summary-bar .psb-title{font-family:var(--label-face); font-size:12.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
   .plan-summary-bar .psb-sub{font-family:'JetBrains Mono',monospace; color:var(--ink-faint); margin-top:2px;}
   .plan-summary-bar svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
 
@@ -5315,13 +5336,12 @@
      this only wraps that same text in a pill shell. Right-aligned so it
      still reads as the row's conclusion, not a fourth stray element. */
   .read-val{
-    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1px;
+    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink-dim); text-align:right;
     min-width:0; overflow-wrap:anywhere; display:inline-flex; align-items:center; gap:5px;
     flex:none; white-space:nowrap; padding:3px 9px; border-radius:99px;
     background:var(--tile-sheen), var(--c-rest-soft); border:1px solid var(--tile-border);
-    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10);
-  }
+    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10); font-weight:var(--label-weight);}
   .read-val .read-dot{width:5px; height:5px; border-radius:50%; background:currentColor; flex:none;}
   .read-val.good{color:var(--c-easy);}
   .read-val.watch{color:var(--gold);}
@@ -5339,9 +5359,8 @@
     display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:8px;
   }
   .outlook-title{
-    font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.4px;
-    text-transform:uppercase; color:var(--bronze-text);
-  }
+    font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
   .outlook-dist{font-size:10.5px; color:var(--ink-faint); text-align:right;}
   .outlook-track{
     position:relative; height:12px; border-radius:99px; background:var(--bg-3);
@@ -5431,7 +5450,7 @@
   .v-hero-figs{display:flex; justify-content:center; gap:26px; margin-top:14px;}
   .v-hero-fig{text-align:center;}
   .v-hero-fig b{display:block; font-size:16px; color:var(--ink); font-weight:700;}
-  .v-hero-fig span{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
+  .v-hero-fig span{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
   .v-status-line{
     display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; padding-top:14px;
     border-top:1px solid var(--line-soft); color:var(--ink-dim);
@@ -5462,7 +5481,7 @@
     padding:14px 16px 18px; margin-top:16px; font:inherit; color:inherit;
   }
   .oi-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
-  .oi-label span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--gold-text);}
+  .oi-label span{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--gold-text); font-weight:var(--label-weight);}
   .oi-label svg{width:11px; height:11px; color:var(--gold-text); opacity:.7; flex:none;}
   .oi-dist{font-size:10px; letter-spacing:normal; text-transform:none; color:var(--ink-faint); font-family:'Inter',sans-serif;}
   .oi-track{position:relative; height:6px; margin:22px 6px 24px;}
@@ -5710,9 +5729,9 @@
   .b-dial[data-rank="2"] .rd-val b{max-width:56px;}
   /* The counted noun under a count. Interface face, never the data face --
      the number is the value, this is what the number is OF. */
-  .rd-sub{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.05em;
+  .rd-sub{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink-faint); line-height:1.1; margin-top:3px;
-    max-width:62px; text-align:center;}
+    max-width:62px; text-align:center; font-weight:var(--label-weight);}
   .rd-val b{display:block; text-align:center; line-height:1.08; max-width:50px;
     overflow-wrap:break-word; word-break:break-word;
     font-family:'JetBrains Mono',monospace; color:var(--ink); font-weight:700;}
@@ -5841,8 +5860,8 @@
   .ci-body .ci-para:last-of-type{margin-bottom:4px;}
   .rs-pick{display:flex; flex-direction:column; align-items:flex-start; gap:3px;
            width:100%; text-align:left;}
-  .rs-pick-label{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.6px;
-                 font-size:13px; color:var(--ink);}
+  .rs-pick-label{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track);
+                 font-size:13px; color:var(--ink); font-weight:var(--label-weight);}
   .rs-pick-note{ color:var(--ink-soft);}
   .rs-pick.is-picked{box-shadow:inset 0 0 0 1.5px var(--cherry); border-color:var(--cherry);}
   .rs-pick.is-picked .rs-pick-label{color:var(--cherry-text);}
@@ -5926,8 +5945,8 @@
   .ev-card.stg-row.is-muted .stg-row-title{color:var(--ink-faint); font-weight:500;}
   .ev-card.stg-row.is-muted .stg-nav-icon{color:var(--ink-faint);}
   /* The two status pills, in the tones they already carried. */
-  .stg-pill{flex:none; font-family:'Oswald',sans-serif; font-size:9.5px; font-weight:600;
-    letter-spacing:.09em; text-transform:uppercase; padding:4px 10px; border-radius:999px;
+  .stg-pill{flex:none; font-family:var(--label-face); font-size:9.5px; font-weight:var(--label-weight);
+    letter-spacing:var(--label-track); text-transform:uppercase; padding:4px 10px; border-radius:999px;
     border:1px solid currentColor;}
   .stg-pill.is-gold{color:var(--gold-text);}
   .stg-pill.is-green{color:var(--c-easy);}
@@ -6024,9 +6043,8 @@
   .act-tile:active{background:var(--bg-3);}
   .act-tile svg{width:19px; height:19px; color:var(--bronze-text); flex:none;}
   .act-lab{
-    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.9px;
-    text-transform:uppercase; color:var(--ink); line-height:1.3;
-  }
+    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:var(--ink); line-height:1.3; font-weight:var(--label-weight);}
   /* The panel a Record or Reading circle opens. Same modal-themed surface and
      the same circular close control as every other worked-in surface. The
      full-width Cherry Lacquer BACK that used to sit at its foot is gone: it
@@ -6138,7 +6156,7 @@
   }
   .pace-table{width:100%; border-collapse:collapse; font-size:11.5px;}
   .pace-table th, .pace-table td{padding:9px 6px; text-align:center; border-bottom:1px solid var(--tile-border);}
-  .pace-table th{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-faint); font-weight:600;}
+  .pace-table th{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
   .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:'JetBrains Mono',monospace; color:var(--ink-dim);}
   .pace-table td{font-family:'JetBrains Mono',monospace; color:var(--ink);}
   .pace-table tr:last-child td{border-bottom:none; font-weight:700; color:var(--gold);}
@@ -6164,7 +6182,7 @@
   }
   .goal-input-row .gp{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); text-align:right;}
 
-  .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  .setup-section-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
   /* ---------- A SECTION TITLE WITH A RULE EITHER SIDE ----------
      The heading is .setup-section-title exactly as it is everywhere else --
      same Oswald, same 11px, same 1.5px tracking, same uppercase, same bronze
@@ -6199,10 +6217,9 @@
      fill -- it takes the accent's TEXT tone, at a text contrast ratio. Only "Subscribe again" and "Update payment details" are primary
      actions, and they inherit .btn-primary like every other one. */
   .sub-pill{
-    font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px;
+    font-family:var(--label-face); font-size:var(--fs-meta); letter-spacing:var(--label-track);
     text-transform:uppercase; padding:2px 9px; border-radius:99px;
-    border:1px solid var(--line); color:var(--ink-faint); white-space:nowrap;
-  }
+    border:1px solid var(--line); color:var(--ink-faint); white-space:nowrap; font-weight:var(--label-weight);}
   .sub-pill.sub-active{border-color:rgba(var(--modal-active-rgb),0.5); color:var(--modal-active);}
   .sub-pill.sub-trial{border-color:var(--cherry-line); color:var(--cherry-text);}
   .sub-pill.sub-grace{border-color:var(--c-threshold); color:var(--danger-text);}
@@ -6224,9 +6241,8 @@
     margin-top:16px; padding-top:14px; border-top:1px solid var(--line);
   }
   .dz-title{
-    font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1.4px;
-    text-transform:uppercase; color:var(--ink-faint); margin-bottom:8px;
-  }
+    font-family:var(--label-face); font-size:var(--fs-meta); letter-spacing:var(--label-track);
+    text-transform:uppercase; color:var(--ink-faint); margin-bottom:8px; font-weight:var(--label-weight);}
 
   .block-identity{
     font-size:var(--fs-data); letter-spacing:.6px; color:var(--ink-dim);
@@ -6253,10 +6269,9 @@
     margin-top:12px; padding-top:10px; border-top:1px solid var(--line-soft);
   }
   .yr-lead-pill{
-    margin-left:auto; font-family:'Oswald',sans-serif; font-size:var(--fs-meta);
-    letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);
-    border:1px solid var(--line); border-radius:99px; padding:2px 8px;
-  }
+    margin-left:auto; font-family:var(--label-face); font-size:var(--fs-meta);
+    letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint);
+    border:1px solid var(--line); border-radius:99px; padding:2px 8px; font-weight:var(--label-weight);}
   /* Measured fitness: two efforts and the gap. Deliberately a short list, not
      a chart -- two points a season apart are two points. */
   .yr-fit-main, .yr-fit-prev{
@@ -6272,9 +6287,8 @@
   .yr-fit-prev .yr-fit-v{font-size:var(--fs-data); color:var(--ink-dim); grid-row:1 / span 2;}
   .yr-fit-d{font-size:var(--fs-meta); color:var(--ink-faint);}
   .yr-fit-delta{
-    font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px;
-    text-transform:uppercase; margin-top:10px; color:var(--ink-faint);
-  }
+    font-family:var(--label-face); font-size:var(--fs-meta); letter-spacing:var(--label-track);
+    text-transform:uppercase; margin-top:10px; color:var(--ink-faint); font-weight:var(--label-weight);}
   .yr-fit-delta.up{color:var(--c-easy);}
   .yr-est{margin-top:14px; padding-top:12px; border-top:1px solid var(--line-soft);}
   .yr-est-head{
@@ -45173,7 +45187,15 @@ function renderZoneBreakdown(weekNum){
     return '<div class="zleg-item"><span class="zleg-dot '+m.cls+'"></span>'+m.label+' '+pct[m.k]+'%</div>';
   }).join('');
   return '<div class="zone-card">'+
-    '<div class="zone-head"><span class="font-head">Weekly Zone Breakdown</span><span class="zone-time font-mono">'+totalH+'h '+(totalM<10?'0':'')+totalM+'m time-on-feet</span></div>'+
+    /* THE FIGURE IS MONO, THE NOUN IS NOT. "4h 20m time-on-feet" was one
+       monospace string, so the words were set in the data face -- which is
+       the rule .rd-sub states in as many words: the number is the value,
+       this is what the number is OF, and that belongs in the interface
+       voice. Split, the row reads as a label, a figure and its noun rather
+       than as two different kinds of heading. */
+    '<div class="zone-head"><span class="font-head">Weekly Zone Breakdown</span>'+
+      '<span class="zone-time-wrap"><span class="zone-time font-mono">'+totalH+'h '+(totalM<10?'0':'')+totalM+'m</span>'+
+      '<span class="zone-time-k">time-on-feet</span></span></div>'+
     '<div class="zbar">'+segs+'</div>'+
     '<div class="zone-legend">'+legend+'</div>'+
   '</div>';
@@ -54841,6 +54863,11 @@ function renderWeekSessionBox(weekNum){
      full card both carried it -- a visibly empty ring in a box of the right
      size. Each slide gets its own id, rewritten in the one string that
      mentions it, so the shared hero markup is untouched everywhere else. */
+  /* The summary and the full card are two positions for ONE session, and
+     adjustedSessionStructure enforces that only one of them ever shows --
+     rendering both is a second presentation of the same day. So the rail
+     still stands down when the card opens; what the open card gains instead
+     is the gesture itself, through data-hswipe below. */
   var overview = weekSessionOpen ? '' : renderWeekDayTrack(weekNum, dd);
   /* THE BUTTON'S SLOT IS HELD OPEN ON A REST DAY, and that is a layout fix,
      not a decorative one. The slides are align-items:stretch, so the rail is
@@ -54860,7 +54887,8 @@ function renderWeekSessionBox(weekNum){
   /* Collapsed only. If a rest day is somehow open, the real button renders
      so there is always a way back out of the full card. */
   var isRest = dd.type === 'rest' && !weekSessionOpen;
-  return '<div class="wk-session'+(weekSessionOpen ? ' is-open' : '')+'">'+
+  return '<div class="wk-session'+(weekSessionOpen ? ' is-open' : '')+'"'+
+    (weekSessionOpen ? ' data-hswipe="1"' : '')+'>'+
     overview+
     swipeHintHtml('week', 'Swipe for another day')+
     '<button type="button" class="wk-open'+(isRest ? ' is-ghost' : '')+'"'+
@@ -54871,6 +54899,47 @@ function renderWeekSessionBox(weekNum){
       ' <span class="wk-open-caret" aria-hidden="true">\u2192</span></button>'+
     full+
   '</div>';
+}
+/* ---- THE OPEN CARD TAKES THE GESTURE THE RAIL GAVE UP ----
+   Opening the full session used to end the week: the rail stood down, as it
+   must, and with it went the only thing on the screen that answered to a
+   swipe -- so the athlete had to close the card to change day. The card
+   itself now listens.
+   It commits rather than tracks. The rail can follow a finger because it has
+   a neighbour rendered beside it to reveal; one open card has nothing behind
+   it to slide in, and dragging a full-height card to no purpose reads worse
+   than a clean step. Same threshold, same axis bias and same haptic as every
+   other commit in the product, so the gesture feels identical even though
+   what it does to the pixels differs. */
+function wireWeekFullSwipe(card){
+  if (!card || card.__vvFullSwiped) return;
+  card.__vvFullSwiped = true;
+  var sx = 0, sy = 0, claimed = false, decided = false;
+  card.addEventListener('touchstart', function(e){
+    if (!e.touches || e.touches.length !== 1) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+    claimed = false; decided = false;
+  }, { passive: true });
+  card.addEventListener('touchmove', function(e){
+    if (decided || !e.touches || e.touches.length !== 1) return;
+    var dx = e.touches[0].clientX - sx, dy = e.touches[0].clientY - sy;
+    if (Math.abs(dx) < PAGER_CLAIM_PX && Math.abs(dy) < PAGER_CLAIM_PX) return;
+    decided = true;
+    claimed = Math.abs(dx) > Math.abs(dy) * PAGER_AXIS_BIAS;
+  }, { passive: true });
+  card.addEventListener('touchend', function(e){
+    if (!claimed) return;
+    claimed = false;
+    var t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    var dx = t.clientX - sx;
+    var w = card.offsetWidth || 1;
+    if (Math.abs(dx) <= w * PAGER_COMMIT_FRACTION) return;
+    var to = weekStepDate(currentWeekNum(), dx < 0 ? 1 : -1);
+    if (!to) return;
+    handleWeekPickDay(to);
+    pagerHaptic();
+  }, { passive: true });
 }
 function renderWeekView(){
   var w = currentWeekNum();
@@ -55220,8 +55289,11 @@ function recordBenchmarkFact(){
   var b = state.setup.benchmark;
   return { key:'benchmark', subject:'Benchmark', chip:'Benchmark',
     value: b ? DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec) : 'Not set',
+    /* THE TIME ALONE. The distance under it was a qualifier the panel
+       states in full on the line beneath the circle, so the face holds the
+       figure and nothing else, as Progress and Readiness do. */
     big: b ? secToClock(b.timeSec) : '—',
-    small: b ? DISTANCE_PROFILES[b.distanceKey].label : '',
+    small: '',
     none: !b,
     /* ITS OWN WORDS, NOT THE GENERIC ONES. An unset benchmark and an
        unmeasured fitness are both absences and both take the acquisition
@@ -55286,7 +55358,13 @@ function recordGoalFact(){
      aria-label, the panel and the card still read the pair whole. */
   return { key:'goal', subject:'Goal', chip:'Goal',
     value:'Goal '+letter+' · '+secToClock(goal.timeSec),
-    big:secToClock(goal.timeSec), small:letter,
+    /* THE LETTER ALONE. The face carried 3:23:27 with the letter beneath
+       it -- the whole goal restated in a 90px circle, when the time is
+       already the first thing the panel behind it says. Which of the
+       athlete's three goals is live is the one fact this face can hold at a
+       size worth reading. `value` is untouched, so the aria-label, the
+       panel and the Race Outlook still read "Goal A - 3:23:27" whole. */
+    big:letter, small:'',
     synopsis:'The time this block is being built towards. Change it here.' };
 }
 function recordFacts(){
@@ -55773,6 +55851,9 @@ var PANEL_ACCENT_CLASS = {
   goal:'rp-gold', fitness:'rp-cherry', benchmark:'rp-white', progress:'rp-gold'
 };
 function openHQPanel(key){
+  /* Used, so it no longer needs saying. Marked here rather than on the
+     circle's press so a panel reached any other way counts too. */
+  swipeMarkLearned('reading');
   if (!state.setup) return;
   var html = hqPanelHtml(key);
   if (!html) return;
@@ -56052,6 +56133,13 @@ function readingDialHtml(sec, rank, isStatic){
 /* One heading, two rules, used by the two titles on Valhalla that sit over a
    centred row of circles. Everywhere else a section title still leads from
    the left, because everywhere else the thing under it does. */
+/* The arc's hint is taught once too. It is a TAP rather than a swipe, but
+   the principle is the one already established: say it until it has been
+   used, then stop taking room from the thing it was pointing at. */
+function readingHintHtml(){
+  if (swipeLearned('reading')) return '';
+  return '<div class="b-dials-hint">Tap any circle for the evidence '+ICONS.chevronRight+'</div>';
+}
 function sectionRule(title, leftAligned){
   return '<div class="sec-rule'+(leftAligned?' is-left':'')+'">'+
       (leftAligned ? '' : '<span class="sec-rule-line" aria-hidden="true"></span>')+
@@ -56088,7 +56176,7 @@ function renderValhallaReadingPreview(){
   return sectionRule('The Reading')+
     '<div class="b-dials">'+
       '<div class="b-dials-arc">'+dials+'</div>'+
-      '<div class="b-dials-hint">Tap any circle for the evidence '+ICONS.chevronRight+'</div>'+
+      readingHintHtml()+
     '</div>';
 }
 function readingPanel(key){
@@ -57777,6 +57865,8 @@ function wireWeekDayPager(){
   try{
     var rails = document.querySelectorAll('.wk-rail');
     for (var i=0; i<rails.length; i++) wireWeekRail(rails[i]);
+    var opens = document.querySelectorAll('.wk-session.is-open');
+    for (var j=0; j<opens.length; j++) wireWeekFullSwipe(opens[j]);
   }catch(e){}
 }
 function wireWeekRail(rail){
@@ -58007,7 +58097,27 @@ var ringLastKey = null, ringLastView = null, weekBarLastKey = null;
 function animateSessionRing(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{
-    var ring = document.querySelector('.th-ring');
+    /* THE RING ON SCREEN, NOT THE FIRST ONE IN THE DOCUMENT. This read
+       document.querySelector('.th-ring') from when This Week's overview held
+       exactly one. The day carousel renders a slide per session day, each
+       with its own ring, so the first match is whichever slide happens to be
+       first -- measured: the athlete on slide 4 while is-drawing landed on
+       slide 1. The visible ring never took the class, so it pulsed (a plain
+       CSS animation on .th-arc) and never filled. */
+    var ring = null;
+    var wkRail = document.querySelector('.wk-rail');
+    if (wkRail && wkRail.querySelectorAll){
+      /* Inside the carousel the answer is the active slide's ring OR
+         nothing: a rest day has no ring, and falling back to the document
+         would then animate a ring three slides off screen -- which is the
+         bug in a second form rather than a safety net. */
+      var wkIdx = parseInt(wkRail.getAttribute('data-index'), 10);
+      if (!(wkIdx >= 0)) wkIdx = 0;
+      var wkSlides = wkRail.querySelectorAll('.wk-slide');
+      ring = wkSlides[wkIdx] ? wkSlides[wkIdx].querySelector('.th-ring') : null;
+    } else {
+      ring = document.querySelector('.th-ring');
+    }
     if (!ring){ ringLastKey = null; ringLastView = null; return; }
     /* WHICH SESSION THIS RING IS FOR. On Today and in the expanded card the
        ring sits inside the day card, which carries data-day. In This Week's
