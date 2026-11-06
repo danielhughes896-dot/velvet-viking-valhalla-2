@@ -6443,14 +6443,11 @@
   .stg-row-text{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
   .stg-row-title{font-size:15px; font-weight:600; color:#FFFFFF; line-height:1.25;}
   .stg-row-sub{ color:var(--ink-dim);}
-  .stg-row .stg-nav-icon{color:var(--gold-text); align-self:center;}
-  .stg-row .stg-nav-icon svg{width:19px; height:19px;}
   .stg-row .rs-chev{flex:none;}
   .stg-row-switch{flex:none; display:flex; align-items:center;}
   /* A row that states an absence is not pressable, and says so by weight. */
   .ev-card.stg-row.is-muted{cursor:default;}
   .ev-card.stg-row.is-muted .stg-row-title{color:var(--ink-faint); font-weight:500;}
-  .ev-card.stg-row.is-muted .stg-nav-icon{color:var(--ink-faint);}
   /* The two status pills, in the tones they already carried. */
   .stg-pill{flex:none; font-family:var(--label-face); font-size:9.5px; font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase; padding:4px 10px; border-radius:999px;
@@ -6516,8 +6513,6 @@
   .ef-type-row.is-picked .swap-tick{
     background:var(--gold); border-color:var(--gold); color:#20180A;}
   .ev-card.ef-type-row[disabled]{opacity:.55; cursor:default;}
-  .stg-nav-icon{flex:none; display:flex; color:var(--bronze-text);}
-  .stg-nav-icon svg{width:16px; height:16px;}
   .stg-nav-label{flex:1 1 auto; min-width:0; font-family:var(--text-face); font-weight:600; letter-spacing:.2px; color:var(--ink);}
   .rs-head{display:flex; align-items:center; gap:12px;}
   .rs-dial{position:relative; width:44px; height:44px; flex:none;}
@@ -57731,11 +57726,11 @@ function settingsPanelSubscription(){
 function settingsPanelTraining(){
   return recordPanelShell('Training & Zones',
     '<button type="button" class="btn btn-primary btn-recal btn-block" style="margin-bottom:10px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
-    stgRow({ title:'View Training Zone Paces', icon:ICONS.ruler,
+    stgRow({ title:'View Training Zone Paces',
       attrs:'data-action="open-record" data-record="zones"' })+
-    stgRow({ title:'Edit Plan Settings', icon:ICONS.target,
+    stgRow({ title:'Edit Plan Settings',
       attrs:'data-action="open-setup"' })+
-    stgRow({ title:vGoalDay()+' Pacing Strategy', icon:ICONS.ruler,
+    stgRow({ title:vGoalDay()+' Pacing Strategy',
       attrs:'data-action="open-pacing"' }));
 }
 function settingsPanelStrava(){
@@ -58090,9 +58085,17 @@ function healthConsentSwitchHtml(){
   return '<label class="switch"><input type="checkbox" data-action="toggle-health-consent" '+
     (on?'checked':'')+'><span class="switch-track"></span></label>';
 }
+/* ---------- NOTHING IN FRONT OF A SETTINGS TITLE ----------
+   Every row carried a 19px glyph, and with the row's own 13px gap that put
+   each title at x=48 on a 412px screen -- on the one screen in the app
+   that is nothing BUT titles, and against a 16px gutter its own group
+   labels already ran to. The glyphs were a second alphabet for rows whose
+   words are unambiguous: "Privacy Policy", "Export / Import Backup",
+   "Reset Plan -- Start Over". The words start at the gutter now.
+   The `icon` argument goes with them rather than being left to rot: a
+   parameter nothing reads is the next person's wasted hour. */
 function stgRow(o){
   var inner =
-    '<span class="stg-nav-icon">'+(o.icon || '')+'</span>'+
     '<span class="stg-row-text">'+
       '<span class="stg-row-title">'+escapeHtml(o.title)+'</span>'+
       (o.sub ? '<span class="stg-row-sub">'+escapeHtml(o.sub)+'</span>' : '')+
@@ -58108,8 +58111,8 @@ function stgRow(o){
     (o.external ? ' target="_blank" rel="noopener noreferrer"' : '')+'>'+inner+'</a>';
   return '<button type="button" class="'+cls+'" '+(o.attrs||'')+'>'+inner+'</button>';
 }
-function stgPanelRow(title, sub, icon, panelKey, pill, pillTone){
-  return stgRow({ title:title, sub:sub, icon:icon, pill:pill, pillTone:pillTone,
+function stgPanelRow(title, sub, panelKey, pill, pillTone){
+  return stgRow({ title:title, sub:sub, pill:pill, pillTone:pillTone,
     attrs:'data-action="open-settings-panel" data-panel="'+panelKey+'"' });
 }
 function stgGroup(label, rows){
@@ -58126,7 +58129,7 @@ function settingsConnectRows(){
   var stravaOn = stravaConn.status === 'connected' || stravaConn.status === 'syncing';
   var g = garminCapability || {};
   return (stravaSettingsVisible()
-      ? stgPanelRow('Strava', stravaRowLine(), ICONS.link, 'strava',
+      ? stgPanelRow('Strava', stravaRowLine(), 'strava',
           stravaOn ? 'Connected' : null, 'is-green')
       : '')+
     /* UNTIL IT EXISTS, IT IS A STATED ABSENCE RATHER THAN A CONTROL.
@@ -58139,8 +58142,8 @@ function settingsConnectRows(){
     (g.available
       ? stgPanelRow('Garmin Connect',
           g.connected ? 'Connected' : 'Bring your sessions to your watch',
-          ICONS.watch, 'garmin', g.connected ? 'Connected' : null, 'is-green')
-      : stgRow({ title:'Garmin Connect', sub:'Not yet available', icon:ICONS.watch,
+          'garmin', g.connected ? 'Connected' : null, 'is-green')
+      : stgRow({ title:'Garmin Connect', sub:'Not yet available',
           muted:true, chevron:false }));
 }
 function renderSettingsHubView(){
@@ -58151,47 +58154,47 @@ function renderSettingsHubView(){
   var healthOn = healthConsentGranted();
 
   var account =
-    (sub ? stgPanelRow('Subscription', subscriptionRowLine(sub), ICONS.shieldmark,
+    (sub ? stgPanelRow('Subscription', subscriptionRowLine(sub),
              'subscription', subscriptionRowPill(sub), 'is-gold') : '')+
     (cloudConfigured()
-      ? stgPanelRow('Account & Backup', cloudRowLine(), ICONS.upload, 'account')
+      ? stgPanelRow('Account & Backup', cloudRowLine(), 'account')
       : '');
 
   var training =
     stgPanelRow('Preferences', 'Coaching detail, notifications, strength & mobility',
-      ICONS.settings, 'prefs')+
+      'prefs')+
     /* THE SWITCH IS IN THE ROW, because withdrawing consent must cost one
        tap, and the row also opens the panel that explains what the switch
        does. Two targets, one row -- the label goes to the explanation, the
        switch is the decision. */
     stgRow({ title:'Health & Readiness',
       sub: healthOn ? 'On — used to adjust your programme' : 'Use my health and readiness information',
-      icon: ICONS.heart, chevron:false,
+      chevron:false,
       attrs:'data-action="open-settings-panel" data-panel="health"',
       trail:'<span class="stg-row-switch">'+healthConsentSwitchHtml()+'</span>' })+
     (hasPlan ? stgRow({ title:'Training Availability',
       sub: openRestriction() ? 'Injury or illness — restriction open' : 'Injured or ill? Tell Valhalla',
-      icon: ICONS.pulse, attrs:'data-action="restriction-open"' }) : '')+
+      attrs:'data-action="restriction-open"' }) : '')+
     (hasPlan ? stgPanelRow('Training & Zones', 'Paces, recalibrate and race day strategy',
-      ICONS.target, 'training') : '');
+      'training') : '');
 
   var connect = '<div id="stg-connect-group">'+settingsConnectRows()+'</div>';
 
   var data =
-    (hasPlan ? stgRow({ title:'Start a New Block', icon:ICONS.layers,
+    (hasPlan ? stgRow({ title:'Start a New Block',
       attrs:'data-action="open-new-block"' }) : '')+
     stgPanelRow('Export / Import Backup', 'Move or keep a copy of your training',
-      ICONS.download, 'backup')+
+      'backup')+
     (hasPlan ? stgPanelRow('Reset Plan — Start Over',
       'Clear your current plan and schedule (keeps your data)',
-      ICONS.refresh, 'resetplan') : '');
+      'resetplan') : '');
 
   var legal =
-    stgRow({ title:'Privacy Policy', icon:ICONS.shieldmark,
+    stgRow({ title:'Privacy Policy',
       href:LEGAL_URLS.privacy, external:true })+
-    stgRow({ title:legalTermsLabel(), icon:ICONS.info,
+    stgRow({ title:legalTermsLabel(),
       href:LEGAL_URLS.terms, external:true })+
-    stgRow({ title:'Contact Support', icon:ICONS.link,
+    stgRow({ title:'Contact Support',
       href:'mailto:'+LEGAL_URLS.support });
 
   /* A WRAPPER, FOR THE REASON VALHALLA NEEDED ONE. This screen returned a

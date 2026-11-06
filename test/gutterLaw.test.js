@@ -96,3 +96,49 @@ test('no status glyph holds a title off the gutter', () => {
   assert.match(rule('.v-call-sub'), /padding-left:\s*0/,
     'the call sub is indented to clear a dot that is no longer drawn');
 });
+
+/* ======================================================================
+ * SETTINGS, THE LAST SCREEN HOLDING ITS TITLES OFF THE GUTTER
+ * ==================================================================== */
+
+const { loadApp } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
+
+test('nothing is drawn in front of a settings title', () => {
+  /* The rows already reached the edge; a 19px glyph and the row's 13px gap
+     held every TITLE at x=48 -- on the one screen that is nothing but
+     titles, and against the 16px its own group labels already ran to. */
+  assert.ok(!/stg-nav-icon/.test(SRC), 'the settings row glyph is back');
+  assert.ok(!/stg-nav-icon/.test(CSS), 'the settings row glyph has rules again');
+  assert.match(SRC, /function stgPanelRow\(title, sub, panelKey, pill, pillTone\)/,
+    'the icon argument is back in the panel-row signature');
+});
+
+test('every settings row still opens its own panel', () => {
+  /* THE REASON THIS TEST EXISTS. Removing the glyph meant removing a
+     POSITIONAL argument from stgPanelRow, in the middle of its signature,
+     at eight call sites -- and an off-by-one there does not throw, it
+     silently hands 'training' the panel key meant for 'prefs' and sends the
+     athlete somewhere else. Asserted on the rendered pairs rather than on
+     the call sites, because the pairing is the thing that must hold. */
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {};
+  a.scheduleSave = () => {}; a.flushSave = () => {};
+  buildPlan(a, { weeks: 14, startDate: '2026-07-01', distanceKey: '10k',
+    volume: 40, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [0,1,2,3,4,5,6], longRunDay: 6 } });
+  const html = a.renderSettingsHubView();
+  const pairs = {};
+  for (const m of html.matchAll(/data-panel="([a-z]+)"[\s\S]{0,220}?stg-row-title">([^<]*)</g)){
+    pairs[m[1]] = m[2];
+  }
+  for (const [panel, needle] of [
+      ['account', 'Account'], ['prefs', 'Preferences'], ['health', 'Health'],
+      ['training', 'Training &amp; Zones'], ['backup', 'Export'], ['resetplan', 'Reset Plan']]){
+    assert.ok(pairs[panel], 'the ' + panel + ' row is gone from Settings');
+    assert.ok(pairs[panel].indexOf(needle) > -1,
+      'the ' + panel + ' panel is now behind "' + pairs[panel] + '" -- an argument has shifted');
+  }
+  assert.doesNotMatch(html, /stg-row-title"><\/span>/, 'a settings row lost its title');
+  assert.doesNotMatch(html, /data-panel="<svg/, 'an icon is being passed as a panel key');
+});
