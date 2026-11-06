@@ -4314,12 +4314,33 @@
      are declared at :root rather than on a view. The modal's own --modal-*
      ramp still governs the CONTROLS; this governs the containers. */
   .es-body{display:flex; flex-direction:column; gap:14px;}
+  /* ---------- A FIELD IS A SURFACE, NOT A HOLE ----------
+     The shared .field control is a filled box with a hard border and
+     inset 0 1px 3px -- a sunken well, and the oldest surface left in the
+     product. Every other quiet surface here is the soft --tile-* recipe,
+     so the fields take it: same ground, same rim, same radius, and the
+     light sitting ON them rather than dug into them. Scoped to .es-body so
+     the shared control is untouched everywhere it has not been looked at. */
+  .es-body .field :is(input, select, textarea){
+    background:var(--tile-sheen), var(--bg-2);
+    border:1px solid var(--tile-border);
+    /* --radius-sm, NOT --tile-radius. 20px is the radius of a PANEL, and on
+       a 44px-tall field it rounds the ends past the text into a pill: the
+       control stops reading as somewhere to type. 10px is what the rest of
+       the product's controls take. */
+    border-radius:var(--radius-sm);
+    box-shadow:none;
+  }
+  /* COMPLETED WAS A FOURTH BOX. A fieldset border around one checkbox,
+     inside a section, inside a card, inside a modal. The legend already
+     names it; the border was saying so again in a heavier voice. */
+  .es-body fieldset{border:0; border-radius:0; padding:0; margin:0 0 14px;}
+  .es-body legend{padding:0;}
   .es-sum{
     position:relative; display:flex; align-items:center; gap:12px; overflow:hidden;
     padding:13px 15px 13px 18px;
-    border:1.5px solid transparent; border-radius:var(--tile-radius);
-    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
-    box-shadow:var(--t-lift);
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-card);
   }
   /* The session's own type, as a bar down the edge -- the one place colour
      identifies WHICH session this is before a word is read. */
@@ -4342,10 +4363,17 @@
     text-shadow:0 0 1px rgba(255,255,255,.40), 0 0 12px rgba(255,255,255,.22);}
   .es-sum-dist em{font-style:normal; font-weight:700; font-size:14px; color:var(--ink-dim);}
 
+  /* ---------- THE SAME PANEL THE REST OF THE PRODUCT USES ----------
+     Both of these painted --t-card-grad behind a --t-rim-grad border: a
+     100deg ramp starting at #24262D, measurably lighter and bluer than the
+     #1C1E24 that Settings panels, Reading panels and the week's open
+     session sit on, with a gradient rim that reads as a gold outline
+     against the modal's dark ramp. That is the exact fault the builder had
+     and had fixed; Edit Session never got the same pass, which is most of
+     why it reads as a different product. Same line as .builder-light now. */
   .es-sec{
-    border:1.5px solid transparent; border-radius:var(--tile-radius);
-    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
-    box-shadow:var(--t-lift); overflow:hidden;
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-card); overflow:hidden;
   }
   .es-sec-head{
     display:flex; align-items:center; gap:12px; padding:14px 15px;
@@ -6217,8 +6245,16 @@
      rail in the session's own type colour, so the list shows what KIND each
      one is rather than only its name, and the circular cherry tick the
      Reschedule list and the goal-pace box already use for "this one". */
-  .ef-type-list{border:1px solid var(--line-soft); border-radius:var(--tile-radius);
+  /* ---------- ROWS ON THE PANEL, NOT A BOX INSIDE IT ----------
+     The list drew its own border around rows that were each a raised
+     .ev-card -- a box of boxes on a card. Both go: the rows sit on the
+     panel they are already on, and the chosen one is LIT rather than
+     outlined. */
+  .ef-type-list{border:0; border-radius:var(--tile-radius);
     overflow:hidden; margin-top:6px;}
+  .ev-card.ef-type-row{
+    position:relative; background:none; border-color:transparent;
+    box-shadow:none; margin:0;}
   .ev-card.ef-type-row{ padding:11px 13px; gap:11px;}
   .ev-card.ef-type-row:first-child{border-top:0;}
   /* The rail takes its colour from the same six tokens .day.type-* paints a
@@ -6238,9 +6274,29 @@
     border-radius:50%; align-items:center; justify-content:center;
     border:2px solid var(--line); color:transparent; background:var(--bg-2);}
   .ef-type-row .swap-tick svg{width:12px; height:12px;}
-  .ef-type-row.is-picked{box-shadow:inset 0 0 0 1.5px var(--cherry);}
+  /* ---------- A CHOSEN TYPE IS GOLD, AND THAT IS THE LAW RATHER THAN A
+       PREFERENCE ----------
+     This was a cherry inset ring. Cherry is progress and action in this
+     product; GOLD is choice -- it is what the bottom nav's selected tab,
+     the A/B/C goal options and the builder's choices all wear. Picking a
+     session type is a choice, so it takes the choice colour, lit the same
+     way: the coaching rail's radial pool behind the row (.how-mod::before)
+     and the nav's gold on the tick. No ring, because the row has no box
+     left to ring. */
+  .ef-type-row::before{
+    content:''; position:absolute; inset:0; border-radius:var(--tile-radius);
+    pointer-events:none; z-index:0;
+    background:radial-gradient(48% 46% at 50% 46%,
+      rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
+    opacity:0; transition:opacity .34s ease;}
+  .ef-type-row > *{position:relative; z-index:1;}
+  .ef-type-row.is-picked::before{opacity:1;}
+  .ef-type-row.is-picked{box-shadow:none;}
+  .ef-type-row.is-picked .stg-row-title{color:var(--gold-bright);
+    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
+                0 0 16.5px rgba(227,177,90,.42);}
   .ef-type-row.is-picked .swap-tick{
-    background:var(--cherry); border-color:var(--cherry); color:var(--cherry-btn-ink);}
+    background:var(--gold); border-color:var(--gold); color:#20180A;}
   .ev-card.ef-type-row[disabled]{opacity:.55; cursor:default;}
   .stg-nav-icon{flex:none; display:flex; color:var(--bronze-text);}
   .stg-nav-icon svg{width:16px; height:16px;}
