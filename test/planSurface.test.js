@@ -254,3 +254,38 @@ test('ROW: a finished day shows its score, a past unlogged one says so, a rest d
   assert.match(rule('.pw-stat.is-score'), /color:var\(--ink-dim\)/,
     'the execution score is being colour-graded on the row');
 });
+
+/* SETTINGS WAS THE LAST SCREEN BUILT AS BOXES INSIDE BOXES.
+ * ===========================================================================
+ * Five lifted, rimmed cards, each holding a stack of rows. Today, This Week,
+ * Full Plan and Valhalla have all shed exactly this, and the nesting was not
+ * free: a card inset 16px holding rows inset a further 15px put every line
+ * 31px from the edge, on a screen whose other views run to the 16px gutter.
+ * Measured in Chromium: a row title moved from 63px to 48px.
+ */
+test('SETTINGS: the containers come off, and the rows take the gutter', () => {
+  /* THE WRAPPER FIRST, for the reason Valhalla needed one. .stg-group is a
+     .hub-card -- the same class Today's Next Move and the post-race panel
+     wear -- so without a scope there is no way to restyle it HERE without
+     restyling them. */
+  assert.match(SRC, /return '<div class="view-settings">'\+/,
+    'Settings returns a bare run of sections again, so .hub-card cannot be scoped to it');
+
+  const deboxed = rule('.view-settings :is(.stg-group, .hub-card, .hub-card.tile-card)');
+  ['background:none', 'border:0', 'border-radius:0', 'box-shadow:none'].forEach(d =>
+    assert.ok(deboxed.indexOf(d) > -1, 'the Settings groups no longer drop ' + d));
+
+  // the rows run to the gutter rather than being inset inside a frame
+  assert.match(rule('.view-settings .ev-card.stg-row'), /padding:15px 0/,
+    'the Settings rows are inset inside a container again');
+
+  /* BETWEEN ROWS, NOT ABOVE EACH ONE. Stated as "a row that follows a row",
+     because the first attempt cancelled the first row's border by naming
+     what precedes it -- and the Connect group puts its row somewhere that
+     match missed, so that group drew a rule under its own heading,
+     separating it from nothing. The same bug .coach-signal already had. */
+  assert.match(rule('.view-settings .ev-card.stg-row + .ev-card.stg-row'),
+    /border-top:1px/, 'the Settings rows no longer separate from one another');
+  assert.match(rule('.view-settings .ev-card.stg-row'), /border-top:0/,
+    'a Settings group draws a rule under its own heading again');
+});

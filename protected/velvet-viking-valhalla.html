@@ -5883,6 +5883,35 @@
     margin:0; border:0; border-radius:0; box-shadow:none; background:none;
     border-top:1px solid var(--line-soft);
     padding:13px 15px; gap:13px; align-items:center;}
+  /* ---------- SETTINGS TAKES THE SAME RULES ----------
+     THE LAST SCREEN BUILT AS BOXES INSIDE BOXES: five lifted, rimmed cards,
+     each holding a stack of rows. Today, This Week, Full Plan and Valhalla
+     have all shed exactly this, and the nesting was not free -- a card inset
+     16px holding rows inset a further 15px put every line of text 31px from
+     the edge, on a screen whose other views run their content to the 16px
+     gutter. That is 30px of width given up on every row to draw a frame
+     around content that needs no frame.
+     The rows keep their separators: a rule BETWEEN repeated rows is doing
+     work nothing else does, which is the distinction the line audit drew. */
+  .view-settings :is(.stg-group, .hub-card, .hub-card.tile-card){
+    background:none; border:0; border-radius:0; box-shadow:none;
+    padding:0; overflow:visible; margin:0 0 26px;}
+  /* The section label stops being a card's head and becomes what it is: the
+     name of the group, in the one label voice, over the rows it names. */
+  .view-settings .stg-group .setup-section-title{padding:0 0 4px;}
+
+  /* BETWEEN ROWS, NOT ABOVE EACH ONE -- the .coach-signal lesson applied
+     before it could bite again. Cancelling the first row's border by naming
+     what precedes it only works while nothing else ever does: the Connect
+     group puts its row somewhere the adjacent-sibling match missed, and that
+     group drew a rule under its own heading, separating it from nothing.
+     Stated as "a row that follows a row", it cannot be wrong. */
+  .view-settings .ev-card.stg-row{padding:15px 0; border-top:0;}
+  .view-settings .ev-card.stg-row + .ev-card.stg-row{
+    border-top:1px solid var(--line-soft);}
+  .view-settings .ev-card.stg-row:hover,
+  .view-settings .ev-card.stg-row:active{background:none;}
+  .view-settings .ev-card.stg-nav{padding:15px 0; margin:0;}
   .ev-card.stg-row:hover{box-shadow:none; background:var(--bg-3);}
   .ev-card.stg-row:active{background:var(--bg-4);}
   .stg-row-text{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
@@ -56952,7 +56981,13 @@ function renderSettingsHubView(){
     stgRow({ title:'Contact Support', icon:ICONS.link,
       href:'mailto:'+LEGAL_URLS.support });
 
-  return '<div class="view-heading font-head">Settings</div>'+
+  /* A WRAPPER, FOR THE REASON VALHALLA NEEDED ONE. This screen returned a
+     bare run of sections, and .stg-group is a .hub-card -- the same class
+     Today's Next Move and the post-race panel wear, which the Valhalla pass
+     recorded must never be restyled bare. Scoped here, Settings can drop the
+     containers without touching either of them. */
+  return '<div class="view-settings">'+
+    '<div class="view-heading font-head">Settings</div>'+
     stgGroup('Account', account)+
     stgGroup('Training', training)+
     stgGroup('Connect', connect)+
@@ -56961,7 +56996,8 @@ function renderSettingsHubView(){
   '<div class="build-tag">Build '+BUILD_ID+'</div>'+
     /* padded rather than merely coloured: an 11px line of text is a link a
        thumb misses, and these two are the only route to the legal pages. */
-    '<div class="build-tag"><a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Privacy</a> &middot; <a href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Terms</a></div>';
+    '<div class="build-tag"><a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Privacy</a> &middot; <a href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Terms</a></div>'+
+  '</div>';
 }
 function renderBottomNav(){
   var view = state.view || 'today';
