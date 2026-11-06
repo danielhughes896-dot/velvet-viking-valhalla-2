@@ -407,6 +407,9 @@ test('the splits control lives inside the existing logging panel, not a new card
   const a = app();
   const dd = completedDay(a);
   fillFourLaps(a, dd);
+  /* Your Log is a tab now, closed until asked -- open it, or this renders
+     an empty log and the assertion below proves nothing. */
+  a.logOpenFor[dd.id] = true;
   const card = a.renderDayCard(dd);
   const panelStart = card.indexOf('actual-panel');
   const panelEnd = card.indexOf('</div>\n', card.indexOf('actual-clear'));

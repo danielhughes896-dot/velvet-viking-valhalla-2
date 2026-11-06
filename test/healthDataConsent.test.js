@@ -472,6 +472,9 @@ test('15b. the notes themselves are never edited or withheld from the athlete', 
   const dd = loggedDay(a, { notes: 'sore calf the whole way' });
   assert.equal(dd.actual.notes, 'sore calf the whole way',
     'their words are theirs; the consent boundary is on the reading, not the text');
+  /* Your Log is a tab now, closed until asked -- open it, or this renders
+     an empty log and the assertion below proves nothing. */
+  a.logOpenFor[dd.id] = true;
   assert.match(a.renderDayCard(dd), /sore calf the whole way/,
     'and they can still see what they wrote');
 });

@@ -41,7 +41,13 @@ function logged(a, actual){
   dd.actual = actual;
   return dd;
 }
-const card = (a, dd) => a.renderDayCard(dd);
+/* THE LOG IS BEHIND ITS OWN TAB NOW -- Share, Session Details, Your Log,
+   Valhalla Analysis -- and it is closed until asked. Every test in this file
+   is about what the FIELDS do, so the tab is opened here, at the one seam
+   they all render through. Without it they would each be asserting against
+   an empty string, which is the kind of green that means nothing. Where the
+   TAB itself belongs is asserted in completedSessionSurface. */
+const card = (a, dd) => { a.logOpenFor[dd.id] = true; return a.renderDayCard(dd); };
 const has = (html, field) => new RegExp('data-field="' + field + '"').test(html);
 
 // ---------------------------------------------------------------------------

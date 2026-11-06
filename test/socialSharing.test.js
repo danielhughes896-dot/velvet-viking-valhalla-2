@@ -429,6 +429,9 @@ test('elevation is not health data and is not behind the consent gate', () => {
   app.state.healthConsent = { decision: 'declined', version: app.HEALTH_CONSENT_VERSION };
   assert.equal(app.healthConsentGranted(), false, 'the gate did not shut');
 
+  /* Your Log is a tab now, closed until asked -- open it, or this renders
+     an empty log and the assertion below proves nothing. */
+  app.logOpenFor[dd.id] = true;
   const shut = app.renderDayCard(dd);
   assert.doesNotMatch(shut, /data-field="hr"/,
     'Avg HR survived a declined consent, so the assertion below proves nothing');

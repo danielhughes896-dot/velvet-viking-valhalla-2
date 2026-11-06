@@ -1096,7 +1096,7 @@
      worth opening before the tab said so itself; leaving both would put a
      box around a box. The Fueling card keeps its own .fuel-card edge -- it
      is not a session tab -- so this is scoped to .how-card. */
-  .fuel-card.how-card.is-tab{background:none; border:0; box-shadow:none; margin:14px 0 0;}
+  .fuel-card.how-card.is-tab{background:none; border:0; box-shadow:none; margin:0;}
   .how-card.is-tab .fuel-body{padding:14px 2px 2px;}
   /* display:contents so the targets, the description and the step table lay
      themselves out inside the panel exactly as they did when they were
@@ -1861,6 +1861,13 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card{
     margin:11px 0 0; padding:0; border:0; border-radius:0;
     box-shadow:none; background:none;}
+  /* The 11px above is the open rail's clearance under the hero. As a TAB it
+     is one of three siblings in the log panel's grid, which sets the row
+     gap itself -- so the margin is added to that gap and only this tab gets
+     a wider space above it. Needs the focused prefix to outrank the rule it
+     is excepting; at (0,3,0) it lost to (0,5,0) and the gap stayed 37px
+     against the others' 26px. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card.is-tab{margin:0;}
   /* AN OPEN RAIL NEEDS NO HEADING; A CLOSED TAB IS ALL HEADING. While the
      session is still ahead the rail renders open on a focused card, and a
      summary saying "how to run this" above panels headed WHY and EXECUTION
@@ -2122,6 +2129,7 @@
      the label tier, sentences on the support tier, and no box anywhere. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-panel{
     margin-top:30px; padding-top:30px; gap:26px 18px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .log-body{gap:26px 18px;}
 
   /* SESSION COMPLETE. Lit exactly as the Coach's Note is lit -- a blurred
      radial that overspills the content and dissolves into the page ground --
@@ -4089,10 +4097,22 @@
   /* The log panel is a two-column grid and this is not a field, so it spans
      both -- otherwise the tab lands in the left column beside "Actual km"
      and wraps its own label in half. */
+  /* NO MARGIN OF ITS OWN. The three tabs are siblings in the log panel's
+     grid, and that grid already sets the row gap -- so a margin here is
+     added to it and only this one tab gets a bigger space beneath it.
+     Measured before: Share -> Session Details 53px, Session Details ->
+     Valhalla Analysis 26px. The grid governs all three now. */
   .share-launch{display:flex; flex-direction:column; gap:0; grid-column:1/-1;
-    margin:0 0 16px;}
+    margin:0;}
   /* The analysis tab sits beside Share in the completion stack, so it spans
      the log grid exactly as Share and "Session complete" do. */
+  /* The log tab spans the panel, and its BODY carries the two-column grid
+     the fields used to get from .actual-panel directly -- they are one
+     level deeper now, so the columns have to be restated here or every
+     field goes full width. The focused gaps are restated for the same
+     reason, beside the rule they mirror. */
+  .log-tab{grid-column:1/-1;}
+  .log-body{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
   .sess-details-mount{grid-column:1/-1;}
   .exec-review-mount{grid-column:1/-1;}
   .exec-review-mount:empty{display:none;}
@@ -4104,11 +4124,16 @@
   .share-caret svg{width:17px; height:17px;}
   .btn-share[aria-expanded="true"] .share-caret{transform:rotate(180deg);}
   .share-inline{display:none;}
+  /* The composer is the tab's body, so it takes the tab's own ground and
+     rim and joins it into one object -- not a gold-edged panel on the old
+     --t-card-grad ramp hanging off a button. */
   .share-inline.is-open{
-    display:block; border:1px solid var(--gold-deep); border-top:0;
+    display:block; border:1px solid var(--tile-border); border-top:0;
     border-radius:0 0 var(--tile-radius) var(--tile-radius);
-    background:var(--t-card-grad); box-shadow:var(--t-lift);
+    background:var(--tile-sheen), var(--bg-2);
   }
+  .share-launch:has(.share-inline.is-open) .sess-tab{
+    border-bottom-left-radius:0; border-bottom-right-radius:0;}
   /* The composer keeps the modal's own body rules; only the padding is the
      card's rather than the modal's. */
   .share-inline .share-body{padding:14px 13px 15px;}
@@ -4131,12 +4156,18 @@
      One declaration now, flat on the card ground with a single hairline
      round it, the gold kept for the words. Both keep their own class names:
      the markup is asserted by name in weekSessionCarousel. */
-  .btn-share, .wk-open, .wc-analysis-btn{
+  /* ONLY .wk-open LEFT. .btn-share and .wc-analysis-btn shared this
+     centred-button treatment; both are session tabs now and take .sess-tab
+     instead, which is earlier in the sheet and would have lost to this rule
+     at equal weight. "Hide full session" is still a button rather than a
+     tab -- it toggles a whole card rather than opening what it names -- so
+     the recipe stays here for it alone. */
+  .wk-open{
     display:flex; width:100%; align-items:center; justify-content:center; gap:8px;
     background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
     color:var(--gold); font-family:var(--text-face);
     font-size:14.5px; font-weight:600; letter-spacing:.01em; padding:11px 16px;}
-  .btn-share svg{width:16px; height:16px;}
+  .wk-open svg{width:16px; height:16px;}
   /* The preview canvas is the export itself, drawn at 1080px wide and scaled
      down by CSS -- so the athlete approves the actual file, not a lookalike. */
   .share-body{display:flex; flex-direction:column; gap:16px;}
@@ -27628,7 +27659,23 @@ function renderDayCard(dd){
          itself.
          The log keeps its place under all three. Editing what was logged
          is a correction, not the point of the screen. */
-      '<div class="exec-review-mount" id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>'+
+      /* ---------- AND THE LOG IS THE FOURTH TAB ----------
+         Everything on a finished session is now a tab that opens what it
+         names: Share, Session Details, Valhalla Analysis, Your Log. The
+         fields used to lie loose under the other three, so the card ended
+         on a form -- and the form is a CORRECTION, not the point of the
+         screen; the session is already logged by the time it is read.
+         A button with aria-expanded rather than a <details>, for the reason
+         recorded at logOpenFor: the browser's own state does not survive a
+         re-render, and three ordinary actions on this card re-render it.
+         The body carries its own two-column grid, because it is no longer a
+         child of .actual-panel's. */
+      '<div class="log-tab">'+
+        '<button type="button" class="sess-tab sess-tab-btn" data-action="toggle-log" '+
+          'data-day="'+dd.id+'" aria-expanded="'+(isLogOpen(dd)?'true':'false')+'">'+
+          sessionTabHtml(ICONS.pencil, 'Your Log', 'Distance \u00b7 Pace \u00b7 Detail')+
+        '</button>'+
+        (isLogOpen(dd) ? '<div class="log-body">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
       /* One control, in the same quiet voice the session breakdown already
@@ -27690,12 +27737,23 @@ function renderDayCard(dd){
          simplified surface above flattens what a watch or a connected service
          supplied. */
       renderSplitsBlock(dd)+
+      /* LAST, UNDER THE JUDGEMENT -- and now inside the tab with the log it
+         undoes, rather than loose at the foot of the card where it would be
+         the only thing left outside the four tabs. */
+      '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
+        '</div>' : '')+
+      '</div>'+
+      /* ---------- THE ANALYSIS COMES LAST ----------
+         Share, Session Details, Your Log, Valhalla Analysis. It sat third
+         before, between the prescription and the log, which put Valhalla's
+         reading of the session above the figures that reading is OF. The
+         card now runs in the order the athlete moves through it: send it,
+         check what was asked, record what happened, then read the verdict.
+         Still the same mount and the same id, so patchExecutionUI() finds
+         it exactly as before. */
+      '<div class="exec-review-mount" id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>'+
     '</div>'+
-    (dd.type === 'calibration' ? renderCalibrationResult(dd) : '')+
-    /* LAST, UNDER THE JUDGEMENT. Undoing a log is a recovery from a mistake,
-       so it belongs after everything the log produced rather than wedged
-       between the fields and the review of them. */
-    '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>';
+    (dd.type === 'calibration' ? renderCalibrationResult(dd) : '');
   }
 
   // Accordion: the header row always shows, everything below it collapses.
@@ -31473,7 +31531,17 @@ function renderExecutionReview(dd){
      finished has no current week, so every session in it is past. */
   var cur = currentWeekNum();
   var pastWeek = (dd.week != null) && (cur == null || dd.week < cur);
+  /* THE VERDICT IN ONE LINE, AND IT LEADS THE ANALYSIS. Computed HERE and
+     not below: it is read by analysisBody, and a `var` declared after its
+     own use is hoisted but undefined, so the line silently rendered as ''
+     on every card. Caught by rendering five logged sessions and finding the
+     line on none of them. */
+  var vWord = shareVerdictLabel(dd);
+  var vLine = (vWord ? titleCase(vWord) : '') +
+              ((vWord && b.score != null) ? ' \u00b7 ' : '') +
+              (b.score != null ? b.score + '% execution' : '');
   var analysisBody =
+    (vLine ? '<div class="wc-line">'+escapeHtml(vLine)+'</div>' : '')+
     renderCompletionVerdict(dd)+
     '<div class="exec-review-card wc-analysis">'+
       '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
@@ -31486,14 +31554,6 @@ function renderExecutionReview(dd){
      and simply starts open. The hierarchy is identical on every session and
      nothing that used to be on screen is hidden. */
   var open = isAnalysisOpen(dd) || pastWeek;
-  /* THE ONE LINE THAT STAYS OUT. Everything else about the marking is behind
-     the tab; the verdict word and the execution figure are the summary of it
-     and sit under the tab unopened, so a finished session says how it went
-     without being asked. */
-  var vWord = shareVerdictLabel(dd);
-  var vLine = (vWord ? titleCase(vWord) : '') +
-              ((vWord && b.score != null) ? ' \u00b7 ' : '') +
-              (b.score != null ? b.score + '% execution' : '');
   /* ---- ONE COMPLETION STATEMENT, AND ONE ACTION ----
      This was a card headed "Workout Complete" holding the branded share
      composition, View Analysis and Continue. The composition went when the
@@ -31512,11 +31572,30 @@ function renderExecutionReview(dd){
         'The verdict \u00b7 Execution review \u00b7 Next steps')+
     '</button>'+
     (open ? analysisBody : '')+
-    (vLine ? '<div class="wc-line">'+escapeHtml(vLine)+'</div>' : '')+
   '</div>';
 }
 /* Whether the marking is showing. Defaults shut: the completion screen is the
    moment, and the analysis is what the athlete opens when they want it. */
+/* ---- THE LOG IS A TAB, AND ITS STATE CANNOT BE THE BROWSER'S ----
+   A <details> would lose its open state on every re-render -- and marking
+   complete, toggling the detail drawer and clearing the log all re-render
+   the card -- so the tab would snap shut under the athlete's hands. Typing
+   in a field is safe (handleActualFieldChange only patches), but the rest
+   are not, so the flag is kept here exactly as the analysis keeps its own
+   and the body is rendered conditionally rather than hidden by the UA. */
+var logOpenFor = {};
+function isLogOpen(dd){
+  return !!(dd && logOpenFor[dd.id]);
+}
+function handleToggleLog(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  if (logOpenFor[dd.id]) delete logOpenFor[dd.id];
+  else logOpenFor[dd.id] = true;
+  /* The whole card, because the log is most of it: patchExecutionUI only
+     owns the analysis mount. */
+  replaceCard(dd);
+}
 var analysisOpenFor = {};
 function isAnalysisOpen(dd){
   return !!(dd && analysisOpenFor[dd.id]);
@@ -31660,11 +31739,23 @@ function renderShareLaunch(dd){
      streak, no prompt that returns if ignored. A session with no legitimate
      verdict still gets the button; its card simply has no word to show. */
   var id = escapeHtml(String(dd.id!=null?dd.id:dd.date));
+  /* ---------- THE THIRD TAB, AND IT IS THE SAME OBJECT AS THE OTHER TWO ----
+     This was a centred gold button that read "Share to Socials" -- a
+     different kind of control sitting between two tabs that open what they
+     name, which is exactly the drift sessionTabHtml() exists to stop. It is
+     a tab now: same ground, same rim, same title voice, same chevron, and
+     the composer unfolds beneath it the way each other tab's body does.
+     Just "Share", because the tab beneath it says where it goes.
+     It keeps .btn-share: the class is a hook, named in the delegated
+     handler and in completedSessionSurface, and renaming it would buy
+     nothing. What it no longer takes is that class's old button styling --
+     see the .wk-open rule. */
   return '<div class="share-launch">'+
-    '<button type="button" class="btn btn-share" data-action="share-workout" '+
+    '<button type="button" class="sess-tab sess-tab-btn btn-share" data-action="share-workout" '+
       'data-day="'+id+'" aria-expanded="false" aria-controls="share-inline-'+id+'">'+
-      ICONS.share+'<span class="btn-share-label">Share to Socials</span>'+
-      '<span class="share-caret" aria-hidden="true">'+ICONS.chevronDown+'</span></button>'+
+      sessionTabHtml(ICONS.share, 'Share',
+        'Templates \u00b7 Your photos \u00b7 Story or post')+
+    '</button>'+
     '<div class="share-inline" id="share-inline-'+id+'"></div>'+
   '</div>';
 }
@@ -58936,6 +59027,7 @@ document.addEventListener('click', function(e){
        device. Nothing here touches the plan or the log. */
     case 'share-workout': toggleShareInline(findDay(target.getAttribute('data-day')), target); break;
     case 'view-analysis': handleViewAnalysis(target.getAttribute('data-day')); break;
+    case 'toggle-log': handleToggleLog(target.getAttribute('data-day')); break;
     /* Continue means "I am done with this moment". In the popup that closes
        it; on the card it folds the day away, which is the same intent on a
        surface that has no dismiss. */

@@ -46,10 +46,19 @@ function completedDay(a){
   d.actual = { km: d.km };
   return d;
 }
+/* THE LOG IS BEHIND ITS OWN TAB NOW, closed until asked, so a test about
+   what the FIELDS look like has to open it first -- otherwise it renders
+   nothing and the assertion passes or fails on an empty string rather than
+   on the thing it names. The tab's own placement is asserted separately. */
+function completedDayWithLogOpen(a){
+  const d = completedDay(a);
+  a.logOpenFor[d.id] = true;
+  return d;
+}
 
 test('a completed session states that it is complete, once, before the log', () => {
   const a = app();
-  const html = a.renderDayCard(completedDay(a));
+  const html = a.renderDayCard(completedDayWithLogOpen(a));
   assert.equal((html.match(/class="actual-done"/g) || []).length, 1,
     'the completion statement is missing or duplicated');
   assert.ok(html.indexOf('actual-done') < html.indexOf('data-field="km"'),
@@ -165,18 +174,38 @@ test('the completion green is a named token, not an invented colour', () => {
     'the glow hand-sets a colour that belongs to no token');
 });
 
-test('clearing a log comes after the judgement it would undo', () => {
+test('clearing a log comes last inside the log it would undo', () => {
+  /* THIS ASSERTION FOLLOWED THE CARD. It used to require Clear log AFTER
+     the execution review -- correct while both were loose on the card and
+     the review sat directly above the fields: undoing a log is a recovery
+     from a mistake, and it should not be wedged between the fields and the
+     reading of them.
+
+     The card is four tabs now and the founder's order is Share, Session
+     Details, Your Log, Valhalla Analysis -- so the analysis comes after the
+     log rather than before it, and "after the review" is no longer a place
+     Clear log can be without leaving the tab it belongs to. The intent is
+     unchanged and is what is asserted: last, under everything the log
+     produced, and inside the tab that holds it. */
   const a = app();
-  const html = a.renderDayCard(completedDay(a));
-  assert.ok(html.indexOf('actual-clear') > html.indexOf('exec-review-'),
-    'Clear log is wedged between the fields and the review of them again');
+  const html = a.renderDayCard(completedDayWithLogOpen(a));
+  const clear = html.indexOf('actual-clear');
+  assert.ok(clear > -1, 'Clear log is gone');
+  assert.ok(clear > html.indexOf('data-field="km"'),
+    'Clear log is wedged above the fields it would undo');
+  assert.ok(clear > html.indexOf('splits-block') || html.indexOf('splits-block') === -1,
+    'Clear log no longer comes after the splits');
+  /* Inside Your Log: the tab opens before it and closes after it. */
+  const logTab = html.indexOf('class="log-tab"');
+  assert.ok(logTab > -1 && logTab < clear,
+    'Clear log escaped Your Log and is loose on the card again');
   assert.match(rule(F + ' .actual-clear'), /text-align:center/,
     'Clear log drifted back to the edge of the screen');
 });
 
 test('both disclosures are a label with its explanation under it', () => {
   const a = app();
-  const html = a.renderDayCard(completedDay(a));
+  const html = a.renderDayCard(completedDayWithLogOpen(a));
   assert.match(html, /<span class="st-k">\+ Add detail<\/span><span class="st-sub">/,
     'Add detail is one long sentence wearing a plus sign again');
   /* Chrome that repeats on every card is excluded by name in copyRepetition
@@ -197,7 +226,7 @@ test('pace is still offered as optional on the completed surface', () => {
   /* The design drops the word; the promise does not. A missing pace narrows
      what Valhalla will CLAIM and is never a failure, so the label says so. */
   const a = app();
-  const html = a.renderDayCard(completedDay(a));
+  const html = a.renderDayCard(completedDayWithLogOpen(a));
   assert.match(html, /Avg Pace[^<]*optional/i, 'pace reads as compulsory again');
 });
 
@@ -297,7 +326,12 @@ test('a finished session leads with what you did, then the two tabs', () => {
   /* Logged in full, not just a distance. A day with km and no pace cannot be
      scored, so the analysis falls to its unscored prompt instead of the tab
      -- a real branch, and not the one this hierarchy is about. */
-  const d = a.state.days.filter(x => x.type === 'threshold')[0];
+  /* A CURRENT-week day. A past week opens its analysis by default -- see
+     renderExecutionReview -- so the verdict line is legitimately on screen
+     there, and "nothing is loose" could never hold. */
+  const cur = a.currentWeekNum();
+  const d = a.state.days.filter(x => x.week === cur && x.type !== 'rest')[0];
+  assert.ok(d, 'no current-week session in the fixture');
   logAsPrescribed(a, d, { quality: 1 });
   const html = a.renderDayCard(d);
   const at = (re, what) => {
@@ -305,20 +339,29 @@ test('a finished session leads with what you did, then the two tabs', () => {
     assert.ok(i > -1, what + ' is missing from a completed session');
     return i;
   };
-  const done   = at(/actual-done-k">Session complete/, 'the completion statement');
-  const share  = at(/btn-share/,                       'Share to Socials');
-  const detail = at(/sessionTabHtml|sess-tab-k">Session Details/, 'the Session Details tab');
-  const anal   = at(/sess-tab-btn/,                    'the Valhalla Analysis tab');
+  const done   = at(/actual-done-k">Session complete/,        'the completion statement');
+  const share  = at(/sess-tab-k">Share</,                     'the Share tab');
+  const detail = at(/sess-tab-k">Session Details</,           'the Session Details tab');
+  const anal   = at(/sess-tab-k">Valhalla Analysis</,         'the Valhalla Analysis tab');
+  const log    = at(/sess-tab-k">Your Log</,                  'the Your Log tab');
   assert.ok(done < share,   'Share no longer follows the completion statement');
   assert.ok(share < detail, 'Session Details no longer follows Share');
-  assert.ok(detail < anal,  'Valhalla Analysis no longer follows Session Details');
-  /* And the log is still BELOW all four -- it is a correction, not the point
-     of the screen. */
-  const km = at(/data-field="km"/, 'the log');
-  assert.ok(anal < km, 'the log climbed back above the tabs');
+  assert.ok(detail < log,   'Your Log no longer follows Session Details');
+  assert.ok(log < anal,     'Valhalla Analysis no longer comes last');
+
+  /* NOTHING IS LOOSE. Everything on a finished session is one of the four
+     tabs: the fields, the verdict line and Clear log are all behind one, so
+     a card whose tabs are all shut shows the completion statement and four
+     rows and nothing else. */
+  assert.doesNotMatch(html, /data-field="km"/,
+    'the log fields render outside Your Log, so the card ends on a form again');
+  assert.doesNotMatch(html, /wc-line/,
+    'the verdict line is loose again instead of leading the analysis');
+  assert.doesNotMatch(html, /clear-actual/,
+    'Clear log is loose at the foot of the card again');
 });
 
-test('both tabs are the same object, drawn from one helper', () => {
+test('all four tabs are the same object, drawn from one helper', () => {
   /* They drifted into near-misses once already -- a bordered disclosure
      above a plain text button -- which is why there is a helper at all. If
      either stops using it, they are free to drift again. */
@@ -329,6 +372,10 @@ test('both tabs are the same object, drawn from one helper', () => {
     'Session Details is no longer drawn from the shared tab');
   assert.match(src, /sessionTabHtml\(ICONS\.trend, 'Valhalla Analysis'/,
     'Valhalla Analysis is no longer drawn from the shared tab');
+  assert.match(src, /sessionTabHtml\(ICONS\.share, 'Share'/,
+    'Share is no longer drawn from the shared tab');
+  assert.match(src, /sessionTabHtml\(ICONS\.pencil, 'Your Log'/,
+    'Your Log is no longer drawn from the shared tab');
   assert.equal((src.match(/class="sess-tab-k"/g) || []).length, 1,
     'the tab title is emitted in more than one place again');
 });
