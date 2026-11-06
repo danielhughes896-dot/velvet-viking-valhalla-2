@@ -182,6 +182,31 @@ test('the timing is a settle then a gentle cycle, with each delay its own entran
     'the gauge is no longer keyed, so it draws again on every render');
   assert.match(SRC, /animateWeekBar\(\);\s*\n\s*animateConfidenceGauge\(\);/,
     'the render path stopped asking the gauge to draw, so it never draws');
+
+  /* ---- AND IT GROWS FROM A FIXED START, RATHER THAN SLIDING INTO PLACE ----
+     The dash used to be "fillLen gap" -- already the finished length -- so
+     animating its offset could only ROTATE it. Traced on the running screen,
+     the visible arc went 32-14 degrees, then 193-175, then 292-274, then
+     360-342: both ends travelling the whole way, a band sliding round to its
+     resting place rather than a ring filling. The session ring does the one
+     thing that grows -- the dash is the WHOLE path and the offset says how
+     much is still withheld (0-25 degrees, 0-164, 0-248, 0-305) -- and this
+     now does the same, measured 0-14, 0-175, 0-274, 0-342.
+     Guarded at the two places the mechanism lives: the dash must be the
+     circumference, and the keyframe must end on the reading rather than on
+     zero. Either one alone puts the slide back. */
+  assert.match(SRC, /stroke-dasharray="'\+circ\.toFixed\(1\)\+'"/,
+    'the gauge dash is a short arc again, so its offset can only rotate it');
+  assert.doesNotMatch(SRC, /stroke-dasharray="'\+fillLen\.toFixed/,
+    'the gauge dash is back to the finished length, which slides instead of growing');
+  const kf = CSS.match(/@keyframes gauge-draw\{[\s\S]*?\}\s*\}/);
+  assert.ok(kf, 'the gauge draw keyframe is gone');
+  assert.match(kf[0], /from\{\s*stroke-dashoffset:var\(--gauge-len/,
+    'the gauge no longer starts fully withheld');
+  assert.match(kf[0], /to\s*\{\s*stroke-dashoffset:var\(--gauge-to/,
+    'the gauge draw ends at 0 again -- that is a full ring, not the reading');
+  assert.match(CSS, /\.gauge-fill\{stroke:url\(#gaugeFill\); stroke-dashoffset:var\(--gauge-to/,
+    'the resting state no longer matches where the animation ends');
   assert.equal(Number(drawMs[1]) / 1000 + 0.5, 1.64,
     'the ring delays above no longer equal this entrance plus the 500ms settle');
   assert.match(CSS, /animation:wk-fill 780ms cubic-bezier\(\.22,\.61,\.36,1\) both,/);

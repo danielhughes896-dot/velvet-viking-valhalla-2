@@ -721,9 +721,21 @@
      AND HALF AGAIN AS SLOW. th-draw is 760ms on a 96px ring; this is a
      132px ring carrying the headline, so it takes 1140ms -- the same
      deceleration curve, given the time to be watched rather than noticed. */
+  /* ---- ONE END FIXED. THE OTHER GROWS. ----
+     This animated between two offsets of a dash that was ALREADY the
+     finished length (stroke-dasharray was "fillLen gap"), and shifting the
+     offset of a dash that short can only rotate it: traced on the running
+     screen, the visible arc went 32-14 degrees, then 193-175, then 292-274,
+     then 360-342. Both ends moved the whole way. It was a band sliding
+     round to its resting place, not a ring filling.
+     The session ring does the only thing that grows: the dash is the WHOLE
+     path and the offset says how much of it is still withheld, so the start
+     is pinned and the far end travels (0-25 degrees, 0-164, 0-248, 0-305).
+     Same here. --gauge-len is the whole circumference and --gauge-to is
+     where the reveal stops, which is the figure. */
   @keyframes gauge-draw{
     from{ stroke-dashoffset:var(--gauge-len, 0); }
-    to  { stroke-dashoffset:0; }
+    to  { stroke-dashoffset:var(--gauge-to, 0); }
   }
   /* GATED, LIKE THE OTHER TWO INSTRUMENTS. The entrance was declared
      straight on the element, and every render produces a fresh element, so
@@ -734,7 +746,7 @@
      That is what "the ring fills differently to the other fills" was: not
      the shape of the fill, the frequency of it. The class is added after
      render by animateConfidenceGauge(). */
-  .gauge-fill{stroke:url(#gaugeFill);}
+  .gauge-fill{stroke:url(#gaugeFill); stroke-dashoffset:var(--gauge-to, 0);}
   .gauge-wrap.is-drawing .gauge-fill{
     animation:gauge-draw var(--ring-draw) cubic-bezier(.22,.61,.36,1) both;}
   /* The seam between the ring and the face. It was a grey hairline against a
@@ -25635,13 +25647,17 @@ function renderConfidenceGauge(){
       '<g class="gauge-ticks">'+ticks.join('')+'</g>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="52" fill="none" class="gauge-rim"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-track" stroke-width="9"/>'+
-      /* --gauge-len is the drawn length, handed to the keyframe so the fill
-         starts fully retracted and lays itself down to exactly the figure
-         the dasharray already sets. The number is not recomputed for the
-         motion -- the same fillLen does both. */
+      /* THE DASH IS THE WHOLE CIRCLE, and the offset is how much of it is
+         still withheld -- so --gauge-to IS the reading, and the arc grows
+         from a fixed 12 o'clock instead of sliding into place. Absolute
+         lengths rather than pathLength="1": the session ring normalises
+         because its arc is 305 degrees of an unstated radius, while this is
+         a plain circle whose circumference is right here, and a dasharray
+         of 1 on a 289-unit circle would render as dots anywhere pathLength
+         were ignored. Same mechanism, no new assumption. */
       '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-fill" stroke-width="9" '+
-        'stroke-linecap="round" stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" '+
-        'style="--gauge-len:'+fillLen.toFixed(1)+'" '+
+        'stroke-linecap="round" stroke-dasharray="'+circ.toFixed(1)+'" '+
+        'style="--gauge-len:'+circ.toFixed(1)+'; --gauge-to:'+(circ-fillLen).toFixed(1)+'" '+
         'transform="rotate(-90 '+cx+' '+cy+')"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="38" fill="none" class="gauge-inner-rim"/>'+
     '</svg>'+
