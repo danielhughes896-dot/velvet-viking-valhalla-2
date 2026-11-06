@@ -1226,13 +1226,13 @@
   .ws-step{position:relative; padding:0 0 12px 0;}
   .ws-step:last-child{padding-bottom:0;}
   .ws-step-label{display:flex; align-items:baseline; gap:8px;}
-  /* Shared cherry stage-number treatment -- one rule the vertical timeline
-     node (.ws-n) and the horizontal blueprint node (.ws-h-num, below) both
-     draw from, so the two can never drift onto different tokens/colours
-     across Today/This Week/Full Plan again (they already rendered from the
-     same three --cherry* tokens; this just makes that structural instead
-     of coincidental). Each keeps its own size/border-width/position. */
-  .ws-n, .ws-h-num{
+  /* The cherry stage-number treatment, now used by the vertical timeline
+     node alone. It was shared with the horizontal blueprint's node so the
+     two could not drift onto different tokens; the blueprint no longer
+     numbers its cells -- the cells are laid out in the order they are run
+     and the sentence above the row names them -- so there is nothing left
+     to drift from. The rule is kept as it was for .ws-n. */
+  .ws-n{
     display:flex; align-items:center; justify-content:center;
     border-radius:50%; background:var(--cherry-soft); border-color:var(--cherry); border-style:solid;
     color:var(--cherry-ink); line-height:1; font-weight:700;
@@ -1292,10 +1292,13 @@
      a single row -- than as three rungs of a ladder. Same numbered cherry
      disc, same cherry line language, just laid flat instead of stacked.
 
-     Reused, never redrawn: .ws-h-num below carries the exact .ws-n circle
-     properties (fill, border, ink, size, weight), and the divider between
-     columns is the same solid var(--cherry) the vertical rail uses, for the
-     same reason documented at .ws-step::before -- a translucent line
+     The blueprint's cells carry no number and no stage name of their own:
+     both were said twice over by the sentence above the row and by the
+     left-to-right order of the cells, and the header row they sat in was
+     costing the figures about 24px of height each. The stage name is still
+     in the accessibility tree -- see renderWorkoutStepHCell.
+     The divider between columns is the same solid var(--cherry) the
+     vertical rail uses, for the same reason documented at .ws-step::before -- a translucent line
      composites differently over every session-type tint; a solid one does
      not. It is a thin 1px rule, not a rail, because three columns already
      read as one row; it only needs to mark where one stage ends.
@@ -1312,15 +1315,6 @@
   .ws-h-step{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center;
              text-align:center; padding:0 5px;}
   .ws-h-step + .ws-h-step{border-left:1px solid var(--cherry);}
-  .ws-h-num{
-    width:28px; height:28px; flex:none; border-width:2px; font-size:14px;
-  }
-  /* Same --fs-label/--fs-body tokens the rest of the app's row-key and
-     primary-value roles use (see .ws-h-detail-name's old value and .ws-qty
-     respectively) -- consolidated off one-off hardcoded px so the blueprint
-     stays on the shared type scale instead of its own. */
-  .ws-h-name{font-family:var(--label-face); font-size:var(--fs-label); letter-spacing:var(--label-track);
-             text-transform:uppercase; color:var(--ink); margin-top:7px; line-height:1.25; font-weight:var(--label-weight);}
   /* Wraps by default, not nowrap -- a compound quantity ("2 x 3 x 700m", a
      ladder's rung list) is exactly as long as the reps the coach prescribed,
      and forcing every shape onto one line is what collided into the
@@ -1990,10 +1984,10 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row{display:block; padding:0; border:0;}
   /* ---------- THE HEADING IS THE PANEL'S MARK NOW ----------
      With the glyph above it gone the heading is the only thing at the top
-     of the column, so it is centred over its own panel and grown into the
-     space the icon used to hold. The body stays left: a 122px column of
-     centred prose turns every line into a different shape and the eye
-     loses the left edge it reads down.
+     of the column, so it is centred over its own panel -- and the sentence
+     under it is centred with it. Left-aligned under a centred heading the
+     two read as two different objects stacked up; the panel is one object,
+     so it has one axis.
 
      17px IS THE CEILING, AND IT IS MEASURED, NOT CHOSEN. The longest
      heading is "Watch For", and on a 360px phone its column is 96px wide.
@@ -2004,6 +1998,7 @@
     display:block; font-size:17px; letter-spacing:.055em; margin-bottom:10px;
     text-align:center; color:var(--gold-text);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row .v{
+    text-align:center;
     /* The tiers, not numbers. 13.5px/1.42 was the same size the support tier
        already carries and the typography guard was right to refuse it: a
        hand-set sentence is how 47 of them drifted apart in the first place,
@@ -2273,8 +2268,15 @@
   /* EXECUTION REVIEW, de-boxed and lit in Cherry Lacquer -- the coaching
      judgement on what was run, which is the same kind of thing the Coach's
      Note is, so it is treated the same way and kept below it in intensity. */
+  /* ---------- ONE LEFT EDGE ON THE WHOLE CARD ----------
+     Measured: every tab, every log field and the splits toggle start at
+     x=16 on a 412px screen -- the card's own edge -- and the analysis
+     started at x=34, because this block carried 18px of its own. One
+     section indented from all the others reads as a quotation inside the
+     card rather than part of it. The vertical padding stays: that is the
+     air the cherry glow needs, and it was never the problem. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card{
-    position:relative; margin-top:28px; padding:24px 18px 22px;
+    position:relative; margin-top:28px; padding:24px 0 22px;
     background:none; border:0; border-radius:0; box-shadow:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
@@ -2290,14 +2292,20 @@
   /* The verdict opens the same analysis this card continues, so it takes
      the same horizontal inset -- 18px here against 12px elsewhere. Stated
      beside the rule it mirrors so the two cannot drift apart. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .wc-verdict{padding:4px 18px 0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .wc-verdict{padding:4px 0 0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-head{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold); margin-bottom:9px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-summary{color:var(--ink); font-weight:600;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-more{color:var(--ink-faint);}
 
   /* Clearing a log is a recovery, not an action this screen is for. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-clear{text-align:center; margin-top:26px;}
+  /* NO MARGIN OF ITS OWN. Clear log is a child of the log panel's grid, and
+     that grid already sets a 26px row gap -- so this margin was added to it
+     and the space above Clear log came out at 52px against the 26px between
+     every other pair of rows in the panel. Measured on the phone: splits
+     table ended at 1930, Clear log began at 1982. The grid governs it now,
+     exactly as it governs the tabs above it. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-clear{text-align:center; margin-top:0;}
   /* Tight stack, no rules between rows -- the reference uses spacing alone. */
   /* The rule is a border-BOTTOM in the base sheet, which is why cancelling
      border-top did nothing. The reference separates the rows with space. */
@@ -2372,15 +2380,6 @@
     border:1.5px solid var(--cherry);
     background:var(--cherry-tint), var(--t-tile);
     box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-num{display:inline-flex; vertical-align:middle;
-    width:16px; height:16px; font-size:9.5px; margin-right:5px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-name{display:inline; vertical-align:middle;
-    font-size:10.5px; font-weight:600; letter-spacing:.7px; text-transform:uppercase;
-    color:var(--gold-text);}
-  /* The header row always ends after the step's name. A cool-down carries no
-     quantity element, so without this its name ran straight into the first
-     prescription -- "Cool downEasy". */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-name::after{content:''; display:block;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-qty{display:block; font-size:23px; font-weight:700;
     color:#fff; margin:5px 0 3px; letter-spacing:-0.01em;}
   /* ONE FACT PER LINE, WHICH IS WHAT THE DATA ALLOWS. The reference runs
@@ -4126,7 +4125,7 @@
      Execution Review itself uses below. The horizontal padding stays and is
      matched to .exec-review-card's so the two share one left edge; the tick
      stays because it is a mark of approval, not a container. */
-  .wc-verdict{border:0; border-radius:0; background:none; padding:4px 12px 0;}
+  .wc-verdict{border:0; border-radius:0; background:none; padding:4px 0 0;}
   /* Sized to sit on the label's own line without lifting it: the ring is a
      shade taller than the cap height it stands beside, which is as large as
      a mark can be before it becomes the thing being read. */
@@ -4339,9 +4338,8 @@
      talking. Rim, tint and radius go, the width becomes the tab's, and the
      gold sparkle is left to carry the voice -- the same way every other
      piece of explanatory prose in this app sits directly on the card. */
-  .share-note{display:flex; gap:10px;
+  .share-note{display:flex; gap:0;
     background:none; border:0; border-radius:0; padding:2px 0 0;}
-  .share-note svg{width:16px; height:16px; flex:0 0 auto; margin-top:2px; color:var(--gold-bright);}
   .share-actions{display:flex; flex-direction:column; gap:8px;}
   @media (min-width:560px){ .share-actions{flex-direction:row;} .share-actions .btn{flex:1;} }
   /* ---------- NO SLABS LEFT IN THIS TAB ----------
@@ -4768,10 +4766,9 @@
      the week's figures from the week's note -- two parts of the same hero
      that the gap already separates. Same reasoning as the section
      boundaries removed from Valhalla and This Week. */
-  .wk-taper{display:flex; gap:9px; align-items:flex-start; margin-top:12px;
+  .wk-taper{display:flex; gap:0; align-items:flex-start; margin-top:12px;
     padding-top:11px; color:var(--ink-dim);}
   .wk-taper b{color:var(--gold-text); font-weight:600;}
-  .wk-taper svg{width:17px; height:17px; flex:none; color:var(--gold); margin-top:1px;}
 
   /* ---- THE SEVEN DAYS ---- */
   .wk-days{display:flex; gap:7px; justify-content:space-between;}
@@ -27128,9 +27125,19 @@ function renderWorkoutStepSecondary(st){
 // name and content no longer appear twice for one stage.
 function renderWorkoutStepHCell(st, i){
   var qty = renderStepQty(st);
+  /* ---------- THE HEADER ROW GOES, THE STAGE NAME STAYS SPOKEN ----------
+     The number and the name sat above every cell -- "1 WARM UP", "2 GOAL
+     PACE", "3 COOL DOWN" -- and both were already said twice over: the
+     sentence above the row names the warm-up, the work and the cool-down in
+     order, and the cells are laid out in that order. Three cells across a
+     phone are about 105px each, so that row was costing the figures the
+     room they actually need.
+     The name is kept in the accessibility tree rather than deleted. On
+     screen the order carries it; through a screen reader there is no order
+     to see, and "2km / Easy / 5:09-6:07/km" with no stage name is a worse
+     reading of this card than the sighted one. The <ol> still numbers it. */
   return '<li class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
-    '<span class="ws-h-num font-mono">'+(i+1)+'</span>'+
-    '<span class="ws-h-name font-head">'+escapeHtml(st.label)+'</span>'+
+    '<span class="sr-only">'+escapeHtml(st.label)+'</span>'+
     (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
     essentialPrescriptionHtml(st)+
     renderWorkoutStepSecondary(st)+
@@ -29724,8 +29731,23 @@ var splitsEditorOpen = {};
 /* Per-day, in memory only: an optional run that has not been logged is not a
    fact about the plan and nothing about it is persisted. */
 var optionalLogOpen = {};
+/* ---------- "HIDE LAPS / SPLITS" COULD NEVER HIDE ANYTHING ----------
+   This read `flag || the day has laps`, and handleToggleSplits closed the
+   editor by DELETING the flag. On a day with laps the second clause then
+   answered true on its own, the card re-rendered open, and nothing moved --
+   and the control is only ever drawn when there ARE laps, so the button
+   never worked on a single day it appeared on. Reported from the phone as
+   "the hide does nothing", which is exactly what it did.
+   Same shape as isLogOpen() and isDetailOpen(): an explicit choice always
+   wins and the default is derived from the day, so closing it records a
+   real false rather than removing the only thing holding it shut. */
+function splitsHaveRows(dd){
+  return !!(dd && dd.actual && dd.actual.splits && dd.actual.splits.length);
+}
 function isSplitsOpen(dd){
-  return !!splitsEditorOpen[dd.id] || !!(dd.actual && dd.actual.splits && dd.actual.splits.length);
+  if (!dd) return false;
+  if (Object.prototype.hasOwnProperty.call(splitsEditorOpen, dd.id)) return !!splitsEditorOpen[dd.id];
+  return splitsHaveRows(dd);
 }
 // Sum of the athlete's OWN entered lap distances -- null (not 0) until at
 // least one lap carries a distance, same "unknown stays unknown" rule
@@ -31336,7 +31358,7 @@ function shareModalHtml(){
 function shareComposerHtml(){
   var st = shareState, d = st.data;
   var withheldNote = d.withheld.length
-    ? '<div class="share-note">'+ICONS.sparkles+'<div><strong>Imported numbers stay off the image.</strong> '+
+    ? '<div class="share-note"><div><strong>Imported numbers stay off the image.</strong> '+
       'This session was brought in from Strava, so Valhalla is leaving '+
       escapeHtml(shareWithheldPhrase(d.withheld))+' off the graphic'+
       (d.withheld.indexOf('verdict') !== -1
@@ -55060,8 +55082,9 @@ function handleToggleDetail(dayId){
 function handleToggleSplits(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
-  if (splitsEditorOpen[dd.id]) delete splitsEditorOpen[dd.id];
-  else splitsEditorOpen[dd.id] = true;
+  /* Written, never deleted. Deleting handed the answer back to the derived
+     default, which on a day with laps is open -- so "close" reopened it. */
+  splitsEditorOpen[dd.id] = !isSplitsOpen(dd);
   replaceCard(dd);
 }
 function handleAddSplit(dayId){
@@ -55711,7 +55734,7 @@ function renderWeekHeroBlock(weekNum){
       '<div class="wk-hero-pct">'+pct+'%</div>'+
     '</div>'+
     '<div class="wk-bar"><div class="wk-bar-fill" style="width:'+pct+'%; --wk-pct:'+pct+'%"></div></div>'+
-    (taper ? '<div class="wk-taper">'+ICONS.zap+'<span><b>Taper:</b> volume drops, but keep '+
+    (taper ? '<div class="wk-taper"><span><b>Taper:</b> volume drops, but keep '+
        'hitting these paces \u2014 sharpness matters more than mileage from here.</span></div>' : '')+
     /* Only when there is something to say. An exception is not noise -- an
        unlogged session or a restricted day changes what the week means. */

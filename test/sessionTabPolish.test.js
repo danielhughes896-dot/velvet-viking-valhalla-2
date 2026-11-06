@@ -324,3 +324,101 @@ function F(){
   assert.ok(m, 'the focused-session selector is gone from the sheet');
   return m[0];
 }
+
+/* ======================================================================
+ * 6. A CONTROL THAT COULD NEVER DO WHAT IT SAID
+ * ==================================================================== */
+
+test('Hide laps / splits actually hides the laps', () => {
+  /* Reported from the phone as "the hide does nothing", and it did nothing:
+     isSplitsOpen() read `flag || the day has laps`, and the close path
+     DELETED the flag -- so on a day with laps the derived clause answered
+     true on its own and the editor re-rendered open. The control is only
+     ever drawn when laps exist, so it never worked on a single day it
+     appeared on.
+     Asserted through the handler rather than on the source, because the
+     defect was in how two expressions combined, which no amount of reading
+     either one of them would have shown. */
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {};
+  a.scheduleSave = () => {}; a.flushSave = () => {}; a.replaceCard = () => {};
+  buildPlan(a, { weeks: 14, startDate: '2026-07-01', distanceKey: '10k',
+    volume: 40, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [0,1,2,3,4,5,6], longRunDay: 6 } });
+
+  const withLaps = a.state.days.find(d => d.type !== 'rest');
+  withLaps.completed = true;
+  withLaps.actual = { km: withLaps.km,
+    splits: [{ km:1, sec:312 }, { km:1, sec:304 }, { km:1, sec:292 }] };
+
+  assert.equal(a.isSplitsOpen(withLaps), true, 'a day with laps opens showing them');
+  a.handleToggleSplits(withLaps.id);
+  assert.equal(a.isSplitsOpen(withLaps), false,
+    'Hide laps / splits still does nothing on the only days it is shown on');
+  a.handleToggleSplits(withLaps.id);
+  assert.equal(a.isSplitsOpen(withLaps), true, 'and it cannot be reopened');
+
+  /* The derived default is untouched: a day with no laps still starts shut,
+     which is the whole reason the second clause existed. */
+  const noLaps = a.state.days.filter(d => d.type !== 'rest')[1];
+  noLaps.completed = true; noLaps.actual = { km: noLaps.km };
+  assert.equal(a.isSplitsOpen(noLaps), false, 'a day with no laps opens the editor unasked');
+});
+
+test('closing is recorded, never un-recorded', () => {
+  /* The fix is only a fix because the closed state is WRITTEN. Delete it
+     again and the derived default answers, which is exactly the bug. */
+  const i = SRC.indexOf('function handleToggleSplits');
+  const fn = SRC.slice(i, SRC.indexOf('\n}', i));
+  assert.doesNotMatch(fn, /delete splitsEditorOpen/,
+    'the closed state is being deleted again, which hands the answer back ' +
+    'to the derived default -- on a day with laps that default is OPEN');
+  assert.match(fn, /splitsEditorOpen\[dd\.id\] = !isSplitsOpen\(dd\)/);
+});
+
+/* ======================================================================
+ * 7. ONE LEFT EDGE, AND NOTHING IN FRONT OF A FIGURE
+ * ==================================================================== */
+
+test('the analysis starts where the rest of the card starts', () => {
+  const F = CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/)[0];
+  const card = rule(F + ' .exec-review-card');
+  assert.match(card, /padding:\s*24px 0 22px/,
+    'the analysis is indented from the card again -- every tab, log field ' +
+    'and the splits toggle start at the card edge, and a section inset from ' +
+    'all of them reads as a quotation inside the card rather than part of it');
+  assert.match(rule(F + ' .wc-verdict'), /padding:\s*4px 0 0/);
+});
+
+test('the workout cells carry figures, and the stage name is still spoken', () => {
+  assert.ok(!/ws-h-num/.test(SRC), 'the numbered badge is back on the stage cells');
+  assert.ok(!/ws-h-name/.test(SRC), 'the stage name is back on screen');
+  /* It left the screen, not the accessibility tree. Through a screen reader
+     there is no left-to-right order to carry it, and "2km / Easy /
+     5:09-6:07/km" with no stage name is a worse reading of this row than
+     the sighted one gets. */
+  assert.match(SRC, /<span class="sr-only">'\+escapeHtml\(st\.label\)/,
+    'the stage name was deleted rather than hidden, so a screen reader now ' +
+    'gets three unlabelled columns of numbers');
+});
+
+test('Clear log sits on the panel grid like every other row', () => {
+  const F = CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/)[0];
+  assert.match(rule(F + ' .actual-clear'), /margin-top:\s*0/,
+    'a margin here is ADDED to the grid row gap -- measured at 52px above ' +
+    'Clear log against 26px between every other pair of rows');
+});
+
+test('the rail panel reads on one axis', () => {
+  const F = CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/)[0];
+  assert.match(rule(F + ' .how-mod .how-row .v'), /text-align:\s*center/,
+    'the sentence is left-aligned under a centred heading, so the panel ' +
+    'reads as two objects stacked rather than one');
+});
+
+test('no glyph leads the taper line or the withholding note', () => {
+  assert.doesNotMatch(SRC, /class="wk-taper">'\+ICONS\./, 'the taper line leads with a bolt again');
+  assert.doesNotMatch(SRC, /class="share-note">'\+ICONS\./, 'the note leads with a sparkle again');
+  assert.ok(!/\.share-note svg\{/.test(CSS), 'the note glyph has a rule again');
+  assert.ok(!/\.wk-taper svg\{/.test(CSS), 'the taper glyph has a rule again');
+});
