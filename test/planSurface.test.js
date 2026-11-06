@@ -132,36 +132,34 @@ test('done, now and ahead are one colour language on the plan', () => {
     assert.ok(i > -1, 'rule gone: ' + sel);
     return BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
   };
-  /* THE CHIPS SAY IT WITH LIGHT, THE ROWS SAY IT WITH COLOUR, and the
-     difference is that one is pressed and the other is read. A chip's label
-     colour is already spoken for -- gold means SELECTED -- so colouring the
-     word by state too put two meanings on one property, and a completed
-     phase that was opened contradicted itself. The word stays crisp white
-     at every state, selected included, and the state is the glow. */
-  assert.match(ruleFor('.pp-chip.is-ahead, .pp-chip.is-now, .pp-chip.is-done{'), /color:var\(--ink\)/,
-    'the chip labels are being coloured by state again');
-  /* Anchored on the line start: the combined label rule above ENDS with
-     ".pp-chip.is-done{", so a bare indexOf reads that rule's body instead. */
-  /* --glow-done-mark is the compact form of the same light, and it resolves
-     to the --ok mix this used to spell out at the call site. */
-  assert.match(ruleFor('\n  .pp-chip.is-done{'), /box-shadow:var\(--glow-done-mark\)/,
-    'a completed phase chip is no longer lit green');
+  /* ---- THE CHIPS ARE A STEPPER NOW, AND THE LIGHT IS UNCHANGED ----
+     They were four pills: they said which phases exist and which is
+     current, and nothing about the shape between them, when a block is a
+     journey through its phases in order. The marks are joined by a track,
+     the completed span of it in cherry because cherry is progress here, and
+     each phase carries its own week range.
+     What this test protected travels with them: the two state lights are
+     still --glow-done-mark and the gold, from the same tokens the week rows
+     use, so done and current mean the same thing in both places. */
+  assert.match(ruleFor('.pp-step.is-done .pp-step-dot{'), /box-shadow:var\(--glow-done-mark\)/,
+    'a completed phase is no longer lit green');
   assert.match(BARE, /--glow-done-mark:[^;]*var\(--ok\)/,
     'the shared mark light stopped naming the done colour');
-  assert.match(ruleFor('.pp-chip.is-now{'), /box-shadow:[^;]*var\(--gold\)/,
-    'the current phase chip is no longer lit gold');
-  /* A bare `color:`, not the `color:` inside `border-color:` -- selection
-     keeps its gold RING, it just stops recolouring the word. */
-  assert.doesNotMatch(ruleFor('.pp-chip.is-open{'), /(?<!-)color:/,
-    'selection recolours the word again, which is what the glow replaced');
-  assert.match(ruleFor('.pp-chip.is-open{'), /border-color:var\(--gold\)/,
-    'selection lost the gold ring that distinguishes it from mere state');
-  /* The tick was already green while its own label was ink -- the chip said
-     "done" twice in two colours. Both are the token now. */
-  assert.match(ruleFor('.pp-chip.is-done .pp-chip-tick{'), /var\(--ok-text\)/,
+  assert.match(ruleFor('.pp-step.is-now .pp-step-dot{'), /box-shadow:[^;]*var\(--gold\)/,
+    'the current phase is no longer lit gold');
+  assert.match(ruleFor('.pp-step.is-done .pp-step-dot{'), /var\(--ok-text\)/,
     'the tick hand-sets its green again instead of naming the token');
-  assert.doesNotMatch(BARE, /\.pp-chip\.is-done \.pp-chip-tick\{[^}]*#9BC08C/,
-    'the literal green came back on the chip tick');
+  assert.doesNotMatch(BARE, /\.pp-step[^{]*\{[^}]*#9BC08C/,
+    'the literal green came back on the phase mark');
+  /* THE TRACK IS THE NEW PART, and the only thing on this screen reporting
+     progress THROUGH the block, so it is held here: cherry, mixed down, and
+     lit only on the span the athlete has already crossed. */
+  assert.match(ruleFor('.pp-step.has-track-done::before{'), /var\(--cherry\)/,
+    'the completed span of the phase track is not cherry');
+  assert.match(ruleFor('.pp-step.has-track-done::before{'), /color-mix/,
+    'the track uses cherry neat, which is the loudest thing on the screen');
+  assert.match(ruleFor('.pp-step::before{'), /opacity:0/,
+    'the first phase draws a track reaching back to nothing');
   const weeks = BARE.slice(BARE.indexOf('.view-plan .pp-body .week .week-num'));
   assert.match(weeks.slice(0, 1200), /\.week\.is-done \.week-num,[\s\S]{0,120}var\(--ok-text\)/,
     'a completed week row is not green');
@@ -206,8 +204,8 @@ test('every gold glow that marks selection or state names its token', () => {
     'hand-set gold glows: ' + glows.length + ' (expected the 3 the pulse owns)\n  ' +
     glows.join('\n  '));
   /* ...and the pattern they should follow is in the sheet and working. */
-  assert.match(BARE, /\.pp-chip\.is-open\{[^}]*color-mix\(in srgb, var\(--gold\)/,
-    'the selected phase chip hand-sets its gold again');
+  assert.match(BARE, /\.pp-step\.is-now \.pp-step-dot\{[^}]*color-mix\(in srgb, var\(--gold\)/,
+    'the current phase mark hand-sets its gold again');
   assert.match(BARE, /\.wk-day\.is-sel\{[^}]*color-mix\(in srgb, var\(--gold\)/,
     'the selected day circle hand-sets its gold again');
 });
@@ -288,4 +286,65 @@ test('SETTINGS: the containers come off, and the rows take the gutter', () => {
     /border-top:1px/, 'the Settings rows no longer separate from one another');
   assert.match(rule('.view-settings .ev-card.stg-row'), /border-top:0/,
     'a Settings group draws a rule under its own heading again');
+});
+
+/* THE BLOCK IS A ROUTE, AND FULL PLAN LEADS WITH THE BLOCK.
+ * ===========================================================================
+ * Two things this screen was not saying. The phases were a row of pills --
+ * a SET, when a block is a sequence through them in order. And the hero said
+ * "Week 10 - Taper", which is This Week's subject, on the screen whose whole
+ * job is the block.
+ */
+test('the phases read as a route through the block', () => {
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  const i = src.indexOf('function renderPhaseSteps');
+  assert.ok(i > -1, 'the phase stepper is gone');
+  const fn = src.slice(i, src.indexOf('\n}', i));
+  assert.match(fn, /data-action="toggle-phase"/,
+    'a step stopped opening its own phase, which is all the pill ever did');
+  assert.match(fn, /pp-step-w/, 'the steps no longer carry their week ranges');
+  /* The lit span must end at the phase the athlete is IN, not run past it,
+     so it is decided by the step BEFORE each gap rather than by the step
+     drawing it. */
+  assert.match(fn, /phaseGroupState\(groups\[i-1\]\) === 'done'/,
+    'the track is lit from the wrong end, so it runs past the current phase');
+});
+
+test('Full Plan leads with the block, and the figures keep their period', () => {
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  assert.match(src, /renderWeekHeroBlock\(cur, true\)/,
+    'Full Plan is no longer asking for the block-led hero');
+  assert.match(src, /function renderWeekHeroBlock\(weekNum, asBlock\)/);
+  const i = src.indexOf('  if (asBlock){');
+  const branch = src.slice(i, i + 420);
+  /* ONLY THE TYPE SWAPS. The volume, the percentage and the bar are read
+     from the one weekVolume() call either way -- which is the whole reason
+     This Week and Full Plan share this function instead of each printing
+     their own totals for the same week. */
+  assert.ok(!/weekVolume|pct|planned|done\s*=/.test(branch),
+    'the block-led hero is recomputing figures, so the two screens can now ' +
+    'print different totals for the same week');
+  /* And the week is NOT dropped, although the mock drops it: the figures
+     under it are this WEEK's, and a bar with no period named reads as
+     progress through the block -- a different, wrong number. */
+  assert.match(branch, /'Week '\+parts\.wk\+' of '\+parts\.total/,
+    'the block-led hero dropped the week, orphaning the figures under it');
+});
+
+test('the day the block is for is a panel, not another row', () => {
+  /* There are three .view-plan > .race-event rules in the sheet and the
+     first is a one-line margin, so a bare indexOf reads that one and the
+     assertion fails for the wrong reason. Matched across the whole sheet
+     instead: SOME rule for this element must carry the panel. */
+  assert.match(BARE, /\.view-plan > \.race-event\{[^}]*var\(--cherry-tint\)/,
+    'Race Day is flat on the page again');
+  assert.match(BARE, /\.view-plan > \.race-event\{[^}]*border:1\.5px solid var\(--cherry\)/);
+  /* The same recipe the workout's key step wears, so the two cherry-marked
+     objects in the product are one object rather than two that resemble
+     each other. */
+  const work = BARE.slice(BARE.indexOf('.ws-h-step.ws-work{'));
+  assert.match(work.slice(0, 260), /var\(--cherry-tint\)/,
+    'the recipe Race Day is matched to has moved');
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  assert.doesNotMatch(src, /class="rd-flag"/, 'Race Day leads with a glyph again');
 });

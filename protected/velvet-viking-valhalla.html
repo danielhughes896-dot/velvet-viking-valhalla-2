@@ -5041,26 +5041,53 @@
      square green block, which is exactly what it looked like. The row still
      has to scroll at 320px, so it keeps the scroller and gains the vertical
      room the light needs; the negative margin gives the layout back. */
-  .pp-chips{display:flex; gap:7px; justify-content:center;
-    padding:16px 0 18px; margin:-16px 0 -16px;
+  .pp-chips{display:flex; gap:0; justify-content:center;
+    padding:18px 0 20px; margin:-16px 0 -4px;
     overflow-x:auto; scrollbar-width:none;}
   .pp-chips::-webkit-scrollbar{display:none;}
-  .pp-chip{
-    /* Grow to an equal share, but never shrink below the label and its tick.
-       At 320px with five phases the equal share is 52px and a completed chip
-       needs 52 for "BASE" plus the tick alone -- so fit-content is what
-       stops the row solving the fit by cutting words in half. It scrolls in
-       that one case instead, and divides the width in every other. */
-    flex:1 1 0; min-width:fit-content; display:inline-flex; align-items:center;
-    justify-content:center; gap:5px;
-    padding:9px 8px; border-radius:99px; min-height:40px;
-    background:var(--t-tile); border:1px solid var(--t-tile-rim);
-    color:var(--ink-dim); font-size:11.5px; letter-spacing:.08em;
-    transition:color .18s, border-color .18s, box-shadow .18s;
+  /* Each step owns an equal share of the row and centres its own mark; the
+     track is drawn by the step to the RIGHT of each gap, reaching back to
+     the previous mark, so a gap can never be drawn past the last phase. */
+  .pp-step{
+    position:relative; flex:1 1 0; min-width:fit-content;
+    display:flex; flex-direction:column; align-items:center; gap:7px;
+    padding:0 4px; background:none; border:0; color:var(--ink);
+    transition:color .18s;
   }
-  .pp-chip > span:first-child{white-space:nowrap;}
-  .pp-chip-tick{display:inline-flex; flex:none;}
-  .pp-chip-tick svg{width:13px; height:13px;}
+  .pp-step::before{
+    content:''; position:absolute; top:12px; height:2px; z-index:0;
+    right:50%; left:-50%; background:var(--line); opacity:0;}
+  .pp-step.has-track::before{opacity:1;}
+  /* Cherry is progress in this product, and this is the only track on the
+     screen that reports it. Mixed down rather than used neat: a full-strength
+     cherry line between four small marks reads as the loudest thing on a
+     screen whose subject is the phases, not the line between them. */
+  .pp-step.has-track-done::before{
+    opacity:1; background:color-mix(in srgb, var(--cherry) 55%, transparent);}
+  .pp-step-dot{
+    position:relative; z-index:1; flex:none; width:25px; height:25px;
+    border-radius:50%; display:inline-flex; align-items:center;
+    justify-content:center;
+    border:1.5px solid var(--t-tile-rim); background:var(--bg);
+    color:transparent; transition:border-color .18s, box-shadow .18s, color .18s;}
+  .pp-step-dot svg{width:13px; height:13px;}
+  .pp-step-k{font-size:11.5px; letter-spacing:.08em; white-space:nowrap;
+    color:var(--ink); transition:color .18s;}
+  .pp-step-w{font-size:10px; color:var(--ink-faint); white-space:nowrap;}
+  /* The same two lights the rows below use, from the same tokens: the done
+     green on a phase behind the athlete, the gold on the one they are in. */
+  .pp-step.is-done .pp-step-dot{
+    border-color:color-mix(in srgb, var(--ok) 60%, transparent);
+    background:color-mix(in srgb, var(--ok) 18%, transparent);
+    color:var(--ok-text); box-shadow:var(--glow-done-mark);}
+  .pp-step.is-now .pp-step-dot{
+    border-color:var(--gold); background:rgba(227,177,90,.14);
+    box-shadow:0 0 16px color-mix(in srgb, var(--gold) 26%, transparent);}
+  .pp-step.is-now .pp-step-k{color:var(--gold-bright);}
+  .pp-step.is-ahead .pp-step-k{color:var(--ink-dim);}
+  /* Opening a phase is a selection, and gold is what a selection wears --
+     the same mark the nav's current tab and the builder's chosen row take. */
+  .pp-step.is-open:not(.is-now) .pp-step-dot{border-color:var(--gold-text);}
   /* A CHIP SAYS ITS STATE WITH LIGHT, NOT WITH THE WORD -- and that is the
      difference between a control and a row. The week rows below are read,
      so their state is the colour of the text. These are pressed, and their
@@ -5072,16 +5099,6 @@
      the state is a glow behind it -- the same green and the same gold the
      rows use, from the same tokens. The tick stays green because it is a
      mark rather than a label. */
-  .pp-chip.is-ahead, .pp-chip.is-now, .pp-chip.is-done{color:var(--ink);}
-  .pp-chip.is-done{box-shadow:var(--glow-done-mark);}
-  .pp-chip.is-now{box-shadow:0 0 16px color-mix(in srgb, var(--gold) 26%, transparent);}
-  .pp-chip.is-done .pp-chip-tick{color:var(--ok-text);}
-  /* The selected chip is the bottom nav's selected tab again -- gold, lit,
-     no fill -- which is the one selected language this product has. */
-  .pp-chip.is-open{
-    border-color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 26%, transparent);
-  }
 
   /* ---- a phase ---- */
   .pp-phase{
@@ -5202,18 +5219,26 @@
      boxed: a velvet-rimmed, lifted card. It keeps its velvet -- the rim
      moves to a hairline above it -- and gives up the elevation, like
      everything else here. */
+  /* ---------- THE ONE THING THE BLOCK IS FOR ----------
+     It was flat on the page under a cherry hairline -- the same weight as
+     the fifteen week rows above it, when it is the day they are all for.
+     It becomes a panel, in the recipe the workout's key step already wears:
+     --cherry-tint over the tile, a cherry rim and the same soft inner wash.
+     Reused rather than invented, so the two cherry-marked objects in the
+     product are the same object, and mixed down from the mock's fill --
+     a full-strength panel this size is the brightest thing in the app by a
+     distance, on a screen the athlete scrolls past every day. */
   .view-plan > .race-event{
-    background:none; border:0; border-radius:0; box-shadow:none;
-    padding:16px 2px 4px; margin-bottom:0;
-    border-top:1px solid color-mix(in srgb, var(--cherry) 38%, transparent);
+    background:var(--cherry-tint), var(--t-tile);
+    border:1.5px solid var(--cherry); border-radius:var(--tile-radius);
+    box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);
+    padding:16px 15px 15px; margin-bottom:0;
   }
   .view-plan > .race-event .race-divider{
     display:flex; align-items:center; gap:9px; margin:0 0 2px; padding:0;}
   .view-plan > .race-event .race-divider .l{
     font-size:16px; letter-spacing:.06em; color:var(--gold-bright);}
   .view-plan > .race-event .race-divider .r{display:none;}
-  .view-plan > .race-event .rd-flag{order:-1; flex:none; display:inline-flex; color:var(--gold);}
-  .view-plan > .race-event .rd-flag svg{width:20px; height:20px;}
   /* ---- ONE CARD, THREE AREAS ----
      Identity and date top left, distance top right, the strategy across the
      foot with the finish time at its right. A grid rather than stacked rows,
@@ -46608,7 +46633,6 @@ function renderRaceDayEvent(weekNum){
   return '<div class="race-event">'+
       '<div class="phase-divider race-divider">'+
         '<span class="l font-head">'+escapeHtml(vGoalDay())+'</span>'+
-        '<span class="rd-flag" aria-hidden="true">'+ICONS.target+'</span>'+
         '<span class="r" aria-hidden="true"></span>'+
       '</div>'+
       '<div class="race-event-when font-mono">'+escapeHtml(dLong(race.date))+'</div>'+
@@ -46660,17 +46684,39 @@ function phaseGroupOpen(g, forceOpenAll){
 /* The chips. One per phase, in block order, so the shape of the whole build
    is legible before anything is opened -- which is the thing a flat list of
    fifteen week rows could not say. */
-function renderPhaseChips(){
+/* ---------- THE BLOCK AS A ROUTE, NOT A ROW OF PILLS ----------
+   This was four pills in a row. It said which phases exist and which one is
+   current, and nothing about the shape between them -- a block is a journey
+   through its phases in order, and pills are a set, not a sequence.
+   It is a stepper now: a mark per phase joined by a track, the completed
+   span of that track drawn in cherry because cherry is progress in this
+   product, and each phase's own week range under its name so the shape of
+   the build is legible before anything is opened.
+   Still a button, still data-action="toggle-phase": tapping a step opens its
+   phase below, exactly as tapping the pill did. The container keeps its
+   class so the horizontal-scroll law that governs it is untouched. */
+function renderPhaseSteps(){
   var groups = planPhaseGroups();
   if (groups.length < 2) return '';
   return '<div class="pp-chips" role="group" aria-label="Training phases">'+
-    groups.map(function(g){
+    groups.map(function(g, i){
       var st = phaseGroupState(g);
-      return '<button type="button" class="pp-chip is-'+st+
+      /* The track reaching THIS step is lit when the step before it is
+         behind the athlete -- so the lit span ends at the phase they are in
+         rather than running past it. */
+      var prevDone = i > 0 && phaseGroupState(groups[i-1]) === 'done';
+      var wks = g.weeks.length > 1
+        ? 'W'+g.weeks[0]+'\u2013'+g.weeks[g.weeks.length-1]
+        : 'W'+g.weeks[0];
+      return '<button type="button" class="pp-step is-'+st+
+          (i > 0 ? (prevDone ? ' has-track-done' : ' has-track') : '')+
           (phaseGroupOpen(g, false) ? ' is-open' : '')+'" '+
           'data-action="toggle-phase" data-phase="'+escapeHtml(g.phase)+'">'+
-        '<span class="font-head">'+escapeHtml(phaseChipLabel(g.phase))+'</span>'+
-        (st==='done' ? '<span class="pp-chip-tick" aria-hidden="true">'+ICONS.check+'</span>' : '')+
+        '<span class="pp-step-dot" aria-hidden="true">'+
+          (st==='done' ? ICONS.check : '')+
+        '</span>'+
+        '<span class="pp-step-k font-head">'+escapeHtml(phaseChipLabel(g.phase))+'</span>'+
+        '<span class="pp-step-w font-mono">'+escapeHtml(wks)+'</span>'+
       '</button>';
     }).join('')+
   '</div>';
@@ -55913,7 +55959,16 @@ function weekSelectedDay(weekNum){
    weekVolume()'s -- the same computation the accordion header read -- and
    doneTraining/training rather than done/total, so a logged race cannot make
    the bar read past 100%. */
-function renderWeekHeroBlock(weekNum){
+/* asBlock: Full Plan's copy of this hero. SAME FIGURES, DIFFERENT SUBJECT.
+   This Week is a week and leads with "Week 10 - Taper"; Full Plan is the
+   block and leads with what the block is for. Only the two lines of type
+   swap, deliberately -- the volume, the percentage and the bar are read from
+   the same weekVolume() call either way, which is the whole reason the two
+   screens share this function rather than each printing their own totals.
+   The week is NOT dropped on Full Plan even though the mock drops it: the
+   figures under it are this WEEK's, and a bar with no period named reads as
+   progress through the block, which is a different and wrong number. */
+function renderWeekHeroBlock(weekNum, asBlock){
   var vol = weekVolume(weekNum);
   var parts = blockIdentityParts();
   var planned = vol.training, done = vol.doneTraining;
@@ -55928,6 +55983,13 @@ function renderWeekHeroBlock(weekNum){
      is dropped because the number is already said to its left. */
   var phase = weekPhaseLabel(weekNum).replace(/ Phase$/,'');
   var title = 'Week '+weekNum + (phase && phase !== 'Week '+weekNum ? ' \u00b7 '+phase : '');
+  if (asBlock){
+    /* The block's own name leads, and the week moves under it rather than
+       away: the phase is said by the stepper directly below, so repeating
+       it here would be the third time this screen named the same thing. */
+    title = (parts.label || title).replace(/ Build$/,'');
+    sub = (parts.wk && parts.total) ? ['Week '+parts.wk+' of '+parts.total] : [];
+  }
   var notes = weekStatusNotes(weekNum);
   return '<div class="wk-hero">'+
     renderWeekStatusChip()+
@@ -56339,8 +56401,8 @@ function renderFullPlanView(){
   var cur = currentWeekNum();
   return '<div class="view-plan">'+
     '<div class="view-heading font-head">Full Plan</div>'+
-    (cur ? renderWeekHeroBlock(cur) : '')+
-    renderPhaseChips()+
+    (cur ? renderWeekHeroBlock(cur, true) : '')+
+    renderPhaseSteps()+
     renderWeeksList()+
   '</div>';
 }
