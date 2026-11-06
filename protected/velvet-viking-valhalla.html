@@ -4062,9 +4062,19 @@
      nothing left that draws a native glyph for it to recolour. */
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
-  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--modal-border); position:sticky; top:0; background:var(--modal-surface); z-index:2;}
+  /* ---------- A SHEET'S GUTTER IS THE PAGE'S GUTTER ----------
+     .wrap puts page content 16px from the screen; these put modal content
+     19px from the card's edge (18px here plus the card's 1px rim), so every
+     sheet and dialog ran a slightly narrower column than the screen behind
+     it. 15px + the rim is 16, which makes the two the same measurement
+     rather than two numbers that happen to look alike. It holds for both
+     modal shapes: the bottom sheet is full-width, so its content lands at
+     16 from the screen, and the floating builder card is inset 10px, so its
+     content lands 16 inside its own edge -- which is the edge the eye reads
+     it against. */
+  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 15px; border-bottom:1px solid var(--modal-border); position:sticky; top:0; background:var(--modal-surface); z-index:2;}
   .modal-head h2{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:16px; margin:0; color:var(--modal-text);}
-  .modal-body{padding:16px 18px 22px; color:var(--modal-text);}
+  .modal-body{padding:16px 15px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
   /* ---- THE COMPLETION MOMENT ----
      A black Valhalla environment in BOTH themes, like the decision surface and
@@ -5023,13 +5033,22 @@
      "selected". */
   .view-plan .pp-phase, .view-plan .pp-phase.is-now{
     background:none; border:0; border-radius:0; box-shadow:none; overflow:visible;}
-  .view-plan .pp-head{padding:15px 2px;}
-  .view-plan .pp-body{padding:0 2px 12px;}
+  /* ---------- ONE GUTTER, AND .wrap ALREADY OWNS IT ----------
+     .wrap sets the page's 16px and every one of these put its own padding
+     on top of it. Traced on the phone: a session title on this screen sat
+     at x=32 -- wrap 16, pp-body 2, week-body-inner 12, pw-row 2 -- against
+     x=16 for the same kind of line on Today and This Week. None of those
+     four numbers was deciding anything; together they were a second gutter
+     nobody chose. The page's gutter is the only one now. */
+  .view-plan .pp-head{padding:15px 0;}
+  .view-plan .pp-body{padding:0 0 12px;}
   .view-plan .pp-body .week{
     background:none; border:0; border-radius:0; box-shadow:none; margin-bottom:0;}
   /* The session rows on a week screen are the same kind of thing. */
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row{
-    background:none; border:0; border-radius:0; box-shadow:none; padding:14px 2px;}
+    background:none; border:0; border-radius:0; box-shadow:none; padding:14px 0;}
+  :is(.view-plan, .view-plan-week, .view-plan-session) .week-body-inner{padding:2px 0 14px;}
+  :is(.view-plan, .view-plan-week, .view-plan-session) .week-head{padding:14px 0;}
   /* THE CURRENT DAY KEEPS ITS GOLD WITHOUT THE RIM IT USED TO WEAR. .pw-row
      .is-today set border-color, and border:0 above takes the border it was
      colouring -- so the signal moves to the row's own text, which already
@@ -5039,13 +5058,23 @@
     color:var(--gold-bright);}
   /* ...and so are the panels either side of them. Scoped to the plan views
      and never to bare .hub-card, which Today and Valhalla also use. */
+  /* The ground, the rim and the radius went; the INSET they justified did
+     not, so these panels kept a box's 13-14px of padding and margin with no
+     box to put it in -- which is why the zone breakdown's label sat at x=43
+     here and at x=16 on This Week, where .wk-summary > .zone-card already
+     zeroes both. Same treatment, stated for the plan views. */
   :is(.view-plan, .view-plan-week, .view-plan-session) :is(.hub-card, .zone-card, .race-event, .race-strategy){
-    background:none; border:0; border-radius:0; box-shadow:none;}
+    background:none; border:0; border-radius:0; box-shadow:none;
+    margin-left:0; margin-right:0; padding-left:0; padding-right:0;}
   /* ---- THE WEEK ROW, COMPACT ----
      A phase holds up to six of these, so the row carries the same facts in
      less height: the Cinzel numeral comes down, the range tightens under the
      label, and the volume keeps its figure while the unit shrinks. */
-  .view-plan .pp-body .week-head{padding:9px 11px; gap:10px;}
+  /* Horizontal padding removed, not overridden elsewhere: at (0,3,0) this
+     rule outranks the view-scoped one above, so a second declaration
+     there would have looked right in the sheet and changed nothing on
+     the screen. The vertical 9px is this row's own and stays. */
+  .view-plan .pp-body .week-head{padding:9px 0; gap:10px;}
   .view-plan .pp-body .week-num{font-size:17px; width:28px;}
   .view-plan .pp-body .week-range{margin-top:1px;}
   /* A week's volume and completion are the two numbers this row exists to
@@ -5905,7 +5934,10 @@
                var(--tile-shadow);}
   .v-call-head{display:flex; align-items:center; gap:9px;}
   .v-call-title{font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink);}
-  .v-call-sub{ color:var(--ink-dim); margin-top:5px; padding-left:16px;}
+  /* The sub was indented to clear the dot in front of the title above it.
+     With no dot there is nothing to clear, and the indent would be the only
+     thing on the panel not starting at its edge. */
+  .v-call-sub{ color:var(--ink-dim); margin-top:5px; padding-left:0;}
   .v-call.good{--call-tone:var(--c-easy);}
   .v-call.watch{--call-tone:var(--gold);}
   .v-call.bad{--call-tone:var(--c-tempo);}
@@ -46550,11 +46582,15 @@ function phaseGroupMeta(g){
 }
 function renderPhaseSection(g, forceOpenAll){
   var st = phaseGroupState(g), open = phaseGroupOpen(g, forceOpenAll);
-  var mark = st==='done'
-    ? '<span class="pp-mark is-done">'+ICONS.check+'</span>'
-    : st==='now'
-      ? '<span class="pp-mark is-now">'+ICONS.zap+'</span>'
-      : '<span class="pp-mark"></span>';
+  /* ---------- THE DISC GOES, THE STATE STAYS ----------
+     A 28px status disc in front of every phase name, plus its 11px gap, put
+     the name at x=57 on a 412px screen -- 41px of the row spent on a mark
+     whose two states the row already says in words: phaseGroupMeta() ends
+     every line with "Completed", "Now" or "Ahead", and .pp-phase.is-now
+     already turns the name itself gold. The mark was the third telling.
+     Nothing is lost that was not said twice already, and the name starts
+     where every other line on this screen starts. */
+  var mark = '';
   /* RACE DAY IS NOT INSIDE A PHASE. It is the thing the whole block exists
      for, and folded into the taper section it disappeared the moment that
      section was collapsed -- the culmination hidden behind a chevron. It is
@@ -46565,7 +46601,6 @@ function renderPhaseSection(g, forceOpenAll){
   return '<section class="pp-phase is-'+st+(open?' is-open':'')+'">'+
     '<button type="button" class="pp-head" data-action="toggle-phase" '+
         'data-phase="'+escapeHtml(g.phase)+'" aria-expanded="'+(open?'true':'false')+'">'+
-      mark+
       '<span class="pp-head-text">'+
         /* phaseDividerLabel() is the name this section has always carried --
            "Taper Phase", not the bare phase key -- and it is what the
@@ -56195,7 +56230,11 @@ function renderProgrammeStatus(){
     : 'still building';
   var statusLine = decMeta
     ? '<div class="v-call '+statusTone+'">'+
-        '<div class="v-call-head"><span class="v-status-dot '+statusTone+'"></span>'+
+        /* The dot went the way the phase disc did: the title it sat in
+           front of ENDS with the state it was signalling ("... -- PROCEED"),
+           so it was the second telling, and it held that title 16px off the
+           panel edge every other line on this screen starts at. */
+        '<div class="v-call-head">'+
           '<span class="v-call-title font-head">Valhalla’s Call — '+escapeHtml(decMeta.label)+'</span></div>'+
         (recWord ? '<div class="v-call-sub">Recovery '+escapeHtml(recWord)+', trend '+escapeHtml(trendWord)+'.</div>' : '')+
       '</div>'

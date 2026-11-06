@@ -90,10 +90,19 @@ test('HERO: centred block/week, a full-circle gauge, two figures, a contained ou
   a.recordMeasuredPerformance(chk);
   assert.match(a.recordPanelFitness(), /class="cf-instrument outlook-instrument"/,
     'Current Fitness left the hero and did not arrive in the Fitness panel');
-  // The call is its own card now, with a real decision word and a coloured dot.
+  /* The call is its own card, with a real decision word and a tone.
+     THE DOT HAS GONE AND THIS ASSERTION WITH IT. It was a third telling:
+     the card already carries the tone as a class -- which is what drives
+     --call-tone and the gradient wash behind the words -- and the title
+     already ENDS in the decision ("Valhalla's Call -- Proceed"). What the
+     dot cost was the left edge: it held the title at x=32 on a screen whose
+     every other line starts at 16.
+     Both surviving signals are asserted immediately below, so a card that
+     lost its tone or its decision word still fails here. */
   assert.match(hero, /class="v-call (good|watch|bad)"/);
   assert.match(hero, /Valhalla\u2019s Call \u2014 /);
-  assert.match(hero, /class="v-status-dot (good|watch|bad)"/);
+  assert.doesNotMatch(hero, /class="v-status-dot/,
+    'the dot is back in front of the call title');
   assert.doesNotMatch(hero, /class="v-status-line"/,
     'the call is still a footnote line inside the hero card');
 });
