@@ -316,28 +316,56 @@ test('reading the workout does not modify the day or its prescription', () => {
   });
 });
 
-test('the structured layer sits INSIDE the coaching disclosure', () => {
-  /* THIS ASSERTION CHANGED SIDES, and the reason is worth keeping. It used
-     to require the step table ABOVE the disclosure, because the disclosure
-     was "How to run this" and the steps were the session itself -- the
-     session should not hide behind a tab about how to run it.
-     The disclosure is Session Details now, and it holds the session's own
-     words: targets, description and step table, with the coaching rail
-     under them. A tab called Session Details with the details stacked
-     outside it is the label standing apart from the thing it labels, so the
-     steps moved IN. What must stay true is that they are still on the card
-     and still reachable from it. */
+test('the step table sits above the rail until the session is run, then inside it', () => {
+  /* WHERE THE STEP TABLE GOES DEPENDS ON WHETHER THE SESSION IS STILL AHEAD,
+     and both halves matter.
+
+     BEFORE IT IS RUN the prescription IS the card: the rail renders open,
+     the table sits above it, and nothing stands between the athlete and
+     what they are about to do. Today and This Week's open session are the
+     cleanest screens in the product because of that, and an earlier pass
+     that put every focused session behind a tab took exactly that away.
+
+     ONCE IT IS LOGGED the prescription is reference. It moves under what
+     you actually did, into Session Details -- and a tab with that name
+     whose details were stacked outside it would be a label standing apart
+     from the thing it labels, so the table goes in with the rail. */
   const a = app();
-  const dd = day(a, 'threshold_continuous');
-  const html = a.renderDayCard(dd);
-  const ws = html.indexOf('ws-block');
-  const how = html.indexOf('how-card');
-  assert.ok(ws > -1, 'no structured workout on the card');
-  assert.ok(how > -1, 'the coaching disclosure vanished');
-  assert.ok(how < ws, 'the structured workout escaped Session Details');
-  /* And it is inside the <details>, not merely after it: the closing tag
-     must come later than the step table. */
-  assert.ok(html.indexOf('</details>', how) > ws,
+
+  const todo = day(a, 'threshold_continuous');
+  const ahead = a.renderDayCard(todo);
+  const wsA = ahead.indexOf('ws-block'), howA = ahead.indexOf('how-card');
+  assert.ok(wsA > -1 && howA > -1, 'the unrun card lost its steps or its rail');
+  assert.ok(wsA < howA, 'an unrun session hid its step table behind the rail');
+  assert.doesNotMatch(ahead, /sess-tab-k">Session Details/,
+    'an unrun session is behind a tab again -- it is the card, not a reference');
+
+  /* AND ON A FOCUSED CARD IT MUST BE OPEN, which is the dangerous half.
+     The open rail's summary is display:none -- correct, because a heading
+     above panels headed WHY and EXECUTION is a label on a label. So if the
+     element ever loses `open` while keeping .is-static, the rail is CLOSED
+     with no summary to press: the session's instructions become unreachable
+     on the one screen that exists to show them, and nothing else in the
+     suite notices. */
+  a.state.view = 'full';
+  a.planSessionOpen = todo.id;
+  const focused = a.renderDayCard(todo);
+  assert.ok(a.dayCardIsFocused(todo), 'the fixture stopped being a focused card');
+  assert.match(focused, /class="fuel-card how-card is-static" open/,
+    'a focused unrun session renders its rail shut behind a hidden summary');
+  a.planSessionOpen = null;
+  a.state.view = 'today';
+
+  const done = day(a, 'threshold_continuous');
+  done.completed = true;
+  done.actual = Object.assign(a.emptyActual(), { km: done.km, pace: '4:30', paceUnit: 'km' });
+  const logged = a.renderDayCard(done);
+  const wsB = logged.indexOf('ws-block'), howB = logged.indexOf('how-card');
+  assert.ok(wsB > -1 && howB > -1, 'the logged card lost its steps or its rail');
+  assert.ok(howB < wsB, 'the step table escaped Session Details once logged');
+  /* Inside the <details>, not merely after it: the closing tag must come
+     later than the table. */
+  assert.ok(logged.indexOf('</details>', howB) > wsB,
     'the step table renders after Session Details closes, so the tab does not hold it');
 });
 
@@ -347,7 +375,10 @@ test('the coaching disclosure keeps every section it had', () => {
   const a = app();
   const dd = day(a, 'threshold_continuous');
   const html = a.renderDayCard(dd);
-  ['Session Details', 'Why', 'Feel', 'Watch For'].forEach(k => {
+  /* Named by what it says on an UNRUN session, which is what day() builds.
+     Once logged the same panel is headed Session Details; the sections
+     inside it are the same either way, and that is what is asserted. */
+  ['How to run this', 'Why', 'Feel', 'Watch For'].forEach(k => {
     assert.ok(html.indexOf(k) > -1, 'the coaching disclosure lost: ' + k);
   });
   assert.ok(/Execution/.test(html), 'the coaching disclosure lost Execution');

@@ -95,7 +95,7 @@ test('no single coaching sentence dominates a fortnight of cards', () => {
      and they describe what is behind the tab rather than anything the
      coach chose to say about this athlete. "How to run this" was listed
      here for exactly that reason before it became Session Details. */
-  const CHROME = /^(Session Details|Why · Execution|The verdict · Execution review|Avg Pace|Actual|Notes|Feel|RPE|Elevation gain|Execution Review|Compared With|Recovery Priority|Total carbs|Gels|Fluid guide|\+ Log the session|\+ Add laps|Anything the numbers|Fluid is a starting guide|Dial this in during training)/;
+  const CHROME = /^(How to run this|Session Details|Why · Execution|The verdict · Execution review|Avg Pace|Actual|Notes|Feel|RPE|Elevation gain|Execution Review|Compared With|Recovery Priority|Total carbs|Gels|Fluid guide|\+ Log the session|\+ Add laps|Anything the numbers|Fluid is a starting guide|Dial this in during training)/;
   /* AND THE PER-SESSION-TYPE GUIDANCE IS CHROME TOO, derived rather than
      listed. COACH_GUIDANCE, ARCHETYPE_GUIDANCE and TERSE_GUIDANCE describe
      what an easy run IS -- the same words for every easy run, by design, in

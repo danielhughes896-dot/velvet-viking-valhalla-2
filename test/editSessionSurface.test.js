@@ -90,3 +90,29 @@ test('the sticky modal header keeps its edge', () => {
   assert.match(r, /position:sticky/, 'the head stopped being sticky; re-read the rule below');
   assert.match(r, /border-bottom:1px solid/, 'the sticky head lost the edge it scrolls content under');
 });
+
+test('.modal-head is the only border left outside Settings', () => {
+  /* THE WHOLE LAW IN ONE PLACE. Every plain 1px separator went; what may
+     remain is Settings (by instruction), the cherry race-week markers (decor
+     and signal, not separators), the focused log fields' underline (no fill
+     and no box, so the line IS the field -- remove it and an empty input is
+     invisible), and .modal-head (a sticky surface's own edge).
+     Anything else is a hairline creeping back, which is exactly how 46 of
+     them accumulated in the first place. */
+  const ALLOWED = [
+    /stg-row/, /stg-name-input/, /danger-zone/, /garmin-section/,
+    /parse-row/, /csv-row-item/,                       // Settings + its import
+    /race-event/, /race-strategy/,                     // cherry, by instruction
+    /\.modal-head/,                                     // the sticky head
+    /\.actual-field :is\(input, textarea\)/,            // the field, not a rule
+  ];
+  const stray = [];
+  CSS.replace(/\/\*[\s\S]*?\*\//g, ' ')
+     .replace(/([^{}]+)\{([^{}]*)\}/g, (_, sel, body) => {
+       if (!/border-(top|bottom)\s*:\s*1px\s+(solid|dashed)/.test(body)) return '';
+       const s2 = sel.replace(/\s+/g, ' ').trim();
+       if (!ALLOWED.some(re => re.test(s2))) stray.push(s2.slice(0, 70));
+       return '';
+     });
+  assert.deepEqual(stray, [], 'a plain hairline came back outside Settings');
+});

@@ -1096,8 +1096,8 @@
      worth opening before the tab said so itself; leaving both would put a
      box around a box. The Fueling card keeps its own .fuel-card edge -- it
      is not a session tab -- so this is scoped to .how-card. */
-  .fuel-card.how-card{background:none; border:0; box-shadow:none; margin:14px 0 0;}
-  .how-card .fuel-body{padding:14px 2px 2px;}
+  .fuel-card.how-card.is-tab{background:none; border:0; box-shadow:none; margin:14px 0 0;}
+  .how-card.is-tab .fuel-body{padding:14px 2px 2px;}
   /* display:contents so the targets, the description and the step table lay
      themselves out inside the panel exactly as they did when they were
      siblings in .day-detail -- the wrapper exists to be passed around, not
@@ -1861,13 +1861,15 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card{
     margin:11px 0 0; padding:0; border:0; border-radius:0;
     box-shadow:none; background:none;}
-  /* THE SUMMARY IS SHOWN HERE NOW, AND THAT REVERSES A CALL. It used to be
-     display:none on a focused session, because the rail was already open
-     and a heading saying "how to run this" above panels headed WHY and
-     EXECUTION was a label on a label. That held while the rail was always
-     open. It is a tab now -- Session Details, closed until asked -- so
-     hiding the summary would hide the only way to open it, and the label
-     is no longer on a label: it is on a closed door. */
+  /* AN OPEN RAIL NEEDS NO HEADING; A CLOSED TAB IS ALL HEADING. While the
+     session is still ahead the rail renders open on a focused card, and a
+     summary saying "how to run this" above panels headed WHY and EXECUTION
+     is a label on a label -- so it is hidden, exactly as it always was.
+     Once the session is logged the panel becomes Session Details, a closed
+     tab, and hiding its summary would hide the only way to open it. The
+     .is-static arm is the open one; .is-tab is never hidden. */
+  .how-card.is-static{cursor:default;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card.is-static > summary{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card > summary::-webkit-details-marker{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card .fuel-chevron{display:none;}
   /* The information glyph goes: the reference heads this box with words. */
@@ -6496,7 +6498,13 @@
      overflow-x stays: a pace table is genuinely wider than a phone. */
   .pace-table-card{ margin-top:10px; padding:4px 0; overflow-x:auto; }
   .pace-table{width:100%; border-collapse:collapse; font-size:11.5px;}
-  .pace-table th, .pace-table td{padding:9px 6px; text-align:center; border-bottom:1px solid var(--tile-border);}
+  /* NO ROW RULES, LIKE EVERYWHERE ELSE. This was the last separator kept on
+     my own judgement rather than the founder's -- the argument being that a
+     real data table is different, because the rules carry the eye across
+     columns. The ruling is that the border stays at .modal-head and nowhere
+     else, so the table reads on alignment and spacing like the rest of the
+     product. The cell padding stays; it is what does the separating now. */
+  .pace-table th, .pace-table td{padding:9px 6px; text-align:center;}
   .pace-table th{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
   .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:var(--num-face); color:var(--ink-dim);}
   .pace-table td{font-family:var(--num-face); color:var(--ink);}
@@ -26971,6 +26979,25 @@ function railDotsHtml(gd, dd, stratBlock, fuelOn){
   for (var i=0; i<n; i++) dots += '<span class="how-dot"></span>';
   return '<div class="how-dots" aria-hidden="true">'+dots+'</div>';
 }
+/* ---------- THE PRESCRIPTION IS INSTRUCTIONS UNTIL IT IS HISTORY ----------
+   Before the session is run it IS the card: the athlete opened the app to
+   read it, and it renders open with no summary to press. That was the
+   right call when it was made and it still is -- Today and This Week's
+   open session are the cleanest screens in the product precisely because
+   nothing stands between the athlete and what they are about to run.
+
+   Once the session is logged it stops being instructions and becomes
+   reference, sitting under what you actually did, behind the Session
+   Details tab. An earlier pass put EVERY focused session behind that tab,
+   including ones not yet run, which took the best screen in the app and
+   made the athlete press for the thing they came for.
+
+   Asked in one place, because renderDayCard and renderCoachingDepth must
+   agree: if they ever disagree the prescription is either shown twice or
+   nowhere, and "nowhere" is exactly the bug a logged optional run hit. */
+function prescriptionIsReference(dd){
+  return !!(dd && dd.completed && dd.type !== 'rest');
+}
 /* `pre` is everything the session says about ITSELF -- its targets, its one
    sentence of description and its step table -- which used to sit loose
    above this disclosure as siblings in .day-detail. Session Details is the
@@ -26980,6 +27007,10 @@ function railDotsHtml(gd, dd, stratBlock, fuelOn){
    display:contents on the wrapper, so the three of them lay themselves out
    inside the panel exactly as they did as siblings. */
 function renderCoachingDepth(dd, pre){
+  /* A TAB ONLY WHERE THE PRESCRIPTION IS REFERENCE. Everywhere else this is
+     what it always was: open and summary-less on a focused session, a
+     closed disclosure in a list. */
+  var asTab = prescriptionIsReference(dd);
   var preBlock = pre ? '<div class="how-pre">'+pre+'</div>' : '';
   var focusedCard = dayCardIsFocused(dd);
   var level = athleteExperience();
@@ -26991,12 +27022,12 @@ function renderCoachingDepth(dd, pre){
      card. The tab is emitted with the preamble and no rail -- and still
      nothing at all when there is no preamble either. */
   if (!g || (dd.type==='rest' && level!=='novice')){
-    return preBlock
-      ? '<details class="fuel-card how-card">'+'<summary class="sess-tab">'+
+    return (preBlock && asTab)
+      ? '<details class="fuel-card how-card is-tab">'+'<summary class="sess-tab">'+
       sessionTabHtml(ICONS.notes, 'Session Details',
         'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
     '</summary>'+preBlock+'</details>'
-      : '';
+      : preBlock;
   }
   /* The cue line is where depth used to be decided; it still is. Advanced sees
      one only where getting it wrong ruins the session, everyone else sees the
@@ -27087,11 +27118,17 @@ function renderCoachingDepth(dd, pre){
        a tab that opens what it names. So Session Details is a disclosure
        in all three focused views, closed until asked, exactly as Valhalla
        Analysis beneath it is. */
-    out += '<details class="fuel-card how-card">'+
-      '<summary class="sess-tab">'+
-        sessionTabHtml(ICONS.notes, 'Session Details',
-          'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
-      '</summary>'+
+    out += '<details class="fuel-card how-card'+
+        (asTab ? ' is-tab' : (focusedCard ? ' is-static' : ''))+'"'+
+        ((!asTab && focusedCard) ? ' open' : '')+'>'+
+      (asTab
+        ? '<summary class="sess-tab">'+
+            sessionTabHtml(ICONS.notes, 'Session Details',
+              'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
+          '</summary>'
+        : (focusedCard
+            ? '<summary class="is-static">'+ICONS.info+'How to run this</summary>'
+            : '<summary>'+ICONS.info+'How to run this<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'))+
       preBlock+
       /* ---------- ONE WRAPPER PER COACHING MODULE ----------
          Why / Execution / Feel / Watch For / Coach's Note / Fuel were six
@@ -27408,13 +27445,17 @@ function renderDayHeroBlock(dd, targets){
   /* Said once, where the ring is, and only when the day genuinely has
      step-specific targets -- the blueprint is the prescription for those
      steps and stays the authority on them.
-     It used to say "each step BELOW", which was true while the blueprint
-     was the next thing on the card. The step table moved inside Session
-     Details, so "below" now points at a closed tab; the line names the tab
-     instead rather than quietly describing a layout that changed. */
+     WHERE THE STEPS ARE DEPENDS ON WHETHER THE SESSION HAS BEEN RUN, so
+     the sentence has to as well. Before it is run the blueprint is the next
+     thing on the card and "below" is true. Once it is logged the table
+     moves inside Session Details and "below" points at a closed tab, so the
+     line names the tab. One fact, two true ways of saying it -- rather than
+     one sentence quietly describing a layout that is only sometimes there. */
   var multi = hasWorkoutBlueprint(dd);
   var stepNote = (ring && multi)
-    ? '<div class="th-steps-note">Primary zone \u2014 each step carries its own target, in Session Details.</div>'
+    ? '<div class="th-steps-note">Primary zone \u2014 each step '+
+        (prescriptionIsReference(dd) ? 'carries its own target, in Session Details.'
+                                     : 'below carries its own target.')+'</div>'
     : '';
   /* A SINGLE-STEP SESSION SAYS ITS DISTANCE AND ZONE ONCE. The marker lets
      Today drop the one-row WORKOUT block, which on such a day repeats the
@@ -27502,11 +27543,16 @@ function renderDayCard(dd){
      disclosure as siblings. A tab called Session Details with the session's
      details stacked above it is the label standing outside the thing it
      labels, so they are handed in and render inside it. */
+  /* The session's own words. Children of .day-detail while the session is
+     still ahead -- which is what the focused order rules below expect
+     (.day-desc order 1, .ws-block 2, .how-card 3) -- and handed INTO
+     Session Details once the session is history. */
+  var ownWords = (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
+                 descHtml+renderStructuredWorkout(dd);
+  var asReference = prescriptionIsReference(dd);
   var detailHtml = '<div class="day-detail">'+
-          renderCoachingDepth(dd,
-            (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
-            descHtml+
-            renderStructuredWorkout(dd))+
+          (asReference ? '' : ownWords)+
+          renderCoachingDepth(dd, asReference ? ownWords : '')+
           renderAdjustedDetail(dd)+
           /* BELOW THE RUNNING, ALWAYS -- AND THE RUNNING IS WHATEVER THE DAY
              IS ABOUT. On an ordinary day the session the block was built
@@ -27531,7 +27577,7 @@ function renderDayCard(dd){
      prescription out of the card and gave it nowhere to go: a logged
      optional run rendered with its title, a voice button and nothing else.
      Both places read the same boolean now. */
-  var logHoldsDetail = dd.completed && dd.type !== 'rest';
+  var logHoldsDetail = asReference;
   var actualHtml = '';
   /* THE LOGGING PANEL BELONGS TO A PRESCRIPTION. Actual/Avg Pace, the detail
      drawer, the splits editor, Clear log and the Execution Review below them

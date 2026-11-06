@@ -285,10 +285,28 @@ test('the focused rail is behind a tab, and the header is the page\'s own ground
      label is no longer on a label: it is on a closed door. What must stay
      true is that the tab is REACHABLE, so that is what is asserted. */
   const bareCss = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  /* THE OPEN RAIL STILL NEEDS NO HEADING. While the session is ahead of the
+     athlete the rail renders open on a focused card, and a summary saying
+     "how to run this" above panels headed WHY and EXECUTION is a label on a
+     label -- so that one is hidden, exactly as it always was. */
+  assert.match(bareCss, /\.how-card\.is-static > summary\{display:none/,
+    'the open rail grew a heading again');
+  /* And exactly one rule decides it. A second one -- an override added
+     later in the sheet, with or without !important -- would win silently
+     while the assertion above still passed. */
+  assert.equal((bareCss.match(/\.how-card\.is-static > summary\{/g) || []).length, 1,
+    'a second rule now also targets the open rail\u2019s summary; the later one wins');
+  /* AND THE CLOSED TAB IS NEVER HIDDEN. Once the session is logged the panel
+     becomes Session Details, and hiding its summary would hide the only way
+     to open it -- along with the targets, description and step table it now
+     carries. A rule that hid it would be invisible in every desktop check
+     and fatal on the card. */
+  assert.doesNotMatch(bareCss, /\.how-card\.is-tab[^{]*> summary\{[^}]*display:none/,
+    'the Session Details tab is hidden, so a logged session cannot be opened');
   assert.doesNotMatch(bareCss, /\.how-card > summary\{[^}]*display:none/,
-    'the focused Session Details tab is hidden again, so the rail cannot be opened');
+    'the summary is hidden for EVERY how-card, which takes the tab with it');
   assert.match(SRC, /sessionTabHtml\(ICONS\.notes, 'Session Details'/,
-    'the rail lost the tab that opens it');
+    'the rail lost the tab that opens it once the session is logged');
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
   // The heading every other view still presses lives on .fuel-card summary,
   // which .how-card inherits -- hiding it here must not have touched that.
