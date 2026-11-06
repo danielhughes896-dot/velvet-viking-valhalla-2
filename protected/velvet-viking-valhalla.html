@@ -1055,10 +1055,12 @@
   }
   .fuel-card summary::-webkit-details-marker{display:none;}
   /* :not(.sess-tab) because a session tab is also a <summary> inside a
-     .fuel-card, and at (0,2,1) this rule beat .sess-tab-i svg (0,1,1) --
-     so the Session Details icon drew at 13px where the other three tabs
-     drew at 20px, and its title started 19px further left than theirs.
-     13px is the size for the old disclosure row, not for a tab. */
+     .fuel-card, and at (0,2,1) this rule outranks anything the tab sets for
+     its own glyphs. It used to shrink the tab's leading icon, which is gone;
+     it would now shrink the tab's CHEVRON, so Session Details would carry a
+     13px one where its three siblings carry 18px -- the same defect moved
+     to the other end of the row. 13px is the size for the old disclosure
+     row, and a tab is not one. */
   .fuel-card summary:not(.sess-tab) svg{width:13px; height:13px; flex:none;}
   /* The native marker was hidden with nothing put in its place, so this
      disclosure gave no visual cue that it opens. Same rotating-chevron
@@ -1087,19 +1089,18 @@
   .sess-tab::-webkit-details-marker{display:none;}
   .sess-tab::marker{content:'';}
   .sess-tab:hover{border-color:var(--bronze);}
-  /* A FIXED COLUMN, NOT AN ICON-SHAPED GAP. The four tabs stack, so their
-     titles read as a column -- and a column only reads as one if every
-     title starts at the same x. With the width taken from each icon, one
-     odd glyph moves its own title and jags the stack. The width is the
-     icon size, so nothing shifts for the icons we draw today; it holds
-     the line for whatever icon is used tomorrow. */
-  .sess-tab-i{flex:none; display:flex; align-items:center; justify-content:center;
-    width:20px; color:var(--gold-text);}
-  .sess-tab-i svg{width:20px; height:20px; display:block;}
   .sess-tab-t{flex:1 1 auto; min-width:0;}
   /* The title takes the product's one label voice; the sub is a sentence
      about what is inside, so it takes the prose face at prose weight. */
-  .sess-tab-k{display:block; font-family:var(--label-face); font-size:13px;
+  /* ---------- THE TITLE GREW INTO THE SPACE THE ICON HELD ----------
+     At 13px against a 12.5px sub there was almost no step between the two
+     lines -- the icon beside them was doing the work of saying which was
+     the title. With it gone the type has to carry that on its own, and
+     there is room: measured, the longest of the four ("Valhalla Analysis")
+     is 151px of ink in a 317px column even at 17px, and the sub sits on
+     one line at every size. 15px is the step that reads as a heading
+     without the row starting to shout. */
+  .sess-tab-k{display:block; font-family:var(--label-face); font-size:15px;
     font-weight:700; letter-spacing:var(--label-track); text-transform:uppercase;
     color:#FFFFFF;}
   .sess-tab-s{display:block; font-family:var(--text-face); font-size:12.5px;
@@ -1984,15 +1985,24 @@
      Shown only here. In the stack these are rows of text and an icon per row
      is decoration; in a 27% column it is what identifies the panel before
      the label has been read. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod-i{
-    display:block; color:var(--gold-text); margin-bottom:11px; opacity:.92;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod-i svg{width:21px; height:21px; stroke-width:1.7;}
   /* The label grows into a heading, because in a column it IS the heading --
      there is nothing else at the top of the panel to carry it. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row{display:block; padding:0; border:0;}
+  /* ---------- THE HEADING IS THE PANEL'S MARK NOW ----------
+     With the glyph above it gone the heading is the only thing at the top
+     of the column, so it is centred over its own panel and grown into the
+     space the icon used to hold. The body stays left: a 122px column of
+     centred prose turns every line into a different shape and the eye
+     loses the left edge it reads down.
+
+     17px IS THE CEILING, AND IT IS MEASURED, NOT CHOSEN. The longest
+     heading is "Watch For", and on a 360px phone its column is 96px wide.
+     At 17px that heading is 88px of ink -- one line with 8px to spare. At
+     18px it wraps, and a two-line heading over a three-line body is a
+     different panel. Raise this only with that measurement redone. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row .k{
-    display:block; font-size:15px; letter-spacing:.055em; margin-bottom:10px;
-    color:var(--gold-text);}
+    display:block; font-size:17px; letter-spacing:.055em; margin-bottom:10px;
+    text-align:center; color:var(--gold-text);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row .v{
     /* The tiers, not numbers. 13.5px/1.42 was the same size the support tier
        already carries and the typography guard was right to refuse it: a
@@ -2326,9 +2336,6 @@
      rows they saw before it existed. It becomes a real element only inside
      a focused session, where the rail needs something to lay out. */
   .how-mod{display:contents;}
-  /* The rail's icon is emitted for every view and shown by one.
-     In the stack it would be an icon per row. */
-  .how-mod-i{display:none;}
 
   /* ---- BOX 3 IS NOT A BOX EITHER ----
      Its gold frame made sense while the hero above it was framed too: three
@@ -4354,11 +4361,14 @@
     background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
     font-family:var(--text-face); font-size:14.5px; font-weight:600;
     letter-spacing:.01em; padding:11px 16px; box-shadow:none;}
-  .share-actions .btn svg{width:16px; height:16px;}
-  .share-actions .btn-primary{
-    color:var(--gold-bright);
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
+  /* ---------- NEITHER OF THESE IS A CHOICE, SO NEITHER IS LIT ----------
+     Share carried the four-layer illumination the nav puts on the tab you
+     are ON and the hero puts on the unit you CHOSE. That light means
+     selected in this product, and neither of these buttons is selected --
+     they are two ways to get the same image out, and the athlete picks one
+     by pressing it. Both read in plain gold; Share leads by sitting first,
+     which is the only ordering a pair of actions needs. */
+  .share-actions .btn-primary,
   .share-actions .btn-ghost{color:var(--gold); text-shadow:none;}
   .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
   /* .goal-input-row is listed alongside .field because a goal time entry is a
@@ -5497,9 +5507,8 @@
   .coach-signal-body{min-width:0;}
   .coach-signal-label{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.3; font-weight:var(--label-weight);}
   .coach-signal-detail{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
-  .coach-bt{display:flex; gap:9px; align-items:flex-start; padding:9px 0;}
+  .coach-bt{display:flex; gap:0; align-items:flex-start; padding:9px 0;}
   .coach-bt:first-child{border-top:none;}
-  .coach-bt svg{width:15px; height:15px; flex:none; color:var(--gold); margin-top:1px;}
   .coach-bt-body{min-width:0; color:var(--ink-dim); overflow-wrap:anywhere;}
   .coach-bt-body b{color:var(--ink); font-weight:600;}
   .coach-next{margin:0 0 14px;}
@@ -6732,6 +6741,20 @@
   .sec-rule-line + .setup-section-title + .sec-rule-line,
   .sec-rule .sec-rule-line:last-child{
     background:linear-gradient(to left, transparent 0%, var(--gold-text) 100%);}
+  /* ---------- AND THE LEFT VARIANT'S LINE IS ALSO ITS LAST ----------
+     is-left emits the title and ONE line, so that line is :last-child and
+     the mirrored gradient above claimed it at an equal (0,3,0) on source
+     order -- which would have drawn it fading INTO the words from the right
+     instead of away from them to the far edge. Restated at (0,4,0) so the
+     variant's own direction wins by weight rather than by position. */
+  .sec-rule.is-left .sec-rule-line:last-child{
+    background:linear-gradient(to right,
+      color-mix(in srgb, var(--rp-accent, var(--gold-text)) 70%, transparent) 0%,
+      transparent 100%);}
+  /* A section whose rule is cherry rather than gold. Nothing but the accent
+     changes: same geometry, same fade, same opacity, so it cannot drift
+     from the gold ones. */
+  .sec-rule.is-cherry{--rp-accent:var(--cherry-text);}
   .setup-section-title:first-child{margin-top:0;}
   /* Plan HQ's Programme Status heading + KM/MI pill, aligned on one row at
      any width instead of the pill wrapping under the heading. */
@@ -27217,7 +27240,7 @@ function renderCoachingDepth(dd, pre){
   if (!g || (dd.type==='rest' && level!=='novice')){
     return (preBlock && asTab)
       ? '<details class="fuel-card how-card is-tab">'+'<summary class="sess-tab">'+
-      sessionTabHtml(ICONS.notes, 'Session Details',
+      sessionTabHtml('Session Details',
         'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
     '</summary>'+preBlock+'</details>'
       : preBlock;
@@ -27269,20 +27292,17 @@ function renderCoachingDepth(dd, pre){
        is worse than a rail with five panels, and the stack never showed one
        either -- row() has always returned '' for a fact the engine does not
        have.
-       THE ICON IS EMITTED FOR EVERY VIEW AND SHOWN BY ONE. Like the Coach's
-       Note's two positions and the title's, it lives in the single string
-       renderDayCard() produces and CSS decides who sees it -- the stack on
-       This Week and Full Plan hides it, because there these are rows of
-       text and an icon per row would be decoration. In the rail it is what
-       makes a 27%-wide column identifiable before its label is read. */
-    var MOD_ICON = { why:ICONS.clock, execution:ICONS.link, feel:ICONS.smile,
-                     watch:ICONS.trend, fuel:ICONS.zap };
+       THE ICON IS GONE, AND THE ARGUMENT FOR IT WITH IT. A clock, a link, a
+       smile and a trend line sat above WHY, EXECUTION, FEEL and WATCH FOR,
+       on the reasoning that a glyph identifies a 34%-wide column before its
+       label is read. On a phone that is not what happens -- the label is
+       read first, because the label is the word -- and the glyph cost 21px
+       of height plus an 11px gap above every panel: 32px spent, four times,
+       restating the heading underneath it. The heading takes that room
+       instead, and grows into it. */
     var mod = function(key, inner){
       if (!inner) return '';
-      return '<div class="how-mod" data-mod="'+key+'">'+
-        (MOD_ICON[key] ? '<span class="how-mod-i" aria-hidden="true">'+MOD_ICON[key]+'</span>' : '')+
-        inner+
-      '</div>';
+      return '<div class="how-mod" data-mod="'+key+'">'+inner+'</div>';
     };
     var stratBlock = renderExecutionStrategyBlock(dd);
     var fuelOn;
@@ -27316,7 +27336,7 @@ function renderCoachingDepth(dd, pre){
         ((!asTab && focusedCard) ? ' open' : '')+'>'+
       (asTab
         ? '<summary class="sess-tab">'+
-            sessionTabHtml(ICONS.notes, 'Session Details',
+            sessionTabHtml('Session Details',
               'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
           '</summary>'
         : (focusedCard
@@ -27372,7 +27392,7 @@ function renderCoachingDepth(dd, pre){
          sits below the rail at full width where it cannot be missed, which
          is also the only way its cherry light has room to be seen. */
       (cueText
-        ? '<div class="how-note"><span class="k font-head">'+ICONS.info+'Coach\u2019s Note</span>'+
+        ? '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
           '<span class="v">'+escapeHtml(cueText)+'</span></div>'
         : '')+
     '</details>';
@@ -27835,7 +27855,7 @@ function renderDayCard(dd){
       '<div class="log-tab">'+
         '<button type="button" class="sess-tab sess-tab-btn" data-action="toggle-log" '+
           'data-day="'+dd.id+'" aria-expanded="'+(logTabOpen(dd)?'true':'false')+'">'+
-          sessionTabHtml(ICONS.pencil, 'Your Log', 'Distance \u00b7 Pace \u00b7 Detail')+
+          sessionTabHtml('Your Log', 'Distance \u00b7 Pace \u00b7 Detail')+
         '</button>'+
         (logTabOpen(dd) ? '<div class="log-body">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
@@ -31370,9 +31390,9 @@ function shareComposerHtml(){
         withheldNote+
         '<div class="share-actions">'+
           '<button type="button" class="btn btn-primary btn-block" data-action="share-export" data-mode="share">'+
-            ICONS.share+'Share</button>'+
+            'Share</button>'+
           '<button type="button" class="btn btn-ghost btn-block" data-action="share-export" data-mode="save">'+
-            ICONS.download+escapeHtml(saveImageLabel())+'</button>'+
+            escapeHtml(saveImageLabel())+'</button>'+
         '</div>'+
       '</div>'+
     '</div>';
@@ -31568,7 +31588,7 @@ function analysisTab(dd, body, vLine, scored){
   return '<div class="wc-review">'+
     '<button type="button" class="sess-tab sess-tab-btn" data-action="view-analysis" '+
       'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      sessionTabHtml(ICONS.trend, 'Valhalla Analysis',
+      sessionTabHtml('Valhalla Analysis',
         scored ? 'The verdict \u00b7 Execution review \u00b7 Next steps'
                : 'Not scored yet \u00b7 what is missing')+
     '</button>'+
@@ -31988,9 +32008,17 @@ function titleCase(s){
    <details>, Valhalla Analysis is a <button> with aria-expanded, because
    its body is built on demand rather than rendered and hidden. The chevron
    turns off either signal, so both read identically. */
-function sessionTabHtml(icon, title, sub){
-  return '<span class="sess-tab-i" aria-hidden="true">'+icon+'</span>'+
-    '<span class="sess-tab-t">'+
+/* ---------- NO GLYPH IN FRONT OF A TITLE ----------
+   The four tabs each carried a 20px icon in a reserved column, which pushed
+   every title to x=65 on a 412px screen and spent 49px of the card's width
+   on decoration. The titles say what they are -- Share, Session Details,
+   Your Log, Valhalla Analysis -- and no icon was telling the athlete
+   anything the word beside it did not. They start at the card's own edge
+   now and the width goes to the words.
+   The chevron stays: it is not a decoration in front of a title, it is the
+   one thing on the row that says the row opens. */
+function sessionTabHtml(title, sub){
+  return '<span class="sess-tab-t">'+
       '<span class="sess-tab-k">'+escapeHtml(title)+'</span>'+
       '<span class="sess-tab-s">'+escapeHtml(sub)+'</span>'+
     '</span>'+
@@ -32016,7 +32044,7 @@ function renderShareLaunch(dd){
   return '<div class="share-launch">'+
     '<button type="button" class="sess-tab sess-tab-btn btn-share" data-action="share-workout" '+
       'data-day="'+id+'" aria-expanded="false" aria-controls="share-inline-'+id+'">'+
-      sessionTabHtml(ICONS.share, 'Share',
+      sessionTabHtml('Share',
         'Templates \u00b7 Your photos \u00b7 Story or post')+
     '</button>'+
     '<div class="share-inline" id="share-inline-'+id+'"></div>'+
@@ -43378,10 +43406,15 @@ function renderBreakthroughCard(report){
   if (!report || !report.breakthroughs.length) return '';
   var recent = report.breakthroughs.slice(-3).reverse();
   return '<div class="hub-card tile-card">'+
-    '<div class="setup-section-title">Breakthrough Sessions</div>'+
+    /* The only glyphs left on this screen sat in front of these three rows.
+       They go the way the day card's did, the text comes to the panel's own
+       left edge, and the heading takes the decoration instead -- one cherry
+       hairline running from the words to the far edge, which is the rule
+       component the rest of the product already uses, in the other accent. */
+    sectionRule('Breakthrough Sessions', true, 'is-cherry')+
     recent.map(function(dd){
       var ap = actualPaceSecPerKm(dd);
-      return '<div class="coach-bt">'+ICONS.sparkles+
+      return '<div class="coach-bt">'+
         '<div class="coach-bt-body"><b>'+escapeHtml(dd.title)+'</b> · '+dShort(dd.date)+' — '+
         'ran '+fmtDist((dd.actual&&dd.actual.km!=null)?dd.actual.km:dd.km)+
         (ap!=null?' at '+fmtPaceFromSecPerKm(ap):'')+
@@ -53236,7 +53269,6 @@ function renderVoiceCardBody(dd){
     bits += '<button type="button" class="voice-btn" data-action="'+
       (live ? 'voice-stop' : 'voice-listen')+'" data-day="'+subject.id+'" '+
       'aria-label="'+(live ? (speaking ? 'Stop speaking' : 'Hide the briefing') : listenLabel)+'">'+
-      (live ? ICONS.voiceStop : ICONS.voicePlay)+
       '<span>'+(live ? (speaking ? 'Stop' : 'Hide') : listenLabel)+'</span></button>';
   }
   /* NO LONGER GATED ON WHETHER TODAY WAS IMPORTED. What the coach may see is
@@ -53247,7 +53279,7 @@ function renderVoiceCardBody(dd){
      future coaching with it. */
   if (voiceCoachAvailable){
     bits += '<button type="button" class="voice-btn" data-action="voice-ask-open" '+
-      'aria-label="Ask your coach a question">'+ICONS.voiceMic+'<span>Ask coach</span></button>';
+      'aria-label="Ask your coach a question"><span>Ask coach</span></button>';
   }
   if (!bits && !imported) return '';
 
@@ -57170,8 +57202,9 @@ function readingHintHtml(){
   if (swipeLearned('reading')) return '';
   return '<div class="b-dials-hint">Tap any circle for the evidence '+ICONS.chevronRight+'</div>';
 }
-function sectionRule(title, leftAligned){
-  return '<div class="sec-rule'+(leftAligned?' is-left':'')+'">'+
+function sectionRule(title, leftAligned, modifier){
+  return '<div class="sec-rule'+(leftAligned?' is-left':'')+
+      (modifier?' '+modifier:'')+'">'+
       (leftAligned ? '' : '<span class="sec-rule-line" aria-hidden="true"></span>')+
       '<div class="setup-section-title">'+escapeHtml(title)+'</div>'+
       '<span class="sec-rule-line" aria-hidden="true"></span>'+

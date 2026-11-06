@@ -406,7 +406,7 @@ test('CHEVRON: the Fueling and How-to-run-this disclosures carry a real expand c
      emits the cue for both tabs from one place. The Fueling card above
      still uses .fuel-chevron, which is what the two assertions above
      guard. */
-  assert.match(SRC, /sessionTabHtml\(ICONS\.notes, 'Session Details'/,
+  assert.match(SRC, /sessionTabHtml\('Session Details'/,
     'Session Details is no longer built from the shared session tab');
   assert.match(CODE, /\.sess-tab-btn\[aria-expanded="true"\] \.sess-tab-c\{transform:rotate\(180deg\)/,
     'the session tab chevron no longer turns when the tab opens');

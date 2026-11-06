@@ -305,7 +305,7 @@ test('the focused rail is behind a tab, and the header is the page\'s own ground
     'the Session Details tab is hidden, so a logged session cannot be opened');
   assert.doesNotMatch(bareCss, /\.how-card > summary\{[^}]*display:none/,
     'the summary is hidden for EVERY how-card, which takes the tab with it');
-  assert.match(SRC, /sessionTabHtml\(ICONS\.notes, 'Session Details'/,
+  assert.match(SRC, /sessionTabHtml\('Session Details'/,
     'the rail lost the tab that opens it once the session is logged');
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
   /* The heading every other view still presses lives on the disclosure-row

@@ -386,15 +386,15 @@ test('all four tabs are the same object, drawn from one helper', () => {
      above a plain text button -- which is why there is a helper at all. If
      either stops using it, they are free to drift again. */
   const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
-  assert.match(src, /function sessionTabHtml\(icon, title, sub\)/,
+  assert.match(src, /function sessionTabHtml\(title, sub\)/,
     'the shared session tab is gone');
-  assert.match(src, /sessionTabHtml\(ICONS\.notes, 'Session Details'/,
+  assert.match(src, /sessionTabHtml\('Session Details'/,
     'Session Details is no longer drawn from the shared tab');
-  assert.match(src, /sessionTabHtml\(ICONS\.trend, 'Valhalla Analysis'/,
+  assert.match(src, /sessionTabHtml\('Valhalla Analysis'/,
     'Valhalla Analysis is no longer drawn from the shared tab');
-  assert.match(src, /sessionTabHtml\(ICONS\.share, 'Share'/,
+  assert.match(src, /sessionTabHtml\('Share'/,
     'Share is no longer drawn from the shared tab');
-  assert.match(src, /sessionTabHtml\(ICONS\.pencil, 'Your Log'/,
+  assert.match(src, /sessionTabHtml\('Your Log'/,
     'Your Log is no longer drawn from the shared tab');
   assert.equal((src.match(/class="sess-tab-k"/g) || []).length, 1,
     'the tab title is emitted in more than one place again');

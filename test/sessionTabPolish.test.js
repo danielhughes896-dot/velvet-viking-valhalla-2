@@ -50,18 +50,64 @@ function has(sel){
  * 1. ONE COLUMN, FOUR TITLES
  * ==================================================================== */
 
-test('a session tab reserves a fixed icon column, so a title cannot be moved by its own glyph', () => {
-  const i = rule('.sess-tab-i');
-  assert.match(i, /width:\s*20px/,
-    '.sess-tab-i must reserve its width rather than take it from the icon -- ' +
-    'without it, one odd glyph moves its own title and jags the stack of four');
-  assert.match(i, /justify-content:\s*center/,
-    'a reserved column centres its icon, otherwise the icon sits left in a box ' +
-    'wider than itself and the reservation is visible');
-  assert.match(rule('.sess-tab-i svg'), /width:\s*20px/);
+/* ---- THIS ASSERTION HAS CHANGED SIDES ----
+   It used to require a fixed 20px icon column on every tab, so that no odd
+   glyph could move its own title and jag the stack of four. The column is
+   gone because the glyphs are: four titles that say what they are did not
+   need a picture in front of them, and the 49px they occupied is now the
+   titles'. What the test protected -- four titles starting at one x -- is
+   still protected, and more cheaply: there is nothing in front of them to
+   go wrong. The chevron keeps its reserved column, because it is still
+   drawn and it is still the only thing on the row that says the row opens. */
+test('nothing is drawn in front of a session tab title', () => {
+  assert.ok(!has('.sess-tab-i'), 'the tab icon column is back in the sheet');
+  assert.ok(!/sess-tab-i/.test(SRC), 'a tab is emitting a leading glyph again');
+  assert.match(SRC, /function sessionTabHtml\(title, sub\)/,
+    'sessionTabHtml took an icon argument again');
   const c = rule('.sess-tab-c');
-  assert.match(c, /width:\s*18px/, 'the chevron column is reserved for the same reason');
+  assert.match(c, /width:\s*18px/, 'the chevron column is reserved so the row ends square');
   assert.match(rule('.sess-tab-c svg'), /width:\s*18px/);
+  assert.match(SRC, /ICONS\.chevronDown/, 'the tab lost the one glyph that says it opens');
+});
+
+test('the title grew into the space the glyph was holding', () => {
+  /* 13px against a 12.5px sub is not a hierarchy -- it was the icon saying
+     which line was the title. Measured: the longest of the four is 151px of
+     ink in a 317px column even at 17px, so width is not the constraint and
+     15px is a step that reads without shouting. */
+  assert.match(rule('.sess-tab-k'), /font-size:\s*15px/,
+    'the tab title is back to a size that does not separate it from its own sub');
+});
+
+test('the rail panels carry no glyph, and the heading takes the room', () => {
+  const F = CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/)[0];
+  assert.ok(!/how-mod-i/.test(CSS), 'the rail panel icons are back in the sheet');
+  assert.ok(!/how-mod-i/.test(SRC), 'the rail is emitting panel icons again');
+  assert.ok(!/MOD_ICON/.test(SRC), 'the rail icon table is back');
+  const k = rule(F + ' .how-mod .how-row .k');
+  assert.match(k, /text-align:\s*center/,
+    'with no glyph above it the heading is the only thing at the top of the ' +
+    'column, so it is centred over its own panel');
+  assert.match(k, /font-size:\s*17px/,
+    '17px is the measured ceiling: "Watch For" is 88px of ink in a 96px ' +
+    'column on a 360px phone, and at 18px it wraps');
+});
+
+test('the Coach\u2019s Note leads with its words', () => {
+  assert.doesNotMatch(SRC, /ICONS\.info\+'Coach/, 'the note grew a glyph in front of it again');
+  assert.match(SRC, /class="k font-head">Coach/, 'the note lost its heading');
+});
+
+test('no action on this card leads with a glyph', () => {
+  assert.doesNotMatch(SRC, /ICONS\.share\+'Share<\/button>/, 'Share leads with a glyph again');
+  assert.doesNotMatch(SRC, /ICONS\.download\+escapeHtml\(saveImageLabel/, 'Save leads with a glyph again');
+  assert.doesNotMatch(SRC, /ICONS\.voiceStop : ICONS\.voicePlay/, 'the listen control leads with a glyph again');
+  assert.doesNotMatch(SRC, /ICONS\.voiceMic\+'<span>Ask coach/, 'Ask coach leads with a glyph again');
+  /* The two the founder kept, named here so a later sweep cannot take them:
+     the heart and the pace mark inside the ring, and the wand on the notes
+     field. Neither sits in front of a title -- they ARE the label. */
+  assert.match(SRC, /class="th-ic"/, 'the ring lost its heart and pace marks');
+  assert.match(SRC, /class="notes-wand"/, 'the notes wand is gone');
 });
 
 test('the old disclosure row cannot claim a session tab', () => {
@@ -157,11 +203,18 @@ test('neither share action is a slab', () => {
   const b = rule('.share-actions .btn');
   assert.match(b, /background:\s*var\(--t-card\)/, 'the card\'s own ground, as .wk-open has');
   assert.match(b, /border:\s*1px solid var\(--t-tile-rim\)/);
-  const p = rule('.share-actions .btn-primary');
-  assert.match(p, /color:\s*var\(--gold-bright\)/);
-  assert.match(p, /text-shadow:/, 'the primary leads by illumination, not by fill');
+  /* ---- AND THIS ONE HAS CHANGED SIDES TOO ----
+     It required the primary to carry the four-layer illumination. That light
+     means SELECTED in this product -- the nav tab you are on, the unit you
+     chose -- and neither of these is selected: they are two ways to get the
+     same image out, and the athlete picks one by pressing it. Both read in
+     plain gold now, and Share leads by sitting first. What the test still
+     protects, and the whole reason it exists, is that neither is a slab. */
+  const p = rule('.share-actions .btn-primary,\n  .share-actions .btn-ghost');
+  assert.match(p, /color:\s*var\(--gold\)/);
+  assert.match(p, /text-shadow:\s*none/, 'the actions are lit as though one were chosen');
   assert.ok(!/background/.test(p),
-    'a ground on the primary is the bronze gradient coming back');
+    'a ground on the actions is the bronze gradient coming back');
 });
 
 test('the save button names the place the file actually lands', () => {

@@ -297,3 +297,45 @@ test('LINES: no plain hairline separates one detail from the next', () => {
   assert.match(SRC, /border-top:1px solid var\(--cherry-line\)/,
     'the cherry rule that marks race week was swept away with the hairlines');
 });
+
+/* THE LAST GLYPHS ON THIS SCREEN, AND WHAT REPLACED THEM.
+ * ===========================================================================
+ * Breakthrough Sessions was the one block on Valhalla still printing a
+ * sparkle in front of every row -- three glyphs doing nothing the sentence
+ * beside them did not already do, and holding the text 24px off the panel's
+ * own left edge. They go the way the day card's went.
+ * The heading takes the decoration instead, and takes it from the component
+ * the rest of the product already uses: one hairline running from the words
+ * to the far edge. Cherry rather than gold, because this section is a
+ * different kind of thing from the two gold-ruled readings above it -- those
+ * are the athlete's current state, this is what they have already done.
+ */
+test('no glyph leads a breakthrough row', () => {
+  assert.doesNotMatch(SRC, /class="coach-bt">'\+ICONS\./,
+    'a breakthrough row is leading with a glyph again');
+  assert.doesNotMatch(BARE, /\.coach-bt svg\{/,
+    'the row glyph has a rule again, so something is drawing one');
+});
+
+test('the breakthrough heading is the shared rule component, in cherry', () => {
+  assert.match(SRC, /sectionRule\('Breakthrough Sessions', true, 'is-cherry'\)/,
+    'the heading is no longer built from the shared section-rule component, ' +
+    'so its hairline can drift from every other one on this screen');
+  assert.match(BARE, /\.sec-rule\.is-cherry\{[^}]*--rp-accent:\s*var\(--cherry-text\)/,
+    'the cherry modifier sets anything but the accent, or is gone');
+  /* Only the accent may differ. Geometry, fade and opacity come from the
+     component, which is the whole reason for using it. */
+  const mod = BARE.match(/\.sec-rule\.is-cherry\{([^}]*)\}/)[1];
+  assert.ok(!/height|margin|opacity|flex/.test(mod),
+    'the cherry section is redefining the rule rather than re-colouring it');
+});
+
+test('a left-aligned section rule fades away from its words', () => {
+  /* is-left emits the title and ONE line, so that line is also :last-child --
+     and the mirrored gradient for centred headings claimed it at an equal
+     (0,3,0) on source order, drawing it fading INTO the words from the right
+     instead of away from them. Restated at (0,4,0) so direction is decided
+     by weight, not by which rule happens to sit lower in the sheet. */
+  assert.match(BARE, /\.sec-rule\.is-left \.sec-rule-line:last-child\{[^}]*to right/,
+    'the left-aligned rule fades the wrong way again');
+});
