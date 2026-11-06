@@ -163,6 +163,25 @@ test('the timing is a settle then a gentle cycle, with each delay its own entran
     'the session ring no longer draws at the shared speed');
   assert.match(CSS, /animation:gauge-draw var\(--ring-draw\)/,
     'the confidence gauge no longer draws at the shared speed');
+  /* ---- AND IT DRAWS ON ARRIVAL, NOT ON EVERY RENDER ----
+     The entrance was declared straight on .gauge-fill, and every render
+     produces a fresh element, so the gauge re-filled from zero whenever
+     anything on the page redrew. Measured in a browser: after an ordinary
+     renderApp() with nothing changed, gauge-draw was running again at 33ms
+     of 1140, while the session ring (is-drawing) and the week's bar
+     (is-filling) -- both gated on a key -- sat still. The gauge was the one
+     instrument of the three whose entrance nothing gated.
+     Three things have to hold together, so all three are named: the
+     animation sits behind the class, something adds the class, and the
+     render path calls it. */
+  assert.match(CSS, /\.gauge-wrap\.is-drawing \.gauge-fill\{\s*animation:gauge-draw/,
+    'the gauge entrance is unconditional again, so it replays on every render');
+  assert.doesNotMatch(CSS, /\.gauge-fill\{stroke:url\(#gaugeFill\);\s*animation:/,
+    'the entrance is back on the element itself');
+  assert.match(SRC, /function animateConfidenceGauge\(\)\{[\s\S]*?if \(key === gaugeLastKey\) return;/,
+    'the gauge is no longer keyed, so it draws again on every render');
+  assert.match(SRC, /animateWeekBar\(\);\s*\n\s*animateConfidenceGauge\(\);/,
+    'the render path stopped asking the gauge to draw, so it never draws');
   assert.equal(Number(drawMs[1]) / 1000 + 0.5, 1.64,
     'the ring delays above no longer equal this entrance plus the 500ms settle');
   assert.match(CSS, /animation:wk-fill 780ms cubic-bezier\(\.22,\.61,\.36,1\) both,/);

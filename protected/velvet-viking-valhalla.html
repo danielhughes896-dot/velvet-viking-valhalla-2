@@ -725,7 +725,17 @@
     from{ stroke-dashoffset:var(--gauge-len, 0); }
     to  { stroke-dashoffset:0; }
   }
-  .gauge-fill{stroke:url(#gaugeFill);
+  /* GATED, LIKE THE OTHER TWO INSTRUMENTS. The entrance was declared
+     straight on the element, and every render produces a fresh element, so
+     the gauge re-filled from zero whenever anything on the page redrew.
+     Measured: after an ordinary renderApp() with nothing changed,
+     gauge-draw was running again at 33ms of 1140, while the session ring
+     (is-drawing, keyed) and the week's bar (is-filling, keyed) sat still.
+     That is what "the ring fills differently to the other fills" was: not
+     the shape of the fill, the frequency of it. The class is added after
+     render by animateConfidenceGauge(). */
+  .gauge-fill{stroke:url(#gaugeFill);}
+  .gauge-wrap.is-drawing .gauge-fill{
     animation:gauge-draw var(--ring-draw) cubic-bezier(.22,.61,.36,1) both;}
   /* The seam between the ring and the face. It was a grey hairline against a
      cream medallion; against a dark face at the same value it read as a
@@ -56105,7 +56115,24 @@ function dialTint(sec){
    longest word is what lets one rule serve a two-word verdict and a nine
    character time without a second table. */
 var DIAL_FACE = { '0':{d:90, w:74}, '1':{d:76, w:64}, '2':{d:66, w:56}, 's':{d:90, w:76} };
-var DIAL_MONO_ADVANCE = 0.6;   /* JetBrains Mono: 1ch = 0.6em */
+var DIAL_MONO_ADVANCE = 0.6;
+/* A WORD IS NOT A FIGURE, AND THE LADDER BELOW WAS SIZING BOTH THE SAME WAY.
+   Filling the face is right for a figure -- 64%, 44:00, A, 4 -- because the
+   figure IS the reading and the circle exists to carry it. It is wrong for a
+   categorical word, because the size then comes from the word's own length:
+   measured on The Reading's four circles, "Fresh" came out at 18px and
+   "Plateau" at 12.9px sitting side by side at the same rank, and "On track"
+   at 20.7px, where it could not fit on one line and broke into a 45px block
+   inside a 76px circle. Three sizes and a word snapped in half, in one row.
+   So a word is capped at one size per rank -- the same size for every word
+   that rank can show, which is what makes the row read as one instrument --
+   while the longest-run rule above still applies on top, so a long word
+   drops further rather than overflowing. Figures are untouched. */
+var DIAL_WORD_PX = { '0':13.5, '1':12.5, '2':11, 's':13.5 };
+/* Two or more letters together: a grade ("A"), a count ("4"), a time
+   ("44:00"), a range ("3:23-3:44") and a multiplier ("1.02x") all stay
+   figures. */
+function dialIsWord(text){ return /[A-Za-z]{2,}/.test(String(text == null ? '' : text)); }   /* JetBrains Mono: 1ch = 0.6em */
 var DIAL_CEILING_RATIO = 0.30; /* biggest a value may be, as a share of the diameter */
 function dialFaceFontPx(text, rank){
   var key = (rank == null) ? '2' : String(rank);
@@ -56122,6 +56149,9 @@ function dialFaceFontPx(text, rank){
      that at 74.1px in a 74px box. */
   var fits = (face.w - 2) / (DIAL_MONO_ADVANCE * longest);
   var px = Math.min(face.d * DIAL_CEILING_RATIO, fits);
+  /* The word cap, applied after the longest-run rule rather than instead of
+     it: a long word still drops below the cap rather than overflowing. */
+  if (dialIsWord(text)) px = Math.min(px, DIAL_WORD_PX[key] || DIAL_WORD_PX['2']);
   /* A floor, because below this a value stops being readable and the honest
      answer is a shorter string rather than smaller type. */
   if (px < 9) px = 9;
@@ -57657,6 +57687,7 @@ function renderApp(){
   openWeekFullSession();
   animateSessionRing();
   animateWeekBar();
+  animateConfidenceGauge();
   wireCoachingRails();
   wireWeekDayPager();
 }
@@ -58194,7 +58225,7 @@ function wireCoachingRail(rail){
    a ring that redrew on each of those would be an animation pass, not a
    micro-interaction. A key that has changed while one was already showing is
    a day change, which gets the shorter draw. */
-var ringLastKey = null, ringLastView = null, weekBarLastKey = null;
+var ringLastKey = null, ringLastView = null, weekBarLastKey = null, gaugeLastKey = null;
 function animateSessionRing(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{
@@ -58259,6 +58290,26 @@ function animateWeekBar(){
     fill.classList.remove('is-filling');
     void fill.offsetWidth;
     fill.classList.add('is-filling');
+  }catch(e){}
+}
+/* THE CONFIDENCE GAUGE LAYS ITSELF DOWN ONCE, the way the session ring and
+   the week's bar already did. Keyed on the figure it is reporting -- which
+   is carried on the element as --gauge-len, so the key IS the drawn length
+   -- so the gauge still draws again when the number actually moves, and
+   stays put through every render that did not move it. */
+function animateConfidenceGauge(){
+  if (typeof document === 'undefined' || !document.querySelector) return;
+  try{
+    var wrap = document.querySelector('.gauge-wrap');
+    if (!wrap){ gaugeLastKey = null; return; }
+    var fill = wrap.querySelector('.gauge-fill');
+    if (!fill){ gaugeLastKey = null; return; }
+    var key = (state.view || '') + ':' + (fill.getAttribute('style') || '');
+    if (key === gaugeLastKey) return;
+    gaugeLastKey = key;
+    wrap.classList.remove('is-drawing');
+    void wrap.offsetWidth;          // restart the animation on a live element
+    wrap.classList.add('is-drawing');
   }catch(e){}
 }
 function openWeekFullSession(){

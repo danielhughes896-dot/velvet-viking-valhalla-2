@@ -153,6 +153,47 @@ test('LADDER: one rule sizes every circle, and it is derived rather than tabulat
   });
 });
 
+test('a word in a circle is one size per rank; a figure still fills the face', () => {
+  /* MEASURED ON THE RENDERED SCREEN, which is where this went wrong. The
+     ladder sizes a face to fill it -- right for a figure, because the figure
+     IS the reading -- and the size of a WORD then came from that word's own
+     length. On The Reading's four circles: "Fresh" at 18px and "Plateau" at
+     12.9px side by side at the SAME rank, and "On track" at 20.7px, where it
+     could not fit on one line and broke into a 45px block inside a 76px
+     circle. Three sizes and a word snapped in half, in one row of four. */
+  const a = planHQ();
+  const WORD_PX = { '0':13.5, '1':12.5, '2':11, 's':13.5 };
+  const WORDS = ['Fresh', 'Plateau', 'On track', 'Worth watching', 'Strained'];
+
+  Object.keys(WORD_PX).forEach(rank => {
+    /* Every word the rank can show comes out at the same size -- that is what
+       makes a row of circles read as one instrument rather than four. */
+    const sizes = new Set(WORDS.map(t => a.dialFaceFontPx(t, rank)));
+    assert.equal(sizes.size, 1,
+      'rank ' + rank + ' sizes its words by their own length again: ' +
+      WORDS.map(t => t + '=' + a.dialFaceFontPx(t, rank)).join(', '));
+    assert.equal([...sizes][0], WORD_PX[rank],
+      'rank ' + rank + ' words are no longer at the capped size');
+  });
+
+  /* And the cap did not leak onto the figures: a figure still reaches the
+     ceiling the face ladder sets for it. */
+  assert.ok(a.dialFaceFontPx('64%', 's') > WORD_PX['s'] * 1.5,
+    'the figure ladder was capped along with the words');
+  assert.ok(a.dialFaceFontPx('4', '1') > WORD_PX['1'] * 1.5,
+    'a bare count is being treated as a word');
+  /* A single letter is a grade, not a word. */
+  assert.ok(a.dialFaceFontPx('A', 's') > WORD_PX['s'] * 1.5,
+    'the grade face is being treated as a word');
+
+  /* The whole point: a two-word value now lays out on ONE line, because the
+     cap is low enough that the full string clears the face. */
+  const px = a.dialFaceFontPx('On track', '1');
+  assert.ok('On track'.length * 0.6 * px <= 64,
+    '"On track" needs ' + ('On track'.length * 0.6 * px).toFixed(1) +
+    'px at ' + px + 'px and has 64px, so it wraps inside the circle again');
+});
+
 test('HERO: the panel circle is for figures, and a word is carried by its chip', () => {
   const a = planHQ();
   const report = a.coachAnalyse();
