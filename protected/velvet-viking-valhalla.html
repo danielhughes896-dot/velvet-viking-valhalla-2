@@ -3911,16 +3911,42 @@
      reusing those exact declarations rather than inventing a fifth accent.
      Left-aligned and taller because these carry a sentence; that is the only
      thing that differs from a distance chip. */
-  .bld-purpose{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
+  /* ---------- FOUR ROWS, NOT FOUR BOXES ----------
+     This was a 2x2 of 118px rimmed tiles, and the argument for it was that
+     four large boxes read as four choices. The rest of the product has
+     since stopped drawing a box to say "this is a thing you can pick": the
+     session-type picker, the A/B/C goal options and the bottom nav all
+     answer it with light on the words instead. Four boxes inside a modal
+     card is the box-on-a-box this app gave up everywhere else.
+     As rows they also start at the modal's own gutter, which the tiles'
+     13px of padding did not -- the step's heading sat at the gutter and
+     the choices under it sat 13px further in.
+     The recipe is .ef-type-row's, pool for pool and shadow for shadow. */
+  .bld-purpose{display:grid; gap:0; grid-template-columns:1fr;}
   .bld-purpose button{
-    display:block; width:100%; text-align:left; padding:14px 13px; min-height:118px;
-    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
-    background:var(--t-tile); color:var(--ink-dim);
-    /* No lift: four raised tiles inside a card that is already raised is the
-       box-on-a-box the rest of the product gave up. The rim is the edge. */
-    transition:box-shadow .18s, border-color .18s, color .18s;
+    position:relative; display:flex; align-items:center; gap:11px;
+    width:100%; text-align:left; padding:13px 0; min-height:60px;
+    border:0; border-radius:var(--tile-radius);
+    background:none; color:var(--ink-dim);
+    transition:color .18s;
   }
+  /* The coaching rail's radial pool, which is what "chosen" looks like in
+     this product. It reaches the full width of the row, so the light runs
+     to both edges of the card rather than stopping at a tile's rim. */
+  .bld-purpose button::before{
+    content:''; position:absolute; inset:0; border-radius:inherit;
+    pointer-events:none; z-index:0;
+    background:radial-gradient(48% 46% at 50% 46%,
+      rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
+    opacity:0; transition:opacity .34s ease;}
+  .bld-purpose button > *{position:relative; z-index:1;}
+  .bld-purpose button.active::before{opacity:1;}
+  .bld-purpose button:hover:not(.active)::before{opacity:.38;}
   .bld-purpose button:active{transform:scale(.995);}
+  .bpc-text{flex:1 1 auto; min-width:0;}
+  .bpc-tick{flex:none; display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; color:transparent; transition:color .18s;}
+  .bpc-tick svg{width:18px; height:18px;}
   .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700;}
   .bpc-name{line-height:1.2;}
   .bpc-why{display:block; font-family:var(--text-face); font-size:var(--fs-support);
@@ -3931,14 +3957,19 @@
      other three look switched off. Gold marks the CHOICE: the rim, its
      glow, and the name. The reason underneath stays the colour it has in
      the other three, because it is still just a description. */
+  /* No ring and no rim, because the row has no box left to ring. The name
+     takes the gold and the illumination the nav's selected tab wears, and
+     the tick comes up on the right -- where the tab chevrons live, so it
+     costs the words nothing. */
   .bld-purpose button.active{
-    color:var(--gold-bright); background:var(--t-tile);
-    /* No font-weight here: .bpc-name is already 700 whether the card is
-       chosen or not, so this only ever reached the DESCRIPTION -- bolding a
-       sentence that says the same thing it said before the card was picked. */
-    border-color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 26%, transparent);
+    color:var(--gold-bright); background:none; border-color:transparent;
+    box-shadow:none;
   }
+  .bld-purpose button.active .bpc-name{
+    color:var(--gold-bright);
+    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
+                0 0 16.5px rgba(227,177,90,.42);}
+  .bld-purpose button.active .bpc-tick{color:var(--gold-bright);}
   /* A locked choice still shows what was chosen and why it cannot move -- the
      grid is dimmed, not removed, so "Speed uses the 5K block" is visible
      rather than mysterious. */
@@ -47058,10 +47089,22 @@ function openSetupModal(){
   var purposeCards = BUILDER_PURPOSE_ORDER.map(function(k){
     var m = BUILDER_PURPOSE_META[k];
     var on = buildPurpose === k;
+    /* role=radio, not aria-pressed. These four are one choice, and
+       aria-pressed announces four independent toggles -- "pressed" on each,
+       with nothing saying only one may be. It mattered less while each wore
+       a lit box of its own; with the boxes gone the semantics are carrying
+       more of the meaning, not less. Same role the session-type picker
+       already uses for the same shape of question. */
     return '<button type="button" data-v="'+k+'" class="bld-purpose-card'+(on?' active':'')+'" '+
-      'aria-pressed="'+(on?'true':'false')+'">'+
-      '<span class="bpc-name font-head">'+escapeHtml(m.label)+'</span>'+
-      '<span class="bpc-why">'+escapeHtml(m.blurb)+'</span>'+
+      'role="radio" aria-checked="'+(on?'true':'false')+'">'+
+      '<span class="bpc-text">'+
+        '<span class="bpc-name font-head">'+escapeHtml(m.label)+'</span>'+
+        '<span class="bpc-why">'+escapeHtml(m.blurb)+'</span>'+
+      '</span>'+
+      /* Always drawn, transparent until chosen: shown only on the picked row
+         it would change the text column's width on every tap, and the four
+         rows would shuffle sideways as the athlete moved down them. */
+      '<span class="bpc-tick" aria-hidden="true">'+ICONS.check+'</span>'+
     '</button>';
   }).join('');
   var purposeOptions = BUILDER_PURPOSE_ORDER.map(function(k){
@@ -47114,7 +47157,7 @@ function openSetupModal(){
     '<section class="bld-panel" data-stage="1" hidden>'+
       stageHead(1)+
       '<div class="field" id="f-purpose">'+
-        '<div class="bld-purpose bld-purpose-2up" data-mirror="su-purpose" role="group" aria-label="Block purpose">'+purposeCards+'</div>'+
+        '<div class="bld-purpose" data-mirror="su-purpose" role="radiogroup" aria-label="Block purpose">'+purposeCards+'</div>'+
         '<select id="su-purpose" class="bld-mirror" tabindex="-1" aria-hidden="true">'+purposeOptions+'</select>'+
       '</div>'+
       navBtns(1)+

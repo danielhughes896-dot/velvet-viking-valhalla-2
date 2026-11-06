@@ -353,15 +353,54 @@ test('the goal requirement is not conditional on the purpose', () => {
 });
 
 // --------------------------------------------------------------- 7. composition
-test('the four objectives are a 2x2 of cards wearing the gold selected state', () => {
+/* ---- THIS ASSERTION CHANGED SIDES, AND SO DID THE SCREEN ----
+   It required a 2x2 of 118px rimmed tiles, on the argument that four large
+   boxes read as four choices. Every comparable control in the product has
+   since stopped drawing a box to say "pick me" -- the session-type picker,
+   the A/B/C goal options, the bottom nav all answer it with light on the
+   words -- and four boxes inside a modal card was the box-on-a-box this app
+   gave up everywhere else. As rows the four also start at the modal's own
+   gutter, which the tiles' 13px of padding did not.
+   What the test was protecting is untouched and still below: four of them,
+   the selected one GOLD, and never the cherry action colour. */
+test('the four objectives are rows in one column, wearing the gold selected state', () => {
   const { html } = buildJourney();
   const goal = panels(html).find(p => p.stage === 1).body;
   assert.equal((goal.match(/class="bld-purpose-card/g) || []).length, 4,
-    'the goal screen does not show four objective cards');
+    'the goal screen does not show four objectives');
 
   const css = SRC.slice(SRC.indexOf('.bld-purpose{'), SRC.indexOf('.bld-date input'));
-  assert.match(css, /\.bld-purpose\{[^}]*grid-template-columns:1fr 1fr/,
-    'the objectives are not laid out two across');
+  assert.match(css, /\.bld-purpose\{[^}]*grid-template-columns:1fr;/,
+    'the objectives are back in a grid of more than one column');
+  assert.match(css, /\.bld-purpose button\{[^}]*background:none/,
+    'the objectives are drawing a ground again');
+  assert.match(css, /\.bld-purpose button\{[^}]*border:0/,
+    'the objectives are drawing a rim again');
+  assert.match(css, /\.bld-purpose button\{[^}]*padding:13px 0/,
+    'the objectives are indented from the gutter their own heading runs to');
+
+  /* ONE CHOICE, NOT FOUR TOGGLES. aria-pressed announces four independent
+     buttons, each "pressed" or not, with nothing saying only one may be.
+     That mattered less while each wore a lit box; with the boxes gone the
+     semantics carry more of the meaning. */
+  assert.match(goal, /role="radio" aria-checked="true"/, 'no objective is marked chosen');
+  assert.equal((goal.match(/aria-checked="true"/g) || []).length, 1,
+    'more than one objective is marked chosen');
+  assert.equal((goal.match(/role="radio"/g) || []).length, 4);
+  assert.doesNotMatch(goal, /aria-pressed/, 'the objectives are toggles again');
+  assert.match(html, /role="radiogroup"/, 'the four rows are not announced as one choice');
+
+  /* Nothing in front of the title -- the mock drew a radio circle there and
+     it would have been the only leading glyph left in the product, holding
+     every title 36px off the gutter while saying a fourth time what the
+     gold name, the gold wash and the tick already say. The tick stays: it
+     is on the right, where the tab chevrons are, so it costs the words
+     nothing. */
+  assert.doesNotMatch(goal, /bld-purpose-card[^>]*>\s*<span class="bpc-(?!text)/,
+    'something is drawn in front of an objective title');
+  assert.match(goal, /class="bpc-tick"/, 'the chosen objective has no mark');
+  const tickAt = goal.indexOf('bpc-tick'), textAt = goal.indexOf('bpc-text');
+  assert.ok(textAt > -1 && tickAt > textAt, 'the tick is emitted before the words');
   // selected state is GOLD, never the Cherry Lacquer action colour. Which
   // gold follows the bottom nav's selected tab -- now --gold-bright, since
   // that tab stopped being a slab. The never-cherry rule below is the one
