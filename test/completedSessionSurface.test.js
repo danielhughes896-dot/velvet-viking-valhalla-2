@@ -69,6 +69,32 @@ test('the completion statement is the same markup in all three views', () => {
   assert.equal(views[1], views[2], 'This Week and Full Plan render different cards');
 });
 
+test('a focused session is not capped by the drawer it now renders the prescription in', () => {
+  /* WHY THIS GUARD EXISTS. On a completed session the prescription renders
+     INSIDE .day-drawer, under the log -- so one container now holds the log,
+     the analysis and the whole prescription, where before .day-detail and
+     .day-drawer had independent ceilings of 6000px and 4000px.
+     .day-detail was already uncapped in the focused views, on the reasoning
+     that a focused session is never shut so its ceiling animates nothing and
+     only cuts things off. The drawer was not, and kept max-height:4000px.
+     Measured on a completed interval with the log detail, the splits and the
+     analysis all open: 3421px -- 579px of headroom where a second ceiling's
+     worth used to be. A card past that limit paints below the box without
+     extending it, so the page stops scrolling with the rest of the session
+     visible underneath. Removed rather than raised: raising only moves the
+     cliff. */
+  const drawer = rule(F + ' .day-drawer');
+  assert.match(drawer, /max-height:none/,
+    'the focused drawer has a ceiling again, and the prescription is inside it');
+  assert.match(drawer, /overflow:visible/, 'the focused drawer clips again');
+
+  /* And the accordion it exists for is untouched where cards DO shut. */
+  assert.match(CSS, /\.day\.open \.day-drawer\{max-height:4000px/,
+    'the list accordion lost the ceiling that animates it open');
+  assert.match(CSS, /\.day-detail, \.day-drawer\{max-height:0/,
+    'the list accordion lost the closed state it animates from');
+});
+
 test('nothing on the completed surface is drawn as a box', () => {
   /* The session above it is not a card, so neither is the log under it. */
   const fields = rule(F + ' .actual-field :is(input, textarea)');

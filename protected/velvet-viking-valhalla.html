@@ -1546,6 +1546,22 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail{width:100%; margin-right:0;
     display:flex; flex-direction:column;
     overflow:visible; max-height:none;}
+  /* AND SO DOES THE DRAWER, for the same reason and now for a second one.
+     .day-detail was uncapped here because a focused session is never shut,
+     so its ceiling animates nothing. .day-drawer was not -- it kept
+     max-height:4000px -- and that was survivable while the drawer held only
+     the log. It no longer does: on a completed session the prescription
+     renders INSIDE the drawer, so one 4000px ceiling now has to contain the
+     log, the analysis and the whole prescription, where before the two had
+     independent ceilings of 4000 and 6000.
+     Measured on a completed interval with the log detail, the splits and the
+     analysis all open: 3421px, which leaves 579px of headroom where there
+     used to be a second ceiling's worth. A card past that limit paints below
+     the box but does not extend it, so the page simply stops scrolling with
+     the rest of the session visible underneath -- which is what a focused
+     card must never do. The ceiling is removed rather than raised, because
+     raising it only moves the cliff. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-drawer{overflow:visible; max-height:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail > *:not(.ws-block){max-width:100%;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail > *{order:5;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail > .day-desc{order:1;}
@@ -5592,12 +5608,16 @@
      it does. */
   /* Race Outlook and Current Fitness are the two instruments a panel opens
      ON, so they take the same rim as everything else that opens. */
+  /* OPEN, LIKE THE REST OF THE PANEL. This was a raised tile with a
+     gradient gold rim sitting inside a card that already has a ground and a
+     rim -- the last box-on-a-box in a Reading panel, and painted with the
+     same --t-card-grad blue-grey the builder has just given up. The section
+     beside it (ACTIVE GOAL) is a title and its content, and so is this now.
+     It is a div, not a button, so nothing tappable loses its affordance. */
   .outlook-instrument{
     display:block; width:100%; text-align:left;
-    border:1.5px solid transparent; border-radius:var(--tile-radius);
-    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
-    box-shadow:var(--tile-shadow);
-    padding:14px 16px 18px; margin-top:16px; font:inherit; color:inherit;
+    border:0; border-radius:0; background:none; box-shadow:none;
+    padding:14px 0 18px; margin-top:16px; font:inherit; color:inherit;
   }
   .oi-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
   .oi-label span{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--gold-text); font-weight:var(--label-weight);}
@@ -55636,13 +55656,20 @@ function statusDialHtml(f, isStatic){
       '<span class="b-medal">'+
         '<span class="rd-val"><b'+(f.none?' class="rec-none"':'')+
           ' style="font-size:'+statusValueFontSize(big)+';">'+escapeHtml(big)+'</b></span>'+
-        /* ALWAYS EMITTED, EVEN EMPTY. Two of the four facts carry a second
-           line and two do not, and a stack that is centred inside its circle
-           puts the label at a different height depending on how tall the
-           stack is -- so GOAL's label sat visibly above FITNESS's in the same
-           row. Reserving the slot makes all four stacks one height, which is
-           what actually aligns the labels. */
-        '<span class="rd-sub rd-sub-data">'+escapeHtml(small)+'</span>'+
+        /* THE SLOT IS NOT RESERVED WHEN IT IS EMPTY. This emitted the sub-line
+           unconditionally, on the reasoning that reserving it kept all four
+           stacks one height and so aligned GOAL / FITNESS / BENCHMARK /
+           PROGRESS with each other. Measured, that is not what aligns them:
+           .rd-sub sits inside .b-medal, which is a FIXED 90px circle, so an
+           empty one cannot change the column's height -- and with all four
+           empty subs removed the labels stay on exactly the same baseline
+           (731px), including when one dial carries a real sub and the other
+           three do not.
+           What it did do was take a line's worth of room inside the circle,
+           pushing every Athlete Status value 8px ABOVE centre while the
+           Reading circles -- whose renderer already omits an empty sub --
+           sat dead centre. Same rule in both renderers now. */
+        (small ? '<span class="rd-sub rd-sub-data">'+escapeHtml(small)+'</span>' : '')+
       '</span>'+
     '</'+tag+'>';
   if (isStatic) return dial;

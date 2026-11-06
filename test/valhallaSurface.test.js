@@ -153,6 +153,31 @@ test('LADDER: one rule sizes every circle, and it is derived rather than tabulat
   });
 });
 
+test('a circle centres its value, and only a real sub-line moves it', () => {
+  /* statusDialHtml emitted .rd-sub unconditionally, to reserve a slot that
+     was believed to keep GOAL / FITNESS / BENCHMARK / PROGRESS aligned.
+     Measured in a browser, that is not what aligns them: .rd-sub sits inside
+     .b-medal, a FIXED 90px circle, so an empty one cannot change the
+     column's height -- with all four removed the labels stayed on the same
+     baseline (731px), and so they did with one dial carrying a real sub and
+     the other three not. What it DID do was take a line's worth of room
+     inside the circle, pushing every Athlete Status value 8px above centre
+     while the Reading circles -- whose renderer already omits an empty sub
+     -- sat dead centre.
+     Both renderers now omit it, which is the property guarded here: an
+     absent sub must not be emitted at all, in EITHER renderer. */
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  [['statusDialHtml', 'the Athlete Status circles'],
+   ['readingDialHtml', 'the Reading circles']].forEach(([fnName, what]) => {
+    const fn = new RegExp('function ' + fnName + '\\([\\s\\S]*?\\n\\}').exec(src);
+    assert.ok(fn, fnName + ' is gone');
+    const sub = /rd-sub/.test(fn[0]);
+    assert.ok(sub, what + ' no longer render a sub-line at all');
+    assert.doesNotMatch(fn[0], /\n\s*'<span class="rd-sub[^']*'\+escapeHtml\(sma?l?l?\)/,
+      what + ' emit an empty sub-line again, which pushes the value off centre');
+  });
+});
+
 test('a word in a circle is one size per rank; a figure still fills the face', () => {
   /* MEASURED ON THE RENDERED SCREEN, which is where this went wrong. The
      ladder sizes a face to fill it -- right for a figure, because the figure
