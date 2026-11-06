@@ -3106,11 +3106,9 @@
      scoped by ancestor because this button sits in Settings' own body, not
      inside the modal -- same declarations as .builder-light .btn-primary,
      applied directly. */
-  .btn-recal{
-    background:var(--cherry-fill); color:var(--cherry-btn-ink);
-    box-shadow:inset 0 0 0 1px var(--cherry);
-  }
-  .btn-recal:hover{filter:brightness(1.08);}
+  /* .btn-recal's rule lives further down the sheet now, after
+     .hq-panel .btn-primary -- see "RE-CALIBRATE WAS NEVER WEARING ITS OWN
+     DESIGN". It has to win on order, because the two selectors tie. */
   .btn-ghost{background:none; border:1px solid var(--line);}
   /* --danger-text, not --c-threshold. The workout-type hues are deliberately
      identical in both themes, and that one lands at 4.37:1 on cream -- close
@@ -3590,7 +3588,14 @@
     color:var(--ink-faint); background:var(--ctl-bg);
     border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
   }
-  .gl-opt.active{background:var(--gold, var(--c-easy)); color:var(--page, #0d0d0d); border-color:transparent;}
+  /* LIT, NOT FILLED. This was the only solid gold lozenge with dark text
+     left in the product, and it sat three-across in a panel whose every
+     other control is drawn on the card's own ground. Selection is shown the
+     way every other selected control in here shows it -- the .feel-btn.on
+     treatment verbatim: the ground unchanged, a gold edge, and the glow
+     that edge throws. Nothing is filled and nothing inverts. */
+  .gl-opt.active{color:var(--ink); border-color:var(--gold);
+    box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 26%, transparent);}
 
   .bld-strava-offer{
     margin-top:12px; padding:16px;
@@ -4185,23 +4190,37 @@
   legend{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); padding:0 6px; font-weight:var(--label-weight);}
 
   /* ---------- settings extras ---------- */
-  .connect-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft);}
-  .connect-row:last-child{border-bottom:none;}
+  /* NO SEPARATOR. A line between two settings is a white separator, which
+     is the one thing an open surface in this product does not draw -- lines
+     come after a title, to do work. The evidence that it was wrong is in
+     the markup: two call sites already carried style="border-bottom:none"
+     to switch it off, and both lose that hack with this rule. Spacing
+     separates the rows. */
+  .connect-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0;}
   /* The name field sits in a settings row beside its Save, so it takes the
      row's own ground and the gold underline every editable value in this
      product already wears -- see .actual-field, whose treatment this is. */
   .stg-name-input{
     flex:0 1 128px; min-width:0; margin:0 10px 0 12px; padding:5px 2px;
-    background:none; border:0; border-bottom:1px solid var(--gold);
+    background:none; border:0; border-bottom:1px solid var(--line-soft);
     color:var(--ink); font-family:'JetBrains Mono',monospace;
     font-size:var(--fs-panel-row); text-align:right;}
-  .stg-name-input:focus{outline:none; border-bottom-color:var(--gold-bright);}
-  /* Same 13px Oswald 600 every other row title in the product uses
-     (.rs-head-text h3, .stg-nav-label, .coach-status-label's family) --
-     .connect-row used to be the one row title still on the plain body
-     face, which read as a different generation of the interface next to
-     Coach's rows. */
-  .connect-row .name{font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; letter-spacing:.2px;}
+  /* The rule is the quiet one, as it is on every field in the log panel.
+     This rule's own comment said it took "the gold underline every editable
+     value in this product already wears -- see .actual-field, whose
+     treatment this is"; .actual-field no longer wears it, so neither does
+     this. Focus still answers, in gold, because focus is a state. */
+  .stg-name-input:focus{outline:none; border-bottom-color:var(--gold);}
+  /* THE SAME ROW TITLE AS THE ROW THAT OPENED THE PANEL. Measured rather
+     than argued: a Settings LIST row is Inter 15px 600 over an Inter 13.5px
+     sub, and a panel row was Oswald 13px 600 over the same 13.5px sub -- so
+     the two halves of one journey, the row you tap and the row you land on,
+     disagreed on face and size while agreeing on the line underneath.
+     The note that stood here claimed 13px Oswald was "every other row title
+     in the product"; of the three it named, .stg-nav-label no longer renders
+     at all and .coach-status-label is 15px uppercase label voice. It was
+     describing a sheet that had moved on. */
+  .connect-row .name{font-size:15px; font-weight:600; color:#FFFFFF; line-height:1.25;}
   .connect-row .desc{ color:var(--ink-faint);}
   .strava-connect-btn{background:var(--strava-orange); color:#fff; border:none;}
   .strava-connect-btn:hover{filter:brightness(1.08); border-color:transparent;}
@@ -6074,6 +6093,24 @@
      commits days of training -- and with cherry no longer spent on a way out,
      a content primary must still not pick it up by inheritance. */
   .hq-panel .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);}
+  /* ---- RE-CALIBRATE WAS NEVER WEARING ITS OWN DESIGN ----
+     Measured in the open panel: background-image resolved to the BRONZE
+     gradient above, not to --cherry-fill, while .btn-recal's cherry inset
+     ring came through underneath it -- a bronze-gold fill with dark text
+     and a cherry hairline inside it, which is two designs at once and
+     neither of them on purpose. The button carries .btn .btn-primary
+     .btn-recal, so .hq-panel .btn-primary (0,2,0) beat .btn-recal (0,1,0)
+     outright and the cherry rule had been dead in here since the panel
+     shell was adopted. It is stated here, after that rule and at the same
+     weight, so it actually applies.
+     AND IT IS LIT RATHER THAN FILLED, like every other control the product
+     has stopped filling: the card's own ground, a cherry edge, the glow
+     that edge throws. Still the accent, through the token. */
+  .btn-recal, .hq-panel .btn-recal{
+    background:var(--t-card); color:var(--cherry-text);
+    border:1px solid color-mix(in srgb, var(--cherry) 62%, transparent);
+    box-shadow:0 0 14px color-mix(in srgb, var(--cherry) 22%, transparent);}
+  .btn-recal:hover{filter:brightness(1.08);}
 
   /* ---------- THE PANEL WEARS THE COLOUR OF THE CIRCLE THAT OPENED IT ----------
      Nine circles on Valhalla, each a fixed identity, and every one of them
@@ -6087,6 +6124,15 @@
     box-shadow:0 0 18px color-mix(in srgb, var(--rp-accent) 24%, transparent),
                0 0 48px color-mix(in srgb, var(--rp-accent) 10%, transparent);}
   .modal-card.rp-gold{--rp-accent:var(--gold-bright);}
+  /* ---- A SETTINGS PANEL HAS NO CIRCLE BEHIND IT ----
+     The accent rim says "this is the panel that circle opened" -- nine
+     circles on Valhalla, nine identities, and the athlete carries one in
+     with them. Settings rows open through the same shell for the scroll
+     restoration and the single exit, not because they carry a reading, so
+     rp-gold there was decoration: a 1.5px gold edge and two gold glows
+     round a list of preferences. The Valhalla panels keep theirs. */
+  .modal-card.hq-panel.stg-panel{
+    border:1px solid var(--t-tile-rim); box-shadow:var(--shadow);}
   .modal-card.rp-green{--rp-accent:var(--z-easy);}
   .modal-card.rp-cherry{--rp-accent:var(--cherry);}
   .modal-card.rp-white{--rp-accent:var(--ink);}
@@ -43964,7 +44010,9 @@ function openRestrictionModal(){
       '<button type="button" class="btn btn-primary" data-action="restriction-confirm">'+ICONS.check+' '+(open?'Update':'Tell Valhalla')+'</button>'+
     '</div>'+
   '</div>';
-  openModal(html, 'modal-themed builder-light');
+  /* Keyed: every level and duration pick calls straight back in here, and
+     without this each one rebuilt the sheet and replayed its entrance. */
+  openModal(html, 'modal-themed builder-light', 'restriction');
 }
 /* Whatever is typed in the date field belongs to the athlete, so it is read
    back off the DOM before the modal is redrawn under a pick. */
@@ -45899,12 +45947,41 @@ function availabilityOfferHtml(rec){
         'Valhalla solves the programme around the days you have.</div>'+
     '</div>';
 }
-function openModal(html, extraClass){
+/* THE SCREEN FLASHED BECAUSE THE MODAL WAS BEING REBUILT, NOT REDRAWN.
+   A modal that re-renders under its own controls -- the restriction sheet
+   redraws on every level and duration pick, deliberately, so what is on
+   screen is always what would be saved -- went through here each time, and
+   here tore the overlay out of the document and built a new one. The new
+   card replayed `animation:slideup .22s` from scratch and started back at
+   scroll top, so changing "for how long" made the whole sheet jump.
+   A caller that is REFRESHING rather than opening says so with a key. When
+   the overlay already carries that key and the same classes, only the
+   card's contents change -- the element survives, so no animation restarts
+   and the scroll position is kept. This is the mechanism
+   refreshOpenRecordPanel() already uses for a panel; openModal() simply had
+   no way to say "same modal, new contents".
+   Without a key the behaviour is exactly what it was: close, rebuild,
+   animate. Nothing that does not opt in can take the quiet path. */
+function openModal(html, extraClass, key){
+  var cls = 'modal-card'+(extraClass?(' '+extraClass):'');
+  if (key){
+    var open = document.getElementById('modal-overlay');
+    var card = open ? open.querySelector('.modal-card') : null;
+    if (card && card.getAttribute('data-modal-key') === key && card.className === cls){
+      /* closeModal()'s one side effect, kept: whatever the overlay held, it
+         is not a Record panel any more. */
+      openRecordPanelKey = null;
+      var y = card.scrollTop;
+      card.innerHTML = html;
+      card.scrollTop = y;
+      return;
+    }
+  }
   closeModal();
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'modal-overlay';
-  overlay.innerHTML = '<div class="modal-card'+(extraClass?(' '+extraClass):'')+'">'+html+'</div>';
+  overlay.innerHTML = '<div class="'+cls+'"'+(key?(' data-modal-key="'+key+'"'):'')+'>'+html+'</div>';
   overlay.addEventListener('mousedown', function(e){ if (e.target===overlay) closeModal(); });
   document.body.appendChild(overlay);
 }
@@ -49143,7 +49220,7 @@ function handleSupportSkip(dayId){
 function renderGuidanceLevelRow(){
   var cur = guidanceLevel();
   return '<div id="guidance-level-row" class="gl-row">'+
-    '<div class="connect-row" style="border-bottom:none; padding-bottom:4px;">'+
+    '<div class="connect-row" style="padding-bottom:4px;">'+
       '<div><div class="name">Coaching detail</div>'+
       '<div class="desc">How much your coach explains</div></div>'+
     '</div>'+
@@ -49171,7 +49248,7 @@ function renderGuidanceLevelRow(){
 function renderCoachVoiceRow(){
   var cur = coachVoice();
   return '<div id="coach-voice-row" class="cv-row">'+
-    '<div class="connect-row" style="border-bottom:none; padding-bottom:0;">'+
+    '<div class="connect-row" style="padding-bottom:0;">'+
       '<div><div class="name">Coach voice</div>'+
       '<div class="desc">Who your coach sounds like</div></div>'+
     '</div>'+
@@ -56676,7 +56753,7 @@ function openSettingsPanel(key){
   var html = hqPanelHtml(key);
   if (!html) return;
   rememberPlanHQScroll();
-  openModal(html, 'modal-themed builder-light hq-panel '+
+  openModal(html, 'modal-themed builder-light hq-panel stg-panel '+
     (PANEL_ACCENT_CLASS[key] || 'rp-gold'));
   openRecordPanelKey = key;
 }

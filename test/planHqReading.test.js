@@ -327,6 +327,32 @@ test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
   assert.doesNotMatch(CODE, /rec-panel-nav/,
     'the retired BACK button\u2019s styling is back');
   assert.match(CODE, /openModal\([\s\S]{0,80}?hq-panel/, 'the panels stopped carrying .hq-panel');
+
+  /* ---- A MODAL THAT REDRAWS UNDER ITS OWN CONTROLS IS NOT REBUILT ----
+     The restriction sheet re-renders on every level and duration pick, on
+     purpose, so that what is on screen is always what would be saved. Each
+     of those went through openModal(), which tore the overlay out of the
+     document and built a new one -- so the card replayed its .22s slideup
+     and returned to scroll top, and changing "for how long" made the whole
+     sheet jump. A caller that is REFRESHING says so with a key, and then
+     only the card's contents change.
+     Asserted on the mechanism because the suite's document stub returns
+     null from getElementById, so the in-place branch can never be reached
+     here; the behaviour itself (same element, no running animation, scroll
+     kept) was measured in a browser. */
+  const openModalFn = CODE.match(/function openModal\(html, extraClass, key\)\{[\s\S]*?\n\}/);
+  assert.ok(openModalFn, 'openModal no longer accepts a refresh key');
+  assert.match(openModalFn[0], /getAttribute\('data-modal-key'\) === key/,
+    'the in-place path no longer checks it is the same modal');
+  assert.match(openModalFn[0], /card\.innerHTML = html/,
+    'the in-place path stopped swapping contents');
+  assert.match(openModalFn[0], /card\.scrollTop = y/,
+    'the in-place path stopped keeping the scroll position');
+  assert.match(openModalFn[0], /openRecordPanelKey = null/,
+    'the in-place path skips the side effect closeModal() exists for');
+  assert.match(CODE, /openModal\(html, 'modal-themed builder-light', 'restriction'\)/,
+    'the restriction sheet stopped asking for the in-place redraw, so every ' +
+    'level and duration pick rebuilds and re-animates it again');
 });
 
 test('PANEL: every action a panel offers is handled somewhere', () => {

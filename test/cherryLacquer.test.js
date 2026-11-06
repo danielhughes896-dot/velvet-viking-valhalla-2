@@ -130,6 +130,28 @@ test('no violet token survives anywhere in the runtime', () => {
     assert.doesNotMatch(CODE, re, 'an old violet literal is still in the stylesheet: ' + re));
 });
 
+test('Re-calibrate actually wins the cascade its rule is written for', () => {
+  /* MEASURED IN THE OPEN PANEL, where it had been losing silently. The
+     button carries .btn .btn-primary .btn-recal and sits inside .hq-panel,
+     so .hq-panel .btn-primary (0,2,0) beat .btn-recal (0,1,0) outright: the
+     resolved background-image was the BRONZE gradient, with .btn-recal's
+     cherry inset ring coming through underneath it -- two designs at once,
+     neither of them on purpose, and a gold-filled pill with dark text in a
+     panel whose every other control sits on the card's own ground.
+     Every colour assertion in this file passed throughout, because they ask
+     what the sheet SAYS and the sheet said cherry. What was wrong was which
+     rule applied, so that is what this guards: weight, and then order. */
+  const recal = CODE.indexOf('.btn-recal, .hq-panel .btn-recal{');
+  const panelPrimary = CODE.indexOf('.hq-panel .btn-primary{');
+  assert.ok(panelPrimary > -1, 'the panel primary rule is gone');
+  assert.ok(recal > -1,
+    '.btn-recal lost the .hq-panel-weight half of its selector, so inside a ' +
+    'panel it is outranked by .hq-panel .btn-primary again');
+  assert.ok(recal > panelPrimary,
+    '.btn-recal is stated before .hq-panel .btn-primary again; the two tie ' +
+    'at (0,2,0), so the one written last wins and Re-calibrate goes bronze');
+});
+
 test('every customer-facing brand control now resolves through the accent token', () => {
   /* The closed set, named. Each of these is a place violet meant Velvet Viking
      / primary interaction / selected brand state, and each must reach its
