@@ -401,7 +401,15 @@ test('CHEVRON: the day and week expand chevrons share one size now', () => {
 test('CHEVRON: the Fueling and How-to-run-this disclosures carry a real expand cue', () => {
   assert.match(CODE, /class="fuel-chevron"/);
   assert.match(CODE, /\.fuel-card\[open\] \.fuel-chevron\{[^}]*rotate\(180deg\)/);
-  assert.match(SRC, /How to run this<span class="fuel-chevron"/, 'the how-to-run-this summary has no chevron');
+  /* Session Details carries its chevron as .sess-tab-c now -- it is a
+     session tab rather than a bare fuel disclosure, and sessionTabHtml()
+     emits the cue for both tabs from one place. The Fueling card above
+     still uses .fuel-chevron, which is what the two assertions above
+     guard. */
+  assert.match(SRC, /sessionTabHtml\(ICONS\.notes, 'Session Details'/,
+    'Session Details is no longer built from the shared session tab');
+  assert.match(CODE, /\.sess-tab-btn\[aria-expanded="true"\] \.sess-tab-c\{transform:rotate\(180deg\)/,
+    'the session tab chevron no longer turns when the tab opens');
   assert.match(SRC, /Fueling &amp; Hydration Strategy<span class="fuel-chevron"/,
     'the fueling summary has no chevron');
 });

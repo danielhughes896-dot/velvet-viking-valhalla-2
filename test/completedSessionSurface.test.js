@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logAsPrescribed } = require('./fixtures.js');
 
 /* WHAT THE SCREEN BECOMES ONCE THE SESSION IS DONE.
  * ===========================================================================
@@ -278,4 +278,57 @@ test('FEEL: the pills speak the product\'s own language, not the old one', () =>
      their own body. Feel is reported, not assessed. */
   assert.doesNotMatch(on, /var\(--ok\)|var\(--bad\)|var\(--warn\)/,
     'the feel scale is being colour-graded by the app');
+});
+
+/* THE FOUNDER'S HIERARCHY FOR A FINISHED SESSION.
+ * ===========================================================================
+ *   Session complete
+ *   Share
+ *   Session Details      -- why / execution / feel / coach's note, and the
+ *                           session's own targets, description and steps
+ *   Valhalla Analysis    -- the verdict / execution review / next steps
+ *   <verdict> · <n>% execution
+ *
+ * Stated as positions rather than as markup, so the guard survives the next
+ * restyle and only fails if the ORDER changes.
+ */
+test('a finished session leads with what you did, then the two tabs', () => {
+  const a = app();
+  /* Logged in full, not just a distance. A day with km and no pace cannot be
+     scored, so the analysis falls to its unscored prompt instead of the tab
+     -- a real branch, and not the one this hierarchy is about. */
+  const d = a.state.days.filter(x => x.type === 'threshold')[0];
+  logAsPrescribed(a, d, { quality: 1 });
+  const html = a.renderDayCard(d);
+  const at = (re, what) => {
+    const i = html.search(re);
+    assert.ok(i > -1, what + ' is missing from a completed session');
+    return i;
+  };
+  const done   = at(/actual-done-k">Session complete/, 'the completion statement');
+  const share  = at(/btn-share/,                       'Share to Socials');
+  const detail = at(/sessionTabHtml|sess-tab-k">Session Details/, 'the Session Details tab');
+  const anal   = at(/sess-tab-btn/,                    'the Valhalla Analysis tab');
+  assert.ok(done < share,   'Share no longer follows the completion statement');
+  assert.ok(share < detail, 'Session Details no longer follows Share');
+  assert.ok(detail < anal,  'Valhalla Analysis no longer follows Session Details');
+  /* And the log is still BELOW all four -- it is a correction, not the point
+     of the screen. */
+  const km = at(/data-field="km"/, 'the log');
+  assert.ok(anal < km, 'the log climbed back above the tabs');
+});
+
+test('both tabs are the same object, drawn from one helper', () => {
+  /* They drifted into near-misses once already -- a bordered disclosure
+     above a plain text button -- which is why there is a helper at all. If
+     either stops using it, they are free to drift again. */
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  assert.match(src, /function sessionTabHtml\(icon, title, sub\)/,
+    'the shared session tab is gone');
+  assert.match(src, /sessionTabHtml\(ICONS\.notes, 'Session Details'/,
+    'Session Details is no longer drawn from the shared tab');
+  assert.match(src, /sessionTabHtml\(ICONS\.trend, 'Valhalla Analysis'/,
+    'Valhalla Analysis is no longer drawn from the shared tab');
+  assert.equal((src.match(/class="sess-tab-k"/g) || []).length, 1,
+    'the tab title is emitted in more than one place again');
 });

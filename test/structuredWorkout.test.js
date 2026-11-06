@@ -316,7 +316,17 @@ test('reading the workout does not modify the day or its prescription', () => {
   });
 });
 
-test('the structured layer sits ABOVE the coaching disclosure', () => {
+test('the structured layer sits INSIDE the coaching disclosure', () => {
+  /* THIS ASSERTION CHANGED SIDES, and the reason is worth keeping. It used
+     to require the step table ABOVE the disclosure, because the disclosure
+     was "How to run this" and the steps were the session itself -- the
+     session should not hide behind a tab about how to run it.
+     The disclosure is Session Details now, and it holds the session's own
+     words: targets, description and step table, with the coaching rail
+     under them. A tab called Session Details with the details stacked
+     outside it is the label standing apart from the thing it labels, so the
+     steps moved IN. What must stay true is that they are still on the card
+     and still reachable from it. */
   const a = app();
   const dd = day(a, 'threshold_continuous');
   const html = a.renderDayCard(dd);
@@ -324,7 +334,11 @@ test('the structured layer sits ABOVE the coaching disclosure', () => {
   const how = html.indexOf('how-card');
   assert.ok(ws > -1, 'no structured workout on the card');
   assert.ok(how > -1, 'the coaching disclosure vanished');
-  assert.ok(ws < how, 'the structured workout rendered below the coaching disclosure');
+  assert.ok(how < ws, 'the structured workout escaped Session Details');
+  /* And it is inside the <details>, not merely after it: the closing tag
+     must come later than the step table. */
+  assert.ok(html.indexOf('</details>', how) > ws,
+    'the step table renders after Session Details closes, so the tab does not hold it');
 });
 
 test('the coaching disclosure keeps every section it had', () => {
@@ -333,7 +347,7 @@ test('the coaching disclosure keeps every section it had', () => {
   const a = app();
   const dd = day(a, 'threshold_continuous');
   const html = a.renderDayCard(dd);
-  ['How to run this', 'Why', 'Feel', 'Watch For'].forEach(k => {
+  ['Session Details', 'Why', 'Feel', 'Watch For'].forEach(k => {
     assert.ok(html.indexOf(k) > -1, 'the coaching disclosure lost: ' + k);
   });
   assert.ok(/Execution/.test(html), 'the coaching disclosure lost Execution');

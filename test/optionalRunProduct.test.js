@@ -295,8 +295,17 @@ test('11. the optional average pace persists, and is omitted when absent', () =>
   const e = b.a.findDay(b.dd.id);
   assert.equal(e.actual.pace, null);
   assert.equal(e.completed, true, 'a pace is never required to record a run');
-  assert.match(b.a.renderDayCard(e), /5\.2km/);
-  assert.doesNotMatch(b.a.renderDayCard(e), /·/, 'and nothing is invented in its place');
+  const card = b.a.renderDayCard(e);
+  assert.match(card, /5\.2km/);
+  /* NARROWED TO THE LINE IT IS ABOUT. This used to ban the middot from the
+     WHOLE card, which worked only while nothing else on the card used one.
+     Session Details carries "Why · Execution · Feel · Coach’s Note" now, so
+     the broad form fails on chrome rather than on an invented pace. What is
+     actually guarded is that the optional run's own line reads "5.2km" and
+     not "5.2km · <something>/km" when no pace was given. */
+  const line = (card.match(/<div class="optional-line[^"]*">([^<]*)<\/div>/) || [])[1] || '';
+  assert.ok(line, 'the optional run line is gone, so the guard protects nothing');
+  assert.doesNotMatch(line, /·/, 'and nothing is invented in its place');
 });
 
 test('12. km/mi conversion is correct in both directions', () => {

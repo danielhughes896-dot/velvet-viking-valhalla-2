@@ -1056,10 +1056,57 @@
   /* A summary that is not a control: no pointer, no marker, no press
      feedback. The card is open and stays open, so the row above the body is
      a heading that happens to be a <summary> element. */
-  .how-card.is-static{cursor:default;}
-  .how-card summary.is-static{cursor:default; list-style:none;}
-  .how-card summary.is-static::-webkit-details-marker{display:none;}
-  .how-card summary.is-static::marker{content:'';}
+  /* ================= THE SESSION'S TWO TABS =================
+     Session Details and Valhalla Analysis, and they are one object drawn
+     twice -- see sessionTabHtml(). A row that names what it opens, says in
+     one line what is inside, and turns its chevron when it is open.
+     Soft surface, not a filled control and not a raised tile: it is the
+     same --tile-* recipe every other quiet surface in the product takes,
+     so a tab sitting on a card does not read as an object on an object. */
+  .sess-tab{
+    display:flex; align-items:center; gap:13px; width:100%;
+    padding:13px 15px; min-height:60px;
+    background:var(--tile-sheen), var(--bg-2);
+    border:1px solid var(--tile-border); border-radius:var(--tile-radius);
+    cursor:pointer; text-align:left; box-shadow:none;
+    list-style:none; -webkit-tap-highlight-color:transparent;
+  }
+  /* A <summary> draws its own marker in every engine, and each one needs
+     saying separately -- list-style alone does not do it in WebKit. */
+  .sess-tab::-webkit-details-marker{display:none;}
+  .sess-tab::marker{content:'';}
+  .sess-tab:hover{border-color:var(--bronze);}
+  .sess-tab-i{flex:none; display:flex; align-items:center; color:var(--gold-text);}
+  .sess-tab-i svg{width:20px; height:20px; display:block;}
+  .sess-tab-t{flex:1 1 auto; min-width:0;}
+  /* The title takes the product's one label voice; the sub is a sentence
+     about what is inside, so it takes the prose face at prose weight. */
+  .sess-tab-k{display:block; font-family:var(--label-face); font-size:13px;
+    font-weight:700; letter-spacing:var(--label-track); text-transform:uppercase;
+    color:#FFFFFF;}
+  .sess-tab-s{display:block; font-family:var(--text-face); font-size:12.5px;
+    color:var(--ink-faint); margin-top:3px; overflow-wrap:anywhere;}
+  .sess-tab-c{flex:none; display:flex; align-items:center; color:var(--gold-text);
+    transition:transform .25s;}
+  .sess-tab-c svg{width:18px; height:18px; display:block;}
+  /* Open is open, whichever element is carrying the state. */
+  details[open] > .sess-tab .sess-tab-c,
+  .sess-tab-btn[aria-expanded="true"] .sess-tab-c{transform:rotate(180deg);}
+  /* THE TAB IS THE CARD. .fuel-card's dashed edge and sheen were the thing
+     worth opening before the tab said so itself; leaving both would put a
+     box around a box. The Fueling card keeps its own .fuel-card edge -- it
+     is not a session tab -- so this is scoped to .how-card. */
+  .fuel-card.how-card{background:none; border:0; box-shadow:none; margin:14px 0 0;}
+  .how-card .fuel-body{padding:14px 2px 2px;}
+  /* display:contents so the targets, the description and the step table lay
+     themselves out inside the panel exactly as they did when they were
+     siblings in .day-detail -- the wrapper exists to be passed around, not
+     to become a box. */
+  .how-pre{display:contents;}
+  /* The verdict in one line, under the closed tab: how the session went,
+     without opening anything. */
+  .wc-line{margin-top:12px; font-family:var(--text-face); font-size:13px;
+    color:var(--ink-dim);}
   .fuel-chevron{margin-left:auto; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
   .fuel-chevron svg{width:16px; height:16px; display:block;}
   .fuel-card[open] .fuel-chevron{transform:rotate(180deg);}
@@ -1814,16 +1861,13 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card{
     margin:11px 0 0; padding:0; border:0; border-radius:0;
     box-shadow:none; background:none;}
-  /* A heading, not a control: Box 2 is open and stays open on Today, so the
-     chevron and the pointer affordance go with the behaviour they advertised.
-     This Week and Full Plan keep the ordinary closed disclosure. */
-  /* "HOW TO RUN THIS" IS GONE ON THE FOCUSED SESSION. The first panel is
-     headed WHY and the second EXECUTION; a title above them saying the rail
-     is about how to run the session is a label on a label. Everywhere else
-     this is still a closed disclosure and the summary is the thing you
-     press, so it keeps its heading there -- only the view where the rail is
-     already open loses it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card > summary{display:none;}
+  /* THE SUMMARY IS SHOWN HERE NOW, AND THAT REVERSES A CALL. It used to be
+     display:none on a focused session, because the rail was already open
+     and a heading saying "how to run this" above panels headed WHY and
+     EXECUTION was a label on a label. That held while the rail was always
+     open. It is a tab now -- Session Details, closed until asked -- so
+     hiding the summary would hide the only way to open it, and the label
+     is no longer on a label: it is on a closed door. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card > summary::-webkit-details-marker{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card .fuel-chevron{display:none;}
   /* The information glyph goes: the reference heads this box with words. */
@@ -4047,6 +4091,7 @@
     margin:0 0 16px;}
   /* The analysis tab sits beside Share in the completion stack, so it spans
      the log grid exactly as Share and "Session complete" do. */
+  .sess-details-mount{grid-column:1/-1;}
   .exec-review-mount{grid-column:1/-1;}
   .exec-review-mount:empty{display:none;}
   /* Open, the tab joins the panel beneath it into one object rather than
@@ -26870,12 +26915,33 @@ function railDotsHtml(gd, dd, stratBlock, fuelOn){
   for (var i=0; i<n; i++) dots += '<span class="how-dot"></span>';
   return '<div class="how-dots" aria-hidden="true">'+dots+'</div>';
 }
-function renderCoachingDepth(dd){
+/* `pre` is everything the session says about ITSELF -- its targets, its one
+   sentence of description and its step table -- which used to sit loose
+   above this disclosure as siblings in .day-detail. Session Details is the
+   tab that names them, so they belong inside it; passing them in rather
+   than rendering them here keeps this function's own job (the coaching)
+   unchanged and leaves the caller owning what the session is.
+   display:contents on the wrapper, so the three of them lay themselves out
+   inside the panel exactly as they did as siblings. */
+function renderCoachingDepth(dd, pre){
+  var preBlock = pre ? '<div class="how-pre">'+pre+'</div>' : '';
   var focusedCard = dayCardIsFocused(dd);
   var level = athleteExperience();
   var g = coachingEntryFor(dd);
-  if (!g) return '';
-  if (dd.type==='rest' && level!=='novice') return ''; // a rest day needs no cue for anyone else
+  /* NOTHING TO COACH IS NOT NOTHING TO SHOW. These two returns predate the
+     tab: with no coaching entry, or on a rest day for anyone past novice,
+     there was simply no disclosure. The session's own description now lives
+     inside that disclosure, so returning '' here would delete it from the
+     card. The tab is emitted with the preamble and no rail -- and still
+     nothing at all when there is no preamble either. */
+  if (!g || (dd.type==='rest' && level!=='novice')){
+    return preBlock
+      ? '<details class="fuel-card how-card">'+'<summary class="sess-tab">'+
+      sessionTabHtml(ICONS.notes, 'Session Details',
+        'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
+    '</summary>'+preBlock+'</details>'
+      : '';
+  }
   /* The cue line is where depth used to be decided; it still is. Advanced sees
      one only where getting it wrong ruins the session, everyone else sees the
      standing cue. */
@@ -26955,11 +27021,22 @@ function renderCoachingDepth(dd){
        instructions genuinely are detail. `open` is set rather than the
        element changed, so the same CSS, the same body and the same copy
        serve both. */
-    out += '<details class="fuel-card how-card'+(focusedCard?' is-static':'')+'"'+
-        (focusedCard?' open':'')+'>'+
-      (focusedCard
-        ? '<summary class="is-static">'+ICONS.info+'How to run this</summary>'
-        : '<summary>'+ICONS.info+'How to run this<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>')+
+    /* ---------- IT IS A TAB EVERYWHERE NOW, AND THAT REVERSES A CALL ----
+       This used to render OPEN and summary-less on a focused session, on
+       the reasoning that the athlete arrived at the one thing they came to
+       read and should not have to press for it. Seen on a phone against
+       the rest of the card, that lost: the prescription, the log, the
+       share composer and the analysis were all competing for the top of a
+       very long screen, and the session reads better when each of them is
+       a tab that opens what it names. So Session Details is a disclosure
+       in all three focused views, closed until asked, exactly as Valhalla
+       Analysis beneath it is. */
+    out += '<details class="fuel-card how-card">'+
+      '<summary class="sess-tab">'+
+        sessionTabHtml(ICONS.notes, 'Session Details',
+          'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
+      '</summary>'+
+      preBlock+
       /* ---------- ONE WRAPPER PER COACHING MODULE ----------
          Why / Execution / Feel / Watch For / Coach's Note / Fuel were six
          loose runs of siblings -- two of them (Execution and Fuel) a heading
@@ -27273,11 +27350,15 @@ function renderDayHeroBlock(dd, targets){
   var dist = renderDayHeroDistance(dd);
   if (!ring && !dist) return '';
   /* Said once, where the ring is, and only when the day genuinely has
-     step-specific targets -- the blueprint immediately below is the
-     prescription for those steps and stays the authority on them. */
+     step-specific targets -- the blueprint is the prescription for those
+     steps and stays the authority on them.
+     It used to say "each step BELOW", which was true while the blueprint
+     was the next thing on the card. The step table moved inside Session
+     Details, so "below" now points at a closed tab; the line names the tab
+     instead rather than quietly describing a layout that changed. */
   var multi = hasWorkoutBlueprint(dd);
   var stepNote = (ring && multi)
-    ? '<div class="th-steps-note">Primary zone \u2014 each step below carries its own target.</div>'
+    ? '<div class="th-steps-note">Primary zone \u2014 each step carries its own target, in Session Details.</div>'
     : '';
   /* A SINGLE-STEP SESSION SAYS ITS DISTANCE AND ZONE ONCE. The marker lets
      Today drop the one-row WORKOUT block, which on such a day repeats the
@@ -27316,6 +27397,85 @@ function renderDayCard(dd){
     if (targets.goalPace) targetsHtml += '<span class="mp">'+targets.goalPace+'</span>';
   }
 
+  /* ---------- BUILT BEFORE THE LOG, BECAUSE THE LOG NOW HOLDS IT ----------
+     On a completed session the prescription renders inside the log panel,
+     under Share and above Valhalla Analysis, so it has to exist before that
+     panel's string is assembled. Everything it reads -- targets,
+     targetsHtml, optState -- is already in hand by here; the move is purely
+     one of order. */
+  /* ---- THE PRESCRIPTION, HELD SO IT CAN SIT EITHER SIDE OF THE LOG ----
+     On a session still to run, this is the point of the card and it stays
+     where it has always been, directly under the headline.
+     On a session already RUN it is reference, and it was burying the only
+     part that is about what happened: measured on This Week with the full
+     session open, "Session complete" sat 1349px down and Share to Socials
+     1457px -- two full screens of prescription, fuel table and coach's note
+     before the athlete reached the thing they had just done. So for a
+     completed session the order inverts: headline, then what you did, then
+     the prescription underneath as reference.
+     Held in a variable rather than branched twice, because renderDayCard()
+     must emit ONE string whatever the view -- completedSessionSurface asserts
+     Today, This Week and Full Plan are character-for-character identical, and
+     a view-conditional branch here would break that silently. The condition
+     is the DAY's state, never the screen's. */
+  /* WHAT, then HOW and WHY. The step list is the execution prescription now,
+     so the description is dropped where it only restates it -- and kept
+     wherever it still carries an instruction of its own. The stored dd.desc
+     is untouched either way: Edit Session and the calendar export both still
+     read it.
+     Hoisted to its own variable because it is handed to Session Details
+     along with the targets and the step table; it used to be written inline
+     as a sibling of them. */
+  var descHtml = (function(){
+    /* An optional day says the one thing it means, and does not also say
+       "Full rest. Legs up, hydrate, stay ahead of the block" -- that
+       sentence is Valhalla ASKING for recovery, which is a different
+       instruction and a different day. dd.desc is not rewritten; it is
+       simply not what this day is. */
+    if (optState) return '<div class="day-desc">'+escapeHtml(optionalRunHeadline(dd))+'</div>';
+    /* A race day says what the athlete chose; see raceSummarySentence().
+       Every other day is untouched. */
+    var raceLine = raceSummarySentence(dd);
+    if (raceLine) return '<div class="day-desc">'+escapeHtml(raceLine)+'</div>';
+    return workoutCoversDescription(dd)
+      ? ''
+      : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>';
+  })();
+  /* ---------- THE SESSION'S OWN WORDS GO INSIDE THE TAB THAT NAMES THEM ----
+     Targets, description and step table used to sit loose above the
+     disclosure as siblings. A tab called Session Details with the session's
+     details stacked above it is the label standing outside the thing it
+     labels, so they are handed in and render inside it. */
+  var detailHtml = '<div class="day-detail">'+
+          renderCoachingDepth(dd,
+            (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
+            descHtml+
+            renderStructuredWorkout(dd))+
+          renderAdjustedDetail(dd)+
+          /* BELOW THE RUNNING, ALWAYS -- AND THE RUNNING IS WHATEVER THE DAY
+             IS ABOUT. On an ordinary day the session the block was built
+             around is the card and supporting work sits under it. On an
+             optional day there is no such session: the offer IS the day, and
+             the sentence explaining it belongs immediately under the headline
+             that raises it. Left in the fixed order, a thirty-minute strength
+             prescription came between "No run needed today." and the reason
+             for it, so the day's own identity arrived in two halves either
+             side of a different coaching system. Both companions still render
+             exactly as they always did; only which one is first changes, and
+             only on the day where the answer is different. */
+          (optState
+            ? renderOptionalRunCompanion(dd)+renderSupportCompanion(dd)
+            : renderSupportCompanion(dd)+renderOptionalRunCompanion(dd))+
+  '</div>';
+  /* ---------- ONE CONDITION, BECAUSE TWO WOULD DRIFT ----------
+     The prescription moves into the log panel once the session is done --
+     but only where there IS a log panel. A completed optional run is a rest
+     day, and a rest day asked for nothing, so it gets no panel (see the
+     note below). Gating .day-top on dd.completed alone therefore took the
+     prescription out of the card and gave it nowhere to go: a logged
+     optional run rendered with its title, a voice button and nothing else.
+     Both places read the same boolean now. */
+  var logHoldsDetail = dd.completed && dd.type !== 'rest';
   var actualHtml = '';
   /* THE LOGGING PANEL BELONGS TO A PRESCRIPTION. Actual/Avg Pace, the detail
      drawer, the splits editor, Clear log and the Execution Review below them
@@ -27329,7 +27489,7 @@ function renderDayCard(dd){
      applyCompletion() refuses them. So this clause changes nothing that was
      previously reachable, and the optional-run record renders its own compact
      line instead -- see renderOptionalRunCompanion(). */
-  if (dd.completed && dd.type !== 'rest'){
+  if (logHoldsDetail){
     var a = dd.actual || {};
     var detailOpen = isDetailOpen(dd);
     /* THE TWO THE ENGINE GRADES AGAINST, always visible. Distance alone is a
@@ -27352,6 +27512,9 @@ function renderDayCard(dd){
          unfolds in place underneath it. Still offered, never urged: no badge,
          no streak, no prompt that returns if ignored. */
       renderShareLaunch(dd)+
+      /* The prescription, as reference, under what you did. Spans the log's
+         two columns like Share and the analysis above and below it. */
+      '<div class="sess-details-mount">'+detailHtml+'</div>'+
       /* ---- THE COMPLETION IS THREE THINGS, IN THIS ORDER ----
          Session complete / Share / View Analysis. The analysis mounted
          BELOW the log before this, which put the coach's reading of the
@@ -27437,61 +27600,7 @@ function renderDayCard(dd){
   // Completed sessions default shut (the prescription has served its purpose,
   // the EXEC pill is the summary), today's session always opens, and anything
   // still to run stays open. A manual toggle overrides all of that.
-  /* ---- THE PRESCRIPTION, HELD SO IT CAN SIT EITHER SIDE OF THE LOG ----
-     On a session still to run, this is the point of the card and it stays
-     where it has always been, directly under the headline.
-     On a session already RUN it is reference, and it was burying the only
-     part that is about what happened: measured on This Week with the full
-     session open, "Session complete" sat 1349px down and Share to Socials
-     1457px -- two full screens of prescription, fuel table and coach's note
-     before the athlete reached the thing they had just done. So for a
-     completed session the order inverts: headline, then what you did, then
-     the prescription underneath as reference.
-     Held in a variable rather than branched twice, because renderDayCard()
-     must emit ONE string whatever the view -- completedSessionSurface asserts
-     Today, This Week and Full Plan are character-for-character identical, and
-     a view-conditional branch here would break that silently. The condition
-     is the DAY's state, never the screen's. */
-  var detailHtml = '<div class="day-detail">'+
-          (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
-          /* WHAT, then HOW and WHY. The step list is the execution
-             prescription now, so the description is dropped where it only
-             restates it -- and kept wherever it still carries an instruction
-             of its own. The stored dd.desc is untouched either way: Edit
-             Session and the calendar export both still read it. */
-          (function(){
-            /* An optional day says the one thing it means, and does not also
-               say "Full rest. Legs up, hydrate, stay ahead of the block" --
-               that sentence is Valhalla ASKING for recovery, which is a
-               different instruction and a different day. dd.desc is not
-               rewritten; it is simply not what this day is. */
-            if (optState) return '<div class="day-desc">'+escapeHtml(optionalRunHeadline(dd))+'</div>';
-            /* A race day says what the athlete chose; see raceSummarySentence().
-               Every other day is untouched. */
-            var raceLine = raceSummarySentence(dd);
-            if (raceLine) return '<div class="day-desc">'+escapeHtml(raceLine)+'</div>';
-            return workoutCoversDescription(dd)
-              ? ''
-              : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>';
-          })()+
-          renderStructuredWorkout(dd)+
-          renderCoachingDepth(dd)+
-          renderAdjustedDetail(dd)+
-          /* BELOW THE RUNNING, ALWAYS -- AND THE RUNNING IS WHATEVER THE DAY
-             IS ABOUT. On an ordinary day the session the block was built
-             around is the card and supporting work sits under it. On an
-             optional day there is no such session: the offer IS the day, and
-             the sentence explaining it belongs immediately under the headline
-             that raises it. Left in the fixed order, a thirty-minute strength
-             prescription came between "No run needed today." and the reason
-             for it, so the day's own identity arrived in two halves either
-             side of a different coaching system. Both companions still render
-             exactly as they always did; only which one is first changes, and
-             only on the day where the answer is different. */
-          (optState
-            ? renderOptionalRunCompanion(dd)+renderSupportCompanion(dd)
-            : renderSupportCompanion(dd)+renderOptionalRunCompanion(dd))+
-  '</div>';
+
   var focused = dayCardIsFocused(dd);
   var isOpen = isDayExpanded(dd);
   var openCls = isOpen ? ' open' : '';
@@ -27518,16 +27627,21 @@ function renderDayCard(dd){
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
         renderDayHeroBlock(dd, targets)+
-        /* REVERTED TO PRESCRIPTION-FIRST. The reorder put this below the
-           log on a completed session, and This Week stopped scrolling past
-           "Session complete" on a real iPhone -- a fault I could not
-           reproduce in Chromium across normal, accordion-shut and
-           fully-expanded states, and which survived uncapping the drawer.
-           A main screen that cannot be scrolled is worse than a screen that
-           buries Share to Socials, so the order goes back while the cause
-           is still being found. detailHtml stays a variable: that part is
-           sound and is what the fix will need. */
-        detailHtml+
+        /* ---------- THE ORDER INVERTS ONCE THE SESSION IS DONE ----------
+           Before it is run the prescription IS the card, and sits here
+           under the hero. Once it is run, what you did leads and the
+           prescription becomes reference, so it moves into the log panel
+           below -- under Share, as the Session Details tab.
+
+           A NOTE ON THE LAST ATTEMPT AT THIS, which was reverted. The same
+           move was made once before and taken out again because This Week
+           stopped scrolling past "Session complete" and the reorder was the
+           obvious suspect. It was not the cause: the scroll lock was
+           [data-hswipe] handing the open card touch-action:pan-x, which
+           refuses every vertical touch and is invisible to a mouse. That is
+           found, fixed and proved separately, so the ordering is free to be
+           what the card actually wants. */
+        (logHoldsDetail ? '' : detailHtml)+
       '</div>'+
       (focused ? '' : '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
         '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>')+
@@ -31264,7 +31378,20 @@ function renderExecutionReview(dd){
         '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
       '</div>'+ body +
     '</div>';
-  var open = isAnalysisOpen(dd);
+  /* A PAST WEEK OPENS BY DEFAULT rather than losing the tab. Its analysis
+     used to render unwrapped, because the analysis is the only reason to
+     open an old session -- so it now wears the same tab as everywhere else
+     and simply starts open. The hierarchy is identical on every session and
+     nothing that used to be on screen is hidden. */
+  var open = isAnalysisOpen(dd) || pastWeek;
+  /* THE ONE LINE THAT STAYS OUT. Everything else about the marking is behind
+     the tab; the verdict word and the execution figure are the summary of it
+     and sit under the tab unopened, so a finished session says how it went
+     without being asked. */
+  var vWord = shareVerdictLabel(dd);
+  var vLine = (vWord ? titleCase(vWord) : '') +
+              ((vWord && b.score != null) ? ' \u00b7 ' : '') +
+              (b.score != null ? b.score + '% execution' : '');
   /* ---- ONE COMPLETION STATEMENT, AND ONE ACTION ----
      This was a card headed "Workout Complete" holding the branded share
      composition, View Analysis and Continue. The composition went when the
@@ -31276,12 +31403,14 @@ function renderExecutionReview(dd){
      other tab in the product, opening what it names, directly under the log
      it is the analysis of. A past week has nothing to open -- its analysis is
      already shown -- so there it is the analysis itself, unwrapped. */
-  if (pastWeek) return '<div class="wc-review">'+analysisBody+'</div>';
   return '<div class="wc-review">'+
-    '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+
+    '<button type="button" class="sess-tab sess-tab-btn" data-action="view-analysis" '+
       'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      (open ? 'Hide Analysis' : 'View Analysis')+'</button>'+
+      sessionTabHtml(ICONS.trend, 'Valhalla Analysis',
+        'The verdict \u00b7 Execution review \u00b7 Next steps')+
+    '</button>'+
     (open ? analysisBody : '')+
+    (vLine ? '<div class="wc-line">'+escapeHtml(vLine)+'</div>' : '')+
   '</div>';
 }
 /* Whether the marking is showing. Defaults shut: the completion screen is the
@@ -31404,6 +31533,24 @@ function renderCompletionVerdict(dd){
 }
 function titleCase(s){
   return String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase();
+}
+/* ---------- ONE TAB, AND THE CARD HAS TWO OF THEM ----------
+   Session Details and Valhalla Analysis are the same object: a row that
+   names what it opens, says in one line what is inside it, and opens that
+   directly beneath itself. Emitted from one helper so the two cannot drift
+   into near-misses of each other -- which is how this card ended up with a
+   bordered disclosure above a plain text button in the first place.
+   The caller supplies the element: Session Details is a <summary> inside a
+   <details>, Valhalla Analysis is a <button> with aria-expanded, because
+   its body is built on demand rather than rendered and hidden. The chevron
+   turns off either signal, so both read identically. */
+function sessionTabHtml(icon, title, sub){
+  return '<span class="sess-tab-i" aria-hidden="true">'+icon+'</span>'+
+    '<span class="sess-tab-t">'+
+      '<span class="sess-tab-k">'+escapeHtml(title)+'</span>'+
+      '<span class="sess-tab-s">'+escapeHtml(sub)+'</span>'+
+    '</span>'+
+    '<span class="sess-tab-c" aria-hidden="true">'+ICONS.chevronDown+'</span>';
 }
 function renderShareLaunch(dd){
   /* The word itself now has its own block directly above, so this is the way
@@ -57979,7 +58126,6 @@ function renderApp(){
     (navAllowed ? renderBottomNavStack() : '');
   programmeEntryBindName();
   programmeEntryAutoAdvance();
-  openTodayCoachingPanel();
   openWeekFullSession();
   animateSessionRing();
   animateWeekBar();
@@ -58620,22 +58766,14 @@ function openWeekFullSession(){
     if (card) card.classList.add('open');
   }catch(e){}
 }
-function openTodayCoachingPanel(){
-  if (typeof document === 'undefined' || !document.querySelector) return;
-  try{
-    var d = document.querySelector(':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) details.how-card');
-    if (!d) return;
-    d.open = true;
-    /* AND IT STAYS OPEN. CSS takes the pointer away from the summary, but a
-       <summary> is keyboard-focusable in its own right, so Enter would still
-       have closed the panel -- with the chevron gone, leaving no visible way
-       to open it again. Taking it out of the tab order closes that door too.
-       The heading itself is untouched and still read aloud; only its
-       disclosure behaviour is withdrawn, and only on Today. */
-    var sum = d.querySelector('summary');
-    if (sum) sum.setAttribute('tabindex', '-1');
-  }catch(e){}
-}
+/* openTodayCoachingPanel() stood here. It forced the coaching <details>
+   open on a focused session and took its <summary> out of the tab order,
+   which was the JS half of "open, and not a disclosure" -- the call that
+   Session Details reverses. With the panel a tab that opens what it names,
+   forcing it open is the one thing that would stop it working, and an
+   untabbable summary is a tab a keyboard cannot reach. Both are gone
+   rather than left inert, because an inert force-open is a trap for the
+   next person who wires a caller to it. */
 
 /* =========================================================
    EVENT DELEGATION

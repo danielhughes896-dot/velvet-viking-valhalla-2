@@ -273,13 +273,22 @@ test('the card still renders identically in all three views', () => {
   assert.ok(todayCard(a).length > 0);
 });
 
-test('the focused rail needs no title, and the header is the page\'s own ground', () => {
-  // The first panel is headed WHY and the second EXECUTION. A title above
-  // them saying the rail is about how to run the session is a label on a
-  // label. Everywhere else this is still a closed disclosure and the summary
-  // is the thing you press, so only the open view loses it.
-  assert.match(focusRule('.how-card > summary'), /display:none/,
-    'the rail grew a title again');
+test('the focused rail is behind a tab, and the header is the page\'s own ground', () => {
+  /* THIS ASSERTION CHANGED SIDES. It used to require the summary hidden on
+     a focused session -- the first panel is headed WHY and the second
+     EXECUTION, so a title above them saying the rail is about how to run
+     the session was a label on a label. That held while the rail was always
+     open.
+     The rail is behind Session Details now, closed until asked, and it
+     carries the session's own targets, description and step table with it.
+     Hiding the summary would hide the only way to open any of that, and the
+     label is no longer on a label: it is on a closed door. What must stay
+     true is that the tab is REACHABLE, so that is what is asserted. */
+  const bareCss = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(bareCss, /\.how-card > summary\{[^}]*display:none/,
+    'the focused Session Details tab is hidden again, so the rail cannot be opened');
+  assert.match(SRC, /sessionTabHtml\(ICONS\.notes, 'Session Details'/,
+    'the rail lost the tab that opens it');
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
   // The heading every other view still presses lives on .fuel-card summary,
   // which .how-card inherits -- hiding it here must not have touched that.

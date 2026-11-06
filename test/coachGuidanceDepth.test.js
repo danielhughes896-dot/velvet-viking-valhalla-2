@@ -37,7 +37,7 @@ test('every workout family offers the guidance at every experience level', () =>
   LEVELS.forEach(level => {
     const a = app(level);
     Object.keys(a.ARCHETYPE_GUIDANCE).forEach(arch => {
-      if (!/How to run this/.test(a.renderCoachingDepth(dayWith(a, arch)))) missing.push(arch + '/' + level);
+      if (!/Session Details/.test(a.renderCoachingDepth(dayWith(a, arch)))) missing.push(arch + '/' + level);
     });
   });
   assert.deepEqual(missing, [], 'no family may lose the coaching aid at any level');
@@ -49,7 +49,7 @@ test('a legacy day with no prescription still gets it, at every level', () => {
     const a = app(level);
     Object.keys(a.COACH_GUIDANCE).filter(t => t !== 'rest').forEach(type => {
       const dd = { id: 'y', date: a.todayStr(), type: type, title: 't', km: 10 };
-      if (!/How to run this/.test(a.renderCoachingDepth(dd))) missing.push(type + '/' + level);
+      if (!/Session Details/.test(a.renderCoachingDepth(dd))) missing.push(type + '/' + level);
     });
   });
   assert.deepEqual(missing, [], 'hand-edited and pre-prescription days are still coached');
@@ -96,7 +96,7 @@ test('advanced keeps its single essential cue AND gains the disclosure', () => {
   const html = a.renderCoachingDepth(dayWith(a, 'progressive_tempo'));
   assert.match(html, /coach-cue/, 'the one-line cue an advanced athlete gets is unchanged');
   assert.match(html, /Start controlled/, 'and it is still the essential line, not the standing cue');
-  assert.match(html, /How to run this/, 'the aid is available rather than withheld');
+  assert.match(html, /Session Details/, 'the aid is available rather than withheld');
 });
 
 test('the guidance is a closed disclosure, so it costs no vertical space unopened', () => {
@@ -121,7 +121,7 @@ test('a rest day stays silent for everyone but a novice, as before', () => {
     const a = app(level);
     const dd = { id: 'r', date: a.todayStr(), type: 'rest', title: 'Rest', km: 0 };
     const html = a.renderCoachingDepth(dd);
-    assert.ok(!/How to run this/.test(html), 'a rest day has no execution to explain');
+    assert.ok(!/Session Details/.test(html), 'a rest day has no execution to explain');
     if (level !== 'novice') assert.equal(html, '');
   });
 });
