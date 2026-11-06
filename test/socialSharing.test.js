@@ -416,11 +416,29 @@ test('elevation is optional training data: blank stays unknown through the log',
 });
 
 test('elevation is not health data and is not behind the consent gate', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  const m = src.match(/Elevation gain \(m\)[\s\S]{0,400}?<\/div>'/);
-  assert.ok(m, 'the elevation input exists');
-  assert.ok(!/healthConsentGranted/.test(m[0]),
-    'elevation is ordinary training data and must not be gated on health consent');
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const dd = completedDay({ actual: Object.assign(app.emptyActual(),
+    { km: 10.2, pace: '5:31', rpe: 6, elevationGainM: 240 }) });
+  app.state.days = [dd];
+
+  /* ASSERTED BY RENDERING, NOT BY READING THE SOURCE. This was a regex that
+     started at the label's own copy and ran forward to the next </div> --
+     which proved only that two strings sat near each other, and tied the
+     rule to wording that has since been shortened. What the rule is about
+     is which side of the gate the input is on, so shut the gate and look. */
+  app.state.healthConsent = { decision: 'declined', version: app.HEALTH_CONSENT_VERSION };
+  assert.equal(app.healthConsentGranted(), false, 'the gate did not shut');
+
+  const shut = app.renderDayCard(dd);
+  assert.doesNotMatch(shut, /data-field="hr"/,
+    'Avg HR survived a declined consent, so the assertion below proves nothing');
+  assert.match(shut, /data-field="elevationGainM"/,
+    'elevation is ordinary training data and must outlive a declined consent');
+
+  app.state.healthConsent = { decision: 'granted', version: app.HEALTH_CONSENT_VERSION };
+  const open = app.renderDayCard(dd);
+  assert.match(open, /data-field="hr"/, 'granting consent no longer offers Avg HR');
+  assert.match(open, /data-field="elevationGainM"/, 'elevation vanished when consent was granted');
 });
 
 test('the share surface tells the athlete when something is held back', () => {

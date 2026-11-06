@@ -2011,7 +2011,7 @@
      rather than framed, values on the data tier under a gold rule, labels on
      the label tier, sentences on the support tier, and no box anywhere. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-panel{
-    margin-top:30px; padding-top:30px; border-top:1px solid var(--line-soft); gap:0 18px;}
+    margin-top:30px; padding-top:30px; border-top:1px solid var(--line-soft); gap:26px 18px;}
 
   /* SESSION COMPLETE. Lit exactly as the Coach's Note is lit -- a blurred
      radial that overspills the content and dissolves into the page ground --
@@ -2036,26 +2036,37 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done-i svg{width:14px; height:14px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done-k{font-size:var(--label-size); letter-spacing:.14em; color:var(--ink);}
 
-  /* THE TWO FIGURES THE ENGINE GRADES AGAINST, read as figures. A gold rule
-     under the value instead of a box round it: the field is still obviously
-     editable, and nothing competes with the session above. */
+  /* THE TWO FIGURES THE ENGINE GRADES AGAINST, read as figures. A rule under
+     the value instead of a box round it: the field is still obviously
+     editable, and nothing competes with the session above.
+
+     THE RULE IS NOT GOLD. It was, on the inputs only -- the notes textarea
+     beside them was already drawn on --line-soft -- so one panel carried two
+     line treatments and the louder of the two was a row of yellow underlines
+     running down a screen whose whole point is the session above it. Gold in
+     this product marks the brand and the one thing being offered, not every
+     box an athlete can type in. One hairline now, the quiet one, on every
+     field including the textarea. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field{gap:8px; padding:0 0 2px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field > label{
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--ink-faint);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field :is(input, textarea){
+    background:none; border:0; border-bottom:1px solid var(--line-soft);
+    border-radius:0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input{
-    background:none; border:0; border-bottom:1px solid var(--gold);
-    border-radius:0; padding:2px 0 8px; font-size:var(--fs-title); color:var(--ink);}
+    padding:2px 0 8px; font-size:var(--fs-title); color:var(--ink);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input::placeholder{color:var(--ink-faint); opacity:.7;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea{
-    background:none; border:0; border-bottom:1px solid var(--line-soft); border-radius:0; padding:4px 0 8px;}
-  /* The hairline between a pair of figures, at the divider weight the rail
-     settled on -- present, never structural. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field:not(.full) + .actual-field:not(.full){position:relative; padding-left:18px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field:not(.full) + .actual-field:not(.full)::before{
-    content:''; position:absolute; left:0; top:4px; bottom:10px; width:1px;
-    background:var(--line-soft); opacity:.45;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea{padding:4px 0 8px;}
+  /* THE VERTICAL HAIRLINE BETWEEN FIGURES IS GONE, and it was wrong twice
+     over. It was a white separator, which is the one thing this product's
+     open surfaces are not allowed to draw -- lines come after titles, to do
+     work, not between things to keep them apart. And it was applied by
+     sibling order rather than by column, so on a row with an odd number of
+     fields it indented the field that STARTS column one: Elevation sat 18px
+     in, under a rule belonging to the column beside it, with the grid
+     visibly broken. The grid gap is the separation. */
 
   /* The two disclosures, on the label tier with their explanation beneath. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-toggle{
@@ -3812,12 +3823,14 @@
      dark-mode athlete sees -- which is also what the exported PNG looks like. */
   .wc{--wc-ink:#F6F2EA; --wc-dim:rgba(246,242,234,0.72); --wc-faint:rgba(246,242,234,0.46);
     --wc-edge:rgba(227,177,90,0.42);
+    /* ONE CARD SURFACE. The dark radial and the gold rim existed to frame
+       the branded photograph above; with that gone they were a third ground
+       and a second rim on a screen that had settled on one of each. */
     margin-top:14px; border-radius:18px; padding:16px 14px 14px;
-    background:radial-gradient(120% 90% at 50% 0%, #15171D 0%, #0A0C10 62%, #06070A 100%);
-    border:1px solid rgba(227,177,90,0.22); color:var(--wc-ink);
+    background:var(--t-card); border:1px solid var(--t-tile-rim); color:var(--wc-ink);
     display:flex; flex-direction:column; gap:14px;}
   .wc-top{display:flex; align-items:center; justify-content:center; gap:9px;}
-  .wc-top-k{font-family:var(--label-face); font-size:13px; letter-spacing:var(--label-track);
+  .wc-top-k{font-family:var(--label-face); font-size:var(--label-size); letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--wc-ink);}
   .wc-top-mark{width:21px; height:21px; border-radius:50%; border:1.5px solid var(--gold);
     color:var(--gold-bright); display:flex; align-items:center; justify-content:center;}
@@ -3863,8 +3876,8 @@
   /* No verdict, no gold: the block states the session quietly instead. */
   .wc-verdict.is-plain{border-color:rgba(246,242,234,0.14); background:rgba(255,255,255,0.03);}
   .wc-verdict.is-plain .wc-verdict-why{margin-top:3px;}
-  .wc-analysis-btn{width:100%; background:transparent; color:var(--wc-ink);
-    border:1px solid rgba(246,242,234,0.26); font-weight:600;}
+  /* Shape, ground, rim and voice shared with .btn-share / .wk-open: it is
+     the same control -- a tab that opens what it names. */
   .wc-continue{display:block; width:100%; background:none; border:0; cursor:pointer;
     color:var(--wc-dim); font-family:'Inter',sans-serif; font-size:14px;
     font-weight:600; padding:6px 0 2px;}
@@ -3918,12 +3931,21 @@
      -- a clear tab that opens what it names: the card's own ground, the rim
      gradient every other bordered control wears, and gold TEXT rather than a
      gold fill. Offered, not urged. */
-  .btn-share{display:inline-flex; width:100%; align-items:center; justify-content:center; gap:8px;
-    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
-      var(--t-rim-grad) border-box;
-    color:var(--gold); border:1px solid transparent;
-    font-family:'Inter',-apple-system,sans-serif; font-weight:600;
-    letter-spacing:.01em; font-size:14.5px; padding:11px 16px;}
+  /* ---- ONE TAB, TWO PLACES ----
+     "Share to Socials" and "View full session" do the same job -- a clear
+     tab that opens what it names -- and were two rules that had drifted to
+     two shapes: one inline-flex with no radius of its own, one block with
+     14px corners, both painting a gradient RIM in gold. Two near-identical
+     treatments for one control is the same near-miss as two type ladders,
+     and the gradient rim was the loudest edge on either screen.
+     One declaration now, flat on the card ground with a single hairline
+     round it, the gold kept for the words. Both keep their own class names:
+     the markup is asserted by name in weekSessionCarousel. */
+  .btn-share, .wk-open, .wc-analysis-btn{
+    display:flex; width:100%; align-items:center; justify-content:center; gap:8px;
+    background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
+    color:var(--gold); font-family:'Inter',-apple-system,sans-serif;
+    font-size:14.5px; font-weight:600; letter-spacing:.01em; padding:11px 16px;}
   .btn-share svg{width:16px; height:16px;}
   /* The preview canvas is the export itself, drawn at 1080px wide and scaled
      down by CSS -- so the athlete approves the actual file, not a lookalike. */
@@ -4427,14 +4449,9 @@
   /* Sentence case, and Inter rather than Oswald: it is a sentence the
      athlete acts on, not a label on a section. The head font is uppercase
      by definition in this product, which is why it could not be used here. */
-  .wk-open{
-    display:block; width:100%; margin-top:13px; padding:11px 14px;
-    border:1px solid transparent; border-radius:14px;
-    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
-      var(--t-rim-grad) border-box;
-    color:var(--gold); font-family:'Inter',-apple-system,sans-serif;
-    font-size:14.5px; font-weight:600; letter-spacing:.01em;
-  }
+  /* Shape, ground and rim are shared with .btn-share (see that rule). What
+     is this button's own is where it sits in the week's stack. */
+  .wk-open{margin-top:13px;}
 
   /* The canonical card, present either way (see renderWeekSessionBox) and
      revealed in place. Collapsed it must occupy nothing and reach nothing:
@@ -27138,7 +27155,7 @@ function renderDayCard(dd){
          never becomes 0 -- and a genuine 0 the athlete types is kept. This is
          ordinary training data, not health information, so it sits with RPE
          rather than behind the consent gate. */
-      '<div class="actual-field"><label>Elevation gain (m) \u2014 optional</label><input type="number" min="0" step="1" inputmode="numeric" placeholder="unknown" value="'+(a.elevationGainM!=null?a.elevationGainM:'')+'" data-action="actual-field" data-field="elevationGainM" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>Elevation (m) \u2014 optional</label><input type="number" min="0" step="1" inputmode="numeric" placeholder="unknown" value="'+(a.elevationGainM!=null?a.elevationGainM:'')+'" data-action="actual-field" data-field="elevationGainM" data-day="'+dd.id+'"></div>'+
       (healthConsentGranted()
         ? '<div class="actual-field full feel-field"><label>Feel</label>'+
             '<div class="feel-row" role="group" aria-label="How the body felt">'+
@@ -30988,7 +31005,14 @@ function renderExecutionReview(dd){
   return '<div class="wc'+(pastWeek?' is-past':'')+'">'+
     '<div class="wc-top"><span class="wc-top-k">Workout Complete</span>'+
       '<span class="wc-top-mark">'+ICONS.check+'</span></div>'+
-    renderCompletionHero(dd)+
+    /* THE BRANDED COMPOSITION IS NOT RENDERED HERE ANY MORE. It was the
+       Valhalla mark, the distance, the metrics and the photograph -- which
+       is the shareable image, and the shareable image now has a home: the
+       Share to Socials tab sits directly under "Session complete" a few
+       inches above this, composing the same picture. Two of it on one
+       screen made the completion card a preview of a card.
+       renderCompletionHero() and its .wc-hero* rules are left standing,
+       uncalled, so putting it back is a one-line change. */
     (pastWeek
       ? analysisBody
       : '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+

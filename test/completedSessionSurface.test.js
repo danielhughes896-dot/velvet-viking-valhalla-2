@@ -71,10 +71,23 @@ test('the completion statement is the same markup in all three views', () => {
 
 test('nothing on the completed surface is drawn as a box', () => {
   /* The session above it is not a card, so neither is the log under it. */
-  const fields = rule(F + ' .actual-field input');
+  const fields = rule(F + ' .actual-field :is(input, textarea)');
   assert.match(fields, /background:none/, 'the log fields are tiles again');
-  assert.match(fields, /border:0; border-bottom:1px solid var\(--gold\)/,
+  assert.match(fields, /border:0; border-bottom:1px solid var\(--line-soft\)/,
     'the log fields are boxed again instead of ruled');
+  /* AND THE RULE IS NOT GOLD. It was, on the inputs only -- the notes
+     textarea beside them was already drawn on --line-soft -- so one panel
+     carried two line treatments and the louder of the two was a column of
+     yellow underlines running down a screen whose subject is the session
+     above it. Gold marks the brand and the one thing being offered, not
+     every box an athlete can type in. One hairline, every field. */
+  assert.doesNotMatch(fields, /--gold/, 'the log fields are underlined in gold again');
+  /* The vertical hairline between figures is gone too: it was a white
+     separator, and it was placed by sibling order rather than by column, so
+     on a row with an odd number of fields it indented the field that STARTS
+     column one. The grid gap is the separation. */
+  assert.doesNotMatch(CSS, /\.actual-field:not\(\.full\) \+ \.actual-field:not\(\.full\)/,
+    'the field separator is back, and with it the broken grid row');
   const review = rule(F + ' .exec-review-card');
   assert.match(review, /background:none/, 'the Execution Review is a card again');
   assert.match(review, /border:0/, 'the Execution Review has its border back');
