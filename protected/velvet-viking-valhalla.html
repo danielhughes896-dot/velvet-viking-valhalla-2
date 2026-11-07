@@ -5170,9 +5170,33 @@
      the week's figures from the week's note -- two parts of the same hero
      that the gap already separates. Same reasoning as the section
      boundaries removed from Valhalla and This Week. */
-  .wk-taper{display:flex; gap:0; align-items:flex-start; margin-top:12px;
-    padding-top:11px; color:var(--ink-dim);}
-  .wk-taper b{color:var(--gold-text); font-weight:600;}
+  /* ---------- THE TAPER LINE IS COACHING, SO IT IS LIT LIKE COACHING ----
+     It was a dim left-aligned sentence with a gold label in front of it,
+     sitting under the bar like a footnote to the numbers. It is not a
+     footnote -- it is Valhalla telling the athlete what this week is for,
+     which is the same job the Coach's Note does on a session, so it takes
+     the same treatment: centred, full width, and the cherry pool behind the
+     words rather than a box around them.
+     The glow is .how-note::before's recipe, same radial, same stops, same
+     blur. Written out rather than shared because the two live in different
+     scopes -- that one is inside the focused-session selector and this is
+     the week hero -- and joining them would drag a sixty-rule prefix onto a
+     rule that needs none of it. The VALUES are the thing to keep in step;
+     a guard holds them equal. */
+  .wk-taper{
+    position:relative; display:block; text-align:center;
+    margin-top:14px; padding:16px 0 14px; color:var(--ink);}
+  .wk-taper::before{
+    content:''; position:absolute; z-index:0; pointer-events:none;
+    left:calc(50% - 50vw); width:100vw; right:auto;
+    top:-10px; bottom:-12px; border-radius:999px;
+    background:radial-gradient(46% 42% at 50% 50%,
+      color-mix(in srgb, var(--cherry-text) 62%, transparent) 0%,
+      color-mix(in srgb, var(--cherry) 40%, transparent) 46%,
+      color-mix(in srgb, var(--cherry) 12%, transparent) 76%,
+      transparent 100%);
+    filter:blur(18px);}
+  .wk-taper > *{position:relative; z-index:1;}
 
   /* ---- THE SEVEN DAYS ---- */
   .wk-days{display:flex; gap:7px; justify-content:space-between;}
@@ -56487,7 +56511,11 @@ function renderWeekHeroBlock(weekNum, asBlock){
       '<div class="wk-hero-pct">'+pct+'%</div>'+
     '</div>'+
     '<div class="wk-bar"><div class="wk-bar-fill" style="width:'+pct+'%; --wk-pct:'+pct+'%"></div></div>'+
-    (taper ? '<div class="wk-taper"><span><b>Taper:</b> volume drops, but keep '+
+    /* NO "TAPER:" LABEL. The title two lines above already says TAPER, and a
+       word that repeats the heading is the third time this hero names the
+       same thing. What is left is the coaching, which is what the line is
+       for. */
+    (taper ? '<div class="wk-taper"><span>Volume drops, but keep '+
        'hitting these paces \u2014 sharpness matters more than mileage from here.</span></div>' : '')+
     /* Only when there is something to say. An exception is not noise -- an
        unlogged session or a restricted day changes what the week means. */

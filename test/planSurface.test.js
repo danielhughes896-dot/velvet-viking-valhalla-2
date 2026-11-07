@@ -439,3 +439,61 @@ test('a rest day cannot be missed, and a declared day is never a reproach', () =
     'the status label stopped excluding rest days, so the circle is now copying a ' +
     'rule that no longer says what it used to');
 });
+
+test('the taper line is coaching, lit like coaching', () => {
+  /* It was a dim left-aligned sentence behind a gold "Taper:" label, sitting
+     under the bar like a footnote to the numbers. It is not a footnote — it
+     is Valhalla saying what the week is for, which is the Coach's Note's job
+     on a session, so it takes the same treatment. */
+  assert.ok(!/<b>Taper:<\/b>/.test(SRC),
+    'the "Taper:" label is back. The title two lines above already says TAPER, so the ' +
+    'label is the third time this hero names the same thing.');
+
+  const rule = /\n  \.wk-taper\{([^}]*)\}/.exec(CSS);
+  assert.ok(rule, '.wk-taper rule is gone');
+  assert.match(rule[1], /text-align:center/, 'the taper line is no longer centred');
+  assert.match(rule[1], /position:relative/,
+    'without a positioning context the glow below it escapes to the nearest ancestor');
+
+  /* THE GLOW IS THE COACH'S NOTE'S, VALUE FOR VALUE. The two cannot share a
+     rule — that one is inside the sixty-rule focused-session selector and
+     this is the week hero — so what is held instead is that the numbers stay
+     in step. A glow that drifts from the one it was copied from is two
+     cherries on one product. */
+  const mine = /\.wk-taper::before\{([^}]*)\}/.exec(CSS);
+  assert.ok(mine, '.wk-taper lost its cherry glow');
+  const note = /\.how-note::before\{([^}]*)\}/.exec(CSS);
+  assert.ok(note, "the Coach's Note glow this was copied from is gone");
+
+  const radial = body => {
+    const m = /radial-gradient\(([\s\S]*?)\);/.exec(body);
+    return m ? m[1].replace(/\s+/g, ' ').trim() : null;
+  };
+  assert.ok(radial(mine[1]), 'the taper glow is no longer a radial');
+  assert.equal(radial(mine[1]), radial(note[1]),
+    "the taper glow has drifted from the Coach's Note it copies. Same stops, same " +
+    'colours, or they are two different cherries on one product.');
+  assert.equal((/filter:blur\(([^)]*)\)/.exec(mine[1]) || [])[1],
+               (/filter:blur\(([^)]*)\)/.exec(note[1]) || [])[1],
+    'the two cherry glows disagree on blur');
+  assert.match(mine[1], /left:calc\(50% - 50vw\); width:100vw/,
+    'the taper glow stopped spanning the screen, so it reads as a panel behind the words ' +
+    'rather than as light');
+});
+
+test('the taper sentence still fits two lines', () => {
+  /* Measured in Chromium at 360, 412 and 430: two lines at every one, with
+     48px of text at a 24px line-height. There is no static way to assert a
+     rendered line count, so what is pinned is the thing that would break it
+     — the length of the sentence. It has ~14 characters of headroom at
+     360px; anything materially longer sets three lines on a narrow phone. */
+  const m = /'<div class="wk-taper"><span>([\s\S]*?)<\/span><\/div>'/.exec(
+    SRC.replace(/'\+\s*\n\s*'/g, ''));
+  assert.ok(m, 'the taper sentence is no longer a single literal — re-measure the wrap');
+  const words = m[1].replace(/\\u2014/g, '—');
+  assert.ok(words.length <= 100,
+    'the taper sentence is ' + words.length + ' characters. It set two lines at 360px at ' +
+    '88; much past 100 and it wraps to three, which is the limit this layout was built to.');
+  assert.match(words, /^Volume drops,/,
+    'the taper sentence changed opening — if the copy is being rewritten, re-measure the wrap');
+});
