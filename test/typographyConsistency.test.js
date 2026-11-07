@@ -299,11 +299,20 @@ test('a number the athlete acts on outranks the prose around it', () => {
      this read the override, find no font-size and fail, while the tier it
      is actually guarding was untouched. The same trap valhallaSurface
      already records for its own rule() helper. */
-  const rule = sel => {
-    const m = css.match(new RegExp('\\n\\s*' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}'));
-    assert.ok(m, sel + ' rule not found');
-    return m[1];
+  /* EVERY RULE FOR THE SELECTOR, NOT THE FIRST. Anchoring to the start of a
+     rule stopped this reading a longer selector that merely CONTAINED the
+     one asked for. It did not stop it reading the first of two rules for
+     the SAME selector -- which is how a column-width rule added above the
+     font-size rule made this fail while the tier was untouched. The law is
+     "the metric is on the data tier somewhere", so every rule counts. */
+  const rules = sel => {
+    const re = new RegExp('\\n\\s*' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}', 'g');
+    const out = []; let m;
+    while ((m = re.exec(css))) out.push(m[1]);
+    assert.ok(out.length, sel + ' rule not found');
+    return out;
   };
+  const rule = sel => rules(sel).join(';');
   ['.wc-metric', '.strat-phase-span', '.view-plan .pp-body .week-vol .v',
    '.view-plan .pp-body .week-pct', '.week-pct'].forEach(sel => {
     assert.match(rule(sel), /font-size:var\(--fs-data\)/,

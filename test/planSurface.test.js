@@ -755,3 +755,63 @@ test('tapping the Full Plan tab returns to the Full Plan', () => {
     'clearing the sub-screens no longer repaints, so the tab clears state and shows ' +
     'the old screen anyway');
 });
+
+test('every phase starts closed', () => {
+  /* The current phase used to open itself. On a four-phase block that put a
+     section's worth of week rows between the stepper and Race Day every
+     time the screen was opened -- and this screen is for the SHAPE of the
+     block: the stepper says which phase is current, the hero says how far
+     through it is, and a phase is what you open to go and find a week. */
+  const a = app();
+  const groups = a.planPhaseGroups();
+  assert.ok(groups.length >= 2, 'the fixture block no longer has phases to close');
+  groups.forEach(g => {
+    assert.equal(a.phaseGroupOpen(g, false), false,
+      'the ' + g.phase + ' section opens itself on load');
+  });
+  const html = a.renderWeeksList();
+  assert.equal((html.match(/class="pp-phase [^"]*is-open/g) || []).length, 0,
+    'a phase section is rendered open on a fresh load');
+
+  /* A TAP STILL OPENS IT, and forceOpenAll still wins -- that is how the
+     whole plan is rendered open where something needs all of it at once,
+     and it is not a default. */
+  a.handleTogglePhase(groups[0].phase);
+  assert.equal(a.phaseGroupOpen(groups[0], false), true,
+    'tapping a phase no longer opens it');
+  assert.equal(a.phaseGroupOpen(groups[1], true), true,
+    'forceOpenAll no longer opens a phase');
+});
+
+test('the week list runs in columns, not wherever each row’s figures end', () => {
+  /* MEASURED AT 412px BEFORE: the volume block sat at x280-316 on a row
+     reading "0/18" and at x226-307 on one reading "31.5/34.5" -- its left
+     edge moving 54px from row to row, because both right-hand cells were
+     flex:none and sized to their own content. Down a list of eleven weeks
+     that is the ragged middle the founder asked to even out.
+     Fixed widths, and the volume CENTRED in its own: the figure runs from
+     four characters to nine and the only way it sits still is to be centred
+     in a box that does not move. */
+  const vol = rule('.view-plan .pp-body .week-vol');
+  const pct = rule('.view-plan .pp-body .week-pct');
+  assert.match(vol, /flex:0 0 \d+px/,
+    'the week volume is sized to its own content again, so the column goes ragged');
+  assert.match(vol, /text-align:center/,
+    'the volume is not centred in its column, so a short figure and a long one sit ' +
+    'in different places inside the same box');
+  assert.match(pct, /flex:0 0 \d+px/,
+    'the completion figure is sized to its own content again');
+
+  /* THE BOX HAS TO FIT THE WIDEST REAL FIGURE. "63.2/69.2" measured 81px on
+     an eleven-week block; under that and the number clips or wraps. */
+  const w = parseInt(/flex:0 0 (\d+)px/.exec(vol)[1], 10);
+  assert.ok(w >= 82,
+    'the volume column is ' + w + 'px. The widest real figure on an eleven-week block ' +
+    'is "63.2/69.2" at 81px, so this clips it.');
+
+  /* AND THE LABEL KEEPS ENOUGH ROOM. Fixing the right-hand columns takes
+     width from .week-meta, which carries "Fitness Checkpoint". */
+  const a = app();
+  const html = a.renderWeeksList(true);
+  assert.ok(html.indexOf('week-meta') > -1, 'the week row no longer has a meta column');
+});

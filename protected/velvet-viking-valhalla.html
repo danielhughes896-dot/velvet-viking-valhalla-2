@@ -5611,7 +5611,25 @@
      report, and both were set below the body text around them. On the data
      tier they outrank it, which is the point of the row. */
   .view-plan .pp-body .week-vol .v{font-size:var(--fs-data);}
-  .view-plan .pp-body .week-pct{font-size:var(--fs-data); margin-left:8px;}
+  /* ---------- THE TWO RIGHT-HAND COLUMNS ARE COLUMNS ----------
+     Both were flex:none and sized to their own content, so each row placed
+     them wherever its own figures happened to end. Measured at 412px:
+     "0/18" put the volume block at x280-316 and "31.5/34.5" put it at
+     x226-307 -- the left edge moving 54px row to row, which is what reads
+     as the ragged column down the middle of the list.
+     Fixed widths, and the volume centred inside its own: the figure varies
+     from four characters to nine and the only way it can sit still is to be
+     centred in a box that does not. The widths come from the widest real
+     content measured on an eleven-week block ("63.2/69.2" at 81px, "100%"
+     at 30px), plus a little air. */
+  .view-plan .pp-body .week-vol{flex:0 0 86px; text-align:center;}
+  /* STATED IN THE RULE THAT ALREADY EXISTS, not in a second one above it.
+     I wrote the column width as its own rule with margin-left:0 and this
+     rule -- one line below -- re-declared the margin and won on source
+     order, so that declaration was dead on arrival. Twice now in this file
+     the same way. One selector, one rule. */
+  .view-plan .pp-body .week-pct{font-size:var(--fs-data); flex:0 0 36px;
+    text-align:right; margin-left:0;}
   /* THE WEEK THE ATHLETE IS IN is marked further down, with the rest of the
      state colours. It used to be stated here as a gold rim plus a 1px ring;
      both were drawn on a border this screen no longer has, and leaving the
@@ -47390,10 +47408,19 @@ function phaseGroupState(g){
   if (g.weeks.indexOf(cur) !== -1) return 'now';
   return g.weeks[g.weeks.length-1] < cur ? 'done' : 'ahead';
 }
+/* ---------- EVERY PHASE STARTS CLOSED ----------
+   The phase the athlete is in used to open itself, on the reasoning that it
+   is the one they want. On a four-phase block that put one section's worth
+   of weeks between the stepper and Race Day every time the screen was
+   opened, and Full Plan is the screen for seeing the SHAPE of the block --
+   the stepper says which phase is current, the hero says how far through it
+   is, and the weeks are what the athlete opens a phase to go and find.
+   forceOpenAll still wins: it is how the whole plan is rendered open where
+   something needs all of it at once, and it is not a default. */
 function phaseGroupOpen(g, forceOpenAll){
   if (forceOpenAll) return true;
   if (expandedPhases[g.phase] != null) return !!expandedPhases[g.phase];
-  return phaseGroupState(g) === 'now';
+  return false;
 }
 /* The chips. One per phase, in block order, so the shape of the whole build
    is legible before anything is opened -- which is the thing a flat list of
