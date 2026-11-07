@@ -5188,7 +5188,15 @@
   .wk-taper{
     position:relative; display:block; text-align:center;
     margin-top:14px; padding:16px 0 14px; color:var(--ink);}
-  .wk-taper::before{
+  /* ---------- ONE COACHING LIGHT, TWO PLACES THAT COACH ----------
+     What's Next is the same kind of line as the taper note: Valhalla
+     talking to the athlete about where this is going, rather than a figure
+     or a control. So it takes the same treatment -- centred, the full width
+     of the panel, on the same cherry radial -- and it takes it from THIS
+     declaration rather than a second copy of the gradient, because a copy
+     is how the taper sentence ended up saying two different things. */
+  .wk-taper::before,
+  .view-plan .yr-next::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
     left:calc(50% - 50vw); width:100vw; right:auto;
     top:-10px; bottom:-12px; border-radius:999px;
@@ -5198,7 +5206,14 @@
       color-mix(in srgb, var(--cherry) 12%, transparent) 76%,
       transparent 100%);
     filter:blur(18px);}
-  .wk-taper > *{position:relative; z-index:1;}
+  .wk-taper > *, .view-plan .yr-next > *{position:relative; z-index:1;}
+  /* The box part -- centred, full width, its own air. The head is a flex
+     row, so centring the text needs the row centred too. */
+  .view-plan .yr-next{
+    position:relative; display:block; text-align:center;
+    margin-top:4px; padding:18px 0 16px; color:var(--ink);}
+  .view-plan .yr-next .coach-next-head{justify-content:center; margin-bottom:9px;}
+  .view-plan .yr-next .yr-why{color:var(--ink); max-width:none;}
 
   /* ---- THE SEVEN DAYS ---- */
   .wk-days{display:flex; gap:7px; justify-content:space-between;}
@@ -5538,7 +5553,13 @@
      box to put it in -- which is why the zone breakdown's label sat at x=43
      here and at x=16 on This Week, where .wk-summary > .zone-card already
      zeroes both. Same treatment, stated for the plan views. */
-  :is(.view-plan, .view-plan-week, .view-plan-session) :is(.hub-card, .zone-card, .race-event, .race-strategy){
+  /* .race-event is NOT in this list, and that is the whole point of the
+     list having exceptions. Everything here is a container that was adding
+     nothing -- a rim round a row of facts. The day the block exists for is
+     not one of those: it is the one object on this screen that earns a
+     panel, and it is the one cherry object on it. See the panel rule below,
+     which was dead code until this exception existed. */
+  :is(.view-plan, .view-plan-week, .view-plan-session) :is(.hub-card, .zone-card, .race-strategy){
     background:none; border:0; border-radius:0; box-shadow:none;
     margin-left:0; margin-right:0; padding-left:0; padding-right:0;}
   /* ---- THE WEEK ROW, COMPACT ----
@@ -5579,6 +5600,22 @@
      product are the same object, and mixed down from the mock's fill --
      a full-strength panel this size is the brightest thing in the app by a
      distance, on a screen the athlete scrolls past every day. */
+  /* ---------- LIT BY ITS RIM, NOT BY ITS FILL ----------
+     The note that used to sit here said the mock's fill had been "mixed
+     down", because "a full-strength panel this size is the brightest thing
+     in the app by a distance". That caution was never tested against
+     anything -- the de-boxing rule below was stripping this panel to
+     nothing, so neither version had ever been on a screen.
+     Both were put on one this time. The filled version, built from
+     --cherry-fill, measured (103,41,58) in the panel's interior; this one
+     measures (18,19,22) -- the page, lit by the rim and its halo. The
+     founder compared them side by side and kept this one, and the mock that
+     asked for the fill is a MOCK: it is not bound by the colour law that
+     makes cherry mean progress, and a crimson slab the width of the screen
+     spends that meaning on a card the athlete scrolls past daily. The rim,
+     the glow and the white figures carry it instead.
+     So --cherry-tint stays, and the hairlines stay on --cherry-line, which
+     is what that token was drawn for: a dark ground. */
   .view-plan > .race-event{
     background:var(--cherry-tint), var(--t-tile);
     border:1.5px solid var(--cherry); border-radius:var(--tile-radius);
@@ -5588,61 +5625,68 @@
   .view-plan > .race-event .race-divider{
     display:flex; align-items:center; gap:9px; margin:0 0 2px; padding:0;}
   .view-plan > .race-event .race-divider .l{
-    font-size:16px; letter-spacing:.06em; color:var(--gold-bright);}
+    font-family:var(--text-face); font-weight:700; line-height:1.05;
+    font-size:28px; letter-spacing:.02em; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
   .view-plan > .race-event .race-divider .r{display:none;}
   /* ---- ONE CARD, THREE AREAS ----
      Identity and date top left, distance top right, the strategy across the
      foot with the finish time at its right. A grid rather than stacked rows,
      so the two top areas sit on one line and the rule under them separates
      "what and when" from "how you intend to run it". */
-  /* ---------- RACE DAY IS A HERO, NOT A ROW ----------
-     It was a label and a date on the left with the distance set beside them
-     in a 30px figure behind a hairline -- the layout of a list item, for
-     the one event the whole block exists for. Today and This Week already
-     own the shape a session's identity takes: an eyebrow, then the figure,
-     at a size nothing else on the screen competes with.
-     So the columns go. The label leads, the date sits under it, and 42.2km
-     takes the SAME figure Today gives 15km -- the same clamp, the same
-     white, the same backlight -- because it is the same kind of statement
-     and a smaller one here would say the marathon mattered less than
-     Saturday's long run. The hairline that separated the two columns is
-     gone with the columns; the card's own cherry rim is the container. */
+  /* ---------- RACE DAY, AS THE REFERENCE DRAWS IT ----------
+     Two columns inside a lit cherry panel: what and when on the left, how
+     far on the right, a hairline between them, and the way in across the
+     foot. The stacked 57.6px figure that was here came from reading "give
+     it a hero feeling" as "make the number enormous" -- but the reference
+     gets its hero-ness from the PANEL, and at 412px a 57.6px figure and a
+     RACE DAY title cannot share a row anyway (160px + 145px + the rule +
+     padding overruns the screen). So the panel carries the weight and the
+     two figures balance each other at 28px, which is what the reference
+     draws and what lets them sit side by side. */
   .view-plan > .race-event{
-    display:grid; grid-template-columns:1fr; align-items:start; gap:0;
+    display:grid; grid-template-columns:1fr auto; align-items:center; gap:2px 14px;
   }
-  .view-plan > .race-event .race-divider{grid-column:1; grid-row:1;}
+  .view-plan > .race-event .race-divider{grid-column:1; grid-row:1; align-self:end;}
   .view-plan > .race-event .race-event-when{
-    grid-column:1; grid-row:2; font-size:13px; color:var(--ink-dim); letter-spacing:.02em;}
+    grid-column:1; grid-row:2; align-self:start;
+    font-family:var(--text-face); font-size:13.5px; letter-spacing:.07em;
+    text-transform:uppercase; color:var(--ink-dim);}
   .view-plan > .race-event .race-event-dist{
-    grid-column:1; grid-row:3; display:flex; align-items:baseline; gap:3px;
-    text-align:left; padding-left:0; border-left:0; margin-top:9px;}
-  /* The same three stops .th-dist span carries, scaled as one so the figure
-     answers screen width exactly as Today's does. */
+    grid-column:2; grid-row:1 / span 2; align-self:center;
+    display:flex; align-items:baseline; gap:4px; text-align:right;
+    padding-left:16px; border-left:1px solid var(--cherry-line);}
   .view-plan > .race-event .race-event-dist b{
     font-family:var(--text-face); font-weight:700; line-height:1;
-    font-size:clamp(45.6px, 14.4vw, 57.6px); letter-spacing:-0.02em;
+    font-size:28px; letter-spacing:-0.01em;
     font-variant-numeric:tabular-nums; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 20px rgba(255,255,255,.42),
-                0 0 54px rgba(255,255,255,.22);}
-  /* The unit travels with the number, as it does on Today. */
+    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
   .view-plan > .race-event .race-event-dist span{
-    font-family:var(--text-face); font-weight:700;
-    font-size:clamp(28.8px, 9.6vw, 38.4px); color:#FFFFFF; letter-spacing:-0.01em;
-    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.34);}
-  .view-plan > .race-event .race-strategy{
-    grid-column:1; grid-row:4; margin-top:14px; padding-top:13px;
-    border-top:1px solid var(--cherry-line);}
+    font-family:var(--text-face); font-weight:700; font-size:19px;
+    text-transform:uppercase; color:#FFFFFF; letter-spacing:.01em;
+    text-shadow:0 0 1px rgba(255,255,255,.45), 0 0 14px rgba(255,255,255,.24);}
+  /* The strategy picker has moved to the race session, so the rule that
+     separated it from the figures now sits above the way in -- which is all
+     that is left down here, and is what the reference shows. */
   /* Hidden on FULL PLAN only -- see renderRaceDayEvent. This Week still
      shows the card, which is how the race is read there. */
   .view-plan > .race-event > .day{display:none;}
+  /* The separating rule is drawn by the button rather than ON it: the
+     button's own border is a gradient rim and a border-top here would have
+     fought it for the same edge (the earlier draft set border-top and then
+     border, which silently threw the rule away). */
   .view-plan > .race-event .rd-open{
-    grid-column:1; grid-row:5; margin-top:12px; padding:10px 14px;
+    grid-column:1 / -1; grid-row:3; position:relative;
+    margin-top:17px; padding:14px;
     min-height:var(--tap-min);
     border:1px solid transparent; border-radius:14px;
     background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
       var(--t-rim-velvet) border-box;
     color:var(--cherry-text); font-family:var(--text-face);
-    font-size:14px; font-weight:600;}
+    font-size:15px; font-weight:600;}
+  .view-plan > .race-event .rd-open::before{
+    content:''; position:absolute; left:0; right:0; top:-17px; height:1px;
+    background:var(--cherry-line);}
 
   /* =======================================================
      FULL PLAN -- the week and the session, each its own screen.
@@ -5726,8 +5770,17 @@
      state it once, here, after everything that could contradict it.
      The today row keeps its gold as light rather than as a ring: the rim it
      used to wear is gone, so the glow is the whole signal. */
+  /* ---- AND THIS IS WHERE THE RACE PANEL WAS ACTUALLY DYING ----
+     The cherry panel on .view-plan > .race-event has been in the sheet all
+     along -- tint, rim, glow, the lot -- and measured in Chromium it painted
+     NOTHING: background none, border 0, radius 0, shadow none. This rule won,
+     not on specificity (both are 0,2,0) but on being deliberately last, which
+     is exactly the power its own note claims. So the panel was dead code, and
+     the guard that "protected" it asserted the CSS TEXT existed rather than
+     that anything reached the screen -- it passed for every pass since.
+     .race-event comes out of both lists. */
   :is(.view-plan, .view-plan-week, .view-plan-session)
-    :is(.pw-progress, .pw-row, .zone-card, .hub-card, .race-event, .race-strategy, .week, .pp-phase){
+    :is(.pw-progress, .pw-row, .zone-card, .hub-card, .race-strategy, .week, .pp-phase){
     background:none; border:0; border-radius:0; box-shadow:none;}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today{
     box-shadow:0 0 16px color-mix(in srgb, var(--gold) 20%, transparent);}
@@ -47168,15 +47221,22 @@ function renderRaceDayEvent(weekNum){
       '</div>'+
       '<div class="race-event-when font-mono">'+escapeHtml(dLong(race.date))+'</div>'+
       '<div class="race-event-dist font-mono"><b>'+dist+'</b> <span>'+displayUnit()+'</span></div>'+
-      renderRaceStrategyPicker(race)+
+      /* ---------- THE STRATEGY FOLDS INTO THE SESSION ----------
+         Three chips, a blurb, a planned finish and sometimes a stepper sat
+         between the race's identity and the way into it -- a control panel
+         wedged inside what is meant to read as the block's destination. It
+         belongs with the thing it governs: renderPlanSessionView() puts it
+         on the race session, where the execution blocks it reshapes are. */
       /* THE SESSION CARD STAYS IN THE MARKUP. On This Week the race event IS
          the session and the card is how it is read; on Full Plan the card is
-         three areas and a way in, so the card is hidden there and the button
+         two areas and a way in, so the card is hidden there and the button
          below leads to the session's own screen. Two positions, one string --
          not a second rendering, and This Week is untouched. */
       renderDayCard(race)+
+      /* "View race session" said RACE twice -- the panel it sits in is
+         titled RACE DAY. */
       '<button type="button" class="rd-open" data-action="plan-open-session" '+
-        'data-day="'+escapeHtml(String(race.id))+'">View race session '+
+        'data-day="'+escapeHtml(String(race.id))+'">View session '+
         '<span aria-hidden="true">\u2192</span></button>'+
     '</div>';
 }
@@ -57005,6 +57065,11 @@ function renderPlanSessionView(){
   return '<div class="view-plan-session">'+
     planBackBar(dow(dd.date)+', '+dShort(dd.date), displayCardTitle(dd))+
     renderDayCard(dd)+
+    /* The strategy governs THIS session's execution blocks, so it lives with
+       them rather than up on the plan list beside the date. Rendered from the
+       same renderRaceStrategyPicker() -- one picker, re-homed, not a second
+       copy -- and only for the race, which is the only day that has one. */
+    (dd.type === 'race' ? renderRaceStrategyPicker(dd) : '')+
   '</div>';
 }
 function renderFullPlanView(){

@@ -68,12 +68,25 @@ test('a panel that lost its box lost the box’s inset with it', () => {
      views and the 13-14px they justified was left behind -- a card's padding
      with no card to put it in. That is why the zone breakdown's label sat at
      x=43 here and x=16 on This Week. */
-  const r = rule(':is(.view-plan, .view-plan-week, .view-plan-session) :is(.hub-card, .zone-card, .race-event, .race-strategy)');
+  /* .race-event is no longer in this list, and that is the law working
+     rather than an exception to it: the rule says a panel that LOST its box
+     loses the box's inset too. Race Day kept its box -- it is the one
+     surface on these screens that earns a rim, and it was being stripped to
+     nothing by a de-boxing rule until this pass -- so it keeps the padding
+     that box justifies. Stripping the inset from an element that still has
+     a border is the same defect in the other direction. */
+  const r = rule(':is(.view-plan, .view-plan-week, .view-plan-session) :is(.hub-card, .zone-card, .race-strategy)');
   assert.match(r, /margin-left:\s*0/);
   assert.match(r, /margin-right:\s*0/);
   assert.match(r, /padding-left:\s*0/);
   assert.match(r, /padding-right:\s*0/);
   assert.match(r, /background:\s*none/, 'the box came back but the reset stayed');
+  /* AND THE ONE THAT KEPT ITS BOX STILL HAS BOTH. A rim with no padding
+     puts the text on the rim. */
+  const panel = /\.view-plan > \.race-event\{([^}]*border:1\.5px[^}]*)\}/.exec(CSS);
+  assert.ok(panel, 'the Race Day panel lost its rim');
+  assert.match(panel[1], /padding:\d+px/,
+    'the Race Day panel has a rim but no inset, so its content sits on the rim');
 });
 
 test('a modal’s content sits 16px inside the card, like the page inside the screen', () => {

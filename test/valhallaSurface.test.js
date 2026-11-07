@@ -294,8 +294,17 @@ test('LINES: no plain hairline separates one detail from the next', () => {
      the rule it names is blanked -- caught by mutating it. */
   assert.match(SRC, /\n\s*\.sec-rule-line\{[^}]*linear-gradient/,
     'the gold section rule either side of a heading was swept away with the hairlines');
-  assert.match(SRC, /border-top:1px solid var\(--cherry-line\)/,
-    'the cherry rule that marks race week was swept away with the hairlines');
+  /* THE CHERRY RULE MOVED WITH THE PANEL IT LIVES IN. It used to be the
+     border-top above the strategy picker inside the Race Day card. The
+     picker has gone to the race session, so that one declaration is gone --
+     and the panel now draws TWO cherry rules instead: between the identity
+     and the distance, and above the way in. The law is unchanged and this
+     holds more of it than the single border-top did. */
+  assert.match(SRC, /border-left:1px solid var\(--cherry-line\)/,
+    'the cherry rule between Race Day\'s identity and its distance was swept away ' +
+    'with the hairlines');
+  assert.match(SRC, /\.rd-open::before\{[^}]*var\(--cherry-line\)/,
+    'the cherry rule above the way into the race session was swept away with the hairlines');
 });
 
 /* THE LAST GLYPHS ON THIS SCREEN, AND WHAT REPLACED THEM.

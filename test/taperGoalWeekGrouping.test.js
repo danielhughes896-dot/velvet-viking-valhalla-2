@@ -242,6 +242,21 @@ test('Race Day and Race Strategy rendering is unaffected', () => {
   assert.ok(race, 'the block still ends in a race day');
   const ev = a.renderRaceDayEvent(total);
   assert.match(ev, /race-event/);
-  assert.match(ev, /race-strategy/, 'the strategy picker still renders on Race Day');
-  assert.match(ev, /id="day-/, 'and so does the race card');
+  /* THE STRATEGY MOVED, BY INSTRUCTION. It is a control surface -- three
+     chips, a blurb, a planned finish, sometimes a stepper -- and it sat
+     between the race's identity and the way into it, inside what reads as
+     the block's destination. It now renders on the race SESSION, with the
+     execution blocks it reshapes. This test is about the taper/goal-week
+     grouping not disturbing race rendering, so it checks the race event
+     still renders and that the picker landed somewhere, not that it is
+     still in the old place. */
+  assert.ok(!/race-strategy/.test(ev),
+    'the strategy picker is back inside the Race Day panel');
+  assert.match(ev, /id="day-/, 'the race card no longer renders');
+  assert.match(ev, /class="rd-open"/, 'the way into the race session is gone');
+  const src = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const sess = src.slice(src.indexOf('function renderPlanSessionView('));
+  assert.match(sess.slice(0, sess.indexOf('\n}\n')), /renderRaceStrategyPicker\(dd\)/,
+    'the strategy picker has left Race Day without arriving on the race session');
 });

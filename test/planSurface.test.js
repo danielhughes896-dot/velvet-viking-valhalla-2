@@ -32,7 +32,10 @@ function app(){
 }
 
 test('no surface on the plan screens is drawn as a lifted card', () => {
-  const i = BARE.indexOf(':is(.view-plan, .view-plan-week, .view-plan-session)\n    :is(.pw-progress, .pw-row, .zone-card, .hub-card, .race-event, .race-strategy, .week, .pp-phase)');
+  /* .race-event came OUT of this list -- see "the day the block is for is a
+     panel" below, which now checks that it stays out. Everything else is
+     still a container that was adding nothing. */
+  const i = BARE.indexOf(':is(.view-plan, .view-plan-week, .view-plan-session)\n    :is(.pw-progress, .pw-row, .zone-card, .hub-card, .race-strategy, .week, .pp-phase)');
   assert.ok(i > -1, 'the plan de-boxing rule is gone or its selector changed');
   const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
   ['background:none', 'border:0', 'border-radius:0', 'box-shadow:none'].forEach(d => {
@@ -401,21 +404,61 @@ test('the hero names the period its own figures cover', () => {
 });
 
 test('the day the block is for is a panel, not another row', () => {
-  /* There are three .view-plan > .race-event rules in the sheet and the
-     first is a one-line margin, so a bare indexOf reads that one and the
-     assertion fails for the wrong reason. Matched across the whole sheet
-     instead: SOME rule for this element must carry the panel. */
+  /* ---------- THIS GUARD PASSED FOR EVERY PASS WHILE THE PANEL WAS DEAD ----
+     It asserted that the cherry panel's CSS TEXT existed. It did exist --
+     tint, rim, glow, all of it -- and measured in Chromium the element
+     painted background:none, border:0, border-radius:0, box-shadow:none,
+     because the de-boxing rule further down the sheet listed .race-event and
+     won on source order. A guard that reads the stylesheet for a declaration
+     cannot tell whether anything reached the screen, and this one could not.
+     So what is pinned now is the CONFLICT, not the declaration: the panel
+     must exist AND nothing after it may strip it. */
   assert.match(BARE, /\.view-plan > \.race-event\{[^}]*var\(--cherry-tint\)/,
     'Race Day is flat on the page again');
   assert.match(BARE, /\.view-plan > \.race-event\{[^}]*border:1\.5px solid var\(--cherry\)/);
-  /* The same recipe the workout's key step wears, so the two cherry-marked
-     objects in the product are one object rather than two that resemble
-     each other. */
-  const work = BARE.slice(BARE.indexOf('.ws-h-step.ws-work{'));
-  assert.match(work.slice(0, 260), /var\(--cherry-tint\)/,
-    'the recipe Race Day is matched to has moved');
+
+  /* THE LINE THAT KILLED IT. Any de-boxing list naming .race-event takes the
+     panel away again, wherever in the sheet it sits. */
+  const stripped = BARE.split('\n').filter(l =>
+    /background:none/.test(BARE.slice(BARE.indexOf(l), BARE.indexOf(l) + 400)) &&
+    /:is\(/.test(l) && /\.race-event\b/.test(l));
+  assert.equal(stripped.length, 0,
+    'a de-boxing rule lists .race-event again, so the cherry panel is dead code ' +
+    'once more: ' + stripped.join(' | '));
+
+  /* And the fill is the product's token for a cherry surface carrying white
+     text -- 9.14:1 -- not a colour invented for this panel. */
+  const panel = /\.view-plan > \.race-event\{([^}]*var\(--cherry-tint\)[^}]*)\}/.exec(BARE);
+  assert.ok(panel, 'the lit panel rule has moved');
+  assert.ok(!/#[0-9A-Fa-f]{6}/.test(panel[1].replace(/rgba?\([^)]*\)/g, '')),
+    'the Race Day panel is painted with a hand-set hex rather than the cherry tokens');
+  /* LIT BY THE RIM, NOT BY THE FILL. Measured: this panel's interior is
+     (18,19,22) -- the page -- against (103,41,58) for the --cherry-fill
+     version that was tried and rejected. A filled slab this wide spends the
+     cherry-means-progress meaning on a card scrolled past every day. */
+  assert.match(panel[1], /box-shadow:0 0 16px var\(--cherry-dim\)/,
+    'the Race Day panel lost the halo that is doing the lighting');
+  assert.ok(!/--cherry-fill/.test(panel[1]),
+    'the Race Day panel has been filled again — it is lit by its rim, see the note on the rule');
+
   const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
   assert.doesNotMatch(src, /class="rd-flag"/, 'Race Day leads with a glyph again');
+
+  /* THE STRATEGY IS NOT IN THIS PANEL. It is a control surface and this is
+     the block's destination; it lives on the session whose execution blocks
+     it reshapes. */
+  const ev = src.slice(src.indexOf('function renderRaceDayEvent('));
+  assert.ok(!/renderRaceStrategyPicker/.test(ev.slice(0, ev.indexOf('\n}\n'))),
+    'the strategy picker is back inside the Race Day panel');
+  const sess = src.slice(src.indexOf('function renderPlanSessionView('));
+  assert.match(sess.slice(0, sess.indexOf('\n}\n')), /renderRaceStrategyPicker\(dd\)/,
+    'the race session no longer carries the strategy, so it is homeless');
+
+  /* And the way in says it once. The panel it sits in is titled RACE DAY. */
+  assert.match(src, />View session '\+/,
+    'the way into the race session is worded differently again');
+  assert.ok(!/>View race session/.test(src),
+    '"View race session" is back — the panel it sits in is already titled RACE DAY');
 });
 
 /* "This Week says the week; the block name belongs to Full Plan" stood here.
@@ -508,8 +551,21 @@ test('the taper line is coaching, lit like coaching', () => {
      this is the week hero — so what is held instead is that the numbers stay
      in step. A glow that drifts from the one it was copied from is two
      cherries on one product. */
-  const mine = /\.wk-taper::before\{([^}]*)\}/.exec(CSS);
+  /* The selector is a LIST now: What's Next on Full Plan is the same kind of
+     line -- Valhalla saying where this is going -- so it takes the same
+     light from the same declaration rather than a second copy of the
+     gradient. A copy is exactly how the taper SENTENCE ended up saying two
+     different things on two screens. */
+  const mine = /\.wk-taper::before(?:,\s*[^{]+)?\{([^}]*)\}/.exec(CSS);
   assert.ok(mine, '.wk-taper lost its cherry glow');
+  assert.match(CSS, /\.wk-taper::before,\s*\n\s*\.view-plan \.yr-next::before\{/,
+    "What's Next no longer shares the coaching glow declaration — if it has been given " +
+    'its own copy, the two will drift');
+  const next = /\n  \.view-plan \.yr-next\{([^}]*)\}/.exec(CSS);
+  assert.ok(next, "What's Next has no block rule of its own");
+  assert.match(next[1], /text-align:center/, "What's Next is no longer centred like the coaching it is");
+  assert.match(next[1], /position:relative/,
+    'without a positioning context its glow escapes to the nearest ancestor');
   const note = /\.how-note::before\{([^}]*)\}/.exec(CSS);
   assert.ok(note, "the Coach's Note glow this was copied from is gone");
 
@@ -624,19 +680,47 @@ test('Full Plan breathes on the same measure as This Week', () => {
     'the two tabs set --wk-gap to different values');
 });
 
-test('the day the block is for carries the hero figure, not a row figure', () => {
-  /* It was a 30px number beside a label, in the layout of a list item --
-     for the one event the whole block exists for. Today gives 15km a
-     57.6px figure; a smaller one here says the marathon matters less than
-     Saturday. Pinned to Today's own clamp so the two move together. */
-  const today = rule('.th-dist span');
-  const clamp = /font-size:(clamp\([^)]*\))/.exec(today);
-  assert.ok(clamp, 'the Today hero figure no longer uses a clamp — re-derive Race Day');
-  const race = rule('.view-plan > .race-event .race-event-dist b');
-  assert.ok(race.indexOf(clamp[1]) > -1,
-    'Race Day is no longer set at the hero figure size Today uses for a distance');
-  assert.match(race, /color:#FFFFFF/, 'the Race Day figure is no longer the hero white');
-  assert.match(race, /text-shadow:/, 'the Race Day figure lost its backlight');
+test('the Race Day panel balances its two figures and carries them in white', () => {
+  /* ---------- THE SHAPE CHANGED, AND SO DOES THIS GUARD ----------
+     It used to pin the distance to Today's 57.6px hero clamp. That came
+     from reading "give Race Day a hero feeling" as "make the number
+     enormous"; the founder's own reference answers it differently -- the
+     hero-ness is the LIT PANEL, and inside it RACE DAY and 42.2 KM sit on
+     one row as equals. At 412px they cannot both be hero-scale anyway: a
+     57.6px figure is ~160px and the title ~145px, which with the rule and
+     the padding overruns the screen. So two columns forces the size, and
+     the panel does the work the size used to.
+     What is still worth holding is everything the ORIGINAL defect was: a
+     13px --fs-meta figure in --ink-faint, set like a row of metadata for
+     the event the whole block exists for. */
+  const dist = rule('.view-plan > .race-event .race-event-dist b');
+  const label = rule('.view-plan > .race-event .race-divider .l');
+  const sizeOf = r => parseFloat((/font-size:(\d+(?:\.\d+)?)px/.exec(r) || [])[1]);
+
+  assert.ok(sizeOf(dist) >= 24,
+    'the Race Day distance is back to ' + sizeOf(dist) + 'px — a row figure for the ' +
+    'day the block exists for');
+  assert.equal(sizeOf(dist), sizeOf(label),
+    'the panel\'s two figures no longer balance: RACE DAY is ' + sizeOf(label) +
+    'px and the distance ' + sizeOf(dist) + 'px. They share a row as equals.');
+  [['distance', dist], ['label', label]].forEach(([what, r]) => {
+    assert.match(r, /color:#FFFFFF/, 'the Race Day ' + what + ' is no longer white on the lit panel');
+    assert.match(r, /text-shadow:/, 'the Race Day ' + what + ' lost its backlight');
+  });
+
+  /* AND THE TWO COLUMNS. One row, divided -- what and when on the left, how
+     far on the right. Stacking them is what made it a list item. */
+  const panel = /\.view-plan > \.race-event\{([^}]*grid-template-columns[^}]*)\}/.exec(BARE);
+  assert.ok(panel, 'the Race Day panel is no longer a grid');
+  assert.match(panel[1], /grid-template-columns:1fr auto/,
+    'Race Day has gone back to a single stacked column');
+  /* Matched across the sheet, not with rule(): that helper returns the FIRST
+     rule for a selector, and a selector may legitimately have more than one. */
+  assert.match(BARE, /\.view-plan > \.race-event \.race-event-dist\{[^}]*border-left:1px solid/,
+    'the hairline between the identity and the distance is gone');
+  /* --cherry-line, which is what that token was drawn for: a dark ground. */
+  assert.match(BARE, /\.view-plan > \.race-event \.race-event-dist\{[^}]*border-left:1px solid var\(--cherry-line\)/,
+    'the hairline is no longer the cherry token the dark panel was built around');
 });
 
 test('every control on the race panel clears the thumb floor', () => {
