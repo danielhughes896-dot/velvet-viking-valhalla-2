@@ -1927,9 +1927,21 @@
      language should not disagree about how their light is made. Frozen at
      the wide radius, alpha carrying the whole pulse, and brighter at the
      crest than it was. */
+  /* THREE STOPS, LIKE THE TWO RINGS, AND FOR THE SAME REASON.
+     The first pass froze this one's radius with the others but barely lifted
+     it -- measured at the crest it gained 6% where the session ring gained 38
+     and the gauge 26, so "the same treatment" was true of the sharpening and
+     not of the brightness. A bar is a thin source: 9px tall against a ring's
+     circumference, so the same alphas put far less light in the air and it
+     needs the extra stop to carry. Radii fixed at 10/28/48, alpha doing the
+     whole cycle, exactly as above. */
   @keyframes vv-glow-gold{
-    0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 34px rgba(227,177,90,.10); }
-    50%    { box-shadow:0 0 10px rgba(227,177,90,1), 0 0 34px rgba(227,177,90,.74); }
+    0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34),
+                        0 0 28px rgba(227,177,90,.18),
+                        0 0 48px rgba(227,177,90,.10); }
+    50%    { box-shadow:0 0 10px rgba(227,177,90,1),
+                        0 0 28px rgba(227,177,90,1),
+                        0 0 48px rgba(227,177,90,.88); }
   }
   /* EACH SETTLE FOLLOWS ITS OWN ENTRANCE, and both of these entrances just
      got longer. The ring drew for 760ms, so it waited 1.26s; it now draws
@@ -2738,7 +2750,29 @@
      a flex item's default min-width is auto, so without this the track refuses
      to shrink below its content and the row pushes past the viewport. */
   .pbar-track{flex:1 1 auto; min-width:24px; height:7px; border-radius:99px; background:var(--bg-3); overflow:hidden; border:1px solid var(--line-soft);}
-  .pbar-fill{height:100%; background:linear-gradient(90deg,var(--bronze),var(--gold)); border-radius:99px; transition:width .5s ease;}
+  /* ---------- THE OTHER GOLD BARS, LIT LIKE THE FIRST ONE ----------
+     Runs and Volume in Valhalla's Progress panel are the same component as
+     the week bar and carried no light at all, which made them read as a
+     different material to the one instrument the product calls a progress
+     bar. They take its resting recipe, with the radii scaled to a 5px bar
+     rather than a 9px one so the halo is proportionate to its source.
+     NO PULSE, and that is a choice rather than an omission. The cycle says
+     "this is live"; these two are reference figures inside a panel the
+     athlete opened from a circle that is already breathing, and a sheet note
+     further up records what happens when a light meant for one moment is
+     repeated down a column -- it stops reading as an event and becomes the
+     background. Same material, no heartbeat. */
+  .pbar-fill{height:100%; background:linear-gradient(90deg,var(--bronze),var(--gold)); border-radius:99px; transition:width .5s ease;
+    /* color-mix on --gold, not a hand-set rgba. The literal is --gold with
+       the name filed off, and a guard in planSurface counts the hand-set
+       gold glows left in the sheet: the three it allows are the pulse's two
+       keyframe stops and .wk-bar-fill's resting shadow, which instrumentGlow
+       asserts are EQUAL to each other -- converting one side of a measured
+       relationship would make it unverifiable. This is a new glow with no
+       such tie, so it takes the pattern the rest of the product uses. */
+    box-shadow:0 0 6px color-mix(in srgb, var(--gold) 34%, transparent),
+               0 0 16px color-mix(in srgb, var(--gold) 18%, transparent),
+               0 0 27px color-mix(in srgb, var(--gold) 10%, transparent);}
   /* 56px is the space RESERVED so the two rows' numbers line up, not a cap.
      "697.7/1190.4km" is wider than that, and a fixed width made it overflow
      the row rather than the row making room for it. */
@@ -5112,7 +5146,9 @@
     background:linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-bright));
     /* The second stop matches the cycle's 0%, so the bar does not jump when
        the settle delay elapses -- the same rule the two rings follow. */
-    box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 34px rgba(227,177,90,.10);}
+    box-shadow:0 0 10px rgba(227,177,90,.34),
+               0 0 28px rgba(227,177,90,.18),
+               0 0 48px rgba(227,177,90,.10);}
   /* The cherry hairline that sat here is gone. It was the one coloured rule
      on the screen, directly under the gold progress bar, and it separated
      the week's figures from the week's note -- two parts of the same hero

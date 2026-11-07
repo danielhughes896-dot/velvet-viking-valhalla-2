@@ -323,3 +323,41 @@ test('no instrument puts text inside its own animated filter', () => {
   assert.doesNotMatch(rule('.th-ring'), /filter\s*:/,
     '.th-ring carries a filter — it wraps .th-ring-in, the pace and HR readout');
 });
+
+test('every gold bar in the product is the same material', () => {
+  /* "Have you done the same for the gold bars?" turned up two more. Runs and
+     Volume in Valhalla's Progress panel are the same component as the week
+     bar and carried no light at all, so they read as a different material to
+     the one thing the product calls a progress bar.
+     They take the week bar's RESTING recipe with the radii scaled to a 5px
+     bar rather than a 9px one, and deliberately no cycle: the pulse is what
+     says "this is live", and these are reference figures in a panel opened
+     from a circle that is already breathing. If that call is ever reversed,
+     reverse it here rather than by adding an animation and leaving this
+     comment saying the opposite. */
+  const pbar = rule('.pbar-fill');
+  /* color-mix on --gold, not a hand-set rgba. planSurface counts the literal
+     gold glows left in the sheet and allows exactly three -- the pulse's two
+     keyframe stops and .wk-bar-fill's resting shadow, which this file asserts
+     are equal to each other, so converting one side of a measured
+     relationship would make it unverifiable. A new glow has no such tie and
+     takes the token. */
+  assert.match(pbar, /box-shadow:[^;}]*color-mix\(in srgb, var\(--gold\)/,
+    'the Progress panel bars lost their gold light, or hand-set it instead of naming --gold');
+  const stops = (pbar.match(/0 0 \d+px color-mix\(in srgb, var\(--gold\) \d+%, transparent\)/g) || []);
+  assert.equal(stops.length, 3,
+    'the Progress bars should carry the same three-stop recipe as the week bar; found ' +
+    stops.length);
+  assert.doesNotMatch(pbar, /animation\s*:\s*vv-glow/,
+    'the Progress bars started pulsing. That is a product decision, not a consistency ' +
+    'fix — the comment beside the rule has to change with it.');
+
+  /* And the week bar keeps three stops too, which is what brought its crest
+     from +6% to +34% against the previous commit -- a bar is a far thinner
+     source than a ring and the same alphas put much less light in the air. */
+  const gold = keyframes('vv-glow-gold');
+  const crestStops = (gold.slice(gold.indexOf('50%')).match(/0 0 \d+px rgba\(227,177,90,[\d.]+\)/g) || []);
+  assert.equal(crestStops.length, 3,
+    'the week bar is back to two shadows; measured, two put 6% more light in the air ' +
+    'where the rings got 38% and 26%');
+});
