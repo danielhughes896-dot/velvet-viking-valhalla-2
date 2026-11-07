@@ -162,9 +162,19 @@ test('one string serves every view: both labels travel, CSS picks one', () => {
 
 test('a fuel module is the same panel as a coaching module', () => {
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const fuelK = new RegExp(esc(F) + ' \\.how-mod \\.fuel-row \\.k\\{([^}]*)\\}').exec(CSS);
+  /* THREE HEADINGS NOW, AND THE FIRST TWO SHARE ONE DECLARATION. The
+     execution rail's phase name joined the fuel heading's rule rather than
+     copying it, so the selector is a list and the old regex -- which
+     required '{' straight after '.k' -- no longer matched. Read the rule by
+     its list, and assert the execution label is IN that list, which is a
+     stronger statement than the equality below: they cannot disagree
+     because they are the same declaration. */
+  const fuelK = new RegExp(esc(F) + ' \\.how-mod \\.fuel-row \\.k[,{][^{]*\\{([^}]*)\\}').exec(CSS);
   const howK = new RegExp(esc(F) + ' \\.how-mod \\.how-row \\.k\\{([^}]*)\\}').exec(CSS);
   assert.ok(fuelK && howK, 'one of the two module heading rules is gone');
+  assert.match(CSS, new RegExp(esc(F) + ' \\.how-mod \\.fuel-row \\.k,[\\s\\S]{0,200}?\\.strat-phase-label\\{'),
+    'the execution phase name no longer shares the fuel heading declaration, so the ' +
+    'three rails can print three different headings');
   [['font-size', /font-size:([^;]+)/], ['text-align', /text-align:([^;]+)/], ['color', /color:([^;]+)/]].forEach(([what, re]) => {
     const a2 = re.exec(fuelK[1]), b = re.exec(howK[1]);
     assert.ok(a2 && b, 'cannot read ' + what + ' from both module heading rules');
@@ -363,10 +373,16 @@ test('the Coach\u2019s Note still appears when the only thing to say is the fuel
      I caused it once by sharing one hints array between both renderers. */
   const i = SRC.indexOf('var hints = fuelOn ? (fuelFacts(dd).railHints || []) : [];');
   assert.ok(i > -1, 'the note is no longer offered the fuel caveats');
-  const body = SRC.slice(i, i + 420);
-  assert.match(body, /if \(!cueText && !hints\.length\) return '';/,
+  /* A fixed 420-char window stopped reaching the gate the moment a comment
+     was written between the two lines -- and a window that stopped AT the
+     gate then cut off the markup the assertions below it read. The whole
+     builder, bounded by the end of its own IIFE. */
+  const end = SRC.indexOf('})()+', i);
+  assert.ok(end > i, 'the Coach\u2019s Note builder is no longer an IIFE — re-anchor this');
+  const body = SRC.slice(i, end);
+  assert.match(body, /if \(!cueText && !hints\.length && !caps\) return '';/,
     'the Coach\u2019s Note is gated on the cue again, so a day with no cue drops the fuel ' +
-    'caveats off the screen entirely');
+    'caveats -- and now the execution sentences -- off the screen entirely');
   assert.match(body, /cueText \? '<span class="v">/,
     'the cue is no longer optional inside the note, so a caveat-only day cannot render');
 });

@@ -381,7 +381,15 @@ test('the coaching disclosure keeps every section it had', () => {
   ['How to run this', 'Why', 'Feel', 'Watch For'].forEach(k => {
     assert.ok(html.indexOf(k) > -1, 'the coaching disclosure lost: ' + k);
   });
-  assert.ok(/Execution/.test(html), 'the coaching disclosure lost Execution');
+  /* EXECUTION IS A RAIL NOW AND HAS NO HEADING. The word went the way FUEL's
+     did -- every panel under it names itself (SETTLE, HOLD, PRESS, COMMIT)
+     and a word above a row of self-naming labels is a label on labels. The
+     law here is that the SECTION is still reachable, and the word was only
+     ever a proxy for it, so the section is what is asserted. */
+  assert.ok(/class="how-table how-exec"/.test(html) || /class="how-row-heading">Execution/.test(html),
+    'the coaching disclosure lost Execution');
+  assert.ok(/class="how-mod strat-phase"/.test(html) || /strat-phase/.test(html),
+    'the Execution section is present but empty of phases');
   // Whether the session DESCRIPTION survives is a separate question with its
   // own rule and its own tests below -- it is not part of the disclosure.
 });

@@ -1260,8 +1260,12 @@
      does both: "SETTLE 0-10km" fits one line, and a label and range that
      genuinely do not fit wrap as two whole words rather than a split
      number. */
-  .exec-rail .strat-phase-head{justify-content:flex-start; flex-wrap:wrap; gap:0 7px;}
-  .exec-rail .strat-phase-span{white-space:nowrap;}
+  /* CENTRED, LIKE THE OTHER TWO. Their panels centre heading and value;
+     these were left-packed from the table they used to be. The range sits
+     under the name as the fuel rail's figure sits under its label. */
+  .exec-rail .strat-phase-head{display:block; text-align:center;}
+  .exec-rail .strat-phase-span{display:block; white-space:nowrap; margin-top:-6px; margin-bottom:8px;}
+  .exec-rail .strat-phase-target{text-align:center;}
   .exec-rail .strat-phase{padding:0;}
   .strat-phase-label{font-size:var(--fs-body); font-weight:600; color:var(--ink);}
   .strat-phase-span{font-size:var(--fs-data); color:var(--ink-faint);}
@@ -2248,7 +2252,13 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row{display:block; padding:0; border:0; font-size:inherit;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k-long{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k-short{display:block;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k{
+  /* ONE HEADING FOR ALL THREE RAILS. WHY, TIME ON FEET and SETTLE are the
+     same thing in the same place -- the name of the panel you are looking
+     at -- so they are one declaration rather than three that resemble each
+     other. The execution label joins it here instead of keeping the body
+     weight it wore when the phases were a table. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label{
     display:block; font-family:var(--label-face); font-weight:var(--label-weight);
     font-size:17px; letter-spacing:.055em; text-transform:uppercase;
     margin-bottom:10px; text-align:center; color:var(--gold-text);}
@@ -2548,7 +2558,14 @@
     font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--gold-text);}
   .how-note .k svg{width:13px; height:13px;}
-  .how-note .v{ color:var(--ink);}
+  /* EVERY LINE IN THE NOTE READS AS ONE VOICE. The phase sentence arrives
+     carrying .strat-phase-purpose's own dim colour from the table it used
+     to live in, so inside the note it sat a tier below the lines either
+     side of it -- three sentences in the same block, one of them quieter
+     for no reason the athlete can see. */
+  .how-note .v,
+  .how-note .how-cap .strat-phase-purpose,
+  .how-note .how-cap .strat-phase-watch{ color:var(--ink);}
   /* THE MODULE WRAPPER IS NOT A BOX ANYWHERE BY DEFAULT. display:contents
      removes it from layout entirely, so This Week, Full Plan's list and
      every other surface that renders this card see exactly the stack of
@@ -3148,11 +3165,22 @@
   .actual-panel{margin-top:10px; padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .actual-field{display:flex; flex-direction:column; gap:3px;}
   .actual-field label{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
+  /* ---------- THE LOG MEETS THE 44px FLOOR LIKE EVERYTHING ELSE ----------
+     The first tap-target pass took the coach rail, the switch, the KM/MI
+     toggle, the day check and the legal links to --tap-min and never
+     reached this screen -- which is the one screen in the app that is
+     nothing but controls, used with sweaty hands straight after a run.
+     Measured at 412px: fields 37px, feel buttons 36, "+ Add lap" 32, the
+     lap editor's inputs 34, the remove-lap cross 32x32, the notes wand
+     24x24. Raising them costs 41px on a 2202px card -- under 2% -- because
+     the fields sit in a two-column grid, so a pair on one row costs its
+     shortfall once, and the wand gets a hit area rather than growing. */
   .actual-field input, .actual-field textarea{
     background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink);
     padding:7px 8px; font-size:13px; font-family:var(--num-face); width:100%;
+    min-height:var(--tap-min);
   }
-  .actual-field textarea{font-family:var(--text-face); resize:vertical; min-height:38px;}
+  .actual-field textarea{font-family:var(--text-face); resize:vertical; min-height:var(--tap-min);}
   .actual-field.full{grid-column:1/-1;}
   /* The completed-state line, everywhere. On a focused session the rules
      further up turn this into the lit banner; in a list card it stays a
@@ -3194,6 +3222,15 @@
     background:var(--bg-3); border:1px solid var(--line); border-radius:6px;
     cursor:pointer; opacity:.65; transition:opacity .12s, border-color .12s, transform .12s;
   }
+  /* THE WAND STAYS 24px AND THE TARGET DOES NOT. It sits in the corner of
+     the notes box; growing it to 44 would either cover the text or push the
+     box out. So it takes the hit area instead -- the same technique
+     .coach-why-btn and .switch already use from the first tap pass -- which
+     is a 44px target around a 24px mark and no visual change at all. */
+  .notes-wand::after{
+    content:''; position:absolute; left:50%; top:50%;
+    width:var(--tap-min); height:var(--tap-min);
+    transform:translate(-50%,-50%); border-radius:8px;}
   .notes-wand:hover, .notes-wand:focus-visible{opacity:1; border-color:var(--modal-active); transform:translateY(-1px);}
   .note-chips{grid-column:1/-1; margin-top:7px;}
   .note-chips-head{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px; font-weight:var(--label-weight);}
@@ -3245,7 +3282,7 @@
      keeps the five evenly spaced; nothing else is left to hold them. */
   .feel-row{display:grid; grid-template-columns:repeat(5,1fr); gap:5px;}
   .feel-btn{
-    padding:9px 2px; min-height:36px;
+    padding:9px 2px; min-height:var(--tap-min);
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase;
@@ -3301,12 +3338,14 @@
   }
   .split-remove{
     background:none; border:none; color:var(--ink-faint); font-size:16px; line-height:1;
-    padding:4px; min-width:32px; min-height:32px; cursor:pointer; border-radius:6px;
+    padding:4px; min-width:var(--tap-min); min-height:var(--tap-min);
+    cursor:pointer; border-radius:6px;
   }
   .split-remove:hover, .split-remove:focus-visible{color:var(--gold-deep); background:var(--bg-4);}
   .splits-add{
     background:none; border:1px dashed var(--line); border-radius:6px; color:var(--ink-dim);
-    font-size:11px; padding:6px 10px; margin-top:2px; cursor:pointer; min-height:32px; width:100%;
+    font-size:11px; padding:6px 10px; margin-top:2px; cursor:pointer;
+    min-height:var(--tap-min); width:100%;
   }
   /* Structured logging: one compact block per prescribed segment. Two lines
      rather than a wide table, because a phone is narrow and an 18-row hill
@@ -3325,7 +3364,7 @@
   .slog-in{
     flex:1 1 0; min-width:0; background:var(--bg-4); border:1px solid var(--line);
     border-radius:6px; color:var(--ink); padding:6px; font-size:12.5px;
-    font-family:var(--num-face); min-height:34px;
+    font-family:var(--num-face); min-height:var(--tap-min);
   }
   .slog-in.slog-hr{flex:0 0 62px;}
   /* RECORDED LAPS -- read-only, and visibly not an input. The structured
@@ -3590,7 +3629,8 @@
      18px tall; both are now 44, which the rows they sit in already have room
      for. The glyph inside the pencil is untouched: only its box grows. */
   button[data-action="open-edit"]{ min-width:44px; min-height:44px; }
-  .actual-clear button{ min-height:44px; }
+  /* 44 tall since the first pass, and 39 WIDE -- a floor has two sides. */
+  .actual-clear button{ min-height:var(--tap-min); min-width:var(--tap-min); padding:2px 12px; }
   .btn svg{width:15px; height:15px; flex:none;}
 
   /* ---------- modal ---------- */
@@ -27996,7 +28036,8 @@ function renderCoachingDepth(dd, pre){
       if (!inner) return '';
       return '<div class="how-mod" data-mod="'+key+'">'+inner+'</div>';
     };
-    var stratBlock = renderExecutionStrategyBlock(dd);
+    var strat = renderExecutionStrategyBlock(dd);
+    var stratBlock = strat.rail, stratCaps = strat.caps;
     var fuelOn;
     try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
     /* ---------- OPEN, AND NOT A DISCLOSURE, ON THE FOCUSED SESSION ----------
@@ -28089,8 +28130,12 @@ function renderCoachingDepth(dd, pre){
          Same component throughout -- .fuel-body + .how-mod + the dots --
          so there is one rail in this product, used three times, not three
          things that resemble each other. */
-      (stratBlock ? '<div class="how-table how-exec">'+
-        '<div class="how-row-heading">Execution</div>'+stratBlock+'</div>' : '')+
+      /* NO "EXECUTION" HEADING, for the reason the FUEL heading went: every
+         panel under it names itself -- SETTLE, HOLD, PRESS, COMMIT -- and a
+         word above a row of labels that already say what they are is a
+         label on labels. The phase name takes the gold heading the other
+         two rails give WHY and TIME ON FEET, from the same declaration. */
+      (stratBlock ? '<div class="how-table how-exec">'+stratBlock+'</div>' : '')+
       /* Fuel is a rail now, not the second table. Its wrapper keeps
          .how-table so the spacing above it is unchanged, and gains .how-fuel
          so the rail rules can reach it. */
@@ -28115,9 +28160,16 @@ function renderCoachingDepth(dd, pre){
          written for after one of mine. */
       (function(){
         var hints = fuelOn ? (fuelFacts(dd).railHints || []) : [];
-        if (!cueText && !hints.length) return '';
+        /* THE EXECUTION PHASE'S OWN SENTENCE COMES HERE TOO. It sat loose
+           under its rail -- the one unlit paragraph left on the screen,
+           which is exactly what the fuel caveats were before them. It is
+           the coaching for the phase the athlete is looking at, so it
+           follows the lit panel from inside the note. */
+        var caps = stratCaps;
+        if (!cueText && !hints.length && !caps) return '';
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
           (cueText ? '<span class="v">'+escapeHtml(cueText)+'</span>' : '')+
+          caps+
           hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
         '</div>';
       })()+
@@ -29928,11 +29980,21 @@ function renderStrategyPhaseCaption(ph, i){
 // malformed/incomplete prescription (hand-edited fixture, legacy day) is
 // treated the same way rather than crashing the whole card -- "How to run
 // this" must survive a day it cannot stage a plan for.
+/* ---------- ONE SEAM INTO THE ENGINE, AND IT RETURNS BOTH PARTS ----------
+   The captions started as a second function that called
+   executionStrategyForDisplay() for itself. test/executionStrategy was
+   right to refuse it, and not only on tidiness: the rail and the captions
+   are indexed against each other -- panel 2's sentence is caption 2 -- so
+   two independent reads of the engine are two chances for those lists to
+   be different lengths or a different order, and the athlete would read
+   one phase's panel over another phase's coaching.
+   One call, one plan, both strings built from it. */
 function renderExecutionStrategyBlock(dd){
-  if (!EXECUTION_STRATEGY_ENABLED) return '';
+  var NONE = { rail:'', caps:'' };
+  if (!EXECUTION_STRATEGY_ENABLED) return NONE;
   var s;
-  try { s = executionStrategyForDisplay(dd); } catch(e) { return ''; }
-  if (!s || s.suppressed || !s.phases || !s.phases.length) return '';
+  try { s = executionStrategyForDisplay(dd); } catch(e) { return NONE; }
+  if (!s || s.suppressed || !s.phases || !s.phases.length) return NONE;
   /* The rail's own body, not a stack: each phase is a module, and the dots
      below it are the same hint the other two rails give. */
   /* NOT .strat-phases. That class is the old vertical stack --
@@ -29942,11 +30004,19 @@ function renderExecutionStrategyBlock(dd){
      squashed to ~110px with no way to swipe. It still reported itself
      wired with a panel lit, because "wired" and "laid out" are different
      questions and only one of them was being asked. */
-  return '<div class="fuel-body exec-rail" data-hswipe="1">'+
-      s.phases.map(renderStrategyPhase).join('')+
-    '</div>'+
-    railDotCount(s.phases.length)+
-    '<div class="how-cap">'+s.phases.map(renderStrategyPhaseCaption).join('')+'</div>';
+  /* THE CAPTIONS ARE NOT HERE ANY MORE. They are coaching sentences, and
+     the coaching on this screen lives in the Coach's Note -- the same move
+     the fuel caveats made. The rail NAMES its caption wrapper rather than
+     relying on being next to it, because the note is rendered two blocks
+     further down; see wireCoachingRail(), which resolves the id. */
+  return {
+    rail: '<div class="fuel-body exec-rail" data-hswipe="1" data-cap="exec-cap-'+dd.id+'">'+
+        s.phases.map(renderStrategyPhase).join('')+
+      '</div>'+
+      railDotCount(s.phases.length),
+    caps: '<div class="how-cap" id="exec-cap-'+dd.id+'">'+
+        s.phases.map(renderStrategyPhaseCaption).join('')+'</div>'
+  };
 }
 
 /* =========================================================
@@ -60198,7 +60268,15 @@ function wireCoachingRail(rail){
      rail in the same card can never be handed the first one's caption.
      Generic on purpose: any rail whose panels are figures and whose
      sentences are long can use it without a second mechanism. */
-  var capWrap = dotWrap ? dotWrap.nextElementSibling : null;
+  /* BY NAME FIRST. The execution rail's captions live inside the Coach's
+     Note, two blocks below it, so "the element after the dots" cannot find
+     them. A rail that names its caption wrapper gets it wherever it is; a
+     rail that does not still gets the sibling, which is how any future rail
+     can use a caption without a second mechanism. */
+  var capWrap = null;
+  var capId = rail.getAttribute ? rail.getAttribute('data-cap') : null;
+  if (capId) capWrap = document.getElementById(capId);
+  if (!capWrap && dotWrap) capWrap = dotWrap.nextElementSibling;
   if (!(capWrap && capWrap.classList && capWrap.classList.contains('how-cap'))) capWrap = null;
   var caps = capWrap ? capWrap.querySelectorAll('.how-cap-i') : null;
   var focus = 0;

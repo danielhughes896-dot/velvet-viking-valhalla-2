@@ -457,3 +457,18 @@ test('no font-family declaration anywhere resolves to a name outside the two can
         rel + ' has a font-family value outside the two canonical roles');
     });
 });
+
+test('every line in the Coach\u2019s Note reads as one voice', () => {
+  /* The execution phase sentence moved into the note carrying
+     .strat-phase-purpose's own dim colour from the table it used to live
+     in, so it sat a tier below the lines either side of it -- three
+     sentences in one block, one of them quieter for no reason the athlete
+     can see. */
+  const css = appCss();
+  const m = /\n\s*\.how-note \.v,([\s\S]{0,240}?)\{([^}]*)\}/.exec(css);
+  assert.ok(m, 'the Coach\u2019s Note no longer states one colour for its lines');
+  assert.match(m[1], /\.strat-phase-purpose/,
+    'the execution sentence is not covered by the note\u2019s colour, so it reads dimmer ' +
+    'than the lines around it');
+  assert.match(m[2], /color:var\(--ink\)/, 'the note\u2019s lines are no longer --ink');
+});

@@ -552,7 +552,11 @@ test('Execution is the same rail component as the other two', () => {
      Measured at 412px: panels 224-288px against the coaching rail's 95-116
      and fuel's 95-120. It is the tallest of the three and that is inherent
      -- it carries a sentence of coaching per phase, not a figure. */
-  assert.match(SRC, /return '<div class="fuel-body exec-rail" data-hswipe="1">'/,
+  /* Matched on the classes, not the whole attribute list: the body gained
+     data-cap when the captions moved into the Coach's Note, and an
+     assertion that pins every attribute fails for reasons that are not
+     about the law. */
+  assert.match(SRC, /<div class="fuel-body exec-rail"/,
     'the execution phases are no longer rendered as a rail body');
   assert.match(SRC, /'<div class="how-mod strat-phase">'/,
     'an execution phase is no longer a rail module');
@@ -631,23 +635,53 @@ test('the execution panels are figures and the sentence is a caption', () => {
   a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
   buildPlan(a, { weeks: 12, startDate: '2026-07-01', distanceKey: 'full', volume: 44 });
   const race = a.state.days.filter(d => d.type === 'race')[0];
-  const block = a.renderExecutionStrategyBlock(race);
+  /* ONE CALL, ONE PLAN, BOTH PARTS. The captions were briefly a second
+     function that read the strategy engine for itself; test/executionStrategy
+     refused it, and rightly -- the rail and the captions are indexed against
+     each other, so two independent reads are two chances for the athlete to
+     get one phase's panel over another phase's coaching. */
+  const parts = a.renderExecutionStrategyBlock(race);
+  const block = parts.rail;
   assert.ok(block, 'the execution block is gone');
 
-  const rail = block.slice(0, block.indexOf('</div>' + '<div class="how-dots'));
-  const caps = block.slice(block.indexOf('class="how-cap"'));
+  /* THE CAPTIONS LEFT THE BLOCK FOR THE COACH'S NOTE. renderExecutionCaptions()
+     builds them and renderDayCard() puts them in the note, so the rail is
+     read from one function and the captions from the other -- which is the
+     separation this test is about. */
+  const rail = block;
+  const caps = parts.caps;
+  assert.ok(caps, 'the execution captions are gone entirely');
+  assert.equal((rail.match(/class="how-mod strat-phase"/g) || []).length,
+               (caps.match(/class="how-cap-i/g) || []).length,
+    'the rail and its captions are different lengths, so a panel and the sentence under ' +
+    'it can be about different phases');
   const phases = (block.match(/class="how-mod strat-phase"/g) || []).length;
   assert.ok(phases >= 3, 'the phases are no longer rail modules');
 
   /* NOT A WORD LOST. One caption per phase, and the prose lives in them. */
-  assert.equal((block.match(/class="how-cap-i/g) || []).length, phases,
+  assert.equal((caps.match(/class="how-cap-i/g) || []).length, phases,
     'there is not exactly one caption per phase');
+  /* AND THE RAIL NAMES THEM, because the note is two blocks further down
+     and "the element after the dots" cannot reach it. */
+  const capId = /id="(exec-cap-[^"]+)"/.exec(caps);
+  assert.ok(capId, 'the caption wrapper has no id for the rail to point at');
+  assert.ok(block.indexOf('data-cap="' + capId[1] + '"') > -1,
+    'the rail does not point at its own captions, so swiping cannot move them');
+  const card = a.renderDayCard(race);
+  const noteAt = card.indexOf('class="how-note"');
+  assert.ok(noteAt > -1 && card.indexOf('id="' + capId[1] + '"') > noteAt,
+    'the execution captions are not inside the Coach\'s Note');
+  /* NO "EXECUTION" HEADING. Every panel names itself now -- SETTLE, HOLD,
+     PRESS, COMMIT -- and a word above a row of labels that already say what
+     they are is a label on labels, which is why FUEL went too. */
+  assert.ok(!/how-row-heading">Execution/.test(SRC),
+    'the EXECUTION title is back above a row of panels that each name themselves');
+
   assert.ok(!rail.includes('strat-phase-purpose'),
     'the coaching sentence is back inside a 125px panel, which is what made the rail ' +
     'two and a half times the height of the other two');
-  assert.equal((caps.match(/strat-phase-purpose/g) || []).length,
-    (block.match(/strat-phase-purpose/g) || []).length,
-    'a phase sentence is outside the captions');
+  assert.ok(!block.includes('strat-phase-purpose'),
+    'a phase sentence is back in the rail instead of the note');
 
   /* THE FIRST CAPTION IS LIT IN THE MARKUP. A rail whose script never ran
      would otherwise show five panels and no sentence at all -- the same
@@ -660,8 +694,30 @@ test('the execution panels are figures and the sentence is a caption', () => {
   /* AND THE WIRING SWITCHES THEM, found by position like the dots -- never
      by reaching into a parent, which is what would hand a second rail in the
      same card the first one's caption. */
-  assert.match(SRC, /var capWrap = dotWrap \? dotWrap\.nextElementSibling : null;/,
-    'the caption is no longer found as the dots\' sibling');
+  /* FOUND BY NAME, THEN BY POSITION -- never by reaching into a parent,
+     which is what would hand a second rail in the same card the first one's
+     caption. The execution captions live inside the Coach's Note now, two
+     blocks below the rail, so the sibling lookup alone cannot reach them;
+     it stays as the fallback so a future rail can use a caption without a
+     second mechanism. */
+  /* Pinned to the CONDITIONAL, not to the line that reads the attribute.
+     The first spelling asserted `var capId = rail.getAttribute(...)` and
+     passed happily when the line BELOW it was mutated to `if (false)` --
+     the attribute was still read and then thrown away. This is still source
+     text rather than behaviour, because wireCoachingRail needs a real DOM
+     and the harness stub has none; the Chromium sweep in
+     scratchpad/audit/exec.js is what actually exercises it. */
+  assert.match(SRC, /var capId = rail\.getAttribute \? rail\.getAttribute\('data-cap'\) : null;/,
+    'the rail no longer reads the name of its caption wrapper');
+  assert.match(SRC, /\n\s*if \(capId\) capWrap = document\.getElementById\(capId\);/,
+    'the rail reads its caption\'s name and then does not use it, so a caption outside ' +
+    'its own block is never found');
+  assert.match(SRC, /if \(!capWrap && dotWrap\) capWrap = dotWrap\.nextElementSibling;/,
+    'the positional fallback is gone');
+  const wire = SRC.slice(SRC.indexOf('function wireCoachingRail('));
+  const wireBody = wire.slice(0, wire.indexOf('\n}\n'));
+  assert.ok(!/parentElement[^\n]*how-cap/.test(wireBody),
+    'the caption is being found by reaching into a parent again');
   assert.match(SRC, /if \(caps\) for \(k = 0; k < caps\.length; k\+\+\)/,
     'setFocus no longer moves the caption with the lit panel');
 });

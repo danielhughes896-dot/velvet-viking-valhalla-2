@@ -193,8 +193,14 @@ test('Execution Strategy phase copy follows the unit selection', () => {
   const mi = app('mi', 'novice');
   const d = dayOf(mi, 'threshold_continuous');
   assert.ok(d, 'the fixture must contain a threshold_continuous session');
-  const html = mi.renderExecutionStrategyBlock(d);
-  assert.ok(html, 'the session earns a staged plan');
+  /* BOTH HALVES. renderExecutionStrategyBlock returns {rail, caps} since the
+     phase sentences moved into the Coach's Note -- and "[object Object]"
+     satisfies a doesNotMatch, so a test that kept reading the return value
+     as a string would pass while saying nothing at all. Joined, this now
+     covers the figures AND the prose, which is more than it checked before. */
+  const parts = mi.renderExecutionStrategyBlock(d);
+  const html = parts.rail + parts.caps;
+  assert.ok(parts.rail && parts.caps, 'the session earns a staged plan');
   assert.match(html, MI_WORD, 'the phase prose should be talking in miles');
   assert.doesNotMatch(html, KM_WORD);
   assert.equal(html.indexOf('@@'), -1, 'no raw token reaches the phase card');
@@ -205,7 +211,8 @@ test('no Execution Strategy block on miles mentions a kilometre', () => {
   const offenders = [];
   mi.state.days.forEach(d => {
     let html = '';
-    try { html = mi.renderExecutionStrategyBlock(d); } catch (e) { return; }
+    try { const p2 = mi.renderExecutionStrategyBlock(d); html = p2.rail + p2.caps; }
+    catch (e) { return; }
     if (html && KM_WORD.test(html)) offenders.push(d.date + ' ' + d.title);
     if (html && html.indexOf('@@') !== -1) offenders.push(d.date + ' raw token');
   });
