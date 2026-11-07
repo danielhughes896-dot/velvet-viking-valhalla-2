@@ -720,8 +720,25 @@
      else. What is left is light, and more of it than any other ring gets:
      this is the reading the screen is built around. */
   .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;
-    display:block; background:none; border:0; padding:0; cursor:pointer;
-    filter:drop-shadow(0 0 13px rgba(154,84,108,.58)) drop-shadow(0 0 32px rgba(154,84,108,.26));}
+    display:block; background:none; border:0; padding:0; cursor:pointer;}
+  /* ---------- THE GLOW BELONGS TO THE RING, NOT TO THE NUMBER ----------
+     This filter sat on .gauge-wrap, which is the <button> -- and the button
+     holds the ring AND .gauge-num, the 32px percentage in the middle of it.
+     A filter rasterises everything inside the element it is set on, so every
+     frame of the pulse re-rendered that number through a changing blur. Thin
+     bright glyphs are the worst possible thing to put through that, and the
+     number is the single sharpest object on the screen, so it is where the
+     stepping showed first.
+     On the svg instead: the ring glows exactly as it did, and the number is
+     no longer inside a filtered subtree at all -- it is composited once and
+     stays crisp through the whole cycle. This is what the session ring on
+     Today already does; .th-arc is the arc alone and .th-ring-in sits beside
+     it, which is why that ring's centre never showed this. */
+  .gauge-wrap > svg{
+    display:block;
+    filter:drop-shadow(0 0 13px rgba(154,84,108,.78))
+           drop-shadow(0 0 34px rgba(154,84,108,.46))
+           drop-shadow(0 0 58px rgba(154,84,108,.30));}
   /* ---------- VALHALLA TAKES THE SAME RULES ----------
      The instruments stay and the containers go. Every circle on this screen
      -- the gauge, the Reading badges, the Athlete Status dials -- is a
@@ -1789,7 +1806,12 @@
   .th-ring{position:relative; flex:none; width:clamp(116px, 35vw, 144px);
     aspect-ratio:1/1; display:block;}
   .th-arc{position:absolute; inset:0; width:100%; height:100%;
-    filter:drop-shadow(0 0 10px var(--cherry-dim));}
+    /* A MID STOP AT REST, so the cycle has somewhere brighter to go without
+       the radius ever moving. The 10px edge stays exactly --cherry-dim --
+       the 0% keyframe has to equal this or the glow jumps the moment the
+       settle delay elapses, and the suite checks both halves of that. */
+    filter:drop-shadow(0 0 10px var(--cherry-dim))
+           drop-shadow(0 0 26px rgba(154,84,108,.30));}
   /* ---- THE RING DRAWS ITSELF ON ----
      One rule for one component: TH_ARC is a single shared constant and
      renderDayTargetRing() is the only thing that emits it, so Today, This
@@ -1859,21 +1881,55 @@
      The delays are each element's own entrance plus the settle: 760+500 for
      the ring's draw, 780+500 for the bar's fill, and 500 alone for the gauge,
      which has no entrance of its own. */
+  /* ---------- A MOVING BLUR RADIUS IS WHAT LOOKED PIXELATED ----------
+     Both halos used to widen as they brightened -- 22px to 40px on the ring,
+     32px to 58px on the gauge. A drop-shadow is rasterised from the element's
+     own pixels, and a radius that changes every frame means a fresh blur
+     every frame; the browser does that work at whatever resolution the
+     compositor gave the layer, and the stepping in the falloff is what the
+     eye reads as pixelation during the pulse.
+     So the radius is now FIXED at the wide value and only the alpha travels.
+     Alpha is a multiply over an already-blurred result, which is both cheaper
+     and stable -- the same halo, lit and unlit, rather than two different
+     halos cross-fading. The shape at the crest is unchanged, because the
+     crest is where the wide radius already was.
+     BRIGHTER WITH IT, as asked: both crests go to full on the edge and the
+     halo carries much further than it did. The rest stops are untouched on
+     purpose -- 0% has to equal what the element's own rule declares or the
+     cycle jumps the moment the delay elapses, which the suite checks. */
   @keyframes vv-glow-ring{
     0%,100%{ filter:drop-shadow(0 0 10px rgba(154,84,108,.50))
-                    drop-shadow(0 0 22px rgba(154,84,108,0)); }
+                    drop-shadow(0 0 26px rgba(154,84,108,.30))
+                    drop-shadow(0 0 40px rgba(154,84,108,0)); }
+    /* NOT FULL ON THE MID STOP, and the reason is a law rather than taste:
+       the confidence gauge is the headline reading of the whole product and
+       has to out-shine the session ring on any screen. Taking both to 1 here
+       collapsed that margin from 22% to 2% measured, which the suite caught.
+       The ring keeps the far larger share of the increase it was given --
+       its crest is still well above where it started -- and the gauge sits
+       clearly above it again. */
     50%    { filter:drop-shadow(0 0 10px rgba(154,84,108,1))
-                    drop-shadow(0 0 40px rgba(154,84,108,.62)); }
+                    drop-shadow(0 0 26px rgba(154,84,108,.90))
+                    drop-shadow(0 0 40px rgba(154,84,108,.78)); }
   }
   @keyframes vv-glow-gauge{
-    0%,100%{ filter:drop-shadow(0 0 13px rgba(154,84,108,.58))
-                    drop-shadow(0 0 32px rgba(154,84,108,.26)); }
+    0%,100%{ filter:drop-shadow(0 0 13px rgba(154,84,108,.78))
+                    drop-shadow(0 0 34px rgba(154,84,108,.46))
+                    drop-shadow(0 0 58px rgba(154,84,108,.30)); }
     50%    { filter:drop-shadow(0 0 13px rgba(154,84,108,1))
-                    drop-shadow(0 0 58px rgba(154,84,108,.78)); }
+                    drop-shadow(0 0 34px rgba(154,84,108,1))
+                    drop-shadow(0 0 58px rgba(154,84,108,.98)); }
   }
+  /* The week bar takes the same treatment as the two rings. It is a
+     box-shadow rather than a filter, so it was never rasterising a subtree
+     the way the gauge was -- but a blur radius that moves every frame is
+     recomputed every frame here too, and three instruments that share a
+     language should not disagree about how their light is made. Frozen at
+     the wide radius, alpha carrying the whole pulse, and brighter at the
+     crest than it was. */
   @keyframes vv-glow-gold{
-    0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 20px rgba(227,177,90,0); }
-    50%    { box-shadow:0 0 10px rgba(227,177,90,.95), 0 0 34px rgba(227,177,90,.55); }
+    0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 34px rgba(227,177,90,.10); }
+    50%    { box-shadow:0 0 10px rgba(227,177,90,1), 0 0 34px rgba(227,177,90,.74); }
   }
   /* EACH SETTLE FOLLOWS ITS OWN ENTRANCE, and both of these entrances just
      got longer. The ring drew for 760ms, so it waited 1.26s; it now draws
@@ -1883,7 +1939,7 @@
      have begun pulsing while still drawing, which is the one thing these
      delays exist to prevent. */
   .th-arc{ animation:vv-glow-ring 3.6s ease-in-out 1.64s infinite; }
-  .gauge-wrap{ animation:vv-glow-gauge 3.6s ease-in-out 1.64s infinite; }
+  .gauge-wrap > svg{ animation:vv-glow-gauge 3.6s ease-in-out 1.64s infinite; }
   /* The bar's fill and its glow are on the SAME element, so the filling rule
      has to restate both: `animation` is a shorthand, and naming only the fill
      there would drop the glow for the life of that class. */
@@ -1906,7 +1962,7 @@
     .th-ring.is-drawing .th-arc path,
     .th-ring.is-redrawing .th-arc path{ animation:none; stroke-dasharray:none; }
     .wk-bar-fill.is-filling{ animation:none; }
-    .th-arc, .gauge-wrap, .wk-bar-fill, .gauge-fill{ animation:none; }
+    .th-arc, .gauge-wrap > svg, .wk-bar-fill, .gauge-fill{ animation:none; }
   }
   .th-ring-in{position:absolute; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:0; text-align:center;
@@ -2188,6 +2244,16 @@
      there is no edge anywhere to find. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note{
     position:relative; display:flex; flex-direction:column; gap:3px;
+    /* CENTRED, HEADING AND SENTENCE TOGETHER, by instruction. align-items
+       centres the two boxes and text-align centres the words inside them --
+       the heading is a flex item in a column, so without the first it would
+       sit centred-looking only while its text happened to fill the width.
+       Scoped where the note renders rather than to Today alone: the note is
+       one string from renderDayCard() and this is the set of surfaces that
+       show it as the coach's intervention, so centring it on one of them
+       would be the kind of per-screen drift the rest of this sheet spends
+       its length undoing. */
+    align-items:center; text-align:center;
     /* ITS OWN INTERVENTION, SO ITS OWN SPACE. 14px put it in the rail's
        rhythm, as though it were a sixth panel that had fallen below the
        others. At 32px it reads as the coach stopping to say something. */
@@ -5044,7 +5110,9 @@
   .wk-bar{margin-top:9px; height:9px; border-radius:99px; background:var(--bg-4);}
   .wk-bar-fill{height:100%; border-radius:99px;
     background:linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-bright));
-    box-shadow:0 0 10px rgba(227,177,90,.34);}
+    /* The second stop matches the cycle's 0%, so the bar does not jump when
+       the settle delay elapses -- the same rule the two rings follow. */
+    box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 34px rgba(227,177,90,.10);}
   /* The cherry hairline that sat here is gone. It was the one coloured rule
      on the screen, directly under the gold progress bar, and it separated
      the week's figures from the week's note -- two parts of the same hero

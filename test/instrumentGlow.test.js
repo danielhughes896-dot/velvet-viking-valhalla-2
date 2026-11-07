@@ -93,8 +93,36 @@ test('the edge blur never moves, the halo may, and the shadow count is fixed', (
     assert.ok(rest.length >= 2, name + ': expected an edge shadow and a halo');
     assert.equal(crest[0], rest[0],
       name + ": the edge blur moved -- that is the stroke's own definition changing");
-    assert.ok(Number(crest[1]) > Number(rest[1]),
-      name + ': the halo no longer reaches further at the crest -- it will not be felt');
+    /* REVERSED, AND THE REASON IS THE REPORT THAT CAUSED IT.
+       This used to REQUIRE the halo to widen at the crest, because the first
+       version pinned it at 22px/.30 and that was a rumour on a near-black
+       screen. The fix was right about the symptom and wrong about the cause:
+       a drop-shadow is rasterised from the element's own pixels, so a radius
+       that changes every frame means a FRESH BLUR every frame, computed at
+       whatever resolution the compositor gave that layer -- and the stepping
+       in that falloff is what "it looks slightly pixelated when pulsing"
+       turned out to be.
+       So the radius is frozen and the light does all the moving. The old
+       worry is answered by measurement rather than by motion: the halo is
+       pinned WIDE rather than narrow, and the alpha travels much further
+       than it did. Captured at the crest and at the trough and compared
+       against the previous commit, the session ring's halo is 45% brighter
+       at the crest while its resting state barely moves, which takes the
+       crest-to-trough swing from 4.97 to 15.89 -- it is felt more, not less.
+       What is held here is that outcome: the halo must be wide enough to
+       carry, and it must brighten substantially. */
+    assert.equal(crest[1], rest[1],
+      name + ': the halo blur moved between stops. A radius that changes every frame ' +
+      'forces a fresh blur every frame, and the stepping in that falloff is the ' +
+      'pixelation this was reported for. Move the alpha, not the geometry.');
+    assert.ok(Number(rest[1]) >= 26,
+      name + ': the halo is pinned at ' + rest[1] + 'px. Frozen AND narrow is the ' +
+      'combination that made the first version of this invisible -- if it cannot ' +
+      'widen it has to start wide.');
+    const haloRest = Number(alphas(stops[0])[1]), haloCrest = Number(alphas(stops[1])[1]);
+    assert.ok(haloCrest - haloRest >= 0.4,
+      name + ': the halo only brightens by ' + (haloCrest - haloRest).toFixed(2) +
+      ' across the cycle; with the radius frozen the alpha is the whole pulse.');
     // ...and the light itself must actually move.
     assert.notDeepEqual(alphas(stops[0]), alphas(stops[1]),
       name + ': rest and crest are identical -- nothing pulses');
@@ -136,6 +164,18 @@ test('every cycle begins on the element\'s own resting appearance', () => {
   assert.match(rule('.wk-bar-fill'), /box-shadow:0 0 10px rgba\(227,177,90,\.34\)/);
   assert.match(restGold, /0 0 10px rgba\(227,177,90,\.34\)/,
     'the gold bar cycle no longer starts where the bar sits');
+  /* THE WHOLE LIST, NOT JUST THE FIRST SHADOW. This checked only the 10px
+     edge, so when the bar gained a second resting shadow to match its 0%
+     stop, a mutation that deleted it again passed -- and the bar would pop
+     a halo into existence the moment the settle delay elapsed. Compared as
+     a list now, because "begins on its own resting appearance" was always a
+     claim about all of it. */
+  const shadowList = txt => (txt.match(/\d+ \d+ \d+px rgba\([^)]*\)/g) || []).join(' | ');
+  const barRest = shadowList(/box-shadow:([^;}]*)/.exec(rule('.wk-bar-fill'))[1]);
+  const cycleRest = shadowList(/box-shadow:([^;}]*)/.exec(restGold)[1]);
+  assert.equal(barRest, cycleRest,
+    'the gold bar\'s own shadows and its cycle\'s 0% stop no longer match, so the glow ' +
+    'jumps the moment the delay elapses.\n      bar:   ' + barRest + '\n      cycle: ' + cycleRest);
 });
 
 test('the timing is a settle then a gentle cycle, with each delay its own entrance plus 500ms', () => {
@@ -144,7 +184,14 @@ test('the timing is a settle then a gentle cycle, with each delay its own entran
     assert.ok(m, sel + ' does not carry a glow cycle');
     return { cycle: parseFloat(m[1]), delay: parseFloat(m[2]) };
   };
-  [['.th-arc', 1.64], ['.gauge-wrap', 1.64], ['.wk-bar-fill', 1.28]].forEach(([sel, delay]) => {
+  /* '.gauge-wrap > svg', not '.gauge-wrap'. The filter used to sit on the
+     <button>, which holds the ring AND the percentage in the middle of it --
+     and a filter rasterises everything inside the element it is set on, so
+     every frame of the pulse re-rendered that number through a changing
+     blur. On the svg the ring glows exactly as before and the number is not
+     in a filtered subtree at all. Same cycle, same delay, different element,
+     and the delay is what this test is about. */
+  [['.th-arc', 1.64], ['.gauge-wrap > svg', 1.64], ['.wk-bar-fill', 1.28]].forEach(([sel, delay]) => {
     const t = timing(sel);
     assert.ok(t.cycle >= 3 && t.cycle <= 4, sel + ': ' + t.cycle + 's is outside the 3-4s brief');
     assert.equal(t.delay, delay, sel + ': the settle no longer follows this element\'s entrance');
@@ -247,4 +294,32 @@ test('reduced motion stops the cycles, not just the entrances', () => {
   ['.th-arc', '.gauge-wrap', '.wk-bar-fill', '.gauge-fill'].forEach(sel =>
     assert.ok(all.indexOf(sel) !== -1,
       sel + ' keeps moving for a reader who asked for less motion'));
+});
+
+test('no instrument puts text inside its own animated filter', () => {
+  /* THE REPORT WAS "slightly pixelated when pulsing", AND THIS WAS HALF OF IT.
+     The gauge's filter sat on .gauge-wrap, which is the <button> -- and that
+     button holds the ring AND .gauge-num, the percentage in the middle of it.
+     A filter rasterises everything inside the element it is set on, so every
+     frame of the pulse re-rendered that number through a changing blur. Thin
+     bright glyphs are the worst thing to put through that, which is why the
+     stepping showed there first.
+     Today's session ring never had the problem because .th-arc is the arc
+     alone and .th-ring-in sits beside it. The gauge now matches: the glow is
+     on the svg, and the number is not in a filtered subtree at all. */
+  const wrap = rule('.gauge-wrap');
+  assert.doesNotMatch(wrap, /filter\s*:/,
+    '.gauge-wrap carries a filter again. It contains .gauge-num, so the percentage ' +
+    'would be rasterised through the pulse on every frame.');
+  assert.doesNotMatch(wrap, /animation\s*:\s*vv-glow/,
+    '.gauge-wrap animates a glow again — put it on the svg, which holds no text');
+  assert.match(CSS, /\.gauge-wrap > svg\{[^}]*filter:drop-shadow/,
+    'the gauge ring lost the glow that moved off the button');
+  assert.match(CSS, /\.gauge-wrap > svg\{ animation:vv-glow-gauge/,
+    'the gauge ring lost its glow cycle');
+  /* And the same claim for the ring that was always right, so a later pass
+     cannot quietly move .th-arc's filter up onto .th-ring, which wraps the
+     readout. */
+  assert.doesNotMatch(rule('.th-ring'), /filter\s*:/,
+    '.th-ring carries a filter — it wraps .th-ring-in, the pace and HR readout');
 });

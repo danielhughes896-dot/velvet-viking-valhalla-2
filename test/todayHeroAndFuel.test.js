@@ -163,3 +163,22 @@ test('two rails in one card do not share a set of dots', () => {
   assert.match(SRC, /function railDotCount\(n\)/,
     'the shared dot builder is gone, so the two rails can disagree about how to draw dots');
 });
+
+test("the Coach's Note is centred, heading and sentence together", () => {
+  /* Centred by instruction. align-items centres the two boxes and text-align
+     centres the words inside them -- the heading is a flex item in a column,
+     so without the first it would sit centred-looking only while its text
+     happened to fill the width. Both are asserted because either alone
+     leaves it looking right in one session and off in the next.
+     Scoped to the focused-session set rather than Today alone: the note is
+     one string from renderDayCard(), and centring it on one of the three
+     screens that show it is the per-screen drift this sheet spends its
+     length undoing. */
+  const esc = s2 => s2.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const note = new RegExp(esc(F) + ' \\.how-note\\{([^}]*)\\}').exec(CSS);
+  assert.ok(note, "the focused Coach's Note rule is gone");
+  assert.match(note[1], /align-items:center/,
+    "the Coach's Note heading and sentence are no longer centred as boxes");
+  assert.match(note[1], /text-align:center/,
+    "the Coach's Note words are no longer centred inside their boxes");
+});
