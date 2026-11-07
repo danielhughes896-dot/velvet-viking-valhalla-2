@@ -316,3 +316,24 @@ test('the standalone Fueling card keeps the copy that makes it guidance', () => 
       '. Today may carry one line; this card is where the full reasoning lives.');
   });
 });
+
+test('the ring keeps its heart and pace marks', () => {
+  /* THE LAST TWO GLYPHS IN FRONT OF TEXT ON THESE SCREENS, AND THEY STAY.
+     Three separate sweeps for "a glyph before a title" have surfaced these,
+     and each time the answer was the same, so it is written down here rather
+     than re-decided a fourth time.
+     What was removed was decoration before a TITLE — a sparkle ahead of
+     "What's next", an icon ahead of "Reschedule" — saying nothing the word
+     did not. These are kind-markers on a data row: the ring shows 148–156
+     and 5:23–6:24, both of which are just digits, and the glyph says which
+     is heart rate and which is pace without spending a label on it.
+     Confirmed as keep by the founder. */
+  const i = SRC.indexOf('function renderDayTargetRing(');
+  assert.ok(i > -1, 'renderDayTargetRing is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  assert.match(body, /class="th-ic">'\+ICONS\.heart/,
+    'the heart mark has been stripped from the ring. It is not decoration before a ' +
+    'title — it is what distinguishes a BPM range from a pace range at a glance.');
+  assert.match(body, /class="th-ic">'\+ICONS\.gauge/,
+    'the pace mark has been stripped from the ring; see the note beside the function');
+});

@@ -28249,6 +28249,18 @@ var TH_ARC = '<svg class="th-arc" viewBox="0 0 100 100" aria-hidden="true">'+
     '<stop offset="52%" stop-color="var(--cherry)"/>'+
     '<stop offset="100%" stop-color="var(--cherry-dim)"/>'+
   '</linearGradient></defs></svg>';
+/* ---------- THESE TWO GLYPHS STAY, AND IT IS A DECISION ----------
+   The heart and the gauge are the last glyphs in front of text on these two
+   screens, and every sweep that looks for one finds them -- three times now.
+   They are not the pattern that was removed. That pattern was decoration
+   standing between the gutter and a TITLE: a sparkle in front of "What's
+   next", an icon in front of "Reschedule", saying nothing the word did not
+   already say. These two are kind-markers on a data row. The ring carries
+   two numbers that are otherwise indistinguishable at a glance -- 148-156
+   and 5:23-6:24 are both just digits -- and the glyph is what says which is
+   the heart rate and which is the pace without spending a label on it.
+   Confirmed as keep by the founder. Asserted in test/todayHeroAndFuel so a
+   future glyph pass meets the reasoning rather than the glyphs. */
 function renderDayTargetRing(dd, targets){
   var rows = '';
   if (targets.hr)
