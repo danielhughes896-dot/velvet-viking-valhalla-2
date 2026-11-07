@@ -1170,6 +1170,11 @@
   .fuel-row:last-of-type{border-bottom:none;}
   .fuel-row .k{color:var(--ink-dim);}
   .fuel-row .v{color:var(--ink);}
+  /* The rail's two extras, off everywhere the stack renders. The long label
+     already contains the qualifier there, so showing the note as well would
+     print "25g each" twice in one row. */
+  .fuel-row .k-short{display:none;}
+  .fuel-v-note{display:none;}
   .fuel-hint{font-size:var(--fs-support); color:var(--ink-faint); margin-top:6px; line-height:var(--lh-support);}
   /* Coaching depth (athlete experience) -- presentation only. */
   .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--bronze-text);}
@@ -1702,8 +1707,13 @@
      of them read as the hero. Pure white and the same backlight recipe the
      metric uses, radii scaled to 19px type: a tight 1px halo to set the
      glyph edges off the ground, then one soft bloom. */
+  /* 19px -> 21.85px, the title up 15% by instruction. The backlight radii
+     below were scaled to 19px type and are left alone: they are a halo and
+     two blooms in absolute pixels, and at 22px the same halo still sets the
+     glyph edges off the ground -- growing them with the type would have
+     spread the bloom past the card rather than lighting the word. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-title{
-    display:block; font-size:19px; font-weight:600; line-height:1.2;
+    display:block; font-size:21.85px; font-weight:600; line-height:1.2;
     letter-spacing:.04em; text-transform:uppercase; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
                 0 0 34px rgba(255,255,255,.10);}
@@ -1748,15 +1758,23 @@
   /* Pure white, lit from behind rather than blurred: a tight 1px halo keeps
      the glyph edges crisp, a mid bloom gives the backlight, a wide faint one
      carries it into the card. */
+  /* THE DISTANCE UP 20%, BY INSTRUCTION, AND ALL THREE CLAMP STOPS WITH IT.
+     38/12vw/48 -> 45.6/14.4vw/57.6. Scaling the preferred value and both
+     bounds together is what keeps the figure's response to screen width
+     proportional; raising only the ceiling would have left every phone
+     narrower than ~400px at the old size and made the increase arrive as a
+     step at one width. */
   .th-dist span{font-family:var(--text-face); font-weight:700; line-height:1;
-    font-size:clamp(38px, 12vw, 48px); letter-spacing:-0.02em;
+    font-size:clamp(45.6px, 14.4vw, 57.6px); letter-spacing:-0.02em;
     font-variant-numeric:tabular-nums; color:#FFFFFF;
     /* Already pure white at peak 255; what it gains here is REACH -- a
        wider, stronger bloom, which is lit area rather than a brighter
        glyph, for the same reason the ring gained stroke. */
     text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 20px rgba(255,255,255,.42),
                 0 0 54px rgba(255,255,255,.22);}
-  .th-dist em{font-style:normal; font-weight:700; font-size:clamp(24px, 8vw, 32px);
+  /* The unit travels with the number -- "15km" is one figure, and leaving
+     "km" behind would have changed the proportion between them. */
+  .th-dist em{font-style:normal; font-weight:700; font-size:clamp(28.8px, 9.6vw, 38.4px);
     color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.34);}
 
@@ -2101,6 +2119,46 @@
     background:var(--gold-bright); opacity:1;
     box-shadow:0 0 8px color-mix(in srgb, var(--gold-bright) 60%, transparent);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod > *{position:relative; z-index:1;}
+  /* ---------- FUEL TAKES THE SAME PANEL AS WHY / EXECUTION / FEEL ----------
+     .fuel-row inside a module, laid out as .how-mod .how-row is laid out
+     three rules above: block, centred, heading over value. The declarations
+     are repeated rather than the selector joined, because .fuel-row is a
+     flex ledger everywhere else and every one of these has to beat that
+     rather than merely sit beside it.
+     The SHORT label shows here and the long one does not. At 17px a 34%
+     column is 96px of ink on a 360px phone -- the measurement that set 17px
+     as the ceiling for "Watch For" -- and "Gels / chews (25g each)" is three
+     lines in that space. The qualifier is not dropped: it moves under the
+     number, where it reads as a footnote to the figure it qualifies. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row{display:block; padding:0; border:0; font-size:inherit;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k-long{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k-short{display:block;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k{
+    display:block; font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:17px; letter-spacing:.055em; text-transform:uppercase;
+    margin-bottom:10px; text-align:center; color:var(--gold-text);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .v{
+    display:block; text-align:center; color:var(--ink-dim);
+    font-size:var(--fs-support); line-height:1.6;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-v-note{
+    display:block; margin-top:4px; font-family:var(--text-face);
+    font-size:var(--fs-micro, 11.5px); color:var(--ink-faint); letter-spacing:0;}
+  /* The heading above the rail is the group's name, not a panel's, so it
+     keeps the left edge every other section heading sits on. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-fuel .how-row-heading{text-align:left;}
+  /* ---------- A FUEL COLUMN IS WIDER THAN A COACHING ONE ----------
+     Same panel, same 17px heading, more room under it. At the coaching
+     rail's 34% a fuel column is 129px, which is 103px of text, and measured
+     there "TOTAL CARBS" and "GELS / CHEWS" both wrapped to two lines -- the
+     exact thing the 17px ceiling three rules above exists to prevent, since
+     a two-line heading over a one-line figure is a different panel from its
+     neighbours.
+     Widening the column rather than shrinking the type keeps the heading in
+     the register the athlete has just read four of, and it makes the rail
+     SHORTER, not taller: its height follows the tallest module, and nothing
+     wrapping is what brings that down. The content is a figure, not a
+     sentence, so the extra width costs nothing in white space. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-fuel .how-mod{flex:0 0 40%; min-width:134px;}
   /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
      It was a bordered, tinted rectangle -- the one boxed thing left inside a
      rail built to have no boxes. The box goes; what marks it out is that its
@@ -27495,11 +27553,15 @@ function railDotsHtml(gd, dd, stratBlock, fuelOn){
   if (!stratBlock && gd.how) n++;
   if (gd.feel) n++;
   if (gd.avoid) n++;
+  return railDotCount(n);
+}
+/* Shared with the fuel rail, which counts its own modules. THE DOTS ARE A
+   RAIL'S HINT, and they retire like every other one: they say "there is more
+   here, sideways", which is worth saying exactly until the athlete has gone
+   sideways once. After that they are grey dots under the thing they were
+   pointing at. */
+function railDotCount(n){
   if (n < 2) return '';
-  /* THE DOTS ARE THIS RAIL'S HINT, and they retire like every other one.
-     They say "there is more here, sideways", which is worth saying exactly
-     until the athlete has gone sideways once. After that they are three
-     grey dots under the thing they were pointing at. */
   if (swipeLearned('rail')) return '';
   var dots = '';
   for (var i=0; i<n; i++) dots += '<span class="how-dot"></span>';
@@ -27695,7 +27757,10 @@ function renderCoachingDepth(dd, pre){
          always had. Unchanged markup and unchanged presentation -- they have
          simply stopped being asked to be something they are not. */
       (stratBlock ? '<div class="how-table"><div class="how-row-heading">Execution</div>'+stratBlock+'</div>' : '')+
-      (fuelOn ? '<div class="how-table"><div class="how-row-heading">Fuel</div>'+fuelSectionBody(dd)+'</div>' : '')+
+      /* Fuel is a rail now, not the second table. Its wrapper keeps
+         .how-table so the spacing above it is unchanged, and gains .how-fuel
+         so the rail rules can reach it. */
+      (fuelOn ? '<div class="how-table how-fuel"><div class="how-row-heading">Fuel</div>'+fuelRailHtml(dd)+'</div>' : '')+
       /* THE COACH'S NOTE LEAVES THE RAIL. It is not a fifth thing to swipe
          past -- it is the one sentence written about THIS athlete on THIS
          day, and everything above it is written about the session. So it
@@ -27727,7 +27792,17 @@ function fmtFluidEstimate(mlLow, mlHigh){
 // Same reasoning, smaller effect: a carbohydrate total carries the duration
 // estimate too, so it is rounded to the nearest 5g rather than shown exact.
 function roundCarbEstimate(g){ return Math.max(5, Math.round(g/5)*5); }
-function fuelSectionBody(dd){
+/* ---------- THE FUEL FACTS, COMPUTED ONCE, RENDERED TWO WAYS ----------
+   This used to build its markup inline, which was fine while there was one
+   way to show it. There are two now: the stacked table the standalone
+   Fueling card still renders, and the rail on a focused session. The
+   arithmetic is identical for both and lives here, so the two renderers
+   cannot drift into disagreeing about how many gels a session needs.
+   Labels carry a `short` where the full one is a phrase rather than a name.
+   A rail module is a 34%-wide column and "Gels / chews (25g each)" does not
+   fit one at heading size -- but the qualifier is not decoration, so it
+   moves into the value line rather than being dropped. */
+function fuelFacts(dd){
   var durSec = getDayDurationSec(dd);
   var hours = durSec/3600;
   var band = fuelCarbRange(hours);
@@ -27735,20 +27810,72 @@ function fuelSectionBody(dd){
   var gelsLow = Math.max(1,Math.round(carbsLow/FUEL_GEL_CARB_G)), gelsHigh = Math.max(1,Math.round(carbsHigh/FUEL_GEL_CARB_G));
   var fluidLow = hours*FUEL_FLUID_ML_PER_HOUR_LO, fluidHigh = hours*FUEL_FLUID_ML_PER_HOUR_HI;
   var h = Math.floor(durSec/3600), m = Math.round((durSec%3600)/60);
-  return '<div class="fuel-row"><span class="k">Est. time-on-feet</span><span class="v font-mono">'+h+'h '+(m<10?'0':'')+m+'m</span></div>'+
-    '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">'+band.lo+'\u2013'+band.hi+'g/hr</span></div>'+
-    '<div class="fuel-row"><span class="k">Total carbs (est.)</span><span class="v font-mono">\u2248'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
-    '<div class="fuel-row"><span class="k">Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
-    '<div class="fuel-row"><span class="k">Fluid guide (est.)</span><span class="v font-mono">'+fmtFluidEstimate(fluidLow, fluidHigh)+'</span></div>'+
-    /* The upper carbohydrate end is conditional, so it is never shown as a
-       bare number the athlete might read as a target. */
-    (band.prolonged
-      ? '<div class="fuel-hint">The top of that range is for well-practised guts and needs a mixed-carbohydrate product \u2014 build up to it in training rather than treating it as the target.</div>'
-      : '')+
-    /* Fluid is a starting point, not a quota. ACSM\u2019s own emphasis is that
-       sweat rate varies enormously between athletes and conditions. */
-    '<div class="fuel-hint">Fluid is a starting guide, not a target \u2014 sweat rates vary a lot, so drink to thirst and adjust for the heat rather than forcing the number.</div>'+
-    '<div class="fuel-hint">Dial this in during training \u2014 don\u2019t try anything new on '+vGoalDay().toLowerCase()+'.</div>';
+  var rows = [
+    { k:'Est. time-on-feet', short:'Time on feet', v:h+'h '+(m<10?'0':'')+m+'m' },
+    { k:'Carb intake', short:'Carb intake', v:band.lo+'\u2013'+band.hi+'g/hr' },
+    { k:'Total carbs (est.)', short:'Total carbs', v:'\u2248'+carbsLow+'\u2013'+carbsHigh+'g' },
+    { k:'Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)', short:'Gels / chews',
+      v:gelsLow+'\u2013'+gelsHigh, note:'\u2248'+FUEL_GEL_CARB_G+'g each' },
+    { k:'Fluid guide (est.)', short:'Fluid', v:fmtFluidEstimate(fluidLow, fluidHigh) }
+  ];
+  var hints = [];
+  /* The upper carbohydrate end is conditional, so it is never shown as a
+     bare number the athlete might read as a target. */
+  if (band.prolonged) hints.push('The top of that range is for well-practised guts and needs a mixed-carbohydrate product \u2014 build up to it in training rather than treating it as the target.');
+  /* Fluid is a starting point, not a quota. ACSM\u2019s own emphasis is that
+     sweat rate varies enormously between athletes and conditions. */
+  hints.push('Fluid is a starting guide, not a target \u2014 sweat rates vary a lot, so drink to thirst and adjust for the heat rather than forcing the number.');
+  hints.push('Dial this in during training \u2014 don\u2019t try anything new on '+vGoalDay().toLowerCase()+'.');
+  return { rows:rows, hints:hints };
+}
+/* The stack. Byte-identical to what this function returned before the split,
+   because the standalone Fueling & Hydration card still renders it and that
+   surface is not part of this change. */
+function fuelSectionBody(dd){
+  var f = fuelFacts(dd);
+  return f.rows.map(function(r){
+      return '<div class="fuel-row"><span class="k">'+r.k+'</span>'+
+             '<span class="v font-mono">'+r.v+'</span></div>';
+    }).join('')+
+    f.hints.map(function(t){ return '<div class="fuel-hint">'+t+'</div>'; }).join('');
+}
+/* ---------- FUEL IS FIVE FACTS, NOT A TABLE ----------
+   It rendered as a five-row ledger -- label left, number right, ruled down
+   the middle -- directly under WHY / EXECUTION / FEEL, which are panels of
+   light the athlete swipes through. Two registers for the same kind of
+   thing, one screen apart.
+   The sheet's note above the rail said tables stay out of it, and it was
+   right about the one it was written for: a staged execution is SETTLE,
+   PRESS, RECOVER, ABSORB with a pace and an instruction each, which is
+   genuinely tabular and unreadable at a quarter of a phone. Fuel is not
+   that. It is five short label/value pairs -- exactly the shape of a
+   module -- so it takes the same rail, the same swipe and the same light.
+   The modules wrap .fuel-row, not .how-row, and that is deliberate: outside
+   a focused session .how-mod is display:contents, so This Week and Full
+   Plan collapse these straight back into the stacked table they already
+   render, byte for byte. */
+function fuelRailHtml(dd){
+  var f = fuelFacts(dd);
+  var mods = f.rows.map(function(r, i){
+    /* BOTH LABELS TRAVEL IN THE STRING AND CSS CHOOSES. renderDayCard() has
+       to emit one identical string for Today, This Week and Full Plan --
+       test/editSessionCoherence holds that -- so the rail cannot be given
+       different words at render time. The long label is the one the stacked
+       table has always shown; the short one is what fits a 34% column at
+       heading size. Exactly one of the two is ever display:none, so a screen
+       reader hears one label, not both. */
+    return '<div class="how-mod" data-mod="fuel-'+i+'">'+
+      '<div class="fuel-row"><span class="k">'+
+        '<span class="k-long">'+r.k+'</span>'+
+        '<span class="k-short">'+r.short+'</span>'+
+      '</span>'+
+      '<span class="v font-mono">'+r.v+
+        (r.note ? '<span class="fuel-v-note">'+r.note+'</span>' : '')+
+      '</span></div></div>';
+  }).join('');
+  return '<div class="fuel-body" data-hswipe="1">'+mods+'</div>'+
+    railDotCount(f.rows.length)+
+    f.hints.map(function(t){ return '<div class="fuel-hint">'+t+'</div>'; }).join('');
 }
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
@@ -59499,8 +59626,15 @@ function wireCoachingRail(rail){
      lay itself out. */
   rail.__vvRailed = true;
   var n = mods.length;
-  var card = rail.parentNode;
-  var dots = (card && card.querySelectorAll) ? card.querySelectorAll('.how-dot') : null;
+  /* THE DOTS A RAIL OWNS ARE ITS OWN. This read them from the rail's parent,
+     which was unambiguous while the card held one rail. Fuel is a second
+     rail inside the same <details>, so a parent lookup would hand the
+     coaching rail both sets and light a fuel dot when the athlete swiped
+     Why. railDotCount() emits them as the rail's immediate next sibling, so
+     that is where they are read from. */
+  var after = rail.nextElementSibling;
+  var dotWrap = (after && after.classList && after.classList.contains('how-dots')) ? after : null;
+  var dots = dotWrap ? dotWrap.querySelectorAll('.how-dot') : null;
   var focus = 0;
 
   if (n > 1){
