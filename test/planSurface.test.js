@@ -348,3 +348,40 @@ test('the day the block is for is a panel, not another row', () => {
   const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
   assert.doesNotMatch(src, /class="rd-flag"/, 'Race Day leads with a glyph again');
 });
+
+test('This Week says the week; the block name belongs to Full Plan', () => {
+  /* The subline read "Full Marathon · Week 10 of 14" under a title that
+     already says "Week 10 · Taper" — the block's name twice removed from the
+     screen that is about this week. It is kept on the Full Plan hero, where
+     the block IS the title and the week is what sits under it, so the two
+     branches of renderWeekHeroBlock() are asserted separately. */
+  const i = SRC.indexOf('function renderWeekHeroBlock(');
+  assert.ok(i > -1, 'renderWeekHeroBlock is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  const [before, asBlock] = body.split('if (asBlock){');
+  assert.ok(asBlock, 'the asBlock branch is gone');
+
+  assert.ok(!/sub\.push\(/.test(before),
+    "This Week's hero is building a subline again. The week number is in the title " +
+    'above it and the block name belongs to Full Plan.');
+  assert.match(asBlock, /sub = \(parts\.wk && parts\.total\)/,
+    'the Full Plan hero lost the week line under the block name');
+
+  /* The space the subline occupied stays. Measured before it went: title
+     ended y30, subline ran 33..53, figures began y64 — so with nothing
+     between them the figures climb 23px and the hero reads as a smaller
+     thing. Matched on the adjacency so the Full Plan hero is untouched. */
+  assert.match(CSS, /\.wk-hero-title \+ \.wk-hero-figs\{margin-top:34px;?\}/,
+    "the removed subline's space is gone with it, and the hero has tightened up");
+});
+
+test('the week status chip shares an edge with the figure under it', () => {
+  const chip = /\n  \.wk-chip\{([^}]*)\}/.exec(CSS);
+  assert.ok(chip, '.wk-chip rule is gone');
+  assert.match(chip[1], /right:0/,
+    'the chip is inset from the gutter again. The percentage below it sits flush on the ' +
+    "hero's right edge, so an inset chip is the one thing on this hero not lining up " +
+    'with the edge everything else is measured from.');
+  assert.match(chip[1], /position:absolute/,
+    'the chip left the hero’s own coordinate space, so right:0 no longer means the gutter');
+});

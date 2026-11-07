@@ -498,3 +498,41 @@ test('every coaching module can reach the reading position', () => {
     'the empty trailing spacer is back; the focus model does not need it');
 });
 
+
+test('a card rebuilt in place comes back with working rails', () => {
+  /* REPORTED AS "once the session is complete the rails don't work", and the
+     "once complete" is the whole clue.
+     replaceCard() swaps a day card's element for a freshly rendered one.
+     The coaching rails are wired by wireCoachingRails(), which only ever ran
+     inside renderApp() — so a card rebuilt in place came back with new
+     .fuel-body elements no script had touched: no focus, no .is-active, no
+     handlers, no height. Reproduced in Chromium by ticking the session
+     complete the way an athlete does: before the tick the rail reported
+     wired=true with module 0 active; after it, wired=false, active=-1, and
+     a swipe did nothing.
+     Completing a session is what makes the prescription reference, which
+     turns Session Details into a tab, which re-renders the card through
+     here. On a page load the same state works, because renderApp() ran —
+     which is why this never showed up in a reload-based check. */
+  const i = SRC.indexOf('function replaceCard(');
+  assert.ok(i > -1, 'replaceCard is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  assert.match(body, /wireCoachingRails\(\)/,
+    'replaceCard() no longer re-wires the rails it just rebuilt. Every card it replaces ' +
+    'comes back dead: no active module, no swipe, no height.');
+  assert.match(body, /replaceChild[\s\S]*wireCoachingRails\(\)/,
+    'the re-wire has to run AFTER the new card is in the document — wiring the old ' +
+    'element achieves nothing');
+  /* And the guard that makes re-wiring safe to call anywhere. */
+  const w = SRC.indexOf('function wireCoachingRail(');
+  const wbody = SRC.slice(w, SRC.indexOf('\n}\n', w));
+  /* The EARLY RETURN specifically, not merely a mention of the flag: it is
+     also assigned further down, so checking that the name appears somewhere
+     in the function passes even when the guard has gone — which is exactly
+     what a mutation of this proved. Without the early return, replaceCard
+     re-wires rails that are already live and every swipe after that is
+     handled twice. */
+  assert.match(wbody, /if\s*\([^)]*\.__vvRailed\s*\)\s*return/,
+    'wireCoachingRail no longer returns early on a rail it has already wired, so ' +
+    "replaceCard's unconditional call will double-bind every live rail on the screen");
+});

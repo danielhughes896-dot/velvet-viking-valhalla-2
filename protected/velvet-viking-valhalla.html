@@ -5116,7 +5116,12 @@
     background:none; border:0; box-shadow:none; border-radius:0;
     padding:4px 0 18px;
   }
-  .wk-chip{position:absolute; top:13px; right:14px;
+  /* right:0, not 14. The percentage below it sits flush on the hero's right
+     edge, so a chip inset by 14 was the one thing on this hero not lining up
+     with the gutter everything else is measured from. They share an edge now
+     -- the chip reads as the heading of the number under it rather than as a
+     badge floating near the corner. */
+  .wk-chip{position:absolute; top:13px; right:0;
     display:inline-flex; align-items:center; gap:6px;
     padding:4px 10px 4px 8px; border-radius:99px;
     background:rgba(255,255,255,.04); border:1px solid var(--t-tile-rim);
@@ -5130,6 +5135,13 @@
   .wk-hero-sub{margin-top:3px; color:var(--ink-dim);}
   .wk-hero-figs{display:flex; align-items:baseline; justify-content:space-between;
     gap:12px; margin-top:11px;}
+  /* THE REMOVED SUBLINE'S SPACE, KEPT. Measured before it went: the title
+     ended at y30, the subline ran 33..53 and the figures began at y64. With
+     nothing between them the figures would climb 23px and the hero would
+     read as a tighter, smaller thing. 34 puts them back exactly where they
+     were. Matched on the adjacency, so the Full Plan hero -- which still
+     renders a subline -- is untouched. */
+  .wk-hero-title + .wk-hero-figs{margin-top:34px;}
   /* The completed figure is the one that moves, so it is the one that is lit
      -- the same backlight the Today hero's distance uses. */
   .wk-hero-vol b{font-size:27px; font-weight:700; color:var(--gold);
@@ -55496,12 +55508,29 @@ function patchDerivedStats(){
     if (volEl) volEl.textContent = kmToDisplay(vol.doneTraining)+'/'+kmToDisplay(vol.training);
   }
 }
+/* ---------- A REPLACED CARD IS NEW DOM, AND NEW DOM IS UNWIRED ----------
+   This swaps the card's element for a freshly rendered one, which is the
+   right thing to do and was silently costing the coaching rails. They are
+   wired by wireCoachingRails(), which only ever ran inside renderApp() --
+   so a card rebuilt in place came back with new .fuel-body elements that no
+   script had ever touched: no focus, no .is-active, no handlers, no height.
+   Reported as "once the session is complete the rails don't work", and that
+   is exactly when it bites. Completing a session makes the prescription
+   reference, which turns Session Details into a tab, which means the card
+   is re-rendered -- through here -- the moment the athlete ticks it. On a
+   page load the state is the same and the rails work, because renderApp()
+   ran; the bug needs the completion to happen in front of you.
+   Re-wiring here rather than at the call sites because there are sixteen of
+   them and every one of them has the same problem. wireCoachingRails()
+   skips a rail it has already wired, so this costs nothing on cards that
+   had no rail or were already live. */
 function replaceCard(dd){
   var cardEl = document.getElementById('day-'+dd.id);
   if (!cardEl) return;
   var wrapper = document.createElement('div');
   wrapper.innerHTML = renderDayCard(dd);
   cardEl.parentNode.replaceChild(wrapper.firstChild, cardEl);
+  wireCoachingRails();
 }
 
 /* =========================================================
@@ -56396,9 +56425,18 @@ function renderWeekHeroBlock(weekNum, asBlock){
   var parts = blockIdentityParts();
   var planned = vol.training, done = vol.doneTraining;
   var pct = planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0;
+  /* ---------- THIS WEEK SAYS THE WEEK, NOT THE BLOCK ----------
+     The subline read "Full Marathon · Week 10 of 14" under a title that
+     already says "Week 10 · Taper". The block's name belongs to Full Plan,
+     which leads with it, and the week number is in the line above. Removed
+     from this hero and KEPT on the Full Plan one, where the block's name is
+     the title and the week is what sits under it -- see the asBlock branch
+     below, which builds its own.
+     The space it occupied stays. A hero that tightens up the moment a line
+     is removed reads as a smaller hero; the air above the figures is what
+     the title and the chip sit in. .wk-hero-title + .wk-hero-figs carries
+     it, matched only when nothing is between the two. */
   var sub = [];
-  if (parts.label) sub.push(parts.label.replace(/ Build$/,''));
-  if (parts.wk && parts.total) sub.push('Week '+parts.wk+' of '+parts.total);
   var taper = isTaperWeek(weekNum);
   /* "Week 10 \u00b7 Taper". weekPhaseLabel() already answers "what kind of
      week is this", but for an ordinary week its answer IS "Week 10", so
