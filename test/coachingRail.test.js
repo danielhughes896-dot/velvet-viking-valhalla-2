@@ -721,3 +721,60 @@ test('the execution panels are figures and the sentence is a caption', () => {
   assert.match(SRC, /if \(caps\) for \(k = 0; k < caps\.length; k\+\+\)/,
     'setFocus no longer moves the caption with the lit panel');
 });
+
+test('the execution rail carries no heart rate', () => {
+  /* MEASURED ACROSS THE BLOCK, and the numbers are why this was a decision
+     rather than a tidy-up:
+       race       phases ["157-164" x5]                     ring: none
+       long       phases ["148-156" x2]                     ring: 148-156
+       tempo      phases [null,"157-164",null]              ring: 157-164
+       interval   phases [null,"178-190",null,null]         ring: >178  (day: 153-168)
+     The first two repeat one band in every 125px panel. The last two do
+     not -- and on an interval the work band is not the day's band, so
+     taking it off this screen loses that number. The founder saw both and
+     chose: the rail is pace and distance.
+     WHAT THIS GUARD IS FOR is that the decision stays a decision. A band
+     creeping back into a 125px column is the regression. */
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {}; a.flushSave = () => {};
+  buildPlan(a, { weeks: 11, startDate: a.addDays(a.todayStr(), -9 * 7), distanceKey: 'full',
+    volume: 46, benchSec: 45 * 60, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [0,1,2,3,4,5,6], longRunDay: 6 } });
+  a.state.athlete = a.makeAthleteRecord();
+
+  let covered = 0;
+  a.state.days.forEach(d => {
+    let parts; try { parts = a.renderExecutionStrategyBlock(d); } catch (e) { return; }
+    if (!parts || !parts.rail) return;
+    covered++;
+    assert.ok(!/BPM/.test(parts.rail),
+      d.type + ': a heart-rate band is back in the execution rail');
+  });
+  assert.ok(covered >= 3, 'the fixture no longer exercises the execution rail');
+
+  /* AND THE DAY'S OWN BAND IS UNTOUCHED WHEREVER IT EXISTED. Removing it
+     from the rail must not have reached getDayTargets(), which is what
+     Today, This Week and the ring all read. */
+  const tempo = a.state.days.filter(d => d.type === 'tempo')[0];
+  if (tempo) assert.ok(/BPM/.test(a.renderDayTargetRing(tempo, a.getDayTargets(tempo))),
+    'the day-level band has been removed from the ring as well — only the rail was asked for');
+
+  /* THE RING WAS NOT GIVEN A RACE BAND. A pass before this lifted
+     executionHRTarget() onto the race ring; the heart rate came off the
+     rail altogether instead, so there is nothing to lift. */
+  assert.ok(!/executionHRTarget\(dd\)/.test(
+    SRC.slice(SRC.indexOf('function renderDayTargetRing('),
+              SRC.indexOf('\n}\n', SRC.indexOf('function renderDayTargetRing(')))),
+    'the ring is deriving a heart rate of its own again');
+});
+
+test('the session back bar does not repeat the hero', () => {
+  /* It printed displayCardTitle(dd) -- "Full Marathon Race Day" -- directly
+     above a hero whose first line is the same string three times the size. */
+  const i = SRC.indexOf('function renderPlanSessionView(');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  assert.ok(!/planBackBar\([^)]*displayCardTitle/.test(body),
+    'the back bar is printing the session title again, directly above the hero that says it');
+  assert.match(body, /planBackBar\(dow\(dd\.date\)\+', '\+dShort\(dd\.date\), ''\)/,
+    'the back bar no longer leads with the date');
+});

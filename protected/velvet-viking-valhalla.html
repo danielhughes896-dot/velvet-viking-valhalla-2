@@ -28522,6 +28522,12 @@ function renderDayTargetRing(dd, targets){
      The glyph is there for the reason the heart and the gauge are: the ring
      prints bare figures, and 4:58/km and 3:29:45 are both just digits until
      something says which is which. */
+  /* The race's own band was briefly lifted here from executionHRTarget(),
+     when the plan was to take it off the rail but keep it on the screen.
+     The heart rate came off the rail altogether instead, so there is
+     nothing to lift: a race still shows no band, exactly as it did before,
+     because getDayTargets() gives it none and a race has no training zone.
+     targets.hr is untouched for every day that does have one. */
   if (dd && dd.type === 'race'){
     var rp = null;
     try { rp = raceExecutionPlan(dd.km || 0); } catch(e) { rp = null; }
@@ -29922,9 +29928,23 @@ function fmtStrategySpan(ph){
    width where a sentence belongs. Nothing is lost, every panel drops into
    the 95-120px band the other two rails live in, and the lit panel earns a
    job beyond looking lit. */
+/* ---------- THE EXECUTION RAIL CARRIES NO HEART RATE ----------
+   It printed a band under every phase, and on a race that was the same
+   band five times -- SETTLE, HOLD, HOLD, PRESS, COMMIT all saying
+   157-164 BPM -- a line in every 125px panel to say one thing about the
+   whole session. A first pass dropped it only where the phases agreed and
+   lifted the race's band onto the ring. Founder's decision after seeing
+   both: the rail is pace and distance, and the heart rate comes off it
+   entirely.
+   WHAT THAT COSTS, STATED RATHER THAN HIDDEN: on a tempo and an interval
+   the phases did NOT agree -- only the work block carried a band, and an
+   interval's work band (178-190) is not the day's (153-168). That work
+   band is no longer on this screen. The ring still shows the day's band
+   for every session that has one, which is the number the athlete is
+   scored against; the per-rep one is gone. */
 function renderStrategyPhase(ph){
   var target = fmtStrategyPace(ph.pace, ph.paceRole);
-  var hr = fmtStrategyHR(ph.hr);
+  var hr = null;
   // 'Conditional' is HQ's own word for paceRole 'open' -- available only if
   // the earlier phases were executed. The number itself is unchanged; only
   // this tag marks it as conditional rather than a flat command.
@@ -29995,6 +30015,7 @@ function renderExecutionStrategyBlock(dd){
   var s;
   try { s = executionStrategyForDisplay(dd); } catch(e) { return NONE; }
   if (!s || s.suppressed || !s.phases || !s.phases.length) return NONE;
+
   /* The rail's own body, not a stack: each phase is a module, and the dots
      below it are the same hint the other two rails give. */
   /* NOT .strat-phases. That class is the old vertical stack --
@@ -57282,8 +57303,11 @@ function renderPlanWeekView(weekNum){
 function renderPlanSessionView(){
   var dd = findDay(planSessionOpen);
   if (!dd){ planSessionOpen = null; return renderFullPlanView(); }
+  /* NO SUBTITLE. It printed displayCardTitle(dd) -- "Full Marathon Race
+     Day" -- directly above a hero whose first line is the same string at
+     three times the size. The date is what this bar is for. */
   return '<div class="view-plan-session">'+
-    planBackBar(dow(dd.date)+', '+dShort(dd.date), displayCardTitle(dd))+
+    planBackBar(dow(dd.date)+', '+dShort(dd.date), '')+
     renderDayCard(dd)+
     /* The strategy governs THIS session's execution blocks, so it lives with
        them rather than up on the plan list beside the date. Rendered from the
