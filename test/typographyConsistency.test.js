@@ -313,10 +313,22 @@ test('a number the athlete acts on outranks the prose around it', () => {
     return out;
   };
   const rule = sel => rules(sel).join(';');
+  /* ONE INDIRECTION IS ALLOWED, AND IT IS CHECKED. The Full Plan week row
+     reads --fs-row so its four items cannot drift apart from each other,
+     and --fs-row is var(--fs-data) -- the same tier, named once for the
+     row. A rule pointing at --fs-row therefore satisfies this law; a rule
+     pointing at a hand-set number does not, and neither does an --fs-row
+     that has stopped being --fs-data. */
+  const rowTier = /--fs-row:\s*var\(--fs-data\)/.test(css);
   ['.wc-metric', '.strat-phase-span', '.view-plan .pp-body .week-vol .v',
    '.view-plan .pp-body .week-pct', '.week-pct'].forEach(sel => {
-    assert.match(rule(sel), /font-size:var\(--fs-data\)/,
-      sel + ' is a metric set off the data tier again');
+    const body = rule(sel);
+    const direct = /font-size:var\(--fs-data\)/.test(body);
+    const viaRow = /font-size:var\(--fs-row\)/.test(body) && rowTier;
+    assert.ok(direct || viaRow,
+      sel + ' is a metric set off the data tier again' +
+      (/font-size:var\(--fs-row\)/.test(body) && !rowTier
+        ? ' — it reads --fs-row, but --fs-row is no longer var(--fs-data)' : ''));
   });
   // --fs-data must stay at or above the support tier, or the rule above
   // would be satisfied by a token that had itself shrunk below the prose.

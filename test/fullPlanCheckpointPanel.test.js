@@ -90,12 +90,31 @@ test('Full Plan chronology closes cleanly — no empty container left behind', (
 // =====================================================================
 
 test('the checkpoint week is still visibly identified as one', () => {
+  /* ---------- WHERE THIS IS NOW SAID, AND WHAT THAT COST ----------
+     This asserted the name on the COLLAPSED week head. "Fitness Checkpoint"
+     measured 127px there -- 84px wider than any other label on a row whose
+     whole budget is 380 -- and it alone decided how large every item on
+     every other row could be. Numbered, the row went from 13.5px to the
+     app's own 15px metric tier.
+     SO THE COLLAPSED ROW NO LONGER SAYS IT, and that is a real loss, stated
+     rather than hidden: on a Full Plan with every phase shut, nothing marks
+     week N as the checkpoint. Open the week and the session names itself --
+     "Fitness Checkpoint: 3km Time Trial" -- which is the claim the test
+     below this one already makes, and the name is unchanged everywhere the
+     week is read rather than scanned: the week screen, the export, the
+     coach's summary. Founder's call, made with that trade in front of them.
+     What is still asserted is the part that matters: the designation EXISTS
+     and the athlete can reach it. */
   const { a, chk } = athlete();
-  assert.equal(a.weekPhaseLabel(chk.week), 'Fitness Checkpoint');
-  const html = a.renderWeeksList(false);
-  const card = html.slice(html.indexOf('id="week-' + chk.week + '"'));
-  assert.match(card.slice(0, 800), /Fitness Checkpoint/,
-    'the week designation still names it on the card head');
+  assert.equal(a.weekPhaseLabel(chk.week), 'Fitness Checkpoint',
+    'the checkpoint week has lost its designation entirely, not just on the list row');
+  const open = a.renderWeeksList(true);
+  assert.match(open, /Fitness Checkpoint/,
+    'the checkpoint is not identified anywhere on Full Plan, open or closed');
+  const closed = a.renderWeeksList(false);
+  const head = closed.slice(closed.indexOf('id="week-' + chk.week + '"'));
+  assert.match(head.slice(0, 800), new RegExp('>Week ' + chk.week + '<'),
+    'the collapsed row neither names the checkpoint nor numbers it — it says nothing');
 });
 
 test('the checkpoint session still renders inside its week', () => {

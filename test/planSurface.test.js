@@ -796,22 +796,160 @@ test('the week list runs in columns, not wherever each row’s figures end', () 
   const pct = rule('.view-plan .pp-body .week-pct');
   assert.match(vol, /flex:0 0 \d+px/,
     'the week volume is sized to its own content again, so the column goes ragged');
-  assert.match(vol, /text-align:center/,
-    'the volume is not centred in its column, so a short figure and a long one sit ' +
-    'in different places inside the same box');
+  /* NOT CENTRED ANY MORE, AND THAT IS THE ROW CHANGING UNDER IT. When the
+     volume sat above its own unit in a stacked cell, centring was what kept
+     a four-character figure and a nine-character one in the same place. On
+     a single row the figure is one item in a line of items and it starts
+     where its column starts, like every other. The column is still FIXED,
+     which is what this test is actually for. */
+  assert.match(vol, /text-align:left/,
+    'the volume is centred in a single-row layout, so it floats away from the column ' +
+    'edge the rest of the row aligns to');
   assert.match(pct, /flex:0 0 \d+px/,
     'the completion figure is sized to its own content again');
 
   /* THE BOX HAS TO FIT THE WIDEST REAL FIGURE. "63.2/69.2" measured 81px on
      an eleven-week block; under that and the number clips or wraps. */
+  /* SIZED FOR THE WIDEST FIGURE AN ATHLETE CAN HAVE, not the widest in a
+     test block. "123.4/145.6" -- a 120km week -- measures 100px at
+     --fs-data against the 84px my fixture's "63.2/69.2" needed. Size this
+     to the fixture and the first athlete running three figures clips. */
   const w = parseInt(/flex:0 0 (\d+)px/.exec(vol)[1], 10);
-  assert.ok(w >= 82,
-    'the volume column is ' + w + 'px. The widest real figure on an eleven-week block ' +
-    'is "63.2/69.2" at 81px, so this clips it.');
+  assert.ok(w >= 100,
+    'the volume column is ' + w + 'px. A 120km week prints "123.4/145.6", which needs ' +
+    '100px at this size, so this clips it.');
 
   /* AND THE LABEL KEEPS ENOUGH ROOM. Fixing the right-hand columns takes
      width from .week-meta, which carries "Fitness Checkpoint". */
   const a = app();
   const html = a.renderWeeksList(true);
   assert.ok(html.indexOf('week-meta') > -1, 'the week row no longer has a meta column');
+});
+
+test('the status chip sits on the hero title’s line', () => {
+  /* MEASURED AT 412px: the title's cap centre was 112.2 and the chip's 121
+     -- 8.8px low on This Week and Full Plan alike, which reads as two
+     things on two lines. The cause is that the hero's padding-top moves the
+     title, an in-flow child, and does NOT move the chip, which is absolute
+     against the padding box. So they share one token: whatever shifts the
+     title shifts the chip by the same amount. */
+  const hero = rule('.wk-hero');
+  assert.match(hero, /--wk-hero-top:\s*\d+px/,
+    'the hero no longer states its content offset as a token the chip can read');
+  assert.match(hero, /padding:var\(--wk-hero-top\)/,
+    'the hero padding stopped using the token, so the chip can drift from the title again');
+  assert.match(rule('.wk-chip'), /top:var\(--wk-hero-top\)/,
+    'the chip is positioned by a number of its own again — it was 8.8px below the title');
+});
+
+test('every wide glow carries a dither, and it is not inside the blur', () => {
+  /* MEASURED at device pixel ratio 3, across the glow: one 8-bit value
+     survived 20 device pixels, then 14, 12, 11 — nine runs of 10px or more.
+     Those runs are the rings. Four treatments measured:
+       as it ships      widest 20px   steps>=6px 49   >=10px  9
+       12 eased stops   widest 17px   steps>=6px 64   >=10px  9
+       harder + blur30  widest 26px   steps>=6px 51   >=10px 15   (peak 86->68)
+       fine dither      widest  9px   steps>=6px  5   >=10px  0
+     More stops cannot help: the banding is 8-bit quantisation, and the
+     browser rounds to the same 255 levels between any two stops. */
+  const i = BARE.indexOf('.view-planhq .v-call::after');
+  assert.ok(i > -1, 'the dither layer is gone — the wide glows band again');
+  const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
+  assert.match(body, /feTurbulence/, 'the dither is no longer a noise texture');
+  assert.match(body, /opacity:\.0\d/, 'the dither opacity has left the sub-perceptual range');
+
+  /* IT MUST BE ITS OWN LAYER. Inside the ::before, filter:blur() erases
+     exactly the high-frequency detail that does the work. */
+  assert.ok(!/filter:blur/.test(body),
+    'the dither layer is being blurred, which removes the grain that stops the banding');
+  assert.ok(!/mix-blend-mode/.test(body),
+    'the dither has taken a blend mode again — it measured no better than plain opacity ' +
+    'and forces a compositing layer on every glow in the app');
+
+  /* AND IT REACHES THE GLOWS THAT WERE MEASURED. */
+  const sel = BARE.slice(i - 400, BARE.indexOf('{', i));
+  ['.how-note::after', '.exec-review-card::after', '.wk-taper::after', '.yr-next::after']
+    .forEach(s2 => assert.ok(sel.indexOf(s2) > -1, 'the dither no longer reaches ' + s2));
+});
+
+test('a week is one row, at one size, in fixed columns', () => {
+  /* Measured in place at --fs-data (15px), widest of each column:
+       label 141   range 136   volume 106   pct 28   chevron 18   gaps 40
+       = 467px against 380px available.
+     The row cannot hold all five at 15px, and truncating a week's NAME so a
+     date can fit is the wrong trade. Saying the month once took the range
+     to 98, dropping the repeated unit took the volume to 73, and the rest
+     came from the size. Worst row — Fitness Checkpoint, which carries both
+     the longest name and the one range that crosses a month — now needs
+     347px, which fits with four 7px gaps. */
+  const body = rule('.view-plan .pp-body');
+  /* AND IT IS THE PRODUCT'S OWN TIER, not a number picked for this row.
+     Swept in Chromium against the widest row there is: 15px needs 363px of
+     the 380 available and 16px needs 383. --fs-data is 15px. */
+  assert.match(body, /--fs-row:var\(--fs-data\)/,
+    'the row has taken a size of its own again instead of the metric tier every other ' +
+    'figure in the app reads at');
+  ['.view-plan .pp-body .week-phase', '.view-plan .pp-body .week-range',
+   '.view-plan .pp-body .week-vol .v', '.view-plan .pp-body .week-pct'].forEach(sel => {
+    assert.match(rule(sel), /font-size:var\(--fs-row\)/,
+      sel + ' is sized on its own again — every item on this row carries the same weight');
+  });
+  assert.match(rule('.view-plan .pp-body .week-num'), /display:none/,
+    'the big numeral is back in front of a label that already says which week it is');
+  assert.match(rule('.view-plan .pp-body .week-meta'), /display:flex/,
+    'the label and its dates have gone back to stacking, so the row is two lines again');
+  assert.match(rule('.view-plan .pp-body .week-vol .l'), /display:none/,
+    'the unit is back on the row — the same three characters on all eleven of them');
+
+  /* THE RANGE NAMES ITS MONTH ONCE. */
+  assert.match(SRC, /function weekRangeLabel\(range\)/, 'the compact week range is gone');
+  const a = app();
+  const same = a.weekRangeLabel({ start: '2026-09-14', end: '2026-09-20' });
+  assert.ok(!/Sep[\s\S]*Sep/.test(same), 'a single-month range names September twice: ' + same);
+  const cross = a.weekRangeLabel({ start: '2026-09-28', end: '2026-10-04' });
+  assert.match(cross, /Sep/, 'a crossing range lost its first month');
+  assert.match(cross, /Oct/, 'a crossing range lost its second month');
+});
+
+test('a week row is still a thumb target once it is one line', () => {
+  /* Flattening two stacked lines into one took .week-head from 56px to 40 --
+     under the 44px floor, on the only way into a week. Caught by the
+     Chromium sweep, not by any of the guards above it, because every one of
+     them measures the row's CONTENT and none measured the row. */
+  assert.match(rule('.view-plan .pp-body .week-head'), /min-height:var\(--tap-min\)/,
+    'the week row has no floor again — flattening it to one line puts it under 44px');
+});
+
+test('the list calls the checkpoint week by its number', () => {
+  /* "Fitness Checkpoint" measured 127px on a row whose whole budget is 380
+     -- 84px more than any other label, and the single item deciding how
+     large every other item on every other row could be. Called Week 5 it is
+     43px, and the row went from 13.5px to the app's own 15px metric tier.
+     THE NAME IS NOT LOST. weekPhaseLabel() still returns it everywhere the
+     week is read rather than scanned -- the week screen, the export, the
+     coach's summary -- and the session inside it is still a Fitness
+     Checkpoint and still says so on its own card. */
+  const a = app();
+  const cp = a.state.days.filter(d => d.type === 'checkpoint')[0];
+  if (!cp) return;                       // this block has no checkpoint; nothing to prove
+  assert.equal(a.weekRowLabel(cp.week), 'Week ' + cp.week,
+    'the plan list is naming the checkpoint week again instead of numbering it');
+  assert.equal(a.weekPhaseLabel(cp.week), 'Fitness Checkpoint',
+    'the checkpoint week has lost its name everywhere, not just on the list row');
+  const html = a.renderWeeksList(true);
+  assert.ok(!/>Fitness Checkpoint</.test(html),
+    'the list row is printing the long name again');
+
+  /* ONLY THE CHECKPOINT. Numbering every row would buy more width and cost
+     the two weeks that genuinely are not "week N" -- the goal week and the
+     taper -- their names, which is the identity test/taperGoalWeekGrouping
+     exists to protect one surface over. */
+  const total = a.totalWeeksInPlan();
+  const goal = a.state.days.filter(d => d.type === 'race')[0];
+  if (goal) assert.equal(a.weekRowLabel(goal.week), a.weekPhaseLabel(goal.week),
+    'the goal week has been numbered like any other — it is the week the block exists for');
+  const taperWeek = [];
+  for (let w = 1; w <= total; w++) if (a.isTaperWeek(w) && !a.weekPhaseLabel(w).match(/^Week /)) taperWeek.push(w);
+  taperWeek.forEach(w => assert.equal(a.weekRowLabel(w), a.weekPhaseLabel(w),
+    'week ' + w + ' has been numbered, losing the phase name the list row carries'));
 });

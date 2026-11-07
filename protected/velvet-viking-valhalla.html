@@ -5190,14 +5190,25 @@
      proves it. See the note on .view-planhq .v-hero. */
   .wk-hero{position:relative;
     background:none; border:0; box-shadow:none; border-radius:0;
-    padding:4px 0 18px;
+    /* ---------- THE CHIP SITS ON THE TITLE'S LINE ----------
+       Measured at 412px: the title's cap centre was 112.2 and the chip's
+       121 -- 8.8px low on both This Week and Full Plan, enough to read as
+       two things on two lines. The cause is that padding-top moves the
+       title (an in-flow child) and does NOT move the chip, which is
+       absolutely positioned against the padding box. So the two share one
+       token: whatever shifts the title shifts the chip by the same amount.
+       The chip's 26px box against the title's 26.45px line box then centres
+       within 0.3px, and the guard in planSurface measures the pair in
+       Chromium rather than trusting this arithmetic. */
+    --wk-hero-top:4px;
+    padding:var(--wk-hero-top) 0 18px;
   }
   /* right:0, not 14. The percentage below it sits flush on the hero's right
      edge, so a chip inset by 14 was the one thing on this hero not lining up
      with the gutter everything else is measured from. They share an edge now
      -- the chip reads as the heading of the number under it rather than as a
      badge floating near the corner. */
-  .wk-chip{position:absolute; top:13px; right:0;
+  .wk-chip{position:absolute; top:var(--wk-hero-top); right:0;
     display:inline-flex; align-items:center; gap:6px;
     padding:4px 10px 4px 8px; border-radius:99px;
     background:rgba(255,255,255,.04); border:1px solid var(--t-tile-rim);
@@ -5269,6 +5280,41 @@
      of the panel, on the same cherry radial -- and it takes it from THIS
      declaration rather than a second copy of the gradient, because a copy
      is how the taper sentence ended up saying two different things. */
+  /* ---------- WHAT STOPS A WIDE FADE BANDING ----------
+     Measured at device pixel ratio 3, sampling across the glow: a single
+     8-bit value survived for 20 device pixels, then 14, then 12, then 11 --
+     nine separate steps lasting 10px or more. Those runs are the rings.
+     Four treatments were built and measured against that number:
+       as it ships (4 stops)        widest 20px   steps>=6px 49   >=10px  9
+       12 eased stops               widest 17px   steps>=6px 64   >=10px  9
+       harder core + 30px blur      widest 26px   steps>=6px 51   >=10px 15
+       fine dither                  widest  9px   steps>=6px  5   >=10px  0
+     More stops barely moves it, because the banding is 8-bit quantisation
+     and not a shortage of stops -- the browser still rounds to the same 255
+     levels between any two of them. A harder core with more blur is worse
+     AND costs brightness (peak 86 -> 68). Dither wins on every count and
+     holds the brightness the founder said was already right.
+     IT IS A SEPARATE LAYER ON PURPOSE. The grain cannot live inside the
+     ::before, because filter:blur() would erase exactly the high-frequency
+     detail that does the work. No mix-blend-mode either: it measured no
+     better than plain opacity and would have forced a compositing layer on
+     every glow in the app. */
+  /* The four wide, soft glows -- every one measured with the profile above.
+     Each ::after mirrors its own ::before's selector exactly, so the grain
+     can only land where a glow actually is: a noise layer over bare
+     background is visible for nothing.
+     .how-mod.is-active's gold panel glow is NOT here -- .how-mod's ::after
+     is already the divider between panels, and that glow is small enough
+     that its steps measured 3px, which is under the eye's threshold. */
+  .view-planhq .v-call::after,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note::after,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card::after,
+  .wk-taper::after,
+  .view-plan .yr-next::after{
+    content:''; position:absolute; z-index:0; pointer-events:none;
+    left:calc(50% - 50vw); width:100vw; right:auto; top:-10px; bottom:-12px;
+    opacity:.09;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");}
   .wk-taper::before,
   .view-plan .yr-next::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
@@ -5605,7 +5651,20 @@
      four numbers was deciding anything; together they were a second gutter
      nobody chose. The page's gutter is the only one now. */
   .view-plan .pp-head{padding:15px 0;}
-  .view-plan .pp-body{padding:0 0 12px;}
+  /* --fs-row is stated HERE, in the one rule this selector has. Declaring
+     it in a second rule further down left rule() -- and anyone reading the
+     sheet -- looking at whichever came first. Three times in this file now;
+     one selector, one rule. */
+  /* ---------- THE ROW RUNS AT THE APP'S OWN METRIC TIER ----------
+     It was 13.5px because "FITNESS CHECKPOINT" was 127px wide and decided
+     how large everything else could be. Called by its number, that label is
+     43px and the budget opens up. Swept in Chromium against the widest row
+     there is: 15px needs 363px of the 380 available, 16px needs 383, so
+     15px it is -- which is --fs-data, the tier every other metric in the
+     app already reads at. Not a size chosen for this row; the size the
+     product already uses, which is what "the same rules as the other
+     pages" means. */
+  .view-plan .pp-body{padding:0 0 12px; --fs-row:var(--fs-data);}
   .view-plan .pp-body .week{
     background:none; border:0; border-radius:0; box-shadow:none; margin-bottom:0;}
   /* The session rows on a week screen are the same kind of thing. */
@@ -5644,13 +5703,73 @@
      rule outranks the view-scoped one above, so a second declaration
      there would have looked right in the sheet and changed nothing on
      the screen. The vertical 9px is this row's own and stays. */
-  .view-plan .pp-body .week-head{padding:9px 0; gap:10px;}
-  .view-plan .pp-body .week-num{font-size:17px; width:28px;}
-  .view-plan .pp-body .week-range{margin-top:1px;}
+
+
+
   /* A week's volume and completion are the two numbers this row exists to
      report, and both were set below the body text around them. On the data
      tier they outrank it, which is the point of the row. */
-  .view-plan .pp-body .week-vol .v{font-size:var(--fs-data);}
+  .view-plan .pp-body .week-vol .v{font-size:var(--fs-row);}
+  /* ---------- A WEEK IS ONE ROW ----------
+     It was a 17px numeral, then a stacked label over its dates, then a
+     stacked volume over its unit, then the percentage -- four columns of
+     two different heights, so eleven weeks read as a list of little cards.
+     Every item on the row carries the same weight: which week, when it ran,
+     how far, how much of it. So they are one size, on one line, and the row
+     runs gutter to gutter like every other row in the app.
+     THE NUMERAL GOES. "03" sat in front of "WEEK 3" saying the same thing,
+     and it was the one thing on the row at a different size. The weeks that
+     are NOT numbered -- Fitness Checkpoint, Race Week -- keep their own
+     name, which is what the numeral was standing in for anyway. */
+  .view-plan .pp-body .week-num{display:none;}
+  /* Four equal gaps. 7px, because the worst row -- Fitness Checkpoint, which
+     carries both the longest name AND the one range that crosses a month --
+     needs 347px of content, and 380 - 347 leaves 33 to divide by four. */
+  /* min-height, because flattening two stacked lines into one took the row
+     to 40px -- under the 44px floor every other control in the app keeps,
+     on a row that is the only way into a week. The padding stays 9px so
+     the text still sits where it did; the floor adds the rest. */
+  .view-plan .pp-body .week-head{padding:9px 0; gap:7px; align-items:center;
+    min-height:var(--tap-min);}
+  .view-plan .pp-body .week-meta{
+    display:flex; align-items:baseline; gap:7px; flex:1 1 auto; min-width:0;}
+  /* ---------- ONE SIZE, AND IT IS ARITHMETIC ----------
+     Measured in place at --fs-data (15px), the widest of each column:
+       label 141 (FITNESS CHECKPOINT)   range 136   volume 106   pct 28
+       chevron 18   four gaps 40   =  467px against 380px available.
+     The row cannot hold all five at 15px; the binding item is the longest
+     label, and truncating a week's NAME to make a date fit is the wrong
+     trade. Saying the month once reclaims 45px and the rest comes from the
+     size. --fs-row is stated here rather than inlined five times so the
+     row has one number to change and the columns below can be derived
+     from it rather than guessed alongside it. */
+  .view-plan .pp-body .week-phase{
+    font-size:var(--fs-row); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .view-plan .pp-body .week-range{
+    font-size:var(--fs-row); margin-top:0; white-space:nowrap; flex:0 0 auto;
+    color:var(--ink-faint);}
+  .view-plan .pp-body .week-vol{
+    display:flex; align-items:baseline; gap:4px; text-align:left;
+    /* SIZED TO WHAT IT NEEDS, NOT TO A ROUND NUMBER: measured in place at
+       --fs-row the widest volume on an eleven-week block is 73px, and
+       reserving 96 was taking 20px from the only column that varies, the
+       week's name. Stated HERE rather than in a second rule below, which is
+       what made rule() read the wrong one. */
+    /* RESERVED FOR THE WIDEST FIGURE AN ATHLETE CAN HAVE, not for the
+       widest in the fixture. A 120km week prints "123.4/145.6", which
+       measures 100px at this size against the 84px my test block's
+       "63.2/69.2" needed -- size the column to the fixture and the first
+       athlete running three figures clips. */
+    flex:0 0 100px;}
+  /* ---------- THE UNIT COMES OFF THE ROW ----------
+     "KM" is the same three characters on all eleven rows, under a hero that
+     has just said "/ 525.7km", beside a percentage that can only be a
+     percentage of it. It was the last 24px between this row and fitting,
+     and it is the least informative thing on it. The markup keeps it --
+     This Week and the week screen still print it, where the figure stands
+     alone without a hero above it. */
+  .view-plan .pp-body .week-vol .l{display:none;}
+
   /* ---------- THE TWO RIGHT-HAND COLUMNS ARE COLUMNS ----------
      Both were flex:none and sized to their own content, so each row placed
      them wherever its own figures happened to end. Measured at 412px:
@@ -5662,13 +5781,20 @@
      centred in a box that does not. The widths come from the widest real
      content measured on an eleven-week block ("63.2/69.2" at 81px, "100%"
      at 30px), plus a little air. */
-  .view-plan .pp-body .week-vol{flex:0 0 86px; text-align:center;}
+  /* SIZED TO WHAT THEY NEED, NOT TO A ROUND NUMBER. Measured in place at
+     --fs-row across an eleven-week block: the widest volume is 73px and the
+     widest percentage 25px. Reserving 96 and 34 for them was taking 32px
+     from the only column that varies -- the week's name -- and that is what
+     was clipping FITNESS CHECKPOINT. */
+
   /* STATED IN THE RULE THAT ALREADY EXISTS, not in a second one above it.
      I wrote the column width as its own rule with margin-left:0 and this
      rule -- one line below -- re-declared the margin and won on source
      order, so that declaration was dead on arrival. Twice now in this file
      the same way. One selector, one rule. */
-  .view-plan .pp-body .week-pct{font-size:var(--fs-data); flex:0 0 36px;
+  /* Likewise 100%, which is four characters where every other value is
+     two or three. */
+  .view-plan .pp-body .week-pct{font-size:var(--fs-row); flex:0 0 36px;
     text-align:right; margin-left:0;}
   /* THE WEEK THE ATHLETE IS IN is marked further down, with the rest of the
      state colours. It used to be stated here as a gold rim plus a 1px ring;
@@ -46938,6 +47064,31 @@ function weekPhaseLabel(weekNum){
   if (isTaperWeek(weekNum)) return 'Taper Phase';
   return 'Week '+weekNum;
 }
+/* "Sep 14 - Sep 20" names September twice for a span of seven days. Said
+   once it is 91px instead of 136 on a row that measured 87px over budget,
+   and it reads as one range rather than two dates. A span that genuinely
+   crosses a month keeps both, because there both names carry information. */
+/* ---------- WHAT THE ROW CALLS A WEEK ----------
+   weekPhaseLabel() named the checkpoint week "Fitness Checkpoint" -- 127px
+   at the row's own size, 84px more than any other label, and the single
+   item that decided how large every other item on every other row could
+   be. On the row it is called by the week it is.
+   NOT weekPhaseLabel() itself: that name is still right where it is read
+   rather than scanned -- the week screen, the plan export, the coach's
+   summary -- and the session inside the week is still a Fitness Checkpoint
+   and still says so. This is the list's own shorthand. */
+function weekRowLabel(weekNum){
+  var label = weekPhaseLabel(weekNum);
+  return label === 'Fitness Checkpoint' ? 'Week '+weekNum : label;
+}
+function weekRangeLabel(range){
+  var a = dShort(range.start), b = dShort(range.end);
+  var ma = a.split(' ')[0], mb = b.split(' ')[0];
+  if (ma === mb) return a + '\u2013' + b.split(' ')[1];
+  /* No spaces around the dash on a crossing span either: it is one range,
+     and the two spaces were 10px of the 39 this row was still over. */
+  return a + '\u2013' + b;
+}
 function renderWeekAccordion(weekNum, forceOpen){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   var range = weekDateRange(weekNum);
@@ -47016,8 +47167,8 @@ function renderWeekAccordion(weekNum, forceOpen){
     '<button type="button" class="week-head" data-action="plan-open-week" data-week="'+weekNum+'">'+
       '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
       '<div class="week-meta">'+
-        '<div class="week-phase font-head">'+weekPhaseLabel(weekNum)+(hasToday?'<span class="week-today-flag font-head">Now</span>':'')+'</div>'+
-        '<div class="week-range font-mono">'+dShort(range.start)+' \u2013 '+dShort(range.end)+'</div>'+
+        '<div class="week-phase font-head">'+weekRowLabel(weekNum)+(hasToday?'<span class="week-today-flag font-head">Now</span>':'')+'</div>'+
+        '<div class="week-range font-mono">'+weekRangeLabel(range)+'</div>'+
       '</div>'+
       /* The same pair the hero shows, plus the share of it that is done --
          one more reading of weekVolume(), not a second calculation. */
