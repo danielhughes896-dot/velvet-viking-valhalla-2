@@ -2057,7 +2057,18 @@
        mid-word while the wide one did not. The floor is the longest word
        the coaching copy actually contains, measured, so no phone can get a
        column too narrow for its own vocabulary. */
-    display:block; flex:0 0 34%; min-width:122px; box-sizing:border-box;
+    /* A THIRD, SO THREE PANELS LAND WHOLE. At 34% the third one is cut by
+       the viewport, and a panel arriving sliced reads as broken rather than
+       as "there is more sideways" -- the fourth peeking does that job.
+       The fuel rail ran at 40% for a while and was worse for the same
+       reason; both are this one number now, because they are the same
+       component a centimetre apart.
+       THE 122px FLOOR STAYS AND IT IS LORE: a percentage is of the RAIL and
+       the rail shrinks with the phone, so a third of a 360px screen is 83px
+       of text -- and EXECUTION is one word with nowhere to break. The floor
+       means a narrow phone keeps two and a half panels rather than
+       overflowing a word. */
+    display:block; flex:0 0 33%; min-width:122px; box-sizing:border-box;
     /* THE AIR IS INSIDE THE MODULE, NOT AROUND IT, AND THAT IS FORCED.
        A glow that overspills has to overspill into something, and it cannot
        be the rail: overflow-x:auto makes the other axis clip too (CSS
@@ -2206,28 +2217,21 @@
     font-size:17px; letter-spacing:.055em; text-transform:uppercase;
     margin-bottom:10px; text-align:center; color:var(--gold-text);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .v{
-    display:block; text-align:center; color:var(--ink-dim);
+    /* NO COLOUR. The coaching value two rules above sets none either, so it
+       takes whatever the focused card gives it -- and hand-setting
+       --ink-dim here was the one thing making a fuel figure read dimmer than
+       a coaching sentence beside it. Measured before this line went: the
+       coaching value resolved to --ink and the fuel value to --ink-dim, same
+       size, same face metrics, different brightness. Inheriting puts them on
+       the same cascade, which is what "the same as the why rail" means. */
+    display:block; text-align:center;
     font-size:var(--fs-support); line-height:1.6;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-v-note{
     display:block; margin-top:4px; font-family:var(--text-face);
     font-size:var(--fs-micro, 11.5px); color:var(--ink-faint); letter-spacing:0;}
   /* The heading above the rail is the group's name, not a panel's, so it
      keeps the left edge every other section heading sits on. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-fuel .how-row-heading{text-align:left;}
-  /* ---------- A FUEL COLUMN IS WIDER THAN A COACHING ONE ----------
-     Same panel, same 17px heading, more room under it. At the coaching
-     rail's 34% a fuel column is 129px, which is 103px of text, and measured
-     there "TOTAL CARBS" and "GELS / CHEWS" both wrapped to two lines -- the
-     exact thing the 17px ceiling three rules above exists to prevent, since
-     a two-line heading over a one-line figure is a different panel from its
-     neighbours.
-     Widening the column rather than shrinking the type keeps the heading in
-     the register the athlete has just read four of, and it makes the rail
-     SHORTER, not taller: its height follows the tallest module, and nothing
-     wrapping is what brings that down. The content is a figure, not a
-     sentence, so the extra width costs nothing in white space. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-fuel .how-mod{flex:0 0 40%; min-width:134px;}
-  /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-fuel .how-row-heading{text-align:left;}  /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
      It was a bordered, tinted rectangle -- the one boxed thing left inside a
      rail built to have no boxes. The box goes; what marks it out is that its
      light is the product's cherry rather than the gold every other module
@@ -27864,7 +27868,11 @@ function renderCoachingDepth(dd, pre){
       /* Fuel is a rail now, not the second table. Its wrapper keeps
          .how-table so the spacing above it is unchanged, and gains .how-fuel
          so the rail rules can reach it. */
-      (fuelOn ? '<div class="how-table how-fuel"><div class="how-row-heading">Fuel</div>'+fuelRailHtml(dd)+'</div>' : '')+
+      /* NO "FUEL" HEADING. Every panel in the rail under it names itself --
+         TIME ON FEET, CARB INTAKE, TOTAL CARBS -- and a word above a row of
+         labels that already say what they are is a label on labels, which is
+         the same argument that took the summary off the coaching rail. */
+      (fuelOn ? '<div class="how-table how-fuel">'+fuelRailHtml(dd)+'</div>' : '')+
       /* THE COACH'S NOTE LEAVES THE RAIL. It is not a fifth thing to swipe
          past -- it is the one sentence written about THIS athlete on THIS
          day, and everything above it is written about the session. So it
@@ -27918,10 +27926,28 @@ function fuelFacts(dd){
     { k:'Est. time-on-feet', short:'Time on feet', v:h+'h '+(m<10?'0':'')+m+'m' },
     { k:'Carb intake', short:'Carb intake', v:band.lo+'\u2013'+band.hi+'g/hr' },
     { k:'Total carbs (est.)', short:'Total carbs', v:'\u2248'+carbsLow+'\u2013'+carbsHigh+'g' },
-    { k:'Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)', short:'Gels / chews',
-      v:gelsLow+'\u2013'+gelsHigh, note:'\u2248'+FUEL_GEL_CARB_G+'g each' },
+    /* "Gels" alone in the rail: with the slash and both words it is the one
+       heading that still wrapped at every width, and the rail's height
+       follows its tallest panel. Nothing is lost -- chews move into the note
+       under the figure, beside the gram weight that was already there. The
+       stacked table keeps the full label. */
+    { k:'Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)', short:'Gels',
+      v:gelsLow+'\u2013'+gelsHigh, note:'or chews \u00b7 \u2248'+FUEL_GEL_CARB_G+'g each' },
     { k:'Fluid guide (est.)', short:'Fluid', v:fmtFluidEstimate(fluidLow, fluidHigh) }
   ];
+  /* ---------- TWO SETS OF WORDS, AND THE SUITE IS WHY ----------
+     The short line below was written for Today, where three paragraphs under
+     the shortest facts on the card made the prose the longest thing on the
+     screen an athlete opens before a run. Applying it to BOTH renderers took
+     it off the standalone Fueling & Hydration card too, and two guards
+     caught that immediately: one requires that card to keep "drink to
+     thirst" and "adjust for the heat", the other that its hydration copy
+     reads as guidance rather than instruction -- "starting guide, not a
+     target" by name. Those are not stylistic. They are the line between
+     coaching an athlete and prescribing to them, and that card is where the
+     full reasoning is supposed to live.
+     So the full copy stays exactly where it was and the rail takes the short
+     line, the same split the labels already use. */
   var hints = [];
   /* The upper carbohydrate end is conditional, so it is never shown as a
      bare number the athlete might read as a target. */
@@ -27930,7 +27956,12 @@ function fuelFacts(dd){
      sweat rate varies enormously between athletes and conditions. */
   hints.push('Fluid is a starting guide, not a target \u2014 sweat rates vary a lot, so drink to thirst and adjust for the heat rather than forcing the number.');
   hints.push('Dial this in during training \u2014 don\u2019t try anything new on '+vGoalDay().toLowerCase()+'.');
-  return { rows:rows, hints:hints };
+  /* Today's version. The carb caveat survives here too, shortened and still
+     conditional -- it exists so the top of a range the athlete can SEE is
+     not read as a target to eat to, on a gut that has never practised it. */
+  var railHints = ['Adjust fluid for heat and thirst. Practise fuelling in training \u2014 nothing new on '+vGoalDay().toLowerCase()+'.'];
+  if (band.prolonged) railHints.push('The top of that carb range needs a practised gut \u2014 build up to it rather than starting there.');
+  return { rows:rows, hints:hints, railHints:railHints };
 }
 /* The stack. Byte-identical to what this function returned before the split,
    because the standalone Fueling & Hydration card still renders it and that
@@ -27979,7 +28010,7 @@ function fuelRailHtml(dd){
   }).join('');
   return '<div class="fuel-body" data-hswipe="1">'+mods+'</div>'+
     railDotCount(f.rows.length)+
-    f.hints.map(function(t){ return '<div class="fuel-hint">'+t+'</div>'; }).join('');
+    f.railHints.map(function(t){ return '<div class="fuel-hint">'+t+'</div>'; }).join('');
 }
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';

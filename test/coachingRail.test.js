@@ -133,7 +133,14 @@ test('the rail moves the FOCUS, and moves itself only when it must', () => {
      a fuel table) render below the rail instead. A single wide panel mixed
      in with narrow ones overlapped the viewport almost permanently and so
      drove the height of every short panel beside it. */
-  const w = Number((mod.match(/flex:0 0 (\d+)%/) || [])[1]);
+  /* (\d+(?:\.\d+)?) rather than (\d+): a third written as 33.333% made this
+     read NaN, and NaN fails every comparison, so the message said "the rail
+     column is NaN%" instead of naming a width that was actually inside the
+     range. A guard that cannot parse a legal value reports a fault that is
+     not there. */
+  const w = Number((mod.match(/flex:0 0 (\d+(?:\.\d+)?)%/) || [])[1]);
+  assert.ok(Number.isFinite(w),
+    'could not read the rail column width from: ' + (mod.match(/flex:[^;]*/) || [''])[0]);
   assert.ok(w >= 24 && w <= 36,
     'the rail column is ' + w + '% -- at that width it is a panel, not a column, ' +
     'and nothing else is visible beside it');

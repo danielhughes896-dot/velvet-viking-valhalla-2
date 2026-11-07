@@ -106,9 +106,21 @@ test('both renderers read the same arithmetic', () => {
     assert.ok(rail.includes(r.v), 'the rail does not show the computed value ' + JSON.stringify(r.v));
     assert.ok(stack.includes(r.k), 'the stack lost the label ' + JSON.stringify(r.k));
   });
+  /* The WORDS differ on purpose and the arithmetic does not. The standalone
+     card keeps the full copy -- two guards in coachCopyDiscipline require it
+     to say "drink to thirst", "adjust for the heat" and "starting guide, not
+     a target", which is the line between coaching an athlete and prescribing
+     to them -- and Today takes the short line. So each renderer is checked
+     against its own set, and the figures above are checked against both. */
   facts.hints.forEach(h => {
-    assert.ok(stack.includes(h) && rail.includes(h), 'a hint is missing from one of the two renderers');
+    assert.ok(stack.includes(h), 'a hint is missing from the standalone Fueling card');
   });
+  facts.railHints.forEach(h => {
+    assert.ok(rail.includes(h), "a hint is missing from Today's fuel rail");
+  });
+  assert.notDeepEqual(facts.hints, facts.railHints,
+    'the two surfaces are sharing one set of words again — Today wants one line and the ' +
+    'standalone card has to keep the full caveats');
 });
 
 test('one string serves every view: both labels travel, CSS picks one', () => {
@@ -143,9 +155,17 @@ test('a fuel module is the same panel as a coaching module', () => {
       'a fuel panel and a coaching panel disagree on ' + what + ' (' + a2[1] + ' vs ' + b[1] +
       '). They sit a centimetre apart and the whole point of this change was that they read as one thing.');
   });
-  assert.match(CSS, new RegExp(esc(F) + ' \\.how-fuel \\.how-mod\\{flex:0 0 40%'),
-    'the fuel column went back to the coaching rail\'s 34%, where "TOTAL CARBS" and ' +
-    '"GELS / CHEWS" both wrapped to two lines — measured, and the reason the column is wider.');
+  /* SUPERSEDED, AND THE REASON IS THE SCREENSHOT THAT FOLLOWED IT.
+     This used to require the fuel column to be WIDER than the coaching one
+     (40% against 34%), so its headings would not wrap. It bought that at a
+     price nobody had looked at: at 40% only two and a half panels fit, so
+     the third arrived cut in half by the viewport — TOTAL CARBS sliced down
+     the middle, which reads as broken rather than as "there is more
+     sideways". Three whole panels is worth a two-line heading, and on a
+     430px phone nothing wraps at a third anyway. Both rails are one number
+     now, asserted below where the shared rule lives. */
+  assert.ok(!new RegExp(esc(F) + ' \\.how-fuel \\.how-mod\\{[^}]*flex:').test(CSS),
+    'the fuel rail has taken a width of its own again');
 });
 
 test('two rails in one card do not share a set of dots', () => {
@@ -181,4 +201,118 @@ test("the Coach's Note is centred, heading and sentence together", () => {
     "the Coach's Note heading and sentence are no longer centred as boxes");
   assert.match(note[1], /text-align:center/,
     "the Coach's Note words are no longer centred inside their boxes");
+});
+
+/* ---------------------------------------------------------------------------
+ * ONE RAIL LANGUAGE, THREE PANELS IN VIEW, AND ONE LINE OF GUIDANCE
+ * The fuel rail ran wider than the coaching rail, which put its third panel
+ * half off the screen — TOTAL CARBS arrived cut in half, which reads as
+ * broken rather than as "there is more sideways". Both rails are a third
+ * each now, so three land whole and the fourth peeks.
+ * ------------------------------------------------------------------------ */
+const escF = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+test('both rails are the same width, and three panels fit', () => {
+  const mod = new RegExp(escF(F) + ' \\.how-mod\\{([^}]*)\\}').exec(CSS);
+  assert.ok(mod, 'the module rule is gone');
+  assert.match(mod[1], /flex:0 0 33%/,
+    'a rail went off a third. At 40% the third panel is cut by the viewport; at 34% ' +
+    'only two and a half fit. Found: ' + (/flex:[^;]*/.exec(mod[1]) || [''])[0]);
+  assert.ok(!new RegExp(escF(F) + ' \\.how-fuel \\.how-mod\\{[^}]*flex:').test(CSS),
+    'the fuel rail has taken a width of its own again — the two rails are the same ' +
+    'component a centimetre apart and the whole point of this pass was that they match');
+  assert.match(mod[1], /min-width:122px/,
+    'the 122px floor is gone. A third of a 360px screen is 83px of text and EXECUTION ' +
+    'is one word with nowhere to break.');
+});
+
+test('a fuel panel and a coaching panel differ only where figures differ from sentences', () => {
+  /* Measured in Chromium rather than read off the sheet: the headings match
+     on size, weight, face, colour, tracking and alignment, and the values
+     match on everything except the face — mono for figures, which is the
+     product's convention for every number it prints. The one thing that had
+     drifted was colour: the fuel value hand-set --ink-dim while the coaching
+     value inherited --ink, so a figure read dimmer than a sentence beside
+     it. Neither sets a colour now. */
+  const fuelV = new RegExp(escF(F) + ' \\.how-mod \\.fuel-row \\.v\\{([^}]*)\\}').exec(CSS);
+  const howV = new RegExp(escF(F) + ' \\.how-mod \\.how-row \\.v\\{([^}]*)\\}').exec(CSS);
+  assert.ok(fuelV && howV, 'one of the two value rules is gone');
+  assert.ok(!/(^|;)\s*color\s*:/.test(fuelV[1]),
+    'the fuel value hand-sets a colour again, so it will drift from the coaching value ' +
+    'beside it the next time the focused card changes its ink');
+  const size = r => (/font-size:([^;]+)/.exec(r) || [])[1];
+  assert.equal(size(fuelV[1]), size(howV[1]),
+    'the two rails disagree on value size (' + size(fuelV[1]) + ' vs ' + size(howV[1]) + ')');
+});
+
+test('the fuel section has no title of its own', () => {
+  const i = SRC.indexOf('function renderDayCard(');
+  const src = SRC.slice(0, i > -1 ? i : SRC.length);
+  assert.ok(!/class="how-table how-fuel">'\+'<div class="how-row-heading">Fuel/.test(SRC),
+    'the "FUEL" heading is back. Every panel under it names itself, so a word above a ' +
+    'row of labels that already say what they are is a label on labels.');
+  assert.match(SRC, /'<div class="how-table how-fuel">'\+fuelRailHtml\(dd\)/,
+    'the fuel section no longer goes straight from its wrapper into the rail');
+});
+
+test('the guidance under the figures is one line, and the carb caveat survives where it matters', () => {
+  /* BOTH BRANCHES, AND THAT IS THE POINT. The first version of this guard
+     took whatever long run the fixture produced first, which was not a
+     prolonged one -- so it only ever ran the "no caveat" branch and a
+     mutation that deleted the caveat outright passed it. It now finds a day
+     on each side of fuelCarbRange()'s own threshold and asserts both.
+     The caveat is not general advice and is not decoration: it exists so the
+     top of a range the athlete can SEE is not read as a target to hit, which
+     is the one thing on this card that could have someone eat to a number
+     their gut has never practised. */
+  const today = new Date().toISOString().slice(0, 10);
+  const a = loadApp({ pinnedDate: today + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 14, startDate: a.addDays(today, -9 * 7), distanceKey: 'full',
+    volume: 46, benchSec: 45 * 60, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 6 } });
+
+  const byBand = want => a.state.days.filter(d => {
+    if (d.type === 'rest' || !d.km) return false;
+    const h = a.getDayDurationSec(d) / 3600;
+    return !!a.fuelCarbRange(h).prolonged === want;
+  })[0];
+
+  const longOne = byBand(true), shortOne = byBand(false);
+  assert.ok(longOne, 'the fixture built no session long enough to be prolonged, so the ' +
+    'caveat branch cannot be tested — lengthen the plan rather than deleting this');
+  assert.ok(shortOne, 'the fixture built no session short enough to be un-prolonged');
+
+  const shortHints = a.fuelFacts(shortOne).railHints;
+  assert.equal(shortHints.length, 1,
+    'an ordinary session is showing more than the one standing line of guidance');
+  assert.match(shortHints[0], /Adjust fluid for heat and thirst/,
+    'the standing line of guidance changed wording');
+  assert.match(shortHints[0], /nothing new on/,
+    'the "nothing new on race day" half of the standing line is gone');
+
+  const longHints = a.fuelFacts(longOne).railHints;
+  assert.equal(longHints.length, 2,
+    'a prolonged session (' + longOne.km + 'km) lost the caveat about the top of the carb range');
+  assert.match(longHints[1], /practised gut/,
+    'the carb-range caveat changed into something that no longer says why the top of ' +
+    'the range is not a target');
+});
+
+
+test('the standalone Fueling card keeps the copy that makes it guidance', () => {
+  /* Shortening Today's line took these off BOTH surfaces the first time,
+     because one set of words served two renderers. coachCopyDiscipline
+     caught it. They are repeated here so the next person shortening copy
+     sees the constraint beside the thing they are shortening, rather than
+     in a file about copy discipline they have no reason to open. */
+  const { a, dd } = longDay();
+  const card = a.renderFuelingCard(dd);
+  [[/drink to thirst/i, 'the honest caveat'],
+   [/adjust for the heat/i, 'the heat caveat'],
+   [/starting guide, not a target/i, 'the line that keeps hydration copy guidance rather than instruction']
+  ].forEach(([re, what]) => {
+    assert.match(card, re, 'the standalone Fueling card lost ' + what +
+      '. Today may carry one line; this card is where the full reasoning lives.');
+  });
 });
