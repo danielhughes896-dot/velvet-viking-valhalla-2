@@ -4829,6 +4829,13 @@
     display:inline-flex; align-items:center; justify-content:center;
     min-width:var(--tap-min); min-height:var(--tap-min);
     padding:0 8px; color:inherit;}
+  /* A STACK OF ACTIONS SPACES ITSELF. The Backup panel set the gap between
+     each of its six buttons by hand, inline, and arrived at 8, 14 and 8 for
+     three gaps that mean the same thing. One owner, one number -- and the
+     hint that follows a group reads as part of it rather than floating
+     between two headings. */
+  .stg-actions{display:flex; flex-direction:column; gap:8px;}
+  .stg-actions + .field-hint{margin:10px 0 0;}
   .switch input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
   /* The off state needs its own edge on cream. --line reads as a hairline
      between rows, which is right for a divider and wrong for a control an
@@ -5774,6 +5781,22 @@
   .coach-bt-body b{color:var(--ink); font-weight:600;}
   .coach-next{margin:0 0 14px;}
   .coach-next-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
+  /* ---- THIRTEEN SPARKLES, AND ONE TICK THAT STAYS ----
+     Thirteen of these heads led with a sparkles glyph in front of a section
+     title -- "Next Move", "What's next", "How did it go?", "Fitness
+     Checkpoint" -- which is the pattern the product has been removing
+     everywhere else, and sparkles is its clearest case: it names nothing, so
+     it was decoration standing between the gutter and the word. All thirteen
+     are gone. The title needs no resizing to fill the space, because
+     .coach-next-title is already the app's single section-heading voice --
+     the same 11px uppercase bronze as .setup-section-title -- and growing it
+     only here would invent a second one.
+     ONE glyph is left on purpose: the tick on the completed Fitness
+     Checkpoint card. A tick is not decoration in this product. It is the
+     done/chosen mark, the same meaning it carries on a selected build option
+     and on the sheet's Save, and on that card it is the only thing saying
+     the checkpoint is settled -- .cp-done otherwise just dims a line of
+     text. The rule below stays for it. */
   .coach-next-head svg{width:15px; height:15px; flex:none; color:var(--gold);}
   .coach-next-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
   .coach-next-session{font-size:var(--fs-body); color:var(--ink); line-height:var(--lh-body); margin-bottom:6px; overflow-wrap:anywhere;}
@@ -25537,8 +25560,9 @@ function renderHealthConsentSettings(){
      has to learn, and there was nothing to improve on. The switch reads OFF
      until the athlete turns it on, and turning it back off is the same single
      tap, which is what "as easy to withdraw as to give" means in practice. */
+  /* No section title: the panel header already says "Health & Readiness".
+     See the note in renderCloudCard(). */
   return '<div class="hub-card tile-card">'+
-    '<div class="setup-section-title">Health &amp; Readiness</div>'+
     '<div class="connect-row" id="health-consent-row">'+
       '<div><div class="name">'+escapeHtml(HEALTH_CONSENT_COPY.title)+'</div>'+
         '<div class="desc">'+healthConsentStateLabel()+
@@ -43867,7 +43891,7 @@ function renderCoachNextMoveCard(report){
     ? '<span class="coach-state '+meta.cls+'"><span class="coach-state-dot"></span>'+meta.label+'</span>'
     : '';
   return '<div class="hub-card coach-next">'+
-    '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Next Move</span>'+pill+'</div>'+
+    '<div class="coach-next-head">'+'<span class="coach-next-title">Next Move</span>'+pill+'</div>'+
     body+
   '</div>';
 }
@@ -43893,7 +43917,7 @@ function renderPostRaceRecoverCard(report){
   if (!raceOutcomePending()) return '';
   var meta = COACH_DECISION_META.recover;
   return '<div class="hub-card coach-next">'+
-    '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Next Move</span>'+
+    '<div class="coach-next-head">'+'<span class="coach-next-title">Next Move</span>'+
       '<span class="coach-state '+meta.cls+'"><span class="coach-state-dot"></span>'+meta.label+'</span></div>'+
     '<div class="coach-next-rec">Nothing to prove today. Recover first. Tell Valhalla how Race Day '+
       'went when you’re ready, and we’ll take it from there.</div>'+
@@ -44036,7 +44060,7 @@ function renderCheckpointIntervention(){
   }
 
   return '<div class="hub-card yr-outcome cp-card">'+
-    '<div class="coach-next-head">'+ICONS.sparkles+
+    '<div class="coach-next-head">'+
       '<span class="coach-next-title">'+escapeHtml(head)+'</span></div>'+
     body+
     '<div class="cp-opts">'+opts+'</div>'+
@@ -44175,7 +44199,7 @@ function renderDevelopingFrequencyCard(){
   var p = developingFrequencyPlan();
   if (!p) return '';
   var head = function(t){
-    return '<div class="coach-next-head">' + ICONS.sparkles +
+    return '<div class="coach-next-head">' +
       '<span class="coach-next-title">' + escapeHtml(t) + '</span></div>';
   };
   var dayWord = function(n){ return n + (n === 1 ? ' running day' : ' running days'); };
@@ -44251,7 +44275,7 @@ function renderPreparationLimitedCard(){
   /* THE RUNWAY CASE, which may carry no priced dimensions at all. */
   if (!short.length && pl.runwayShort && pl.weeksToRace != null){
     return '<div class="hub-card prep-limited">'+
-      '<div class="coach-next-head">'+ICONS.sparkles+
+      '<div class="coach-next-head">'+
         '<span class="coach-next-title">Preparation standard</span></div>'+
       '<div class="prep-limited-body">You have '+pl.weeksToRace+' weeks to your '+
         escapeHtml(lbl.toLowerCase())+'. Valhalla asks for '+
@@ -44270,7 +44294,7 @@ function renderPreparationLimitedCard(){
            ' against ' + escapeHtml(fmtDist(d.requiredKm));
   }).join(', and ');
   return '<div class="hub-card prep-limited">'+
-    '<div class="coach-next-head">'+ICONS.sparkles+
+    '<div class="coach-next-head">'+
       '<span class="coach-next-title">Preparation standard</span></div>'+
     '<div class="prep-limited-body">Your '+escapeHtml(lbl.toLowerCase())+
       ' preparation is not expected to reach Valhalla\u2019s full standard in the '+
@@ -44285,7 +44309,7 @@ function renderRaceOutcomePrompt(){
   var su = state.setup || {};
   var profile = DISTANCE_PROFILES[su.distanceKey];
   return '<div class="hub-card yr-outcome">'+
-    '<div class="coach-next-head">'+ICONS.sparkles+
+    '<div class="coach-next-head">'+
       '<span class="coach-next-title">How did it go?</span></div>'+
     '<div class="yr-outcome-q">Your '+escapeHtml(profile ? profile.label : 'goal')+
       ' was '+dShort(su.raceDate)+'. What Valhalla learns from it depends on this answer.</div>'+
@@ -45083,7 +45107,7 @@ function renderRestrictionCard(){
   /* ---- the window has run out and nobody has said they are back ---- */
   if (restrictionAwaitingReturn()){
     return '<div class="hub-card yr-outcome">'+
-      '<div class="coach-next-head">'+ICONS.sparkles+
+      '<div class="coach-next-head">'+
         '<span class="coach-next-title">Are you back?</span></div>'+
       '<div class="yr-outcome-q">You told Valhalla you could not train normally until '+
         dShort(r.until)+'. Nothing resumes until you say so — the days since are '+
@@ -45099,7 +45123,7 @@ function renderRestrictionCard(){
   /* ---- open, and today is inside it ---- */
   if (activeRestriction()){
     return '<div class="hub-card yr-outcome">'+
-      '<div class="coach-next-head">'+ICONS.sparkles+
+      '<div class="coach-next-head">'+
         '<span class="coach-next-title">Training restricted</span>'+
         '<span class="yr-lead-pill">'+escapeHtml(meta.short)+'</span></div>'+
       '<div class="yr-outcome-q">Until '+dShort(r.until)+' — '+
@@ -45255,7 +45279,7 @@ function renderBlockTransitionCard(){
   body += '<div class="yr-foot">Nothing changes until you choose. Your training history stays either way.</div>';
 
   return '<div class="hub-card yr-next">'+
-    '<div class="coach-next-head">'+ICONS.sparkles+
+    '<div class="coach-next-head">'+
       '<span class="coach-next-title">'+(rec.kind === 'block' ? 'Recommended next' : 'What next?')+'</span>'+
       '<span class="yr-lead-pill">'+escapeHtml(blockPurposeLabel(lead))+'</span></div>'+
     body+
@@ -46485,7 +46509,7 @@ function renderContinuityCard(){
 
   if (raceOutcomePending()){
     return '<div class="hub-card yr-next">'+
-      '<div class="coach-next-head">'+ICONS.sparkles+
+      '<div class="coach-next-head">'+
         '<span class="coach-next-title">What’s next</span></div>'+
       '<div class="yr-why"><b>Race day has passed.</b> Tell Valhalla on Today how it went, '+
         'and we’ll guide you from there.</div>'+
@@ -46495,7 +46519,7 @@ function renderContinuityCard(){
   var purpose = isBlockPurpose(su.purpose) ? su.purpose : 'race';
   if (purpose === 'race' && su.raceDate && su.raceDate >= todayStr()){
     return '<div class="hub-card yr-next">'+
-      '<div class="coach-next-head">'+ICONS.sparkles+
+      '<div class="coach-next-head">'+
         '<span class="coach-next-title">What’s next</span></div>'+
       '<div class="yr-why">Finish this block first. Once <b>Race Day</b> passes, Valhalla will '+
         'guide your recovery and help you choose what comes next.</div>'+
@@ -46522,7 +46546,7 @@ function renderContinuityCard(){
   if (preview && preview.options && preview.options.length){
     var label = blockPurposeLabel(purpose);
     return '<div class="hub-card yr-next">'+
-      '<div class="coach-next-head">'+ICONS.sparkles+
+      '<div class="coach-next-head">'+
         '<span class="coach-next-title">What’s next</span></div>'+
       '<div class="yr-why">When this <b>'+escapeHtml(String(label).toLowerCase())+'</b> block '+
         'finishes, Valhalla will offer you these directions:</div>'+
@@ -58116,17 +58140,36 @@ function settingsPanelStrava(){
 function settingsPanelGarmin(){
   return recordPanelShell('Garmin Connect', renderGarminSection());
 }
+/* ---------- SIX IDENTICAL SLABS, NOW THREE PAIRS ----------
+   A tree walk called this the densest surface in the product and it was
+   right: six full-width ghost buttons of the same size and weight, stacked,
+   with one heading two thirds of the way down. Nothing said that Export and
+   Import are the file pair, that Copy and Paste are the same two moves done
+   through the clipboard, or that the last two are not backup at all.
+   The controls, their order and their actions are untouched. What changed is
+   that the two unlabelled pairs are labelled, so the panel reads as three
+   groups of two under the heading voice the rest of Settings uses, and the
+   rhythm moved out of six hand-written inline margins -- 8, 14, 8, 10/16, 8,
+   chosen one button at a time -- into one container that owns it. */
 function settingsPanelBackup(){
   return recordPanelShell('Export / Import Backup',
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup (JSON)</button>'+
-    '<input type="file" accept=".json,application/json" id="import-json-input-hub" class="file-input-offscreen">'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
-    '<button type="button" class="btn btn-ghost btn-block" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
-    '<div class="field-hint" style="margin:10px 0 16px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
+    '<div class="setup-section-title">As a file</div>'+
+    '<div class="stg-actions">'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup (JSON)</button>'+
+      '<input type="file" accept=".json,application/json" id="import-json-input-hub" class="file-input-offscreen">'+
+    '</div>'+
+    '<div class="setup-section-title">As text</div>'+
+    '<div class="stg-actions">'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
+    '</div>'+
+    '<div class="field-hint">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
     '<div class="setup-section-title">Other exports</div>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
-    '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>');
+    '<div class="stg-actions">'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
+    '</div>');
 }
 function settingsPanelReset(){
   return recordPanelShell('Reset Plan',
@@ -58306,8 +58349,12 @@ function renderCloudCard(){
       '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>';
   }
   var st = planStorageStatus();
+  /* NO SECTION TITLE. The panel header already says "Account & Backup", and
+     this card is only ever rendered as that panel's body (and patched in
+     place there), so the heading was the same words twice, three lines
+     apart, at the top of the panel where attention is highest. Two of the
+     six Settings panels did this and four did not. */
   return '<div class="hub-card tile-card" id="cloud-card">'+
-    '<div class="setup-section-title">Account &amp; Backup</div>'+
     '<div class="field-hint" style="margin-bottom:10px;"><strong>'+escapeHtml(st.label)+'</strong>'+
       (st.hint ? '<br>'+escapeHtml(st.hint) : '')+'</div>'+
     body+

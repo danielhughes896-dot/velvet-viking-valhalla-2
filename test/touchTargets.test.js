@@ -131,3 +131,100 @@ test('the legal links are a class, not two copies of an inline style', () => {
     'an inline style is back on the legal links. Writing their size by hand instead of in ' +
     'the sheet is why every earlier sweep missed them at 52x31 and 41x31.');
 });
+
+/* ===========================================================================
+ * THE LAST GLYPHS IN FRONT OF A TITLE, AND THE ONE THAT EARNED ITS PLACE
+ * ===========================================================================
+ * Thirteen .coach-next-head blocks opened with a sparkles glyph before a
+ * section title -- "Next Move", "What's next", "How did it go?", "Fitness
+ * Checkpoint". Sparkles names nothing, so it was decoration between the
+ * gutter and the word, and it is the pattern the product has been removing
+ * surface by surface.
+ *
+ * The line this draws is not "no glyphs". A glyph stays where it carries
+ * meaning: the kind-markers in a Reading row (the sheet says so where hqRow
+ * is defined), the heart-rate and pace icons on a threshold row, the glyph on
+ * an action button -- and the tick, which is this product's done/chosen mark
+ * on a selected build option, on the sheet's Save, and on the completed
+ * Fitness Checkpoint card, where it is the only thing saying the checkpoint
+ * is settled.
+ *
+ * Worth recording how the first attempt at this failed, because the suite did
+ * not catch it and running the app did: stripping "+ICONS.sparkles+" took the
+ * quote and the plus that rejoined the string with it, and thirteen template
+ * literals stopped parsing. A parse check belongs in this file for that
+ * reason.
+ */
+test('the inline script still parses', () => {
+  const blocks = SRC.match(/<script>([\s\S]*?)<\/script>/g) || [];
+  assert.ok(blocks.length, 'no inline script found at all');
+  const code = blocks.map(b => b.replace(/<\/?script>/g, '')).join('\n');
+  assert.doesNotThrow(() => new Function(code),
+    'the inline script no longer parses. A string-concatenation edit that removes a ' +
+    '"+ICONS.x+" has to leave the quote and the plus that rejoin the template.');
+});
+
+test('no section title leads with a sparkle', () => {
+  assert.ok(!/coach-next-head">'\s*\+?\s*ICONS\.sparkles/.test(SRC),
+    'a sparkles glyph is back in front of a section title');
+  const heads = SRC.match(/class="coach-next-head">'\s*\+\s*ICONS\.(\w+)/g) || [];
+  assert.deepEqual(heads.map(h => h.replace(/[\s\S]*ICONS\./, '')), ['check'],
+    'the only glyph allowed in front of one of these titles is the tick on the ' +
+    'completed checkpoint card, which is the done mark rather than decoration. Found: ' +
+    heads.join(', '));
+});
+
+test('the checkpoint tick survives, and so does the rule that sizes it', () => {
+  assert.match(SRC, /class="coach-next-head">'\+ICONS\.check\+/,
+    'the tick on the completed Fitness Checkpoint card is gone. .cp-done only dims a ' +
+    'line of text, so that tick was the only thing marking the checkpoint settled.');
+  assert.match(CSS, /\.coach-next-head svg\{[^}]*width:15px/,
+    'the rule that sizes that one remaining glyph went with the sparkles');
+});
+
+test('the section heading voice stays single', () => {
+  const next = /\.coach-next-title\{([^}]*)\}/.exec(CSS);
+  const setup = /\n  \.setup-section-title\{([^}]*)\}/.exec(CSS);
+  assert.ok(next && setup, 'one of the two section-heading rules is gone');
+  [['font-size', /font-size:(\d+(?:\.\d+)?px)/], ['colour', /color:(var\([^)]*\))/]].forEach(([what, re]) => {
+    const a = re.exec(next[1]), b = re.exec(setup[1]);
+    assert.ok(a && b, 'cannot read ' + what + ' from both section-heading rules');
+    assert.equal(a[1], b[1],
+      '.coach-next-title and .setup-section-title disagree on ' + what + ' (' + a[1] +
+      ' vs ' + b[1] + '). They are the same voice; removing the glyph in front of one ' +
+      'was done instead of growing it, precisely so a second voice is not invented.');
+  });
+});
+
+test('no Settings panel says its own name twice', () => {
+  /* The panel header names the panel. renderCloudCard() and
+     renderHealthConsentSettings() each opened with a .setup-section-title
+     repeating it -- two of six panels did, four did not. */
+  [['renderCloudCard', 'Account &amp; Backup'],
+   ['renderHealthConsentSettings', 'Health &amp; Readiness']].forEach(([fn, title]) => {
+    const i = SRC.indexOf('function ' + fn + '(');
+    assert.ok(i > -1, fn + ' is gone');
+    const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+    assert.ok(!body.includes('<div class="setup-section-title">' + title + '</div>'),
+      fn + ' opens on a section title repeating the panel header above it');
+  });
+});
+
+test('the Backup panel is three labelled pairs, and the sheet owns the rhythm', () => {
+  const i = SRC.indexOf('function settingsPanelBackup(');
+  assert.ok(i > -1, 'settingsPanelBackup is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  ['As a file', 'As text', 'Other exports'].forEach(label => {
+    assert.ok(body.includes('<div class="setup-section-title">' + label + '</div>'),
+      'the Backup panel lost its "' + label + '" group. Six identical full-width slabs ' +
+      'with one heading two thirds down is what a tree walk called the densest surface ' +
+      'in the product.');
+  });
+  assert.equal((body.match(/class="stg-actions"/g) || []).length, 3,
+    'the Backup panel should hold three action groups');
+  assert.ok(!/style="margin-bottom:/.test(body),
+    'a hand-written margin is back on a Backup button. Six of them had been set one at a ' +
+    'time, arriving at 8, 14 and 8 for three gaps that mean the same thing.');
+  assert.match(CSS, /\.stg-actions\{[^}]*gap:8px/,
+    '.stg-actions no longer owns the gap between stacked actions');
+});
