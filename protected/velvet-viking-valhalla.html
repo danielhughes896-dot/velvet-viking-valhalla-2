@@ -331,6 +331,17 @@
     --fs-title:1.25rem;   /* 20px   session title                        */
     --lh-body:1.5; --lh-support:1.45;
     --radius:16px; --radius-sm:10px; --radius-lg:22px;
+    /* ---- ONE NUMBER FOR A TOUCH TARGET ----
+       The sheet carried three. One comment called 40 "the app's own stated
+       touch-target minimum", another sized a button "44px by the touch-target
+       minimum", a third took a tile to 56 "so the whole tile clears every
+       platform's touch target". Three numbers is no standard, and a tree walk
+       found twenty interactive targets under 44 hiding behind the ambiguity.
+       44 wins because it is the floor both platforms publish and because the
+       passes that came before this one had already been moving things to it.
+       Named, so the next control inherits the decision instead of re-making
+       it, and so a guard can hold the line. */
+    --tap-min:44px;
     --shadow:0 10px 30px rgba(0,0,0,0.4);
     --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
     /* SOFT SURFACE / ROUNDED TILE -- the Level 2 depth recipe (Active Goal,
@@ -641,9 +652,28 @@
       var(--t-rim-white) border-box;
     box-shadow:none; padding:2px 4px;
   }
+  /* ---- THE ONE CONTROL ON THIS SCREEN YOU ACTUALLY PRESS ----
+     KM measured 24x34 and MI 21x34: the smallest targets in the app, on the
+     screen whose only pressable control they are. An invisible hit extension
+     is no use here, because two adjacent segments extending to 44 would
+     overlap and half of each one's area would belong to its neighbour -- a
+     bigger target that lands on the wrong unit is worse than a small one that
+     lands true. So the segments are genuinely 44 wide and 44 tall.
+     HEIGHT ONLY, AND THE SUITE IS WHY. The first attempt also set
+     min-width:var(--tap-min), and a guard written for this control caught it:
+     each segment had previously reserved min-width:30px for 15px and 12px of
+     ink, which left an 18px hole between the two words, and that reservation
+     had been deliberately removed. 44 per segment reopened the hole at 31px --
+     measured, worse than the defect the guard exists to prevent.
+     The two dimensions are in direct conflict here and only one can win. The
+     words have to stay tight, because a segmented control whose halves drift
+     apart stops reading as one control; so the width is whatever the ink
+     needs, and the height takes the minimum. A mis-tap selects the other unit,
+     which is visible immediately and undone by tapping again -- the cheapest
+     error in the app. Height was never the problem. */
   .tb-unit-toggle button{
     display:flex; align-items:center; justify-content:center;
-    min-height:34px; min-width:0; padding:0 5px;
+    min-height:var(--tap-min); min-width:0; padding:0 5px;
     font-family:var(--label-face); font-size:10.5px; font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase; line-height:1;
     color:#FFFFFF; background:none; border-radius:0;
@@ -889,7 +919,7 @@
   .rs-chips{display:flex; flex-wrap:wrap; gap:6px;}
   .rs-chip{
     display:inline-flex; align-items:center; gap:6px;
-    min-height:36px; padding:6px 11px; font-family:inherit; font-size:11.5px;
+    min-height:var(--tap-min); padding:6px 11px; font-family:inherit; font-size:11.5px;
     line-height:1.15; border-radius:99px; cursor:pointer; text-align:left;
     background:var(--bg-3); color:var(--ink-dim); border:1px solid var(--line);
     transition:background .12s, color .12s, border-color .12s;
@@ -1402,10 +1432,11 @@
   }
   .icon-btn{
     display:inline-flex; align-items:center; justify-content:center;
-    /* 40px, the app's own stated touch-target minimum (used everywhere else
-       -- day-action buttons, coach controls) -- was 38px here, the one
-       control under it. */
-    width:40px; height:40px; border-radius:999px; border:1px solid var(--line);
+    /* This is the close button on every modal in the product, so it is the
+       most-pressed control in the app that is not a nav tab. It went 38 -> 40
+       on the pass that believed 40 was the standard; --tap-min settles that
+       at 44 and it comes with it. */
+    width:var(--tap-min); height:var(--tap-min); border-radius:999px; border:1px solid var(--line);
     background:var(--bg-2); color:var(--ink-dim); transition:.2s;
   }
   .icon-btn:hover{color:var(--ink); border-color:var(--bronze);}
@@ -1586,7 +1617,7 @@
      the fix -- the rail was already aligning the two boxes correctly. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions button{
     color:#FFFFFF; padding:6px;
-    align-items:center; justify-content:center; min-height:44px; min-width:44px;}
+    align-items:center; justify-content:center; min-height:var(--tap-min); min-width:var(--tap-min);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions svg{
     width:18px; height:18px; stroke-width:2.1;
     filter:drop-shadow(0 0 5px rgba(255,255,255,.30));}
@@ -2691,9 +2722,20 @@
      label forwards to its <input>, which is still the same native checkbox
      canToggleCompletion()/toggle-complete has always driven. Nothing about
      completion logic changed; only what it looks like. */
+  /* 40 -> 44, with the negative margins opened by the same 2px on each side
+     so the box grows around a ring that stays where it was. Measured before
+     and after rather than reasoned about: the ring's centre sits at x=10.0
+     y=11.0 from the rail's origin in both, and the rail is still 22px tall.
+     One honest limit. This ring sits in the first row under a sticky topbar,
+     so at scroll 0 the topmost ~5px of the taller target is behind that bar
+     and the reachable height there is nearer 39 than 44. It is still more
+     than the 40px box had, it clears as soon as the athlete scrolls, and the
+     alternative is pushing the ring down the row to serve one scroll
+     position. Left as is, recorded so the next person does not re-measure
+     it and think something is broken. */
   .day-check{
     flex:none; display:flex; align-items:center; justify-content:center;
-    width:40px; height:40px; margin:-9px 0 -9px -10px; cursor:pointer;
+    width:var(--tap-min); height:var(--tap-min); margin:-11px 0 -11px -12px; cursor:pointer;
   }
   .day-check.locked{cursor:default;}
   /* THE ONE CIRCLE-CHECKBOX COMPONENT. .wd-check input (the Builder's
@@ -2755,7 +2797,8 @@
     display:flex; align-items:center; gap:12px; min-height:44px;
     padding:5px 2px; cursor:pointer;
   }
-  .cv-label{display:flex; align-items:center; gap:12px; flex:1; min-width:0; cursor:pointer;}
+  .cv-label{display:flex; align-items:center; gap:12px; flex:1; min-width:0; cursor:pointer;
+    min-height:var(--tap-min);}
   .cv-opt .cv-text{flex:1; min-width:0;}
   .cv-opt .cv-name{display:block; font-weight:600; font-size:var(--fs-body); color:var(--ink);}
   .cv-opt .cv-blurb{display:block; font-size:var(--fs-meta); color:var(--ink-faint); margin-top:1px;}
@@ -3343,7 +3386,7 @@
      a privacy policy on a phone actually wants. .btn is a bare class so the
      styling already applies -- only the underline needs removing. */
   a.btn, a.ev-card{text-decoration:none;}
-  .btn-sm{padding:7px 12px; font-size:12px; min-height:44px;}
+  .btn-sm{padding:7px 12px; font-size:12px; min-height:var(--tap-min); min-width:var(--tap-min);}
   /* THE LAST TWO TARGETS, REACHED BY WHAT THEY DO RATHER THAN BY A CLASS --
      neither carries one. The pencil on a day header was 24x24 and "Clear log"
      18px tall; both are now 44, which the rows they sit in already have room
@@ -4733,6 +4776,7 @@
      product already wears -- see .actual-field, whose treatment this is. */
   .stg-name-input{
     flex:0 1 128px; min-width:0; margin:0 10px 0 12px; padding:5px 2px;
+    min-height:var(--tap-min);
     background:none; border:0; border-bottom:1px solid var(--line-soft);
     color:var(--ink); font-family:var(--text-face); /* the athlete's own name is a word */
     font-size:var(--fs-panel-row); text-align:right;}
@@ -4761,6 +4805,30 @@
   .status-pill svg{width:12px; height:12px;}
   .status-connected{background:var(--c-easy-soft); color:var(--c-easy);}
   .switch{position:relative; display:inline-block; width:42px; height:24px; flex:none;}
+  /* A SWITCH IS DRAWN AT 42x24 AND PRESSED AT 44x44.
+     The track is the whole point of a switch -- a 44px-tall pill would read
+     as a button -- so the drawing stays and a transparent band carries the
+     target. Verified by hit-testing rather than by eye: a tap 21px above,
+     below, left and right of a switch's centre now resolves to the switch,
+     and the switch still toggles when clicked at its centre.
+     (While checking this, a probe reported a switch that would not toggle at
+     all. It was the Health & Readiness row on the Settings screen BEHIND the
+     open Preferences modal, correctly covered by the overlay -- the probe was
+     reaching through it. Noted because the next person to run that probe
+     will see the same thing and it is not a bug.) */
+  .switch::after{
+    content:''; position:absolute; left:50%; top:50%;
+    width:var(--tap-min); height:var(--tap-min);
+    transform:translate(-50%,-50%); border-radius:99px;}
+  /* Privacy and Terms measured 52x31 and 41x31, the last two targets in the
+     app under the minimum. They were carrying a hand-written
+     "padding:9px 6px" inline, twice, which is why they were missed by every
+     pass that worked through the stylesheet -- so they get a class, and the
+     class takes --tap-min like everything else. */
+  .legal-link{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:var(--tap-min); min-height:var(--tap-min);
+    padding:0 8px; color:inherit;}
   .switch input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
   /* The off state needs its own edge on cream. --line reads as a hairline
      between rows, which is right for a divider and wrong for a control an
@@ -5299,6 +5367,7 @@
   .view-plan > .race-event > .day{display:none;}
   .view-plan > .race-event .rd-open{
     grid-column:1 / -1; grid-row:4; margin-top:11px; padding:10px 14px;
+    min-height:var(--tap-min);
     border:1px solid transparent; border-radius:14px;
     background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
       var(--t-rim-velvet) border-box;
@@ -5311,7 +5380,7 @@
   .view-plan-week, .view-plan-session{display:flex; flex-direction:column; gap:12px; padding-top:18px;}
   .pv-top{display:flex; align-items:center; gap:12px;}
   /* chevronRight turned around rather than a second arrow glyph added. */
-  .pv-back{flex:none; width:38px; height:38px; border-radius:50%;
+  .pv-back{flex:none; width:var(--tap-min); height:var(--tap-min); border-radius:50%;
     display:inline-flex; align-items:center; justify-content:center;
     background:var(--t-tile); border:1px solid var(--t-tile-rim); color:var(--gold);
     transform:scaleX(-1);}
@@ -5760,10 +5829,27 @@
   .coach-state.recover{background:var(--tile-sheen), var(--c-threshold-soft);}
   .coach-state.recover .coach-state-dot{background:var(--c-threshold);}
   .coach-why-btn{
+    position:relative;
     background:none; border:none; padding:6px 0 0; margin:0; cursor:pointer;
     font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink-faint); text-decoration:underline;
     text-underline-offset:3px; font-weight:var(--label-weight);}
+  /* ---- A 9.5px LINK IS STILL A 44px TARGET ----
+     Measured on Today, this button is 70x14. "Injured or ill?" is the signpost
+     an athlete reaches for on the worst morning they will have with this app,
+     and fourteen pixels of it was reachable. It is deliberately a label-register
+     link -- 9.5px, uppercase, underlined -- so growing the text would wreck the
+     register the whole screen reads in. The target grows instead, and the mark
+     stays exactly as drawn: a transparent band centred on the line, tall enough
+     to hit and no wider than the words.
+     Safe to extend vertically because nothing interactive sits within 24px above
+     or below it on any surface that renders one -- checked, not assumed. The
+     band is clipped to the button's own width, so it cannot reach sideways into
+     anything either. */
+  .coach-why-btn::after{
+    content:''; position:absolute; left:0; right:0;
+    top:50%; height:44px; transform:translateY(-50%);
+    pointer-events:auto;}
   .coach-why-btn:hover, .coach-why-btn:focus-visible{color:var(--bronze);}
   .coach-why-list{
     margin:8px 0 0; padding:9px 11px 9px 26px; list-style:disc;
@@ -6800,7 +6886,7 @@
   .hq-panel .modal-head{border-bottom:0; padding-bottom:4px;}
   .hq-panel .modal-head h2{font-size:21px; letter-spacing:1.6px; color:#FFFFFF;}
   .hq-panel .icon-btn{border:1.5px solid color-mix(in srgb, var(--rp-accent) 70%, transparent);
-    color:var(--rp-accent); border-radius:50%; width:40px; height:40px;
+    color:var(--rp-accent); border-radius:50%; width:var(--tap-min); height:var(--tap-min);
     display:flex; align-items:center; justify-content:center;}
 
   /* ---------- THE VERDICT, ENLARGED, AND THE REASON BESIDE IT ----------
@@ -58506,7 +58592,7 @@ function renderSettingsHubView(){
   '<div class="build-tag">Build '+BUILD_ID+'</div>'+
     /* padded rather than merely coloured: an 11px line of text is a link a
        thumb misses, and these two are the only route to the legal pages. */
-    '<div class="build-tag"><a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Privacy</a> &middot; <a href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Terms</a></div>'+
+    '<div class="build-tag"><a class="legal-link" href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy</a> &middot; <a class="legal-link" href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer">Terms</a></div>'+
   '</div>';
 }
 function renderBottomNav(){

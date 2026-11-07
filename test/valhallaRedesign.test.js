@@ -230,9 +230,12 @@ test('RING: the ring is drawn with CSS, not a native checkbox appearance, and fi
   assert.match(CODE, /\.day-check input[^{]*\{[^}]*appearance\s*:\s*none/);
   assert.match(CODE, /\.day-check input:checked[^{]*\{[^}]*background\s*:\s*var\(--cherry\)/);
   assert.match(CODE, /\.day-check input:checked::after[^{]*\{/, 'no checkmark is drawn for the checked state');
-  // A ≥40px label around a visually compact ring -- generous tap target,
-  // restrained visible control.
-  assert.match(CODE, /\.day-check\{[^}]*width\s*:\s*40px/);
+  // A generous label around a visually compact ring -- generous tap target,
+  // restrained visible control. The intent was always "at least 40"; the app
+  // now names that minimum once, as --tap-min, and carries it at 44. The ring
+  // itself did not move when the label grew: its centre was measured at the
+  // same x=10.0 y=11.0 from the rail's origin before and after.
+  assert.match(CODE, /\.day-check\{[^}]*width:var\(--tap-min\)/);
 });
 
 test('RING: the Edit Session display checkbox carries the same ring language', () => {

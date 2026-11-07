@@ -141,7 +141,13 @@ test('HERO: KM/MI is one tight control on the shared white rim, not two labels f
   assert.ok(btn, '.tb-unit-toggle button rule not found');
   assert.match(btn[1], /min-width:0/,
     'the button reserves width its glyphs do not use again');
-  assert.match(btn[1], /min-height:34px/,
+  /* 34 -> var(--tap-min). The touch-target pass raised every control in the
+     app to a single named 44, and this one came with it -- on the height
+     only. The min-width:0 pinned just above is the half that must not move:
+     that pass first tried 44 per segment and reopened the very hole this test
+     was written to kill, at 31px rather than 18. Height was never the
+     problem, so height is what changed. */
+  assert.match(btn[1], /min-height:var\(--tap-min\)/,
     'the thumb target shrank -- height was never the problem');
   // The token itself: same direction and same three-stop quiet-to-bright
   // run as the gold and velvet rims it sits beside.
