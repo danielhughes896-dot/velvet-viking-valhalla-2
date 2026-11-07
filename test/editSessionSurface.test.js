@@ -34,14 +34,31 @@ const rule = sel => {
   return CSS.slice(i + sel.length + 1, CSS.indexOf('}', i));
 };
 
-test('the panels sit on the app’s own card, not the builder’s old ramp', () => {
+/* UPDATED, and the reason matters more than the assertion.
+ * This used to require BOTH .es-sec and .es-sum to paint var(--t-card) -- the
+ * pass that pulled them off the builder's lighter, bluer --t-card-grad. That
+ * was the right fix for the question being asked then: if you are going to be
+ * a panel, be the product's panel.
+ * A later tree walk asked a better question. .es-sec was a padded panel
+ * nested inside an already-padded modal body, which put the fields at 32 when
+ * every other working surface in the app sits at 16, so it stopped being a
+ * panel at all. .es-sum stays one, because it is a tile -- the session's
+ * identity with its type colour down the edge -- not a container around
+ * fields. So the original intent is kept and strengthened: the builder's old
+ * ramp must not come back to either, and .es-sec must not go back to painting
+ * anything. */
+test('the summary is the app’s own tile and the sections paint nothing', () => {
+  const sum = rule('.es-sum');
+  assert.match(sum, /background:var\(--t-card\)/,
+    '.es-sum is painting a gradient again instead of the product’s panel');
   ['.es-sec', '.es-sum'].forEach(sel => {
     const r = rule(sel);
-    assert.match(r, /background:var\(--t-card\)/,
-      sel + ' is painting a gradient again instead of the product’s panel');
     assert.doesNotMatch(r, /--t-card-grad/, sel + ' took the lighter, bluer ramp back');
     assert.doesNotMatch(r, /--t-rim-grad/, sel + ' took the gradient rim back');
   });
+  assert.match(rule('.es-sec'), /background:none/,
+    '.es-sec is painting again. It is a section inside a padded body, and giving it a ' +
+    'face is what pushed the fields to a 32 gutter the rest of the app does not use.');
 });
 
 test('a field is a surface, not a hole', () => {
@@ -189,4 +206,97 @@ test('the sheet’s Save is a button in the app’s language', () => {
   assert.match(save, /color:var\(--gold\)/);
   assert.ok(!/linear-gradient/.test(save), 'the bronze gradient is back on Save');
   assert.ok(!/--cherry/.test(save), 'Save has taken the builder’s cherry');
+});
+
+/* ---------------------------------------------------------------------------
+ * ONE SHELL, ONE GUTTER
+ * A walk of the whole navigation tree measured sixteen reachable modals:
+ * thirteen were centred cards and three still docked at the bottom edge --
+ * Edit Session, Tools & Import and Restore a Plan. The drawer had become the
+ * exception while the sheet still described it as the rule.
+ *
+ * The centring had only ever been authored for .builder-light, so moving the
+ * three onto it would also have handed them the builder's card face and its
+ * Cherry Lacquer .btn-primary -- the one thing that class is scoped to keep.
+ * Hence .modal-centred: geometry only. These guards hold both halves of that
+ * split, because either half failing silently is a regression you see only
+ * by opening the sheet on a phone.
+ * ------------------------------------------------------------------------ */
+
+test('.modal-centred carries geometry and nothing else', () => {
+  const rules = [];
+  const re = /\.modal-centred[^{]*\{([^}]*)\}/g;
+  let m;
+  while ((m = re.exec(CSS))) rules.push(m[1]);
+  assert.ok(rules.length, '.modal-centred has no rules at all');
+  const paint = /(^|;)\s*(background|background-color|background-image|color|border-color|box-shadow|font)\s*:/;
+  rules.forEach(body => {
+    assert.ok(!paint.test(body),
+      '.modal-centred has taken on a face: it must only position and size a card, ' +
+      'never paint one -- that is what .builder-light is for. Offending rule: ' + body.trim());
+  });
+});
+
+test('the centring rule answers to both classes, so no surface already using it moves', () => {
+  assert.match(CSS, /\.modal-overlay:has\(> \.builder-light\),\s*\n?\s*\.modal-overlay:has\(> \.modal-centred\)\{/,
+    'the overlay centring no longer lists both .builder-light and .modal-centred');
+  assert.match(CSS, /\.modal-overlay:has\(> \.builder-light\) > \.builder-light,\s*\n?\s*\.modal-overlay:has\(> \.modal-centred\) > \.modal-centred\{/,
+    'the card radius/height rule no longer lists both classes');
+});
+
+test('the three surfaces that were drawers open centred', () => {
+  [
+    ["openEditModal", "Edit Session"],
+    ["openImportModal", "Tools & Import"],
+    ["openRestoreModal", "Restore a Plan"],
+  ].forEach(([fn, label]) => {
+    const body = SRC.slice(SRC.indexOf('function ' + fn + '('));
+    const call = body.slice(0, body.indexOf('\n}\n'));
+    assert.match(call, /'modal-themed modal-centred'/,
+      label + ' (' + fn + ') no longer opens on the centred shell. It holds a field an ' +
+      'athlete types into, and a bottom-docked drawer has no keyboard-safe height -- ' +
+      'open the keyboard and the input is behind it.');
+  });
+});
+
+test('Edit Session does its work on the app’s 16, not a panel’s 32', () => {
+  const sec = /\n  \.es-sec\{([^}]*)\}/.exec(CSS);
+  assert.ok(sec, '.es-sec has no rule of its own any more');
+  assert.match(sec[1], /border:0/, '.es-sec has grown a border back — it is a section, not a panel');
+  assert.match(sec[1], /background:none/, '.es-sec has grown a background back');
+  assert.match(sec[1], /border-radius:0/, '.es-sec has grown a radius back');
+
+  const head = /\.es-sec-head\{([^}]*)\}/.exec(CSS);
+  assert.ok(head, '.es-sec-head rule is gone');
+  const hpad = /padding:([^;]*);/.exec(head[1]);
+  assert.ok(hpad, '.es-sec-head no longer declares its padding');
+  assert.match(hpad[1].trim(), /^\d+(\.\d+)?px 0$/,
+    '.es-sec-head has taken horizontal padding again, which pushes its title off the ' +
+    'gutter every other surface in the app sits on. Found: ' + hpad[1].trim());
+
+  const bodyRule = /\.es-sec-body\{([^}]*)\}/.exec(CSS);
+  assert.ok(bodyRule, '.es-sec-body rule is gone');
+  assert.match(bodyRule[1], /padding:\d+(\.\d+)?px 0 \d+(\.\d+)?px/,
+    '.es-sec-body has taken horizontal padding again, which is what put the fields at 32. ' +
+    'Found: ' + bodyRule[1].trim());
+
+  /* Space, not a line: the hairline law above forbids a plain 1px separator,
+     so the two sections are held apart by 26 -- .es-body's 14 gap plus 12 --
+     the same rhythm the week's analysis reads on. */
+  assert.match(CSS, /\.es-sec \+ \.es-sec\{margin-top:12px/,
+    'the space between the two flat sections is gone, and a hairline is not allowed to replace it');
+  assert.doesNotMatch(CSS, /\.es-sec \+ \.es-sec\{border-top/,
+    'a hairline crept back between the sections — separate them with space');
+});
+
+test('no section head in the sheet leads with a glyph', () => {
+  assert.ok(!/es-sec-icon/.test(SRC),
+    '.es-sec-icon is back. A glyph in front of a title is gone from the rest of the ' +
+    'product, and with the panel flat it would be the only thing between the title and the gutter.');
+  const helper = /var section = function\(([^)]*)\)/.exec(SRC);
+  assert.ok(helper, 'the section() helper is gone');
+  assert.equal(helper[1].replace(/\s/g, ''), 'id,title,sub,body,open',
+    'section() signature changed. Its arguments are positional and two call sites pass ' +
+    'them, so a parameter added or dropped here silently shifts a title into a subtitle. ' +
+    'Found: (' + helper[1] + ')');
 });

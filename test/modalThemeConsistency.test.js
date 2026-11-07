@@ -353,17 +353,47 @@ test('theming and positioning are two separate opt-ins, both available to any su
   assert.match(fnBody('openPacingModal'), /\bmodal-themed\b/,
     'Race Day Pacing Strategy lost its theme opt-in');
 
-  assert.match(CODE, /\.modal-overlay:has\(>\s*\.builder-light\)\s*\{[^}]*align-items\s*:\s*center/,
-    'the builder centring rule no longer keys on .builder-light');
+  // The centring now answers to two classes, not one. .builder-light still
+  // triggers it, so nothing above moves; .modal-centred triggers it without
+  // the builder's face or its Cherry Lacquer primary, for surfaces that need
+  // the geometry and must not take the look. Both are asserted, because a
+  // selector list that quietly loses one half strands whichever surfaces
+  // depended on it at the bottom of the viewport.
+  assert.match(CODE, /\.modal-overlay:has\(>\s*\.builder-light\),\s*\n?\s*\.modal-overlay:has\(>\s*\.modal-centred\)\s*\{[^}]*align-items\s*:\s*center/,
+    'the centring rule no longer keys on BOTH .builder-light and .modal-centred');
 
   assert.match(fnBody('openSetupModal'), /\bbuilder-light\b/,
     'the builder lost the class its positioning depends on');
 
-  // Edit Session is the control: it is a genuinely short, transient form and
-  // stays a bottom sheet on purpose -- proving .builder-light is still an
-  // opt-in, not something every themed modal now inherits automatically.
+  /* THE CONTROL MOVED, AND THE REASON IS MEASURED, NOT PREFERRED.
+     This used to point at Edit Session: "a genuinely short, transient form
+     [that] stays a bottom sheet on purpose". The premise was wrong. Edit
+     Session holds a title field, a type picker, a distance, the session's
+     instructions, the completion log, a notes textarea, a reschedule control,
+     Reset and Save -- the function's own comment lists them -- and a walk of
+     the navigation tree measured it one of only three modals left docked out
+     of sixteen. It is also the worst case for a drawer: a docked sheet has no
+     keyboard-safe height, so opening the keyboard on that title field puts it
+     behind the keyboard. It is centred now, via .modal-centred.
+
+     So the law this test protects is unchanged and the exemplar is honest.
+     "Room for another day?" is the real short transient: two paragraphs, two
+     buttons, nothing to type into. It stays a drawer, which is what still
+     proves the positioning is an opt-in rather than something every themed
+     modal inherits. */
+  assert.doesNotMatch(fnBody('openAvailabilityOfferModal'), /\bbuilder-light\b|\bmodal-centred\b/,
+    'the short availability offer picked up a centring class -- positioning stopped being opt-in');
+  assert.match(fnBody('openAvailabilityOfferModal'), /\bmodal-themed\b/,
+    'the availability offer lost its theme opt-in');
+
+  // Edit Session takes the geometry and NOT the builder's face: three
+  // independent opt-ins now, and this is the surface that proves they are
+  // genuinely separable.
+  assert.match(fnBody('openEditModal'), /\bmodal-centred\b/,
+    'Edit Session went back to a bottom drawer');
   assert.doesNotMatch(fnBody('openEditModal'), /\bbuilder-light\b/,
-    'Edit Session picked up the builder centring class -- .builder-light stopped being opt-in');
+    'Edit Session took the builder face along with the geometry -- that is what ' +
+    '.modal-centred exists to avoid, and it would turn its Save button cherry');
   assert.match(fnBody('openEditModal'), /\bmodal-themed\b/,
     'Edit Session lost its theme opt-in');
 });

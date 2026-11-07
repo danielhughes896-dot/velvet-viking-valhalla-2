@@ -3520,12 +3520,31 @@
      over the top of this one. Flat, and the same value. */
   .modal-card.builder-light{background:var(--t-card); border-color:var(--t-tile-rim);}
   .modal-card.builder-light .modal-head{background:transparent; border-bottom-color:var(--t-tile-rim);}
-  .modal-overlay:has(> .builder-light){
+  /* ---- GEOMETRY IS NOT THE BUILDER'S FACE ----
+     This centring was authored for .builder-light and then borrowed, surface
+     by surface, by everything that needed a card which scrolls inside itself
+     and survives the keyboard: Settings panels, Reading panels, Setup,
+     Pacing, Re-calibrate, Injury or illness. A walk of the whole navigation
+     tree measured thirteen of sixteen reachable modals centred this way and
+     three still docked at the bottom -- Edit Session, Tools & Import and
+     Restore a Plan -- which makes the drawer the exception, not the rule the
+     sheet further up still claims it is.
+
+     Borrowing .builder-light to move those three would also hand them the
+     builder's card face and its Cherry Lacquer .btn-primary, which is the
+     one thing that class exists to keep scoped. So the geometry gets its own
+     name. .modal-centred carries the position, the radius and the
+     keyboard-safe height and nothing else; .builder-light keeps the face and
+     the cherry, and still triggers the geometry so no surface already using
+     it moves a pixel. A modal picks the two independently from here. */
+  .modal-overlay:has(> .builder-light),
+  .modal-overlay:has(> .modal-centred){
     align-items:center;
     padding:calc(14px + env(safe-area-inset-top, 0px)) 10px
             calc(14px + env(safe-area-inset-bottom, 0px));
   }
-  .modal-overlay:has(> .builder-light) > .builder-light{
+  .modal-overlay:has(> .builder-light) > .builder-light,
+  .modal-overlay:has(> .modal-centred) > .modal-centred{
     border-radius:var(--radius-lg);
     max-height:calc(100vh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
@@ -4637,24 +4656,39 @@
      against the modal's dark ramp. That is the exact fault the builder had
      and had fixed; Edit Session never got the same pass, which is most of
      why it reads as a different product. Same line as .builder-light now. */
-  .es-sec{
-    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
-    background:var(--t-card); overflow:hidden;
-  }
+  /* ---------- AND THEN IT STOPPED BEING A PANEL ----------
+     The pass above brought these two sections onto the product's card face.
+     Right then, wrong unit: a rimmed, padded panel nested inside a modal
+     body that is already padded 15, so the fields an athlete actually types
+     into sat 32 from the card edge. An ancestor trace of the whole tree put
+     every other working surface in the app -- five main screens, thirteen
+     modals -- at 16. This one was the only place the gutter doubled, and the
+     panel face was what did it.
+     So the box goes and the section stays: a hairline between the two, the
+     head and body padded vertically only, and the content lands on the same
+     16 as the rest of the product. The summary tile above keeps its box,
+     because it is a tile -- an identity card with the session's type colour
+     down its edge -- not a container around fields. */
+  .es-sec{border:0; border-radius:0; background:none;}
+  /* SEPARATED BY SPACE, NOT BY A LINE. The first draft of this put a hairline
+     between the two sections and the suite caught it: every plain 1px
+     separator was removed from the product on purpose, and a guard holds the
+     line because that is how forty-six of them accumulated the first time.
+     Space does the same job -- 26 between blocks, the rhythm the week's
+     analysis already reads on: 14 from .es-body's gap, 12 here. */
+  .es-sec + .es-sec{margin-top:12px;}
   .es-sec-head{
-    display:flex; align-items:center; gap:12px; padding:14px 15px;
+    display:flex; align-items:center; gap:12px; padding:14px 0;
     cursor:pointer; list-style:none;
   }
   .es-sec-head::-webkit-details-marker{display:none;}
-  .es-sec-icon{flex:none; display:flex; color:var(--gold);}
-  .es-sec-icon svg{width:21px; height:21px;}
   .es-sec-text{flex:1 1 auto; min-width:0;}
   .es-sec-title{display:block; font-size:14px; letter-spacing:.06em; color:var(--ink);}
   .es-sec-sub{display:block; color:var(--ink-dim); margin-top:2px;}
   .es-sec-chev{flex:none; display:flex; color:var(--gold); transition:transform .18s;}
   .es-sec-chev svg{width:19px; height:19px;}
   .es-sec[open] > .es-sec-head .es-sec-chev{transform:rotate(180deg);}
-  .es-sec-body{padding:2px 15px 15px;}
+  .es-sec-body{padding:2px 0 15px;}
   .es-sec-body > .field:last-child{margin-bottom:0;}
   .es-reset{margin-top:14px; padding-top:13px;}
   /* One action, full width, at the foot -- Reset moved in beside the fields
@@ -49284,10 +49318,13 @@ function openEditModal(dayId){
      thing an athlete most often comes here to do -- life moved, the session
      needs another day -- so it leads; the fields are open because they are
      what the modal is named after. */
-  var section = function(id, icon, title, sub, body, open){
+  /* No icon column. A glyph in front of a title is gone from the rest of the
+     product and these two were the last section heads carrying one -- and
+     with the panel flattened above, an icon here would be the only thing
+     standing between the title and the gutter. */
+  var section = function(id, title, sub, body, open){
     return '<details class="es-sec" id="'+id+'"'+(open ? ' open' : '')+'>'+
       '<summary class="es-sec-head">'+
-        '<span class="es-sec-icon" aria-hidden="true">'+icon+'</span>'+
         '<span class="es-sec-text">'+
           '<span class="es-sec-title font-head">'+escapeHtml(title)+'</span>'+
           (sub ? '<span class="es-sec-sub">'+escapeHtml(sub)+'</span>' : '')+
@@ -49321,9 +49358,9 @@ function openEditModal(dayId){
   '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body es-body">'+
     summary+
-    section('ef-sec-reschedule', ICONS.calendarWeek, 'Reschedule',
+    section('ef-sec-reschedule', 'Reschedule',
             'Move or swap this session with another day.', reschedule, false)+
-    section('ef-sec-edit', ICONS.settings, 'Edit Session', '', fields, true)+
+    section('ef-sec-edit', 'Edit Session', '', fields, true)+
     '<div class="modal-actions es-actions">'+
       '<button type="button" class="btn btn-primary btn-block" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
     '</div>'+
@@ -49338,10 +49375,20 @@ function openEditModal(dayId){
      that never opted in.
 
      Structure, fields, validation, save/reset and the swap logic are
-     untouched; only the token ramp the same markup draws from moves. No
-     builder-light here: this is a bottom sheet like every other short form,
-     not the centred builder. */
-  openModal(html, 'modal-themed');
+     untouched; only the token ramp the same markup draws from moves.
+
+     CENTRED, not docked. The old note here read "this is a bottom sheet like
+     every other short form" -- it was true when written and a walk of the
+     navigation tree measured it false: thirteen of sixteen reachable modals
+     are centred cards and this was one of three left at the bottom edge.
+     It is also the surface that needed centring most. A drawer is pinned to
+     the bottom of the viewport with no keyboard-safe height, and this sheet
+     holds a title field and a notes textarea -- open the keyboard on a
+     docked drawer and the field you are typing into is behind it. The
+     centred shell caps at 100dvh, so the card shrinks with the visual
+     viewport instead. .modal-centred, not .builder-light: the geometry
+     only, so no cherry primary and no builder card face follow it in. */
+  openModal(html, 'modal-themed modal-centred');
 }
 
 function findDay(dayId){
@@ -54859,7 +54906,11 @@ function openImportModal(){
     '<div class="field-hint" style="margin-top:10px;">Garmin user? Sync your Garmin Connect account to Strava, then tap \u201cSync Strava\u201d above to auto-import your watch runs automatically!</div>'+
     '<div id="import-result"></div>'+
   '</div>';
-  openModal(html, 'modal-themed');
+  /* .modal-centred for the same reason Edit Session takes it: two sections, a
+     dropzone and a result area is a card you read and scroll, not a confirm
+     you thumb at the bottom edge. Geometry only -- the surface keeps its own
+     face. */
+  openModal(html, 'modal-themed modal-centred');
   var dz = document.getElementById('import-dropzone');
   var fi = document.getElementById('import-file-input');
   dz.addEventListener('click', function(){ fi.click(); });
@@ -58233,7 +58284,10 @@ function openRestoreModal(){
       '<div class="field-hint" style="margin-top:14px;">Nothing is changed until you choose. '+
       'Restoring never deletes another plan \u2014 whatever is open now is kept and can be restored back.</div>'+
     '</div>',
-    'modal-themed'
+    /* .modal-centred: the recover list is as long as the athlete has plans,
+       and the sign-in path below it is an email field -- the keyboard case a
+       docked drawer handles worst. Geometry only. */
+    'modal-themed modal-centred'
   );
 }
 function handleRestorePlan(key){
