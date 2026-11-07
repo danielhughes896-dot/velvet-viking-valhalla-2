@@ -385,3 +385,57 @@ test('the week status chip shares an edge with the figure under it', () => {
   assert.match(chip[1], /position:absolute/,
     'the chip left the hero’s own coordinate space, so right:0 no longer means the gutter');
 });
+
+test('a missed day says so in the circle, the same way a done day does', () => {
+  /* Done was already stated in the ring. Missed was a 55% dimming — the same
+     thing a past rest day got — so a week scanned at a glance showed what was
+     run and said nothing about what was not. It takes the red the product
+     already uses for it: --c-threshold, the MISSED label's own colour.
+     Both states are asserted as a PAIR, on the same two properties at the
+     same two strengths, because "the same rule as completed" is the whole
+     instruction and a guard that checks them separately would not notice
+     them drifting apart. */
+  const done = /\.wk-day\.is-done\{([^}]*)\}/.exec(CSS);
+  const missed = /\.wk-day\.is-missed\{([^}]*)\}/.exec(CSS);
+  assert.ok(done && missed, 'one of the two day-circle states has lost its rule');
+
+  const recipe = body => ({
+    border: (/border-color:color-mix\(in srgb, var\((--[\w-]+)\) (\d+)%/.exec(body) || []).slice(1).join('@'),
+    fill:   (/background:color-mix\(in srgb, var\((--[\w-]+)\) (\d+)%/.exec(body) || []).slice(1).join('@'),
+  });
+  const d = recipe(done[1]), m = recipe(missed[1]);
+  assert.ok(d.border && d.fill, 'the done circle no longer states itself through its tokens');
+  assert.ok(m.border && m.fill, 'the missed circle no longer states itself through its tokens');
+  assert.equal(d.border.split('@')[1], m.border.split('@')[1],
+    'done and missed disagree on ring strength (' + d.border + ' vs ' + m.border + ')');
+  assert.equal(d.fill.split('@')[1], m.fill.split('@')[1],
+    'done and missed disagree on fill strength (' + d.fill + ' vs ' + m.fill + ')');
+  assert.equal(d.border.split('@')[0], '--ok', 'the done circle left the done token');
+  assert.equal(m.border.split('@')[0], '--c-threshold',
+    'the missed circle is not using the red the MISSED label uses');
+  assert.match(CSS, /\.day-status-label\.missed\{[^}]*color:var\(--c-threshold\)/,
+    'the MISSED label changed colour, so the circle now matches nothing');
+});
+
+test('a rest day cannot be missed, and a declared day is never a reproach', () => {
+  /* The circle painted every past unfinished day, rest days included. That
+     was harmless while the state was a dimming and would be a red mark
+     against a day the athlete was never asked to run — or worse, against one
+     they told Valhalla about in advance. dayStatusLabel() has ranked
+     Restricted above Missed since it was written, for exactly that reason. */
+  const i = SRC.indexOf('function renderWeekDaySelector(');
+  assert.ok(i > -1, 'renderWeekDaySelector is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  assert.match(body, /dd\.type !== 'rest' && !dd\.restricted\s*\)\s*\?\s*' is-missed'/,
+    'the week circles are marking rest days or declared days as missed');
+  assert.match(body, /' is-past'/,
+    'past days that are not misses lost the quiet state, so they now look like days ahead');
+  assert.match(CSS, /\.wk-day\.is-past\{opacity:\.55;?\}/,
+    'the quiet past state is gone from the sheet');
+  /* And the definition this copies, so the two cannot drift. */
+  const lbl = SRC.indexOf("word = 'Missed'");
+  assert.ok(lbl > -1, 'the Missed label is gone');
+  assert.match(SRC.slice(lbl - 220, lbl), /dd\.type!=='rest'/,
+    'the status label stopped excluding rest days, so the circle is now copying a ' +
+    'rule that no longer says what it used to');
+});

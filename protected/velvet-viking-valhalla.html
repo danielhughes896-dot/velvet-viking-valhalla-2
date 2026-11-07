@@ -5186,11 +5186,33 @@
   .wk-day-d{font-size:10px; letter-spacing:.04em; opacity:.85;}
   .wk-day-n{font-size:16px; font-weight:600; font-variant-numeric:tabular-nums;
     color:var(--ink); line-height:1;}
-  /* Done is stated in the ring, not by filling the disc: a solid green
-     circle competes with the selected state for the same attention. */
-  .wk-day.is-done{border-color:rgba(122,160,110,.75); color:var(--ink);
-    background:rgba(122,160,110,.13);}
-  .wk-day.is-missed{opacity:.55;}
+  /* ---------- DONE AND MISSED ARE ONE PAIR ----------
+     Done is stated in the ring, not by filling the disc: a solid circle
+     competes with the selected state for the same attention. Missed now
+     says the same thing in the same way, in the red the product already
+     uses for it -- --c-threshold, the MISSED label's own colour, so a week
+     scanned at a glance shows what was run and what was not.
+     Both written through their tokens. The green here was rgba(122,160,110)
+     longhand, which IS --ok -- the sheet already records what that cost
+     further down (".pp-mark ... was already the done colour and simply could
+     not be found by searching for it"). Two states that are deliberately the
+     same recipe have to LOOK the same in the stylesheet or the symmetry is
+     invisible to whoever changes one of them next. */
+  .wk-day.is-done{
+    border-color:color-mix(in srgb, var(--ok) 75%, transparent);
+    background:color-mix(in srgb, var(--ok) 13%, transparent);
+    color:var(--ink);}
+  .wk-day.is-missed{
+    border-color:color-mix(in srgb, var(--c-threshold) 75%, transparent);
+    background:color-mix(in srgb, var(--c-threshold) 13%, transparent);
+    color:var(--ink);}
+  /* A PAST DAY THAT IS NOT A MISS. A rest day cannot be missed, and a day
+     the athlete told Valhalla they could not train on is never shown as one
+     -- the status label has ordered Restricted above Missed for exactly that
+     reason since it was written: "it is never the one they read as a
+     reproach". Those days keep the quiet dimming this class used to give
+     every past day indiscriminately. */
+  .wk-day.is-past{opacity:.55;}
   .wk-day.is-rest .wk-day-n{color:var(--ink-faint);}
   .wk-day.is-sel{
     border-color:var(--gold); color:var(--gold);
@@ -56481,7 +56503,15 @@ function renderWeekDaySelector(weekNum){
   var cells = weekSessionDays(weekNum).map(function(dd){
     var cls = 'wk-day';
     if (dd.completed) cls += ' is-done';
-    else if (dd.date < today) cls += ' is-missed';
+    else if (dd.date < today){
+      /* THE SAME DEFINITION OF MISSED THE LABEL USES, and it has to be: this
+         painted every past unfinished day, rest days included, which was
+         harmless while the state was a dimming and would be a red mark
+         against a day the athlete was never asked to run.
+         dayStatusLabel() has said `!ran && dd.type!=='rest'` with Restricted
+         ranked above Missed since it was written. Same rule here. */
+      cls += (dd.type !== 'rest' && !dd.restricted) ? ' is-missed' : ' is-past';
+    }
     if (dd.date === today) cls += ' is-today';
     if (sel && dd.date === sel.date) cls += ' is-sel';
     if (dd.type === 'rest') cls += ' is-rest';
