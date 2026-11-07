@@ -1225,10 +1225,44 @@
   /* Execution Strategy phases -- a staged reading of the prescription, not a
      second set of numbers. Each phase is its own compact block so a race's
      four-to-six stages stay scannable rather than one dense paragraph. */
-  .strat-phases{display:flex; flex-direction:column; gap:8px;}
+  /* .strat-phases is gone with the stack it described -- the phases are a
+     rail now and the rail body owns the layout. A column rule left lying
+     here is how the rail broke in the first place. */
   .strat-phase{padding:6px 0;}
   .strat-phase:last-of-type{border-bottom:none; padding-bottom:0;}
   .strat-phase-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
+  /* ---- THE CAPTION UNDER THE RAIL ----
+     Full width, because it is a sentence. Only the lit phase's is shown,
+     and the first carries .is-on from the markup so a rail whose script
+     never ran still reads correctly. min-height holds the box steady at the
+     tallest caption, so swiping does not move everything underneath -- the
+     same law wireCoachingRail's measure() applies to the rail itself. */
+  .how-cap{margin-top:4px;}
+  .how-cap-i{display:none;}
+  .how-cap-i.is-on{display:block;}
+  .exec-rail ~ .how-cap .strat-phase-purpose{margin-top:0;}
+  /* The numbers stack inside a panel: they are two different quantities and
+     a middot between them is a full-width idea. */
+  .exec-rail .sp-n{display:block;}
+  /* Out of the mono face and down a tier: it qualifies the figure below it,
+     it is not one. */
+  .exec-rail .sp-q{display:block; font-family:var(--text-face);
+    font-size:var(--fs-support); color:var(--ink-faint); letter-spacing:.01em;}
+  /* IN THE RAIL THE HEAD STACKS. space-between is a full-width idea: label
+     left, span right. In a 125px column it puts "0-10km" hard against the
+     right edge with nowhere to go, so it wrapped mid-range -- "10-" above
+     "20km". The two are a label and its range; stacked they read as one
+     thing and the panel gets a line back. */
+  /* NOT space-between, and not block either. space-between is a full-width
+     idea -- label left, range hard right -- and at 125px it pushed the two
+     apart and broke the range mid-number ("10-" above "20km"). Stacking
+     them fixed that and cost a line on every panel. Left-packed with a gap
+     does both: "SETTLE 0-10km" fits one line, and a label and range that
+     genuinely do not fit wrap as two whole words rather than a split
+     number. */
+  .exec-rail .strat-phase-head{justify-content:flex-start; flex-wrap:wrap; gap:0 7px;}
+  .exec-rail .strat-phase-span{white-space:nowrap;}
+  .exec-rail .strat-phase{padding:0;}
   .strat-phase-label{font-size:var(--fs-body); font-weight:600; color:var(--ink);}
   .strat-phase-span{font-size:var(--fs-data); color:var(--ink-faint);}
   /* Settle / Hold / Absorb carry the SAME paces and heart rates as the step
@@ -28024,7 +28058,21 @@ function renderCoachingDepth(dd, pre){
       /* The two tables, below the rail and above the note, in the order they
          always had. Unchanged markup and unchanged presentation -- they have
          simply stopped being asked to be something they are not. */
-      (stratBlock ? '<div class="how-table"><div class="how-row-heading">Execution</div>'+stratBlock+'</div>' : '')+
+      /* ---------- EXECUTION IS A RAIL NOW, LIKE THE OTHER TWO ----------
+         The note that stood here said a staged execution is a table and not
+         a micro-module: "at a quarter of a phone it is unreadable, and at
+         full width it is the tallest thing in the rail". That was written
+         about putting the phases INSIDE the coaching rail, as four more
+         panels after WHY / FEEL / WATCH FOR -- and it was right about that.
+         This is the other thing: its own rail, the way fuel got its own
+         rail, with one phase per panel and nothing else sharing the row. No
+         short panel's height is dragged up by it, because every panel in
+         this rail is a phase.
+         Same component throughout -- .fuel-body + .how-mod + the dots --
+         so there is one rail in this product, used three times, not three
+         things that resemble each other. */
+      (stratBlock ? '<div class="how-table how-exec">'+
+        '<div class="how-row-heading">Execution</div>'+stratBlock+'</div>' : '')+
       /* Fuel is a rail now, not the second table. Its wrapper keeps
          .how-table so the spacing above it is unchanged, and gains .how-fuel
          so the rail rules can reach it. */
@@ -28038,10 +28086,23 @@ function renderCoachingDepth(dd, pre){
          day, and everything above it is written about the session. So it
          sits below the rail at full width where it cannot be missed, which
          is also the only way its cherry light has room to be seen. */
-      (cueText
-        ? '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
-          '<span class="v">'+escapeHtml(cueText)+'</span></div>'
-        : '')+
+      /* ---------- THE FUEL CAVEATS COME HERE ----------
+         They used to trail under the fuel rail as dim left-aligned prose.
+         They are coaching, not reference -- "adjust for heat and thirst",
+         "build up to that carb range rather than starting there" -- and the
+         note is where this screen puts coaching.
+         THE NOTE RENDERS IF EITHER EXISTS. Gating it on cueText alone would
+         drop the fuel safety copy on any day with no cue, which is exactly
+         the class of regression the guards in coachCopyDiscipline were
+         written for after one of mine. */
+      (function(){
+        var hints = fuelOn ? (fuelFacts(dd).railHints || []) : [];
+        if (!cueText && !hints.length) return '';
+        return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
+          (cueText ? '<span class="v">'+escapeHtml(cueText)+'</span>' : '')+
+          hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
+        '</div>';
+      })()+
     '</details>';
   }
   return out;
@@ -28168,9 +28229,14 @@ function fuelRailHtml(dd){
         (r.note ? '<span class="fuel-v-note">'+r.note+'</span>' : '')+
       '</span></div></div>';
   }).join('');
+  /* THE CAVEATS ARE NOT PART OF THE RAIL. They trailed under it as two dim
+     left-aligned paragraphs -- the only unlit prose on a screen where every
+     other sentence is either a figure, a panel or the Coach's Note. They are
+     coaching ("drink to thirst", "build up to that carb range"), so they go
+     where the coaching is; see renderDayCard(), which hands them to the
+     note. The rail returns the rail. */
   return '<div class="fuel-body" data-hswipe="1">'+mods+'</div>'+
-    railDotCount(f.rows.length)+
-    f.railHints.map(function(t){ return '<div class="fuel-hint">'+t+'</div>'; }).join('');
+    railDotCount(f.rows.length);
 }
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
@@ -28376,6 +28442,23 @@ function renderDayTargetRing(dd, targets){
      pace line does not. */
   if (targets.goalPace && targets.goalPace.indexOf(targets.pace || '\u0000') === -1)
     rows += '<div class="th-row mp">'+escapeHtml(targets.goalPace)+'</div>';
+  /* ---------- THE PLANNED FINISH BELONGS ON THE RING ----------
+     It sat at the foot of the race strategy picker under a PLANNED FINISH
+     label, two screens below the ring that already carries this race's other
+     two numbers. It is the same kind of fact -- what this session is aimed
+     at -- so it joins them, and the label goes: a clock face beside a
+     h:mm:ss is not ambiguous, and the ring's other rows do not carry labels
+     either.
+     The glyph is there for the reason the heart and the gauge are: the ring
+     prints bare figures, and 4:58/km and 3:29:45 are both just digits until
+     something says which is which. */
+  if (dd && dd.type === 'race'){
+    var rp = null;
+    try { rp = raceExecutionPlan(dd.km || 0); } catch(e) { rp = null; }
+    if (rp && rp.impliedSec)
+      rows += '<div class="th-row"><span class="th-ic">'+ICONS.clock+'</span>'+
+        escapeHtml(secToClock(Math.round(rp.impliedSec)))+'</div>';
+  }
   if (!rows) return '';
   var label = dayTypeLabel(dd);
   return '<div class="th-ring">'+TH_ARC+
@@ -29759,37 +29842,65 @@ function fmtStrategySpan(ph){
   if (ph.reps!=null) return '×'+ph.reps;
   return '';
 }
+/* ---------- THE PANEL AND THE CAPTION ARE TWO THINGS NOW ----------
+   Measured at 412px, every execution panel carried 96-120px of prose on top
+   of 59-139px of label, range and target -- which is why the rail stood at
+   288px against the coaching rail's 116 and fuel's 120. The prose IS the
+   detail, so it cannot be cut; what it can stop being is a fifth of a
+   125px column.
+   It moves under the rail as a caption that follows the lit panel, at full
+   width where a sentence belongs. Nothing is lost, every panel drops into
+   the 95-120px band the other two rails live in, and the lit panel earns a
+   job beyond looking lit. */
 function renderStrategyPhase(ph){
   var target = fmtStrategyPace(ph.pace, ph.paceRole);
   var hr = fmtStrategyHR(ph.hr);
-  var targetLine = [target, hr].filter(function(x){ return x; }).join(' · ');
-  if (!targetLine && ph.effort) targetLine = ph.effort;
   // 'Conditional' is HQ's own word for paceRole 'open' -- available only if
   // the earlier phases were executed. The number itself is unchanged; only
   // this tag marks it as conditional rather than a flat command.
   var tag = ph.paceRole==='open' ? '<span class="pzr-tag">Conditional</span>' : '';
+  /* PACE AND HEART RATE STACK. They were joined with " \u00b7 " -- a
+     full-width idea, like the space-between that was breaking the ranges.
+     In a 125px column "no faster than 4:46/km \u00b7 157-164 BPM" set four
+     ragged lines; as two deliberate ones it sets three, and for an ordinary
+     phase two. They are two different numbers and reading them as two
+     lines is not a compromise. */
+  /* THE QUALIFIER IS NOT PART OF THE NUMBER. "no faster than 4:46/km" is
+     one mono string, and mono is wide: at 125px it broke into "no faster /
+     than / 4:46/km" -- three lines, two of them words, to say one pace.
+     The words come out of the monospace and sit above it as the quieter
+     thing they are, so the figure reads as a figure. The string itself is
+     untouched; only where it breaks changed. */
+  var lines = '';
+  if (target){
+    var m = /^(no faster than )(.*)$/.exec(target);
+    lines += m
+      ? '<span class="sp-q">'+escapeHtml(m[1].trim())+'</span><span class="sp-n">'+escapeHtml(m[2])+'</span>'
+      : '<span class="sp-n">'+escapeHtml(target)+'</span>';
+  }
+  if (hr) lines += '<span class="sp-n">'+escapeHtml(hr)+'</span>';
+  if (!lines && ph.effort) lines = '<span class="sp-n">'+escapeHtml(ph.effort)+'</span>';
   var span = fmtStrategySpan(ph);
-  return '<div class="strat-phase">'+
+  return '<div class="how-mod strat-phase">'+
     '<div class="strat-phase-head"><span class="strat-phase-label">'+escapeHtml(ph.label)+'</span>'+
       (span?'<span class="strat-phase-span font-mono">'+escapeHtml(span)+'</span>':'')+
     '</div>'+
-    (targetLine?'<div class="strat-phase-target font-mono">'+escapeHtml(targetLine)+tag+'</div>':'')+
-    // Phase prose carries the same @@U@@ token the prescriptions do, and is
-    // resolved here rather than in strategyPhase(): the STRATEGY must not vary
-    // with a display preference, only the sentence the athlete reads.
-    /* PURPOSE AND CUE ARE ONE PARAGRAPH. They were two blocks, the second
-       italic, so every step broke its own thought in half at the full stop
-       and changed face to finish it. They are consecutive sentences about
-       the same instruction and now read as consecutive sentences. Both
-       strings are unchanged, and each still resolves its own @@U@@ unit
-       token before being joined. */
-    (function(){
-      var prose = [ph.purpose, ph.cue].filter(function(t){ return t; })
-        .map(function(t){ return escapeHtml(resolveDesc(t)); }).join(' ');
-      return prose ? '<div class="strat-phase-purpose">'+prose+'</div>' : '';
-    })()+
-    (ph.watch?'<div class="strat-phase-watch">'+escapeHtml(resolveDesc(ph.watch))+'</div>':'')+
+    (lines?'<div class="strat-phase-target font-mono">'+lines+tag+'</div>':'')+
   '</div>';
+}
+/* The sentence that belonged to the panel, at the width a sentence wants.
+   Both strings are unchanged and each still resolves its own @@U@@ unit
+   token before being joined -- the prescription must not vary with a
+   display preference, only the sentence the athlete reads. */
+function renderStrategyPhaseCaption(ph, i){
+  var prose = [ph.purpose, ph.cue].filter(function(t){ return t; })
+    .map(function(t){ return escapeHtml(resolveDesc(t)); }).join(' ');
+  var body = (prose ? '<div class="strat-phase-purpose">'+prose+'</div>' : '')+
+    (ph.watch ? '<div class="strat-phase-watch">'+escapeHtml(resolveDesc(ph.watch))+'</div>' : '');
+  /* THE FIRST ONE IS LIT IN THE MARKUP, not by the script. A rail whose
+     script never runs still shows the phase it is sitting on -- the same
+     reasoning that puts the dot count in the HTML rather than injecting it. */
+  return '<div class="how-cap-i'+(i===0?' is-on':'')+'">'+body+'</div>';
 }
 // The EXECUTION section's content when the session earns one. Suppressed
 // (recover state) and ineligible sessions both return '' here, deliberately
@@ -29804,7 +29915,20 @@ function renderExecutionStrategyBlock(dd){
   var s;
   try { s = executionStrategyForDisplay(dd); } catch(e) { return ''; }
   if (!s || s.suppressed || !s.phases || !s.phases.length) return '';
-  return '<div class="strat-phases">'+s.phases.map(renderStrategyPhase).join('')+'</div>';
+  /* The rail's own body, not a stack: each phase is a module, and the dots
+     below it are the same hint the other two rails give. */
+  /* NOT .strat-phases. That class is the old vertical stack --
+     flex-direction:column -- and merging it onto the rail body silently won
+     the cascade: the rail computed direction column with overflow-x hidden,
+     so flex:0 0 33% became a THIRD OF THE HEIGHT and every phase was
+     squashed to ~110px with no way to swipe. It still reported itself
+     wired with a panel lit, because "wired" and "laid out" are different
+     questions and only one of them was being asked. */
+  return '<div class="fuel-body exec-rail" data-hswipe="1">'+
+      s.phases.map(renderStrategyPhase).join('')+
+    '</div>'+
+    railDotCount(s.phases.length)+
+    '<div class="how-cap">'+s.phases.map(renderStrategyPhaseCaption).join('')+'</div>';
 }
 
 /* =========================================================
@@ -47114,12 +47238,11 @@ function renderRaceStrategyPicker(race){
     '</button>';
   }).join('');
 
-  /* The one number that proves the strategy is a plan rather than a mood: what
-     these blocks actually add up to. It is the athlete's own declared goal,
-     which is the point -- every strategy finishes in the same time. */
-  var finish = plan ? '<div class="rs-finish font-mono">'+
-      escapeHtml(secToClock(Math.round(plan.impliedSec)))+
-      '<span class="rs-finish-l font-head">Planned finish</span></div>' : '';
+  /* THE FINISH TIME MOVED TO THE RING. It is what this race is aimed at, and
+     the ring is where this card already states what a session is aimed at --
+     see renderDayTargetRing(). Down here it was a third number in a corner,
+     two screens below the other two, wearing a label to explain itself. */
+  var finish = '';
 
   var custom = (key === 'custom' && editable) ? '<div class="rs-custom">'+
       '<button type="button" class="rs-step" data-action="race-custom" data-delta="-1"'+
@@ -60040,6 +60163,17 @@ function wireCoachingRail(rail){
   var after = rail.nextElementSibling;
   var dotWrap = (after && after.classList && after.classList.contains('how-dots')) ? after : null;
   var dots = dotWrap ? dotWrap.querySelectorAll('.how-dot') : null;
+  /* ---- A RAIL MAY CARRY A CAPTION, AND IT SITS AFTER THE DOTS ----
+     The execution rail's coaching sentence is too long to live inside a
+     125px panel and too important to drop, so it reads at full width under
+     the rail and follows whichever phase is lit. Found the same way the
+     dots are -- by position, not by reaching into a parent -- so a second
+     rail in the same card can never be handed the first one's caption.
+     Generic on purpose: any rail whose panels are figures and whose
+     sentences are long can use it without a second mechanism. */
+  var capWrap = dotWrap ? dotWrap.nextElementSibling : null;
+  if (!(capWrap && capWrap.classList && capWrap.classList.contains('how-cap'))) capWrap = null;
+  var caps = capWrap ? capWrap.querySelectorAll('.how-cap-i') : null;
   var focus = 0;
 
   if (n > 1){
@@ -60105,6 +60239,10 @@ function wireCoachingRail(rail){
     if (dots) for (k = 0; k < dots.length; k++){
       if (k === focus) dots[k].classList.add('is-on');
       else dots[k].classList.remove('is-on');
+    }
+    if (caps) for (k = 0; k < caps.length; k++){
+      if (k === focus) caps[k].classList.add('is-on');
+      else caps[k].classList.remove('is-on');
     }
     try{
       var want = wantedScroll(focus);

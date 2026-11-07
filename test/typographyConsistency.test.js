@@ -293,8 +293,14 @@ test('a number the athlete acts on outranks the prose around it', () => {
   // runner hunts for the number, not the sentence, so a metric sits on the
   // data tier (--fs-data) or above -- never under the prose it belongs to.
   const css = appCss();
+  /* ANCHORED TO THE START OF A RULE. Unanchored, this matched the first
+     place the selector appeared as a SUBSTRING -- so adding
+     `.exec-rail .strat-phase-span{display:block}` above the base rule made
+     this read the override, find no font-size and fail, while the tier it
+     is actually guarding was untouched. The same trap valhallaSurface
+     already records for its own rule() helper. */
   const rule = sel => {
-    const m = css.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}'));
+    const m = css.match(new RegExp('\\n\\s*' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}'));
     assert.ok(m, sel + ' rule not found');
     return m[1];
   };

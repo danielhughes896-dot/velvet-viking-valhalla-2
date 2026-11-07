@@ -385,12 +385,22 @@ test('the selected chip takes the Valhalla accent, and gold is not the selection
 });
 
 test('the planned finish shown is the athlete’s own goal time, whichever strategy', () => {
+  /* THE FINISH MOVED TO THE RING, where this card already states what a
+     session is aimed at -- it used to sit in the corner of the strategy
+     picker under a PLANNED FINISH label. The LAW is untouched and is the
+     whole point of this test: every strategy finishes on the athlete's own
+     declared goal, so changing strategy must never change the time. Read
+     from wherever it is printed; what matters is that it is one number and
+     it does not move. */
   const { a, race } = athlete('full');
   const goalClock = a.secToClock(Math.round(a.getGoalPaceSecPerKm() * race.km));
+  assert.ok(!/rs-finish/.test(a.renderRaceStrategyPicker(race)),
+    'the strategy picker is printing the finish again as well as the ring');
   ['even', 'negative', 'custom'].forEach(k => {
     a.handleSetRaceStrategy(k);
-    const html = a.renderRaceStrategyPicker(race);
-    const shown = (html.match(/rs-finish font-mono">([^<]+)</) || [])[1];
+    const ring = a.renderDayTargetRing(race, a.getDayTargets(race));
+    const shown = (ring.match(/(\d+:[0-5]\d:[0-5]\d)/) || [])[1];
+    assert.ok(shown, k + ' put no finish time on the ring at all');
     const diff = Math.abs(a.clockToSec(shown) - a.clockToSec(goalClock));
     assert.ok(diff <= 6, k + ' showed ' + shown + ' against a goal of ' + goalClock);
   });

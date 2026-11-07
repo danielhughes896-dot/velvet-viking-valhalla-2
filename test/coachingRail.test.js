@@ -536,3 +536,132 @@ test('a card rebuilt in place comes back with working rails', () => {
     'wireCoachingRail no longer returns early on a rail it has already wired, so ' +
     "replaceCard's unconditional call will double-bind every live rail on the screen");
 });
+
+/* =========================================================================
+ * EXECUTION BECOMES THE THIRD RAIL, and the planned finish joins the ring.
+ * ========================================================================= */
+
+test('Execution is the same rail component as the other two', () => {
+  /* The note that used to sit at the call site said a staged execution is a
+     table, not a micro-module: "at a quarter of a phone it is unreadable,
+     and at full width it is the tallest thing in the rail and drags every
+     short panel's height up with it". That was about putting the phases
+     INSIDE the coaching rail as four more panels, and it was right about
+     that. This is its OWN rail, like fuel's, so nothing else shares the row
+     and no short panel is dragged anywhere.
+     Measured at 412px: panels 224-288px against the coaching rail's 95-116
+     and fuel's 95-120. It is the tallest of the three and that is inherent
+     -- it carries a sentence of coaching per phase, not a figure. */
+  assert.match(SRC, /return '<div class="fuel-body exec-rail" data-hswipe="1">'/,
+    'the execution phases are no longer rendered as a rail body');
+  assert.match(SRC, /'<div class="how-mod strat-phase">'/,
+    'an execution phase is no longer a rail module');
+  const i = SRC.indexOf('function renderExecutionStrategyBlock(');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  assert.match(body, /railDotCount\(s\.phases\.length\)/,
+    'the execution rail lost its dots, or they are counted from something other than ' +
+    'the phases they indicate');
+
+  /* ---- AND NOT .strat-phases, WHICH IS WHY IT BROKE ONCE ----
+     Merging the old stack's class onto the rail body silently won the
+     cascade: flex-direction:column with overflow-x:hidden, so flex:0 0 33%
+     became a third of the HEIGHT, every phase was squashed to ~110px and
+     there was no way to swipe. It still reported itself wired with a panel
+     lit, because wired and laid-out are different questions. */
+  assert.ok(!/class="fuel-body strat-phases"/.test(SRC),
+    'the column-stack class is back on the rail body — it wins the cascade and turns ' +
+    'the rail into a squashed vertical stack that still claims to be wired');
+  assert.ok(!/\n  \.strat-phases\{/.test(CSS),
+    'the .strat-phases column rule is back; there is no stack for it to describe and ' +
+    'it is one merge away from breaking the rail again');
+});
+
+test('the planned finish is on the ring, not in a corner of the strategy', () => {
+  /* It sat at the foot of the race strategy picker under a PLANNED FINISH
+     label -- a third number about this race, two screens below the two the
+     ring already carries. The label goes with it: a clock face beside a
+     h:mm:ss is not ambiguous, and no other row on the ring is labelled. */
+  /* RENDERED, NOT GREPPED. The first version of this asserted the source
+     contained "dd.type === 'race'" -- and passed happily when the branch was
+     mutated to `false && dd.type === 'race'`, because the text was still
+     there. A guard that reads the source can only ever prove the source
+     says something. This one builds a race and reads the ring. */
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 12, startDate: '2026-07-01', distanceKey: 'full', volume: 44 });
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(race, 'the fixture block no longer ends in a race');
+  const plan = a.raceExecutionPlan(race.km || 0);
+  const expected = a.secToClock(Math.round(plan.impliedSec));
+  const ring = a.renderDayTargetRing(race, a.getDayTargets(race));
+  assert.ok(ring.includes(expected),
+    'the ring does not print the planned finish (' + expected + '). It is what this race ' +
+    'is aimed at, and the ring is where this card says what a session is aimed at.');
+  /* SCOPED TO THE FINISH'S OWN ROW. Asserting the ring contains a glyph
+     anywhere passes on the pace row's gauge while the finish sits bare --
+     caught by mutating exactly that. */
+  const finishRow = ring.split('<div class="th-row').filter(r => r.includes(expected))[0];
+  assert.ok(finishRow, 'the finish is on the ring but not in a row of its own');
+  assert.ok(finishRow.includes('th-ic'),
+    'the finish has no glyph — the ring prints bare figures and 4:58/km and 3:29:45 ' +
+    'are both just digits until something says which is which');
+
+  /* AND AN ORDINARY SESSION DOES NOT GROW A FINISH TIME. */
+  const easy = a.state.days.filter(d => d.type === 'easy' && d.km)[0];
+  if (easy){
+    const er = a.renderDayTargetRing(easy, a.getDayTargets(easy));
+    assert.ok(!/\d:\d\d:\d\d/.test(er),
+      'a non-race session is printing a finish time on its ring');
+  }
+  assert.ok(!/Planned finish/.test(SRC),
+    'the PLANNED FINISH label is back');
+  assert.ok(!/class="rs-finish/.test(SRC),
+    'the strategy picker is printing the finish time again as well as the ring');
+});
+
+test('the execution panels are figures and the sentence is a caption', () => {
+  /* MEASURED, AND THIS IS WHY IT CHANGED. Every panel carried 96-120px of
+     prose on top of 59-139px of label, range and target, so the rail stood
+     at 288px against the coaching rail's 116 and fuel's 120 -- the founder's
+     words were "that's very long". The prose is the detail and could not be
+     cut, so it stopped being a fifth of a 125px column: it reads at full
+     width under the rail and follows the lit panel. Rail 288 -> 139, region
+     331 -> 234, and not a word was lost. */
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 12, startDate: '2026-07-01', distanceKey: 'full', volume: 44 });
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  const block = a.renderExecutionStrategyBlock(race);
+  assert.ok(block, 'the execution block is gone');
+
+  const rail = block.slice(0, block.indexOf('</div>' + '<div class="how-dots'));
+  const caps = block.slice(block.indexOf('class="how-cap"'));
+  const phases = (block.match(/class="how-mod strat-phase"/g) || []).length;
+  assert.ok(phases >= 3, 'the phases are no longer rail modules');
+
+  /* NOT A WORD LOST. One caption per phase, and the prose lives in them. */
+  assert.equal((block.match(/class="how-cap-i/g) || []).length, phases,
+    'there is not exactly one caption per phase');
+  assert.ok(!rail.includes('strat-phase-purpose'),
+    'the coaching sentence is back inside a 125px panel, which is what made the rail ' +
+    'two and a half times the height of the other two');
+  assert.equal((caps.match(/strat-phase-purpose/g) || []).length,
+    (block.match(/strat-phase-purpose/g) || []).length,
+    'a phase sentence is outside the captions');
+
+  /* THE FIRST CAPTION IS LIT IN THE MARKUP. A rail whose script never ran
+     would otherwise show five panels and no sentence at all -- the same
+     reasoning that puts the dot count in the HTML. */
+  assert.match(caps, /class="how-cap-i is-on"/,
+    'no caption is lit in the markup, so a rail whose script never runs shows none of them');
+  assert.equal((caps.match(/is-on/g) || []).length, 1,
+    'more than one caption is lit at once');
+
+  /* AND THE WIRING SWITCHES THEM, found by position like the dots -- never
+     by reaching into a parent, which is what would hand a second rail in the
+     same card the first one's caption. */
+  assert.match(SRC, /var capWrap = dotWrap \? dotWrap\.nextElementSibling : null;/,
+    'the caption is no longer found as the dots\' sibling');
+  assert.match(SRC, /if \(caps\) for \(k = 0; k < caps\.length; k\+\+\)/,
+    'setFocus no longer moves the caption with the lit panel');
+});

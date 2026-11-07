@@ -115,8 +115,25 @@ test('both renderers read the same arithmetic', () => {
   facts.hints.forEach(h => {
     assert.ok(stack.includes(h), 'a hint is missing from the standalone Fueling card');
   });
+  /* ---------- THE CAVEATS LEFT THE RAIL FOR THE COACH'S NOTE ----------
+     They trailed under the fuel rail as the only unlit prose on the screen.
+     They are coaching -- "drink to thirst", "build up to that carb range"
+     -- so they sit with the coaching now. What matters has not changed: the
+     athlete must still read them. Checked against the RENDERED CARD rather
+     than against fuelRailHtml(), which is a stronger question than the one
+     this asked before: it does not care which function emits them, only
+     that they are on the screen. */
+  assert.ok(!facts.railHints.some(h => rail.includes(h)),
+    'the fuel caveats are back under the rail as well as in the note — one of the two ' +
+    'copies will drift');
+  const card = a.renderDayCard(dd);
   facts.railHints.forEach(h => {
-    assert.ok(rail.includes(h), "a hint is missing from Today's fuel rail");
+    assert.ok(card.includes(h),
+      'a fuel caveat has been lost from the session card entirely: ' + JSON.stringify(h.slice(0, 40)));
+  });
+  const note = card.slice(card.indexOf('class="how-note"'));
+  facts.railHints.forEach(h => {
+    assert.ok(note.includes(h), 'a fuel caveat is on the card but not inside the Coach\'s Note');
   });
   assert.notDeepEqual(facts.hints, facts.railHints,
     'the two surfaces are sharing one set of words again — Today wants one line and the ' +
@@ -336,4 +353,20 @@ test('the ring keeps its heart and pace marks', () => {
     'title — it is what distinguishes a BPM range from a pace range at a glance.');
   assert.match(body, /class="th-ic">'\+ICONS\.gauge/,
     'the pace mark has been stripped from the ring; see the note beside the function');
+});
+
+test('the Coach\u2019s Note still appears when the only thing to say is the fuel caveat', () => {
+  /* THE TRAP IN MOVING THEM. The note used to render only when there was a
+     cue to print. Hand it the fuel caveats and gate it on the cue alone and
+     every day without a cue silently loses the safety copy -- which is the
+     same regression two guards in coachCopyDiscipline were written for after
+     I caused it once by sharing one hints array between both renderers. */
+  const i = SRC.indexOf('var hints = fuelOn ? (fuelFacts(dd).railHints || []) : [];');
+  assert.ok(i > -1, 'the note is no longer offered the fuel caveats');
+  const body = SRC.slice(i, i + 420);
+  assert.match(body, /if \(!cueText && !hints\.length\) return '';/,
+    'the Coach\u2019s Note is gated on the cue again, so a day with no cue drops the fuel ' +
+    'caveats off the screen entirely');
+  assert.match(body, /cueText \? '<span class="v">/,
+    'the cue is no longer optional inside the note, so a caveat-only day cannot render');
 });
