@@ -954,8 +954,10 @@
      while Custom is the selection, so the card does not carry a configuration
      panel it almost never needs. */
   .rs-custom{display:flex; align-items:center; gap:10px; margin-top:9px;}
+  /* 38px was under the 44px floor every other control on these screens
+     keeps, and these two are pressed repeatedly to tune a number. */
   .rs-step{
-    flex:none; width:38px; height:38px; border-radius:50%; cursor:pointer;
+    flex:none; width:var(--tap-min); height:var(--tap-min); border-radius:50%; cursor:pointer;
     font-family:inherit; font-size:17px; line-height:1;
     background:var(--bg-3); color:var(--ink-dim); border:1px solid var(--line);
   }
@@ -5353,11 +5355,17 @@
      bottom of the screen. The phases sit close together as one list, and the
      larger gap is kept only where the screen genuinely changes subject --
      after the hero, and before Race Day. */
-  .view-plan{display:flex; flex-direction:column; gap:9px; padding-top:22px;}
-  .view-plan > .wk-hero{margin-bottom:5px;}
-  /* -16px of the rule above, plus the 3px this row wants. */
-  .view-plan > .pp-chips{margin-bottom:-13px;}
-  .view-plan > .race-event{margin-top:9px;}
+  /* ---------- ONE SPACING LAW FOR THE WHOLE APP ----------
+     This Week sets it: 26px of air above the hero and 18px between the
+     blocks below it. Full Plan was on 22/9 -- half the rhythm of the tab
+     beside it, which is what made the two screens feel like two apps. The
+     negative margins that used to pull the stepper back up go with it: they
+     were compensating for a gap that is now the right size. */
+  .view-plan{display:flex; flex-direction:column; gap:var(--wk-gap); padding-top:26px;}
+  .view-plan{--wk-gap:18px;}
+  /* The stepper is the hero's own footnote -- the shape of the block the
+     hero is reporting on -- so it sits closer to it than the sections do. */
+  .view-plan > .pp-chips{margin-top:-6px; margin-bottom:-6px;}
   .view-host .view-plan .view-heading{display:none;}
 
   /* ---- the chips ---- */
@@ -5387,9 +5395,19 @@
     padding:0 4px; background:none; border:0; color:var(--ink);
     transition:color .18s;
   }
+  /* ---------- THE TRACK RUNS BETWEEN THE MARKS, NOT INTO THEM ----------
+     It was drawn from one dot's centre to the next and relied on the dot's
+     own opaque fill to hide the overlap -- measured at 13px inside the rim
+     on each side, so the line met the circle with no gap at all and read as
+     cutting through it. The dot is 25px, so 12.5px clears the rim and the
+     5px past that is the breathing room: it is decoration between the
+     phases, and it is allowed not to touch them.
+     top was 12px against a dot whose centre line is 11.5px -- half a pixel
+     low, which is the other half of why it looked like it clipped the rim. */
   .pp-step::before{
-    content:''; position:absolute; top:12px; height:2px; z-index:0;
-    right:50%; left:-50%; background:var(--line); opacity:0;}
+    content:''; position:absolute; top:11.5px; height:2px; z-index:0;
+    right:calc(50% + 17.5px); left:calc(-50% + 17.5px);
+    background:var(--line); opacity:0;}
   .pp-step.has-track::before{opacity:1;}
   /* Cherry is progress in this product, and this is the only track on the
      screen that reports it. Mixed down rather than used neat: a full-strength
@@ -5577,27 +5595,48 @@
      foot with the finish time at its right. A grid rather than stacked rows,
      so the two top areas sit on one line and the rule under them separates
      "what and when" from "how you intend to run it". */
+  /* ---------- RACE DAY IS A HERO, NOT A ROW ----------
+     It was a label and a date on the left with the distance set beside them
+     in a 30px figure behind a hairline -- the layout of a list item, for
+     the one event the whole block exists for. Today and This Week already
+     own the shape a session's identity takes: an eyebrow, then the figure,
+     at a size nothing else on the screen competes with.
+     So the columns go. The label leads, the date sits under it, and 42.2km
+     takes the SAME figure Today gives 15km -- the same clamp, the same
+     white, the same backlight -- because it is the same kind of statement
+     and a smaller one here would say the marathon mattered less than
+     Saturday's long run. The hairline that separated the two columns is
+     gone with the columns; the card's own cherry rim is the container. */
   .view-plan > .race-event{
-    display:grid; grid-template-columns:1fr auto; align-items:start; gap:2px 12px;
+    display:grid; grid-template-columns:1fr; align-items:start; gap:0;
   }
   .view-plan > .race-event .race-divider{grid-column:1; grid-row:1;}
   .view-plan > .race-event .race-event-when{
     grid-column:1; grid-row:2; font-size:13px; color:var(--ink-dim); letter-spacing:.02em;}
   .view-plan > .race-event .race-event-dist{
-    grid-column:2; grid-row:1 / span 2; align-self:center; text-align:right;
-    padding-left:14px; border-left:1px solid var(--cherry-line);}
-  .view-plan > .race-event .race-event-dist b{font-size:30px; color:#FFFFFF;
-    font-variant-numeric:tabular-nums; letter-spacing:-0.01em;
-    text-shadow:0 0 1px rgba(255,255,255,.40), 0 0 14px rgba(255,255,255,.22);}
-  .view-plan > .race-event .race-event-dist span{font-size:14px; color:var(--ink-dim);}
+    grid-column:1; grid-row:3; display:flex; align-items:baseline; gap:3px;
+    text-align:left; padding-left:0; border-left:0; margin-top:9px;}
+  /* The same three stops .th-dist span carries, scaled as one so the figure
+     answers screen width exactly as Today's does. */
+  .view-plan > .race-event .race-event-dist b{
+    font-family:var(--text-face); font-weight:700; line-height:1;
+    font-size:clamp(45.6px, 14.4vw, 57.6px); letter-spacing:-0.02em;
+    font-variant-numeric:tabular-nums; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 20px rgba(255,255,255,.42),
+                0 0 54px rgba(255,255,255,.22);}
+  /* The unit travels with the number, as it does on Today. */
+  .view-plan > .race-event .race-event-dist span{
+    font-family:var(--text-face); font-weight:700;
+    font-size:clamp(28.8px, 9.6vw, 38.4px); color:#FFFFFF; letter-spacing:-0.01em;
+    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.34);}
   .view-plan > .race-event .race-strategy{
-    grid-column:1 / -1; grid-row:3; margin-top:11px; padding-top:11px;
+    grid-column:1; grid-row:4; margin-top:14px; padding-top:13px;
     border-top:1px solid var(--cherry-line);}
   /* Hidden on FULL PLAN only -- see renderRaceDayEvent. This Week still
      shows the card, which is how the race is read there. */
   .view-plan > .race-event > .day{display:none;}
   .view-plan > .race-event .rd-open{
-    grid-column:1 / -1; grid-row:4; margin-top:11px; padding:10px 14px;
+    grid-column:1; grid-row:5; margin-top:12px; padding:10px 14px;
     min-height:var(--tap-min);
     border:1px solid transparent; border-radius:14px;
     background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
@@ -5654,13 +5693,23 @@
      leaving empty. flex:none so a long session title gives way to it rather
      than squeezing it, and the row's own gap does the spacing. */
   .pw-stat{flex:none; margin-left:10px; display:inline-flex; align-items:center;}
+  /* ---------- THE SAME TWO COLOURS THIS WEEK'S DAY CIRCLES USE ----------
+     Cherry-red is missed, here as on This Week's day circles -- this row
+     was the one place still saying it in grey, at exactly the weight of a
+     session run perfectly and the same colour as the chevron beside it.
+     THE SCORE STAYS DIM, and that is not an oversight. Colouring it green
+     would attach a verdict to a NUMBER: 61% in green reads as approval of
+     a 61%. The day circle gets away with green because it carries no
+     figure -- there, green means "done" and nothing else. Here the row
+     already states the result, so the colour would be a second, louder
+     opinion about it. The guard in planSurface holds this. */
   .pw-stat.is-score{font-size:var(--fs-panel-row); color:var(--ink-dim); letter-spacing:.01em;}
   .pw-stat.is-done{color:var(--ok-text);}
   .pw-stat.is-done svg{width:15px; height:15px;}
   .pw-stat.is-missed{
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
-    text-transform:uppercase; color:var(--ink-faint);}
+    text-transform:uppercase; color:var(--c-threshold);}
   .pw-chev{flex:none; color:var(--ink-faint); display:inline-flex;}
   .pw-chev svg{width:19px; height:19px;}
   .pw-row.is-today{border-color:var(--gold);
@@ -46645,7 +46694,13 @@ function renderWeekAccordion(weekNum, forceOpen){
   var daysHtml = '<div class="pw-rows">'+planWeekRowsHtml(weekNum)+'</div>';
   var openCls = (forceOpen || expandedWeeks[weekNum]) ? ' open' : '';
   var taper = isTaperWeek(weekNum);
-  var taperNote = taper ? '<div class="taper-note">'+ICONS.zap+' Taper: volume drops, but keep hitting these paces \u2014 sharpness matters more than mileage from here.</div>' : '';
+  /* THE SAME SENTENCE THIS WEEK'S HERO PRINTS, because it is the same
+     coaching about the same weeks. The "Taper:" label and its bolt went for
+     the reason they went from the hero: the week this note sits in is
+     already titled TAPER PHASE directly above it, so the word was the
+     second telling and the glyph the third. One string, one decision --
+     TAPER_COACHING_LINE, shared with renderWeekHeroBlock(). */
+  var taperNote = taper ? '<div class="taper-note">'+TAPER_COACHING_LINE+'</div>' : '';
   /* THE COMBINED-TOTAL EXPLANATION IS GONE. "Total includes race day: 29.5
      training + 42.2 race = 71.7 km" existed only to explain a number that
      should not have been added together in the first place. With the race out
@@ -56478,6 +56533,13 @@ function weekSelectedDay(weekNum){
    The week is NOT dropped on Full Plan even though the mock drops it: the
    figures under it are this WEEK's, and a bar with no period named reads as
    progress through the block, which is a different and wrong number. */
+/* ONE TAPER SENTENCE FOR THE WHOLE APP. It was written out twice -- here
+   and in renderWeekAccordion() -- and the two drifted the moment the hero's
+   copy was revised: This Week said one thing, Full Plan's week note still
+   carried the old "Taper:" label and its bolt. A shared constant is what
+   makes "the same decision" literally the same string. */
+var TAPER_COACHING_LINE = 'Volume drops, but keep hitting these paces \u2014 '+
+  'sharpness matters more than mileage from here.';
 function renderWeekHeroBlock(weekNum, asBlock){
   var vol = weekVolume(weekNum);
   var parts = blockIdentityParts();
@@ -56487,9 +56549,9 @@ function renderWeekHeroBlock(weekNum, asBlock){
      The subline read "Full Marathon · Week 10 of 14" under a title that
      already says "Week 10 · Taper". The block's name belongs to Full Plan,
      which leads with it, and the week number is in the line above. Removed
-     from this hero and KEPT on the Full Plan one, where the block's name is
-     the title and the week is what sits under it -- see the asBlock branch
-     below, which builds its own.
+     from this hero and from the Full Plan one too -- see the asBlock branch
+     below, which now changes the title AND the figures together rather than
+     naming the block over a week's numbers.
      The space it occupied stays. A hero that tightens up the moment a line
      is removed reads as a smaller hero; the air above the figures is what
      the title and the chip sit in. .wk-hero-title + .wk-hero-figs carries
@@ -56502,14 +56564,37 @@ function renderWeekHeroBlock(weekNum, asBlock){
      is dropped because the number is already said to its left. */
   var phase = weekPhaseLabel(weekNum).replace(/ Phase$/,'');
   var title = 'Week '+weekNum + (phase && phase !== 'Week '+weekNum ? ' \u00b7 '+phase : '');
+  /* ---------- FULL PLAN NAMES THE BLOCK AND MEASURES THE BLOCK ----------
+     It led with the block's name over "Week 10 of 11" and then printed the
+     CURRENT WEEK's volume underneath -- naming one period and measuring
+     another, with a subline that was the exact line already struck off This
+     Week's hero one tab to the left.
+     Both halves are fixed the same way: the title keeps the block, and the
+     figures become the block's too. 479.1 / 526.6km is what FULL MARATHON
+     is actually a heading for. The week is not orphaned by dropping the
+     subline, because the week is no longer what is being measured -- the
+     stepper directly below says which phase, and This Week is one tap away
+     for the week itself.
+     The two screens now print different totals on purpose, which is why the
+     guard that used to forbid recomputing here was rewritten: the rule is
+     that the title and the figures must cover the SAME period, not that
+     there is only ever one period. */
   if (asBlock){
-    /* The block's own name leads, and the week moves under it rather than
-       away: the phase is said by the stepper directly below, so repeating
-       it here would be the third time this screen named the same thing. */
     title = (parts.label || title).replace(/ Build$/,'');
-    sub = (parts.wk && parts.total) ? ['Week '+parts.wk+' of '+parts.total] : [];
+    var bPlanned = 0, bDone = 0;
+    for (var bw = 1; bw <= totalWeeksInPlan(); bw++){
+      var bv = weekVolume(bw);
+      bPlanned += bv.training; bDone += bv.doneTraining;
+    }
+    planned = bPlanned; done = bDone;
+    pct = planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0;
   }
-  var notes = weekStatusNotes(weekNum);
+  /* ---- AND THE EXCEPTION LINE IS THE WEEK'S, SO IT STAYS ON THE WEEK ----
+     "1 session unlogged" counts weekNum's sessions. Under block figures it
+     would read as one unlogged session in the whole sixteen weeks, which is
+     a different and much worse claim. This Week keeps it; Full Plan's week
+     rows already mark their own. */
+  var notes = asBlock ? [] : weekStatusNotes(weekNum);
   return '<div class="wk-hero">'+
     renderWeekStatusChip()+
     '<div class="wk-hero-title font-head">'+escapeHtml(title)+'</div>'+
@@ -56527,8 +56612,7 @@ function renderWeekHeroBlock(weekNum, asBlock){
        word that repeats the heading is the third time this hero names the
        same thing. What is left is the coaching, which is what the line is
        for. */
-    (taper ? '<div class="wk-taper"><span>Volume drops, but keep '+
-       'hitting these paces \u2014 sharpness matters more than mileage from here.</span></div>' : '')+
+    (taper ? '<div class="wk-taper"><span>'+TAPER_COACHING_LINE+'</span></div>' : '')+
     /* Only when there is something to say. An exception is not noise -- an
        unlogged session or a restricted day changes what the week means. */
     (notes.length ? '<div class="wk-notes">'+escapeHtml(notes.join(' '))+'</div>' : '')+
@@ -59055,7 +59139,20 @@ function handleSetView(view){
      moment a brand-new plan first appears was the one moment the probe was
      skipped. Same defect as the cold start, different doorway. */
   if (view==='today') voiceProbeOnce();
+  /* ---------- A TAB RETURNS TO ITS OWN TOP ----------
+     Full Plan is three screens deep -- the plan, a week, a session -- and
+     which one it shows lives in two module variables, not in state.view. So
+     tapping FULL PLAN while a session was open re-rendered that session:
+     the only way back to the plan was the back arrow, and the tab appeared
+     dead. Cleared BEFORE the already-on-this-view return for exactly the
+     reason the voice probe above it is: the case that needs this most is
+     the one where the view is already 'full'. */
+  var leftASubScreen = (view==='full' && (planSessionOpen || planWeekOpen));
+  if (view==='full'){ planSessionOpen = null; planWeekOpen = null; }
   if (state.view===view){
+    /* ...unless clearing those two just changed what 'full' draws. A re-tap
+       that changed nothing stays the no-op every other tab is. */
+    if (leftASubScreen) renderApp();
     /* Re-tapping VALHALLA used to return from Coach or Record to the
        overview. There is no Coach or Record to return from, so this is a
        no-op again, exactly like every other tab. */

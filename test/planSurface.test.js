@@ -243,12 +243,26 @@ test('ROW: a finished day shows its score, a past unlogged one says so, a rest d
   assert.match(scored, /is-score/, 'a scored session shows no score');
   assert.match(scored, /\d+%/, 'the score is not stated as a figure');
 
-  /* IT STATES, IT DOES NOT GRADE. A missed day is quiet rather than red --
-     the same restraint .wk-day.is-missed already shows -- and the score sits
-     in the dim data face the rest of the row uses. The coaching read of a
-     block has its own surfaces; a list row is not one. */
-  assert.match(rule('.pw-stat.is-missed'), /color:var\(--ink-faint\)/,
-    'a missed day is being shouted at the athlete');
+  /* ---------- THIS GUARD CITED A RULE THAT HAS SINCE CHANGED ----------
+     It read "a missed day is quiet rather than red -- the same restraint
+     .wk-day.is-missed already shows". That restraint is gone: the founder
+     asked for missed sessions to carry evidence on This Week, and
+     .wk-day.is-missed is drawn in --c-threshold now. So the premise this
+     assertion rested on is false, and a guard that outlives its own
+     reasoning is just a rule nobody remembers agreeing to.
+     What survives is the LAW it was really protecting -- one colour per
+     meaning, everywhere -- so it is pinned to the sibling rather than to a
+     token, and the two can no longer drift apart. */
+  assert.match(rule('.wk-day.is-missed'), /--c-threshold/,
+    "This Week's missed day circle is no longer cherry -- re-decide the row with it");
+  assert.match(rule('.pw-stat.is-missed'), /color:var\(--c-threshold\)/,
+    'a missed session on Full Plan is grey again while This Week marks it in cherry');
+  /* AND THE SCORE STAYS DIM even though the missed label went cherry. I
+     tried greening it to match the day circle and this assertion was right
+     to stop me: the circle carries no figure, so green there means "done".
+     On this row the number is already the verdict, and colouring it makes
+     the colour a second opinion about the number -- 61% in green reads as
+     approval of a 61%. Done/missed is a state; a score is a measurement. */
   assert.match(rule('.pw-stat.is-score'), /color:var\(--ink-dim\)/,
     'the execution score is being colour-graded on the row');
 });
@@ -310,25 +324,80 @@ test('the phases read as a route through the block', () => {
     'the track is lit from the wrong end, so it runs past the current phase');
 });
 
-test('Full Plan leads with the block, and the figures keep their period', () => {
-  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
-  assert.match(src, /renderWeekHeroBlock\(cur, true\)/,
-    'Full Plan is no longer asking for the block-led hero');
-  assert.match(src, /function renderWeekHeroBlock\(weekNum, asBlock\)/);
-  const i = src.indexOf('  if (asBlock){');
-  const branch = src.slice(i, i + 420);
-  /* ONLY THE TYPE SWAPS. The volume, the percentage and the bar are read
-     from the one weekVolume() call either way -- which is the whole reason
-     This Week and Full Plan share this function instead of each printing
-     their own totals for the same week. */
-  assert.ok(!/weekVolume|pct|planned|done\s*=/.test(branch),
-    'the block-led hero is recomputing figures, so the two screens can now ' +
-    'print different totals for the same week');
-  /* And the week is NOT dropped, although the mock drops it: the figures
-     under it are this WEEK's, and a bar with no period named reads as
-     progress through the block -- a different, wrong number. */
-  assert.match(branch, /'Week '\+parts\.wk\+' of '\+parts\.total/,
-    'the block-led hero dropped the week, orphaning the figures under it');
+/* ---------- THE LAW THIS REPLACES TWO GUARDS WITH ----------
+   There were two here: "Full Plan leads with the block, and the figures keep
+   their period" and "This Week says the week; the block name belongs to Full
+   Plan". Both pinned an asBlock branch that printed the block's name over
+   "Week 10 of 11" -- and that subline is the exact line the founder had
+   already struck off This Week's hero one tab to the left, so Full Plan was
+   keeping a pattern that had been rejected.
+   But the first guard had hold of something real, and it is kept: the
+   figures under the hero are a WEEK's volume, so a hero that does not name
+   the week "orphans the figures under it" -- its own words. That is a law
+   about titles and numbers agreeing, not about which branch exists. It is
+   asserted as that law now, so either answer to "what should this hero say"
+   passes it honestly and no answer that measures one period while naming
+   another does. */
+test('the hero names the period its own figures cover', () => {
+  /* ---------- THE LAW TWO OLDER GUARDS WERE REACHING FOR ----------
+     One of them said it almost exactly: a hero that does not name the week
+     "orphans the figures under it". That is a rule about a title and its
+     numbers agreeing on a PERIOD -- not a rule about which branch exists,
+     which is all the old assertions actually pinned.
+     The hero is printed twice. This Week names a week and measures that
+     week. Full Plan names the block and measures the whole block. Either is
+     honest; naming one and measuring the other is the defect, and it is the
+     defect the screen actually shipped with -- FULL MARATHON over 21 /
+     46.5km, which is one week of a sixteen-week build. */
+  const i = SRC.indexOf('function renderWeekHeroBlock(');
+  assert.ok(i > -1, 'renderWeekHeroBlock is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  const split = body.indexOf('if (asBlock){');
+  assert.ok(split > -1, 'the two periods are no longer distinguished');
+  const weekSide = body.slice(0, split);
+  const blockSide = body.slice(split, body.indexOf('\n  }', split));
+
+  /* THIS WEEK: a week's title over a week's volume. */
+  assert.match(weekSide, /var vol = weekVolume\(weekNum\);/,
+    "This Week's hero no longer reads its figures from the week it names");
+  assert.match(weekSide, /var title = 'Week '\+weekNum/,
+    "This Week's hero stopped leading with the week whose volume it prints");
+
+  /* FULL PLAN: the block's title over the block's volume. Summed across
+     every week of the plan -- if the title goes back to the block while the
+     figures stay on weekNum, this is what catches it. */
+  assert.match(blockSide, /title = \(parts\.label \|\| title\)/,
+    'the Full Plan hero no longer leads with the block');
+  assert.match(blockSide, /for \(var bw = 1; bw <= totalWeeksInPlan\(\); bw\+\+\)/,
+    'the Full Plan hero names the block but no longer measures it — it is back to ' +
+    'printing one week of volume under a block heading');
+  assert.match(blockSide, /planned = bPlanned; done = bDone;/,
+    'the block totals are computed and then thrown away');
+  assert.match(blockSide, /pct = planned > 0/,
+    'the percentage and the bar are still the week\'s while the figures are the block\'s');
+
+  /* NEITHER builds a subline. That line -- the block's name and the week
+     count under a title -- is the one the founder struck off This Week, and
+     Full Plan carried it for another two passes. */
+  assert.ok(!/sub\.push\(|sub = \[['"]/.test(body),
+    'the hero is building a subline again');
+
+  /* AND THE WEEK-SCOPED EXCEPTION LINE STAYS ON THE WEEK. "1 session
+     unlogged" counts weekNum's sessions; printed under block figures it
+     claims one unlogged session in the entire build. */
+  assert.match(body, /var notes = asBlock \? \[\] : weekStatusNotes\(weekNum\);/,
+    'the week-scoped exception line is being printed under the block hero, where it ' +
+    'reads as a count across the whole plan');
+
+  assert.match(SRC, /renderWeekHeroBlock\(cur, true\)/,
+    'Full Plan is no longer rendering the shared hero');
+
+  /* The space the old subline occupied stays. Measured before it went:
+     title ended y30, subline ran 33..53, figures began y64 -- with nothing
+     between them the figures climb 23px and the hero reads as a smaller
+     thing. */
+  assert.match(CSS, /\.wk-hero-title \+ \.wk-hero-figs\{margin-top:34px;?\}/,
+    'the air the subline left behind has been collapsed');
 });
 
 test('the day the block is for is a panel, not another row', () => {
@@ -349,31 +418,10 @@ test('the day the block is for is a panel, not another row', () => {
   assert.doesNotMatch(src, /class="rd-flag"/, 'Race Day leads with a glyph again');
 });
 
-test('This Week says the week; the block name belongs to Full Plan', () => {
-  /* The subline read "Full Marathon · Week 10 of 14" under a title that
-     already says "Week 10 · Taper" — the block's name twice removed from the
-     screen that is about this week. It is kept on the Full Plan hero, where
-     the block IS the title and the week is what sits under it, so the two
-     branches of renderWeekHeroBlock() are asserted separately. */
-  const i = SRC.indexOf('function renderWeekHeroBlock(');
-  assert.ok(i > -1, 'renderWeekHeroBlock is gone');
-  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
-  const [before, asBlock] = body.split('if (asBlock){');
-  assert.ok(asBlock, 'the asBlock branch is gone');
-
-  assert.ok(!/sub\.push\(/.test(before),
-    "This Week's hero is building a subline again. The week number is in the title " +
-    'above it and the block name belongs to Full Plan.');
-  assert.match(asBlock, /sub = \(parts\.wk && parts\.total\)/,
-    'the Full Plan hero lost the week line under the block name');
-
-  /* The space the subline occupied stays. Measured before it went: title
-     ended y30, subline ran 33..53, figures began y64 — so with nothing
-     between them the figures climb 23px and the hero reads as a smaller
-     thing. Matched on the adjacency so the Full Plan hero is untouched. */
-  assert.match(CSS, /\.wk-hero-title \+ \.wk-hero-figs\{margin-top:34px;?\}/,
-    "the removed subline's space is gone with it, and the hero has tightened up");
-});
+/* "This Week says the week; the block name belongs to Full Plan" stood here.
+   Both halves of it are now in "the hero names the period its own figures
+   cover" above: there is one hero and one title rule, so there is no longer
+   a This-Week branch and a Full-Plan branch to assert separately. */
 
 test('the week status chip shares an edge with the figure under it', () => {
   const chip = /\n  \.wk-chip\{([^}]*)\}/.exec(CSS);
@@ -487,13 +535,139 @@ test('the taper sentence still fits two lines', () => {
      rendered line count, so what is pinned is the thing that would break it
      — the length of the sentence. It has ~14 characters of headroom at
      360px; anything materially longer sets three lines on a narrow phone. */
-  const m = /'<div class="wk-taper"><span>([\s\S]*?)<\/span><\/div>'/.exec(
-    SRC.replace(/'\+\s*\n\s*'/g, ''));
-  assert.ok(m, 'the taper sentence is no longer a single literal — re-measure the wrap');
-  const words = m[1].replace(/\\u2014/g, '—');
+  /* IT IS A SHARED CONSTANT NOW, not a literal in the markup. It was
+     written out twice -- the hero and Full Plan's week note -- and the two
+     drifted the moment the hero's copy was revised: This Week dropped the
+     "Taper:" label and its bolt, Full Plan's week note kept both. One
+     definition is what makes "the same decision" literally the same string,
+     so the wrap is measured on that definition and both printers inherit it. */
+  const m = /var TAPER_COACHING_LINE = ([\s\S]*?);\n/.exec(SRC);
+  assert.ok(m, 'TAPER_COACHING_LINE is gone — re-measure the wrap wherever the copy now lives');
+  const words = m[1].replace(/'\s*\+\s*\n?\s*'/g, '').replace(/^'|'$/g, '')
+    .replace(/\\u2014/g, '—');
+
+  /* BOTH PRINTERS TAKE IT. A second copy of this sentence anywhere is the
+     defect this constant exists to prevent. */
+  assert.ok(!/Volume drops, but keep/.test(SRC.replace(m[0], '')),
+    'the taper sentence has been written out a second time — the two will drift again');
+  assert.match(SRC, /class="wk-taper"><span>'\+TAPER_COACHING_LINE/,
+    "This Week's hero is no longer printing the shared taper sentence");
+  assert.match(SRC, /class="taper-note">'\+TAPER_COACHING_LINE/,
+    "Full Plan's week note is no longer printing the shared taper sentence");
   assert.ok(words.length <= 100,
     'the taper sentence is ' + words.length + ' characters. It set two lines at 360px at ' +
     '88; much past 100 and it wraps to three, which is the limit this layout was built to.');
   assert.match(words, /^Volume drops,/,
     'the taper sentence changed opening — if the copy is being rewritten, re-measure the wrap');
+});
+
+/* =========================================================================
+ * THE FULL PLAN PASS — the founder's five, each pinned to the measurement
+ * that settled it rather than to the number I happened to type.
+ * ========================================================================= */
+
+test('the phase track runs BETWEEN the marks and never into them', () => {
+  /* THE DEFECT, MEASURED. The track was drawn from one dot's centre to the
+     next (left:-50% / right:50%) and relied on the dot's own opaque fill to
+     cover the overlap. In Chromium at 412px that put the line 13px inside
+     each 25px circle: it met the rim with no gap at all, which is what
+     "cutting through the circle" was. After: it stops 5px clear on each
+     side -- 81→141 between dots at 51–76 and 146–171.
+     Pinned as the RELATION, not as 17.5px: whatever the dot's size becomes,
+     the inset has to clear its radius with room to spare, because the whole
+     point is that the line is decorative and must not touch. */
+  const dot = rule('.pp-step-dot');
+  const w = /width:(\d+(?:\.\d+)?)px/.exec(dot);
+  assert.ok(w, 'the phase dot no longer declares a pixel width — re-derive the track inset');
+  const radius = parseFloat(w[1]) / 2;
+
+  const track = rule('.pp-step::before');
+  const left = /left:calc\(-50% \+ (\d+(?:\.\d+)?)px\)/.exec(track);
+  const right = /right:calc\(50% \+ (\d+(?:\.\d+)?)px\)/.exec(track);
+  assert.ok(left && right,
+    'the phase track is back to running centre-to-centre, so it meets each circle ' +
+    'rim with no gap and reads as cutting through it');
+  assert.equal(left[1], right[1], 'the track is inset further on one side than the other');
+
+  const gap = parseFloat(left[1]) - radius;
+  assert.ok(gap >= 3,
+    'the track stops ' + gap + 'px from the circle rim. It is decoration between the ' +
+    'phases and must visibly not touch them; under ~3px it reads as joined again.');
+
+  /* AND IT SITS ON THE DOT'S CENTRE LINE. top was 12px against a centre at
+     12.5px -- half a pixel low, which is the other half of why it looked
+     like it clipped the rim rather than meeting it. */
+  const top = /top:(\d+(?:\.\d+)?)px/.exec(track);
+  assert.ok(top, 'the track no longer declares a top');
+  const h = /height:(\d+(?:\.\d+)?)px/.exec(track);
+  const mid = parseFloat(top[1]) + parseFloat(h[1]) / 2;
+  assert.equal(mid, radius,
+    'the track centres on ' + mid + 'px but the dot centres on ' + radius + 'px');
+});
+
+test('Full Plan breathes on the same measure as This Week', () => {
+  /* Measured in Chromium: Full Plan was padding-top 22px / gap 9px against
+     This Week's 26 / 18 -- half the rhythm of the tab beside it, which is
+     what made two tabs of one app feel like two apps. Pinned to This Week's
+     own declaration so the two cannot drift: change the law there and this
+     fails until Full Plan follows. */
+  const week = rule('.view-week');
+  const plan = rule('.view-plan');
+  const padOf = r => (/padding-top:(\d+)px/.exec(r) || [])[1];
+  assert.equal(padOf(plan), padOf(week),
+    'Full Plan and This Week no longer start at the same height');
+  assert.match(plan, /gap:var\(--wk-gap\)/,
+    'Full Plan is setting its own gap instead of taking This Week\'s --wk-gap');
+  const gapOf = s => (/--wk-gap:(\d+)px/.exec(s) || [])[1];
+  assert.equal(gapOf(BARE.slice(BARE.indexOf('.view-plan{--wk-gap'))),
+               gapOf(BARE.slice(BARE.indexOf('.view-week{--wk-gap'))),
+    'the two tabs set --wk-gap to different values');
+});
+
+test('the day the block is for carries the hero figure, not a row figure', () => {
+  /* It was a 30px number beside a label, in the layout of a list item --
+     for the one event the whole block exists for. Today gives 15km a
+     57.6px figure; a smaller one here says the marathon matters less than
+     Saturday. Pinned to Today's own clamp so the two move together. */
+  const today = rule('.th-dist span');
+  const clamp = /font-size:(clamp\([^)]*\))/.exec(today);
+  assert.ok(clamp, 'the Today hero figure no longer uses a clamp — re-derive Race Day');
+  const race = rule('.view-plan > .race-event .race-event-dist b');
+  assert.ok(race.indexOf(clamp[1]) > -1,
+    'Race Day is no longer set at the hero figure size Today uses for a distance');
+  assert.match(race, /color:#FFFFFF/, 'the Race Day figure is no longer the hero white');
+  assert.match(race, /text-shadow:/, 'the Race Day figure lost its backlight');
+});
+
+test('every control on the race panel clears the thumb floor', () => {
+  /* The custom differential steppers were 38px. They are pressed repeatedly
+     to tune a number, which is the worst place in the app to be 6px short. */
+  assert.match(rule('.rs-step'), /width:var\(--tap-min\); height:var\(--tap-min\)/,
+    'the race strategy steppers are back to a hand-set size under the 44px floor');
+});
+
+test('tapping the Full Plan tab returns to the Full Plan', () => {
+  /* Which of Full Plan's three screens is showing lives in two MODULE
+     variables, not in state.view -- so tapping the tab while a session was
+     open re-rendered that session and the tab appeared dead. The clear has
+     to happen BEFORE the already-on-this-view early return, for exactly the
+     reason the voice probe above it does: the case that needs it most is
+     the one where state.view is already 'full'. */
+  const i = SRC.indexOf('function handleSetView(');
+  assert.ok(i > -1, 'handleSetView is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  const clear = body.indexOf('planSessionOpen = null');
+  const earlyReturn = body.indexOf('if (state.view===view){');
+  assert.ok(clear > -1, 'the Full Plan tab no longer clears the open session');
+  assert.ok(body.indexOf('planWeekOpen = null') > -1,
+    'the Full Plan tab no longer clears the open week');
+  assert.ok(clear < earlyReturn,
+    'the sub-screens are cleared after the already-on-this-view return, so tapping ' +
+    'FULL PLAN while a session is open still does nothing — the exact bug this fixes');
+
+  /* And the re-tap still has to repaint, or the state changes under a screen
+     that never redraws. */
+  assert.match(body, /if \(leftASubScreen\) renderApp\(\);/,
+    'clearing the sub-screens no longer repaints, so the tab clears state and shows ' +
+    'the old screen anyway');
 });
