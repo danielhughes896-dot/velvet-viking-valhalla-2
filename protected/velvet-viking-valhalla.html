@@ -2101,7 +2101,16 @@
      that will not scroll to its own first panel reads as broken. Aligned to
      the start, each module lands in the same place and the next one peeks,
      which is also the only affordance saying a rail is a rail. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card .fuel-body{
+  /* ---------- AND THE BLUEPRINT IS A RAIL OUTSIDE THE DISCLOSURE --------
+     Every rule that makes a rail a rail was scoped to ".how-card
+     .fuel-body" -- the track, the hidden scrollbar, the snap, the pan-y --
+     because every rail lived inside Session Details. The blueprint does
+     not: it is the session's own words, above the tab, in .day-detail. Its
+     .fuel-body got the component's PANEL styling and none of its TRACK
+     styling, so three cards stacked vertically and nothing scrolled.
+     .ws-rail is named alongside in each of those rules rather than given a
+     copy of them, so there is still one rail in this product. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) :is(.how-card .fuel-body, .ws-rail){
     display:flex; align-items:flex-start; gap:0; padding:0 0 4px; margin:0;
     /* HIDDEN, AND STILL SCROLLED -- programmatically, by the rail script.
        The focus is no longer whatever the scroll position happens to make
@@ -2119,12 +2128,38 @@
     overflow-x:hidden; overflow-y:hidden; touch-action:pan-y;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card .fuel-body::-webkit-scrollbar{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) :is(.how-card .fuel-body, .ws-rail)::-webkit-scrollbar{display:none;}
   /* NO TRAILING SPACE AND NO WIDE LAST MODULE. Both were ways of letting
      the last module reach the LEFT edge, because that is where the active
      one used to be decided. The rail no longer decides it there -- see
      wireCoachingRail() -- so the content simply ends where it ends, flush
      right, and the open space the athlete preferred is what is left. */
+  /* ---------- THE COMBINED RAIL IS ONE CARD AT A TIME ----------
+     Three stages across a phone gave each about 105px, which is why the
+     stage names had to come off the cells and the prescription had to be
+     squeezed onto one line. Full width gives each stage the room its own
+     figures want, and the dots underneath say there is more sideways. Only
+     the blueprint: the coaching rail is three columns READ TOGETHER, which
+     is a different kind of thing from cards swiped one at a time. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{padding-left:0; padding-right:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod{
+    flex:0 0 100%; min-width:0; padding-left:0; padding-right:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{height:100%;}
+  /* ---------- TWO HAIRLINES, AND THEY FADE ----------
+     The coaching columns had nothing between them. Two decorative rules
+     now separate the three, and they are decoration rather than table
+     rules for the reason the whole hairline sweep turned on: each is a
+     gradient that dissolves at BOTH ends, so it never meets the panel's
+     edge. Drawn on the SECOND and THIRD panels, which is exactly two for
+     three columns and stays correct if a column is ever dropped. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-rail .how-mod + .how-mod{position:relative;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-rail .how-mod + .how-mod::after{
+    content:''; position:absolute; left:0; top:14%; bottom:14%; width:1px;
+    background:linear-gradient(to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--gold-text) 60%, transparent) 50%,
+      transparent 100%);
+    opacity:.55; pointer-events:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod{
         /* A PERCENTAGE ALONE IS NOT ENOUGH, because the percentage is of the
        RAIL and the rail shrinks with the phone. At 31% a 430pt screen gives
@@ -28156,15 +28191,33 @@ function renderWorkoutStepHCell(st, i){
      screen the order carries it; through a screen reader there is no order
      to see, and "2km / Easy / 5:09-6:07/km" with no stage name is a worse
      reading of this card than the sighted one. The <ol> still numbers it. */
-  return '<li class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
+  return '<div class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
     '<span class="sr-only">'+escapeHtml(st.label)+'</span>'+
     (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
     essentialPrescriptionHtml(st)+
     renderWorkoutStepSecondary(st)+
-  '</li>';
+  '</div>';
 }
+/* ---------- THE BLUEPRINT IS THE RAIL NOW, AND THE RAIL IS THE RAIL ------
+   Three stages across a phone gave each about 105px, which is why the stage
+   names had to come off the cells and the prescription had to be squeezed
+   onto one line. One card at a time at the FULL width of the screen gives
+   each stage the room its own figures want, and the dots underneath say
+   there is more sideways -- the same thing the coaching and fuel rails
+   already do, through the same component: .fuel-body for the track,
+   .how-mod for the panel, railDotCount() for the indicator. Four uses of
+   one rail, not four things that resemble each other.
+   The <ol> goes with the row. It was numbering stages whose order was
+   carried by their place in a line; in a swipe track there is no line to
+   read the order off, so each panel keeps the stage NAME it already
+   carried for a screen reader and the list semantics stop being a claim
+   this markup can make. */
 function renderStructuredWorkoutSteps(steps){
-  return '<ol class="ws-steps-h">'+steps.map(renderWorkoutStepHCell).join('')+'</ol>';
+  return '<div class="fuel-body ws-rail" data-hswipe="1">'+
+      steps.map(function(st, i){
+        return '<div class="how-mod" data-mod="ws-'+i+'">'+renderWorkoutStepHCell(st, i)+'</div>';
+      }).join('')+
+    '</div>'+railDotCount(steps.length);
 }
 /* ONE WORKOUT-STAGE GRAMMAR for every session with more than one stage to
    show side by side -- not one component for exactly-three-step sessions
@@ -28203,13 +28256,16 @@ function renderStructuredWorkout(dd){
 /* The rail's dots. Counted from the same four conditions the modules are
    built from, in the same order, so the indicator cannot drift from the
    thing it indicates. */
-function railDotsHtml(gd, dd, stratBlock, fuelOn){
+/* `hasStaged`, not the rendered rail -- see renderCoachingDepth. The dots
+   are counted from exactly the conditions the modules are built from, so
+   this has to read the condition the modules read. */
+function railDotsHtml(gd, dd, hasStaged, fuelOn){
   /* Counted from exactly the conditions the RAIL is built from -- the
      tables are not in it, so they are not counted. An indicator that can
      disagree with the thing it indicates is worse than no indicator. */
   var n = 0;
   if (gd.why) n++;
-  if (!stratBlock && gd.how) n++;
+  if (!hasStaged && gd.how) n++;
   if (gd.feel) n++;
   if (gd.avoid) n++;
   return railDotCount(n);
@@ -28366,7 +28422,41 @@ function renderCoachingDepth(dd, pre){
       return '<div class="how-mod" data-mod="'+key+'">'+inner+'</div>';
     };
     var strat = renderExecutionStrategyBlock(dd);
-    var stratBlock = strat.rail, stratCaps = strat.caps;
+    /* ---------- ONE RAIL FOR THE SESSION'S SHAPE, NEVER TWO ----------
+       The blueprint and the execution rail describe the same session in two
+       vocabularies: "2km / 3x1600m / 2km" and "SETTLE 0-2km / PRESS from
+       2km / ABSORB". On a session that has both, the athlete swiped through
+       one and then swiped through the other saying it again.
+       THE TWO DO NOT CORRESPOND, which is why this is a choice and not a
+       merge. Measured across every session the engine builds:
+         tempo       blueprint 3   execution 3   Settle/Hold/Absorb
+         interval    blueprint 3   execution 4   Settle/Press/Recover/Absorb
+         tempo       blueprint 3   execution 4   Settle/Build/Press/Absorb
+         checkpoint  blueprint 3   execution 5   Settle/Build/Hold/Commit/Absorb
+         long        blueprint 3   execution 0
+         long        blueprint -   execution 2   Settle/Hold
+         race        blueprint -   execution 5   Settle/Hold/Hold/Press/Commit
+       Folding one into the other card-for-card would have dropped a phase
+       on every session but the first, and had nothing to fold into on a
+       race day. So: the blueprint where there is one, the execution rail
+       where there is not.
+       NOTHING IS LOST WITH THE RAIL. Its captions are the coaching, and
+       they already go to the Coach's Note rather than under the panels --
+       so stratCaps is read here whether or not stratBlock is rendered, and
+       a four-phase session on a three-step blueprint still carries all four
+       sentences. What goes is the second vocabulary, not the coaching. */
+    var hasBlueprint = hasWorkoutBlueprint(dd);
+    var stratBlock = hasBlueprint ? '' : strat.rail, stratCaps = strat.caps;
+    /* THE COACHING RAIL IS THREE COLUMNS, AND THIS IS WHAT KEEPS IT THREE.
+       mod('execution') carries the one-SENTENCE execution, and it was
+       suppressed whenever a staged execution existed -- expressed as "is
+       the staged rail being rendered". Choosing not to render that rail on
+       a blueprint session turned the sentence back on and the coaching rail
+       became four columns with three hairlines. The condition was never
+       about what is on screen; it is about whether the engine HAS a staged
+       execution, because that is what makes the sentence a second telling.
+       A blueprint is the same kind of second telling. */
+    var hasStaged = !!strat.rail || hasBlueprint;
     var fuelOn;
     try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
     /* ---------- OPEN, AND NOT A DISCLOSURE, ON THE FOCUSED SESSION ----------
@@ -28421,7 +28511,11 @@ function renderCoachingDepth(dd, pre){
          and which is not being traded for a layout. */
       /* data-hswipe: the page pager stands down for this region before it
          looks at overflow, which the rail no longer advertises. */
-      '<div class="fuel-body" data-hswipe="1">'+
+      /* .how-rail names the COACHING rail specifically. The fuel rail, the
+         execution rail and the blueprint are all .fuel-body too, and the
+         separating hairlines belong to this one: three columns read
+         together, where the others are cards swiped one at a time. */
+      '<div class="fuel-body how-rail" data-hswipe="1">'+
         mod('why', row('Why', gd.why))+
         /* Only when Execution is a SENTENCE. A staged execution -- SETTLE,
            PRESS, RECOVER, ABSORB, each with its own pace and instruction --
@@ -28431,7 +28525,7 @@ function renderCoachingDepth(dd, pre){
            renders below the rail instead, where it already reads well and
            where it has always read well. The rail is the coaching
            SENTENCES; the tables are reference. */
-        mod('execution', stratBlock ? '' : row('Execution', gd.how))+
+        mod('execution', hasStaged ? '' : row('Execution', gd.how))+
         mod('feel', row('Feel', gd.feel))+
         mod('watch', row('Watch For', gd.avoid))+
       '</div>'+
@@ -28442,7 +28536,7 @@ function renderCoachingDepth(dd, pre){
          a focused session, where there is no rail to indicate.
          aria-hidden: it says nothing a screen reader cannot already get by
          moving through the modules themselves. */
-      railDotsHtml(gd, dd, stratBlock, fuelOn)+
+      railDotsHtml(gd, dd, hasStaged, fuelOn)+
       /* The two tables, below the rail and above the note, in the order they
          always had. Unchanged markup and unchanged presentation -- they have
          simply stopped being asked to be something they are not. */
@@ -60733,7 +60827,13 @@ function wireWeekRail(rail){
 function wireCoachingRails(){
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   try{
-    var rails = document.querySelectorAll('.how-card .fuel-body');
+    /* .ws-rail IS A RAIL AND LIVES OUTSIDE THE DISCLOSURE. This selector
+       was written when every rail was inside Session Details; the blueprint
+       is the session's own words and sits above the tab. Without it here
+       the track rendered and swiped by touch, and its dots never lit --
+       which is the indicator disagreeing with the thing it indicates, the
+       one thing railDotsHtml's own note says is worse than no indicator. */
+    var rails = document.querySelectorAll('.how-card .fuel-body, .ws-rail');
     for (var i=0; i<rails.length; i++) wireCoachingRail(rails[i]);
   }catch(e){}
 }

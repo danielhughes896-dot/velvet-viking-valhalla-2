@@ -386,10 +386,24 @@ test('the coaching disclosure keeps every section it had', () => {
      and a word above a row of self-naming labels is a label on labels. The
      law here is that the SECTION is still reachable, and the word was only
      ever a proxy for it, so the section is what is asserted. */
-  assert.ok(/class="how-table how-exec"/.test(html) || /class="how-row-heading">Execution/.test(html),
-    'the coaching disclosure lost Execution');
-  assert.ok(/class="how-mod strat-phase"/.test(html) || /strat-phase/.test(html),
-    'the Execution section is present but empty of phases');
+  /* EXECUTION IS CARRIED BY WHICHEVER RAIL THE SESSION HAS. On the
+     founder's call a session shows the blueprint OR the execution rail and
+     never both, because the two say the same thing in two vocabularies --
+     and threshold_continuous has a blueprint. So the law this line protects
+     is unchanged and the proxy for it moves: the section is reachable, as
+     the staged rail where there is no blueprint, and as the blueprint plus
+     the phase sentences in the Coach's Note where there is one. */
+  const hasBlueprint = (() => { try { return a.usesHorizontalWorkoutBlueprint(a.workoutSteps(dd)); } catch(e){ return false; } })();
+  if (hasBlueprint){
+    assert.match(html, /class="fuel-body ws-rail"/,
+      'the session has no execution rail AND no blueprint — its shape is nowhere');
+    assert.match(html, /class="how-note"/,
+      'the blueprint carries the stages but the phase coaching has nowhere to go');
+  } else {
+    assert.ok(/class="how-table how-exec"/.test(html) || /class="how-row-heading">Execution/.test(html),
+      'the coaching disclosure lost Execution');
+    assert.ok(/strat-phase/.test(html), 'the Execution section is present but empty of phases');
+  }
   // Whether the session DESCRIPTION survives is a separate question with its
   // own rule and its own tests below -- it is not part of the disclosure.
 });
@@ -466,7 +480,14 @@ test('a description is only hidden when its numbers are still on the card', () =
     const dd = { id: 'x', date: TODAY, type: c.type, km: dayKm, title: n,
                  desc: (t && t.desc) || '', prescription: p };
     const inSteps = stepText(a, a.workoutSteps(dd));
-    const onCard = a.renderDayCard(dd).toLowerCase();
+    /* TAGS STRIPPED. The hero renders a distance as <span>23</span><em>km</em>
+       -- split only so the number and the unit can be sized apart -- so a
+       raw-markup search for "23km" never saw the one place every session
+       states its total. It passed until the execution rail stopped being
+       rendered beside a blueprint, because that rail happened to print
+       "0km-23km" contiguously. The quantity is on the card either way; the
+       check was reading the markup rather than the card. */
+    const onCard = a.renderDayCard(dd).replace(/<[^>]*>/g, '').toLowerCase();
     const dayTotal = a.fmtDist(dayKm).toLowerCase();
     quantities(a.resolveDesc(dd.desc)).forEach(q => {
       assert.ok(onCard.indexOf(q) > -1,
@@ -637,4 +658,108 @@ test('no device-integration surface has been added', () => {
   assert.doesNotMatch(region, /garmin|coros|polar|wahoo|suunto|fit_?file|tcx/i,
     'vendor vocabulary leaked into the workout transformation, which must stay ' +
     'provider-neutral so a second platform needs no engine change');
+});
+
+/* ===========================================================================
+ * ONE RAIL FOR THE SESSION'S SHAPE, AND IT IS A RAIL
+ * ---------------------------------------------------------------------------
+ * The blueprint and the execution rail describe the same session in two
+ * vocabularies -- "2km / 4x1200m / 2km" and "SETTLE 0-2km / PRESS from 2km /
+ * ABSORB" -- and a session with both made the athlete swipe through one and
+ * then swipe through the other saying it again.
+ *
+ * THE TWO DO NOT CORRESPOND, which is why this is a choice and not a merge.
+ * Measured across every session the engine builds:
+ *   tempo      blueprint 3  execution 3   Settle/Hold/Absorb
+ *   interval   blueprint 3  execution 4   Settle/Press/Recover/Absorb
+ *   checkpoint blueprint 3  execution 5   Settle/Build/Hold/Commit/Absorb
+ *   long       blueprint 3  execution 0
+ *   race       blueprint -  execution 5   Settle/Hold/Hold/Press/Commit
+ * Folding card-for-card would have dropped a phase on every session but the
+ * first and had nothing to fold into on a race day.
+ * ======================================================================== */
+
+const RAILSRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+const RAILCSS = RAILSRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+
+function railApp(){
+  const a = loadApp({ pinnedDate: '2026-11-08T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 11, startDate: '2026-09-04', distanceKey: 'full', volume: 46,
+                 benchSec: 45*60, lthr: 165, maxHR: 190,
+                 schedule: { activeDays: [0,1,2,3,4,5,6], longRunDay: 6 } });
+  a.state.athlete = a.makeAthleteRecord();
+  return a;
+}
+
+test('a session shows the blueprint or the execution rail, never both', () => {
+  const a = railApp();
+  const withBp = a.state.days.filter(d => { try { return a.usesHorizontalWorkoutBlueprint(a.workoutSteps(d)); } catch(e){ return false; } });
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(withBp.length, 'sanity: the fixture has a blueprint session');
+  assert.ok(race, 'sanity: the fixture has a race');
+
+  const bp = a.renderDayCard(withBp[withBp.length - 1]);
+  assert.match(bp, /class="fuel-body ws-rail"/, 'the blueprint is no longer a rail');
+  assert.ok(bp.indexOf('exec-rail') === -1,
+    'a blueprint session is showing the execution rail as well — the same session said twice');
+
+  const rc = a.renderDayCard(race);
+  assert.match(rc, /exec-rail/, 'a race has no blueprint to fold into and has lost its execution rail');
+  assert.ok(rc.indexOf('ws-rail') === -1, 'a race has grown a blueprint');
+
+  /* NOTHING IS LOST WITH THE RAIL. Its captions are the coaching, and they
+     go to the Coach's Note -- so a four-phase execution on a three-step
+     blueprint still carries all four sentences. */
+  assert.match(bp, /class="how-note"/, 'a blueprint session lost its Coach’s Note with the execution rail');
+  const phases = a.executionStrategyForDisplay(withBp[withBp.length - 1]);
+  if (phases && phases.phases && phases.phases.length){
+    const caps = (bp.match(/how-cap-i/g) || []).length;
+    assert.equal(caps, phases.phases.length,
+      'the Coach’s Note carries ' + caps + ' phase sentences for ' + phases.phases.length + ' phases');
+  }
+});
+
+test('the coaching rail stays three columns, with two hairlines', () => {
+  /* mod('execution') carries the one-SENTENCE execution and was suppressed
+     whenever the staged rail was RENDERED. Choosing not to render it on a
+     blueprint session turned the sentence back on and the rail became four
+     columns with three hairlines. The condition is whether the engine HAS a
+     staged execution, not what is on screen. */
+  const a = railApp();
+  const withBp = a.state.days.filter(d => { try { return a.usesHorizontalWorkoutBlueprint(a.workoutSteps(d)); } catch(e){ return false; } });
+  const bp = a.renderDayCard(withBp[withBp.length - 1]);
+  const rail = /<div class="fuel-body how-rail"[\s\S]*?(?=<div class="how-dots)/.exec(bp);
+  assert.ok(rail, 'the coaching rail is gone or no longer named');
+  const mods = (rail[0].match(/class="how-mod" data-mod=/g) || []).length;
+  assert.equal(mods, 3, 'the coaching rail is ' + mods + ' columns, not three — two hairlines need three columns');
+  assert.ok(rail[0].indexOf('data-mod="execution"') === -1,
+    'the one-sentence Execution column is back alongside a blueprint that already says it');
+
+  /* AND THEY FADE. Decoration, not table rules -- the distinction the whole
+     hairline sweep turned on. Drawn on the second and third panels, which
+     is exactly two for three columns. */
+  const i = RAILCSS.indexOf('.how-rail .how-mod + .how-mod::after');
+  assert.ok(i > -1, 'the coaching columns have no separating hairlines');
+  const body = RAILCSS.slice(i, RAILCSS.indexOf('}', i));
+  assert.match(body, /transparent 0%/, 'the hairline starts solid — that is a table rule, not decoration');
+  assert.match(body, /transparent 100%\)/, 'the hairline ends solid');
+  assert.match(body, /width:1px/, 'the hairline is no longer a hairline');
+});
+
+test('the blueprint rail is the rail component, wired like one', () => {
+  /* Every rule that makes a rail a rail was scoped to ".how-card
+     .fuel-body", because every rail lived inside Session Details. The
+     blueprint does not -- it is the session's own words, above the tab --
+     so it got the PANEL styling and none of the TRACK styling, and three
+     cards stacked vertically with nothing scrolling. Measured after: three
+     panels at 380px of 380, three dots, first lit. */
+  assert.match(RAILCSS, /:is\(\.how-card \.fuel-body, \.ws-rail\)\{\s*display:flex/,
+    'the blueprint rail is not in the rail track rule, so its cards stack');
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{\s*flex:0 0 100%/,
+    'the blueprint cards are no longer full width');
+  assert.match(RAILSRC, /querySelectorAll\('\.how-card \.fuel-body, \.ws-rail'\)/,
+    'the blueprint rail is not bound by the rail script, so its dots never light');
+  assert.match(RAILSRC, /railDotCount\(steps\.length\)/,
+    'the blueprint rail has no dots, so nothing says there is more sideways');
 });

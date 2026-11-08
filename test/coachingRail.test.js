@@ -118,15 +118,25 @@ test('the rail moves the FOCUS, and moves itself only when it must', () => {
      steps is not at all. User scrolling is off because the script owns the
      position; the arrow keys replace the keyboard scrolling that came with
      it. */
-  const rail = focusRule('.how-card .fuel-body');
+  /* THE TRACK RULE NOW NAMES TWO RAILS. The blueprint became the fourth
+     use of this component and lives OUTSIDE Session Details, so it is
+     listed alongside rather than given a copy of these declarations --
+     which is the point: one rail in this product, four places. Everything
+     this test asserts is asserted of both. */
+  const rail = focusRule(':is(.how-card .fuel-body, .ws-rail)');
   assert.match(rail, /overflow-x:hidden/,
     'user scrolling is back, and it will fight the focus for the position');
   assert.doesNotMatch(rail, /scroll-snap-type/,
     'snap positions are back, and they will override the focus-driven ones');
   assert.match(rail, /touch-action:pan-y/,
     'the rail takes the horizontal gesture itself and must leave vertical to the page');
-  assert.match(SRC, /<div class="fuel-body" data-hswipe="1">/,
+  /* .how-rail names the COACHING rail specifically: the hairlines between
+     its three columns belong to it and not to the fuel, execution or
+     blueprint rails, which are cards swiped one at a time. */
+  assert.match(SRC, /<div class="fuel-body how-rail" data-hswipe="1">/,
     'without data-hswipe the page pager claims the rail, because it can no longer see a scroller');
+  assert.match(SRC, /<div class="fuel-body ws-rail" data-hswipe="1">/,
+    'the blueprint rail has lost data-hswipe, so the page pager will claim it');
   const mod = focusRule('.how-mod');
   /* Narrow COLUMNS, several on screen at once -- which is only possible
      because the two things that could not be a column (a staged Execution,
