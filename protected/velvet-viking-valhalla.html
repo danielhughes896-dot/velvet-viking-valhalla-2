@@ -59,6 +59,17 @@
 <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
 
+  /* The default, and what every unmapped type gets: the sunrise road that
+     has been the card's picture since there was one. */
+  :root{--card-pic:url('/assets/dawn-road-820.jpg');}
+  /* THE MAPPING, in the founder's words: "Track - VO2 / interval. Misty
+     road - easy / recovery. Current pic - tempo." A long run keeps the
+     default until its own picture arrives -- the screenshot sent for it is
+     a 3:1 strip, and a near-square card can only show the middle 39% of
+     that, which cropped the sun out and left a black card. */
+  .type-track{--card-pic:url('/assets/track-road-820.jpg');}
+  .type-easy{--card-pic:url('/assets/misty-road-820.jpg');}
+  .type-race{--card-pic:url('/assets/finish-arch-820.jpg');}
   :root{
     /* Neutral-charcoal foundation (RC2 palette refinement) -- replaces the
        former warm brown-black ramp (H~30deg) with a near-neutral one
@@ -2247,7 +2258,18 @@
     align-self:stretch;
     margin:0 5px; padding:16px 14px 18px;
     border:1px solid var(--t-tile-rim); border-radius:14px;
-    background-image:url('/assets/dawn-road-820.jpg');
+    /* ---------- THE PICTURE IS THE SESSION'S, NOT THE STAGE'S ----------
+       One photograph per session TYPE, carried as a custom property on the
+       day card -- which already wears .type-easy, .type-track and the rest
+       -- and inherited by every card in that session's rail. Keyed off the
+       type rather than off the stage on the founder's call, and it is the
+       better of the two: a tempo whose warm-up, main set and cool-down were
+       three different pictures reads as three sessions, where one picture
+       throughout reads as one.
+       A PROPERTY RATHER THAN A RULE PER TYPE. The card is declared once and
+       each type says only which picture it is, which also makes the narrow
+       -420 swap one line per type instead of a second copy of this block. */
+    background-image:var(--card-pic);
     background-size:cover; background-position:50% 34%;
     background-clip:padding-box;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod:only-child{flex:0 0 calc(100% - 10px);}
@@ -4085,11 +4107,13 @@
   }
   @media (max-width:480px){
     .modal-decision-hero{ background-image:url('/assets/valhalla-mountains-420.jpg'); }
-    /* The same swap for the card's photograph -- on .how-mod, which is
-       every panel in the rail, now that the card is not the blueprint's
-       own element. */
-    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod{
-      background-image:url('/assets/dawn-road-420.jpg'); }
+    /* The same swap for the card's photograph. One line per picture now
+       that the card reads a property, rather than a second copy of the
+       card's whole declaration. */
+    :root{--card-pic:url('/assets/dawn-road-420.jpg');}
+    .type-track{--card-pic:url('/assets/track-road-420.jpg');}
+    .type-easy{--card-pic:url('/assets/misty-road-420.jpg');}
+    .type-race{--card-pic:url('/assets/finish-arch-420.jpg');}
   }
   .modal-decision .modal-head, .modal-decision .modal-body{
     position:relative; z-index:1;

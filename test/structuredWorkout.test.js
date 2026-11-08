@@ -895,20 +895,64 @@ test('the stage card is a photograph, and the words on it are legible', () => {
      breakpoint) -- a data URI would have put ~50KB of base64 into a file
      that is already 3.5MB and is parsed at every launch. */
   const ROOT2 = path.join(__dirname, '..');
-  ['dawn-road-420.jpg', 'dawn-road-820.jpg'].forEach(f => {
+  /* ---------- EVERY PICTURE THE SHEET NAMES, AT BOTH WIDTHS ----------
+     Listing the files by hand here would pass the day someone adds a
+     --card-pic for a new type and forgets the asset: a background-image
+     that 404s leaves a black card and says nothing. So the list comes from
+     the sheet itself, and every url it names has to exist. */
+  const named = [...new Set((RAILCSS.match(/--card-pic:url\('\/assets\/([^']+)'\)/g) || [])
+    .map(s => /\/assets\/([^']+)/.exec(s)[1]))];
+  assert.ok(named.length >= 8,
+    'the sheet names only ' + named.length + ' card pictures — there are four types and two widths');
+  named.forEach(f => {
     const stat = fs.statSync(path.join(ROOT2, 'assets', f));
     assert.ok(stat.size > 4000, 'assets/' + f + ' is missing or empty');
     assert.ok(stat.size < 160000, 'assets/' + f + ' is ' + stat.size + ' bytes — larger than the photograph it sits beside');
+  });
+  /* AND BOTH WIDTHS FOR EACH. A picture with only an -820 silently serves
+     the wide file to a 360px phone, which is the thing the two widths
+     exist to prevent. */
+  const stems = [...new Set(named.map(f => f.replace(/-(420|820)\.jpg$/, '')))];
+  stems.forEach(st => {
+    assert.ok(named.indexOf(st + '-420.jpg') > -1, st + ' has no narrow-phone width');
+    assert.ok(named.indexOf(st + '-820.jpg') > -1, st + ' has no retina width');
   });
   /* ON .how-mod, NOT .ws-h-step. The photograph was keyed to the
      blueprint's own element, which an execution phase and a fuel fact do
      not have -- so goal day, which has no blueprint, got plain panels
      while a tempo session got cards. Every panel in every rail is a
      .how-mod, so that is what carries the card. */
-  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*background-image:url\('\/assets\/dawn-road-820\.jpg'\)/,
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*background-image:var\(--card-pic\)/,
     'the stage card has lost its photograph');
-  assert.match(RAILCSS, /\.ws-rail \.how-mod\{\s*\n?\s*background-image:url\('\/assets\/dawn-road-420\.jpg'\)/,
-    'the narrow phone still downloads the wide photograph');
+  /* ---------- ONE PICTURE PER SESSION TYPE ----------
+     The founder's mapping: track for reps, misty road for easy, the finish
+     arch for goal day, and the sunrise road that was already here for
+     everything else. Carried as a property on the day card -- which
+     already wears .type-easy, .type-track and the rest -- so every card in
+     one session's rail inherits the same picture and the rail reads as one
+     session rather than three. */
+  assert.match(RAILCSS, /:root\{--card-pic:url\('\/assets\/dawn-road-820\.jpg'\);\}/,
+    'there is no default picture, so an unmapped session type gets a black card');
+  [['track', 'track-road'], ['easy', 'misty-road'], ['race', 'finish-arch']].forEach(([cls, stem]) => {
+    assert.match(RAILCSS, new RegExp('\\.type-' + cls + '\\{--card-pic:url\\(\'/assets/' + stem + '-820\\.jpg\'\\);\\}'),
+      '.type-' + cls + ' has lost its picture');
+  });
+  /* AND THE NARROW PHONE SWAPS EVERY ONE OF THEM, not just the default. */
+  /* THE BLOCK FOUND BY WHAT IT MUST CONTAIN, not by the first
+     @media (max-width:480px) in the sheet and a guess at where it ends --
+     that located a block with no --card-pic in it and reported 0 of 4,
+     which is the same trap a guard here fell into once before on the
+     360px breakpoint. */
+  const mi = RAILCSS.indexOf('--card-pic:url(\'/assets/dawn-road-420.jpg\')');
+  assert.ok(mi > -1, 'the narrow-phone swap is gone entirely');
+  const open = RAILCSS.lastIndexOf('@media', mi);
+  assert.ok(open > -1 && /max-width:\s*480px/.test(RAILCSS.slice(open, mi)),
+    'the narrow-phone picture swap is no longer inside a max-width:480px block');
+  const block = RAILCSS.slice(open, RAILCSS.indexOf('\n  }', mi));
+  const swapped = (block.match(/--card-pic:url\('\/assets\/[^']+-420\.jpg'\)/g) || []).length;
+  const wide = (RAILCSS.match(/--card-pic:url\('\/assets\/[^']+-820\.jpg'\)/g) || []).length;
+  assert.equal(swapped, wide,
+    'the narrow phone swaps ' + swapped + ' of ' + wide + ' pictures — the rest download the wide file');
   assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{display:contents;\}/,
     'the blueprint step is a box inside the card again, so its own tint and rule sit on the photograph');
 
