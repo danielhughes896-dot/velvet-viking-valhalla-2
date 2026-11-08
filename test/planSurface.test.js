@@ -156,8 +156,24 @@ test('done, now and ahead are one colour language on the plan', () => {
     'the phase the athlete is in is no longer gold');
   assert.match(ruleFor('.pp-slide.is-done .pp-slide-w{'), /color:var\(--ok-text\)/,
     'a completed phase is no longer green');
-  assert.match(ruleFor('.pp-slide.is-ahead .pp-slide-w{'), /color:var\(--ink-faint\)/,
-    'a phase still ahead is no longer the quiet one');
+  /* ---- AHEAD IS QUIET, AND ON A PHOTOGRAPH THAT IS A WHITE ALPHA ----
+     --ink-faint is a colour for a flat charcoal panel. Over the taper
+     photograph it measured 2.67:1 against a 4.5 floor, so the quiet state
+     is carried the way every other dim run on a photographic card in this
+     product carries it -- white at reduced alpha, which is exactly what
+     .ws-h-cue (.92) and the stage card's HR note (.72) already do.
+     ASSERTED AS A RANGE, not as .78: anything in this band is legible over
+     the veil and still visibly the quietest of the three, and pinning the
+     exact number would make a re-measure read as a regression. */
+  const ahead = ruleFor('.pp-slide.is-ahead .pp-slide-w{');
+  const am = /color:rgba\(255,255,255,\.(\d+)\)/.exec(ahead);
+  assert.ok(am, 'a phase still ahead is not a white alpha: ' + ahead);
+  const aa = Number('0.' + am[1]);
+  assert.ok(aa >= 0.72, 'ahead is at ' + aa + ' alpha — measured below 4.5:1 under that');
+  assert.ok(aa < 0.92, 'ahead is at ' + aa + ' alpha — it is no longer the quiet one, ' +
+    'the message beside it is .92');
+  assert.doesNotMatch(ahead, /var\(--ink-faint\)/,
+    'ahead went back to --ink-faint, which measured 2.67:1 on the taper photograph');
   assert.doesNotMatch(BARE, /\.pp-slide[^{]*\{[^}]*(?:#9BC08C|rgba\(122,160,110)/,
     'the literal green came back on the phase slide');
   /* GOLD IS WHERE YOU ARE, AND IT IS GEOMETRY AS WELL AS TYPE -- the rim
@@ -402,6 +418,7 @@ test('a one-phase block gets the headed section, not a carousel of one', () => {
      false -- and the fixture is a race block wearing a maintenance purpose,
      so its race day is removed to get the shape the generator would make. */
   a.state.days.forEach(d => { if (d.type === 'race') d.type = 'long'; });
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
   const groups = a.planPhaseGroups();
   assert.equal(groups.length, 1, 'the fixture did not produce a one-phase block');
   assert.equal(a.renderPhaseRail(), '', 'a one-phase block was given a carousel of one slide');
@@ -416,12 +433,119 @@ test('a one-phase block gets the headed section, not a carousel of one', () => {
   for (let w = 1; w <= a.totalWeeksInPlan(); w++){
     assert.ok(view.indexOf('id="week-' + w + '"') > -1, 'week ' + w + ' is missing');
   }
+  /* ---- AND THIS IS WHY 'Maintain' NEEDS NO PHOTOGRAPH ----
+     Every phase that can appear on a slide has one; Maintain does not, and
+     the guard above skips a one-phase block rather than demanding a picture
+     for it. That is only honest while Maintain CANNOT share a carousel with
+     anything, and what makes that true is one line in the generator:
+     a goal day is built only when the block is not steady, so a maintenance
+     block has no race-type day, so trainingPhase() never names one of its
+     weeks for the goal -- and a block whose every week is 'Maintain' is one
+     group. Pinned here: change that line and this fires rather than a flat
+     card quietly appearing in a carousel of photographs. */
+  assert.match(src, /var isRace = !steady && arc\.hasGoalEffort && \(w===N\);/,
+    'a steady block can now be given a goal day, which would put an unmapped ' +
+    'Maintain slide in a carousel beside the goal week');
+  assert.equal(a.state.days.filter(d => d.type === 'race').length, 0,
+    'the maintenance fixture still has a race day, so this proves nothing');
+  assert.ok(a.planPhaseGroups().every(g => g.phase === 'Maintain'),
+    'a maintenance block has a phase other than Maintain');
+
   /* AND THE MACHINERY IT DEPENDS ON IS STILL WIRED. */
-  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
   assert.match(src, /case 'toggle-phase': handleTogglePhase/,
     'toggle-phase is no longer dispatched, so the one-phase heading is a dead control');
   assert.match(src, /case 'phase-pick': handlePhasePick/,
     'phase-pick is no longer dispatched, so the carousel dots are dead controls');
+});
+
+test('every phase the carousel can show carries a photograph, at both widths', () => {
+  /* The founder's mapping: "Base - picture 3. Build - picture 4. Peak -
+     picture 2. Taper - picture 1." The goal week takes the race/goal
+     photograph they had already chosen, cut again at the slide's own
+     aspect.
+     ASSERTED FROM THE PHASES THE APP CAN ACTUALLY PRODUCE, not from a list
+     written here -- a phase added to trainingPhase() with no picture would
+     otherwise ship as the one flat card in a carousel of photographs, and
+     nothing would say so. */
+  const slugs = new Set();
+  [['race', 16, 'full'], ['race', 12, '10k'], ['base', 10, '10k']].forEach(([purpose, weeks, dist]) => {
+    const a = loadApp({ pinnedDate: '2026-10-05T09:00:00Z' });
+    a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+    buildPlan(a, { weeks, startDate: '2026-07-06', distanceKey: dist, volume: 45 });
+    a.state.setup.purpose = purpose;
+    const groups = a.planPhaseGroups();
+    /* A one-phase block renders no carousel at all, so it needs no picture;
+       only a phase that can appear ON a slide is in scope here. */
+    if (groups.length < 2) return;
+    groups.forEach(g => slugs.add(a.phaseSlug(g.phase)));
+  });
+  assert.ok(slugs.size >= 4, 'the fixtures produced only ' + slugs.size + ' phases');
+
+  const at = (slug, w) => new RegExp('\\.ph-' + slug + '\\b[^{]*\\{--phase-pic:url\\(\'/assets/([^\')]+-' + w + '\\.jpg)\'\\)');
+  slugs.forEach(slug => {
+    [820, 420].forEach(w => {
+      const m = at(slug, w).exec(CSS);
+      assert.ok(m, 'phase "' + slug + '" has no ' + w + 'px photograph — it would be the one ' +
+        'flat card in a carousel of photographs');
+      const file = path.join(ROOT, 'assets', m[1]);
+      assert.ok(fs.existsSync(file), 'declared but missing: assets/' + m[1]);
+      assert.ok(fs.statSync(file).size > 4096,
+        'assets/' + m[1] + ' is ' + fs.statSync(file).size + ' bytes — that is not a photograph');
+    });
+  });
+  /* THE TWO WIDTHS NAME THE SAME PHASES. A picture that exists at 820 and
+     not at 420 is a card that loses its photograph on the phone, which is
+     the only screen this product is for. */
+  const widths = w => (CSS.match(new RegExp('\\.ph-[a-z-]+(?:, \\.ph-[a-z-]+)*\\{--phase-pic:url\\(\'/assets/[^\')]+-' + w + '\\.jpg\'\\)', 'g')) || [])
+    .map(x => x.slice(0, x.indexOf('{'))).sort().join('|');
+  assert.equal(widths(820), widths(420),
+    'the 820px and 420px photograph sets name different phases');
+  /* AND THE 420s ARE INSIDE THE PHONE QUERY, or they never swap in. */
+  const mq = CSS.slice(CSS.indexOf('@media (max-width:480px){'));
+  assert.ok(mq.indexOf('-420.jpg') > -1 && mq.indexOf('.ph-base') > -1,
+    'the phone-width photographs are no longer inside the phone media query');
+});
+
+test('the words on a phase slide are not left on the bare photograph', () => {
+  /* The contrast itself is measured in Chromium against the real composited
+     card -- the numbers and the method are written beside the veil in the
+     sheet, because this suite has no browser to re-measure in. What IS
+     checked here is every structural thing that measurement depended on, so
+     none of it can be removed while the recorded figures stay in the
+     comment looking authoritative.
+     Mutation-checked against the probe: halving these stops put 9 of 12
+     runs below the floor, removing them put all 12 there at 1.31:1. */
+  const body = rule('.pp-slide-body');
+  assert.match(body, /background-image:var\(--phase-pic, none\)/,
+    'the slide no longer takes its photograph from the phase property');
+  assert.match(body, /background-color:var\(--t-tile\)/,
+    'a phase with no photograph is now a hole rather than the flat card');
+  assert.match(body, /background-size:cover/, 'the photograph no longer fills the slide');
+  assert.match(body, /overflow:hidden/, 'the photograph is no longer clipped to the rim');
+
+  const veil = rule('.pp-slide-body::before');
+  assert.match(veil, /position:absolute/, 'the veil is not over the picture');
+  assert.match(veil, /inset:0/, 'the veil no longer covers the whole slide');
+  assert.match(veil, /z-index:0/, 'the veil lost its place in the stack');
+  assert.match(rule('.pp-slide-body > *'), /z-index:1/,
+    'the words are no longer above the veil, so the veil is covering them');
+  /* THE STOPS, AS A FLOOR. Not as exact values -- a deeper veil is always
+     safe and a lighter one is what has to be re-measured. */
+  const stops = (veil.match(/rgba\(8,6,10,\.(\d+)\)/g) || [])
+    .map(x => Number('0.' + /\.(\d+)\)/.exec(x)[1]));
+  assert.equal(stops.length, 3, 'the veil no longer has its three measured stops');
+  [0.44, 0.66, 0.74].forEach((floor, i) => {
+    assert.ok(stops[i] >= floor,
+      'veil stop ' + (i + 1) + ' is ' + stops[i] + ', under the measured ' + floor +
+      ' — re-measure in a browser before lightening it');
+  });
+  /* The glow on the title is doing real work on a photograph, which is the
+     reason "same rules" takes the whole hero declaration rather than its
+     size alone. */
+  const i = BARE.indexOf('.view-plan .pp-slide-k');
+  const decl = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', BARE.indexOf('{', i)));
+  assert.match(decl, /text-shadow:/,
+    'the slide title lost the glow that lifts it off a photograph');
 });
 
 test('the carousel opens on the phase the block is actually in', () => {

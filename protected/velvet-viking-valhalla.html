@@ -70,6 +70,32 @@
   .type-track{--card-pic:url('/assets/track-road-820.jpg');}
   .type-easy{--card-pic:url('/assets/misty-road-820.jpg');}
   .type-race{--card-pic:url('/assets/finish-arch-820.jpg');}
+  /* AND THE FOUR PHASES, in the founder's words: "Base - picture 3. Build -
+     picture 4. Peak - picture 2. Taper - picture 1."
+     A SECOND PROPERTY RATHER THAN A SECOND USE OF --card-pic. A session card
+     and a phase slide are different shapes -- 1.53:1 against 2.37:1 -- and
+     each picture is cropped to the card it is for, so one property holding
+     both would hand each card the other's crop. Each is cut at its card's
+     own aspect, full band width, so 820 is a DOWNscale and nothing is
+     softened; the cover fit is then left with nothing to throw away.
+     The phase slide has no picture of its own until a phase names one: the
+     hook is here and the fallback is no picture at all rather than another
+     phase's, because four slides wearing one photograph reads as a bug. */
+  .ph-base{--phase-pic:url('/assets/phase-base-820.jpg');}
+  .ph-build{--phase-pic:url('/assets/phase-build-820.jpg');}
+  .ph-peak{--phase-pic:url('/assets/phase-peak-820.jpg');}
+  .ph-taper{--phase-pic:url('/assets/phase-taper-820.jpg');}
+  /* AND THE GOAL WEEK, when the arc gives it a section of its own (a taper
+     one week long has no taper above it to belong to -- see
+     goalWeekContinuesTaper). It is the founder's own race/goal picture, cut
+     again at the slide's 2.37:1 from the same original rather than reusing
+     the session card's 1.20:1 crop, which cover would have taken the arch
+     straight out of. Not a new mapping: the same photograph the founder
+     assigned to race/goal, on the week the race is in.
+     A MAINTENANCE BLOCK NEEDS NOTHING HERE. It is one phase end to end, so
+     renderPhaseRail() returns nothing and the screen shows the headed
+     section instead -- there is no Maintain slide to give a picture to. */
+  .ph-race-week, .ph-final-week{--phase-pic:url('/assets/phase-final-820.jpg');}
   :root{
     /* Neutral-charcoal foundation (RC2 palette refinement) -- replaces the
        former warm brown-black ramp (H~30deg) with a near-neutral one
@@ -4151,6 +4177,11 @@
     .type-track{--card-pic:url('/assets/track-road-420.jpg');}
     .type-easy{--card-pic:url('/assets/misty-road-420.jpg');}
     .type-race{--card-pic:url('/assets/finish-arch-420.jpg');}
+    .ph-base{--phase-pic:url('/assets/phase-base-420.jpg');}
+    .ph-build{--phase-pic:url('/assets/phase-build-420.jpg');}
+    .ph-peak{--phase-pic:url('/assets/phase-peak-420.jpg');}
+    .ph-taper{--phase-pic:url('/assets/phase-taper-420.jpg');}
+    .ph-race-week, .ph-final-week{--phase-pic:url('/assets/phase-final-420.jpg');}
   }
   .modal-decision .modal-head, .modal-decision .modal-body{
     position:relative; z-index:1;
@@ -6048,11 +6079,53 @@
      that IS the layer -- the same standing the Race Day panel has. */
   .view-plan .pp-rail, .view-week .wk-rail{position:relative; overflow:hidden; touch-action:pan-y;}
   .pp-slide, .wk-slide{flex:0 0 100%; min-width:0; box-sizing:border-box;}
+  /* ---------- A PHASE SLIDE IS A PHOTOGRAPH ----------
+     The same card language the session rail speaks: the picture fills it,
+     a veil sits over the picture, and the words sit over the veil. The
+     slide is 2.37:1 at 430px against the session card's 1.53:1, which is
+     why the crops are cut separately and why this cannot simply borrow
+     .how-mod's rules.
+     background-clip:padding-box so the picture stops at the rim rather
+     than painting under a 1.5px border that is meant to read as a rim.
+     NO PICTURE, NO PROBLEM: --phase-pic is unset for any phase without one
+     (Maintain, Race Week, Final Week), background-image:none resolves to
+     nothing, and --t-tile is still painted underneath -- so an unmapped
+     phase is the flat card this was before rather than a black hole. */
   .pp-slide-body{
+    position:relative; overflow:hidden;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    text-align:center; gap:5px; min-height:118px; padding:19px 16px;
+    text-align:center; gap:5px; min-height:168px; padding:19px 16px;
     border:1.5px solid var(--t-tile-rim); border-radius:var(--tile-radius);
-    background:var(--t-tile); box-shadow:var(--t-lift);}
+    background-color:var(--t-tile);
+    background-image:var(--phase-pic, none);
+    background-size:cover; background-position:50% 50%;
+    background-clip:padding-box;
+    box-shadow:var(--t-lift);}
+  /* ---------- THE VEIL ----------
+     MEASURED, NOT GUESSED, and the numbers are the point of writing them
+     down. Driven in Chromium at 430px: the real card, the real photograph,
+     the words hidden so what is sampled is picture-plus-veil and nothing
+     else, and the BRIGHTEST 6px patch under each line of text deciding --
+     an average passes a sun sitting behind three words.
+     Five photographs x three runs x three blocks (done / now / ahead, and a
+     goal week with a section of its own): worst small text 5.03:1 against
+     its 4.5 floor, worst title 5.03:1 against its 3.0. The binding case is
+     the goal week's picture, which is a sunlit road and the brightest of
+     the five; the first veil tried cleared the other four by 0.7 to 9
+     points and put that one at 4.21:1.
+     THE STOPS ARE FLAT-ISH rather than a bottom-rising gradient because
+     this card centres its text instead of standing it on the floor, so
+     there is no one edge the words are always near -- and the brightest
+     thing in these pictures is a sun on the horizon, which is exactly where
+     the middle of the card is. Hence the middle stop carrying the most.
+     WEAKEN THESE AND RE-MEASURE. Halving them put nine of the twelve runs
+     below the floor; removing them put all of them there, at 1.31:1. */
+  .pp-slide-body::before{
+    content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+    border-radius:inherit;
+    background:linear-gradient(to bottom,
+      rgba(8,6,10,.44) 0%, rgba(8,6,10,.66) 46%, rgba(8,6,10,.74) 100%);}
+  .pp-slide-body > *{position:relative; z-index:1;}
   /* The phase the athlete is in takes the gold rim -- the one way this
      product says "this is where you are", and the same mark the current day
      and the selected tab wear. It is the signal .pp-phase.is-now carried
@@ -6069,7 +6142,15 @@
     text-transform:uppercase; color:var(--ink-dim);}
   .pp-slide.is-now .pp-slide-w{color:var(--gold-bright);}
   .pp-slide.is-done .pp-slide-w{color:var(--ok-text);}
-  .pp-slide.is-ahead .pp-slide-w{color:var(--ink-faint);}
+  /* A PHASE STILL AHEAD IS QUIET, NOT UNREADABLE. --ink-faint is a colour
+     for a flat charcoal panel and it does not survive a sunrise behind it:
+     measured over the taper photograph at 2.67:1 against a 4.5 floor. Over
+     a photograph the quiet state is carried by the veil and by this being
+     the dimmest of the three, and the words still clear the floor. The
+     first attempt at this was a second .pp-slide.is-ahead .pp-slide-w rule
+     added ABOVE these three, which lost to this one on source order and
+     changed nothing -- the probe is what found that, not the eye. */
+  .pp-slide.is-ahead .pp-slide-w{color:rgba(255,255,255,.78);}
   /* The phase's own sentence, in the voice a stage cue uses on the session
      rail: the supporting size, 1.45 leading, 30ch so it breaks where a
      sentence breaks rather than at the card edge. */
