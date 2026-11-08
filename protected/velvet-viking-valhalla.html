@@ -4688,11 +4688,53 @@
      at equal weight. "Hide full session" is still a button rather than a
      tab -- it toggles a whole card rather than opening what it names -- so
      the recipe stays here for it alone. */
-  .wk-open{
-    display:flex; width:100%; align-items:center; justify-content:center; gap:8px;
-    background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
-    color:var(--gold); font-family:var(--text-face);
-    font-size:14.5px; font-weight:600; letter-spacing:.01em; padding:11px 16px;}
+  /* ONE SELECTOR, ONE RULE. The margin-top below used to be a SECOND
+     .wk-open rule 880 lines further down, split off on the reasoning that
+     "shape, ground and rim are shared" and only the position was this
+     button's own. That split is what .sess-nav is for now, and the
+     treatment has gone there -- so what was left here and there was one
+     element described by two rules, which is the fault this file keeps
+     paying for. Merged. */
+  .wk-open{width:100%; margin-top:13px;}
+  /* ---------- ONE WAY INTO A SESSION, WHEREVER THE SESSION IS ----------
+     Race Day's "View session" and This Week's "View full session" do the
+     same job -- go and look at this session -- and were two dialects of one
+     button: identical shape, radius, ground, size and weight, differing in
+     exactly two declarations, the rim (velvet against the neutral
+     --t-tile-rim) and the ink (cherry against gold).
+     So the treatment is stated HERE, once, and both wear it. The ground,
+     rim and ink have come OUT of .wk-open and .rd-open rather than being
+     left there to be overridden -- two rules setting one property on one
+     element is the thing this file keeps paying for. Each of those keeps
+     only what is its own: .wk-open its width and type, .rd-open its grid
+     position and the hairline above it.
+     COMMITS ARE NOT NAVIGATION and keep the filled cherry. Continue, Got
+     it, Tell Valhalla are the one action that moves the athlete forward,
+     and a filled button is weight a rim-lit one does not have -- see
+     .builder-light .btn-primary, which is unchanged. This is the way
+     THROUGH to something, not the committing to it. */
+  /* ---------- AND THE METRICS COME WITH IT ----------
+     The two were left at their own type and padding on the reasoning that
+     each was tuned to its context -- 14.5px/11px here, 15px/14px in the
+     Race Day panel. That does not survive being looked at: 15px is the
+     app's own metric tier (--fs-data), 14.5px appears four times in a
+     60,000-line sheet and is a number nobody chose. It was drift, not
+     tuning, and leaving it would have meant one control with two specs,
+     which is the thing this whole change is about.
+     So everything that is the BUTTON lives here -- box, ground, rim, ink,
+     type, padding and the 44px floor -- and each of the two keeps only
+     where it sits: .wk-open its width in the week's stack, .rd-open its
+     place in the Race Day panel's grid and the hairline above it. They
+     cannot drift apart again without this rule moving. */
+  .sess-nav{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    min-height:var(--tap-min); padding:14px; border-radius:14px;
+    border:1px solid transparent;
+    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
+      var(--t-rim-velvet) border-box;
+    color:var(--cherry-text);
+    font-family:var(--text-face); font-size:15px; font-weight:600;
+    letter-spacing:.01em;}
   .wk-open svg{width:16px; height:16px;}
   /* The preview canvas is the export itself, drawn at 1080px wide and scaled
      down by CSS -- so the athlete approves the actual file, not a lookalike. */
@@ -4798,9 +4840,12 @@
      primary-button language, and the loudest thing on a screen whose point
      is the session, not the posting of it. Save sat beneath it as a ghost
      outline on --line, the hairline the rest of the app has stopped using.
-     Both take .wk-open's recipe, which is what a button looks like in this
-     product now: the card's own ground, the rim every bordered control
-     wears, and gold in the WORDS. They are the same shape because they are
+     Both write out the neutral button recipe -- the card's own ground, the
+     rim every bordered control wears, and gold in the WORDS. It used to be
+     described as ".wk-open's recipe"; .wk-open has since become session
+     NAVIGATION and wears .sess-nav's velvet rim and cherry ink, so the
+     neutral recipe is these rules' own and the reference would now point
+     at the wrong thing. Nothing about these two buttons changed. They are the same shape because they are
      the same rank of thing -- two ways to get the image out.
      Share leads by illumination, not by fill: the layered gold glow the nav
      puts on the tab you are on and the hero puts on the unit you chose. One
@@ -5039,9 +5084,12 @@
      stops this becoming 'the primary button is cherry now'". Cherry also
      sits directly above a cherry-outlined Reset this session, and the one
      control that saves should not look like the one that destroys.
-     So it takes .wk-open's recipe, the same as the session card's actions:
-     the card's own ground, the rim every bordered control wears, gold in
-     the words. */
+     So it takes the neutral button recipe, the same as the session card's
+     actions: the card's own ground, the rim every bordered control wears,
+     gold in the words. (Written as ".wk-open's recipe" until .wk-open
+     became session navigation and took the velvet rim; this button did not
+     move with it, and should not -- saving is a commit, not a way through
+     to somewhere.) */
   .es-actions .btn{width:100%;}
   .es-actions .btn-primary{
     display:flex; align-items:center; justify-content:center; gap:8px;
@@ -5541,9 +5589,6 @@
   /* Sentence case, and Inter rather than Oswald: it is a sentence the
      athlete acts on, not a label on a section. The head font is uppercase
      by definition in this product, which is why it could not be used here. */
-  /* Shape, ground and rim are shared with .btn-share (see that rule). What
-     is this button's own is where it sits in the week's stack. */
-  .wk-open{margin-top:13px;}
 
   /* The canonical card, present either way (see renderWeekSessionBox) and
      revealed in place. Collapsed it must occupy nothing and reach nothing:
@@ -5993,15 +6038,11 @@
      button's own border is a gradient rim and a border-top here would have
      fought it for the same edge (the earlier draft set border-top and then
      border, which silently threw the rule away). */
+  /* The ground, rim and ink are .sess-nav's now -- see it for why. What is
+     left here is what is only true of this one: where it sits in the Race
+     Day panel's grid, and the cherry hairline above it. */
   .view-plan > .race-event .rd-open{
-    grid-column:1 / -1; grid-row:3; position:relative;
-    margin-top:17px; padding:14px;
-    min-height:var(--tap-min);
-    border:1px solid transparent; border-radius:14px;
-    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
-      var(--t-rim-velvet) border-box;
-    color:var(--cherry-text); font-family:var(--text-face);
-    font-size:15px; font-weight:600;}
+    grid-column:1 / -1; grid-row:3; position:relative; margin-top:17px;}
   .view-plan > .race-event .rd-open::before{
     content:''; position:absolute; left:0; right:0; top:-17px; height:1px;
     background:var(--cherry-line);}
@@ -47814,7 +47855,7 @@ function renderRaceDayEvent(weekNum){
       renderDayCard(race)+
       /* "View race session" said RACE twice -- the panel it sits in is
          titled RACE DAY. */
-      '<button type="button" class="rd-open" data-action="plan-open-session" '+
+      '<button type="button" class="rd-open sess-nav" data-action="plan-open-session" '+
         'data-day="'+escapeHtml(String(race.id))+'">View session '+
         '<span aria-hidden="true">\u2192</span></button>'+
     '</div>';
@@ -57431,7 +57472,7 @@ function renderWeekSessionBox(weekNum){
     (weekSessionOpen ? ' data-hswipe="1"' : '')+'>'+
     overview+
     swipeHintHtml('week', 'Swipe for another day')+
-    '<button type="button" class="wk-open'+(isRest ? ' is-ghost' : '')+'"'+
+    '<button type="button" class="wk-open sess-nav'+(isRest ? ' is-ghost' : '')+'"'+
       (isRest ? ' aria-hidden="true" tabindex="-1"'
               : ' data-action="week-open-session" data-date="'+escapeHtml(dd.date)+'"'+
                 ' aria-expanded="'+(weekSessionOpen?'true':'false')+'"')+'>'+

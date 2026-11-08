@@ -146,13 +146,23 @@ test('a rest day holds the session button\'s slot instead of collapsing it', () 
   const onRest = a.renderWeekSessionBox(w);
 
   // The box is present on BOTH days -- that is the whole fix.
-  assert.match(onWork, /class="wk-open"/, 'the session day lost its button');
-  assert.match(onRest, /class="wk-open is-ghost"/,
+  /* MATCHED AS TOKENS IN A CLASS LIST, not as the whole attribute. These
+     read class="wk-open" and class="wk-open is-ghost" exactly, and broke
+     the day the button gained .sess-nav -- the shared treatment Race Day's
+     way-in and this one now both wear. Nothing about the slot changed; the
+     assertion was just pinned to a string that was never the claim. */
+  const hasClass = (html, cls) =>
+    new RegExp('class="[^"]*\\b' + cls + '\\b[^"]*"').test(html);
+  assert.ok(hasClass(onWork, 'wk-open'), 'the session day lost its button');
+  assert.ok(!hasClass(onWork, 'is-ghost'), 'the session day\u2019s button is a ghost');
+  assert.ok(hasClass(onRest, 'wk-open') && hasClass(onRest, 'is-ghost'),
     'the rest day drops the button again, so the page below it moves');
 
   /* Held, not offered. A rest day has nothing to open, so the reserved box
      must not be reachable by pointer, by tab, or by the delegated handler. */
-  const ghost = /<button[^>]*class="wk-open is-ghost"[^>]*>/.exec(onRest)[0];
+  const ghostM = /<button[^>]*class="[^"]*\bis-ghost\b[^"]*"[^>]*>/.exec(onRest);
+  assert.ok(ghostM, 'no held slot in the markup at all');
+  const ghost = ghostM[0];
   assert.doesNotMatch(ghost, /data-action=/, 'the held slot can still be fired');
   assert.doesNotMatch(ghost, /data-date=/, 'the held slot names a day to open');
   assert.match(ghost, /aria-hidden="true"/, 'the held slot is announced to a screen reader');

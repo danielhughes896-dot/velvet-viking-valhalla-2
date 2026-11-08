@@ -253,7 +253,10 @@ test('Race Day and Race Strategy rendering is unaffected', () => {
   assert.ok(!/race-strategy/.test(ev),
     'the strategy picker is back inside the Race Day panel');
   assert.match(ev, /id="day-/, 'the race card no longer renders');
-  assert.match(ev, /class="rd-open"/, 'the way into the race session is gone');
+  /* A TOKEN IN THE LIST, not the whole attribute: the button gained
+     .sess-nav, the treatment it now shares with This Week's way into a
+     session. The claim here is that the way in exists. */
+  assert.match(ev, /class="[^"]*\brd-open\b[^"]*"/, 'the way into the race session is gone');
   const src = require('fs').readFileSync(
     require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
   const sess = src.slice(src.indexOf('function renderPlanSessionView('));

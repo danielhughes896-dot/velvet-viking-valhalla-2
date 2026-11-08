@@ -490,3 +490,84 @@ test('the connector cannot drift toward violet again, because it has no alpha le
       scope + ' --cherry is not a solid hex — the connector could drift again');
   });
 });
+
+/* ===========================================================================
+ * NAVIGATION IS ONE BUTTON; A COMMIT IS ANOTHER
+ * ---------------------------------------------------------------------------
+ * Race Day's "View session" and This Week's "View full session" do the same
+ * job -- go and look at this session -- and were two dialects of one button.
+ * Measured at 412px before this: identical shape, radius, ground, weight;
+ * differing in exactly two declarations, the rim (velvet against the neutral
+ * --t-tile-rim) and the ink (cherry against gold). After: colour, border
+ * width, border colour, radius and the layered background all read the same
+ * in Chromium on both screens.
+ *
+ * The founder's rule was "anywhere there is a filled cherry clickable box
+ * should follow the same rules as Race Day view session". This is the half
+ * of it that is navigation. The other half -- Continue, Got it, Tell
+ * Valhalla -- is a COMMIT, the one action that moves the athlete forward in
+ * a flow where nothing else carries weight, and stays filled. Race Day's can
+ * be rim-lit because it sits inside a cherry-rimmed panel that already
+ * supplies the weight; a modal's primary has no such panel behind it.
+ * ======================================================================== */
+
+const NAV_CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+const navRule = sel => {
+  const re = new RegExp('(^|[}\\n,])[ \\t]*' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{', 'g');
+  const hits = [...NAV_CSS.matchAll(re)];
+  assert.equal(hits.length, 1, 'expected exactly one rule for ' + sel + ', found ' + hits.length);
+  const i = hits[0].index + hits[0][0].length;
+  return NAV_CSS.slice(i, NAV_CSS.indexOf('}', i));
+};
+
+test('both ways into a session wear one treatment, stated once', () => {
+  const nav = navRule('.sess-nav');
+  assert.match(nav, /--t-rim-velvet/, 'session navigation has lost the velvet rim');
+  assert.match(nav, /color:var\(--cherry-text\)/, 'session navigation has lost the cherry ink');
+  assert.match(nav, /border:1px solid transparent/,
+    'the rim is painted by the border-box gradient, so the border itself has to be transparent');
+
+  /* BOTH BUTTONS WEAR IT. The class is the whole mechanism. */
+  assert.match(SRC, /class="rd-open sess-nav"/, 'Race Day no longer wears the shared treatment');
+  assert.match(SRC, /class="wk-open sess-nav'/, 'This Week no longer wears the shared treatment');
+
+  /* THE METRICS ARE THE BUTTON TOO. They were left behind at first -- 14.5px
+     and 11px padding here, 15px and 14px in the Race Day panel -- on the
+     reasoning that each was tuned to its context. 15px is the app's own
+     metric tier; 14.5px occurs four times in a 60,000-line sheet. That was
+     drift, not tuning, and it left one control with two specs. */
+  assert.match(nav, /font-size:15px/, 'the shared button is off the app\u2019s 15px tier again');
+  assert.match(nav, /padding:14px/, 'the shared button no longer states one padding');
+  assert.match(nav, /min-height:var\(--tap-min\)/, 'the shared button has lost the 44px floor');
+
+  /* AND NEITHER RE-DECLARES ANY OF IT. Two rules setting one property on
+     one element is the fault this file's neighbours keep recording; all of
+     it came OUT of both rather than being left to be overridden. Each keeps
+     only where it sits. */
+  ['.wk-open', '.view-plan > .race-event .rd-open'].forEach(sel => {
+    const body = navRule(sel);
+    [['background:', 'ground'], ['color:', 'ink'], ['border:', 'border'],
+     ['font-size:', 'type size'], ['padding:', 'padding'], ['border-radius:', 'radius'],
+     ['font-weight:', 'weight']].forEach(([decl, what]) => {
+      assert.ok(body.indexOf(decl) === -1,
+        sel + ' states its own ' + what + ' again — the two can drift apart from here');
+    });
+  });
+});
+
+test('a commit is still filled, and that is the distinction', () => {
+  /* If this ever goes rim-lit, the builder's forward motion goes quiet and
+     the product loses any difference between "go look at this" and "commit
+     to this". It was considered and declined on the founder's call. */
+  const commit = navRule('.builder-light .btn-primary');
+  assert.match(commit, /background:var\(--cherry-fill\)/,
+    'the committing button is no longer a FILLED cherry — navigation and commit now read the same');
+  assert.match(commit, /color:var\(--cherry-btn-ink\)/, 'the committing button lost its ink');
+
+  /* And the neutral button recipe is untouched: saving a session edit is a
+     commit too, and deliberately NOT cherry -- it sits above a
+     cherry-outlined "Reset this session", and the control that saves must
+     not look like the one that destroys. */
+  assert.match(navRule('.es-actions .btn-primary'), /background:var\(--t-card\)/,
+    'Edit Session’s save has gone cherry — it sits above a cherry Reset and must not match it');
+});
