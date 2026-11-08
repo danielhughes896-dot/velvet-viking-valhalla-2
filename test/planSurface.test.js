@@ -872,6 +872,53 @@ test('every wide glow carries a dither, and it is not inside the blur', () => {
     .forEach(s2 => assert.ok(sel.indexOf(s2) > -1, 'the dither no longer reaches ' + s2));
 });
 
+test('the dither feathers out before the box edge, so there is no rectangle', () => {
+  /* THE DITHER SHIPPED AS A RECTANGLE and the founder saw it: 100vw wide,
+     the element's full height, ONE opacity everywhere, hard edges all round.
+     Measured at dpr 3 in a column 20px from the screen edge -- far enough
+     out that the radial has reached zero and only the grain is painting --
+     bare canvas read 19.7 and inside the box read 23.6. Four levels of
+     uniform lift with a straight edge under it, full width of the phone.
+     The light was never the problem; the grain layer was given none of the
+     discipline every ::before here already had.
+     Nine mask profiles were measured on BOTH numbers, because the grain out
+     in the tail is what drew the rectangle AND what killed the rings:
+       flat, unmasked              EDGE 4.36    8px /  3 / 0
+       fade from 40% of a 48x46    EDGE 0.61    8px /  9 / 0
+       fade from 82% of a 49x48    EDGE 2.97    8px /  5 / 0
+       glow-shaped 46x43 tail 84%  EDGE 1.02    7px /  5 / 0
+       glow-shaped 46x43 tail 70%  EDGE 0.64    8px /  7 / 0   <- shipped
+       glow-shaped 44x41 tail 70%  EDGE 0.27   17px / 12 / 2
+     (No dither at all bands 20px / 49 / 9, for scale.) */
+  const i = BARE.indexOf('.view-planhq .v-call::after');
+  const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
+
+  assert.match(body, /-webkit-mask-image:radial-gradient/,
+    'the grain layer has lost its mask — it is a flat 100vw rectangle again, which is the box');
+  assert.match(body, /[^-]mask-image:radial-gradient/,
+    'only the -webkit- mask is set; the standard property has to be there too');
+
+  /* THE MECHANISM, not the presence. A mask still carrying alpha where it
+     meets the element's edge does not remove the rectangle — it moves the
+     rectangle into the mask. Under 50% on BOTH axes is the whole law, and
+     it is the same law every glow ::before on this screen already obeys. */
+  const shape = body.match(/-webkit-mask-image:radial-gradient\((\d+)% (\d+)% at/);
+  assert.ok(shape, 'the mask is no longer an explicit two-axis ending shape');
+  assert.ok(+shape[1] < 50, 'the grain mask is ' + shape[1] + '% wide — at or over 50% it is cut by the box edge and the rectangle is back');
+  assert.ok(+shape[2] < 50, 'the grain mask is ' + shape[2] + '% tall — at or over 50% it is cut by the box edge and the rectangle is back');
+  assert.match(body, /-webkit-mask-image:radial-gradient\([^;]*transparent 100%\)/,
+    'the grain mask no longer ends at transparent, so it stops dead instead of feathering');
+
+  /* AND IT STILL COVERS THE LIGHT. The mask is the glow's own shape; a mask
+     materially tighter than the glow stops dithering the part of the fade
+     that bands (44x41 measured two rings back over 10px). */
+  const glow = BARE.match(/\.wk-taper::before,[\s\S]*?radial-gradient\((\d+)% (\d+)% at/);
+  assert.ok(glow, 'the taper glow is no longer an explicit two-axis radial');
+  assert.ok(+shape[1] >= +glow[1] - 1 && +shape[2] >= +glow[2] - 1,
+    'the grain mask (' + shape[1] + 'x' + shape[2] + ') has shrunk below the glow it dithers (' +
+    glow[1] + 'x' + glow[2] + ') — the outer fade bands again');
+});
+
 test('a week is one row, at one size, in fixed columns', () => {
   /* Measured in place at --fs-data (15px), widest of each column:
        label 141   range 136   volume 106   pct 28   chevron 18   gaps 40

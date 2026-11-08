@@ -5314,7 +5314,49 @@
     content:''; position:absolute; z-index:0; pointer-events:none;
     left:calc(50% - 50vw); width:100vw; right:auto; top:-10px; bottom:-12px;
     opacity:.09;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");}
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    /* ---------- AND THE GRAIN FALLS OFF LIKE THE LIGHT DOES ----------
+       The grain shipped as a FLAT rectangle: 100vw wide, the element's full
+       height, one opacity everywhere, hard edges all round. Measured at
+       dpr 3 in a column 20px from the screen edge -- far enough out that
+       the radial has reached zero and only the grain is painting -- the
+       canvas read 19.7 outside the box and 23.6 inside it. Four levels of
+       uniform lift with a straight edge under it, full width of the phone:
+       that is the box the founder can see, and it was mine. The light was
+       never the problem. Every ::before here is under 50% on both axes
+       precisely so it reaches zero before the edge and cannot be cut; the
+       grain layer was given none of that discipline.
+       THE MASK IS THE LIGHT'S OWN SHAPE. Every ::before here ends at
+       46% x 42-44%, so a mask on 46% x 43% holds full grain across
+       everything the glow actually lights and is already at zero where the
+       glow is -- which is still well inside the box, which is the whole
+       point. It is under 50% on both axes for the same reason the glows
+       are: a mask still carrying alpha when it meets the edge does not
+       remove the rectangle, it just moves it into the mask.
+       The two numbers pull against each other, because the grain out in the
+       tail is both what was drawing the rectangle and what was killing the
+       rings, so nine candidates were measured on BOTH at dpr 3. EDGE is the
+       lift at x=20 against bare canvas below the element; BANDS is the old
+       profile. No dither at all bands 20px / 49 steps>=6px / 9 >=10px.
+         flat, unmasked (what shipped)   EDGE 4.36   8px /  3 / 0
+         fade from 40% of a 48x46        EDGE 0.61   8px /  9 / 0
+         fade from 82% of a 49x48        EDGE 2.97   8px /  5 / 0
+         glow-shaped 46x43, tail 84%     EDGE 1.02   7px /  5 / 0
+         glow-shaped 46x43, tail 70%     EDGE 0.64   8px /  7 / 0  <-- this
+         glow-shaped 44x41, tail 70%     EDGE 0.27  17px / 12 / 2
+       4.36 was the box. 0.64 is a fifth of one 8-bit level and no screen
+       resolves it. Going tighter still (44x41) finally costs the dither
+       what it was built for -- two rings back over 10px -- so the shape
+       stops at the light's. The gentler 70% tail is taken over the 84% one
+       because a mask falling off over 30% of its radius cannot itself
+       become the next faint ring somebody has to find.
+       NOT an opacity ramp and not mix-blend-mode: the layer has to keep its
+       high-frequency detail, which is the one thing blur and blending both
+       destroy. */
+    -webkit-mask-image:radial-gradient(46% 43% at 50% 50%,
+      #000 0%, #000 70%, rgba(0,0,0,.5) 88%, transparent 100%);
+    mask-image:radial-gradient(46% 43% at 50% 50%,
+      #000 0%, #000 70%, rgba(0,0,0,.5) 88%, transparent 100%);}
   .wk-taper::before,
   .view-plan .yr-next::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
