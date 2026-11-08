@@ -5770,6 +5770,13 @@
   .wk-taper{
     position:relative; display:block; text-align:center;
     margin-top:14px; padding:16px 0 14px; color:var(--ink);}
+  /* ---------- WHAT THE TAPER LINE LEAVES BEHIND ON FULL PLAN ----------
+     Measured at 430px before the words were removed: .wk-taper was 78px of
+     box under a 14px margin, and the hero was 232px tall. Those two numbers
+     are here so it still is. NOT .wk-taper with its text removed: that rule
+     paints the cherry coaching radial, and an empty glowing panel is a
+     worse thing than the sentence was. */
+  .wk-hero-gap{display:block; height:78px; margin-top:14px;}
   /* ---------- ONE COACHING LIGHT, TWO PLACES THAT COACH ----------
      What's Next is the same kind of line as the taper note: Valhalla
      talking to the athlete about where this is going, rather than a figure
@@ -6051,7 +6058,20 @@
   /* The carousel is the hero's own footnote -- the shape of the block the
      hero is reporting on -- so it sits closer to it than the sections do,
      and its dots belong to it rather than being a third block of their own. */
-  .view-plan > .pp-rail{margin-top:-6px;}
+  /* ---------- AND THE PICTURE RUNS EDGE TO EDGE ----------
+     Founder: "I want the picture to literally be like Instagram! Full width
+     no gaps."
+     THE GUTTER IS .wrap's AND THIS IS THE ONE THING THAT STEPS OUT OF IT.
+     -16px is that gutter negated, which is why test/gutterLaw reads both
+     numbers and refuses them if they stop agreeing -- a breakout that
+     hard-codes a gutter it does not track is how a screen ends up with a
+     16px seam down one side.
+     THE SHAPE DOES NOT CHANGE, only the width: 398x168 and 430x181 are the
+     same 2.37:1, which is the aspect every one of these photographs was cut
+     to, so the cover fit still has nothing to throw away. */
+  .view-plan > .pp-rail{
+    margin-top:-6px; margin-left:-16px; margin-right:-16px;
+    width:calc(100% + 32px);}
   .view-plan > .pp-dots{margin-top:calc(2px - var(--wk-gap));}
   .view-host .view-plan .view-heading{display:none;}
 
@@ -6094,13 +6114,16 @@
   .pp-slide-body{
     position:relative; overflow:hidden;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    text-align:center; gap:5px; min-height:168px; padding:19px 16px;
-    border:1.5px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    text-align:center; gap:5px; min-height:181px; padding:19px 16px;
+    /* NO RIM, NO RADIUS, NO LIFT. A photograph that runs to both edges of
+       the screen is not sitting on the page, it IS the page there -- a rim
+       round it would be the gap the founder asked to remove, drawn in a
+       different colour, and an elevation shadow under something with no
+       edges has nothing to cast onto. */
+    border:0; border-radius:0; box-shadow:none;
     background-color:var(--t-tile);
     background-image:var(--phase-pic, none);
-    background-size:cover; background-position:50% 50%;
-    background-clip:padding-box;
-    box-shadow:var(--t-lift);}
+    background-size:cover; background-position:50% 50%;}
   /* ---------- THE VEIL ----------
      MEASURED, NOT GUESSED, and the numbers are the point of writing them
      down. Driven in Chromium at 430px: the real card, the real photograph,
@@ -6126,13 +6149,17 @@
     background:linear-gradient(to bottom,
       rgba(8,6,10,.44) 0%, rgba(8,6,10,.66) 46%, rgba(8,6,10,.74) 100%);}
   .pp-slide-body > *{position:relative; z-index:1;}
-  /* The phase the athlete is in takes the gold rim -- the one way this
-     product says "this is where you are", and the same mark the current day
-     and the selected tab wear. It is the signal .pp-phase.is-now carried
-     before the de-boxing took the phase card away. */
-  .pp-slide.is-now .pp-slide-body{
-    border-color:var(--gold);
-    box-shadow:var(--t-lift), 0 0 18px color-mix(in srgb, var(--gold) 18%, transparent);}
+  /* ---------- AND THE GOLD RIM GOES WITH THE RIM ----------
+     The phase the athlete is in used to take a gold border, which is how
+     this product says "this is where you are" everywhere else. A full-bleed
+     photograph has no border to colour, and drawing one back would be the
+     gap again.
+     NOTHING IS LOST THAT WAS NOT SAID TWICE. phaseGroupMeta() ends the
+     slide's own line with the word -- "Weeks 10 - 11 . Now" -- and that line
+     is already --gold-bright for exactly this state. The rim was the third
+     telling, which is the same reason the phase heading gave up its disc.
+     The dots below still carry the gold for WHICH SLIDE, which is a
+     different question and keeps its own signal. */
   /* ---- the span and the state, in the colour the rows use ----
      phaseGroupMeta() writes "Weeks 3 - 7 . Completed" and is the only place
      those words are written; the colour is the second telling that the week
@@ -48334,14 +48361,6 @@ function weekRangeLabel(range){
    is rendering the plan WHOLE (where the drawer is the point) or one phase
    under the carousel (where the row is a row). The resolved flag is that answer,
    already resolved. */
-/* Whether Full Plan's hero is already printing the taper sentence -- which
-   it does on exactly the condition renderWeekHeroBlock() uses, read from the
-   same isTaperWeek(). renderWeekAccordion() is Full Plan's alone, so "above"
-   is never ambiguous: it is that hero or nothing. */
-function taperLineSaidAbove(){
-  var cur = currentWeekNum();
-  return !!cur && isTaperWeek(cur);
-}
 function renderWeekAccordion(weekNum, open){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   var range = weekDateRange(weekNum);
@@ -48384,25 +48403,21 @@ function renderWeekAccordion(weekNum, open){
   var daysHtml = '<div class="pw-rows">'+planWeekRowsHtml(weekNum)+'</div>';
   var openCls = open ? ' open' : '';
   var taper = isTaperWeek(weekNum);
-  /* THE SAME SENTENCE THIS WEEK'S HERO PRINTS, because it is the same
-     coaching about the same weeks. The "Taper:" label and its bolt went for
-     the reason they went from the hero: the week this note sits in is
-     already titled TAPER PHASE directly above it, so the word was the
-     second telling and the glyph the third. One string, one decision --
-     TAPER_COACHING_LINE, shared with renderWeekHeroBlock(). */
-  /* ---------- SAID ONCE PER SCREEN ----------
-     Full Plan's hero prints TAPER_COACHING_LINE whenever the week the
-     athlete is in is a taper week, and a taper week's row printed it again.
-     While the phase sections started closed the two were never on screen
-     together; under the phase carousel the current phase is open from the
-     moment the tab is, so the identical sentence appeared twice, 270px
-     apart, at 430px.
-     THE HERO'S COPY IS THE ONE THAT STAYS. It is about the block, which is
-     what this screen is about; the row's was always the echo. Neither
-     string moves and neither is rewritten -- there is still exactly one
-     definition and both printers still take it. */
-  var taperNote = (taper && !taperLineSaidAbove())
-    ? '<div class="taper-note">'+TAPER_COACHING_LINE+'</div>' : '';
+  /* ---------- THE TAPER SENTENCE IS NOT ON THIS SCREEN ----------
+     Founder: "Remove the words under the gold bar." Those words were
+     TAPER_COACHING_LINE in Full Plan's hero, and the obvious way to honour
+     that -- take it out of the hero -- would have put the identical
+     sentence back in this row, 300px lower on the same screen, because this
+     row's copy was only ever suppressed BECAUSE the hero was speaking. The
+     sentence would not have been removed; it would have moved.
+     SO IT IS OFF FULL PLAN ALTOGETHER. Nothing is lost: it is coaching
+     about the week the athlete is in, This Week's hero still prints it from
+     the same TAPER_COACHING_LINE, and This Week is the screen about that
+     week. Full Plan is about the block.
+     .taper-note's rules are still in the sheet and now paint nothing. They
+     are left for the founder's pass over this screen rather than removed
+     under them -- prose in a row may well come back here. */
+  var taperNote = '';
   /* THE COMBINED-TOTAL EXPLANATION IS GONE. "Total includes race day: 29.5
      training + 42.2 race = 71.7 km" existed only to explain a number that
      should not have been added together in the first place. With the race out
@@ -58467,7 +58482,20 @@ function renderWeekHeroBlock(weekNum, asBlock){
        word that repeats the heading is the third time this hero names the
        same thing. What is left is the coaching, which is what the line is
        for. */
-    (taper ? '<div class="wk-taper"><span>'+TAPER_COACHING_LINE+'</span></div>' : '')+
+    /* ---------- FULL PLAN KEEPS THE SPACE, NOT THE SENTENCE ----------
+       Founder: "Remove the words under the gold bar. Keep the space."
+       THIS WEEK IS UNTOUCHED. It is the screen about the week the athlete is
+       in, and the taper line is coaching about that week; Full Plan is about
+       the block, and the line was the only prose between its figures and the
+       phase carousel.
+       THE SPACE IS KEPT RATHER THAN RECLAIMED, so the hero does not tighten
+       up as a block enters its taper -- a hero that changes height when the
+       plan reaches a phase reads as a different hero. Measured at 430px: the
+       line occupied 78px of box under a 14px margin, and the gap is those
+       two numbers, so this hero is exactly as tall as it was. */
+    (taper ? (asBlock
+      ? '<div class="wk-hero-gap" aria-hidden="true"></div>'
+      : '<div class="wk-taper"><span>'+TAPER_COACHING_LINE+'</span></div>') : '')+
     /* Only when there is something to say. An exception is not noise -- an
        unlogged session or a restricted day changes what the week means. */
     (notes.length ? '<div class="wk-notes">'+escapeHtml(notes.join(' '))+'</div>' : '')+

@@ -176,11 +176,27 @@ test('done, now and ahead are one colour language on the plan', () => {
     'ahead went back to --ink-faint, which measured 2.67:1 on the taper photograph');
   assert.doesNotMatch(BARE, /\.pp-slide[^{]*\{[^}]*(?:#9BC08C|rgba\(122,160,110)/,
     'the literal green came back on the phase slide');
-  /* GOLD IS WHERE YOU ARE, AND IT IS GEOMETRY AS WELL AS TYPE -- the rim
-     the current day and the selected tab wear, and the one signal
-     .pp-phase.is-now carried before the de-boxing took the phase card. */
-  assert.match(ruleFor('.pp-slide.is-now .pp-slide-body{'), /border-color:var\(--gold\)/,
-    'the current phase slide lost the gold rim, so nothing on it says "you are here"');
+  /* ---- GOLD IS WHERE YOU ARE, AND ON A FULL-BLEED PHOTOGRAPH IT IS TYPE ----
+     The slide used to take a gold border for this, the way the current day
+     and the selected tab do. A photograph that runs to both edges of the
+     screen has no border to colour, and drawing one back would be the gap
+     the founder asked to remove, in a different colour.
+     SO THE LAW IS CHECKED WHERE IT NOW LIVES: phaseGroupMeta() ends the
+     slide's own line with the word -- "Weeks 10 - 11 . Now" -- and that
+     line is gold for this state and nothing else is. Asserted above. What
+     is asserted here is that the rim really is gone in EVERY state, because
+     a rim on one slide and not another is the gap coming back. */
+  assert.match(rule('.pp-slide-body'), /border:0/,
+    'the full-bleed photograph grew a rim again, which is the gap in another colour');
+  assert.match(rule('.pp-slide-body'), /border-radius:0/,
+    'the full-bleed photograph grew corners again');
+  assert.doesNotMatch(BARE, /\.pp-slide[^{]*\{[^}]*border-color:/,
+    'a phase slide sets a border colour again — on a full-bleed picture there is ' +
+    'no border for it to be, so this is a rim coming back by the side door');
+  const sel = a0 => BARE.indexOf(a0) > -1;
+  assert.ok(!sel('.pp-slide.is-now .pp-slide-body{'),
+    'the current slide has a body rule of its own again — say "you are here" in the ' +
+    'line that already says it, not in a second surface treatment');
   const weeks = BARE.slice(BARE.indexOf('.view-plan .pp-body .week .week-num'));
   assert.match(weeks.slice(0, 1200), /\.week\.is-done \.week-num,[\s\S]{0,120}var\(--ok-text\)/,
     'a completed week row is not green');
@@ -224,9 +240,12 @@ test('every gold glow that marks selection or state names its token', () => {
   assert.equal(glows.length, 3,
     'hand-set gold glows: ' + glows.length + ' (expected the 3 the pulse owns)\n  ' +
     glows.join('\n  '));
-  /* ...and the pattern they should follow is in the sheet and working. */
-  assert.match(BARE, /\.pp-slide\.is-now \.pp-slide-body\{[^}]*color-mix\(in srgb, var\(--gold\)/,
-    'the current phase slide hand-sets its gold again');
+  /* ...and the pattern they should follow is in the sheet and working.
+     The phase slide's gold used to be the example here; it was a rim, and
+     the rim went when the photograph went full-bleed. The dot under it is
+     the gold that survived on that screen, and it follows the same rule. */
+  assert.match(BARE, /\.pp-dot\.is-on::before\{[^}]*color-mix\(in srgb, var\(--gold-bright\)/,
+    'the current phase dot hand-sets its gold again');
   assert.match(BARE, /\.wk-day\.is-sel\{[^}]*color-mix\(in srgb, var\(--gold\)/,
     'the selected day circle hand-sets its gold again');
 });
@@ -504,6 +523,47 @@ test('every phase the carousel can show carries a photograph, at both widths', (
   const mq = CSS.slice(CSS.indexOf('@media (max-width:480px){'));
   assert.ok(mq.indexOf('-420.jpg') > -1 && mq.indexOf('.ph-base') > -1,
     'the phone-width photographs are no longer inside the phone media query');
+});
+
+test('the picture runs edge to edge, and tracks the gutter it steps out of', () => {
+  /* Founder: "I want the picture to literally be like Instagram! Full width
+     no gaps."
+     THE BREAKOUT HAS TO TRACK .wrap's GUTTER. -16px is that gutter negated
+     and 32px is twice it; hard-coding either without reading the gutter is
+     how a screen ends up with a seam down one side the day the gutter
+     moves. Both numbers are derived here from .wrap itself rather than
+     written down a second time.
+     THE SHAPE IS UNCHANGED, only the width: 398x168 and 430x181 are the
+     same 2.37:1, which is the aspect every phase photograph was cut to, so
+     the cover fit still has nothing to throw away. Measured at 430px after
+     the change: the rail sits at x=0, w=430, h=181 on a 430px viewport. */
+  const gutter = /padding:0 (\d+)px/.exec(rule('.wrap'));
+  assert.ok(gutter, 'the page gutter is no longer a single px value — re-derive the breakout');
+  const g = Number(gutter[1]);
+  const rail = rule('.view-plan > .pp-rail');
+  assert.ok(rail.indexOf('margin-left:-' + g + 'px') > -1,
+    'the rail breaks out by something other than the page gutter (' + g + 'px): ' + rail);
+  assert.ok(rail.indexOf('margin-right:-' + g + 'px') > -1,
+    'the rail breaks out on one side only, which is a seam down the other');
+  assert.ok(rail.indexOf('width:calc(100% + ' + (g * 2) + 'px)') > -1,
+    'the rail is not given back the width its negative margins took');
+
+  /* THE SHAPE, AS THE RELATION THAT MAKES THE CROPS RIGHT. Pinned as the
+     ratio and not as 181px, so the card may grow or shrink as long as the
+     photographs are re-cut with it. */
+  const h = /min-height:(\d+)px/.exec(rule('.pp-slide-body'));
+  assert.ok(h, 'the slide no longer declares a height — the crops are cut to its aspect');
+  const PHONE = 430;
+  const aspect = PHONE / Number(h[1]);
+  assert.ok(Math.abs(aspect - 2.37) < 0.06,
+    'the slide is now ' + aspect.toFixed(2) + ':1 at ' + PHONE + 'px, against the 2.37:1 the ' +
+    'photographs were cut to — re-cut them or put the height back');
+
+  /* AND NOTHING ELSE ON THIS SCREEN STEPS OUT. One breakout is a decision;
+     two is a screen with no gutter. */
+  const outs = (BARE.match(/\.view-plan > \.[a-z-]+\{[^}]*margin-left:-\d+px/g) || []);
+  assert.equal(outs.length, 1,
+    'more than one Full Plan child breaks out of the page gutter: ' + outs.join(' | '));
 });
 
 test('the words on a phase slide are not left on the bare photograph', () => {
@@ -899,56 +959,58 @@ test('the taper line is coaching, lit like coaching', () => {
     'rather than as light');
 });
 
-test('the taper sentence is said once per screen', () => {
-  /* MEASURED AT 430px BEFORE THE FIX. Full Plan's hero prints
-     TAPER_COACHING_LINE whenever the week the athlete is in is a taper week,
-     and a taper week's row printed it again -- the identical sentence twice,
-     270px apart. While the phase sections started closed the two were never
-     on screen together; under the phase carousel the current phase is open
-     from the moment the tab is.
-     THIS TEST PINS THE CLOCK INSIDE THE TAPER AND THEN OUTSIDE IT, because
-     the first version of it did neither: app() lands on week 8 of 12, the
-     hero says nothing there, and "the hero and a row are never both
-     speaking" was vacuously true for the one state it is about. Mutation
-     caught that -- putting the note back unconditionally left it green.
-     NEITHER STRING MOVED AND NEITHER WAS REWRITTEN. One definition, both
-     printers -- see the test below. This is about which of them SPEAKS. */
+test('the taper sentence is not on Full Plan at all', () => {
+  /* Founder: "Remove the words under the gold bar." Those words were
+     TAPER_COACHING_LINE in Full Plan's hero.
+     THE TRAP THIS GUARDS. Taking it out of the hero on its own would have
+     put the identical sentence back into the taper week's ROW, 300px lower
+     on the same screen -- that row's copy was only ever suppressed BECAUSE
+     the hero was speaking. The sentence would not have been removed, it
+     would have moved. So both copies are off this screen, and this checks
+     the whole screen rather than the hero.
+     NOTHING IS LOST: This Week's hero still prints it, from the same
+     constant, and that is the screen about the week the athlete is in. */
   const probe = app();
   const taperWeeks = [];
   for (let w = 1; w <= probe.totalWeeksInPlan(); w++) if (probe.isTaperWeek(w)) taperWeeks.push(w);
   assert.ok(taperWeeks.length, 'the fixture has no taper to prove this with');
-  const inTaper = probe.weekDateRange(taperWeeks[0]).start;
-  const beforeTaper = probe.weekDateRange(1).start;
 
   const screen = (pin) => {
     const a = loadApp({ pinnedDate: pin + 'T09:00:00Z' });
     a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
     buildPlan(a, { weeks: 12, startDate: '2026-07-01', distanceKey: '10k', volume: 40 });
-    const cur = a.currentWeekNum();
-    const g = a.planPhaseGroups().filter(x => x.weeks.indexOf(taperWeeks[0]) !== -1)[0];
-    return {
-      a, cur,
-      heroSays: /class="wk-taper"/.test(a.renderWeekHeroBlock(cur, true)),
-      rowsSay: (a.renderWeeksList(false, g.phase).match(/class="taper-note"/g) || []).length
-    };
+    return a;
   };
+  /* Pinned INSIDE the taper, which is the only state where either copy ever
+     rendered -- the first version of a guard here never landed in one and
+     was vacuously true for the case it was about. */
+  const a = screen(probe.weekDateRange(taperWeeks[0]).start);
+  assert.ok(a.isTaperWeek(a.currentWeekNum()), 'pinning inside the taper did not land in it');
+  const full = a.renderFullPlanView();
+  assert.ok(full.indexOf('Volume drops, but keep') === -1,
+    'the taper sentence is back on Full Plan');
+  assert.doesNotMatch(full, /class="wk-taper"/, 'the hero prints the taper panel again');
+  assert.doesNotMatch(full, /class="taper-note"/, 'the week row prints the taper note again');
 
-  /* IN THE TAPER: the hero says it, and no row repeats it. */
-  const t = screen(inTaper);
-  assert.ok(t.a.isTaperWeek(t.cur), 'pinning inside the taper did not land in the taper');
-  assert.equal(t.a.taperLineSaidAbove(), true, 'the row cannot tell that the hero is speaking');
-  assert.equal(t.heroSays, true, 'the hero stopped printing the taper sentence in the taper');
-  assert.equal(t.rowsSay, 0,
-    'the taper sentence is on this screen ' + (1 + t.rowsSay) + ' times');
+  /* AND THE SPACE IT LEFT IS KEPT. A hero that tightens up as a block
+     enters its taper reads as a different hero. Measured at 430px before
+     the words went: .wk-taper was 78px of box under a 14px margin. */
+  assert.match(full, /class="wk-hero-gap"/,
+    'the hero reclaimed the space the taper sentence left');
+  const gap = rule('.wk-hero-gap');
+  assert.match(gap, /height:78px/, 'the kept space is no longer the height of what it replaced');
+  assert.match(gap, /margin-top:14px/, 'the kept space lost the margin that was above the words');
+  /* Outside the taper there was never a panel there, so there is no gap
+     either -- 92px of nothing on every non-taper block would be a bug. */
+  const b = screen(probe.weekDateRange(1).start);
+  assert.equal(b.isTaperWeek(b.currentWeekNum()), false, 'pinning before the taper landed in it');
+  assert.doesNotMatch(b.renderFullPlanView(), /class="wk-hero-gap"/,
+    'a block that is not in its taper now carries the taper panel\u2019s empty space');
 
-  /* BEFORE IT: the hero carries no taper line at all, so the row is the only
-     place the athlete can read what the taper is for, and it must still. */
-  const b = screen(beforeTaper);
-  assert.equal(b.a.isTaperWeek(b.cur), false, 'pinning before the taper landed inside it');
-  assert.equal(b.a.taperLineSaidAbove(), false, 'the row thinks a silent hero is speaking');
-  assert.equal(b.heroSays, false, 'the hero prints a taper line outside the taper');
-  assert.ok(b.rowsSay >= 1,
-    'nothing on the screen says what the taper is for while the athlete is not in it');
+  /* THIS WEEK IS UNTOUCHED, which is the whole reason removing it costs
+     nothing. */
+  assert.match(a.renderWeekHeroBlock(a.currentWeekNum(), false), /class="wk-taper"/,
+    'This Week stopped printing the taper sentence too');
 });
 
 test('the taper sentence still fits two lines', () => {
@@ -968,14 +1030,25 @@ test('the taper sentence still fits two lines', () => {
   const words = m[1].replace(/'\s*\+\s*\n?\s*'/g, '').replace(/^'|'$/g, '')
     .replace(/\\u2014/g, '—');
 
-  /* BOTH PRINTERS TAKE IT. A second copy of this sentence anywhere is the
-     defect this constant exists to prevent. */
+  /* ONE PRINTER NOW, AND IT STILL TAKES THE CONSTANT. A second copy of this
+     sentence anywhere is the defect the constant exists to prevent, and that
+     is unchanged; what changed is how many places print it.
+     FULL PLAN NO LONGER DOES. Its hero's copy is what the founder asked be
+     removed from under the gold bar, and the week row's copy went with it
+     rather than becoming the same sentence 300px lower on the same screen.
+     This Week keeps it: it is coaching about the week the athlete is in. */
   assert.ok(!/Volume drops, but keep/.test(SRC.replace(m[0], '')),
     'the taper sentence has been written out a second time — the two will drift again');
   assert.match(SRC, /class="wk-taper"><span>'\+TAPER_COACHING_LINE/,
     "This Week's hero is no longer printing the shared taper sentence");
-  assert.match(SRC, /class="taper-note">'\+TAPER_COACHING_LINE/,
-    "Full Plan's week note is no longer printing the shared taper sentence");
+  /* EXACTLY ONE PRINTER, counted off comment-stripped source -- this file's
+     own prose quotes the identifier, and matching prose instead of code has
+     produced a false pass in this suite before. One definition plus one use
+     is two mentions; anything more is a second place printing it. */
+  const code = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  assert.equal((code.match(/TAPER_COACHING_LINE/g) || []).length, 2,
+    'the taper sentence is printed in ' + ((code.match(/TAPER_COACHING_LINE/g) || []).length - 1) +
+    ' places; This Week\u2019s hero is meant to be the only one');
   assert.ok(words.length <= 100,
     'the taper sentence is ' + words.length + ' characters. It set two lines at 360px at ' +
     '88; much past 100 and it wraps to three, which is the limit this layout was built to.');
