@@ -701,9 +701,16 @@ function railApp(){
 
 test('a session shows the blueprint or the execution rail, never both', () => {
   const a = railApp();
-  const withBp = a.state.days.filter(d => { try { return a.usesHorizontalWorkoutBlueprint(a.workoutSteps(d)); } catch(e){ return false; } });
+  /* PICKED BY hasWorkoutBlueprint, NOT BY THE STEP COUNT. A one-stage
+     session counts as a horizontal blueprint now -- that is what gave an
+     easy run its card -- so filtering on usesHorizontalWorkoutBlueprint
+     returned the RACE as "the last blueprint session", and this test then
+     asserted the race had a blueprint rail. hasWorkoutBlueprint is the
+     function that actually decides, and it is what the renderers ask. */
+  const withBp = a.state.days.filter(d => a.hasWorkoutBlueprint(d) &&
+    (function(){ try { return a.workoutSteps(d).length >= 2; } catch(e){ return false; } })());
   const race = a.state.days.filter(d => d.type === 'race')[0];
-  assert.ok(withBp.length, 'sanity: the fixture has a blueprint session');
+  assert.ok(withBp.length, 'sanity: the fixture has a multi-stage blueprint session');
   assert.ok(race, 'sanity: the fixture has a race');
 
   /* ASKED OF THE PANELS, NOT THE RAIL'S CLASS. This read "bp has no
@@ -778,8 +785,23 @@ test('the blueprint rail is the rail component, wired like one', () => {
     'rail panels are no longer full width');
   assert.match(RAILSRC, /querySelectorAll\('\.how-card \.fuel-body, \.ws-rail'\)/,
     'the blueprint rail is not bound by the rail script, so its dots never light');
-  assert.match(RAILSRC, /railDotCount\(steps\.length\)/,
-    'the blueprint rail has no dots, so nothing says there is more sideways');
+  /* COUNTED FROM THE PANELS, NOT THE STEPS. The fuel facts ride this rail
+     on a session that has both -- one rail per session -- so a count of
+     stages would leave the last few cards with no dot. */
+  /* READ INSIDE renderStructuredWorkoutSteps. A bare match on RAILSRC was
+     satisfied by renderCoachingDepth's identical call, so breaking THIS
+     rail's count changed nothing the guard could see: a mutation swapping
+     it for steps.length survived. Both rails emit one dot per panel; each
+     is asserted where it lives. */
+  const rs = RAILSRC.slice(RAILSRC.indexOf('function renderStructuredWorkoutSteps('));
+  const rsBody = rs.slice(0, rs.indexOf('\n}'));
+  assert.match(rsBody, /railDotCount\(panels\.length\)/,
+    'the blueprint rail has no dots, or they are counted from the stages rather than the ' +
+    'panels — the fuel cards ride this rail and would have no dot');
+  assert.ok(rsBody.indexOf('steps.length') === -1,
+    'the blueprint rail counts its stages again, so its fuel cards have no dots');
+  assert.match(rsBody, /\.concat\(extra \|\| \[\]\)/,
+    'the blueprint rail cannot carry the fuel facts, so a long run draws two photograph rails');
 });
 
 test('every rail is one card at a time, and keeps its dots', () => {
@@ -971,8 +993,13 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   /* THE FIGURE IS BIGGER THAN THE LABEL AND THE LABEL BIGGER THAN THE
      DETAIL -- the whole of what was asked for, read off the sheet. */
   const px = (re) => Number((re.exec(RAILCSS) || [])[1]);
-  const fig = px(/\.ws-rail \.ws-h-qty,[\s\S]{0,400}?font-size:(\d+)px/);
-  const lab = px(/\.ws-rail \.ws-h-presc:not\(\.font-mono\),[\s\S]{0,400}?font-size:(\d+)px/);
+  /* (\d+) stopped matching when the title took the hero's 21.85px and
+     read back as NaN, which compares false against everything -- so the
+     assertion below it was passing on a number that did not exist. */
+  const fig = px(/\.ws-rail \.ws-h-qty,[\s\S]{0,400}?font-size:([\d.]+)px/);
+  const lab = px(/\.ws-rail \.ws-h-presc:not\(\.font-mono\),[\s\S]{0,700}?font-size:([\d.]+)px/);
+  assert.ok(Number.isFinite(fig) && Number.isFinite(lab),
+    'the figure or the label size could not be read (' + fig + ' / ' + lab + ')');
   assert.ok(fig > lab, 'the figure (' + fig + 'px) is no longer bigger than the label (' + lab + 'px)');
   assert.ok(fig >= 28, 'the figure is ' + fig + 'px — it was raised to 30 because the card is ' +
     'no longer a third of a phone');
@@ -980,10 +1007,37 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   /* ONE LABEL DECLARATION FOR ALL THREE KINDS OF CARD. The zone word joins
      the rule that already states WHY, TIME ON FEET and SETTLE rather than
      getting a fourth that resembles it. */
-  const labRule = /\.ws-rail \.ws-h-presc:not\(\.font-mono\),\s*\n\s*:is\([^)]*\) \.how-mod \.fuel-row \.k,\s*\n\s*:is\([^)]*\) \.how-mod \.strat-phase-label\{/;
-  assert.match(RAILCSS, labRule,
+  const labRule = /\.ws-rail \.ws-h-presc:not\(\.font-mono\),\s*\n\s*:is\([^)]*\) \.how-mod \.fuel-row \.k,\s*\n\s*:is\([^)]*\) \.how-mod \.strat-phase-label\{([^}]*)\}/;
+  const labM = labRule.exec(RAILCSS);
+  assert.ok(labM,
     'the stage card has a label declaration of its own again — there is one label voice ' +
     'in this rail and it is stated once');
+  /* ---------- A CARD'S TITLE IS A HERO TITLE ----------
+     The founder's words: "in the rails the titles should be white and big
+     like they are in the heros same rules". So it is not merely white and
+     not merely big -- it is the hero's own declaration, read off
+     .th-hero-title and required to match on every property that is type. */
+  /* THE FOCUSED ONE. A bare /\.th-hero-title\{/ finds the base rule first,
+     which is `display:none` and has no type in it at all -- so every
+     property read back undefined and the comparison said nothing. */
+  const heroM = /:is\([^)]*\) \.th-hero-title\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(heroM && /font-size/.test(heroM[1]), 'the focused hero title rule is gone');
+  const decl = (b, k) => (new RegExp('(?:^|;)\\s*' + k + ':\\s*([^;]+)').exec(b) || [])[1];
+  ['font-size', 'font-weight', 'letter-spacing', 'text-transform', 'color'].forEach(k => {
+    const h = decl(heroM[1], k), c = decl(labM[1], k);
+    assert.ok(h && c, 'cannot read ' + k + ' from both the hero title and the card title');
+    assert.equal(c.trim(), h.trim(),
+      'a card title and a hero title disagree on ' + k + ' (' + c + ' vs ' + h + ')');
+  });
+  assert.match(labM[1], /text-shadow:/,
+    'the card title lost the hero glow, which on a photograph is what lifts it off the frame');
+  /* AND THE COLUMNS KEEP THE GOLD. WHY / FEEL / WATCH FOR are not titles
+     over figures and are not on a photograph; their rule is separate and
+     must stay separate. */
+  const colM = /\.how-mod \.how-row \.k\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(colM, 'the coaching column heading rule is gone');
+  assert.match(colM[1], /color:var\(--gold-text\)/,
+    'the coaching column headings went white with the card titles — they are a different thing');
 });
 
 test('every card in the rail leads with a word', () => {
@@ -1085,4 +1139,186 @@ test('an Analysis with no score reads quieter, and says so from the same source'
   /* Measured in Chromium against the row it sits on: 5.94:1 quiet against
      17.31:1 lit. Clearly dimmer, and still over the 4.5 that even small
      text owes -- quiet, not disabled. */
+});
+
+test('every session has exactly one rail, and the rail is above the coaching', () => {
+  /* THE FOUNDER PUT TWO SESSIONS SIDE BY SIDE AND THE ORDER DIFFERED. A
+     blueprint session showed its cards and then WHY / FEEL / WATCH FOR,
+     because the blueprint is emitted by renderStructuredWorkout further up
+     the card; the goal day showed the columns and THEN its rail, because
+     that one is emitted inside renderCoachingDepth, after them. Same two
+     things, same screen, two orders.
+     AND A LONG RUN WITH A BLUEPRINT DREW TWO RAILS -- its stages, then its
+     fuel facts, two photograph rails one under the other. A session has
+     one rail. Which one carries the fuel is decided by hasWorkoutBlueprint,
+     in one place, so they can never land on both or on neither. */
+  const a = railApp();
+  const steps = d => { try { return a.workoutSteps(d).length; } catch (e) { return 0; } };
+  const shapes = {};
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    const html = a.renderDayCard(d);
+    const rails = (html.match(/class="fuel-body ws-rail/g) || []).length;
+    assert.equal(rails, 1,
+      d.date + ' (' + d.type + ', ' + steps(d) + ' stages) draws ' + rails + ' card rails');
+    const railAt = html.indexOf('class="fuel-body ws-rail');
+    const colsAt = html.indexOf('<div class="how-cols">');
+    assert.ok(colsAt > -1, d.date + ': the coaching columns are gone');
+    assert.ok(railAt < colsAt,
+      d.date + ' (' + d.type + ') puts its coaching columns above its rail');
+    shapes[d.type + ' x' + steps(d)] = true;
+  });
+  /* The fixture has to contain the shapes this is about, or it proves
+     nothing: a one-stage session, a multi-stage one, and a session whose
+     rail is execution phases rather than stages. */
+  assert.ok(Object.keys(shapes).some(k => /^easy x1/.test(k)), 'no one-stage session in the fixture');
+  assert.ok(Object.keys(shapes).some(k => / x3$/.test(k)), 'no three-stage session in the fixture');
+  assert.ok(a.renderDayCard(a.state.days.filter(d => d.type === 'race')[0]).indexOf('strat-phase-label') > -1,
+    'the race no longer shows execution phases');
+});
+
+test('a single stage is a card, and yields to the execution phases where there are any', () => {
+  /* The lower bound on a horizontal blueprint was 2, from when this was a
+     ROW of cells and one cell in a three-cell row was a stranded box. It is
+     a rail of full-width cards now and one card is a fine rail, so an easy
+     run -- one stage, 26 of them in an eleven-week block -- gets the same
+     card as everything else.
+     THE TRAP: a race is also one stage. Letting a single stage win would
+     have replaced its five execution phases with one card reading "GOAL
+     DAY / 42.2km", which is the hero said twice. So a single stage is the
+     rail only where there is no execution to show instead. */
+  const a = railApp();
+  assert.ok(a.usesHorizontalWorkoutBlueprint([{}]), 'a one-stage session is not a card rail');
+  assert.ok(!a.usesHorizontalWorkoutBlueprint([]), 'a no-stage session claims a card rail');
+  assert.ok(!a.usesHorizontalWorkoutBlueprint([{}, {}, {}, {}]), 'the upper bound is gone');
+
+  let oneStageWithPhases = 0, oneStageWithout = 0;
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    let n; try { n = a.workoutSteps(d).length; } catch (e) { return; }
+    if (n !== 1) return;
+    let phases = 0;
+    try { const s = a.executionStrategyForDisplay(d); phases = (s && !s.suppressed && s.phases) ? s.phases.length : 0; } catch (e) { phases = 0; }
+    assert.equal(a.hasWorkoutBlueprint(d), phases === 0,
+      d.date + ' (' + d.type + '): one stage and ' + phases + ' execution phases, but ' +
+      'hasWorkoutBlueprint says ' + a.hasWorkoutBlueprint(d));
+    if (phases) oneStageWithPhases++; else oneStageWithout++;
+  });
+  assert.ok(oneStageWithPhases >= 1 && oneStageWithout >= 1,
+    'the fixture no longer has both one-stage cases (' + oneStageWithPhases + ' with phases, ' +
+    oneStageWithout + ' without)');
+
+  /* AND renderStructuredWorkout ASKS THE SAME QUESTION. Two readings of it
+     would let a race draw a one-card blueprint rail here AND its execution
+     rail below -- the two vocabularies at once, which is the one thing that
+     law exists to prevent. */
+  const rsw = RAILCODE.slice(RAILCODE.indexOf('function renderStructuredWorkout(dd)'));
+  const rswBody = rsw.slice(0, rsw.indexOf('\n}'));
+  assert.match(rswBody, /if \(hasWorkoutBlueprint\(dd\)\)\{/,
+    'the workout block decides from the step count again, not from hasWorkoutBlueprint');
+  assert.ok(rswBody.indexOf('usesHorizontalWorkoutBlueprint') === -1,
+    'the workout block reads the step-count test directly again, which is a second answer ' +
+    'to a question renderCoachingDepth answers with hasWorkoutBlueprint');
+
+  /* A LONE CARD FILLS ITS RAIL. 84% leaves the next one peeking, which is
+     how a rail says there is more sideways; with one card there is nothing
+     to peek at and the 16% is dead space beside a photograph. */
+  assert.match(RAILCSS, /\.ws-rail \.how-mod:only-child\{flex:0 0 calc\(100% - 10px\);\}/,
+    'a one-card rail still leaves 16% of dead space beside its photograph');
+
+  /* ---------- "EACH STEP BELOW" NEEDS MORE THAN ONE STEP ----------
+     One variable used to answer two questions -- whether the card has a
+     rail worth showing, and whether the session has more than one stage --
+     because a blueprint meant two or three stages. A one-stage easy run is
+     a rail now, and the shared variable put "Primary zone — each step below
+     carries its own target" over a card showing one step whose target is
+     the ring's. */
+  const hero = RAILCODE.slice(RAILCODE.indexOf('function renderDayHeroBlock('));
+  const heroBody = hero.slice(0, hero.indexOf('\n}'));
+  assert.match(heroBody, /var stepNote = \(ring && manySteps\)/,
+    'the step note is gated on having a rail again, not on having more than one step');
+  assert.match(heroBody, /manySteps = workoutSteps\(dd\)\.length >= 2/,
+    'manySteps is no longer derived from the step count');
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    let n; try { n = a.workoutSteps(d).length; } catch (e) { return; }
+    const html = a.renderDayHeroBlock(d, a.getDayTargets(d));
+    const note = /th-steps-note/.test(html);
+    if (n <= 1) assert.ok(!note,
+      d.date + ' (' + d.type + ') has one step and is told each step below carries its own target');
+  });
+});
+
+test('execution is never a column, and its sentence is never lost', () => {
+  /* The founder's words: "execution is not there as the same as the other
+     session types". It was the fourth column, and it appeared only where
+     nothing else told the execution -- which, before a one-stage session
+     had a rail, meant an easy run.
+     REMOVING THE COLUMN WOULD HAVE DELETED THE SENTENCE. On an easy run
+     "Hold the easy window from the first kilometre to the last" was said
+     nowhere else; test/unitConsistencyCopy is built on that exact sentence
+     and caught it. It goes to the Coach's Note instead -- the move the fuel
+     caveats and the execution captions already made. */
+  const a = railApp();
+  assert.ok(RAILCODE.indexOf("mod('execution'") === -1,
+    'EXECUTION is a column again — every session shows three');
+
+  const level = a.athleteExperience();
+  let rescued = 0, toldByStages = 0;
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    let gd; try { gd = a.coachingDisclosureFor(d, level); } catch (e) { return; }
+    if (!gd || !gd.how) return;
+    const html = a.renderDayCard(d);
+    const n = html.split(gd.how).length - 1;
+    assert.ok(n <= 1, d.date + ' (' + d.type + '): the execution sentence is printed ' + n + ' times');
+    let staged = 0;
+    try { const s = a.executionStrategyForDisplay(d); staged = (s && !s.suppressed && s.phases) ? s.phases.length : 0; } catch (e) { staged = 0; }
+    let stages = 0; try { stages = a.workoutSteps(d).length; } catch (e) { stages = 0; }
+    const toldAlready = staged > 0 || (a.hasWorkoutBlueprint(d) && stages >= 2);
+    assert.equal(n, toldAlready ? 0 : 1,
+      d.date + ' (' + d.type + ', ' + stages + ' stages, ' + staged + ' phases): the execution ' +
+      'sentence appears ' + n + ' times');
+    if (n === 1){
+      rescued++;
+      const note = html.slice(html.indexOf('class="how-note"'));
+      assert.ok(note.indexOf(gd.how) > -1,
+        d.date + ': the execution sentence is on the card but not inside the Coach’s Note');
+    } else toldByStages++;
+  });
+  assert.ok(rescued >= 5 && toldByStages >= 5,
+    'the fixture no longer exercises both halves (' + rescued + ' rescued, ' + toldByStages + ' told by stages)');
+});
+
+test('the Commit card does not wear a Conditional badge', () => {
+  /* 'Conditional' was HQ's word for paceRole 'open' -- the closing block,
+     whose pace is available only if the earlier ones were executed -- and
+     it read as a gold pill under the figure on the COMMIT card.
+     NOTHING IS LOST, which is why it could go: the condition is carried in
+     words by that phase's own cue, which goes to the Coach's Note, and both
+     halves of that sentence are a safety invariant pinned by
+     test/executionStrategy. */
+  const a = railApp();
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  const html = a.renderDayCard(race);
+  assert.ok(!/Conditional/.test(html), 'the Conditional badge is back on the card');
+  /* ASKED OF renderStrategyPhase, NOT OF THE WHOLE RUNTIME. .pzr-tag is
+     still a live class -- the zone editor marks an overridden pace
+     'custom' with it -- so "the class appears nowhere" was never the law.
+     The law is that a PHASE does not emit one. */
+  const rsp = RAILCODE.slice(RAILCODE.indexOf('function renderStrategyPhase(ph)'));
+  const rspBody = rsp.slice(0, rsp.indexOf('\n}'));
+  assert.ok(rspBody.indexOf('pzr-tag') === -1, 'the Conditional badge is emitted again');
+  assert.ok(!/\bvar tag\b/.test(rspBody),
+    'the tag variable is back — if it can only ever be empty it is dead, and dead code ' +
+    'reads as something that might still fire');
+
+  const s = a.executionStrategyForDisplay(race);
+  const last = s.phases[s.phases.length - 1];
+  assert.equal(last.paceRole, 'open',
+    'the closing block is no longer an open pace — this test is about the phase that was tagged');
+  const note = html.slice(html.indexOf('class="how-note"'));
+  assert.ok(note.indexOf('still in control') > -1 && note.indexOf('hold on and finish') > -1,
+    'the closing block’s permission to press AND its permission to stop are no longer on the ' +
+    'card — that sentence is what the badge was shorthand for');
 });

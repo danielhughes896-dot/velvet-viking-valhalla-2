@@ -90,8 +90,15 @@ test('fuel renders as a rail of one module per fact', () => {
     'fuel panel ' + i + ' is not a rail module'));
   assert.ok(facts.rows.length >= 2, 'a rail needs at least two panels to be a rail');
   /* AND THE CARD PUTS THEM ON THE SAME TRACK AS THE PHASES. */
-  assert.match(SRC, /stratPanels\.concat\(fuelOn \? fuelRailPanels\(dd\) : \[\]\)/,
+  assert.match(SRC, /stratPanels\.concat\(\(fuelOn && !hasBlueprint\) \? fuelRailPanels\(dd\) : \[\]\)/,
     'the card no longer merges the fuel panels into the execution rail');
+  /* ---------- AND ON A BLUEPRINT SESSION THEY RIDE THAT RAIL ----------
+     A long run with a three-stage blueprint AND fuel drew two photograph
+     rails, one under the other. A session has one rail; which one carries
+     the fuel is decided by hasWorkoutBlueprint(), in one place, so they
+     cannot land on both or on neither. */
+  assert.match(SRC, /body = renderStructuredWorkoutSteps\(steps, fuel\);/,
+    'the blueprint rail no longer takes the fuel facts, so a long run draws two rails');
   const card = a.renderDayCard(dd);
   const tracks = (card.match(/class="fuel-body ws-rail/g) || []).length;
   assert.equal(tracks, 1,
@@ -199,13 +206,33 @@ test('a fuel module is the same panel as a coaching module', () => {
   assert.match(CSS, new RegExp(esc(F) + ' \\.how-mod \\.fuel-row \\.k,[\\s\\S]{0,200}?\\.strat-phase-label\\{'),
     'the execution phase name no longer shares the fuel heading declaration, so the ' +
     'three rails can print three different headings');
-  [['font-size', /font-size:([^;]+)/], ['text-align', /text-align:([^;]+)/], ['color', /color:([^;]+)/]].forEach(([what, re]) => {
-    const a2 = re.exec(fuelK[1]), b = re.exec(howK[1]);
-    assert.ok(a2 && b, 'cannot read ' + what + ' from both module heading rules');
-    assert.equal(a2[1].trim(), b[1].trim(),
-      'a fuel panel and a coaching panel disagree on ' + what + ' (' + a2[1] + ' vs ' + b[1] +
-      '). They sit a centimetre apart and the whole point of this change was that they read as one thing.');
-  });
+  /* ---------- THEY ARE NO LONGER THE SAME HEADING, ON PURPOSE ----------
+     This required the fuel heading and the coaching heading to agree on
+     size, alignment and colour, because both were a gold label at the top
+     of a panel a centimetre apart. They stopped being the same thing when
+     the founder asked for the rail's titles to read "white and big like
+     they are in the heros": CARB INTAKE is now a title over a figure on a
+     photograph and takes .th-hero-title's declaration, while WHY is a
+     label over a sentence on the card tint and keeps the gold.
+     What survives is the half that still holds: the three CARD titles are
+     one declaration (asserted above), and the two kinds are each internally
+     consistent. Alignment is still shared -- both are centred, which is the
+     founder's rule for everything under a heading -- so that one is kept
+     and the two that now differ are asserted to differ, loudly, rather
+     than quietly dropped. */
+  const read = (b, re) => (re.exec(b) || [])[1];
+  assert.equal(read(fuelK[1], /text-align:([^;]+)/).trim(),
+               read(howK[1], /text-align:([^;]+)/).trim(),
+    'a card title and a column heading disagree on alignment — everything under a heading ' +
+    'is centred on this screen');
+  assert.equal(read(howK[1], /color:([^;]+)/).trim(), 'var(--gold-text)',
+    'the coaching column heading is no longer gold');
+  assert.equal(read(fuelK[1], /color:([^;]+)/).trim(), '#FFFFFF',
+    'the card title is no longer white');
+  assert.notEqual(read(fuelK[1], /font-size:([^;]+)/).trim(),
+                  read(howK[1], /font-size:([^;]+)/).trim(),
+    'a card title and a column heading are the same size again — the card title is a hero ' +
+    'title and the column heading is a label, and they were asked to read differently');
   /* SUPERSEDED, AND THE REASON IS THE SCREENSHOT THAT FOLLOWED IT.
      This used to require the fuel column to be WIDER than the coaching one
      (40% against 34%), so its headings would not wrap. It bought that at a
@@ -427,7 +454,7 @@ test('the Coach\u2019s Note still appears when the only thing to say is the fuel
   const end = SRC.indexOf('})()+', i);
   assert.ok(end > i, 'the Coach\u2019s Note builder is no longer an IIFE — re-anchor this');
   const body = SRC.slice(i, end);
-  assert.match(body, /if \(!cueText && !hints\.length && !caps\) return '';/,
+  assert.match(body, /if \(!cueText && !hints\.length && !caps && !soloHow\) return '';/,
     'the Coach\u2019s Note is gated on the cue again, so a day with no cue drops the fuel ' +
     'caveats -- and now the execution sentences -- off the screen entirely');
   assert.match(body, /cueText \? '<span class="v">/,

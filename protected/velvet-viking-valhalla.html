@@ -2232,6 +2232,10 @@
        it comes out of the 84%, not on top of it: a slot wider than the
        scroller's page would drift the rail out of step with its dots. */
     flex:0 0 calc(84% - 10px); box-sizing:border-box;
+    /* 84% leaves the next card peeking, which is how a rail says there is
+       more sideways. A one-card rail -- an easy run, which the engine
+       describes in a single stage -- has nothing to peek at, so the 16%
+       is just dead space beside a photograph. It fills. */
     position:relative; overflow:hidden;
     display:flex; flex-direction:column; justify-content:flex-end;
     align-items:center; text-align:center;
@@ -2246,6 +2250,7 @@
     background-image:url('/assets/dawn-road-820.jpg');
     background-size:cover; background-position:50% 34%;
     background-clip:padding-box;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod:only-child{flex:0 0 calc(100% - 10px);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{display:contents;}
   /* ---------- THE SCRIM IS SIZED BY MEASUREMENT, NOT BY EYE ----------
      First attempt put the figures mid-card over the sun and ran a gentle
@@ -2559,12 +2564,27 @@
      the name of the panel you are looking at, which is what this rule is
      for; it reads as a label only inside the rail, because the stacked
      blueprint cell uses .ws-h-presc for its prescription line too. */
+  /* ---------- A CARD'S TITLE IS A HERO TITLE ----------
+     EASY, SETTLE, CARB INTAKE: the name of the thing the card is about,
+     sitting on top of its figure -- which is precisely what .th-hero-title
+     is, on top of the hero's. They were gold at 17px, borrowed from the
+     coaching columns' headings; a column heading labels a sentence, and
+     these label a photograph with a number under it. So they take the
+     hero's declaration: the same face, the same 21.85px, the same weight,
+     tracking and uppercase, the same white, and the same glow -- which on
+     a photograph is doing real work rather than decorating, lifting the
+     word off whatever happens to be behind it.
+     WHY / FEEL / WATCH FOR keep the gold. They are not on a photograph and
+     they are not a title over a figure; their rule is .how-mod .how-row .k
+     and it is untouched. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono),
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label{
-    display:block; font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:17px; letter-spacing:.055em; text-transform:uppercase;
-    margin-bottom:10px; text-align:center; color:var(--gold-text);}
+    display:block; font-family:var(--label-face); font-size:21.85px; font-weight:600;
+    line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
+    margin-bottom:4px; text-align:center; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
+                0 0 34px rgba(255,255,255,.10);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .v{
     /* NO COLOUR. The coaching value two rules above sets none either, so it
        takes whatever the focused card gives it -- and hand-setting
@@ -28489,12 +28509,20 @@ function renderWorkoutStepHCell(st, i){
    read the order off, so each panel keeps the stage NAME it already
    carried for a screen reader and the list semantics stop being a claim
    this markup can make. */
-function renderStructuredWorkoutSteps(steps){
+/* `extra` is for panels that belong on this rail but are not stages -- in
+   practice the fuel facts. They ride here because A SESSION HAS ONE RAIL:
+   a long run with a three-stage blueprint AND fuel was drawing two
+   photograph rails one under the other, which is the same complaint that
+   merged SETTLE and CARB INTAKE in the first place. Which rail they ride
+   is decided by hasWorkoutBlueprint(), in one place, so they can never
+   appear on both or on neither. */
+function renderStructuredWorkoutSteps(steps, extra){
+  var panels = steps.map(function(st, i){
+    return '<div class="how-mod" data-mod="ws-'+i+'">'+renderWorkoutStepHCell(st, i)+'</div>';
+  }).concat(extra || []);
   return '<div class="fuel-body ws-rail" data-hswipe="1">'+
-      steps.map(function(st, i){
-        return '<div class="how-mod" data-mod="ws-'+i+'">'+renderWorkoutStepHCell(st, i)+'</div>';
-      }).join('')+
-    '</div>'+railDotCount(steps.length);
+      panels.join('')+
+    '</div>'+railDotCount(panels.length);
 }
 /* ONE WORKOUT-STAGE GRAMMAR for every session with more than one stage to
    show side by side -- not one component for exactly-three-step sessions
@@ -28515,17 +28543,43 @@ function renderStructuredWorkoutSteps(steps){
 
    hasWorkoutBlueprint() reads this exact same rule so the day-targets
    summary line never restates what the blueprint already says. */
+/* ---------- ONE STAGE IS STILL A STAGE ----------
+   The lower bound was 2 because this used to be a ROW of cells across a
+   phone, and one cell in a three-cell row is not a blueprint, it is a
+   stranded box. It is a rail of full-width cards now: one card is a
+   perfectly good rail, and railDotCount() already declines to draw dots
+   for a single panel. So an easy run -- which the engine describes in
+   exactly one stage, 26 of them in an eleven-week block -- gets the same
+   card as every other session instead of a numbered list item.
+   The upper bound stays at 3. Nothing the engine builds exceeds it
+   (measured across every session in a full block: 1, 2 or 3), so raising
+   it would be a change nothing asked for. */
 function usesHorizontalWorkoutBlueprint(steps){
-  return !!(steps && steps.length >= 2 && steps.length <= 3);
+  return !!(steps && steps.length >= 1 && steps.length <= 3);
 }
 function renderStructuredWorkout(dd){
   if (!dd || dd.type === 'rest') return '';
   var steps;
   try { steps = workoutSteps(dd); } catch(e) { return ''; }
   if (!steps || !steps.length) return '';
-  var body = usesHorizontalWorkoutBlueprint(steps)
-    ? renderStructuredWorkoutSteps(steps)
-    : '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>';
+  /* ASKED OF hasWorkoutBlueprint, NOT OF THE STEP COUNT. These were two
+     separate readings of the same question and they have to agree: a race
+     has one stage, so a step-count test would draw a one-card blueprint
+     rail here AND renderCoachingDepth would draw the execution rail below
+     it -- two photograph rails saying the same session in two vocabularies,
+     which is the one thing that law exists to prevent. */
+  var body;
+  if (hasWorkoutBlueprint(dd)){
+    /* The fuel facts come here rather than to renderCoachingDepth's rail,
+       which on a blueprint session would otherwise be a second rail of
+       photographs directly under this one. renderCoachingDepth asks the
+       same hasWorkoutBlueprint() and stands down. */
+    var fuel = [];
+    try { if (needsFueling(dd)) fuel = fuelRailPanels(dd); } catch(e) { fuel = []; }
+    body = renderStructuredWorkoutSteps(steps, fuel);
+  } else {
+    body = '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>';
+  }
   return '<section class="ws-block" aria-label="Structured workout">'+
     '<div class="ws-head font-head">Workout</div>'+body+
   '</section>';
@@ -28728,7 +28782,35 @@ function renderCoachingDepth(dd, pre){
        about what is on screen; it is about whether the engine HAS a staged
        execution, because that is what makes the sentence a second telling.
        A blueprint is the same kind of second telling. */
-    var hasStaged = !!strat.panels.length || hasBlueprint;
+    /* ---------- "STAGED" MEANS MORE THAN ONE STAGE ----------
+       A staged execution is what makes the one-SENTENCE execution a second
+       telling, and that is what this suppresses. A three-stage blueprint
+       is one: "2km easy / 3x1600m / 2km easy" IS the execution, written
+       out. A ONE-stage blueprint is not -- "EASY / 5km / 5:08-6:06/km"
+       says what to run, not how to run it, and "Hold the easy window from
+       the first kilometre to the last" is not a repeat of it.
+       It is still not a fourth column, because the founder asked for three
+       everywhere. It goes to the Coach's Note instead -- the move the fuel
+       caveats and the execution captions already made, and for the same
+       reason: it is coaching, and this screen puts coaching there. */
+    var manyStages = false;
+    if (hasBlueprint){ try { manyStages = workoutSteps(dd).length >= 2; } catch(e) { manyStages = false; } }
+    var hasStaged = !!strat.panels.length || manyStages;
+    /* ---------- EXECUTION IS NEVER A COLUMN ----------
+       It was the fourth one, and it appeared only where nothing else told
+       the execution -- which, before a one-stage session had a rail, meant
+       an easy run. The founder's words: "execution is not there as the
+       same as the other session types". Every session shows three columns
+       now, and this sentence goes where this screen puts coaching that has
+       no panel of its own: the Coach's Note, beside the fuel caveats and
+       the execution captions.
+       EMPTY WHEN SOMETHING ELSE ALREADY SAYS IT. A staged execution --
+       phases, or a blueprint of more than one stage -- IS this sentence
+       written out, so rescuing it there would print it twice. Stated as
+       `hasStaged ? '' : ...` rather than as a list of the cases that need
+       it, so a session shape nobody has built yet still keeps its
+       coaching rather than silently dropping it. */
+    var soloHow = hasStaged ? '' : (gd.how || '');
     var fuelOn;
     try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
     /* ---------- OPEN, AND NOT A DISCLOSURE, ON THE FOCUSED SESSION ----------
@@ -28792,6 +28874,48 @@ function renderCoachingDepth(dd, pre){
          focus-driven transform all belong to that class), no data-hswipe,
          no dots, and no selected panel -- all three are lit, because with
          all three on screen there is nothing to select. */
+      /* ---------- SETTLE AND CARB INTAKE ARE ONE RAIL, ABOVE THE COLUMNS --
+         IT SITS ABOVE WHY / FEEL / WATCH FOR. It was below them, and that
+         put the goal day in a different order from every other session: a
+         blueprint session shows its cards and then the coaching, because
+         the blueprint is emitted by renderStructuredWorkout further up the
+         card, while this rail was emitted here, after the columns. Same
+         screen, same two things, two orders -- which the founder spotted
+         by putting the two sessions side by side.
+         The rail is the session; the columns are the coaching about it.
+         ---
+         They were two: five phases with five dots, then four fuel facts
+         with four dots, stacked one above the other inside the same
+         disclosure. Nothing separated them but a gap -- no heading on
+         either, by the two notes above -- so the athlete swiped a rail to
+         its end, met an identical rail, and had to work out that the
+         second one was a different subject.
+         ONE RAIL, NINE CARDS, NINE DOTS. The phases first and the fuel
+         after, which is the order they were already read in and the order
+         the day runs: how to run it, then what to take while running it.
+         THE CAPTIONS STILL LINE UP. The execution rail's coaching sentences
+         are matched to panels BY INDEX, and the phases keep indices 0..n-1
+         because they come first; the fuel panels land past the end of the
+         caption list, where wireCoachingRail's loop is bounded by the
+         captions' own length and simply lights none. Verified by swiping a
+         race day to its last fuel card: no caption, nothing thrown.
+         .exec-rail stays on the merged rail only when there are phases on
+         it -- it is what the phase panels' own rules and the caption's
+         sibling selector are hung on. */
+      (function(){
+        /* NOT when the blueprint has them. A session has one rail, and on
+           a blueprint session that rail is the blueprint's -- which
+           renderStructuredWorkout has already given the fuel facts to. */
+        var panels = stratPanels.concat((fuelOn && !hasBlueprint) ? fuelRailPanels(dd) : []);
+        if (!panels.length) return '';
+        return '<div class="how-table">'+
+            '<div class="fuel-body ws-rail'+(stratPanels.length ? ' exec-rail' : '')+'" data-hswipe="1"'+
+              (stratPanels.length ? ' data-cap="exec-cap-'+dd.id+'"' : '')+'>'+
+              panels.join('')+
+            '</div>'+
+            railDotCount(panels.length)+
+          '</div>';
+      })()+
       '<div class="how-cols">'+
         mod('why', row('Why', gd.why))+
         /* Only when Execution is a SENTENCE. A staged execution -- SETTLE,
@@ -28802,7 +28926,7 @@ function renderCoachingDepth(dd, pre){
            renders below the rail instead, where it already reads well and
            where it has always read well. The rail is the coaching
            SENTENCES; the tables are reference. */
-        mod('execution', hasStaged ? '' : row('Execution', gd.how))+
+        /* No mod('execution'): see soloHow above. */
         mod('feel', row('Feel', gd.feel))+
         mod('watch', row('Watch For', gd.avoid))+
       '</div>'+
@@ -28836,36 +28960,7 @@ function renderCoachingDepth(dd, pre){
          word above a row of labels that already say what they are is a
          label on labels. The phase name takes the gold heading the other
          two rails give WHY and TIME ON FEET, from the same declaration. */
-      /* ---------- SETTLE AND CARB INTAKE ARE ONE RAIL ----------
-         They were two: five phases with five dots, then four fuel facts
-         with four dots, stacked one above the other inside the same
-         disclosure. Nothing separated them but a gap -- no heading on
-         either, by the two notes above -- so the athlete swiped a rail to
-         its end, met an identical rail, and had to work out that the
-         second one was a different subject.
-         ONE RAIL, NINE CARDS, NINE DOTS. The phases first and the fuel
-         after, which is the order they were already read in and the order
-         the day runs: how to run it, then what to take while running it.
-         THE CAPTIONS STILL LINE UP. The execution rail's coaching sentences
-         are matched to panels BY INDEX, and the phases keep indices 0..n-1
-         because they come first; the fuel panels land past the end of the
-         caption list, where wireCoachingRail's loop is bounded by the
-         captions' own length and simply lights none. Verified by swiping a
-         race day to its last fuel card: no caption, nothing thrown.
-         .exec-rail stays on the merged rail only when there are phases on
-         it -- it is what the phase panels' own rules and the caption's
-         sibling selector are hung on. */
-      (function(){
-        var panels = stratPanels.concat(fuelOn ? fuelRailPanels(dd) : []);
-        if (!panels.length) return '';
-        return '<div class="how-table">'+
-            '<div class="fuel-body ws-rail'+(stratPanels.length ? ' exec-rail' : '')+'" data-hswipe="1"'+
-              (stratPanels.length ? ' data-cap="exec-cap-'+dd.id+'"' : '')+'>'+
-              panels.join('')+
-            '</div>'+
-            railDotCount(panels.length)+
-          '</div>';
-      })()+
+
       /* NO "FUEL" HEADING. Every panel in the rail under it names itself --
          TIME ON FEET, CARB INTAKE, TOTAL CARBS -- and a word above a row of
          labels that already say what they are is a label on labels, which is
@@ -28895,9 +28990,10 @@ function renderCoachingDepth(dd, pre){
            the coaching for the phase the athlete is looking at, so it
            follows the lit panel from inside the note. */
         var caps = stratCaps;
-        if (!cueText && !hints.length && !caps) return '';
+        if (!cueText && !hints.length && !caps && !soloHow) return '';
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
           (cueText ? '<span class="v">'+escapeHtml(cueText)+'</span>' : '')+
+          (soloHow ? '<span class="v">'+escapeHtml(soloHow)+'</span>' : '')+
           caps+
           hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
         '</div>';
@@ -29158,9 +29254,29 @@ function optionalRunTitleMark(dd){
    horizontal blueprint for this day -- the same exactly-three-steps gate it
    uses itself, read here only to decide whether the day-targets summary
    line beneath the title would now say the same thing the blueprint says. */
+/* ---------- WHICH VOCABULARY IS THIS SESSION'S RAIL ----------
+   The blueprint and the execution phases describe the same session twice --
+   "2km / 3x1600m / 2km" against "SETTLE 0-2km / PRESS from 2km / ABSORB" --
+   and renderCoachingDepth shows one or the other, never both. This is where
+   that is decided.
+   A blueprint of two or three stages describes a SHAPE, and wins: it is
+   the thing the athlete runs, in order.
+   A blueprint of ONE stage describes nothing the hero has not already
+   said. "GOAL DAY 42.2km" above a card reading "GOAL DAY / 42.2km" is the
+   session told twice in one screen, and on a race the engine has five
+   execution phases to put there instead. So a single stage is the rail
+   only where there is no execution to show in its place -- which is an
+   easy run, and is exactly the case this was opened for. */
 function hasWorkoutBlueprint(dd){
   if (!dd || dd.type === 'rest') return false;
-  try { return usesHorizontalWorkoutBlueprint(workoutSteps(dd)); } catch(e){ return false; }
+  var steps;
+  try { steps = workoutSteps(dd); } catch(e){ return false; }
+  if (!usesHorizontalWorkoutBlueprint(steps)) return false;
+  if (steps.length >= 2) return true;
+  try {
+    var s = executionStrategyForDisplay(dd);
+    return !(s && !s.suppressed && s.phases && s.phases.length);
+  } catch(e){ return true; }
 }
 /* ---- THE PRESCRIBED TARGET, AT THE SIZE THE SESSION DESERVES ----
    EVERYTHING HERE IS PRESCRIPTION, NOT EXECUTION. The ring reads
@@ -29368,8 +29484,20 @@ function renderDayHeroBlock(dd, targets){
      moves inside Session Details and "below" points at a closed tab, so the
      line names the tab. One fact, two true ways of saying it -- rather than
      one sentence quietly describing a layout that is only sometimes there. */
-  var multi = hasWorkoutBlueprint(dd);
-  var stepNote = (ring && multi)
+  /* TWO QUESTIONS, AND THEY STOPPED HAVING THE SAME ANSWER.
+     `multi` served both: whether the card has a blueprint rail worth
+     showing (which decides .th-hero-solo, the marker that lets Today drop
+     a WORKOUT block repeating the ring), and whether the session has more
+     than one STAGE (which is the only thing that makes "each step below
+     carries its own target" true).
+     While a blueprint meant two or three stages those were the same
+     question. A one-stage easy run is a rail now, and the shared variable
+     put "each step below carries its own target" over a card showing one
+     step whose target is the ring's. Split. */
+  var hasRail = hasWorkoutBlueprint(dd);
+  var manySteps = false;
+  if (hasRail){ try { manySteps = workoutSteps(dd).length >= 2; } catch(e) { manySteps = false; } }
+  var stepNote = (ring && manySteps)
     ? '<div class="th-steps-note">Primary zone \u2014 each step '+
         (prescriptionIsReference(dd) ? 'carries its own target, in Session Details.'
                                      : 'below carries its own target.')+'</div>'
@@ -29385,7 +29513,7 @@ function renderDayHeroBlock(dd, targets){
      the right one. .day-title stays exactly where it is in the markup for
      This Week and Full Plan; CSS shows one copy and hides the other, the
      same way the Coach's Note has two positions. One string, every view. */
-  return '<div class="th-hero'+(multi?'':' th-hero-solo')+(isRest?' th-hero-rest':'')+'">'+
+  return '<div class="th-hero'+(hasRail?'':' th-hero-solo')+(isRest?' th-hero-rest':'')+'">'+
     '<div class="th-hero-main">'+
       '<div class="th-hero-title">'+escapeHtml(displayCardTitle(dd))+'</div>'+
       dist+
@@ -30773,10 +30901,22 @@ function fmtStrategySpan(ph){
 function renderStrategyPhase(ph){
   var target = fmtStrategyPace(ph.pace, ph.paceRole);
   var hr = null;
-  // 'Conditional' is HQ's own word for paceRole 'open' -- available only if
-  // the earlier phases were executed. The number itself is unchanged; only
-  // this tag marks it as conditional rather than a flat command.
-  var tag = ph.paceRole==='open' ? '<span class="pzr-tag">Conditional</span>' : '';
+  /* ---------- THE 'Conditional' TAG IS GONE FROM THE CARD ----------
+     It was HQ's own word for paceRole 'open' -- the closing block, whose
+     pace is available only if the earlier ones were executed -- and it read
+     as a gold pill under the figure on the COMMIT card.
+     NOTHING IS LOST, and that was checked before removing it. The condition
+     is carried in words by the phase's own cue, which goes to the Coach's
+     Note: "If you are still in control, press. If you are not, hold on and
+     finish." That sentence is a safety invariant pinned by
+     executionStrategy.test.js -- both halves of it, the permission to press
+     and the permission to stop -- so the thing the tag was marking cannot
+     quietly disappear with it. A one-word badge saying "conditional" is a
+     worse telling of that than the sentence is.
+     The variable went with it rather than being set to '' -- a value that
+     can only ever be empty is dead, and dead code reads as a thing that
+     might still fire. .pzr-tag itself stays: the zone editor uses it for
+     its 'custom' marker, which is a different tag on a different screen. */
   /* PACE AND HEART RATE STACK. They were joined with " \u00b7 " -- a
      full-width idea, like the space-between that was breaking the ranges.
      In a 125px column "no faster than 4:46/km \u00b7 157-164 BPM" set four
@@ -30797,7 +30937,7 @@ function renderStrategyPhase(ph){
     '<div class="strat-phase-head"><span class="strat-phase-label">'+escapeHtml(ph.label)+'</span>'+
       (span?'<span class="strat-phase-span font-mono">'+escapeHtml(span)+'</span>':'')+
     '</div>'+
-    (lines?'<div class="strat-phase-target font-mono">'+lines+tag+'</div>':'')+
+    (lines?'<div class="strat-phase-target font-mono">'+lines+'</div>':'')+
   '</div>';
 }
 /* The sentence that belonged to the panel, at the width a sentence wants.
