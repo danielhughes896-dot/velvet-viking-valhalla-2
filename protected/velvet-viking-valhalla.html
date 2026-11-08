@@ -379,6 +379,33 @@
        Named, so the next control inherits the decision instead of re-making
        it, and so a guard can hold the line. */
     --tap-min:44px;
+    /* ---------- THE AIR ABOVE A PICTURE RAIL ----------
+       The founder drew a white line across a Full Plan screenshot and asked
+       for every picture rail to come up to it: "I want all picture rails
+       moved up to roughly where that white line is... That gap should then
+       be applied to all rails."
+       MEASURED OFF THAT DRAWING, not estimated. The screenshot is 1080px
+       wide for a 430pt screen, so 2.512 image pixels to the point: the gold
+       bar's bottom edge at y=693, the drawn line at y=828, the photograph's
+       top at y=991. That is 53.8pt wanted where 118.6pt was there -- the
+       picture comes up 64.9pt.
+       EVERY RAIL TAKES IT. The stacks above them differ by screen, so each
+       rail subtracts what already sits above it and the guards check those
+       subtractions against the rules they came from. */
+    --rail-air:54px;
+    /* ---------- AND ONE SIZE FOR EVERY PICTURE ----------
+       Founder: "All rails should be the same size and space from the item
+       above. So across all screens it looks the same when swiping."
+       208px was the phase slide's height and the founder asked for 15 more.
+       The session card was 260 and comes down to meet it, so there is one
+       photograph size in the product rather than two that happen to be
+       near each other. At 430px that is 1.928:1, and every one of the nine
+       photographs is cut to exactly that -- the height and the crops are
+       one decision.
+       THE SESSION RAIL ADDS ITS OWN 4px of padding-bottom under the card,
+       so its min-height is the picture plus that. The PICTURE is what has
+       to match, not the box around it. */
+    --rail-pic:223px;
     --shadow:0 10px 30px rgba(0,0,0,0.4);
     --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
     /* SOFT SURFACE / ROUNDED TILE -- the Level 2 depth recipe (Active Goal,
@@ -2244,7 +2271,9 @@
      opaque under every line of text AND leave the top 47% of the frame
      alone. In absolute terms there is MORE photograph visible than before
      -- about 122px of it against 54px -- not less. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{min-height:260px;}
+  /* The picture is --rail-pic tall on every screen; this rail adds the 4px
+     of padding-bottom it already carried under the card. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{min-height:calc(var(--rail-pic) + 4px);}
   /* NO TRAILING SPACE AND NO WIDE LAST MODULE. Both were ways of letting
      the last module reach the LEFT edge, because that is where the active
      one used to be decided. The rail no longer decides it there -- see
@@ -2549,7 +2578,17 @@
      the rail's viewport almost permanently, so the height -- which follows
      the tallest module ON SCREEN -- was its height nearly all the time, and
      a one-sentence Why sat at the top of 700px of nothing. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-table{margin-top:16px;}
+  /* ---------- AND THE SESSION RAIL TAKES THE SAME AIR ----------
+     Measured at 430px: .how-card's 11px margin-top and this 16px already
+     sit between the words above and the photograph -- 27px, against the
+     token's 54. The remainder is PADDING, not more margin: padding cannot
+     collapse, and the 11 and the 16 are two margins in a row that a fourth
+     would have to queue behind rather than add to.
+     The guard reads both numbers off their own rules and redoes this
+     subtraction, so changing either one fires rather than quietly moving
+     every session photograph. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-table{
+    margin-top:16px; padding-top:calc(var(--rail-air) - 11px - 16px);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-table .how-row-heading{margin-top:0;}
   /* A hairline between columns, and only between them. Not a border on the
      module -- that would draw a box round the lit one too -- but a divider
@@ -5787,13 +5826,6 @@
   .wk-taper{
     position:relative; display:block; text-align:center;
     margin-top:14px; padding:16px 0 14px; color:var(--ink);}
-  /* ---------- WHAT THE TAPER LINE LEAVES BEHIND ON FULL PLAN ----------
-     Measured at 430px before the words were removed: .wk-taper was 78px of
-     box under a 14px margin, and the hero was 232px tall. Those two numbers
-     are here so it still is. NOT .wk-taper with its text removed: that rule
-     paints the cherry coaching radial, and an empty glowing panel is a
-     worse thing than the sentence was. */
-  .wk-hero-gap{display:block; height:78px; margin-top:14px;}
   /* ---------- ONE COACHING LIGHT, TWO PLACES THAT COACH ----------
      What's Next is the same kind of line as the taper note: Valhalla
      talking to the athlete about where this is going, rather than a figure
@@ -6087,7 +6119,14 @@
      same 2.37:1, which is the aspect every one of these photographs was cut
      to, so the cover fit still has nothing to throw away. */
   .view-plan > .pp-rail{
-    margin-top:-6px; margin-left:-16px; margin-right:-16px;
+    /* THE AIR, LESS WHAT IS ALREADY BETWEEN. .wk-hero's own 18px of
+       padding-bottom and .view-plan's 18px row gap both sit under the gold
+       bar before this margin starts, so the margin is the remainder --
+       18px, and the measured result is the token. The -6px nudge this
+       replaces was the carousel sitting close to the hero as its footnote;
+       the founder has set the distance directly instead. */
+    margin-top:calc(var(--rail-air) - var(--wk-gap) - 18px);
+    margin-left:-16px; margin-right:-16px;
     width:calc(100% + 32px);}
   .view-plan > .pp-dots{margin-top:calc(2px - var(--wk-gap));}
   .view-host .view-plan .view-heading{display:none;}
@@ -6135,7 +6174,7 @@
        phase photograph is cut to exactly that -- the height and the crops
        are one decision, which is why the guard reads the height and refuses
        an aspect the pictures were not cut for. */
-    text-align:center; gap:5px; min-height:208px; padding:19px 16px;
+    text-align:center; gap:5px; min-height:var(--rail-pic); padding:19px 16px;
     /* NO RIM, NO RADIUS, NO LIFT. A photograph that runs to both edges of
        the screen is not sitting on the page, it IS the page there -- a rim
        round it would be the gap the founder asked to remove, drawn in a
@@ -58514,9 +58553,13 @@ function renderWeekHeroBlock(weekNum, asBlock){
        plan reaches a phase reads as a different hero. Measured at 430px: the
        line occupied 78px of box under a 14px margin, and the gap is those
        two numbers, so this hero is exactly as tall as it was. */
-    (taper ? (asBlock
-      ? '<div class="wk-hero-gap" aria-hidden="true"></div>'
-      : '<div class="wk-taper"><span>'+TAPER_COACHING_LINE+'</span></div>') : '')+
+    /* FULL PLAN PRINTS NO TAPER PANEL AND KEEPS NO SPACE FOR ONE EITHER.
+       "Keep the space" held the hero at the height it had while the
+       sentence was in it; the founder has since drawn where the picture
+       should sit, and that distance is --rail-air on the rail itself. A
+       92px spacer above it would be the old gap fighting the new one, and
+       the hero would still change height between a taper and a build. */
+    (taper && !asBlock ? '<div class="wk-taper"><span>'+TAPER_COACHING_LINE+'</span></div>' : '')+
     /* Only when there is something to say. An exception is not noise -- an
        unlogged session or a restricted day changes what the week means. */
     (notes.length ? '<div class="wk-notes">'+escapeHtml(notes.join(' '))+'</div>' : '')+

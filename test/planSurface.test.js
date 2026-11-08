@@ -533,12 +533,13 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
      how a screen ends up with a seam down one side the day the gutter
      moves. Both numbers are derived here from .wrap itself rather than
      written down a second time.
-     THE HEIGHT IS THE FOUNDER'S 15%: 181 -> 208, which at 430px is 2.067:1,
-     and every phase photograph is cut to exactly that. The height and the
-     crops are one decision, which is why the ratio is checked rather than
-     the pixels -- the card may grow again, as long as the pictures are
-     re-cut with it. Measured at 430px after the change: the rail sits at
-     x=0, w=430, h=208 on a 430px viewport. */
+     THE HEIGHT IS THE SHARED ONE, and it is not this screen's to set:
+     --rail-pic is 223px for every picture in the product (see "every
+     picture rail is the same size"). At 430px that is 1.928:1 and all nine
+     photographs are cut to it. The ratio is checked rather than the pixels
+     -- the picture may grow again, as long as the crops are re-cut with
+     it. Measured at 430px after the change: the rail sits at x=0, w=430,
+     h=223 on a 430px viewport. */
   const gutter = /padding:0 (\d+)px/.exec(rule('.wrap'));
   assert.ok(gutter, 'the page gutter is no longer a single px value — re-derive the breakout');
   const g = Number(gutter[1]);
@@ -553,12 +554,14 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
   /* THE SHAPE, AS THE RELATION THAT MAKES THE CROPS RIGHT. Pinned as the
      ratio and not as 181px, so the card may grow or shrink as long as the
      photographs are re-cut with it. */
-  const h = /min-height:(\d+)px/.exec(rule('.pp-slide-body'));
-  assert.ok(h, 'the slide no longer declares a height — the crops are cut to its aspect');
+  assert.match(rule('.pp-slide-body'), /min-height:var\(--rail-pic\)/,
+    'the phase slide sets its own height again instead of taking the shared one');
+  const pic = /--rail-pic:(\d+)px/.exec(BARE);
+  assert.ok(pic, 'the shared picture height is gone');
   const PHONE = 430;
-  const aspect = PHONE / Number(h[1]);
-  assert.ok(Math.abs(aspect - 2.067) < 0.05,
-    'the slide is now ' + aspect.toFixed(3) + ':1 at ' + PHONE + 'px, against the 2.067:1 the ' +
+  const aspect = PHONE / Number(pic[1]);
+  assert.ok(Math.abs(aspect - 1.928) < 0.04,
+    'the picture is now ' + aspect.toFixed(3) + ':1 at ' + PHONE + 'px, against the 1.928:1 the ' +
     'photographs were cut to — re-cut them or put the height back');
 
   /* AND NOTHING ELSE ON THIS SCREEN STEPS OUT. One breakout is a decision;
@@ -566,6 +569,86 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
   const outs = (BARE.match(/\.view-plan > \.[a-z-]+\{[^}]*margin-left:-\d+px/g) || []);
   assert.equal(outs.length, 1,
     'more than one Full Plan child breaks out of the page gutter: ' + outs.join(' | '));
+});
+
+test('every picture rail sits the same distance below what is above it', () => {
+  /* Founder: "I want all picture rails moved up to roughly where that white
+     line is... That gap should then be applied to all rails."
+     MEASURED OFF THE DRAWING. The screenshot is 1080px for a 430pt screen,
+     2.512 image pixels to the point: gold bar bottom y=693, the drawn line
+     y=828, the photograph's top y=991. 53.8pt wanted where 118.6pt was.
+     --rail-air is 54px and both rails take it.
+     THE STACKS DIFFER, SO EACH SUBTRACTION IS CHECKED AGAINST ITS SOURCE.
+     A rail cannot simply be given the token as a margin: other things
+     already sit between it and the words above, and they differ by screen.
+     What this refuses is a subtraction that stops matching the rule it was
+     derived from -- which is how every photograph in the product quietly
+     moves when someone adjusts an unrelated margin. */
+  const air = /--rail-air:(\d+)px/.exec(BARE);
+  assert.ok(air, 'the shared rail air token is gone');
+  assert.equal(Number(air[1]), 54, 'the rail air is no longer the measured 54px');
+
+  /* FULL PLAN: .wk-hero's padding-bottom and .view-plan's row gap are both
+     under the gold bar before the rail's margin starts. */
+  /* The hero's padding-bottom, read as the THIRD value of its shorthand --
+     the first is a var() and the second a bare 0, so a lazy match finds the
+     wrong number. It did, the first time this was written. */
+  const heroPB = /padding:\S+ 0 (\d+)px/.exec(rule('.wk-hero'));
+  assert.ok(heroPB, 'the hero no longer declares a padding-bottom this can read');
+  const planRail = rule('.view-plan > .pp-rail');
+  assert.ok(planRail.indexOf('margin-top:calc(var(--rail-air) - var(--wk-gap) - ' + heroPB[1] + 'px)') > -1,
+    'the plan rail subtracts something other than the hero\u2019s own padding-bottom (' +
+    heroPB[1] + 'px): ' + planRail);
+  /* --wk-gap is declared in a .view-plan rule of its own, not the first
+     one the lookup finds, so it is read from the sheet rather than from a
+     block that happens to share the selector. */
+  const wkGap = /--wk-gap:(\d+)px/.exec(BARE);
+  assert.ok(wkGap && Number(wkGap[1]) === 18,
+    'the plan row gap is ' + (wkGap && wkGap[1]) + ', not the 18px the rail air was measured against');
+
+  /* THE SESSION RAIL: .how-card's margin-top and .how-table's own. */
+  const scope = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview)';
+  const card = /margin:(\d+)px 0 0/.exec(rule(scope + ' .how-card'));
+  assert.ok(card, 'the open card no longer declares the margin this subtracts');
+  const table = rule(scope + ' .how-table');
+  const tableMT = /margin-top:(\d+)px/.exec(table);
+  assert.ok(tableMT, 'the rail table no longer declares a margin-top');
+  assert.ok(table.indexOf('padding-top:calc(var(--rail-air) - ' + card[1] + 'px - ' + tableMT[1] + 'px)') > -1,
+    'the session rail subtracts something other than the ' + card[1] + 'px and ' + tableMT[1] +
+    'px actually above it: ' + table);
+  /* PADDING, NOT A THIRD MARGIN. Two margins in a row already sit there and
+     a third would collapse against them rather than add to them. */
+  assert.ok(table.indexOf('padding-top:') > -1 && !/margin-top:calc/.test(table),
+    'the session rail air became a margin, which collapses against the two above it');
+});
+
+test('every picture rail is the same size', () => {
+  /* Founder: "All rails should be the same size and space from the item
+     above. So across all screens it looks the same when swiping."
+     ONE TOKEN, NOT TWO NUMBERS THAT HAPPEN TO AGREE. The phase slide was
+     208 and the session card 260; both now take --rail-pic, so a change to
+     the picture size is one edit and cannot land on one screen only.
+     THE SESSION RAIL IS THE PICTURE PLUS ITS OWN 4px of padding-bottom,
+     which is the box and not the picture. That 4px is read off the rail's
+     own padding here rather than written down twice. */
+  const pic = /--rail-pic:(\d+)px/.exec(BARE);
+  assert.ok(pic, 'the shared picture height is gone');
+  assert.equal(Number(pic[1]), 223, 'the shared picture height is no longer the agreed 223px');
+
+  assert.match(rule('.pp-slide-body'), /min-height:var\(--rail-pic\)/,
+    'the phase slide no longer takes the shared picture height');
+
+  const scope = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview)';
+  const railRule = rule(scope + ' .ws-rail');
+  const pad = /padding:0 0 (\d+)px/.exec(rule(scope + ' :is(.how-card .fuel-body, .ws-rail)'));
+  assert.ok(pad, 'the session rail no longer declares the padding under its card');
+  assert.ok(railRule.indexOf('min-height:calc(var(--rail-pic) + ' + pad[1] + 'px)') > -1,
+    'the session rail adds something other than its own ' + pad[1] + 'px of padding to the ' +
+    'shared picture height: ' + railRule);
+  /* AND THE CARD FILLS IT, so the picture really is --rail-pic tall rather
+     than whatever its words happen to need. */
+  assert.match(rule(scope + ' .ws-rail .how-mod'), /align-self:stretch/,
+    'the session card no longer stretches to its rail, so its picture is not the shared height');
 });
 
 test('the session rail runs edge to edge on the same rule, off the same gutter', () => {
@@ -1032,20 +1115,23 @@ test('the taper sentence is not on Full Plan at all', () => {
   assert.doesNotMatch(full, /class="wk-taper"/, 'the hero prints the taper panel again');
   assert.doesNotMatch(full, /class="taper-note"/, 'the week row prints the taper note again');
 
-  /* AND THE SPACE IT LEFT IS KEPT. A hero that tightens up as a block
-     enters its taper reads as a different hero. Measured at 430px before
-     the words went: .wk-taper was 78px of box under a 14px margin. */
-  assert.match(full, /class="wk-hero-gap"/,
-    'the hero reclaimed the space the taper sentence left');
-  const gap = rule('.wk-hero-gap');
-  assert.match(gap, /height:78px/, 'the kept space is no longer the height of what it replaced');
-  assert.match(gap, /margin-top:14px/, 'the kept space lost the margin that was above the words');
-  /* Outside the taper there was never a panel there, so there is no gap
-     either -- 92px of nothing on every non-taper block would be a bug. */
+  /* AND NO SPACER EITHER, which is a later decision than "keep the space".
+     That spacer held the hero at the height it had while the sentence was
+     in it; the founder has since drawn where the picture should sit, and
+     the distance is --rail-air on the rail. A 92px spacer above it would be
+     the old gap fighting the new one, and the hero would still change
+     height between a taper and a build. */
+  assert.doesNotMatch(full, /class="wk-hero-gap"/,
+    'the taper spacer is back, and is now fighting --rail-air for the same space');
+  assert.ok(BARE.indexOf('.wk-hero-gap') === -1, 'the spacer rule is still in the sheet');
+  /* THE HERO IS ONE HEIGHT WHATEVER PHASE THE BLOCK IS IN, which is what
+     the spacer was for and what the rail's own margin now gives for free. */
   const b = screen(probe.weekDateRange(1).start);
   assert.equal(b.isTaperWeek(b.currentWeekNum()), false, 'pinning before the taper landed in it');
-  assert.doesNotMatch(b.renderFullPlanView(), /class="wk-hero-gap"/,
-    'a block that is not in its taper now carries the taper panel\u2019s empty space');
+  const inTaper = (full.match(/class="wk-hero"/g) || []).length;
+  assert.equal(inTaper, 1, 'Full Plan renders more than one hero');
+  assert.ok(b.renderFullPlanView().indexOf('Volume drops, but keep') === -1,
+    'a block outside its taper prints the taper sentence');
 
   /* THIS WEEK IS UNTOUCHED, which is the whole reason removing it costs
      nothing. */
