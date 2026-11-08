@@ -378,7 +378,21 @@ test('the coaching disclosure keeps every section it had', () => {
   /* Named by what it says on an UNRUN session, which is what day() builds.
      Once logged the same panel is headed Session Details; the sections
      inside it are the same either way, and that is what is asserted. */
-  ['How to run this', 'Why', 'Feel', 'Watch For'].forEach(k => {
+  /* ---- WHERE THEY ARE IS THE CARD'S BUSINESS; THAT THEY ARE IS THIS ----
+     Why and Watch For now ride the stage cards on a rail with stages, so
+     the NOTE no longer prints their headings. The sections are still all
+     reachable on the card, which is what this test is named for, so it
+     asks for the SENTENCES rather than the note's headings. */
+  const gdSec = a.coachingDisclosureFor(dd, a.athleteExperience()) || {};
+  ['How to run this', 'Feel'].forEach(k => {
+    assert.ok(html.indexOf(k) > -1, 'the coaching disclosure lost: ' + k);
+  });
+  [['Why', gdSec.why], ['Watch For', gdSec.avoid]].forEach(pair => {
+    if (!pair[1]) return;
+    assert.ok(html.indexOf(pair[1]) > -1,
+      'the card lost ' + pair[0] + ' entirely: ' + JSON.stringify(pair[1].slice(0, 40)));
+  });
+  [].forEach(k => {
     assert.ok(html.indexOf(k) > -1, 'the coaching disclosure lost: ' + k);
   });
   /* EXECUTION IS A RAIL NOW AND HAS NO HEADING. The word went the way FUEL's
@@ -499,15 +513,164 @@ test('a description is only hidden when its numbers are still on the card', () =
   });
 });
 
+/* ---------- THE SESSION THE FIXTURE NEVER BUILDS ----------
+   A strides day is the only session the engine makes with TWO role='work'
+   stages -- 4.2km easy, then 6x100m -- and the 11-week block this file
+   builds happens never to schedule one. Two laws are about exactly that
+   shape (the work stage is the LAST work step, and easy_strides covers its
+   own description), and both passed a mutation that broke them because
+   nothing in the fixture had the shape. So it is built here, by hand, from
+   the same prescription the generator writes. */
+function stridesDay(a){
+  const d = a.state.days.filter(x => x.type === 'easy')[5];
+  if (!d) return null;
+  d.prescription = { archetype:'easy_strides', params:{ easyKm:4.2, reps:6, m:100 } };
+  d.km = 5.5;
+  const st = a.workoutSteps(d) || [];
+  assert.equal(st.length, 2, 'the strides day did not build two stages');
+  assert.equal(st.filter(x => x.role === 'work').length, 2,
+    'the strides day no longer has two work stages, which is the shape these laws are about');
+  return d;
+}
+
+test('a card shows its band only where the ring is not already showing it', () => {
+  /* Founder: "I would loose the pace and speed in the rail as it's in the
+     ring." True of the card whose band IS the ring's and false of the rest:
+     driven across an 11-week block, 36 step bands differ from the ring and
+     20 match it. On a tempo the ring carries the work pace and it is the
+     warm-up and cool-down that differ; on a strides session the ring
+     carries the easy zone and it is the repetition that differs.
+     BOTH HALVES HAVE TO MATCH. A card carrying the ring's pace and a heart
+     rate the ring does not show is still saying something new. */
+  const a = railApp();
+  let dropped = 0, kept = 0;
+  const strides = stridesDay(a);
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    let steps = null; try { steps = a.workoutSteps(d); } catch (e) { return; }
+    if (!steps || steps.length < 2 || !a.hasWorkoutBlueprint(d)) return;
+    const ring = a.getDayTargets(d) || {};
+    const html = a.renderStructuredWorkout(d, a.state) || '';
+    const cards = html.split('class="how-mod"').slice(1);
+    steps.forEach((st, i) => {
+      const p = a.stepPrescriptionParts(st);
+      if (!p.pace) return;
+      const card = cards[i] || '';
+      const shows = card.indexOf('ws-h-presc font-mono') > -1;
+      if (a.stepBandIsRing(p, ring)){
+        dropped++;
+        assert.ok(!shows, d.date + ' card' + i + ': the band repeats the ring (' + p.pace + ')');
+      } else {
+        kept++;
+        assert.ok(shows, d.date + ' card' + i + ': ' + p.pace +
+          ' is on no other surface and the card dropped it');
+      }
+    });
+  });
+  assert.ok(dropped >= 5, 'only ' + dropped + ' bands were recognised as the ring\u2019s');
+  assert.ok(kept >= 10, 'only ' + kept + ' bands differ from the ring — this fixture proves nothing');
+});
+
+test('the coaching rides the cards, one sentence each, and the work card is the last work stage', () => {
+  /* Founder: "Then coaches note is not needed." Why on the first card,
+     Watch For on the work card. Feel stayed in the note, and that is a
+     measurement rather than a preference: with all three on the cards the
+     interval's work card came to 233px of text against the 189 the picture
+     leaves, which dragged the rail to 259px and broke the one-size rule.
+     TWO SENTENCES FIT, THREE DO NOT -- so no card may carry three. */
+  const a = railApp();
+  const level = a.athleteExperience();
+  let railsSeen = 0, sawTwoWork = false;
+  const strides = stridesDay(a);
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    let steps = null; try { steps = a.workoutSteps(d); } catch (e) { return; }
+    if (!steps || steps.length < 2 || !a.hasWorkoutBlueprint(d)) return;
+    railsSeen++;
+    if (steps.filter(x => x.role === 'work').length > 1) sawTwoWork = true;
+    const gd = a.coachingDisclosureFor(d, level) || {};
+    const cards = (a.renderStructuredWorkout(d, a.state) || '').split('class="how-mod"').slice(1);
+    cards.forEach((c, i) => {
+      const n = (c.match(/class="ws-h-cue/g) || []).length;
+      assert.ok(n <= 2, d.date + ' card' + i + ' carries ' + n +
+        ' sentences; three do not fit the shared picture height');
+    });
+    if (gd.why) assert.ok((cards[0] || '').indexOf(gd.why) > -1,
+      d.date + ': Why is not on the first card');
+    /* THE WORK CARD IS THE LAST role=work STEP. Every session but one has a
+       single work stage between a warm-up and a cool-down, so first and
+       last are the same card. A strides session has two -- work/easy then
+       work/repetition -- and taking the first put "Turning the strides
+       into reps" on the EASY card and left the repetition with no sentence
+       at all. */
+    let workIdx = -1;
+    steps.forEach((st, i) => { if (st.role === 'work') workIdx = i; });
+    if (gd.avoid && workIdx > -1) assert.ok((cards[workIdx] || '').indexOf(gd.avoid) > -1,
+      d.date + ': Watch For is not on the work card (card' + workIdx + ')');
+    if (gd.feel) cards.forEach((c, i) => assert.ok(c.indexOf(gd.feel) === -1,
+      d.date + ' card' + i + ': Feel is on a card — it is the third sentence that overflowed'));
+  });
+  assert.ok(railsSeen >= 5, 'only ' + railsSeen + ' stage rails in the fixture');
+  assert.ok(sawTwoWork,
+    'no session with two work stages was checked, so "the work card is the LAST work stage" ' +
+    'was asserted against nothing — a mutation to the first/last choice passed this test once');
+});
+
+test('every stage the engine builds has a sentence to run it by', () => {
+  /* A repetition stage had none: STAGE_CUES.work had no key for the
+     intensity, so the strides card showed a name, a figure and a pace band
+     and said nothing about how to run it. Asserted across every intensity
+     the engine actually produces rather than against a written-down list,
+     so the next intensity added without a cue fails here. */
+  const a = railApp();
+  const missing = {};
+  a.state.days.forEach(d => {
+    let steps = null; try { steps = a.workoutSteps(d); } catch (e) { return; }
+    if (!steps || steps.length < 2) return;
+    let work = null; steps.forEach(st => { if (st.role === 'work') work = st; });
+    steps.forEach(st => {
+      if (st.wholeSession) return;
+      const cue = a.stageCueFor(st, work ? work.intensity : null);
+      if (!cue) missing[st.role + '/' + st.intensity] = (d.date + ' ' + st.label);
+    });
+  });
+  assert.deepEqual(Object.keys(missing), [],
+    'stages with no cue: ' + JSON.stringify(missing));
+});
+
 test('every other archetype keeps its description', () => {
   const a = app();
-  const kept = NAMES.filter(n => !a.workoutCoversDescription(day(a, n)));
-  // The completion clause, the prose warm-up distances and the coaching
-  // asides all live here. If this set ever empties, the rule went blanket.
-  assert.ok(kept.length >= 6, 'too many descriptions are being hidden: only ' + kept.length + ' kept');
+  /* ---- A RAIL WITH STAGES IS THE DESCRIPTION; A ONE-CARD RAIL IS NOT ----
+     The description is now also hidden where the card rail has two or more
+     stages, because the stages, their figures and their cues ARE the
+     sentence. A one-card rail shows a name and a figure and no cue at all,
+     so it cannot be: shakeout's "Eat familiar food, sleep early" would
+     have become "Easy 4km" and nothing else, and that is the case this
+     kept-set exists to catch.
+     IF THIS SET EVER EMPTIES, THE RULE WENT BLANKET. */
+  const covered = n => {
+    const d = day(a, n);
+    if (a.workoutCoversDescription(d)) return true;
+    if (!a.hasWorkoutBlueprint(d)) return false;
+    let st = null; try { st = a.workoutSteps(d); } catch (e) { st = null; }
+    return !!(st && st.length >= 2);
+  };
+  const kept = NAMES.filter(n => !covered(n));
+  assert.ok(kept.length >= 3, 'too many descriptions are being hidden: only ' + kept.length + ' kept');
   kept.forEach(n => {
     const html = a.renderDayCard(day(a, n));
     assert.ok(html.indexOf('day-desc') > -1, n + ': lost its description');
+  });
+  /* AND A ONE-CARD RAIL IS ALWAYS IN THAT SET, which is the whole reason
+     the gate counts stages rather than asking whether a rail exists. */
+  NAMES.forEach(n => {
+    const d = day(a, n);
+    if (!a.hasWorkoutBlueprint(d)) return;
+    let st = null; try { st = a.workoutSteps(d); } catch (e) { st = null; }
+    if (st && st.length >= 2) return;
+    if (a.workoutCoversDescription(d)) return;
+    assert.ok(a.renderDayCard(d).indexOf('day-desc') > -1,
+      n + ': a one-card rail swallowed its description, and a one-card rail has no cue');
   });
   /* Named instructions that must still be on the card. The point is not that
      the DESCRIPTION survives -- for the timed four it deliberately does not --
@@ -523,6 +686,23 @@ test('every other archetype keeps its description', () => {
   const survives = (n, needle) =>
     assert.ok(card(n).indexOf(needle) > -1, n + ': "' + needle + '" is nowhere on the card');
 
+  /* THE THREE JUDGEMENTS THIS PASS MADE, NAMED. Each of these archetypes
+     lost its description to the rail, and each had a clause that is not a
+     stage name -- so each is checked where it now lives rather than taken
+     on trust. */
+  /* THE FOUNDER'S OWN SESSION, built by hand for the same reason as above:
+     removing easy_strides from the coverage table passed this file once,
+     because nothing in the block fixture is a strides day. */
+  {
+    const b = app();
+    const sd = b.state.days.filter(x => x.type === 'easy')[5];
+    sd.prescription = { archetype:'easy_strides', params:{ easyKm:4.2, reps:6, m:100 } };
+    sd.km = 5.5;
+    assert.equal(b.renderDayCard(sd).indexOf('day-desc'), -1,
+      'the strides session still prints the sentence between its hero and its rail');
+  }
+  survives('time_trial', 'Resets your goal');
+  survives('easy_strides', 'Recovery:');
   // kept descriptions -- coaching fused into a structural sentence
   survives('goal_pace_block', 'race rhythm');
   survives('long_run_b2b', 'tired legs');
@@ -530,7 +710,16 @@ test('every other archetype keeps its description', () => {
   survives('race', 'culminates');
   survives('time_trial', 'Active Goal');
   survives('long_run', 'steady and controlled');
-  survives('easy_strides', 'Short and sharp');
+  /* ---- 'Short and sharp' IS THE ONE CLAUSE THE FOUNDER REMOVED ----
+     It was the tail of the sentence between the hero and the rail --
+     "4.2km @ Easy pace, then 6x100m relaxed strides w/ full recovery.
+     Short and sharp." -- and that whole sentence is what they asked to go.
+     What it SAID is still said: the rail's second card reads 'Not a full
+     sprint. Relaxed strides.' and the Coach's Note keeps 'Quick and
+     light.' So the characterisation survives and the phrase does not,
+     which is the difference this list is for. */
+  survives('easy_strides', 'Relaxed strides');
+  survives('easy_strides', 'Quick and light');
   survives('goal_pace_reps', 'locking in race rhythm');
 
   // hidden descriptions -- the instruction moved into the step list
@@ -767,13 +956,25 @@ test('why, feel and watch for left the screen for the Coach’s Note', () => {
     let gd; try { gd = a.coachingDisclosureFor(d, level); } catch (e) { return; }
     if (!gd) return;
     const note = html.slice(html.indexOf('class="how-note"'));
+    /* ---- ONE PLACE OR THE OTHER, NEVER NEITHER AND NEVER BOTH ----
+       The columns left the screen for the note; Why and Watch For have
+       since left the note for the stage cards, on any rail with stages to
+       put them on. What has not changed is the law this test is for: the
+       sentence is still somewhere, and it is not in two places at once. */
     [['Why', gd.why], ['Feel', gd.feel], ['Watch For', gd.avoid]].forEach(pair => {
       const k = pair[0], v = pair[1];
       if (!v) return;
-      assert.ok(note.indexOf(v) > -1,
-        d.date + ' (' + d.type + '): ' + k + ' is not in the Coach’s Note — ' +
+      const inNote = note.indexOf(v) > -1;
+      const onCard = html.slice(0, html.indexOf('class="how-note"') + 1 || undefined).indexOf(v) > -1;
+      assert.ok(inNote || onCard,
+        d.date + ' (' + d.type + '): ' + k + ' is on neither the cards nor the Coach’s Note — ' +
         JSON.stringify(v.slice(0, 40)) + ' has been dropped, not moved');
-      assert.ok(note.indexOf('<b>' + k + '</b>') > -1,
+      assert.ok(!(inNote && onCard),
+        d.date + ' (' + d.type + '): ' + k + ' is on the cards AND in the Coach’s Note');
+      /* The label belongs to the note's own rows. Where the sentence has
+         moved to a card it is a card sentence and takes no label -- the
+         card's title is what it sits under. */
+      if (inNote) assert.ok(note.indexOf('<b>' + k + '</b>') > -1,
         d.date + ': "' + k + '" has lost the word in front of it, so the sentence is a fragment');
       checked++;
     });
@@ -1291,8 +1492,15 @@ test('a single stage is a card, and yields to the execution phases where there a
      the ring's. */
   const hero = RAILCODE.slice(RAILCODE.indexOf('function renderDayHeroBlock('));
   const heroBody = hero.slice(0, hero.indexOf('\n}'));
-  assert.match(heroBody, /var stepNote = \(ring && manySteps\)/,
-    'the step note is gated on having a rail again, not on having more than one step');
+  /* ---- AND NOW ALSO ON THE CARDS NOT BEING THERE TO READ ----
+     "Primary zone — each step below carries its own target" was explaining
+     that the ring and the cards show different numbers. The cards show a
+     band only where it differs from the ring, so the difference is the
+     thing on screen. The caption survives for the one case where there are
+     no cards under the ring to look at: a logged session, whose
+     prescription has moved behind Session Details. */
+  assert.match(heroBody, /var stepNote = \(ring && manySteps && prescriptionIsReference\(dd\)\)/,
+    'the step note is gated on having a rail again, not on the cards being unreachable');
   assert.match(heroBody, /manySteps = workoutSteps\(dd\)\.length >= 2/,
     'manySteps is no longer derived from the step count');
   a.state.days.forEach(d => {
@@ -1435,6 +1643,15 @@ test('a stage card reads name, figure, sentence, numbers — and the numbers are
       if (!s.target || !s.target.hr) return;
       const hr = a.fmtStrategyHR(s.target.hr);
       if (!hr) return;
+      /* ---- AND ONLY WHERE THERE IS A BAND TO JOIN IT TO ----
+         A card whose pace and heart rate are the ring's own two numbers
+         drops the whole band, heart rate included -- the ring is already
+         showing them. The law here is about the SHAPE of a band that is
+         shown: one line, the heart rate joined to the pace after a middot,
+         never a row of its own. */
+      const parts = a.stepPrescriptionParts(s);
+      const ring = a.getDayTargets(d) || {};
+      if (a.stepBandIsRing(parts, ring)) return;
       assert.ok(html.indexOf('<span class="ws-h-hr-join"> · ' + hr + '</span>') > -1,
         d.date + ': ' + hr + ' is not joined to the pace band');
       joined++;

@@ -100,7 +100,7 @@ test('fuel renders as a rail of one module per fact', () => {
      rails, one under the other. A session has one rail; which one carries
      the fuel is decided by hasWorkoutBlueprint(), in one place, so they
      cannot land on both or on neither. */
-  assert.match(SRC, /body = renderStructuredWorkoutSteps\(steps, fuel\);/,
+  assert.match(SRC, /body = renderStructuredWorkoutSteps\(steps, fuel, dd\);/,
     'the blueprint rail no longer takes the fuel facts, so a long run draws two rails');
   const card = a.renderDayCard(dd);
   const tracks = (card.match(/class="fuel-body ws-rail/g) || []).length;

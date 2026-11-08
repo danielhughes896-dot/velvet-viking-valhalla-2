@@ -21253,7 +21253,26 @@ var WORKOUT_COVERS_DESCRIPTION = {
   steady_tempo:true,
   progressive_tempo:true,
   hill_repeats:true,
-  fartlek:true
+  fartlek:true,
+  /* ---------- AND THE THREE THE CARD RAIL COVERS ----------
+     Founder: "Remove all the text between the hero and rail." Each of
+     these was read card by card against its own description before being
+     added, which is what the rest of this table means too.
+       easy_strides        "4.2km @ Easy pace, then 6x100m relaxed strides
+                           w/ full recovery" -- the two cards are EASY 4.2km
+                           and REPETITION 6x100m, and "full recovery" is the
+                           second card's own Recovery line.
+       long_run_goal_broken "1.5km @ Easy pace between" is the middle card's
+                           "Recovery: 1.5km easy"; the rest is its three
+                           stages in order.
+       goal_pace_block     "locked in and controlled, exactly race rhythm"
+                           is the work card's cue, "Keep it controlled.
+                           Familiar, not hard."
+     NOT time_trial AND NOT shakeout -- see renderDayCard, where both are
+     written down with the reason. */
+  easy_strides:true,
+  long_run_goal_broken:true,
+  goal_pace_block:true
 };
 function workoutCoversDescription(dd){
   var p = prescriptionOf(dd);
@@ -28675,7 +28694,15 @@ var STAGE_CUES = {
     tempo:       'Comfortably hard, and held. Not a race.',
     steady:      'One gear below tempo, the whole way.',
     hard_effort: 'Commit to it. This is the one that counts.',
-    easy:        'Conversational. Nothing to prove here.'
+    easy:        'Conversational. Nothing to prove here.',
+    /* A REPETITION HAD NO SENTENCE AT ALL. Its card showed a name, a
+       figure and a pace band and said nothing about how to run it, because
+       the table had no key for the intensity -- the strides session is the
+       only one that uses it and it was added after this table.
+       The founder's words, less the half that Watch For already says:
+       "Do not turn strides into reps. Not a full sprint. Relaxed strides."
+       -- the first clause is gd.avoid on the same card. */
+    repetition:  'Not a full sprint. Relaxed strides.'
   }
 };
 /* The cool-down is one line whatever preceded it, and it names the distance
@@ -28747,6 +28774,20 @@ function renderWorkoutStepSecondary(st){
 // recovery, via renderWorkoutStepSecondary) instead of that detail being
 // restated a second time in a separate list underneath the row -- the same
 // name and content no longer appear twice for one stage.
+/* ---------- IS THIS CARD'S BAND THE RING'S? ----------
+   The ring at the top of the session already prints one pace and one heart
+   rate; a card repeating them is the founder's "it's in the ring". A card
+   whose numbers differ is the only place those numbers appear at all.
+   BOTH HALVES HAVE TO MATCH. A card carrying the ring's pace and a heart
+   rate the ring does not show is still saying something new, so it keeps
+   the whole band rather than half of it. */
+function stepBandIsRing(p, ring){
+  if (!p || !p.pace || !ring) return false;
+  var rp = (ring.pace || '').trim(), rh = (ring.hr || '').trim();
+  if (rp !== String(p.pace).trim()) return false;
+  if (p.hr) return rh === String(p.hr).trim();
+  return true;
+}
 function renderWorkoutStepHCell(st, i, ctx){
   var qty = renderStepQty(st);
   /* ---------- THE HEADER ROW GOES, THE STAGE NAME STAYS SPOKEN ----------
@@ -28794,6 +28835,22 @@ function renderWorkoutStepHCell(st, i, ctx){
      what the session's WORK stage is, which a single step cannot see, and
      it is withheld entirely on a one-stage rail -- see stageCueFor. */
   var cue = ctx && ctx.cues ? stageCueFor(st, ctx.work) : '';
+  var gd = (ctx && ctx.gd) || null;
+  var why   = (gd && i === 0) ? (gd.why || '') : '';
+  var isWork = !!(ctx && ctx.workIdx === i);
+  /* ---------- FEEL STAYS IN THE NOTE, AND THAT IS A MEASUREMENT ----------
+     Why, Feel and Watch For all moved to the cards first. Driven at 430px
+     across every session type: the interval's work card came to 233px of
+     text against the 189 the picture leaves, dragged the whole rail to
+     259px, and every picture on that screen stopped being the shared
+     --rail-pic. Two sentences fit; three do not.
+     FEEL IS THE ONE THAT GOES BACK, because the stage cue beside it is
+     already about how the stage should feel ('Hold the same shape on the
+     last rep as the first'), while Why and Watch For say things no card
+     says otherwise. */
+  var feel  = '';
+  var avoid = (gd && isWork) ? (gd.avoid || '') : '';
+  var showBand = !!p.pace && !stepBandIsRing(p, ctx && ctx.ring);
   /* .ws-card-body: the one element whose height IS the text. See the scrim
      rule -- it hangs off this rather than off the card, so it covers the
      words whatever they come to. */
@@ -28805,8 +28862,19 @@ function renderWorkoutStepHCell(st, i, ctx){
        would be read twice. */
     (word ? '<span class="ws-h-presc">'+escapeHtml(word)+'</span>' : '')+
     (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
+    /* ---------- THE SENTENCES, IN THE ORDER THE FOUNDER DREW THEM ----------
+       Why the session exists on the first card, then that stage's own cue,
+       then how the work should feel and what to watch on the work card.
+       They all take .ws-h-cue, which is the one sentence voice this card
+       has; the modifier beside it is for the guards and carries no style.
+       ONE SHARED order FOR ALL OF THEM, so the DOM order decides between them
+       and the four existing orders on this card do not have to be
+       renumbered to fit three more things in. */
+    (why ? '<div class="ws-h-cue ws-h-why">'+escapeHtml(why)+'</div>' : '')+
     (cue ? '<div class="ws-h-cue">'+escapeHtml(cue)+'</div>' : '')+
-    (p.pace ? paceBandHtml(p.pace, p.hr) : '')+
+    (feel ? '<div class="ws-h-cue ws-h-feel">'+escapeHtml(feel)+'</div>' : '')+
+    (avoid ? '<div class="ws-h-cue ws-h-avoid">'+escapeHtml(avoid)+'</div>' : '')+
+    (showBand ? paceBandHtml(p.pace, p.hr) : '')+
     renderWorkoutStepSecondary(st)+
   '</div></div>';
 }
@@ -28831,14 +28899,43 @@ function renderWorkoutStepHCell(st, i, ctx){
    merged SETTLE and CARB INTAKE in the first place. Which rail they ride
    is decided by hasWorkoutBlueprint(), in one place, so they can never
    appear on both or on neither. */
-function renderStructuredWorkoutSteps(steps, extra){
+function renderStructuredWorkoutSteps(steps, extra, dd){
   /* WHAT THE SESSION IS, resolved once for the whole rail: the intensity
      of its WORK stage, which is what a warm-up and a cool-down are about.
      `cues` is off on a one-stage rail, where the card is the session and
      the Coach's Note is already saying it. */
-  var workStep = null;
-  for (var w = 0; w < steps.length; w++) if (steps[w].role === 'work'){ workStep = steps[w]; break; }
-  var ctx = { work: workStep ? workStep.intensity : null, cues: steps.length >= 2 };
+  /* ---------- THE WORK STAGE IS THE LAST ONE, NOT THE FIRST ----------
+     Every session but one has exactly one role='work' step between a warm-up
+     and a cool-down, so first and last are the same step and this changes
+     nothing. A strides session has TWO: work/easy then work/repetition --
+     4.2km easy, then 6x100m. Taking the first made the EASY stage the
+     session's work stage, which put "Quick and light" and "Turning the
+     strides into reps" on the easy card and left the repetition card with
+     no sentence at all. The repetition is what the session is for. */
+  var workStep = null, workIdx = -1;
+  for (var w = 0; w < steps.length; w++) if (steps[w].role === 'work'){ workStep = steps[w]; workIdx = w; }
+  /* ---------- THE RING, SO A CARD CAN TELL WHETHER IT IS REPEATING IT ----
+     Founder: "I would loose the pace and speed in the rail as it's in the
+     ring." True of the card whose band IS the ring's, and false of the
+     others: measured across an 11-week block, 36 step bands differ from
+     the ring and 20 match it. On a tempo the ring carries the work pace and
+     it is the warm-up and cool-down that differ; on a strides session the
+     ring carries the easy zone and it is the repetition that differs.
+     So the card asks, rather than the rail deciding once. */
+  var ring = null;
+  try { ring = dd ? getDayTargets(dd) : null; } catch(e) { ring = null; }
+  /* ---------- AND THE SESSION'S COACHING, WHICH THE CARDS NOW CARRY ----
+     Why on the first card, Feel and Watch For on the work card. These were
+     three rows of the Coach's Note; they are the same strings, moved, and
+     renderCoachingDepth stops printing them when the rail has them.
+     ONLY ON A RAIL WITH STAGES TO SPREAD THEM ACROSS. A one-card session
+     would take all three plus its cue plus gd.how onto a single 223px
+     card; there the note is still the right place and `cues` already says
+     so for the same reason. */
+  var gd = null;
+  if (steps.length >= 2){ try { gd = coachingDisclosureFor(dd, athleteExperience()); } catch(e) { gd = null; } }
+  var ctx = { work: workStep ? workStep.intensity : null, cues: steps.length >= 2,
+              ring: ring, gd: gd, workIdx: workIdx };
   var panels = steps.map(function(st, i){
     return '<div class="how-mod" data-mod="ws-'+i+'">'+renderWorkoutStepHCell(st, i, ctx)+'</div>';
   }).concat(extra || []);
@@ -28898,7 +28995,7 @@ function renderStructuredWorkout(dd){
        same hasWorkoutBlueprint() and stands down. */
     var fuel = [];
     try { if (needsFueling(dd)) fuel = fuelPairPanels(dd); } catch(e) { fuel = []; }
-    body = renderStructuredWorkoutSteps(steps, fuel);
+    body = renderStructuredWorkoutSteps(steps, fuel, dd);
   } else {
     body = '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>';
   }
@@ -29325,8 +29422,24 @@ function renderCoachingDepth(dd, pre){
         /* "Watch For", with the product's own capitals: it is the same
            string the column heading carried, and changing a label's case
            while moving it is a second change nobody asked for. */
-        var cols = [['Why', gd.why], ['Feel', gd.feel], ['Watch For', gd.avoid]]
-          .filter(function(r){ return !!r[1]; });
+        /* ---------- WHAT THE CARDS HAVE ALREADY SAID, THE NOTE DOES NOT ----
+           Founder: "Then coaches note is not needed." True once the rail is
+           carrying the coaching -- Why on the first card, Feel and Watch For
+           on the work card -- and this is the other half of that move: the
+           same three strings, printed in one place or the other, never both.
+           NOT TRUE OF EVERY SESSION, which is why it is a condition rather
+           than a deletion. A one-card session has no stages to spread three
+           sentences across and the rail does not take them (see
+           renderStructuredWorkoutSteps), so the note still prints them. And
+           where execution captions, fuelling asides or gd.how remain, the
+           note still has something to say and still appears -- it empties
+           itself when the cards have covered everything, and the early
+           return below is what makes it disappear rather than print a
+           heading over nothing. */
+        var railHasCoaching = hasBlueprint && manyStages;
+        var cols = (railHasCoaching ? [['Feel', gd.feel]]
+          : [['Why', gd.why], ['Feel', gd.feel], ['Watch For', gd.avoid]])
+            .filter(function(r){ return !!r[1]; });
         /* The shape leads the note, where it is here at all: it is what the
            session IS, and everything below it is coaching about it. */
         var shape = longRunIsFuelRail(dd) ? sessionShapeLine(dd) : '';
@@ -29920,10 +30033,20 @@ function renderDayHeroBlock(dd, targets){
   var hasRail = hasWorkoutBlueprint(dd);
   var manySteps = false;
   if (hasRail){ try { manySteps = workoutSteps(dd).length >= 2; } catch(e) { manySteps = false; } }
-  var stepNote = (ring && manySteps)
+  /* ---------- THE CAPTION GOES WHERE THE CARDS ARE VISIBLE ----------
+     Founder: "Remove all the text between the hero and rail."
+     "Primary zone -- each step below carries its own target" was explaining
+     the layout: the ring shows one pair of numbers and the cards below show
+     others. The cards now show a band ONLY where it differs from the ring
+     (see renderWorkoutStepHCell), so the difference is the thing on screen
+     rather than a sentence about it.
+     IT STAYS WHERE THE CARDS ARE NOT. Once a session is logged its
+     prescription moves behind Session Details and there is no rail under
+     the ring to read; then the caption is the only thing saying the steps
+     have their own targets at all, and it keeps pointing at the tab. */
+  var stepNote = (ring && manySteps && prescriptionIsReference(dd))
     ? '<div class="th-steps-note">Primary zone \u2014 each step '+
-        (prescriptionIsReference(dd) ? 'carries its own target, in Session Details.'
-                                     : 'below carries its own target.')+'</div>'
+        'carries its own target, in Session Details.</div>'
     : '';
   /* A SINGLE-STEP SESSION SAYS ITS DISTANCE AND ZONE ONCE. The marker lets
      Today drop the one-row WORKOUT block, which on such a day repeats the
@@ -30021,6 +30144,35 @@ function renderDayCard(dd){
        type 'rest' too, and its headline is the one thing on that card that
        says there is a run available. That line is not this line. */
     if (dd.type === 'rest') return '';
+    /* ---------- THE CARDS ARE THE DESCRIPTION ----------
+       Founder: "Remove all the text between the hero and rail."
+       "4.2km @ Easy pace, then 6x100m relaxed strides w/ full recovery" is
+       the rail written out as prose -- the same stages, the same figures,
+       in the same order, one swipe below. WORKOUT_COVERS_DESCRIPTION was
+       already this idea, as a list of archetypes; a session with a card
+       rail covers its own description whatever its archetype, because the
+       cards ARE the stages.
+       THE OTHER TWO day-desc LINES ARE UNTOUCHED, above: an optional day's
+       headline is the only thing on that card saying there is a run, and a
+       race day's line is the strategy the athlete chose rather than a
+       prescription. Neither is the rail said twice. */
+    /* ---------- THE CARDS ARE THE DESCRIPTION, ARCHETYPE BY ARCHETYPE ----
+       The first attempt at this was a blanket rule: a rail of two or more
+       cards covers its own description. Driven against every archetype the
+       engine builds, that was wrong twice.
+       time_trial's description ends "use today's time to reconsider your
+       Active Goal for the rest of the block" -- and Active Goal is a named
+       thing in this product, a row in Plan HQ. The nearest the cards come
+       is "Resets your goal and every training pace in the block", which is
+       the idea without the name, so the athlete is no longer told what to
+       go and change. It keeps its description.
+       shakeout's rail is ONE card. A one-card rail has no cue at all, so
+       "Short and easy with a few relaxed strides. Eat familiar food, sleep
+       early" would have become "Easy 4km" and nothing else.
+       So the table keeps deciding, and three archetypes join it below with
+       their reasons. A new archetype shows its description until someone
+       has read its cards against it, which is the safe default and the one
+       this table already had. */
     return workoutCoversDescription(dd)
       ? ''
       : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>';
