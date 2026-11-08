@@ -28774,20 +28774,28 @@ function renderWorkoutStepSecondary(st){
 // recovery, via renderWorkoutStepSecondary) instead of that detail being
 // restated a second time in a separate list underneath the row -- the same
 // name and content no longer appear twice for one stage.
-/* ---------- IS THIS CARD'S BAND THE RING'S? ----------
-   The ring at the top of the session already prints one pace and one heart
-   rate; a card repeating them is the founder's "it's in the ring". A card
-   whose numbers differ is the only place those numbers appear at all.
-   BOTH HALVES HAVE TO MATCH. A card carrying the ring's pace and a heart
-   rate the ring does not show is still saying something new, so it keeps
-   the whole band rather than half of it. */
-function stepBandIsRing(p, ring){
-  if (!p || !p.pace || !ring) return false;
-  var rp = (ring.pace || '').trim(), rh = (ring.hr || '').trim();
-  if (rp !== String(p.pace).trim()) return false;
-  if (p.hr) return rh === String(p.hr).trim();
-  return true;
-}
+/* ---------- NO CARD CARRIES PACE OR HEART RATE, AND THAT IS ABSOLUTE ----
+   Founder: "No card in any rail needs pace or Heart rate as it's going to
+   remain in the ring. That can be removed from every rail card the user
+   will ever see."
+   There used to be a gate here -- stepBandIsRing() -- which let a card keep
+   its band wherever the numbers differed from the ring's. That gate is
+   gone, not loosened: the rule is now the sentence above, with no case in
+   which a card prints a figure of pace or heart rate, so there is nothing
+   left for a comparison against the ring to decide.
+   WHAT THIS COSTS, measured across a full 11-week block rather than
+   assumed. 44 bands leave the cards: 14 "Warm up 5:08-6:06/km", 14 "Cool
+   down 5:08-6:06/km", 7 "Interval 4:09-4:16/km . 178-190 BPM" and 2 "Goal
+   pace 4:50-4:55/km . 157-164 BPM". Seven of those already said exactly
+   what the ring says. The rest did not, and the ring does not carry them,
+   so on a hard session the easy window for the warm-up and cool-down, the
+   interval's upper heart rate and the broken long run's goal band are not
+   shown anywhere on the screen any more -- see the commit message. The
+   figures themselves are untouched in the plan: the ring, Session Details
+   and the calendar export all still read them.
+   renderWorkoutStepSecondary() never carried pace or heart rate (they were
+   joined into the band), so dropping the band drops both, and the recovery
+   and build lines underneath are unaffected. */
 function renderWorkoutStepHCell(st, i, ctx){
   var qty = renderStepQty(st);
   /* ---------- THE HEADER ROW GOES, THE STAGE NAME STAYS SPOKEN ----------
@@ -28850,7 +28858,6 @@ function renderWorkoutStepHCell(st, i, ctx){
      says otherwise. */
   var feel  = '';
   var avoid = (gd && isWork) ? (gd.avoid || '') : '';
-  var showBand = !!p.pace && !stepBandIsRing(p, ctx && ctx.ring);
   /* .ws-card-body: the one element whose height IS the text. See the scrim
      rule -- it hangs off this rather than off the card, so it covers the
      words whatever they come to. */
@@ -28874,7 +28881,6 @@ function renderWorkoutStepHCell(st, i, ctx){
     (cue ? '<div class="ws-h-cue">'+escapeHtml(cue)+'</div>' : '')+
     (feel ? '<div class="ws-h-cue ws-h-feel">'+escapeHtml(feel)+'</div>' : '')+
     (avoid ? '<div class="ws-h-cue ws-h-avoid">'+escapeHtml(avoid)+'</div>' : '')+
-    (showBand ? paceBandHtml(p.pace, p.hr) : '')+
     renderWorkoutStepSecondary(st)+
   '</div></div>';
 }
@@ -29442,7 +29448,11 @@ function renderCoachingDepth(dd, pre){
             .filter(function(r){ return !!r[1]; });
         /* The shape leads the note, where it is here at all: it is what the
            session IS, and everything below it is coaching about it. */
-        var shape = longRunIsFuelRail(dd) ? sessionShapeLine(dd) : '';
+        /* A fuel-rail long run states its shape here because its stages
+           are not cards; a card-rail session states the description the
+           face has just stopped printing. Same row, because both answer
+           "what is this session", and never both at once -- one branch. */
+        var shape = longRunIsFuelRail(dd) ? sessionShapeLine(dd) : descMovesToNote(dd);
         if (!cueText && !hints.length && !caps && !soloHow && !cols.length && !shape) return '';
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
           (shape ? '<span class="v how-note-row"><b>Session</b> '+escapeHtml(shape)+'</span>' : '')+
@@ -29797,6 +29807,44 @@ function sessionShapeLine(dd){
     return st.label + (qty ? ' ' + qty : '') + (p.pace ? ' at ' + p.pace : '');
   });
   return parts.join(', then ') + '.';
+}
+/* ---------- NOTHING SITS BETWEEN THE HERO AND THE CARDS ----------
+   Founder: "And workout card that has a title between the hero and the
+   card can be removed. If it adds no value to the face remove it. If it
+   does add to coaches note."
+   MEASURED BEFORE IT WAS WRITTEN, across all 73 days of a full block.
+   Exactly TWO days have both a card rail and a description, and they are
+   the same two the archetype table already held back as exceptions:
+     time_trial  "1.8km warm-up, 6km at hard, honest effort, 1.8km
+                  cool-down. Use today's time to reconsider your Active
+                  Goal for the rest of the block."
+     shakeout    "Short and easy with a few relaxed strides. Eat familiar
+                  food, sleep early."
+   Neither is disposable. time_trial names Active Goal, a row in Plan HQ no
+   card names; shakeout's rail is ONE card, which carries no cue at all, so
+   the strides and the night before it would simply be gone. So neither is
+   cut and neither is cut in half: the whole sentence moves down to the
+   Coach's Note, onto the same Session row a fuel-rail long run already
+   uses, and the space between the hero and the cards is empty on every
+   session in the product.
+   EVERY OTHER DESCRIPTION STAYS WHERE IT IS, because on those days nothing
+   sits between a hero and a card. A long run's stages are the fuel rail,
+   not a card rail (hasWorkoutBlueprint stands down for it), and a race or
+   an optional day has no rail at all. Those descriptions ARE the
+   prescription, and on the broken and progressive long runs they are the
+   only place the session's structure appears anywhere -- "6.8km @ Easy
+   pace, 4.4km @ Goal Pace, 6.8km @ Easy pace to close" is said by no ring,
+   no card and no note. Taking those would have been a real loss dressed up
+   as tidying.
+   ONE PREDICATE, TWO CALLERS, DELIBERATELY. The face asks it in order to
+   stay silent and the note asks it for the words; if the two ever
+   disagreed the sentence would be printed twice or lost altogether, so
+   they are not allowed to read the question separately. */
+function descMovesToNote(dd){
+  if (!dd || dd.type === 'rest') return '';        /* incl. an optional day */
+  if (!hasWorkoutBlueprint(dd)) return '';         /* no card rail, no gap */
+  if (workoutCoversDescription(dd)) return '';     /* the cards said it */
+  try { return resolveDesc(dd.desc) || ''; } catch(e){ return ''; }
 }
 function longRunIsFuelRail(dd){
   if (!dd || dd.type !== 'long') return false;
@@ -30173,7 +30221,10 @@ function renderDayCard(dd){
        their reasons. A new archetype shows its description until someone
        has read its cards against it, which is the safe default and the one
        this table already had. */
-    return workoutCoversDescription(dd)
+    /* AND the two the table holds back now go to the Coach's Note instead
+       of sitting here -- see descMovesToNote, which is the other half of
+       this line and the only other thing that reads it. */
+    return (workoutCoversDescription(dd) || descMovesToNote(dd))
       ? ''
       : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>';
   })();
@@ -31474,8 +31525,6 @@ function fmtStrategySpan(ph){
    for every session that has one, which is the number the athlete is
    scored against; the per-rep one is gone. */
 function renderStrategyPhase(ph){
-  var target = fmtStrategyPace(ph.pace, ph.paceRole);
-  var hr = null;
   /* ---------- THE 'Conditional' TAG IS GONE FROM THE CARD ----------
      It was HQ's own word for paceRole 'open' -- the closing block, whose
      pace is available only if the earlier ones were executed -- and it read
@@ -31503,10 +31552,31 @@ function renderStrategyPhase(ph){
      is wide -- at 125px it broke into three lines, two of them words, to
      say one pace. There is nothing left to split: every panel now carries a
      figure and only a figure. */
-  var lines = '';
-  if (target) lines += '<span class="sp-n">'+escapeHtml(target)+'</span>';
-  if (hr) lines += '<span class="sp-n">'+escapeHtml(hr)+'</span>';
-  if (!lines && ph.effort) lines = '<span class="sp-n">'+escapeHtml(ph.effort)+'</span>';
+  /* ---------- THE SAME RULE, AND THIS RAIL IS NOT AN EXCEPTION ----------
+     Founder: "No card in any rail needs pace or Heart rate... That can be
+     removed from EVERY rail card the user will ever see." The execution
+     rail is a rail the user sees, so the pace and the heart rate come off
+     these cards exactly as they come off the blueprint's.
+     ON A RACE IT WAS THE RING, FIVE TIMES. Measured on goal day: the ring
+     reads 4:46/km and Goal 4:46/km, and all five phases -- Settle, Hold,
+     Hold, Press, Commit -- read 4:46/km underneath it. That is the
+     founder's "it's in the ring" in its purest form, and on goal day this
+     change costs nothing at all.
+     WHERE IT DOES COST SOMETHING, so it is on the record: the time trial's
+     warm-up and cool-down phases carried 5:08-6:06/km while the ring shows
+     the trial's own 4:32-4:42/km, so that easy window is no longer on the
+     screen. Heart rate is NOT part of this change -- it came off this rail
+     earlier, by the decision recorded directly above, and hr was already
+     a variable that could only be null.
+     THE EFFORT SENTENCE STAYS, and it is not a figure. "Hard, honest, and
+     controlled", "The same effort, now that it is uncomfortable",
+     "Everything that is left" -- that is the coach saying how to run the
+     phase, which is the whole point of the card, and on the time trial it
+     is the only thing three of the five phases ever said. It used to be a
+     fallback for a phase with no numbers; with the numbers gone it is
+     simply what the card says, which is why it is no longer written as
+     one. */
+  var lines = ph.effort ? '<span class="sp-n">'+escapeHtml(ph.effort)+'</span>' : '';
   var span = fmtStrategySpan(ph);
   return '<div class="how-mod strat-phase"><div class="ws-card-body">'+
     '<div class="strat-phase-head"><span class="strat-phase-label">'+escapeHtml(ph.label)+'</span>'+
