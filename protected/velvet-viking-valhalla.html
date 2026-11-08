@@ -2192,8 +2192,18 @@
      styling, so three cards stacked vertically and nothing scrolled.
      .ws-rail is named alongside in each of those rules rather than given a
      copy of them, so there is still one rail in this product. */
+  /* ---------- AND THIS RAIL RUNS EDGE TO EDGE AS WELL ----------
+     Founder: "The same edge to edge rule should be applied to the other
+     rails for the sessions." The same breakout as Full Plan's phase
+     carousel, for the same reason and off the same number: measured on all
+     three screens that carry this rail -- Today, This Week's open session
+     and the plan's session screen -- .wrap's 16px is the ONLY thing
+     insetting it, every ancestor between is zero. So negating that gutter
+     is the whole move, and the guard reads the gutter rather than trusting
+     the 16 written here. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) :is(.how-card .fuel-body, .ws-rail){
-    display:flex; align-items:flex-start; gap:0; padding:0 0 4px; margin:0;
+    display:flex; align-items:flex-start; gap:0; padding:0 0 4px;
+    margin:0 -16px; width:calc(100% + 32px);
     /* HIDDEN, AND STILL SCROLLED -- programmatically, by the rail script.
        The focus is no longer whatever the scroll position happens to make
        nearest the left edge: a finger moves the FOCUS, and the rail moves
@@ -2274,11 +2284,16 @@
     /* The 5px either side is the card's breathing room inside its slot, so
        it comes out of the 84%, not on top of it: a slot wider than the
        scroller's page would drift the rail out of step with its dots. */
-    flex:0 0 calc(84% - 10px); box-sizing:border-box;
-    /* 84% leaves the next card peeking, which is how a rail says there is
-       more sideways. A one-card rail -- an easy run, which the engine
-       describes in a single stage -- has nothing to peek at, so the 16%
-       is just dead space beside a photograph. It fills. */
+    /* ---------- FULL WIDTH, NO GAPS ----------
+       This was 84% with 5px either side, so the next card peeked -- which
+       was the affordance saying a rail is a rail. Edge to edge there is no
+       peek, and the dots below are what say it instead: railDotCount's own
+       note already made that case ("a rail of full-width cards shows
+       exactly one panel, so the dots are no longer the hint: they are the
+       only thing saying which of five you are looking at").
+       100% AND NO MARGIN, so the scroller's page is exactly the card and
+       the rail cannot drift out of step with its dots. */
+    flex:0 0 100%; box-sizing:border-box;
     position:relative; overflow:hidden;
     display:flex; flex-direction:column; justify-content:flex-end;
     align-items:center; text-align:center;
@@ -2288,8 +2303,11 @@
        photograph that ends early is a ragged card, so each one stretches to
        the height the rail was given. */
     align-self:stretch;
-    margin:0 5px; padding:16px 14px 18px;
-    border:1px solid var(--t-tile-rim); border-radius:14px;
+    margin:0; padding:16px 14px 18px;
+    /* NO RIM, NO RADIUS. A photograph that runs to both edges of the screen
+       is the page there; a rim round it would be the gap drawn in another
+       colour, which is the thing being removed. */
+    border:0; border-radius:0;
     /* ---------- THE PICTURE IS THE SESSION'S, NOT THE STAGE'S ----------
        One photograph per session TYPE, carried as a custom property on the
        day card -- which already wears .type-easy, .type-track and the rest
@@ -2304,7 +2322,6 @@
     background-image:var(--card-pic);
     background-size:cover; background-position:50% 34%;
     background-clip:padding-box;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod:only-child{flex:0 0 calc(100% - 10px);}
   /* The blueprint's own element stays contents so its three lines are the
      body's flex items rather than a box inside a box. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{display:contents;}
@@ -6114,7 +6131,11 @@
   .pp-slide-body{
     position:relative; overflow:hidden;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    text-align:center; gap:5px; min-height:181px; padding:19px 16px;
+    /* 181 -> 208 is the founder's 15%. At 430px that is 2.067:1, and every
+       phase photograph is cut to exactly that -- the height and the crops
+       are one decision, which is why the guard reads the height and refuses
+       an aspect the pictures were not cut for. */
+    text-align:center; gap:5px; min-height:208px; padding:19px 16px;
     /* NO RIM, NO RADIUS, NO LIFT. A photograph that runs to both edges of
        the screen is not sitting on the page, it IS the page there -- a rim
        round it would be the gap the founder asked to remove, drawn in a

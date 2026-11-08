@@ -981,12 +981,30 @@ test('the stage card is a photograph, and the words on it are legible', () => {
   assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*align-self:stretch/,
     'the cards are back to their natural heights, so a short one ends early and the rail is ragged');
 
-  /* THE PEEK IS THE FOUNDER'S SECOND DRAWING: a card carried IN a rail
-     rather than filling it, with its neighbours showing at both edges. */
-  /* The 5px of breathing room either side comes OUT of the 84%, so the
-     slot is never wider than the page the script scrolls by. */
-  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*flex:0 0 calc\(84% - 10px\)/,
-    'the stage card fills the rail again, so nothing peeks and the rail stops reading as one');
+  /* ---------- THE PEEK IS GONE, AND THE DOTS ARE WHY THAT IS ALLOWED ----
+     The card was 84% with 5px either side so the next one peeked, which was
+     the affordance saying a rail is a rail. The founder's call is edge to
+     edge -- "the same edge to edge rule should be applied to the other
+     rails for the sessions" -- and what carries the affordance instead is
+     the dot row, which railDotCount's own note already argued for in
+     exactly this case: "a rail of full-width cards shows exactly one panel,
+     so the dots are no longer the hint: they are the only thing saying
+     which of five you are looking at".
+     SO THE LAW HELD HERE IS THE ONE THE PEEK WAS SERVING: the card is the
+     scroller's page EXACTLY -- 100% and no margin -- because a slot wider
+     or narrower than the page is how the rail drifts out of step with the
+     dots that now have to speak for it. */
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*flex:0 0 100%/,
+    'the stage card is no longer the full width of its rail');
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*margin:0;/,
+    'the stage card has margins again, so its slot is wider than the page the rail ' +
+    'scrolls by and the dots will drift out of step with it');
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*border:0;/,
+    'the full-bleed card grew a rim, which is the gap drawn in another colour');
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*border-radius:0;/,
+    'the full-bleed card grew corners again');
+  assert.match(SRC, /function railDotCount\(/,
+    'the dots are gone, and with no peek they were the only thing left saying this is a rail');
 });
 
 test('label, figure, detail — that order, on every card of every rail', () => {
@@ -1254,11 +1272,15 @@ test('a single stage is a card, and yields to the execution phases where there a
     'the workout block reads the step-count test directly again, which is a second answer ' +
     'to a question renderCoachingDepth answers with hasWorkoutBlueprint');
 
-  /* A LONE CARD FILLS ITS RAIL. 84% leaves the next one peeking, which is
-     how a rail says there is more sideways; with one card there is nothing
-     to peek at and the 16% is dead space beside a photograph. */
-  assert.match(RAILCSS, /\.ws-rail \.how-mod:only-child\{flex:0 0 calc\(100% - 10px\);\}/,
-    'a one-card rail still leaves 16% of dead space beside its photograph');
+  /* A LONE CARD FILLS ITS RAIL -- and so does every other card now, which
+     is why there is no :only-child rule left to assert. It existed because
+     84% left 16% of dead space beside a single photograph; edge to edge
+     there is no slack to special-case, and a second rule saying 100% where
+     the base rule already says 100% is a rule that can only ever drift. */
+  assert.ok(RAILCSS.indexOf('.ws-rail .how-mod:only-child') === -1,
+    'the one-card width is stated twice again — it is the only width now');
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*flex:0 0 100%/,
+    'a one-card rail no longer fills its rail');
 
   /* ---------- "EACH STEP BELOW" NEEDS MORE THAN ONE STEP ----------
      One variable used to answer two questions -- whether the card has a

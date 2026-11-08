@@ -533,10 +533,12 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
      how a screen ends up with a seam down one side the day the gutter
      moves. Both numbers are derived here from .wrap itself rather than
      written down a second time.
-     THE SHAPE IS UNCHANGED, only the width: 398x168 and 430x181 are the
-     same 2.37:1, which is the aspect every phase photograph was cut to, so
-     the cover fit still has nothing to throw away. Measured at 430px after
-     the change: the rail sits at x=0, w=430, h=181 on a 430px viewport. */
+     THE HEIGHT IS THE FOUNDER'S 15%: 181 -> 208, which at 430px is 2.067:1,
+     and every phase photograph is cut to exactly that. The height and the
+     crops are one decision, which is why the ratio is checked rather than
+     the pixels -- the card may grow again, as long as the pictures are
+     re-cut with it. Measured at 430px after the change: the rail sits at
+     x=0, w=430, h=208 on a 430px viewport. */
   const gutter = /padding:0 (\d+)px/.exec(rule('.wrap'));
   assert.ok(gutter, 'the page gutter is no longer a single px value — re-derive the breakout');
   const g = Number(gutter[1]);
@@ -555,8 +557,8 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
   assert.ok(h, 'the slide no longer declares a height — the crops are cut to its aspect');
   const PHONE = 430;
   const aspect = PHONE / Number(h[1]);
-  assert.ok(Math.abs(aspect - 2.37) < 0.06,
-    'the slide is now ' + aspect.toFixed(2) + ':1 at ' + PHONE + 'px, against the 2.37:1 the ' +
+  assert.ok(Math.abs(aspect - 2.067) < 0.05,
+    'the slide is now ' + aspect.toFixed(3) + ':1 at ' + PHONE + 'px, against the 2.067:1 the ' +
     'photographs were cut to — re-cut them or put the height back');
 
   /* AND NOTHING ELSE ON THIS SCREEN STEPS OUT. One breakout is a decision;
@@ -564,6 +566,44 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
   const outs = (BARE.match(/\.view-plan > \.[a-z-]+\{[^}]*margin-left:-\d+px/g) || []);
   assert.equal(outs.length, 1,
     'more than one Full Plan child breaks out of the page gutter: ' + outs.join(' | '));
+});
+
+test('the session rail runs edge to edge on the same rule, off the same gutter', () => {
+  /* Founder: "The same edge to edge rule should be applied to the other
+     rails for the sessions."
+     THE SAME NUMBER, DERIVED THE SAME WAY. Two breakouts that each
+     hard-code the gutter are two places to forget when it moves, so both
+     are checked against .wrap here rather than against each other.
+     MEASURED ON ALL THREE SCREENS THAT CARRY THIS RAIL -- Today, This
+     Week's open session and the plan's session screen -- because the
+     breakout only negates .wrap's gutter and that is only the whole story
+     while every ancestor between is zero on all three. It is: each one
+     renders the rail at x=0, w=430 on a 430px viewport, with no horizontal
+     page overflow. */
+  const gutter = /padding:0 (\d+)px/.exec(rule('.wrap'));
+  assert.ok(gutter, 'the page gutter is no longer a single px value');
+  const g = Number(gutter[1]);
+  const railSel = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) :is(.how-card .fuel-body, .ws-rail)';
+  const r = rule(railSel);
+  assert.ok(r.indexOf('margin:0 -' + g + 'px') > -1,
+    'the session rail breaks out by something other than the page gutter (' + g + 'px): ' + r);
+  assert.ok(r.indexOf('width:calc(100% + ' + (g * 2) + 'px)') > -1,
+    'the session rail is not given back the width its negative margins took');
+  /* THE CARD IS THE PAGE. Stated here as well as in test/structuredWorkout
+     because it is what makes the breakout safe: a card narrower than the
+     rail would leave the gutter showing on one side of every panel. */
+  const mod = rule(':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod');
+  assert.match(mod, /flex:0 0 100%/, 'the session card is not the full width of its rail');
+  assert.match(mod, /margin:0;/, 'the session card has margins again, so the gutter shows through');
+  /* AND THE TWO RAILS AGREE. One edge-to-edge rule, two rails, and if one
+     is changed without the other the screens stop matching. */
+  const plan = rule('.view-plan > .pp-rail');
+  /* margin-LEFT, not the first negative number in the rule: the plan rail
+     also carries a -6px margin-top, and matching that instead would have
+     compared the carousel's nudge against the page gutter. It did, the
+     first time this was written. */
+  assert.equal(/margin-left:-(\d+)px/.exec(plan)[1], String(g),
+    'the two rails break out by different amounts');
 });
 
 test('the words on a phase slide are not left on the bare photograph', () => {
