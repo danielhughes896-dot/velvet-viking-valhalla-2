@@ -413,13 +413,42 @@ test('the analysis starts where the rest of the card starts', () => {
 test('the workout cells carry figures, and the stage name is still spoken', () => {
   assert.ok(!/ws-h-num/.test(SRC), 'the numbered badge is back on the stage cells');
   assert.ok(!/ws-h-name/.test(SRC), 'the stage name is back on screen');
-  /* It left the screen, not the accessibility tree. Through a screen reader
-     there is no left-to-right order to carry it, and "2km / Easy /
-     5:09-6:07/km" with no stage name is a worse reading of this row than
-     the sighted one gets. */
-  assert.match(SRC, /<span class="sr-only">'\+escapeHtml\(st\.label\)/,
-    'the stage name was deleted rather than hidden, so a screen reader now ' +
-    'gets three unlabelled columns of numbers');
+  /* ---------- THE NAME IS ON THE CARD NOW, SO IT IS NOT WHISPERED --------
+     It was sr-only because three cells shared a phone and there was no room
+     for it; the reading "2km / Easy / 5:09-6:07/km" with no stage name was
+     worse than the sighted one, so the name stayed in the accessibility
+     tree. The founder has since written the titles out -- "WARM-UP 2KM",
+     "GOAL PACE 3 x 1600M" -- and the card leads with the stage's own name.
+     A second sr-only copy would now be read twice.
+     SO THE LAW IS THE SAME AND THE MECHANISM MOVED: every stage card says
+     which stage it is, in text a screen reader reaches. Asserted against
+     the rendered cell rather than against the markup that used to carry
+     it, which is a stronger question than the one this asked. */
+  assert.ok(!/<span class="sr-only">'\+escapeHtml\(st\.label\)/.test(SRC),
+    'the stage name is both on the card and whispered again, so it is read twice');
+  const a2 = (() => {
+    const { loadApp } = require('./harness.js');
+    const { buildPlan } = require('./fixtures.js');
+    const x = loadApp({ pinnedDate: '2026-11-08T09:00:00Z' });
+    x.showToast = () => {}; x.renderApp = () => {}; x.flushSave = () => {}; x.scheduleSave = () => {};
+    buildPlan(x, { weeks: 11, startDate: '2026-09-04', distanceKey: 'full', volume: 46,
+      benchSec: 45 * 60, lthr: 165, maxHR: 190,
+      schedule: { activeDays: [0,1,2,3,4,5,6], longRunDay: 6 } });
+    x.state.athlete = x.makeAthleteRecord();
+    return x;
+  })();
+  let checked = 0;
+  a2.state.days.forEach(d => {
+    let steps; try { steps = a2.workoutSteps(d); } catch (e) { return; }
+    if (!steps || !steps.length || !a2.hasWorkoutBlueprint(d)) return;
+    steps.forEach((st, i) => {
+      const cell = a2.renderWorkoutStepHCell(st, i, { work: null, cues: steps.length >= 2 });
+      assert.ok(cell.indexOf('>' + st.label + '<') > -1,
+        d.type + ' step ' + i + ': the cell does not say which stage it is (' + st.label + ')');
+      checked++;
+    });
+  });
+  assert.ok(checked >= 6, 'the fixture no longer exercises the stage cells (' + checked + ')');
 });
 
 test('Clear log sits on the panel grid like every other row', () => {

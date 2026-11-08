@@ -585,7 +585,7 @@ test('Execution is the same rail component as the other two', () => {
      panels they indicate. */
   assert.match(SRC, /<div class="fuel-body ws-rail'\+\(stratPanels\.length \? ' exec-rail' : ''\)\+'" data-hswipe="1"'\+/,
     'the execution phases are no longer rendered into the card rail');
-  assert.match(SRC, /'<div class="how-mod strat-phase">'/,
+  assert.match(SRC, /'<div class="how-mod strat-phase"><div class="ws-card-body">'/,
     'an execution phase is no longer a rail module');
   const i = SRC.indexOf('function renderExecutionStrategyBlock(');
   const body = SRC.slice(i, SRC.indexOf('\n}\n', i));

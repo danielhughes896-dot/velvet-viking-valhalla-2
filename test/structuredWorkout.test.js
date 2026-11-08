@@ -798,7 +798,11 @@ test('the blueprint rail is the rail component, wired like one', () => {
   assert.match(rsBody, /railDotCount\(panels\.length\)/,
     'the blueprint rail has no dots, or they are counted from the stages rather than the ' +
     'panels — the fuel cards ride this rail and would have no dot');
-  assert.ok(rsBody.indexOf('steps.length') === -1,
+  /* NAMED ON THE DOT CALL, not banned from the function. steps.length is
+     legitimately read here now -- it is what decides whether the cards get
+     a sentence -- so "the word does not appear" went from a law to a
+     coincidence. What must not happen is the DOTS being counted from it. */
+  assert.ok(!/railDotCount\(steps\.length\)/.test(rsBody),
     'the blueprint rail counts its stages again, so its fuel cards have no dots');
   assert.match(rsBody, /\.concat\(extra \|\| \[\]\)/,
     'the blueprint rail cannot carry the fuel facts, so a long run draws two photograph rails');
@@ -965,44 +969,69 @@ test('the stage card is a photograph, and the words on it are legible', () => {
      clear at the top where the sunrise is the point: 19.84 / 9.51 / 9.67.
      (The first measurement sampled the row the glyphs are on, so white text
      inflated its own background; it reads the bands beside them now.) */
-  /* ---------- THE SCRIM IS A ::before, AND IT HAS TO BE ----------
-     .how-mod's ::after is already taken twice -- `.how-mod + .how-mod::after`
-     is the hairline between columns and `.how-mod.is-active::after` zeroes
-     its opacity -- and both are (0,5,0) declared later in the sheet, so a
-     scrim on ::after is overwritten on every card but the first and set to
-     opacity 0 on that one. It painted nothing, and the only thing that
-     showed it was the contrast measurement coming back IDENTICAL to three
-     decimal places after the scrim's stops were changed. */
+  /* ---------- THE SCRIM IS SIZED BY THE TEXT, NOT BY THE CARD ----------
+     It was a gradient over the whole card with percentage stops, which
+     holds only while every card's text block is about the same height. The
+     founder's structure put a sentence between the figure and the numbers
+     and that stopped being true: measured across every session at 320, 360
+     and 390px, a block runs from 82px (a fuel fact) to 199px (an interval,
+     whose sentence wraps to three lines). In a 260px card a 199px block
+     starts at 22% -- far above the 47% where that gradient reached opaque.
+     It passed its contrast measurement anyway, because the track
+     photograph happens to be dark at that height. That is luck.
+     So the gradient hangs off .ws-card-body, whose height IS the text, and
+     its stops are in PIXELS: one fade, 76px long, finishing as the first
+     line begins and flat underneath however many lines follow. Nothing
+     about it is a proportion of the card, which is what made it fragile.
+     PROVEN RATHER THAN ASSUMED: the tallest block in the product was put
+     over the brightest photograph in the set -- an interval on the misty
+     road, a pairing the mapping would never produce -- and every run of
+     text still cleared its threshold, by 1.66 at the tightest.
+     STILL NOT ON .how-mod's ::after: that is taken twice over, by the
+     hairline between columns and by the rule zeroing it on the active
+     panel, and an earlier scrim put there painted nothing at all. */
   assert.ok(RAILCSS.indexOf('.ws-rail .how-mod::after{') === -1,
     'the scrim is back on ::after, where the hairline and the active rule overwrite it');
   assert.match(RAILCSS, /\.ws-rail \.how-mod \+ \.how-mod::after\{content:none;\}/,
     'the hairline between columns is back on the card rail, drawing a rule on a photograph');
-  const i = RAILCSS.indexOf('.ws-rail .how-mod::before');
-  assert.ok(i > -1, 'the scrim under the card text is gone');
-  const scrim = RAILCSS.slice(i, RAILCSS.indexOf('}', i));
-  assert.match(scrim, /opacity:1/,
-    'the scrim inherits the selected-panel pool\'s opacity:0 and paints nothing');
-  const last = Number((scrim.match(/rgba\(8,6,10,\.(\d+)\) 100%/) || [])[1]);
+
+  assert.ok(RAILCODE.indexOf('<div class="ws-card-body">') > -1,
+    'the panels no longer wrap their content, so there is nothing for the scrim to be sized by');
+  const bodies = (RAILCODE.match(/ws-card-body/g) || []).length;
+  assert.ok(bodies >= 3,
+    'only ' + bodies + ' panel kinds wrap their content — a stage, a fuel fact and an ' +
+    'execution phase all need one, or one of them loses its scrim');
+
+  const si = RAILCSS.indexOf('.ws-rail .ws-card-body::before');
+  assert.ok(si > -1, 'the scrim under the card text is gone');
+  const scrim = RAILCSS.slice(si, RAILCSS.indexOf('}', si));
+  /* ABOVE THE TEXT AND PAST THE PADDING. A scrim starting at the text's own
+     top leaves the first line sitting in the fade. */
+  const top = Number((/top:-(\d+)px/.exec(scrim) || [])[1]);
+  assert.ok(top >= 60, 'the scrim reaches only ' + top + 'px above the text — the first line sits in the fade');
+  assert.match(scrim, /bottom:-\d+px/, 'the scrim stops at the text, leaving the card’s bottom padding bare');
+  /* THE STOPS ARE PIXELS, and this is the whole of the fix: a percentage
+     stop is a proportion of the text block, so one rule ramps over 95px on
+     a tall card and 34px on a short one — a contrast risk and a visible
+     step across the frame at the same time. */
+  const pct = (scrim.match(/rgba\(8,6,10,[^)]*\)\s+\d+%/g) || []).filter(x => !/\s100%/.test(x));
+  assert.equal(pct.length, 0,
+    'the scrim has gone back to percentage stops (' + pct.join(', ') + '), which are a ' +
+    'proportion of the text and ramp differently on every card');
+  assert.ok((scrim.match(/\d+px/g) || []).length >= 5,
+    'the scrim no longer ramps in pixels, so its fade is not the same on every card');
+  const last = Number((/rgba\(8,6,10,\.(\d+)\) 100%/.exec(scrim) || [])[1]);
   assert.ok(last >= 90, 'the scrim ends at .' + last + ' — the figures sit on it and were measured at 1.75:1 without it');
-  /* ---------- OPAQUE BY THE HIGHEST LINE OF TEXT ----------
-     The text is anchored to the foot of the card, so how far up it reaches
-     depends on how many lines the stage has. Measured across every card the
-     engine builds: 87px for a fuel fact, 131px for COMMIT, whose target
-     carries a second line. In a 184px card that put the top run at 27% and
-     gold "INTERVAL" measured 2.64:1 against the 4.5 it owes. The floor is
-     260px for that reason -- 131px of text starts at 50% of it, 87px at
-     67% -- and the scrim is near-opaque from 47% down, which is under both.
-     Re-measured on the composited pixels, every run on every card of every
-     rail now clears its threshold by at least 4.7. */
-  const floor = Number((/\.ws-rail\{min-height:(\d+)px;\}/.exec(RAILCSS) || [])[1]);
-  assert.ok(floor >= 240, 'the card floor is ' + floor + 'px — the text block reaches 131px ' +
-    'and needs to start below the scrim\'s opaque edge');
-  const opaqueAt = Number((/rgba\(8,6,10,\.9\d\) (\d+)%/.exec(scrim) || [])[1]);
-  assert.ok(opaqueAt > 0 && opaqueAt <= 100 * (1 - 131 / floor),
-    'the scrim reaches .9 at ' + opaqueAt + '% but a 131px text block in a ' + floor +
-    'px card starts at ' + Math.round(100 * (1 - 131 / floor)) + '%');
+
+  /* AND THE CARD KEEPS A VEIL of its own, so a bright frame cannot shout
+     over its neighbours and the figures have a floor above the fade. */
+  const vi = RAILCSS.indexOf('.ws-rail .how-mod::before');
+  assert.ok(vi > -1, 'the card has lost its veil');
+  assert.match(RAILCSS.slice(vi, RAILCSS.indexOf('}', vi)), /linear-gradient/,
+    'the veil is no longer a gradient');
+
   assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*justify-content:flex-end/,
-    'the figures have left the foot of the card, which is the only part of the frame dark enough for them');
+    'the figures have left the foot of the card, which is where the scrim is built to meet them');
   assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*align-self:stretch/,
     'the cards are back to their natural heights, so a short one ends early and the rail is ragged');
 
@@ -1029,8 +1058,9 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   assert.match(RAILCSS, /\.ws-rail \.ws-h-presc:not\(\.font-mono\)\{order:1;\}/,
     'the zone word is no longer first');
   assert.match(RAILCSS, /\.ws-rail \.ws-h-qty\{order:2;\}/, 'the distance is no longer second');
-  assert.match(RAILCSS, /\.ws-rail \.ws-h-presc\.font-mono\{order:3;\}/, 'the pace band is no longer third');
-  assert.match(RAILCSS, /\.ws-rail \.ws-hr,\s*\n?\s*:is\([^)]*\) \.ws-rail \.ws-note\{order:4/,
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-cue\{order:3;\}/, 'the coaching line is no longer third');
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-presc\.font-mono\{order:4;\}/, 'the pace band is no longer fourth');
+  assert.match(RAILCSS, /\.ws-rail \.ws-hr,\s*\n?\s*:is\([^)]*\) \.ws-rail \.ws-note\{order:5/,
     'the HR band and the recovery note have lost their order, which puts them at the ' +
     'top of the card above the label they belong under');
 
@@ -1365,4 +1395,144 @@ test('the Commit card does not wear a Conditional badge', () => {
   assert.ok(note.indexOf('still in control') > -1 && note.indexOf('hold on and finish') > -1,
     'the closing block’s permission to press AND its permission to stop are no longer on the ' +
     'card — that sentence is what the badge was shorthand for');
+});
+
+test('a stage card reads name, figure, sentence, numbers — and the numbers are one line', () => {
+  /* The founder's structure, written out:
+         WARM-UP 2KM
+         WHY: Prepare to hit goal pace smoothly.
+         GOAL PACE 3 × 1600M
+         Keep it controlled. Familiar, not hard.
+         4:58/km · 164–171BPM
+         Recovery: short
+     Three things in that are new: the stage's own NAME as the title, a line
+     of coaching about that stage, and the pace and the heart rate joined
+     rather than stacked. */
+  const a = railApp();
+  const steps = d => { try { return a.workoutSteps(d); } catch (e) { return []; } };
+  let withCue = 0, joined = 0, solo = 0;
+
+  a.state.days.forEach(d => {
+    if (!a.hasWorkoutBlueprint(d)) return;
+    const st = steps(d);
+    if (!st.length) return;
+    const html = a.renderDayCard(d);
+
+    st.forEach((s, i) => {
+      /* THE TITLE IS THE STAGE'S NAME. It was the effort word, from when
+         the card carried no name at all. */
+      assert.ok(html.indexOf('<span class="ws-h-presc">' + s.label + '</span>') > -1,
+        d.date + ' (' + d.type + ') stage ' + i + ': the card does not lead with "' + s.label + '"');
+    });
+
+    const cues = (html.match(/class="ws-h-cue"/g) || []).length;
+    if (st.length >= 2) {
+      assert.equal(cues, st.length,
+        d.date + ' (' + d.type + '): ' + cues + ' coaching lines for ' + st.length + ' stages');
+      withCue++;
+    } else {
+      /* ONE STAGE, NO SENTENCE. The card is the session there and the
+         Coach's Note below is already saying it in the athlete's own
+         words; a second copy a centimetre above it is the duplication
+         every other pass here has been removing. */
+      assert.equal(cues, 0,
+        d.date + ' (' + d.type + '): a one-stage rail carries a coaching line that repeats the note');
+      solo++;
+    }
+
+    /* PACE AND HEART RATE ON ONE LINE. They stacked because a 125px column
+       could not hold a middot between them; the card is the full width of
+       the rail now. */
+    st.forEach(s => {
+      /* NOT A wholeSession STAGE. Those deliberately carry no prescription
+         on the card at all -- the ring above is already showing the day's
+         pace and band, and stepPrescriptionParts returns nothing for them.
+         Asserting a joined heart rate there was asserting against a rule
+         the renderer does not have. */
+      if (s.wholeSession) return;
+      if (!s.target || !s.target.hr) return;
+      const hr = a.fmtStrategyHR(s.target.hr);
+      if (!hr) return;
+      assert.ok(html.indexOf('<span class="ws-h-hr-join"> · ' + hr + '</span>') > -1,
+        d.date + ': ' + hr + ' is not joined to the pace band');
+      joined++;
+    });
+  });
+  assert.ok(withCue >= 3 && solo >= 1 && joined >= 3,
+    'the fixture no longer exercises all three (' + withCue + ' multi-stage, ' + solo +
+    ' single-stage, ' + joined + ' joined heart rates)');
+
+  /* AND IT IS NOT PRINTED TWICE. The heart rate used to be a row of its
+     own below the pace; joining it without removing that row would put it
+     on the card in two places. */
+  const sec = RAILCODE.slice(RAILCODE.indexOf('function renderWorkoutStepSecondary(st)'));
+  assert.ok(sec.slice(0, sec.indexOf('\n}')).indexOf('ws-hr') === -1,
+    'the heart rate is both joined to the pace and printed as its own row');
+
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-cue\{order:3;\}/, 'the coaching line is not third on the card');
+});
+
+test('every stage the engine builds has something to say', () => {
+  /* The sentences are written copy -- the engine carries role, intensity,
+     label, qty, a target and sometimes a recovery, and nothing else. Three
+     of them are the founder's, verbatim. The rest were drafted to sit
+     beside them, and the thing that matters is that there is no stage the
+     engine can produce which falls through the table and renders a card
+     with a gap where its coaching should be. */
+  const a = railApp();
+  const seen = {}, missing = [];
+  a.state.days.forEach(d => {
+    if (!a.hasWorkoutBlueprint(d)) return;
+    let st; try { st = a.workoutSteps(d); } catch (e) { return; }
+    if (st.length < 2) return;
+    let work = null;
+    for (let i = 0; i < st.length; i++) if (st[i].role === 'work'){ work = st[i]; break; }
+    st.forEach(s => {
+      const key = s.role + '/' + s.intensity;
+      const cue = a.stageCueFor(s, work ? work.intensity : null);
+      seen[key] = cue;
+      if (!cue) missing.push(key + ' (' + d.type + ')');
+    });
+  });
+  assert.equal(missing.length, 0,
+    'stages with no sentence: ' + [...new Set(missing)].join(', '));
+  assert.ok(Object.keys(seen).length >= 5,
+    'the fixture covers only ' + Object.keys(seen).length + ' kinds of stage');
+
+  /* THE FOUNDER'S THREE, VERBATIM. These are the ones that were specified
+     rather than drafted, so a later edit to the table has to leave them
+     alone or say so out loud. */
+  assert.equal(a.STAGE_CUES.warmup.goal_pace, 'Prepare to hit goal pace smoothly.',
+    'the founder’s warm-up line has been rewritten');
+  assert.equal(a.STAGE_CUES.work.goal_pace, 'Keep it controlled. Familiar, not hard.',
+    'the founder’s goal-pace line has been rewritten');
+  assert.equal(a.stageCueFor({ role: 'cooldown', intensity: 'easy', qty: '2km' }, 'goal_pace'),
+    'Don’t turn the final 2km into extra work.',
+    'the founder’s cool-down line has been rewritten, or stopped naming the distance');
+  /* And a cool-down with no distance still reads. */
+  assert.match(a.stageCueFor({ role: 'cooldown', intensity: 'easy' }, null), /cool-down into extra work/,
+    'a cool-down without a distance renders a broken sentence');
+
+  /* ---------- A FLANK IS ABOUT WHAT IT IS PREPARING FOR ----------
+     A warm-up's own intensity is 'easy' on every session there is, so
+     keying it on that would hand every warm-up the same line -- and the
+     founder's is specifically about what follows: "Prepare to hit GOAL
+     PACE smoothly." A mutation swapping the lookup to the stage's own
+     intensity survived every other guard here, because the sentence it
+     produced was a real one, just the wrong one. Existence was being
+     asserted where correctness was meant. */
+  const wu = i2 => a.stageCueFor({ role: 'warmup', intensity: 'easy' }, i2);
+  assert.equal(wu('goal_pace'), 'Prepare to hit goal pace smoothly.',
+    'a warm-up before goal pace no longer says so');
+  assert.notEqual(wu('interval'), wu('goal_pace'),
+    'a warm-up reads its own intensity rather than the session’s, so every warm-up in the ' +
+    'product says the same thing');
+  assert.notEqual(wu('tempo'), wu('goal_pace'), 'a warm-up before a tempo reads as one before goal pace');
+  assert.ok(wu('interval') && wu('tempo') && wu('steady') && wu('hard_effort'),
+    'a warm-up before one of the work intensities has nothing to say');
+  /* The work stage is about ITSELF, which is the other half of the same
+     rule and would break if the two lookups were merged. */
+  assert.equal(a.stageCueFor({ role: 'work', intensity: 'interval' }, 'goal_pace'),
+    a.STAGE_CUES.work.interval,
+    'a work stage reads the session’s intensity rather than its own');
 });

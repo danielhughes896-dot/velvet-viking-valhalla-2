@@ -361,7 +361,7 @@ test('the blueprint\'s pace band is no longer shrunk to fit its cell', () => {
 
 test('the pace band gets exactly one break opportunity, before the unit', () => {
   const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-  const fn = /function paceBandHtml\(pace\)\{[\s\S]*?\n\}/.exec(src);
+  const fn = /function paceBandHtml\(pace, hr\)\{[\s\S]*?\n\}/.exec(src);
   assert.ok(fn, 'paceBandHtml is gone -- the band is being emitted raw again');
   // <wbr> is load-bearing and not decoration: UAX #14 permits a line to turn
   // AFTER a solidus, not before one, so "5:17-6:16/km" left to itself breaks

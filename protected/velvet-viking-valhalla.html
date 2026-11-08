@@ -2273,6 +2273,8 @@
     background-size:cover; background-position:50% 34%;
     background-clip:padding-box;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod:only-child{flex:0 0 calc(100% - 10px);}
+  /* The blueprint's own element stays contents so its three lines are the
+     body's flex items rather than a box inside a box. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{display:contents;}
   /* ---------- THE SCRIM IS SIZED BY MEASUREMENT, NOT BY EYE ----------
      First attempt put the figures mid-card over the sun and ran a gentle
@@ -2284,43 +2286,57 @@
      So the text sits at the FOOT of the card, where the frame is darkest
      to begin with, and the scrim is near-opaque under it and clear at the
      top where the sunrise is the point. */
-  /* ---------- THE SCRIM IS A ::before, AND THAT IS NOT A DETAIL ----------
-     It was a ::after while it lived on .ws-h-step, which is the blueprint's
-     own element and has no other rules on its pseudo-elements. On .how-mod
-     the ::after is already taken, twice: `.how-mod + .how-mod::after` is the
-     hairline between columns and `.how-mod.is-active::after` sets its
-     opacity to 0. Both are (0,5,0) selectors declared LATER in this sheet
-     than the scrim was, so they beat it -- the hairline replaced the scrim
-     on every card but the first, and the first card, being .is-active, had
-     its scrim set to opacity 0 and painted no scrim at all.
-     HOW THAT WAS CAUGHT, because it nearly was not: the scrim's stops were
-     changed and the measured contrast came back IDENTICAL to three decimal
-     places on every run of text. A number that does not move when its cause
-     does is not a passing measurement, it is a disconnected one. What was
-     being measured was the photograph's own dark foot.
-     The ::before is the selected-panel pool, which this card does not want
-     anyway -- a photograph does not need a glow behind it to say which one
-     is in front -- and `.ws-rail .how-mod::before` is (0,5,0) against the
-     pool's (0,4,0), so it wins on specificity rather than on source order.
-     The hairline is switched off outright below. */
+  /* ---------- THE SCRIM IS SIZED BY THE TEXT, NOT BY THE CARD ----------
+     It was a gradient over the whole card with its stops in percentages,
+     which works only while every card's text block is about the same
+     height. The founder's structure put a sentence between the figure and
+     the numbers and that stopped being true: measured across every session
+     at 320, 360 and 390px, a block runs from 82px (a fuel fact) to 196px
+     (an interval, whose sentence wraps to three lines). In a 260px card
+     that 196px block starts at 23.5% -- a long way above the 47% where the
+     old gradient went opaque. It passed its contrast measurement anyway,
+     because the track photograph happens to be dark at that height. That
+     is luck, and the next photograph need not share it.
+     SO THE GRADIENT HANGS OFF .ws-card-body, whose height IS the text.
+     It reaches 64px above the first line, where it is clear, and past the
+     card's bottom padding, where it is opaque -- so the words sit on the
+     same backing whether there are two lines of them or six, and the
+     picture keeps everything above them. Nothing here is a percentage of
+     the card any more, which is what made it fragile.
+     The ::before of the BODY rather than of the card: .how-mod's own
+     pseudo-elements are spoken for -- the hairline between columns and the
+     rule that zeroes its opacity on the active panel, both declared later
+     in this sheet and both (0,5,0). That collision is what made an earlier
+     scrim paint nothing at all. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-card-body{
+    position:relative; z-index:1; width:100%;
+    display:flex; flex-direction:column; align-items:center;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-card-body::before{
+    content:''; position:absolute; z-index:-1; pointer-events:none;
+    left:-14px; right:-14px; bottom:-18px; top:-76px;
+    /* STOPS IN PIXELS, NOT PERCENTAGES. Percentages are of this element,
+       whose height is the text -- so the same gradient ramped over 95px on
+       a tall card and 34px on a short one, and the tall one showed a step
+       across the frame where .42 arrived. The founder's words about the
+       first glow apply exactly: "its container edges are visible, making it
+       look like a box".
+       In pixels it is one fade, 76px long, ending just as the first line of
+       text begins, and flat underneath however many lines follow. The same
+       dissolve on every card whatever it says. */
+    background:linear-gradient(to bottom,
+      rgba(8,6,10,0) 0px, rgba(8,6,10,.10) 20px,
+      rgba(8,6,10,.34) 40px, rgba(8,6,10,.70) 58px,
+      rgba(8,6,10,.92) 76px, rgba(8,6,10,.96) 100%);}
+  /* A LIGHT VEIL OVER THE WHOLE FRAME as well. The gradient above covers
+     the words; this keeps a bright photograph from fighting the card's
+     neighbours and gives the figures a floor on the few pixels the fade
+     has not reached. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod::before{
     content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
     border-radius:inherit; opacity:1;
-    /* DEEPENED WHERE THE LABEL LANDED. The card grew a line when the zone
-       word moved on top of the figure, which put the highest run of text at
-       about 45% of the card -- where this gradient was still only half
-       opaque, and the sunrise behind it is the brightest part of the frame.
-       Measured there, gold "SETTLE" came out at 4.86:1 against the pixels
-       beside it: over the 4.5 it owes, and with no margin for the next
-       photograph the founder sends. The dark half starts higher now and
-       arrives faster; the top third is left alone, because that is the part
-       of the picture worth having. */
     background:linear-gradient(to bottom,
-      rgba(8,6,10,.05) 0%, rgba(8,6,10,.14) 20%,
-      rgba(8,6,10,.55) 36%, rgba(8,6,10,.92) 47%,
-      rgba(8,6,10,.96) 100%);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod > *,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step > *{position:relative; z-index:1;}
+      rgba(8,6,10,.06) 0%, rgba(8,6,10,.20) 55%, rgba(8,6,10,.38) 100%);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod > *{position:relative; z-index:1;}
   /* NO HAIRLINE BETWEEN CARDS. It is a divider for columns that share a
      row; these are separate photographs with a gap between them, and a 1px
      rule down the left edge of each one is a line drawn on a picture.
@@ -2339,7 +2355,8 @@
      is nothing interactive here whose order could matter. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono){order:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-qty{order:2;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc.font-mono{order:3;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-cue{order:3;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc.font-mono{order:4;}
   /* ---------- AND THE SUPPLEMENTARY DETAIL AFTER ALL THREE ----------
      A stage's HR band and its recovery note carry no `order`, so they took
      the initial 0 and sorted AHEAD of everything that does -- which put
@@ -2351,7 +2368,25 @@
      lifted off --ink-faint, which is a colour for a card tint and not for a
      photograph, the same move the pace band makes below. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-hr,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-note{order:4; color:rgba(255,255,255,.72);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-note{order:5; color:rgba(255,255,255,.72);}
+  /* ---------- THE LINE OF COACHING, AND IT IS PROSE ----------
+     Everything else on this card is a name or a number and takes the label
+     face or the mono. This is the coach talking about this stage, so it
+     takes the text face at the support size -- the same voice WHY and FEEL
+     use in the columns below, which is what it is a sibling of.
+     Brighter than the pace band under it: the band qualifies a figure, and
+     this is the one thing on the card that is not a figure at all. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-cue{
+    display:block; font-family:var(--text-face); font-size:var(--fs-support);
+    line-height:1.45; letter-spacing:0; text-transform:none;
+    color:rgba(255,255,255,.92); margin:7px 0 0; max-width:30ch;}
+  /* The heart rate joins the pace after a middot rather than taking a row.
+     .74, not the .66 this started at: measured on the composited card, .66
+     came back at 5.22:1 against the 4.5 it owes, while the pace band
+     beside it sat near 10. Three quarters of a point of headroom on a
+     number an athlete reads mid-session is not worth the shade, and the
+     middot already separates them. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-hr-join{color:rgba(255,255,255,.74);}
   /* THE LABEL is not declared here. Every rail panel's label -- WHY, TIME
      ON FEET, SETTLE and now EASY -- is one declaration further up this
      sheet, and the card does not need a second opinion about it. */
@@ -28416,7 +28451,13 @@ function renderWorkoutStep(st, i){
    cell: one line, full size. Narrow cell: the band whole at full size with
    "/km" beneath it. Nothing is shrunk in either case, and nothing is
    reserved for a wrap that is not needed. */
-function paceBandHtml(pace){
+/* `hr` joins the band rather than taking a line of its own: "4:58/km ·
+   164-171BPM". The note below this one explains why they used to stack --
+   a middot between them is a full-width idea and these were 125px columns.
+   The card is the full width of the rail now, so the constraint that
+   separated them is gone and the founder asked for them joined. The band
+   itself still cannot break mid-range; only the join can turn. */
+function paceBandHtml(pace, hr){
   var cut = String(pace).lastIndexOf('/');
   var value = cut > 0 ? pace.slice(0, cut) : pace;
   var unit  = cut > 0 ? pace.slice(cut) : '';
@@ -28426,14 +28467,69 @@ function paceBandHtml(pace){
      even that, not at all. An element boundary is not a break opportunity
      either; only this is. */
   return '<span class="ws-h-presc font-mono"><b>'+escapeHtml(value)+'</b><wbr>'+
-    escapeHtml(unit)+'</span>';
+    escapeHtml(unit)+
+    (hr ? '<span class="ws-h-hr-join"> \u00b7 '+escapeHtml(hr)+'</span>' : '')+
+  '</span>';
 }
-function easyZonePaceHtml(){
+function easyZoneBand(){
   var z = getActivePaces().E;
   if (!z || z.slow == null || z.fast == null) return '';
   var pFast = fmtPaceFromSecPerKm(z.fast), pSlow = fmtPaceFromSecPerKm(z.slow);
-  var pace = pFast.split('/')[0]+'–'+pSlow;
-  return paceBandHtml(pace);
+  return pFast.split('/')[0]+'–'+pSlow;
+}
+
+/* ---------- A SENTENCE PER STAGE ----------
+   The founder's structure for a card: the stage and its distance, then a
+   line of coaching about THAT stage, then its numbers.
+   THE ENGINE HAS NO SUCH LINE. A step carries role, intensity, label, qty,
+   a target and sometimes a recovery -- checked across every session in a
+   full block -- and the only prose on it ("Easy running to complete 7.5km
+   total") is mechanical rather than coaching. The execution phases DO carry
+   coaching sentences, but they do not correspond: measured, a three-stage
+   session has four or five phases, or none. So there is nothing to borrow
+   and this is written copy.
+   KEYED ON THE STAGE AND ON WHAT THE SESSION IS. A warm-up before goal
+   pace and a warm-up before reps are preparing for different things, so the
+   flanks read the WORK stage's intensity and the work stage reads its own.
+   The three the founder wrote are here verbatim and marked; the rest are
+   drafted to sit beside them.
+   ONLY ON A RAIL OF MORE THAN ONE STAGE. On a single-stage session the card
+   is the session, and the Coach's Note below is already saying this in the
+   athlete's own words -- a second copy a centimetre above it is the
+   duplication every other pass here has been removing. */
+var STAGE_CUES = {
+  warmup: {
+    goal_pace:   'Prepare to hit goal pace smoothly.',        /* the founder's */
+    interval:    'Get the legs ready for the first rep, not tired by it.',
+    tempo:       'Arrive at the tempo already warm.',
+    steady:      'Ease in. The work starts when it starts.',
+    hard_effort: 'Loosen off. The effort will take care of itself.',
+    easy:        'Ease in. Nothing here needs forcing.'
+  },
+  work: {
+    goal_pace:   'Keep it controlled. Familiar, not hard.',   /* the founder's */
+    interval:    'Hold the same shape on the last rep as the first.',
+    tempo:       'Comfortably hard, and held. Not a race.',
+    steady:      'One gear below tempo, the whole way.',
+    hard_effort: 'Commit to it. This is the one that counts.',
+    easy:        'Conversational. Nothing to prove here.'
+  }
+};
+/* The cool-down is one line whatever preceded it, and it names the distance
+   the way the founder wrote it: "Don't turn the final 2km into extra work."
+   Without a distance it still reads, so the qty is optional. */
+function cooldownCue(qty){
+  return qty ? 'Don\u2019t turn the final '+qty+' into extra work.'
+             : 'Don\u2019t turn the cool-down into extra work.';
+}
+function stageCueFor(st, workIntensity){
+  if (!st) return '';
+  if (st.role === 'cooldown') return cooldownCue(renderStepQty(st));
+  var table = STAGE_CUES[st.role === 'warmup' ? 'warmup' : 'work'];
+  if (!table) return '';
+  /* A flank is about what it is preparing for; the work is about itself. */
+  var key = st.role === 'warmup' ? (workIntensity || st.intensity) : st.intensity;
+  return table[key] || '';
 }
 /* ---------- A PRESCRIPTION IS A WORD AND A NUMBER ----------
    "Easy" and "5:08-6:06/km"; or, on a work step, no word and "4:09-4:16/km".
@@ -28443,33 +28539,41 @@ function easyZonePaceHtml(){
    the number is its DETAIL, at the foot. Split here, so that the one place
    deciding which a stage has stays one place; essentialPrescriptionHtml
    below still joins them in exactly the order it always did. */
+/* RAW NUMBERS, NOT MARKUP. These came back as finished spans, which was
+   fine while one surface drew them. The card joins the pace and the heart
+   rate into one line and the stacked list keeps them apart, so each builds
+   its own and this returns only what they are. */
 function stepPrescriptionParts(st){
-  if (st.wholeSession) return { word:'', pace:'' };
+  if (st.wholeSession) return { word:'', pace:'', hr:'' };
   if (st.target){
     var pace = fmtStrategyPace(st.target.pace, null);
-    if (pace) return { word:'', pace:paceBandHtml(pace) };
+    if (pace) return { word:'', pace:pace, hr:fmtStrategyHR(st.target.hr) || '' };
   }
   if (st.effort) return {
     word: st.effort,
-    pace: st.effort === 'Easy' ? easyZonePaceHtml() : ''
+    pace: st.effort === 'Easy' ? easyZoneBand() : '',
+    hr: ''
   };
-  return { word:'', pace:'' };
+  return { word:'', pace:'', hr:'' };
 }
+/* The stacked list's string, unchanged: word then band, and the heart rate
+   still on its own row below via renderWorkoutStepSecondary. */
 function essentialPrescriptionHtml(st){
   var p = stepPrescriptionParts(st);
-  return (p.word ? '<span class="ws-h-presc">'+escapeHtml(p.word)+'</span>' : '')+p.pace;
+  return (p.word ? '<span class="ws-h-presc">'+escapeHtml(p.word)+'</span>' : '')+
+         (p.pace ? paceBandHtml(p.pace) : '');
 }
 // Everything renderWorkoutStep would have shown that essentialPrescriptionHtml
 // did not use -- HR, a build/ramp note, a completion note, recovery, between-
 // set recovery -- in the exact same .ws-hr/.ws-note classes (and therefore
 // the same colours and wording) the vertical list has always used for them,
 // so nothing about what a figure means changes with the layout.
+/* NO HEART RATE HERE ANY MORE. It joins the pace band -- "4:58/km ·
+   164-171BPM" -- which is where the founder put it and where it reads as
+   one prescription rather than two rows of numbers. paceBandHtml owns the
+   join; this is left with what is genuinely supplementary. */
 function renderWorkoutStepSecondary(st){
   var out = '';
-  if (st.target && !st.wholeSession){
-    var hr = fmtStrategyHR(st.target.hr);
-    if (hr) out += '<div class="ws-hr font-mono">'+escapeHtml(hr)+'</div>';
-  }
   if (st.build) out += '<div class="ws-note">'+escapeHtml(st.build)+'</div>';
   if (st.note) out += '<div class="ws-note">'+escapeHtml(st.note)+'</div>';
   if (st.recovery) out += '<div class="ws-note">Recovery: '+escapeHtml(st.recovery)+'</div>';
@@ -28480,7 +28584,7 @@ function renderWorkoutStepSecondary(st){
 // recovery, via renderWorkoutStepSecondary) instead of that detail being
 // restated a second time in a separate list underneath the row -- the same
 // name and content no longer appear twice for one stage.
-function renderWorkoutStepHCell(st, i){
+function renderWorkoutStepHCell(st, i, ctx){
   var qty = renderStepQty(st);
   /* ---------- THE HEADER ROW GOES, THE STAGE NAME STAYS SPOKEN ----------
      The number and the name sat above every cell -- "1 WARM UP", "2 GOAL
@@ -28507,17 +28611,41 @@ function renderWorkoutStepHCell(st, i){
      it takes its stage name, "Main set", which is the thing it was already
      saying silently. Nothing is invented for a card that has neither. */
   var p = stepPrescriptionParts(st);
-  var word = p.word || st.label;
-  return '<div class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
+  /* THE STAGE'S NAME, NOT ITS EFFORT. This was the effort word where there
+     was one -- "EASY" over a warm-up -- because at the time the card had
+     no name on it at all and the effort was the only word available. The
+     founder has since written the titles out: "WARM-UP 2KM", "GOAL PACE
+     3 x 1600M", "COOL-DOWN 2KM". Those are the stage labels, and a card
+     that says EASY tells the athlete how to run it without telling them
+     which part of the session it is. The effort has not been dropped: on
+     an easy stage it IS the label, and where it differs from the label it
+     is carried by the pace band underneath. */
+  var word = st.label || p.word;
+  /* ---------- THE CARD'S ORDER, AND IT IS THE FOUNDER'S ----------
+       WARM-UP            the stage
+       2km                its distance, which stays the figure
+       Prepare to hit...  one line of coaching about this stage
+       4:58/km · 164-171BPM   its numbers, joined
+       Recovery: short    what is left
+     The sentence is passed in rather than looked up here: it needs to know
+     what the session's WORK stage is, which a single step cannot see, and
+     it is withheld entirely on a one-stage rail -- see stageCueFor. */
+  var cue = ctx && ctx.cues ? stageCueFor(st, ctx.work) : '';
+  /* .ws-card-body: the one element whose height IS the text. See the scrim
+     rule -- it hangs off this rather than off the card, so it covers the
+     words whatever they come to. */
+  return '<div class="ws-card-body"><div class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
     /* SPOKEN ONCE. The name stays in the accessibility tree only while the
        card is showing a different word; where it has been promoted to the
        label, a second copy would have a screen reader read it twice. */
-    (p.word ? '<span class="sr-only">'+escapeHtml(st.label)+'</span>' : '')+
+    /* No sr-only copy of the name: it is on the card now, so a second one
+       would be read twice. */
     (word ? '<span class="ws-h-presc">'+escapeHtml(word)+'</span>' : '')+
     (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
-    p.pace+
+    (cue ? '<div class="ws-h-cue">'+escapeHtml(cue)+'</div>' : '')+
+    (p.pace ? paceBandHtml(p.pace, p.hr) : '')+
     renderWorkoutStepSecondary(st)+
-  '</div>';
+  '</div></div>';
 }
 /* ---------- THE BLUEPRINT IS THE RAIL NOW, AND THE RAIL IS THE RAIL ------
    Three stages across a phone gave each about 105px, which is why the stage
@@ -28541,8 +28669,15 @@ function renderWorkoutStepHCell(st, i){
    is decided by hasWorkoutBlueprint(), in one place, so they can never
    appear on both or on neither. */
 function renderStructuredWorkoutSteps(steps, extra){
+  /* WHAT THE SESSION IS, resolved once for the whole rail: the intensity
+     of its WORK stage, which is what a warm-up and a cool-down are about.
+     `cues` is off on a one-stage rail, where the card is the session and
+     the Coach's Note is already saying it. */
+  var workStep = null;
+  for (var w = 0; w < steps.length; w++) if (steps[w].role === 'work'){ workStep = steps[w]; break; }
+  var ctx = { work: workStep ? workStep.intensity : null, cues: steps.length >= 2 };
   var panels = steps.map(function(st, i){
-    return '<div class="how-mod" data-mod="ws-'+i+'">'+renderWorkoutStepHCell(st, i)+'</div>';
+    return '<div class="how-mod" data-mod="ws-'+i+'">'+renderWorkoutStepHCell(st, i, ctx)+'</div>';
   }).concat(extra || []);
   return '<div class="fuel-body ws-rail" data-hswipe="1">'+
       panels.join('')+
@@ -29155,13 +29290,14 @@ function fuelRailPanels(dd){
        heading size. Exactly one of the two is ever display:none, so a screen
        reader hears one label, not both. */
     return '<div class="how-mod" data-mod="fuel-'+i+'">'+
+      '<div class="ws-card-body">'+
       '<div class="fuel-row"><span class="k">'+
         '<span class="k-long">'+r.k+'</span>'+
         '<span class="k-short">'+r.short+'</span>'+
       '</span>'+
       '<span class="v font-mono">'+r.v+
         (r.note ? '<span class="fuel-v-note">'+r.note+'</span>' : '')+
-      '</span></div></div>';
+      '</span></div></div></div>';
   });
   /* THE CAVEATS ARE NOT PART OF THE RAIL. They trailed under it as two dim
      left-aligned paragraphs -- the only unlit prose on a screen where every
@@ -30957,12 +31093,12 @@ function renderStrategyPhase(ph){
   if (hr) lines += '<span class="sp-n">'+escapeHtml(hr)+'</span>';
   if (!lines && ph.effort) lines = '<span class="sp-n">'+escapeHtml(ph.effort)+'</span>';
   var span = fmtStrategySpan(ph);
-  return '<div class="how-mod strat-phase">'+
+  return '<div class="how-mod strat-phase"><div class="ws-card-body">'+
     '<div class="strat-phase-head"><span class="strat-phase-label">'+escapeHtml(ph.label)+'</span>'+
       (span?'<span class="strat-phase-span font-mono">'+escapeHtml(span)+'</span>':'')+
     '</div>'+
     (lines?'<div class="strat-phase-target font-mono">'+lines+'</div>':'')+
-  '</div>';
+  '</div></div>';
 }
 /* The sentence that belonged to the panel, at the width a sentence wants.
    Both strings are unchanged and each still resolves its own @@U@@ unit
