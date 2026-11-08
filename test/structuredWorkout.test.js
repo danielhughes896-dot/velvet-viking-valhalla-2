@@ -681,6 +681,13 @@ test('no device-integration surface has been added', () => {
 
 const RAILSRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
 const RAILCSS = RAILSRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+/* COMMENTS STRIPPED. Three guards below asked "is this string gone?" and
+   got the answer from the COMMENT that explains why it went -- the note
+   above railDotCount names swipeLearned('rail'), and the note where
+   .sess-tab-s used to be names .sess-tab-s. Matching prose as if it were
+   code has produced false results in this suite before; it produced three
+   more here. */
+const RAILCODE = RAILSRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
 
 function railApp(){
   const a = loadApp({ pinnedDate: '2026-11-08T09:00:00Z' });
@@ -729,8 +736,8 @@ test('the coaching rail stays three columns, with two hairlines', () => {
   const a = railApp();
   const withBp = a.state.days.filter(d => { try { return a.usesHorizontalWorkoutBlueprint(a.workoutSteps(d)); } catch(e){ return false; } });
   const bp = a.renderDayCard(withBp[withBp.length - 1]);
-  const rail = /<div class="fuel-body how-rail"[\s\S]*?(?=<div class="how-dots)/.exec(bp);
-  assert.ok(rail, 'the coaching rail is gone or no longer named');
+  const rail = /<div class="how-cols">[\s\S]*?(?=<\/div><div class="how-table|<div class="how-note)/.exec(bp);
+  assert.ok(rail, 'the coaching columns are gone or no longer named');
   const mods = (rail[0].match(/class="how-mod" data-mod=/g) || []).length;
   assert.equal(mods, 3, 'the coaching rail is ' + mods + ' columns, not three — two hairlines need three columns');
   assert.ok(rail[0].indexOf('data-mod="execution"') === -1,
@@ -739,7 +746,7 @@ test('the coaching rail stays three columns, with two hairlines', () => {
   /* AND THEY FADE. Decoration, not table rules -- the distinction the whole
      hairline sweep turned on. Drawn on the second and third panels, which
      is exactly two for three columns. */
-  const i = RAILCSS.indexOf('.how-rail .how-mod + .how-mod::after');
+  const i = RAILCSS.indexOf('.how-cols .how-mod + .how-mod::after');
   assert.ok(i > -1, 'the coaching columns have no separating hairlines');
   const body = RAILCSS.slice(i, RAILCSS.indexOf('}', i));
   assert.match(body, /transparent 0%/, 'the hairline starts solid — that is a table rule, not decoration');
@@ -756,10 +763,108 @@ test('the blueprint rail is the rail component, wired like one', () => {
      panels at 380px of 380, three dots, first lit. */
   assert.match(RAILCSS, /:is\(\.how-card \.fuel-body, \.ws-rail\)\{\s*display:flex/,
     'the blueprint rail is not in the rail track rule, so its cards stack');
-  assert.match(RAILCSS, /\.ws-rail \.how-mod\{\s*flex:0 0 100%/,
-    'the blueprint cards are no longer full width');
+  /* Full width is the COMPONENT's now, not this rail's -- see "every rail
+     is one card at a time" below, which asserts it where it lives. */
+  assert.match(RAILCSS, /\.view-week \.wk-overview\) \.how-mod\{[^}]*flex:0 0 100%/,
+    'rail panels are no longer full width');
   assert.match(RAILSRC, /querySelectorAll\('\.how-card \.fuel-body, \.ws-rail'\)/,
     'the blueprint rail is not bound by the rail script, so its dots never light');
   assert.match(RAILSRC, /railDotCount\(steps\.length\)/,
     'the blueprint rail has no dots, so nothing says there is more sideways');
+});
+
+test('every rail is one card at a time, and keeps its dots', () => {
+  /* The founder's rule: every end point that has a rail follows the new
+     one. Measured at 412px -- blueprint 2 panels at 380/380 with 2 dots;
+     race day's execution 5 at 380/380 with 5; its fuel 4 at 380/380 with 4.
+     The width lives on the COMPONENT, not on one rail, which is what makes
+     that true everywhere rather than in the place it was first asked for. */
+  const i = RAILCSS.indexOf('.view-week .wk-overview) .how-mod{');
+  assert.ok(i > -1, 'the rail panel rule is gone or its selector changed');
+  const body = RAILCSS.slice(i, RAILCSS.indexOf('}', i));
+  assert.match(body, /flex:0 0 100%/, 'rail panels are back to sharing the row');
+  assert.ok(!/min-width:122px/.test(body),
+    'the 122px floor is back — it existed for a third-width column and a full-width card has no use for it');
+
+  /* THE DOTS ARE A POSITION NOW, NOT A HINT. They used to disappear once
+     swipeLearned('rail') was true. With one panel on screen they are the
+     only thing saying which of five you are on. */
+  const dc = RAILCODE.slice(RAILCODE.indexOf('function railDotCount'), RAILCODE.indexOf('function railDotCount') + 300);
+  assert.ok(dc.indexOf("swipeLearned('rail')") === -1,
+    'the dots vanish once the swipe is learned — on a full-width rail they are the position, not the hint');
+});
+
+test('why / feel / watch for is three columns, not a rail', () => {
+  /* It was a rail when Execution's sentence made it four. Three fit, and a
+     rail that never needs swiping hides a third of itself behind a gesture
+     nobody makes. So: no .fuel-body, no data-hswipe, no dots, nothing
+     selected -- all three lit, because with all three on screen there is
+     nothing to select. Measured: opacity 1,1,1. */
+  assert.match(RAILCODE, /<div class="how-cols">/, 'the coaching columns are gone or renamed');
+  assert.ok(RAILCODE.indexOf('"fuel-body how-rail"') === -1,
+    'the coaching columns are a .fuel-body again, which makes them a scrolling rail');
+  const i = RAILCODE.indexOf('<div class="how-cols">');
+  const after = RAILCODE.slice(i, i + 1400);
+  assert.ok(after.indexOf('railDotsHtml') === -1, 'the coaching columns have dots again');
+  assert.match(RAILCSS, /\.how-cols \.how-mod\{[^}]*opacity:1/,
+    'the coaching columns dim again — all three are on screen, so none of them is "the" one');
+  assert.match(RAILCSS, /\.how-cols \.how-mod::before\{content:none;\}/,
+    'the selected-panel pool is back on columns where nothing is selected');
+});
+
+test('a tab is its name, centred, at the size that fits the narrowest phone', () => {
+  /* Measured with the real classes: "VALHALLA ANALYSIS" is 186px of ink at
+     21px in a 193px column on a 320px phone, 204px at 23px. 21px is the
+     largest that never wraps -- and it is also just under the session
+     title's 21.85px, so a tab heading cannot out-shout the session it
+     opens. Two bounds, one number. */
+  assert.match(RAILCODE, /function sessionTabHtml\(title\)\{/,
+    'the tab still takes a sub-line argument');
+  assert.ok(RAILCODE.indexOf('sess-tab-s') === -1,
+    'the contents list under each tab name is back');
+  assert.match(RAILCSS, /\.sess-tab-k\{display:block;[^}]*font-size:21px/,
+    'the tab name is no longer 21px');
+  assert.match(RAILCSS, /\.sess-tab\{[^}]*text-align:center/, 'the tab name is left-aligned again');
+  assert.match(RAILCSS, /\.sess-tab::before\{content:''; flex:0 0 19px;\}/,
+    'the chevron spacer is gone, so the name is centred in what is left of the row rather than in the row');
+});
+
+test('the stage card is a photograph, and the words on it are legible', () => {
+  /* The founder supplied the picture and asked for it on the rail. It ships
+     as an asset at two widths, which is the convention this product already
+     has for a photograph (valhalla-mountains-420/-820, swapped on the same
+     breakpoint) -- a data URI would have put ~50KB of base64 into a file
+     that is already 3.5MB and is parsed at every launch. */
+  const ROOT2 = path.join(__dirname, '..');
+  ['dawn-road-420.jpg', 'dawn-road-820.jpg'].forEach(f => {
+    const stat = fs.statSync(path.join(ROOT2, 'assets', f));
+    assert.ok(stat.size > 4000, 'assets/' + f + ' is missing or empty');
+    assert.ok(stat.size < 160000, 'assets/' + f + ' is ' + stat.size + ' bytes — larger than the photograph it sits beside');
+  });
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{[^}]*background-image:url\('\/assets\/dawn-road-820\.jpg'\)/,
+    'the stage card has lost its photograph');
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{\s*\n?\s*background-image:url\('\/assets\/dawn-road-420\.jpg'\)/,
+    'the narrow phone still downloads the wide photograph');
+
+  /* A PHOTOGRAPH IS NOT A BACKGROUND UNTIL THE WORDS ON IT ARE LEGIBLE.
+     Measured against the pixels actually behind each run, with the figures
+     mid-card over a gentle gradient: "2km" white came out at 1.75:1, "Easy"
+     2.28, the pace band 3.49 -- all under 4.5 and two under the 3.0 that
+     even large text needs. The figures sit at the FOOT now, where the frame
+     is darkest to start with, under a scrim that is near-opaque there and
+     clear at the top where the sunrise is the point: 19.84 / 9.51 / 9.67.
+     (The first measurement sampled the row the glyphs are on, so white text
+     inflated its own background; it reads the bands beside them now.) */
+  const i = RAILCSS.indexOf('.ws-rail .ws-h-step::after');
+  assert.ok(i > -1, 'the scrim under the card text is gone');
+  const scrim = RAILCSS.slice(i, RAILCSS.indexOf('}', i));
+  const last = Number((scrim.match(/rgba\(8,6,10,\.(\d+)\) 100%/) || [])[1]);
+  assert.ok(last >= 90, 'the scrim ends at .' + last + ' — the figures sit on it and were measured at 1.75:1 without it');
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{[^}]*justify-content:flex-end/,
+    'the figures have left the foot of the card, which is the only part of the frame dark enough for them');
+
+  /* THE PEEK IS THE FOUNDER'S SECOND DRAWING: a card carried IN a rail
+     rather than filling it, with its neighbours showing at both edges. */
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{\s*\n?\s*flex:0 0 84%/,
+    'the stage card fills the rail again, so nothing peeks and the rail stops reading as one');
 });

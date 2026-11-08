@@ -62,21 +62,26 @@ function has(sel){
 test('nothing is drawn in front of a session tab title', () => {
   assert.ok(!has('.sess-tab-i'), 'the tab icon column is back in the sheet');
   assert.ok(!/sess-tab-i/.test(SRC), 'a tab is emitting a leading glyph again');
-  assert.match(SRC, /function sessionTabHtml\(title, sub\)/,
-    'sessionTabHtml took an icon argument again');
+  assert.match(SRC, /function sessionTabHtml\(title\)/,
+    'sessionTabHtml took a second argument again');
   const c = rule('.sess-tab-c');
   assert.match(c, /width:\s*18px/, 'the chevron column is reserved so the row ends square');
   assert.match(rule('.sess-tab-c svg'), /width:\s*18px/);
   assert.match(SRC, /ICONS\.chevronDown/, 'the tab lost the one glyph that says it opens');
 });
 
-test('the title grew into the space the glyph was holding', () => {
-  /* 13px against a 12.5px sub is not a hierarchy -- it was the icon saying
-     which line was the title. Measured: the longest of the four is 151px of
-     ink in a 317px column even at 17px, so width is not the constraint and
-     15px is a step that reads without shouting. */
-  assert.match(rule('.sess-tab-k'), /font-size:\s*15px/,
-    'the tab title is back to a size that does not separate it from its own sub');
+test('the title grew into the space the sub was holding', () => {
+  /* WAS 15px, "a step that reads without shouting" against a 12.5px sub.
+     There is no sub now -- the row is its name -- so the title is not
+     competing with a second line and the only question left is how big it
+     can be. Measured with the real classes: "VALHALLA ANALYSIS", the
+     longest of the four, is 186px of ink at 21px in a 193px column on a
+     320px phone and 204px at 23px. 21px is the largest that never wraps,
+     and it is also just under the session title's own 21.85px -- a tab
+     heading bigger than the name of the session it opens would invert the
+     card. Two bounds, one number. */
+  assert.match(rule('.sess-tab-k'), /font-size:\s*21px/,
+    'the tab title is no longer the largest size that fits the narrowest phone');
 });
 
 test('the rail panels carry no glyph, and the heading takes the room', () => {

@@ -83,10 +83,17 @@ test('both regions still carry the attribute the overrides key off', () => {
   const w = a.currentWeekNum();
   a.weekSessionOpen = true;
   const open = a.renderWeekSessionBox(w);
-  assert.match(open, /class="wk-session is-open" data-hswipe="1"/,
+  /* data-week sits between the class and data-hswipe now -- the open card
+     is swipeable and its commit has to step within the week it is SHOWING,
+     not the athlete's current one. Matched as separate attributes rather
+     than as one literal string, because their order is not the claim. */
+  assert.match(open, /class="wk-session is-open"/, 'the open week session lost its class');
+  assert.match(open, /data-hswipe="1"/,
     'the open week session no longer matches .wk-session.is-open[data-hswipe]');
-  assert.match(RUNTIME, /class="fuel-body" data-hswipe="1"/,
-    'the coaching stack no longer matches .how-card .fuel-body[data-hswipe]');
+  /* The coaching columns are not a rail any more; the blueprint and the
+     execution phases are, and they carry the attribute. */
+  assert.match(RUNTIME, /class="fuel-body ws-rail" data-hswipe="1"/,
+    'the blueprint rail no longer matches .fuel-body[data-hswipe]');
 });
 
 /* A GESTURE BELONGS TO THE INNERMOST THING THAT WANTS IT.

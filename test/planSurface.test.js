@@ -1087,3 +1087,41 @@ test('a day circle is one size, whatever else the week contains', () => {
   assert.match(rule('.wk-days'), /justify-content:flex-start/,
     'a short week’s circles are being strung across the full width again');
 });
+
+test('a day carousel steps within the week it is showing', () => {
+  /* The commit called weekStepDate(currentWeekNum()), which was the same
+     thing while This Week was the only screen with a carousel. Full Plan's
+     week screen now has one, and there the two differ: looking at week 11
+     and swiping stepped within week 10, the date that came back was not in
+     the week on screen, weekSelectedDay() fell through to the week's first
+     day, and the card did not move at all. Driven with a real touch
+     sequence before and after: This Week S8 -> S7 both times; the plan week
+     M9 -> M9 before, M9 -> T10 after. */
+  const a = app();
+  assert.match(a.renderPlanWeekView(3), /class="wk-rail" data-hswipe="1" data-week="3"/,
+    'the rail no longer carries the week it is showing');
+  const SRC2 = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+  assert.match(SRC2, /railWeek = parseInt\(rail\.getAttribute\('data-week'\), 10\)/,
+    'the swipe commit has stopped reading the rail’s own week');
+  assert.ok(!/weekStepDate\(currentWeekNum\(\)/.test(SRC2),
+    'the swipe steps within the CURRENT week again, so it cannot move on any other week’s screen');
+});
+
+test('a rest day in the week carousel is the rest day Today shows', () => {
+  /* The carousel branched away from the hero because a rest day had no hero
+     -- renderDayHeroBlock() returned '' for a day with no ring and no
+     distance. It has one now, so the branch was a workaround for a hole
+     that is filled, and leaving it meant Today showed one rest day while
+     This Week and Full Plan showed another. */
+  const a = app();
+  const rest = a.state.days.filter(d => d.type === 'rest' && a.displayCardTitle(d) === 'Rest Day')[0];
+  if (!rest) return;
+  a.weekSelectedDate = rest.date;
+  const box = a.renderWeekSessionBox(a.weekNumForDate ? a.weekNumForDate(rest.date) : 1);
+  const SRC2 = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  assert.ok(SRC2.indexOf("class=\"wk-rest\"") === -1,
+    'the week carousel renders its own rest day again instead of the shared hero');
+  assert.ok(/th-hero|th-ring/.test(box) || !box,
+    'the rest day in the carousel has no hero');
+});

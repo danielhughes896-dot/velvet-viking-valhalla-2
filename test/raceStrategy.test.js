@@ -613,15 +613,18 @@ test('goal day drops time-on-feet; every long run keeps it', () => {
 
 test('the race lede is centred, and only the race lede', () => {
   const { a, race, days } = athlete();
+  /* WAS "and only the race lede", asserting a .day-desc-race modifier. The
+     founder extended the centring to every session description under a
+     focused session, so the modifier has nothing left to say and is gone --
+     what remains to protect is that the line is centred, and that it is
+     centred where a session is BEING READ rather than in a list, where
+     centring prose makes a ragged column. */
   const card = a.renderDayCard(race);
-  assert.match(card, /class="day-desc day-desc-race"/,
-    'the race lede has lost the class that centres it');
+  assert.match(card, /class="day-desc"/, 'the race lede has lost its description element');
   const CSS = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8')
     .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(CSS, /\.day-desc-race\{text-align:center;\}/, 'the race lede is no longer centred');
-
-  /* NO OTHER DAY MOVED. The modifier is on the race line alone. */
-  const other = days.filter(d => d.type !== 'race' && d.type !== 'rest' && d.desc)[0];
-  if (other) assert.ok(a.renderDayCard(other).indexOf('day-desc-race') === -1,
-    'an ordinary session is being centred too — the modifier has widened past the race');
+  assert.match(CSS, /\.view-week \.wk-overview\) \.day-desc\{text-align:center;\}/,
+    'the focused session description is no longer centred');
+  assert.ok(!/\n  \.day-desc\{[^}]*text-align:center/.test(CSS),
+    'every description is centred now, in lists too — it was scoped to the focused session on purpose');
 });

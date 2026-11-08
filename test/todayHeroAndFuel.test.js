@@ -250,15 +250,23 @@ const escF = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 test('both rails are the same width, and three panels fit', () => {
   const mod = new RegExp(escF(F) + ' \\.how-mod\\{([^}]*)\\}').exec(CSS);
   assert.ok(mod, 'the module rule is gone');
-  assert.match(mod[1], /flex:0 0 33%/,
-    'a rail went off a third. At 40% the third panel is cut by the viewport; at 34% ' +
-    'only two and a half fit. Found: ' + (/flex:[^;]*/.exec(mod[1]) || [''])[0]);
+  /* WAS 33%, so three panels landed whole with a fourth peeking. Every
+     rail is one full-width card now, on the founder's call, and the dots
+     say there is more -- which is also why they stopped retiring once the
+     swipe was learned. Both rails still share the number, which is what
+     this test is really for. */
+  assert.match(mod[1], /flex:0 0 100%/,
+    'a rail went off full width. Found: ' + (/flex:[^;]*/.exec(mod[1]) || [''])[0]);
   assert.ok(!new RegExp(escF(F) + ' \\.how-fuel \\.how-mod\\{[^}]*flex:').test(CSS),
     'the fuel rail has taken a width of its own again — the two rails are the same ' +
     'component a centimetre apart and the whole point of this pass was that they match');
-  assert.match(mod[1], /min-width:122px/,
-    'the 122px floor is gone. A third of a 360px screen is 83px of text and EXECUTION ' +
-    'is one word with nowhere to break.');
+  /* THE FLOOR RETIRED WITH THE THIRD IT PROTECTED. 122px existed because a
+     third of a 360px screen is 83px of text and EXECUTION is one word with
+     nowhere to break. At full width the panel is the rail, so a minimum
+     narrower than the rail cannot bind -- and a floor that can never apply
+     is a number the next reader has to work out the irrelevance of. */
+  assert.ok(!/min-width:122px/.test(mod[1]),
+    'the 122px floor is back, and at full width it protects nothing');
 });
 
 test('a fuel panel and a coaching panel differ only where figures differ from sentences', () => {

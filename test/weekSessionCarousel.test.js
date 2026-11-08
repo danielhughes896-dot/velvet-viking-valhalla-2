@@ -106,8 +106,14 @@ test('the card and the day circles cannot disagree', () => {
   const fn = /function wireWeekRail\(rail\)\{[\s\S]*?\n\}/.exec(SRC)[0];
   assert.match(fn, /handleWeekPickDay\(to\)/,
     'the swipe sets the date by some other route than the tap does');
-  assert.match(fn, /weekStepDate\(currentWeekNum\(\), p\.dx < 0 \? 1 : -1\)/,
+  /* THE RAIL'S OWN WEEK, not the athlete's. These were the same thing
+     while This Week was the only screen with a carousel; Full Plan's week
+     screen has one now, and there a swipe stepped within the CURRENT week,
+     returned a date that was not in the week on screen, and the card did
+     not move at all. */
+  assert.match(fn, /weekStepDate\(railWeek, p\.dx < 0 \? 1 : -1\)/,
     'the swipe no longer steps exactly one day in the direction of the finger');
+  assert.match(fn, /data-week/, 'the swipe has stopped reading the week the rail is showing');
   assert.match(fn, /Math\.abs\(p\.dx\) > w \* PAGER_COMMIT_FRACTION/,
     'the card commits on a different threshold from the rest of the product');
   /* Settle to where the new day will sit, THEN re-render: the fresh track is
@@ -220,16 +226,28 @@ test('HINT: every swipeable region announces itself, and stops once it is used',
     'what was learned is not stored, so it is forgotten at the next launch');
 });
 
-test('HINT: the dots under the coaching rail are that rail\'s hint, and retire with it', () => {
-  /* Three grey dots under the thing they point at, forever, is the exact
-     chrome this mechanism exists to remove. */
-  /* Anchored on the dots' own markup and the guard immediately above it,
-     rather than on a function name this file would have to keep in step. */
+test('the rail dots are a POSITION and do not retire', () => {
+  /* THIS TEST USED TO SAY THE OPPOSITE: "the dots under the coaching rail
+     are that rail's hint, and retire with it -- three grey dots under the
+     thing they point at, forever, is the exact chrome this mechanism exists
+     to remove." That was right while a rail showed three panels at 33% with
+     a fourth peeking: the geometry said "there is more sideways" and the
+     dots only had to teach the gesture once.
+     Every rail is one full-width card now, on the founder's call. Nothing
+     is visible beside the panel you are on, so the dots are the only thing
+     saying which of five it is and how many there are. A position
+     indicator that disappears once you know how to swipe is a worse card,
+     not a cleaner one -- so they stay, and this asserts that they do.
+     THE SWIPE HINT STILL RETIRES. "Swipe for another day" is a hint and is
+     unchanged; the guard above this one still holds it to that. */
   const i = SRC.indexOf("'<div class=\"how-dots\"");
   assert.ok(i > -1, 'the rail dots renderer could not be found');
-  const before = SRC.slice(Math.max(0, i - 700), i);
-  assert.match(before, /if \(swipeLearned\('rail'\)\) return '';/,
-    'the dots outlive the gesture they were teaching');
+  const before = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').slice(0, SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').indexOf("'<div class=\"how-dots\""));
+  const fn = before.slice(before.lastIndexOf('function railDotCount'));
+  assert.ok(fn.indexOf("swipeLearned('rail')") === -1,
+    'the dots retire again — on a full-width rail they are the position, not the hint');
+  assert.match(fn, /if \(n < 2\) return '';/,
+    'a single-panel rail is drawing a dot, which indicates nothing');
 });
 
 test('HINT: each region marks itself learned from its own commit', () => {

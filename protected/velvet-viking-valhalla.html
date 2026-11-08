@@ -1131,7 +1131,7 @@
      so a tab sitting on a card does not read as an object on an object. */
   .sess-tab{
     display:flex; align-items:center; gap:13px; width:100%;
-    padding:13px 15px; min-height:60px;
+    padding:13px 15px; min-height:60px; text-align:center;
     background:var(--tile-sheen), var(--bg-2);
     border:1px solid var(--tile-border); border-radius:var(--tile-radius);
     cursor:pointer; text-align:left; box-shadow:none;
@@ -1142,7 +1142,13 @@
   .sess-tab::-webkit-details-marker{display:none;}
   .sess-tab::marker{content:'';}
   .sess-tab:hover{border-color:var(--bronze);}
+  /* CENTRED IN THE ROW, NOT IN WHAT IS LEFT OF IT. The chevron sits at the
+     end and is 19px of asymmetry; a title centred in the remaining space
+     lands 19px left of the row's middle, which reads as almost-centred --
+     worse than either. The spacer is the chevron's own width, so the title
+     centres against the ROW and the chevron stays where it was. */
   .sess-tab-t{flex:1 1 auto; min-width:0;}
+  .sess-tab::before{content:''; flex:0 0 19px;}
   /* The title takes the product's one label voice; the sub is a sentence
      about what is inside, so it takes the prose face at prose weight. */
   /* ---------- THE TITLE GREW INTO THE SPACE THE ICON HELD ----------
@@ -1153,11 +1159,22 @@
      is 151px of ink in a 317px column even at 17px, and the sub sits on
      one line at every size. 15px is the step that reads as a heading
      without the row starting to shout. */
-  .sess-tab-k{display:block; font-family:var(--label-face); font-size:15px;
+  /* ---------- AS BIG AS IT CAN BE, AND THAT IS BOUNDED TWICE ----------
+     Measured at three widths with the real classes, the longest of the four
+     names, "VALHALLA ANALYSIS":
+         320px phone   column 193px   fits to 21px (186px of ink)
+         360px phone   column 233px   fits to 26px
+         412px phone   column 285px   fits to 32px
+     21px is the largest that fits the NARROWEST phone, so the row never
+     wraps on any screen. It is also just under the session title's own
+     21.85px, which is the second bound and the one that matters more: a
+     tab heading bigger than the name of the session it opens inverts the
+     card's hierarchy. The two bounds land on the same number. */
+  .sess-tab-k{display:block; font-family:var(--label-face); font-size:21px;
     font-weight:700; letter-spacing:var(--label-track); text-transform:uppercase;
     color:#FFFFFF;}
-  .sess-tab-s{display:block; font-family:var(--text-face); font-size:12.5px;
-    color:var(--ink-faint); margin-top:3px; overflow-wrap:anywhere;}
+  /* .sess-tab-s is gone with the second line it styled -- see
+     sessionTabHtml(). */
   .sess-tab-c{flex:none; display:flex; align-items:center; justify-content:center;
     width:18px; color:var(--gold-text);
     transition:transform .25s;}
@@ -2142,9 +2159,54 @@
      the blueprint: the coaching rail is three columns READ TOGETHER, which
      is a different kind of thing from cards swiped one at a time. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{padding-left:0; padding-right:0;}
+  /* ---------- THE STAGE CARD IS A PHOTOGRAPH ----------
+     The card the founder drew is a picture with the figures over it, and
+     the peek either side is what says the rail is a rail -- so the panel
+     is 84% rather than 100% and its neighbours show at both edges. That is
+     the founder's second drawing: a card carried IN a rail rather than
+     filling it. The dots stay underneath either way.
+     The image ships as an asset at two widths, which is the convention
+     this product already has for a photograph (valhalla-mountains-420 and
+     -820, swapped on the same breakpoint). A data URI would have put
+     50KB of base64 into a file that is already 3.5MB and is parsed on
+     every launch.
+     THE SCRIM IS NOT DECORATION. White figures over a sunrise fail
+     contrast on the bright half of the frame; the gradient is what makes
+     them legible, and it is heaviest exactly where the text sits. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod{
-    flex:0 0 100%; min-width:0; padding-left:0; padding-right:0;}
+    flex:0 0 84%; padding-left:5px; padding-right:5px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{
+    position:relative; overflow:hidden; min-height:184px;
+    display:flex; flex-direction:column; justify-content:flex-end;
+    padding:16px 14px 18px;
+    background-image:url('/assets/dawn-road-820.jpg');
+    background-size:cover; background-position:50% 34%;}
+  /* ---------- THE SCRIM IS SIZED BY MEASUREMENT, NOT BY EYE ----------
+     First attempt put the figures mid-card over the sun and ran a gentle
+     gradient under them. Sampled against the pixels actually behind each
+     run: "2km" white on L=0.55 came out at 1.75:1, "Easy" at 2.28, the
+     pace band at 3.49 -- all under 4.5, and the first two under the 3.0
+     that even large text needs. A photograph is not a background until the
+     words on it are legible.
+     So the text sits at the FOOT of the card, where the frame is darkest
+     to begin with, and the scrim is near-opaque under it and clear at the
+     top where the sunrise is the point. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step::after{
+    content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+    background:linear-gradient(to bottom,
+      rgba(8,6,10,.10) 0%, rgba(8,6,10,.30) 34%,
+      rgba(8,6,10,.80) 62%, rgba(8,6,10,.94) 100%);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step > *{position:relative; z-index:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{height:100%;}
+  /* The three columns, laid out in place. Everything else about a .how-mod
+     -- its padding, its type, the air inside it -- is the component's and
+     is untouched; what changes is that these do not scroll and none of
+     them is selected. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols{
+    display:flex; align-items:flex-start; gap:0; padding:0 0 4px; margin:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols .how-mod{
+    flex:1 1 0; min-width:0; opacity:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols .how-mod::before{content:none;}
   /* ---------- TWO HAIRLINES, AND THEY FADE ----------
      The coaching columns had nothing between them. Two decorative rules
      now separate the three, and they are decoration rather than table
@@ -2152,8 +2214,8 @@
      gradient that dissolves at BOTH ends, so it never meets the panel's
      edge. Drawn on the SECOND and THIRD panels, which is exactly two for
      three columns and stays correct if a column is ever dropped. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-rail .how-mod + .how-mod{position:relative;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-rail .how-mod + .how-mod::after{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols .how-mod + .how-mod{position:relative;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols .how-mod + .how-mod::after{
     content:''; position:absolute; left:0; top:14%; bottom:14%; width:1px;
     background:linear-gradient(to bottom,
       transparent 0%,
@@ -2179,7 +2241,17 @@
        of text -- and EXECUTION is one word with nowhere to break. The floor
        means a narrow phone keeps two and a half panels rather than
        overflowing a word. */
-    display:block; flex:0 0 33%; min-width:122px; box-sizing:border-box;
+    /* ---------- ONE CARD AT A TIME, IN EVERY RAIL ----------
+       33% put three panels on screen with a fourth peeking, and the 122px
+       floor existed because a third of a 360px phone is 83px of text with
+       nowhere for EXECUTION to break. Full width retires both numbers: a
+       panel is a card now, it gets the whole column, and the dots
+       underneath say how many there are. Applied to the component rather
+       than to one rail, so the blueprint, the execution phases and the
+       fuel facts all read the same way -- which is the founder's rule:
+       every rail follows it. The coaching columns are no longer a rail at
+       all and are laid out by .how-cols below. */
+    display:block; flex:0 0 100%; min-width:0; box-sizing:border-box;
     /* THE AIR IS INSIDE THE MODULE, NOT AROUND IT, AND THAT IS FORCED.
        A glow that overspills has to overspill into something, and it cannot
        be the rail: overflow-x:auto makes the other axis clip too (CSS
@@ -3204,7 +3276,16 @@
      how HR is treated in the Pace Reference and Plan HQ zone cards. */
   .day-targets .hr{color:var(--ink-faint);}
   .day-desc{ color:var(--ink-dim); margin-top:6px;}
-  .day-desc-race{text-align:center;}
+  /* ---------- THE SESSION'S OWN WORDS ARE CENTRED ----------
+     .day-desc-race centred the race lede alone, on the reasoning that it
+     was a statement about the day rather than a prescription for it. The
+     founder has extended that to the session description everywhere: it
+     sits under a centred heading, above centred rail cards, above a
+     centred Coach's Note, and was the one left-aligned line in a column of
+     centred ones. Scoped to the FOCUSED session, because in a list the
+     description is one line among many and centring prose there makes a
+     ragged column of it. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-desc{text-align:center;}
   /* card accordion -- same max-height technique as the week accordion above,
      so both behave identically. The header row stays put; the detail and the
      logging drawer collapse. */
@@ -3824,6 +3905,9 @@
   }
   @media (max-width:480px){
     .modal-decision-hero{ background-image:url('/assets/valhalla-mountains-420.jpg'); }
+    /* The same swap for the stage card's photograph. */
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{
+      background-image:url('/assets/dawn-road-420.jpg'); }
   }
   .modal-decision .modal-head, .modal-decision .modal-body{
     position:relative; z-index:1;
@@ -28277,7 +28361,13 @@ function railDotsHtml(gd, dd, hasStaged, fuelOn){
    pointing at. */
 function railDotCount(n){
   if (n < 2) return '';
-  if (swipeLearned('rail')) return '';
+  /* THE DOTS STAY. They used to disappear once swipeLearned('rail') was
+     true, because they were a HINT -- "there is more sideways" -- and a
+     hint has done its job once it is learned. A rail of full-width cards
+     shows exactly one panel, so the dots are no longer the hint: they are
+     the only thing saying which of five you are looking at and how many
+     there are. A position indicator that vanishes once you know how to
+     swipe is a worse card, not a cleaner one. */
   var dots = '';
   for (var i=0; i<n; i++) dots += '<span class="how-dot"></span>';
   return '<div class="how-dots" aria-hidden="true">'+dots+'</div>';
@@ -28350,8 +28440,7 @@ function renderCoachingDepth(dd, pre){
   if (!g || (dd.type==='rest' && level!=='novice')){
     return ((preBlock && asTab)
       ? '<details class="fuel-card how-card is-tab">'+'<summary class="sess-tab">'+
-      sessionTabHtml('Session Details',
-        'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
+      sessionTabHtml('Session Details')+
     '</summary>'+preBlock+'</details>'
       : preBlock)+(dd.type==='rest' ? restCoachHtml() : '');
   }
@@ -28488,8 +28577,7 @@ function renderCoachingDepth(dd, pre){
         ((!asTab && focusedCard) ? ' open' : '')+'>'+
       (asTab
         ? '<summary class="sess-tab">'+
-            sessionTabHtml('Session Details',
-              'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
+            sessionTabHtml('Session Details')+
           '</summary>'
         : (focusedCard
             ? '<summary class="is-static">'+ICONS.info+'How to run this</summary>'
@@ -28511,11 +28599,17 @@ function renderCoachingDepth(dd, pre){
          and which is not being traded for a layout. */
       /* data-hswipe: the page pager stands down for this region before it
          looks at overflow, which the rail no longer advertises. */
-      /* .how-rail names the COACHING rail specifically. The fuel rail, the
-         execution rail and the blueprint are all .fuel-body too, and the
-         separating hairlines belong to this one: three columns read
-         together, where the others are cards swiped one at a time. */
-      '<div class="fuel-body how-rail" data-hswipe="1">'+
+      /* ---------- NOT A RAIL: THREE COLUMNS, READ TOGETHER ----------
+         It was a rail when it had four panels and the fourth had to be
+         swiped to. Execution's one-sentence panel is gone wherever the
+         session has a staged shape, so this is three -- and three fit. A
+         rail that never needs swiping is a rail that hides a third of
+         itself behind a gesture nobody makes.
+         So: no .fuel-body (the track, the hidden scrollbar and the
+         focus-driven transform all belong to that class), no data-hswipe,
+         no dots, and no selected panel -- all three are lit, because with
+         all three on screen there is nothing to select. */
+      '<div class="how-cols">'+
         mod('why', row('Why', gd.why))+
         /* Only when Execution is a SENTENCE. A staged execution -- SETTLE,
            PRESS, RECOVER, ABSORB, each with its own pace and instruction --
@@ -28536,7 +28630,8 @@ function renderCoachingDepth(dd, pre){
          a focused session, where there is no rail to indicate.
          aria-hidden: it says nothing a screen reader cannot already get by
          moving through the modules themselves. */
-      railDotsHtml(gd, dd, hasStaged, fuelOn)+
+      /* The coaching columns' dots go with the rail -- see .how-cols. The
+         other rails keep theirs, and keep them for good now. */
       /* The two tables, below the rail and above the note, in the order they
          always had. Unchanged markup and unchanged presentation -- they have
          simply stopped being asked to be something they are not. */
@@ -29148,7 +29243,9 @@ function renderDayCard(dd){
        whole block was built for, and it reads as a statement about the race
        rather than an instruction for it. The modifier is on the race line
        alone so no other day's words move. */
-    if (raceLine) return '<div class="day-desc day-desc-race">'+escapeHtml(raceLine)+'</div>';
+    /* .day-desc-race is gone: every focused description is centred now, so
+       a modifier that means "centre this one" has nothing left to say. */
+    if (raceLine) return '<div class="day-desc">'+escapeHtml(raceLine)+'</div>';
     /* ---------- A REST DAY SAYS IT ONCE ----------
        "Full rest. Legs up, hydrate, stay ahead of the block." sat between
        the title and the Coach's Note, and the note underneath it says the
@@ -29268,7 +29365,7 @@ function renderDayCard(dd){
       '<div class="log-tab">'+
         '<button type="button" class="sess-tab sess-tab-btn" data-action="toggle-log" '+
           'data-day="'+dd.id+'" aria-expanded="'+(logTabOpen(dd)?'true':'false')+'">'+
-          sessionTabHtml('Your Log', 'Distance \u00b7 Pace \u00b7 Detail')+
+          sessionTabHtml('Your Log')+
         '</button>'+
         (logTabOpen(dd) ? '<div class="log-body">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
@@ -33080,7 +33177,11 @@ function shareExport(mode){
    The subtitle tells the truth about which of those it is, because "The
    verdict / Execution review / Next steps" on a session that has none of
    them is a promise the panel cannot keep. */
-function analysisTab(dd, body, vLine, scored){
+/* `scored` is gone from the signature with the sub that was its only
+   reader -- it chose between "The verdict . Execution review . Next steps"
+   and "Not scored yet . what is missing" on the closed row. The unscored
+   state is still said, inside the panel, where it has room to say why. */
+function analysisTab(dd, body, vLine){
   /* A PAST WEEK OPENS BY DEFAULT. The analysis is the only reason to open
      an old session, so it is not hidden behind a press there. The boundary
      is the programme's own week, not a rolling seven days: a Sunday long
@@ -33092,9 +33193,7 @@ function analysisTab(dd, body, vLine, scored){
   return '<div class="wc-review">'+
     '<button type="button" class="sess-tab sess-tab-btn" data-action="view-analysis" '+
       'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      sessionTabHtml('Valhalla Analysis',
-        scored ? 'The verdict \u00b7 Execution review \u00b7 Next steps'
-               : 'Not scored yet \u00b7 what is missing')+
+      sessionTabHtml('Valhalla Analysis')+
     '</button>'+
     (open ? ((vLine ? '<div class="wc-line">'+escapeHtml(vLine)+'</div>' : '')+body) : '')+
   '</div>';
@@ -33299,7 +33398,7 @@ function renderExecutionReview(dd){
           '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
         '</div>'+ body +
       '</div>' : '');
-  return analysisTab(dd, analysisBody, vLine, true);
+  return analysisTab(dd, analysisBody, vLine);
 }
 /* Whether the marking is showing. Defaults shut: the completion screen is the
    moment, and the analysis is what the athlete opens when they want it. */
@@ -33526,10 +33625,22 @@ function titleCase(s){
    now and the width goes to the words.
    The chevron stays: it is not a decoration in front of a title, it is the
    one thing on the row that says the row opens. */
-function sessionTabHtml(title, sub){
+/* ---------- THE TAB IS ITS NAME ----------
+   Each row carried a second line listing what was inside it -- "Why .
+   Execution . Feel . Coach's Note" under SESSION DETAILS, "Distance . Pace
+   . Detail" under YOUR LOG. A contents list on a closed drawer is the row
+   describing the thing it opens, which the row already does by being
+   named; pressing it is cheaper than reading the list.
+   The second argument is gone rather than ignored: a parameter every call
+   site still fills and nothing reads is the kind of thing that quietly
+   comes back. Valhalla Analysis's sub was the one that said something the
+   name did not -- "Not scored yet" -- and that is a STATE, not a contents
+   list, so it goes where the other states on this card go: see the
+   unscored copy inside the panel, which says it at the length it deserves
+   rather than in four words on a closed row. */
+function sessionTabHtml(title){
   return '<span class="sess-tab-t">'+
       '<span class="sess-tab-k">'+escapeHtml(title)+'</span>'+
-      '<span class="sess-tab-s">'+escapeHtml(sub)+'</span>'+
     '</span>'+
     '<span class="sess-tab-c" aria-hidden="true">'+ICONS.chevronDown+'</span>';
 }
@@ -33553,8 +33664,7 @@ function renderShareLaunch(dd){
   return '<div class="share-launch">'+
     '<button type="button" class="sess-tab sess-tab-btn btn-share" data-action="share-workout" '+
       'data-day="'+id+'" aria-expanded="false" aria-controls="share-inline-'+id+'">'+
-      sessionTabHtml('Share',
-        'Templates \u00b7 Your photos \u00b7 Story or post')+
+      sessionTabHtml('Share')+
     '</button>'+
     '<div class="share-inline" id="share-inline-'+id+'"></div>'+
   '</div>';
@@ -57509,10 +57619,14 @@ function weekSlideHtml(dd, i){
   var badges = (isToday ? '<span class="wk-badge is-today font-head">Today</span>' : '')+
     (tm ? '<span class="wk-badge type-'+dd.type+' font-head">'+escapeHtml(tm.label)+'</span>' : '')+
     (dd.completed ? '<span class="wk-badge is-done font-head">Done</span>' : '');
-  var body = (dd.type === 'rest')
-    ? '<div class="wk-rest"><div class="wk-rest-k font-head">Rest Day</div>'+
-        '<div class="wk-rest-v">Recovery is the session.</div></div>'
-    : renderDayHeroBlock(dd, getDayTargets(dd));
+  /* ---------- ONE REST DAY, NOT TWO ----------
+     This branched away from the hero because a rest day had no hero to
+     show -- renderDayHeroBlock() returned '' for any day with no ring and
+     no distance. It has one now: the title at a run day's size and the
+     ring carrying "Full rest". So the branch was a workaround for a hole
+     that is filled, and leaving it meant Today showed the athlete one rest
+     day and This Week and Full Plan showed them another. */
+  var body = renderDayHeroBlock(dd, getDayTargets(dd));
   /* See renderWeekSessionBox: one gradient id per slide, or every ring but
      the first paints with nothing. */
   var uid = 'th-grad-w' + i;
@@ -57538,7 +57652,14 @@ function renderWeekDayTrack(weekNum){
   for (var k=0; k<days.length; k++) slides += weekSlideHtml(days[k], k);
   /* data-hswipe so the view pager stands down: this region owns the
      horizontal gesture, exactly as the coaching rail does on Today. */
-  return '<div class="wk-rail" data-hswipe="1" data-index="'+i+'" data-count="'+days.length+'">'+
+  /* data-week: THE RAIL CARRIES THE WEEK IT IS SHOWING. Its commit used to
+     ask the app for currentWeekNum(), which was the same thing while This
+     Week was the only screen with a day carousel. Full Plan's week screen
+     now has one too, and there the two differ: looking at week 11 and
+     swiping stepped within week 10, so the date that came back was not in
+     the week on screen, weekSelectedDay() fell through to the week's first
+     day, and the card did not move at all. */
+  return '<div class="wk-rail" data-hswipe="1" data-week="'+weekNum+'" data-index="'+i+'" data-count="'+days.length+'">'+
     '<div class="wk-track" style="transform:translate3d(-'+(i*100)+'%,0,0)">'+slides+'</div>'+
   '</div>';
 }
@@ -57550,10 +57671,14 @@ function renderWeekSessionBox(weekNum){
   var badges = (isToday ? '<span class="wk-badge is-today font-head">Today</span>' : '')+
     (tm ? '<span class="wk-badge type-'+dd.type+' font-head">'+escapeHtml(tm.label)+'</span>' : '')+
     (dd.completed ? '<span class="wk-badge is-done font-head">Done</span>' : '');
-  var body = (dd.type === 'rest')
-    ? '<div class="wk-rest"><div class="wk-rest-k font-head">Rest Day</div>'+
-        '<div class="wk-rest-v">Recovery is the session.</div></div>'
-    : renderDayHeroBlock(dd, getDayTargets(dd));
+  /* ---------- ONE REST DAY, NOT TWO ----------
+     This branched away from the hero because a rest day had no hero to
+     show -- renderDayHeroBlock() returned '' for any day with no ring and
+     no distance. It has one now: the title at a run day's size and the
+     ring carrying "Full rest". So the branch was a workaround for a hole
+     that is filled, and leaving it meant Today showed the athlete one rest
+     day and This Week and Full Plan showed them another. */
+  var body = renderDayHeroBlock(dd, getDayTargets(dd));
   /* THE CANONICAL CARD IS HERE, NOT ELSEWHERE. The overview above is a
      summary, and a summary is exactly how Today, This Week and Full Plan
      drifted apart before -- each re-deriving the same session and quietly
@@ -57617,7 +57742,11 @@ function renderWeekSessionBox(weekNum){
   /* Collapsed only. If a rest day is somehow open, the real button renders
      so there is always a way back out of the full card. */
   var isRest = dd.type === 'rest' && !weekSessionOpen;
-  return '<div class="wk-session'+(weekSessionOpen ? ' is-open' : '')+'"'+
+  /* data-week for the same reason the rail carries it: the OPEN card is
+     swipeable too, and its commit stepped within currentWeekNum() -- which
+     is wrong on every week screen but This Week. One source for "which week
+     is this", read by both gestures. */
+  return '<div class="wk-session'+(weekSessionOpen ? ' is-open' : '')+'" data-week="'+weekNum+'"'+
     (weekSessionOpen ? ' data-hswipe="1"' : '')+'>'+
     overview+
     swipeHintHtml('week', 'Swipe for another day')+
@@ -57697,7 +57826,9 @@ function wireWeekFullSwipe(card){
     var dx = t.clientX - sx;
     var w = card.offsetWidth || 1;
     if (Math.abs(dx) <= w * PAGER_COMMIT_FRACTION) return;
-    var to = weekStepDate(currentWeekNum(), dx < 0 ? 1 : -1);
+    var cardWeek = parseInt(card.getAttribute('data-week'), 10);
+    if (!(cardWeek > 0)) cardWeek = currentWeekNum();
+    var to = weekStepDate(cardWeek, dx < 0 ? 1 : -1);
     if (!to) return;
     handleWeekPickDay(to);
     pagerHaptic();
@@ -60807,8 +60938,13 @@ function wireWeekRail(rail){
     var p = g; g = null;
     if (!p || p.axis !== 'x') return;
     var w = rail.clientWidth || 1;
+    /* The week the RAIL is showing, not the week the athlete is in -- see
+       data-week in renderWeekDayTrack(). Falls back to the current week so
+       a rail rendered without the attribute behaves as it always did. */
+    var railWeek = parseInt(rail.getAttribute('data-week'), 10);
+    if (!(railWeek > 0)) railWeek = currentWeekNum();
     var to = (Math.abs(p.dx) > w * PAGER_COMMIT_FRACTION)
-      ? weekStepDate(currentWeekNum(), p.dx < 0 ? 1 : -1) : null;
+      ? weekStepDate(railWeek, p.dx < 0 ? 1 : -1) : null;
     track.classList.add('is-settling');
     if (!to){ setX(base()); return; }
     /* Settle to where the new day will sit, THEN re-render. The fresh track

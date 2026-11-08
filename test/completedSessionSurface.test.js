@@ -386,7 +386,7 @@ test('all four tabs are the same object, drawn from one helper', () => {
      above a plain text button -- which is why there is a helper at all. If
      either stops using it, they are free to drift again. */
   const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
-  assert.match(src, /function sessionTabHtml\(title, sub\)/,
+  assert.match(src, /function sessionTabHtml\(title\)/,
     'the shared session tab is gone');
   assert.match(src, /sessionTabHtml\('Session Details'/,
     'Session Details is no longer drawn from the shared tab');
@@ -479,8 +479,15 @@ test('closing the log on purpose keeps it closed, empty or not', () => {
  * that would have said what was missing.
  */
 const tabsOn = (a, d) => [...a.renderDayCard(d).matchAll(/sess-tab-k">([^<]*)</g)].map(m => m[1]);
-const analysisSub = (a, d) =>
-  (a.renderDayCard(d).match(/Valhalla Analysis<\/span><span class="sess-tab-s">([^<]*)</) || [])[1] || '';
+/* THE SUB IS GONE FROM EVERY TAB -- the founder's call: a row names what
+   it opens and a contents list under it is the row describing itself. What
+   this helper read no longer exists, so what it returns is the ANALYSIS
+   BODY: the panel is where scored and unscored now differ. */
+const analysisBody = (a, d) => {
+  const c = a.renderDayCard(d);
+  const i = c.indexOf('Valhalla Analysis');
+  return i < 0 ? '' : c.slice(i).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+};
 
 test('every finished session gets all four tabs, however little is logged', () => {
   const a = app();
@@ -511,13 +518,25 @@ test('the analysis tab does not promise a verdict it has not got', () => {
   const distOnly = ds[0];
   distOnly.completed = true;
   distOnly.actual = Object.assign(a.emptyActual(), { km: distOnly.km });
-  assert.match(analysisSub(a, distOnly), /Not scored yet/,
-    'an unscored session advertises a verdict it cannot produce');
+  /* THE PROMISE WAS THE SUB, AND IT WENT WITH IT. This guarded against
+     "The verdict . Execution review . Next steps" appearing on a session
+     with none of them -- a promise made by the contents list under the tab
+     name. With no contents list the tab makes no claim about what is
+     inside, so the defect this was written for cannot occur: it is not
+     that the promise is now kept, it is that none is made.
+     WHAT IS LEFT TO PROTECT is that the panel still tells the two apart,
+     and it does -- an unscored session gets the completion assessment and
+     not an execution verdict. Worth recording plainly: the CLOSED row no
+     longer distinguishes them, which it used to. */
+  assert.ok(a.renderDayCard(distOnly).indexOf('sess-tab-s') === -1,
+    'the analysis tab is advertising its contents again');
+  assert.doesNotMatch(analysisBody(a, distOnly), /Execution Review[\s\S]{0,200}Verdict/,
+    'an unscored session is showing an execution verdict it cannot produce');
 
   const full = ds[1];
   logAsPrescribed(a, full, { quality: 1 });
-  assert.match(analysisSub(a, full), /The verdict/,
-    'a scored session stopped naming what it holds');
+  assert.match(analysisBody(a, full), /Execution Review/,
+    'a scored session stopped showing its execution review');
 
   /* And opening the unscored one says what would score it. */
   a.analysisOpenFor[distOnly.id] = true;

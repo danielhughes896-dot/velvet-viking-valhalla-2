@@ -133,8 +133,12 @@ test('the rail moves the FOCUS, and moves itself only when it must', () => {
   /* .how-rail names the COACHING rail specifically: the hairlines between
      its three columns belong to it and not to the fuel, execution or
      blueprint rails, which are cards swiped one at a time. */
-  assert.match(SRC, /<div class="fuel-body how-rail" data-hswipe="1">/,
-    'without data-hswipe the page pager claims the rail, because it can no longer see a scroller');
+  /* The coaching columns are NOT a rail any more -- three fit, and a rail
+     that never needs swiping hides a third of itself behind a gesture
+     nobody makes. They have no .fuel-body, no data-hswipe and no dots; see
+     .how-cols. What this line protects now is the rails that remain. */
+  assert.match(SRC, /<div class="how-cols">/,
+    'the coaching columns are gone or renamed');
   assert.match(SRC, /<div class="fuel-body ws-rail" data-hswipe="1">/,
     'the blueprint rail has lost data-hswipe, so the page pager will claim it');
   const mod = focusRule('.how-mod');
@@ -148,12 +152,17 @@ test('the rail moves the FOCUS, and moves itself only when it must', () => {
      column is NaN%" instead of naming a width that was actually inside the
      range. A guard that cannot parse a legal value reports a fault that is
      not there. */
+  /* THE RANGE INVERTED, BY INSTRUCTION. 24-36% existed so three panels
+     landed whole with a fourth peeking -- "there is more sideways" said by
+     geometry. Every rail is one card at a time now and the DOTS say it
+     instead, which is why they also stopped retiring once learned. A panel
+     narrower than the rail would now be the fault: it would mean a card
+     that does not fill the card. */
   const w = Number((mod.match(/flex:0 0 (\d+(?:\.\d+)?)%/) || [])[1]);
   assert.ok(Number.isFinite(w),
     'could not read the rail column width from: ' + (mod.match(/flex:[^;]*/) || [''])[0]);
-  assert.ok(w >= 24 && w <= 36,
-    'the rail column is ' + w + '% -- at that width it is a panel, not a column, ' +
-    'and nothing else is visible beside it');
+  assert.equal(w, 100,
+    'the rail column is ' + w + '% -- every rail is one full-width card now, and the dots are what say there is more');
 });
 
 test('the tables render below the rail, not inside it', () => {
