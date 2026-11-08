@@ -586,8 +586,22 @@ test('no surface renders a day card by a route of its own', () => {
      into two different ideas of what a week looks like. */
   assert.match(code, /var daysHtml = '<div class="pw-rows">'\+planWeekRowsHtml\(weekNum\)/,
     'the week accordion must list its sessions through the shared row renderer');
-  assert.match(code, /function renderPlanWeekView\(weekNum\)\{[\s\S]*?planWeekRowsHtml\(weekNum\)/,
-    'the week screen must list through the same one');
+  /* THE WEEK SCREEN NO LONGER LISTS. It used to render seven rows of its
+     own, which is why this asserted it listed through the same renderer the
+     accordion does. On the founder's call it is now This Week exactly --
+     the day circles, the swipeable session box and the zone breakdown --
+     built from THOSE functions rather than from a second set that looks
+     like them. So the claim this line was making ("the two cannot drift
+     into two different ideas of what a week looks like") is stronger now
+     and asserted where it lives: the screen reaches This Week's own
+     components, and through renderWeekSessionBox it reaches the one
+     canonical day card like every other surface. */
+  assert.match(code, /function renderPlanWeekView\(weekNum\)\{[\s\S]*?renderWeekDaySelector\(weekNum\)/,
+    'Full Plan\u2019s week screen has stopped using This Week\u2019s day circles');
+  assert.match(code, /function renderPlanWeekView\(weekNum\)\{[\s\S]*?renderWeekSessionBox\(weekNum\)/,
+    'Full Plan\u2019s week screen has stopped using This Week\u2019s session box');
+  assert.doesNotMatch(code, /function renderPlanWeekView\(weekNum\)\{[\s\S]*?planWeekRowsHtml/,
+    'the week screen is listing rows again as well as showing the card — two presentations of one week');
   assert.doesNotMatch(code, /map\(renderDayCard\)/,
     'a surface is rendering a list of session cards again');
   assert.match(code, /function renderRaceDayEvent\(weekNum\)\{[\s\S]*?renderDayCard\(race\)/,

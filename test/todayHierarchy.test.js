@@ -290,14 +290,33 @@ const CSS_BARE = CSS_ALL.replace(/\/\*[\s\S]*?\*\//g, '');
 const restDay = a => a.state.days.filter(d =>
   d.type === 'rest' && a.displayCardTitle(d) === 'Rest Day')[0];
 
-test('a rest day has the run day’s title, and no distance', () => {
+test('a rest day has the run day’s title AND its ring', () => {
   const a = app();
   const dd = restDay(a);
   assert.ok(dd, 'sanity: the fixture has a plain rest day');
   const hero = a.renderDayHeroBlock(dd, a.getDayTargets(dd));
   assert.match(hero, /th-hero-title">Rest Day</, 'the rest day has lost its title again');
   assert.match(hero, /th-hero-rest/, 'the rest hero is unmarked, so it cannot reserve anything');
-  assert.ok(hero.indexOf('th-ring-wrap') === -1, 'a rest day has grown a target ring');
+
+  /* THE RING IS REAL NOW. It was reserved space with nothing drawn in it,
+     which made the rest day the same SHAPE as a run day rather than the
+     same thing. A rest day has no pace and no band -- it has one
+     instruction, and the ring is where this card states what the session
+     is aimed at, so the instruction goes in it. The arc is the ordinary
+     one: a rest day is a prescribed session like any other, and a
+     different ring would say it is a different KIND of day. */
+  assert.match(hero, /th-ring-wrap/, 'the rest day has lost its ring');
+  assert.match(hero, /th-row th-row-rest">Full rest</, 'the ring no longer carries the day’s instruction');
+  assert.match(hero, /class="th-arc"/, 'the rest ring is drawn differently from every other day’s');
+
+  /* AND NOT EVERY type:'rest' DAY GETS IT. An optional run carries the same
+     type and is the opposite instruction -- a run is available on it -- so
+     "Full rest" on its ring would be the card contradicting its own offer.
+     This shipped to the suite once and three guards in optionalRunProduct
+     and optionalRunCard caught it. */
+  const opt = a.state.days.filter(d => d.type === 'rest' && a.optionalRunDayState(d))[0];
+  if (opt) assert.ok(a.renderDayHeroBlock(opt, a.getDayTargets(opt)).indexOf('Full rest') === -1,
+    'an optional run is telling the athlete to rest fully on the same card that offers them a run');
 
   /* A DAY THAT IS NOT REST AND HAS NEITHER still renders nothing, which is
      what this function did for everything before the rest case existed. */
@@ -330,27 +349,40 @@ test('the rest hero reserves the real figure, not a number for its height', () =
      every width rather than at 412px. */
   assert.match(CSS_BARE, /\.th-ring\{--th-ring-size:clamp\(/, 'the ring no longer states its size as a token');
   assert.match(CSS_BARE, /\.th-dist\{--th-dist-size:clamp\(/, 'the figure no longer states its size as a token');
-  assert.match(CSS_BARE, /\.th-hero-rest\{\s*--th-ring-size:clamp\([^)]*\);\s*min-height:calc\(var\(--th-ring-size\)/,
-    'the rest hero no longer reserves the ring’s height from the ring’s own clamp');
+  /* THE RING'S RESERVE IS GONE because the ring is drawn. What is left to
+     reserve is the figure, and only the figure: a rest day has no distance
+     and never will, and that space is what puts its title on a run day's
+     line. */
+  assert.ok(!/\.th-hero-rest\{[^}]*min-height/.test(CSS_BARE),
+    'the rest hero reserves the ring’s height again, on top of a ring that is now really there');
 });
 
-test('the reserve comes off where the hero stops being a row', () => {
-  /* Below 360 the hero stacks and the text is simply first, so a run day's
-     title is already at the top of its box. Left on, the reserve pushed the
-     rest day's title BELOW the run day's -- the fault it exists to fix,
-     inverted, at the width nobody looks at. Measured at 360: 109 for all
-     three with this, 126 for the rest day without it. */
-  /* THERE ARE TWO @media (max-width:360px) BLOCKS in this sheet, and the
-     first one does not stack the hero. indexOf() found that one and
-     reported the guard as measuring nothing. The block is located by the
-     rule it must contain, then walked back to its own query. */
+test('the reserve holds at every width', () => {
+  /* It used to come off below 360, because the rest hero ALSO reserved the
+     ring's height and the two together pushed the title below a run day's
+     in the stacked layout. The ring is drawn now, that reserve is gone, and
+     in a column the title is first either way -- so the figure's reserve
+     moves nothing, and keeping it makes the stacked hero the same height as
+     a run day's instead of 55px shorter.
+     Measured across the breakpoint, rest / long / easy:
+        320  title 107/107/107   hero 224/224/224
+        360  title 109/109/109   hero 240/240/240
+        412  title 136/136/136   hero 158/158/158
+     (At 361 the EASY title sits higher because "Pre-Goal Shakeout" wraps to
+     two lines there -- content length, and a rest day whose title wrapped
+     would do the same.)
+     THERE ARE TWO @media (max-width:360px) BLOCKS in this sheet and the
+     first does not stack the hero, so the block is found by the rule it
+     must contain and walked back to its own query. */
   const stack = CSS_BARE.indexOf('.th-hero{flex-direction:column;}');
   assert.ok(stack > -1, 'the hero no longer stacks at any width, so this guard is measuring nothing');
   const i = CSS_BARE.lastIndexOf('@media (max-width:360px){', stack);
   assert.ok(i > -1, 'the hero stacks outside the 360px breakpoint now');
   const block = CSS_BARE.slice(i, CSS_BARE.indexOf('\n  }', stack));
-  assert.match(block, /\.th-hero-rest\{min-height:0;\}/, 'the rest hero keeps reserving a ring that is no longer beside it');
-  assert.match(block, /\.th-dist-hold\{display:none;\}/, 'the figure reserve survives into the stacked layout');
+  assert.ok(!/\.th-dist-hold/.test(block),
+    'the figure reserve is switched off in the stacked layout again, which makes the rest hero shorter than a run day\u2019s');
+  assert.ok(!/\.th-hero-rest/.test(block),
+    'the rest hero is overridden in the stacked layout again');
 });
 
 test('a rest day is coached, and says it once', () => {
@@ -372,7 +404,12 @@ test('a rest day is coached, and says it once', () => {
   /* AND THE STAGE DIRECTIONS GO. "Full rest. Legs up, hydrate" said in
      instructions what the note says as coaching. */
   assert.ok(card.indexOf('day-desc') === -1, 'the rest day is printing a description again, above a note that says it better');
-  assert.ok(card.indexOf('Full rest') === -1, 'the rest day description is back');
+  assert.ok(card.indexOf('Legs up') === -1, 'the rest day description is back');
+  /* "Full rest" is not gone -- it MOVED. It is the ring's one row now,
+     which is where this card states what a session is aimed at. What went
+     is the paragraph of stage directions it used to open. */
+  assert.equal((card.match(/Full rest/g) || []).length, 1,
+    'the rest instruction is not in exactly one place');
 
   /* A NOVICE'S REST DAY TAKES THE OTHER PATH through renderCoachingDepth --
      the early return is gated on level!=='novice', so a novice falls all

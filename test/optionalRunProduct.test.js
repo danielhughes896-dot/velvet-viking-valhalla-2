@@ -184,7 +184,14 @@ test('3. a protected rest day still renders Rest, and offers nothing', () => {
        stage directions. The day still says what it is for; this checks the
        sentence that now says it. */
     assert.match(html, /Rest is part of the plan/, d.date + ' keeps the rest instruction');
-    assert.doesNotMatch(html, /Full rest/, d.date + ' is printing the old stage directions again');
+    /* The stage directions were "Full rest. Legs up, hydrate, stay ahead of
+       the block." Those two words have since MOVED to the ring, which is
+       where this card states what a session is aimed at -- so the phrase to
+       check is the part that went, and "Full rest" must appear exactly
+       once, on the ring. */
+    assert.doesNotMatch(html, /Legs up/, d.date + ' is printing the old stage directions again');
+    assert.equal((html.match(/Full rest/g) || []).length, 1,
+      d.date + ' does not state its instruction exactly once');
     assert.doesNotMatch(html, /optional-block/, d.date + ' must not be invited to run');
     assert.doesNotMatch(html, /Log a run/, d.date + ' must not offer logging');
     assert.equal(a.optionalRunDayState(d), null);

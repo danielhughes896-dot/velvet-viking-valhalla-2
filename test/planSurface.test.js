@@ -1038,3 +1038,52 @@ test('a phase says its state in colour, and still says it in words', () => {
   assert.match(rule('.pp-head'), /align-items:center/,
     'the phase head no longer centres its row, so the chevron drifts off the title');
 });
+
+test('a week is a week on whichever screen it is', () => {
+  /* Full Plan's week screen was a list of seven rows while This Week was
+     circles, a swipeable card and a way in: two presentations of one object.
+     On the founder's call they are the same thing now, built from the SAME
+     functions rather than a second set that resembles them --
+     renderWeekDaySelector and renderWeekSessionBox, both of which already
+     took a weekNum rather than assuming the current week, which is what
+     made this a re-use and not a rewrite.
+     Measured on the rebuilt screen at 412px: container 18px gap / 26px top
+     (This Week's rhythm, not the plan screens' 12/18), hero 158px with a
+     144px ring (so the focused-session scope is reaching it), and the way
+     in rendering at 52px in cherry — the same button Race Day carries. */
+  const a = app();
+  const html = a.renderPlanWeekView(3);
+  assert.match(html, /class="view-plan-week view-week"/,
+    'the week screen no longer wears .view-week, so none of This Week’s scope reaches it');
+  assert.match(html, /class="wk-days"/, 'the week screen has lost the day circles');
+  assert.match(html, /class="wk-rail"/, 'the week screen has lost the swipeable session box');
+  assert.ok(html.indexOf('pw-rows') === -1,
+    'the week screen is listing rows again as well — two presentations of one week');
+
+  /* THE ACCORDION STILL LISTS. Inside a phase on Full Plan a week is one
+     row, and that is a different job from the week's own screen. */
+  assert.match(a.renderWeeksList(true), /class="pw-rows"/,
+    'the phase accordion has stopped listing its weeks');
+
+  /* A WEEK THAT IS NOT THIS WEEK STILL RESOLVES A DAY. weekSelectedDay()
+     falls back to today-if-in-this-week and otherwise the week's first day,
+     so a past week opens on its own first day with no new state to keep. */
+  const past = a.renderPlanWeekView(1);
+  assert.match(past, /class="wk-day/, 'a past week renders no day circles');
+  assert.match(past, /wk-slide/, 'a past week resolves no session to show');
+});
+
+test('a day circle is one size, whatever else the week contains', () => {
+  /* This Week always has seven. Full Plan's week screen does not: the first
+     week of a block can be three days, and the race week is six. At
+     flex:1 1 0 with aspect-ratio 1/1 that gave each circle a THIRD of the
+     row -- 122px against 48px, as tall as it was wide -- and the week
+     opened on three dinner plates.
+     The cap is a seventh of the row, which is what a circle measures in a
+     seven-day week, and the row packs from the left. For seven the two are
+     identical: seven caps plus six 7px gaps is exactly 100%. */
+  assert.match(rule('.wk-day'), /max-width:calc\(\(100% - 42px\) \/ 7\)/,
+    'a day circle is uncapped again, so a short week draws it oversized');
+  assert.match(rule('.wk-days'), /justify-content:flex-start/,
+    'a short week’s circles are being strung across the full width again');
+});

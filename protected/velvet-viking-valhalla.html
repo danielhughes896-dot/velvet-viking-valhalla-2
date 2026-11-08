@@ -1793,9 +1793,6 @@
      EXISTING align-items:center put the title in the same place. Nothing
      here positions the title; it restores the conditions the centring
      already had. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-rest{
-    --th-ring-size:clamp(116px, 35vw, 144px);
-    min-height:calc(var(--th-ring-size) + 14px);}
   /* THE RESERVE IS THE ELEMENT, NOT A NUMBER FOR ITS HEIGHT. First attempt
      was a ::after of --th-dist-size, the figure's own font-size at
      line-height 1 -- and it landed the title 4px low, because .th-dist is a
@@ -2712,8 +2709,13 @@
        because the ring sits under the words, and reserving 200px of empty
        column on a rest day would be a hole, not an alignment. The LINE is
        what has to match, and it does. */
-    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-rest{min-height:0;}
-    .th-dist-hold{display:none;}
+    /* THE FIGURE'S RESERVE STAYS AT EVERY WIDTH NOW. It used to come off
+       here, because the rest hero also reserved the RING's height and the
+       two together pushed the title below a run day's in the stacked
+       layout. The ring is real now, so that reserve is gone and this one
+       is all that is left -- and in a column the title is first either
+       way, so it moves nothing. Keeping it makes the stacked hero the same
+       height as a run day's instead of 55px shorter. */
     :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row{flex-direction:column;}
   }
   @media (prefers-reduced-motion:reduce){
@@ -5480,9 +5482,22 @@
   .view-plan .yr-next .yr-why{color:var(--ink); max-width:none;}
 
   /* ---- THE SEVEN DAYS ---- */
-  .wk-days{display:flex; gap:7px; justify-content:space-between;}
+  /* flex-start, not space-between, and the two are IDENTICAL for a full
+     week: seven circles capped at a seventh of the row plus six 7px gaps
+     comes to exactly 100%. They differ only for a SHORT week, which is a
+     case This Week never had and Full Plan's week screen does -- the first
+     week of a block can be three days. space-between would have strung
+     three circles across the full width; flex-start packs them from the
+     left, where a full week's start. */
+  .wk-days{display:flex; gap:7px; justify-content:flex-start;}
+  /* CAPPED AT A SEVENTH OF THE ROW, which is what a circle measures in a
+     seven-day week. Without it a three-day week gave each circle a third of
+     the row -- 122px against 48px, aspect-ratio making them as tall -- and
+     the week's first screen opened on three dinner plates. A day is the
+     same size whatever else the week contains. */
   .wk-day{
-    flex:1 1 0; min-width:0; aspect-ratio:1/1; display:flex; flex-direction:column;
+    flex:1 1 0; min-width:0; max-width:calc((100% - 42px) / 7);
+    aspect-ratio:1/1; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:1px;
     border-radius:50%; border:1px solid var(--t-tile-rim);
     background:var(--t-tile); color:var(--ink-dim); padding:0;
@@ -6050,7 +6065,10 @@
   /* =======================================================
      FULL PLAN -- the week and the session, each its own screen.
      ======================================================= */
-  .view-plan-week, .view-plan-session{display:flex; flex-direction:column; gap:12px; padding-top:18px;}
+  /* .view-plan-week has come OUT of this rule: it wears .view-week now and
+     takes that screen's rhythm (18px gap, 26px top) rather than keeping a
+     second one of its own. Two week screens, one spacing. */
+  .view-plan-session{display:flex; flex-direction:column; gap:12px; padding-top:18px;}
   .pv-top{display:flex; align-items:center; gap:12px;}
   /* chevronRight turned around rather than a second arrow glyph added. */
   .pv-back{flex:none; width:var(--tap-min); height:var(--tap-min); border-radius:50%;
@@ -28861,6 +28879,29 @@ function renderDayTargetRing(dd, targets){
       rows += '<div class="th-row"><span class="th-ic">'+ICONS.clock+'</span>'+
         escapeHtml(secToClock(Math.round(rp.impliedSec)))+'</div>';
   }
+  /* ---------- A REST DAY GETS THE RING, AND THE RING CARRIES THE DAY -----
+     The hero reserved the ring's space and drew nothing in it, which made
+     the rest day the same SHAPE as a run day and not the same thing. A rest
+     day has no pace and no heart-rate band -- it has one instruction, and
+     the ring is where this card puts what the session is aimed at. So the
+     instruction goes in it.
+     No icon: the heart and the gauge are there because the ring prints bare
+     figures and "148-156" and "5:23/km" are both just digits until
+     something says which is which. This is a sentence; it says what it is.
+     The arc is the ordinary one. A rest day is a prescribed session like
+     any other -- it is the only one whose prescription is to do nothing --
+     and giving it a different ring would say it is a different KIND of day,
+     which is the reading this whole change exists to remove. */
+  /* NOT EVERY type:'rest' DAY IS A REST DAY. An optional run carries the
+     same type and is the opposite instruction -- a run is available on it --
+     so "Full rest" on its ring would be the card contradicting its own
+     offer. Caught by three guards in optionalRunProduct and optionalRunCard
+     the first time this shipped to the suite, which is exactly what they
+     exist for. optionalRunDayState() is the same authority the card's own
+     description branch reads, rather than a second opinion about what this
+     day is. */
+  if (!rows && dd && dd.type === 'rest' && !optionalRunDayState(dd))
+    rows = '<div class="th-row th-row-rest">'+escapeHtml(vRestInstruction())+'</div>';
   if (!rows) return '';
   var label = dayTypeLabel(dd);
   return '<div class="th-ring">'+TH_ARC+
@@ -28873,6 +28914,13 @@ function renderDayTargetRing(dd, targets){
 /* The distance as a headline rather than one item in a list of targets. The
    number and its unit are split only so they can be sized apart; both come
    from fmtDist(), so the units toggle governs this exactly as everywhere. */
+/* THE REST DAY'S ONE INSTRUCTION, WRITTEN ONCE. It used to be the opening
+   of dd.desc ("Full rest. Legs up, hydrate, stay ahead of the block.") and
+   that whole line came off the card because the Coach's Note under it said
+   the same thing better as coaching. This is the two words that belong on
+   the ring: what the session IS, in the place every other session states
+   what it is aimed at. */
+function vRestInstruction(){ return 'Full rest'; }
 function renderDayHeroDistance(dd){
   if (dd.km == null || !(dd.km > 0)) return '';
   var txt = fmtDist(dd.km);
@@ -28896,7 +28944,14 @@ function renderDayHeroBlock(dd, targets){
      Only for rest. Any other day that somehow reaches here with neither a
      ring nor a distance still renders nothing, exactly as before. */
   var isRest = dd.type === 'rest';
-  if (!ring && !dist && !isRest) return '';
+  /* The `&& !isRest` that used to be in this condition is gone, and the
+     mutation sweep is how: with the ring reserved-but-undrawn, a rest day
+     reached here with no ring and no distance and needed the escape. The
+     ring is drawn now, so `ring` is never empty for a rest day and the
+     clause could not fire -- a mutation removing it changed nothing, which
+     is what dead code looks like from the outside. A day that genuinely
+     has neither still renders nothing, exactly as before. */
+  if (!ring && !dist) return '';
   /* See .th-dist-hold: an emptied copy of the figure, so the title centres
      against the same column height a run day's does. aria-hidden because it
      says nothing -- the day's identity is the title above it. */
@@ -57683,8 +57738,26 @@ function renderPlanWeekView(weekNum){
   var range = weekDateRange(weekNum), vol = weekVolume(weekNum);
   var planned = vol.training, done = vol.doneTraining;
   var pct = planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0;
-  var rows = planWeekRowsHtml(weekNum);
-  return '<div class="view-plan-week">'+
+  /* ---------- A WEEK IS A WEEK, ON WHICHEVER SCREEN IT IS ----------
+     This was a list of seven rows while This Week was circles, a swipeable
+     card and a way in. Two presentations of one object, and the founder's
+     call is that they are the same thing: the circles carry state at a
+     glance (green done, cherry missed) where the list carried it as text,
+     and the interaction vocabulary is then identical wherever a week is.
+     THE COMPONENTS ARE THE SAME FUNCTIONS, not copies -- renderWeekDaySelector
+     and renderWeekSessionBox, both already taking a weekNum rather than
+     assuming the current week, which is what made this a re-use rather than
+     a rewrite. weekSelectedDay() already falls back to today-if-in-this-week
+     and otherwise the week's first day, so a past week opens on its Monday
+     with no new state to keep.
+     AND THE CLASS. .view-week is on this container as well, because every
+     one of those components is styled through a scope built around that
+     name -- 128 selector lists deep, plus the hero's type, ring, glow and
+     spacing. Naming .view-plan-week in all of them would be the same claim
+     written 128 times and able to drift in any one of them. The claim is
+     that both of these ARE week screens, so they wear the same class and
+     the scope follows for free. */
+  return '<div class="view-plan-week view-week">'+
     planBackBar('Week '+weekNum, phaseDividerLabel(weekNum)+' \u00b7 '+
                 dShort(range.start)+' \u2013 '+dShort(range.end))+
     '<div class="pw-progress">'+
@@ -57695,8 +57768,9 @@ function renderPlanWeekView(weekNum){
       '</div>'+
       '<div class="wk-bar"><div class="wk-bar-fill" style="width:'+pct+'%; --wk-pct:'+pct+'%"></div></div>'+
     '</div>'+
-    '<div class="pw-rows">'+rows+'</div>'+
-    renderZoneBreakdown(weekNum)+
+    renderWeekDaySelector(weekNum)+
+    renderWeekSessionBox(weekNum)+
+    '<div class="wk-summary">'+renderZoneBreakdown(weekNum)+'</div>'+
   '</div>';
 }
 /* THE SESSION, CANONICAL. renderDayCard() unchanged, wearing the same
