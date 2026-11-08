@@ -263,3 +263,77 @@ test('the week an athlete races is not interrupted by a phase insight', () => {
     'that is a new athlete-facing screen in the worst week to get one wrong — it ' +
     'needs a frame and a decision, not a passing test.');
 });
+
+/* ===========================================================================
+ * AN EDUCATION PROMPT HAS NO HAIRLINE
+ * ---------------------------------------------------------------------------
+ * The hairline sweep's recorded ruling was that the border stays at
+ * .modal-head and nowhere else. The founder has now narrowed it for these
+ * cards specifically, so this pins BOTH halves: gone here, still there on
+ * the modals the ruling was about.
+ *
+ * Measured at 412x915 across all four kinds before this was written:
+ * border-bottom 0px none, head padding-bottom 6px, title to first paragraph
+ * 16px, and no body scrolls (tallest card 384px) -- which matters, because
+ * .builder-light makes the sticky head TRANSPARENT, so on a card that did
+ * scroll the line was never what kept the title legible anyway.
+ * ======================================================================== */
+const fs = require('fs');
+const path = require('path');
+const { RUNTIME_RELATIVE } = require('./harness.js');
+const SRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+const SHEET = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+/* indexOf(sel + '{') finds the selector INSIDE a longer one -- asking for
+   `.modal-head` landed on `.modal-card.modal-decision .modal-head`, whose
+   padding-top is 150px, and reported the base rule as gone. The selector has
+   to start at a boundary, and there has to be exactly one of it. */
+const cssRule = sel => {
+  /* The boundary is the START OF A SELECTOR -- after a `}`, a newline or a
+     comma, plus indentation. `\s` is not it: the space in
+     `.modal-decision .modal-head` is whitespace too, which matched six. */
+  const re = new RegExp('(^|[}\\n,])[ \\t]*' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{', 'g');
+  const hits = [...SHEET.matchAll(re)];
+  assert.equal(hits.length, 1, 'expected exactly one rule for ' + sel + ', found ' + hits.length);
+  const i = hits[0].index + hits[0][0].length;
+  return SHEET.slice(i, SHEET.indexOf('}', i));
+};
+
+test('the education prompt opens as a ci-modal, which is what the rule hangs on', () => {
+  /* The class is the whole mechanism. Renaming it in the one openModal call
+     takes the rule off every education prompt in the product silently. */
+  /* indexOf, not assert.match: a failed match prints the ACTUAL value, and
+     the actual value here is the whole 60k-line runtime. It buried the
+     "# fail" line past the mutation runner's buffer and reported a guard
+     that works as one that does not. A test nobody can read the failure of
+     is not a test. */
+  assert.ok(SRC.indexOf("openModal(renderContextInsight(ins), 'modal-themed builder-light ci-modal')") > -1,
+    'the education prompt no longer opens as a ci-modal — its styling is gone with the class');
+});
+
+test('an education prompt draws no rule under its title', () => {
+  assert.match(cssRule('.ci-modal .modal-head'), /border-bottom:0/,
+    'the hairline is back under the education prompt title');
+
+  /* THE DEAD-RULE CHECK. Two earlier rules also reach this head --
+     .modal-themed and .modal-card.builder-light -- and the second of them
+     outranks this one on specificity. They are allowed to recolour a border
+     they do not draw; the moment either states a WIDTH, it wins and the line
+     comes back with every rule above still reading correctly. */
+  ['.modal-themed .modal-head', '.modal-card.builder-light .modal-head'].forEach(sel => {
+    const body = cssRule(sel);
+    assert.ok(!/border-bottom:(?!0)/.test(body) && !/border-bottom-width/.test(body),
+      sel + ' now sets a border-bottom width and outranks the education prompt’s rule — the line is back');
+  });
+  assert.ok(SHEET.indexOf('.ci-modal .modal-head{') > SHEET.indexOf('.modal-card.builder-light .modal-head{'),
+    'the education prompt’s rule has moved above builder-light’s and can no longer win');
+});
+
+test('the rule stays on the modals the sweep’s ruling was about', () => {
+  /* A restriction sheet, a settings panel, a decision sheet are FORMS: the
+     head is a bar over something the athlete is working in, and the line is
+     where that bar ends. Only the cards that say one thing and offer one
+     button lost it. */
+  assert.match(cssRule('.modal-head'), /border-bottom:1px solid var\(--modal-border\)/,
+    'the base modal head has lost its rule — this was scoped to education prompts only');
+  assert.ok(!/\.modal-card\{[^}]*ci-modal/.test(SHEET), 'sanity: ci-modal is a scoping class, not the base');
+});
