@@ -94,6 +94,27 @@ function archetypeSamples(a) {
 }
 
 const STRUCTURED = /class="ws-block"/;
+/* ---------- STRUCTURE IS THE PRESCRIPTION, NOT THE PHOTOGRAPH ----------
+   Every law in this file is the same one: an adjustment -- a cut, a
+   downgrade, a swap, a reschedule -- must not leave the day without its
+   session. That was read off the rendered .ws-block, which was a fair proxy
+   while every structured day drew one.
+   IT IS NO LONGER A FAIR PROXY. Founder: "On a Training day with 1 card -
+   we don't need the picture rail." A session whose blueprint comes to a
+   single card (an easy run, a shakeout) now draws no rail and therefore no
+   .ws-block, while its prescription and its steps are entirely intact --
+   which is what these tests are actually about. Reading the block alone
+   would call every adjusted easy run a blanked day.
+   SO IT ASKS FOR THE STRUCTURE ITSELF where the block is absent by design,
+   and still demands the block everywhere else. A day that genuinely lost
+   its prescription has neither, and still fails. */
+function structured(a, dd){
+  if (STRUCTURED.test(a.renderDayCard(dd))) return true;
+  if (!a.singleCardSession(dd)) return false;
+  let st = null;
+  try { st = a.workoutSteps(dd); } catch (e) { return false; }
+  return !!(st && st.length === 1 && a.prescriptionOf(dd));
+}
 const ADJUSTED_PANEL = /class="evo-panel adjusted-detail"/;
 
 // The whole session as the athlete is being asked to run it. Recoveries that
@@ -141,7 +162,7 @@ test('the adjusted session the athlete taps Accept on still renders its structur
   const a = fresh();
   const target = strainedReduce(a);
   const beforeKm = target.km;
-  assert.match(a.renderDayCard(target), STRUCTURED, 'the session is structured before the adjustment');
+  assert.ok(structured(a, target), 'the session is structured before the adjustment');
 
   a.handleCoachAccept(target.id);
   const dd = a.findDay(target.id);
@@ -150,7 +171,7 @@ test('the adjusted session the athlete taps Accept on still renders its structur
   assert.ok(dd.km < beforeKm, 'and it really shortened the session');
   assert.ok(a.prescriptionOf(dd), 'the prescription survived the cut');
   const card = a.renderDayCard(dd);
-  assert.match(card, STRUCTURED, 'the structured workout must survive the adjustment');
+  assert.ok(structured(a, dd), 'the structured workout must survive the adjustment');
   assert.match(card, ADJUSTED_PANEL, 'and the adjustment panel must still be there');
 });
 
@@ -188,7 +209,7 @@ test('every archetype the generator emits renders a structured workout to begin 
   assert.ok(names.length >= 15, 'the fixture must cover the real vocabulary, saw ' + names.length);
   names.forEach(arch => {
     const dd = a.findDay(samples[arch]);
-    assert.match(a.renderDayCard(dd), STRUCTURED, arch + ' must render structured before any adjustment');
+    assert.ok(structured(a, dd), arch + ' must render structured before any adjustment');
   });
 });
 
@@ -235,7 +256,7 @@ function blankedAfterCut(frac) {
     const cut = Math.max(1, Math.round(dd.km * frac * 2) / 2);
     dd.km = cut;
     a.rescaleOrDropPrescription(dd, cut);
-    if (!STRUCTURED.test(a.renderDayCard(dd))) blanked.push(arch);
+    if (!structured(a, dd)) blanked.push(arch);
   });
   return blanked.sort();
 }
@@ -305,7 +326,7 @@ test('strides are kept whole and only the easy running is shortened', () => {
   assert.equal(now.reps, was.reps, 'the strides themselves are prescription, not a distance to trim');
   assert.equal(now.m, was.m);
   assert.ok(now.easyKm < was.easyKm, 'the easy leg is what absorbs the cut');
-  assert.match(a.renderDayCard(dd), STRUCTURED);
+  assert.ok(structured(a, dd));
 });
 
 test('a strides session cut below a real easy run drops rather than prescribe a token one', () => {
@@ -395,7 +416,7 @@ test('a downgraded session is given the easy run it has become', () => {
   // the coach's own downgrade, as handleCoachAccept writes it
   dd.km = 6; dd.type = 'easy'; dd.title = 'Easy Aerobic';
   dd.prescription = { v: a.PRESCRIPTION_VERSION, archetype: 'easy_run', params: { km: 6 } };
-  assert.match(a.renderDayCard(dd), STRUCTURED,
+  assert.ok(structured(a, dd),
     'swapping a hard session for an easy run must not leave the day without structure');
 });
 
@@ -409,7 +430,7 @@ test('the post-race intensity ceiling leaves a structured easy run, not a bare d
   assert.equal(dd.type, 'easy');
   assert.ok(a.prescriptionOf(dd), 'the easy run the ceiling authored must carry its own structure');
   assert.equal(a.prescriptionOf(dd).archetype, 'easy_run');
-  assert.match(a.renderDayCard(dd), STRUCTURED);
+  assert.ok(structured(a, dd));
 });
 
 test('a rescheduled session brings its structure and its distance together', () => {
@@ -421,7 +442,7 @@ test('a rescheduled session brings its structure and its distance together', () 
   // exactly what evolutionChanges()'s reschedule writes
   slot.type = src.type; slot.km = src.km; slot.title = src.title; slot.desc = src.desc;
   slot.prescription = JSON.parse(JSON.stringify(src.prescription));
-  assert.match(a.renderDayCard(slot), STRUCTURED, 'the moved session keeps its workout');
+  assert.ok(structured(a, slot), 'the moved session keeps its workout');
   assert.equal(segmentKm(a, slot), segmentKm(a, src), 'and the same one, unshrunk');
 });
 
@@ -432,8 +453,19 @@ test('swapping two days moves each workout whole, structure included', () => {
   const easy = a.state.days.filter(d => d.type === 'easy' && !d.completed && d.date !== q.date)[0];
   assert.ok(easy, 'fixture needs an easy day to swap with');
   const qWorkout = a.renderStructuredWorkout(q);
-  const easyWorkout = a.renderStructuredWorkout(easy);
   const qDate = q.date, easyDate = easy.date;
+  /* ---- THE EASY SIDE IS COMPARED AS STEPS, NOT AS MARKUP ----
+     Both sides used to be compared by their rendered workout. An easy run
+     draws no rail now, so its rendered workout is the empty string on both
+     sides of the swap and that half of the law passed while asserting
+     nothing -- '' === ''. The steps are what actually moved, so they are
+     what is compared; the reps session, which still draws a rail, keeps the
+     markup comparison it always had. */
+  const stepsOf = d => JSON.stringify((() => {
+    try { return a.workoutSteps(d); } catch (e) { return null; }
+  })());
+  const easySteps = stepsOf(easy);
+  assert.notEqual(easySteps, 'null', 'the easy day has no steps to move');
 
   a.doSwapDays(q.id, easy.id);
 
@@ -441,9 +473,10 @@ test('swapping two days moves each workout whole, structure included', () => {
   const nowAtQDate = a.findDayByDate(qDate);
   assert.equal(a.renderStructuredWorkout(nowAtEasyDate), qWorkout,
     'the reps session took its whole workout with it');
-  assert.equal(a.renderStructuredWorkout(nowAtQDate), easyWorkout);
-  assert.match(a.renderDayCard(nowAtEasyDate), STRUCTURED);
-  assert.match(a.renderDayCard(nowAtQDate), STRUCTURED);
+  assert.equal(stepsOf(nowAtQDate), easySteps,
+    'the easy run did not take its own steps with it');
+  assert.ok(structured(a, nowAtEasyDate));
+  assert.ok(structured(a, nowAtQDate));
 });
 
 test('every field list that relocates a workout relocates its prescription', () => {

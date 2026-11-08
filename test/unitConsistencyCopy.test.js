@@ -63,31 +63,58 @@ const MI_WORD = /\bmiles?\b/i;
 // ---------------------------------------------------------------------------
 // 1. THE REPORTED CASE, EXACTLY AS REPORTED
 // ---------------------------------------------------------------------------
+/* ---------- THE REPORTED CASE MOVED SESSIONS, NOT MEANING ----------
+   The defect was reported on an easy run: a tester on miles was told about
+   "the first kilometre". The sentence that carried it was the easy run's
+   one-line execution copy, "hold the easy window from the first @@U@@ to
+   the last", rescued into the Coach's Note when the execution column went.
+   IT IS NOT ON AN EASY RUN ANY MORE. Founder: "On a Training day with 1
+   card - we don't need the picture rail. It also doesn't need a massive
+   coaches note!" -- so an easy day's note is now one written line
+   ("Conversational. Nothing to prove.") and that sentence is no longer
+   rendered anywhere on it.
+   THE LAW IS UNCHANGED AND STILL LIVE, so these tests follow it to a
+   session that still renders @@U@@ copy rather than being deleted with the
+   surface they were written against. A steady tempo's note says "Warm up
+   until the first hard @@U@@ does not feel like a shock", which exercises
+   exactly the same path: the token is resolved at render, through
+   displayUnitNoun, off state.units.
+   WHAT WOULD BE MISSED IF THESE WENT. A unit word hard-coded into copy, and
+   a toggle that does not re-render -- the two halves of the original bug.
+   Both are still asserted below, and the source-level sweep further down
+   this file catches hard-coded unit words in copy that no fixture renders. */
+const UNIT_CARRIER = 'steady_tempo';
+
 test('the reported sentence follows the unit selection', () => {
   const mi = app('mi');
-  const html = mi.renderCoachingDepth(dayWith(mi, 'easy_run'));
-  assert.match(html, /from the first mile to the last/,
-    'a tester on miles must be told about the first MILE');
+  const d = dayOf(mi, UNIT_CARRIER);
+  assert.ok(d, 'the fixture no longer builds a ' + UNIT_CARRIER + ' to read');
+  const html = mi.renderCoachingDepth(d);
+  assert.match(html, MI_WORD,
+    'a tester on miles must be told about MILES');
   assert.doesNotMatch(html, KM_WORD,
     'the reported defect: "kilometre" survived on a miles card');
 });
 
 test('the same sentence is unchanged for an athlete on kilometres', () => {
   const km = app('km');
-  const html = km.renderCoachingDepth(dayWith(km, 'easy_run'));
-  assert.match(html, /from the first kilometre to the last/);
+  const d = dayOf(km, UNIT_CARRIER);
+  assert.ok(d, 'the fixture no longer builds a ' + UNIT_CARRIER + ' to read');
+  const html = km.renderCoachingDepth(d);
+  assert.match(html, KM_WORD);
   assert.doesNotMatch(html, MI_WORD, 'nothing about miles belongs on a km card');
 });
 
 test('toggling units re-renders the sentence rather than freezing the first read', () => {
   const a = app('km');
-  const day = dayWith(a, 'easy_run');
-  assert.match(a.renderCoachingDepth(day), /first kilometre/);
+  const day = dayOf(a, UNIT_CARRIER);
+  assert.ok(day, 'the fixture no longer builds a ' + UNIT_CARRIER + ' to read');
+  assert.match(a.renderCoachingDepth(day), KM_WORD);
   a.state.units = 'mi';
-  assert.match(a.renderCoachingDepth(day), /first mile/,
+  assert.match(a.renderCoachingDepth(day), MI_WORD,
     'the copy is resolved on render, so a toggle is enough');
   a.state.units = 'km';
-  assert.match(a.renderCoachingDepth(day), /first kilometre/, 'and it comes back');
+  assert.match(a.renderCoachingDepth(day), KM_WORD, 'and it comes back');
 });
 
 // ---------------------------------------------------------------------------

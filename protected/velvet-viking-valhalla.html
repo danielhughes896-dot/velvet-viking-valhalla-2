@@ -2785,6 +2785,53 @@
        others. At 32px it reads as the coach stopping to say something. */
     width:100%; box-sizing:border-box; margin:32px 0 2px;
     padding:34px 26px 36px; border:0; background:none; border-radius:0;}
+  /* ---------- THE ONE-CARD DAY'S NOTE IS A CHERRY BOX ----------
+     Founder, with a mock-up of an easy day: "the cherry boarder should be
+     the same as race day rule. As wide as possible."
+     THE RACE DAY RULE, COPIED RATHER THAN RE-INVENTED: 1.5px of --cherry,
+     a --cherry-tint wash over the tile, and the same two shadows -- the
+     outer bloom and the inner glow -- that mark the work stage on a
+     session rail. One treatment for "this is the thing that matters",
+     wherever it appears.
+     AS WIDE AS POSSIBLE means the full content column: width:100% inside
+     the wrap's own 16px, which is where every other block on the card
+     stops. It is not broken out to the screen edge -- the mock-up keeps
+     that gutter, and a box needs its margin to read as a box at all.
+     LEFT-ALIGNED, against the centring above. The heading row has a mark
+     and a rule in it and reads as a letterhead; centring it would leave
+     the rule floating. This is the one note that is laid out rather than
+     simply centred, so it overrides both axes explicitly rather than
+     inheriting half of each.
+     AFTER the rule it overrides, deliberately. An earlier change in this
+     sheet put a more specific-looking rule ABOVE its sibling and lost on
+     source order with no warning; same specificity means the later one
+     wins, so it goes later. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo]{
+    align-items:stretch; text-align:left;
+    gap:2px; padding:20px 22px 24px;
+    border:1.5px solid var(--cherry); border-radius:var(--tile-radius);
+    background:var(--cherry-tint), var(--t-tile);
+    box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-head{
+    display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+  /* The mark, then a hairline, then the heading -- the divider is the
+     element's own left border rather than a third box, so it cannot fall
+     out of line with the text beside it. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-mark{
+    display:flex; flex:0 0 auto; color:var(--ink-dim);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-mark svg{
+    width:22px; height:22px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .k{
+    padding-left:12px; border-left:1px solid var(--cherry);
+    line-height:1.1;}
+  /* THE INSTRUCTION, AT THE SIZE THE FOUNDER DREW IT -- bigger than any
+     other sentence in the note, because on this day it is the session. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-lead{
+    font-family:var(--text-face); font-size:31px; font-weight:700; line-height:1.15;
+    color:#fff; letter-spacing:-0.01em; margin-top:2px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-sub{
+    font-family:var(--text-face); font-size:25px; font-weight:400; line-height:1.2;
+    color:var(--ink-dim);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
     /* FULL-BLEED LIGHT, COLUMN-ALIGNED WORDS. The note sits inside the page
@@ -3009,6 +3056,16 @@
      What the focused card still changes is what it was always for -- the
      block layout and the brighter ink. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-row .v{display:block; color:var(--ink);}
+  /* ---------- NOT ON THE TODAY CARD ----------
+     Founder: "Remove today from the top left. We're on the today card. We
+     know." The flag earns its place in This Week and in an opened Full
+     Plan week, where it marks which of several days is today; on the Today
+     tab there is only one day and the tab is already called Today.
+     DONE IN CSS, NOT IN THE MARKUP, because renderDayCard() emits ONE
+     string for all three views -- editSessionCoherence holds them
+     character-for-character identical -- so a view-conditional branch in
+     the builder would break that silently. */
+  .view-today .day .week-today-flag{display:none;}
   .how-note{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .coach-cue-inline{display:none;}
   /* The bordered, tinted rectangle that stood here is gone, not overridden:
@@ -26922,6 +26979,13 @@ var ICONS = {
   target: svgWrap('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   shieldmark: svgWrap('<path d="M12 2.5l8 3.5v5.2c0 5-3.4 8.3-8 10.3-4.6-2-8-5.3-8-10.3V6z"/><path d="M12 7.5v9M8.3 10.3L12 7.5l3.7 2.8" stroke-width="1.6"/>', ' style="color:var(--bronze)"'),
   zap: svgWrap('<path d="M12.5 2.5L4 13h6l-1 8.5L20 11h-6.5z"/>'),
+  /* THE MARK ON THE COACH'S NOTE. The founder's mock-up puts a helmet
+     beside the heading. The crest PNG was tried there first and is a
+     detailed circular lock-up: at the 22px the row allows it resolves to a
+     smudge. This is the same silhouette drawn as strokes on the 24 grid
+     every other icon here uses, so it stays crisp at that size and takes
+     currentColor like the rest. */
+  helmet: svgWrap('<path d="M4.8 17.6v-4.4a7.2 7.2 0 0 1 14.4 0v4.4h-3.9v-3.9a3.3 3.3 0 0 0-6.6 0v3.9z"/><path d="M12 10.4v9.2" stroke-width="1.7"/>'),
   /* The two the coaching rail needed and the set did not have. Same geometry
      as everything else here -- strokes on the 24 grid, no fills except the
      two eyes, no third-party glyph. "smile" is how a session should FEEL;
@@ -28993,6 +29057,10 @@ function renderStructuredWorkout(dd){
      rail here AND renderCoachingDepth would draw the execution rail below
      it -- two photograph rails saying the same session in two vocabularies,
      which is the one thing that law exists to prevent. */
+  /* ONE CARD IS NOT A RAIL -- see singleCardSession. The steps are still
+     built above, and still reach Session Details and the export; what is
+     withheld is the photograph that restated the hero. */
+  if (singleCardSession(dd)) return '';
   var body;
   if (hasWorkoutBlueprint(dd)){
     /* The fuel facts come here rather than to renderCoachingDepth's rail,
@@ -29453,6 +29521,47 @@ function renderCoachingDepth(dd, pre){
            face has just stopped printing. Same row, because both answer
            "what is this session", and never both at once -- one branch. */
         var shape = longRunIsFuelRail(dd) ? sessionShapeLine(dd) : descMovesToNote(dd);
+        /* ---------- A ONE-CARD DAY GETS ONE LINE ----------
+           Founder: "It also doesn't need a massive coaches note!" On an
+           easy run this note was running five sentences -- Why, Feel,
+           Watch For and two more underneath -- on a day whose whole
+           instruction is "run easy". It comes down to the single line the
+           founder wrote out, with no row labels, because a label is for
+           telling rows apart and there is only one.
+           WHAT LEAVES, on the 25 easy days of a full block: "Aerobic base,
+           and freshness for the hard days", "Drifting up to comfortably
+           quick", "Conversational the whole way -- if you can't talk in
+           full sentences, ease off" and "Hold the easy window from the
+           first kilometre to the last". They are not moved; on this day
+           they are gone, which is what was asked for.
+           THE FUEL CAVEATS ARE NOT PART OF THAT. caps and hints are the
+           warnings that ride a fuelled session, and no one-card session in
+           any block built so far needs fuelling -- so keeping them changes
+           nothing on screen today and means a one-card session that one
+           day does need fuelling cannot lose a caveat silently. */
+        if (singleCardSession(dd)){
+          /* ---------- THE FOUNDER'S MOCK-UP, BUILT AS DRAWN ----------
+               [crest] | COACH'S NOTE
+               Keep it easy.
+               Finish wanting more.
+             Left-aligned, inside a cherry box, with the mark and the
+             heading on one rule-separated row above the words. It is a
+             different shape from the note every other session draws --
+             which is why it is its own element with its own modifier rather
+             than the same rows restyled. */
+          var parts = singleCardNoteParts(dd);
+          if (!parts && !caps && !hints.length) return '';
+          return '<div class="how-note" data-solo="1">'+
+            '<span class="hn-head">'+
+              '<span class="hn-mark" aria-hidden="true">'+ICONS.helmet+'</span>'+
+              '<span class="k font-head">Coach\u2019s Note</span>'+
+            '</span>'+
+            (parts ? '<span class="v hn-lead">'+escapeHtml(parts.lead)+'</span>' : '')+
+            (parts && parts.sub ? '<span class="v hn-sub">'+escapeHtml(parts.sub)+'</span>' : '')+
+            caps+
+            hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
+          '</div>';
+        }
         if (!cueText && !hints.length && !caps && !soloHow && !cols.length && !shape) return '';
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
           (shape ? '<span class="v how-note-row"><b>Session</b> '+escapeHtml(shape)+'</span>' : '')+
@@ -29849,6 +29958,59 @@ function descMovesToNote(dd){
 function longRunIsFuelRail(dd){
   if (!dd || dd.type !== 'long') return false;
   try { return !!needsFueling(dd); } catch(e){ return false; }
+}
+/* ---------- ONE CARD IS NOT A RAIL ----------
+   Founder, looking at an easy day: "On a Training day with 1 card - we
+   don't need the picture rail. It also doesn't need a massive coaches
+   note!" -- with the note they wanted written out underneath:
+       COACH'S NOTE
+       Conversational. Nothing to prove.
+   A rail of one has nothing to swipe to and nothing to compare against;
+   it was a photograph restating a hero two centimetres above it ("EASY
+   AEROBIC 7km" over "EASY 7km"). So a session whose blueprint comes to a
+   single card draws no rail at all, and the day is its hero and one line.
+   TWO ARCHETYPES, MEASURED: easy_run (25 of the 73 days in a full block --
+   the most common day in the product) and shakeout. Everything else builds
+   three or more stages, or is a fuel-rail long run, or a race, and none of
+   those is touched.
+   ASKED AT THE RENDERER, NOT AT hasWorkoutBlueprint. That function answers
+   "which rail owns this day", and renderCoachingDepth reads it to stand its
+   own rail down. Flipping it here would hand the day to the execution rail
+   and draw a different rail instead of none -- so the day still OWNS a
+   blueprint, and the blueprint simply has nothing to draw. */
+function singleCardSession(dd){
+  if (!hasWorkoutBlueprint(dd)) return false;
+  var steps;
+  try { steps = workoutSteps(dd); } catch(e){ return false; }
+  return !!(steps && steps.length === 1);
+}
+/* The founder's own sentence for the day they were looking at. Held here
+   beside the rule that uses it rather than in the guidance tables, because
+   it is not a fourth variant of why/feel/avoid -- it is what the whole note
+   says on a day that gets one line. An archetype with no entry falls back
+   to its moved description and then to gd.feel, so a one-card session
+   nobody has written a line for is never a blank note. */
+var SINGLE_CARD_NOTE = {
+  easy_run: { lead:'Keep it easy.', sub:'Finish wanting more.' }
+};
+/* An archetype with no written pair falls back to the sentence it already
+   has -- its moved description, then gd.feel -- split at the first full
+   stop so it lands in the same shape: the instruction, then the line under
+   it. A single sentence simply has no sub and the box is one line. */
+function singleCardNoteParts(dd){
+  var p = prescriptionOf(dd) || {};
+  var written = SINGLE_CARD_NOTE[p.archetype];
+  if (written) return written;
+  var text = '';
+  try { text = descMovesToNote(dd) || ''; } catch(e) { text = ''; }
+  if (!text){
+    try { text = (coachingDisclosureFor(dd, athleteExperience()) || {}).feel || ''; }
+    catch(e) { text = ''; }
+  }
+  if (!text) return null;
+  var cut = text.indexOf('. ');
+  if (cut < 0) return { lead:text, sub:'' };
+  return { lead:text.slice(0, cut + 1), sub:text.slice(cut + 2) };
 }
 function hasWorkoutBlueprint(dd){
   if (!dd || dd.type === 'rest') return false;

@@ -953,6 +953,10 @@ const RAILCSS = RAILSRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\
    more here. */
 const RAILCODE = RAILSRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
 
+function gdFeel(a, d){
+  try { return (a.coachingDisclosureFor(d, a.athleteExperience()) || {}).feel || ''; }
+  catch (e) { return ''; }
+}
 function railApp(){
   const a = loadApp({ pinnedDate: '2026-11-08T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
@@ -1031,6 +1035,13 @@ test('why, feel and watch for left the screen for the Coach’s Note', () => {
     let gd; try { gd = a.coachingDisclosureFor(d, level); } catch (e) { return; }
     if (!gd) return;
     const note = html.slice(html.indexOf('class="how-note"'));
+    /* ---- A ONE-CARD DAY IS THE ONE PLACE THEY ARE DROPPED ----
+       Founder: "It also doesn't need a massive coaches note!" On a session
+       whose rail came to a single card the note is one line now, so Why and
+       Watch For are not moved anywhere -- they are gone, deliberately, and
+       the law below would read that as a regression. The replacement law is
+       asserted straight after this loop: ONE line, and it is the right one. */
+    if (a.singleCardSession(d)) return;
     /* ---- ONE PLACE OR THE OTHER, NEVER NEITHER AND NEVER BOTH ----
        The columns left the screen for the note; Why and Watch For have
        since left the note for the stage cards, on any rail with stages to
@@ -1055,6 +1066,127 @@ test('why, feel and watch for left the screen for the Coach’s Note', () => {
     });
   });
   assert.ok(checked >= 30, 'the fixture no longer exercises the moved lines (' + checked + ')');
+
+  /* ---- AND THE ONE-CARD DAY SAYS ITS ONE LINE ----
+     The other half of the rule the exemption above points at. Counted
+     rather than sampled: an easy run is 25 of the 73 days in this block, so
+     a note that quietly grew back would show up here and nowhere else. */
+  let solos = 0, easies = 0;
+  a.state.days.forEach(d => {
+    if (!a.singleCardSession(d)) return;
+    solos++;
+    const html = a.renderDayCard(d);
+    const at = html.indexOf('class="how-note"');
+    assert.ok(at > -1, d.date + ': a one-card day has no Coach\u2019s Note at all');
+    const note = html.slice(at);
+    /* ---- THE MOCK-UP'S SHAPE: A LEAD, AND ONE LINE UNDER IT ----
+           [helmet] | COACH'S NOTE
+           Keep it easy.
+           Finish wanting more.
+       Two lines at most, and never the stack of labelled rows every other
+       session draws -- that stack is the thing the founder took off this
+       day ("It also doesn't need a massive coaches note!"). */
+    assert.ok(note.indexOf('data-solo') > -1,
+      d.date + ': a one-card day is drawing the ordinary note, not the mock-up\u2019s box');
+    const rows = (note.match(/class="v[ "]/g) || []).length;
+    assert.ok(rows >= 1 && rows <= 2,
+      d.date + ' (' + d.type + '): a one-card day\u2019s note runs to ' + rows +
+      ' lines — the founder drew a lead and one line under it');
+    assert.equal(note.indexOf('<b>'), -1,
+      d.date + ': the lines are wearing row labels, and a label is for telling rows apart');
+    assert.ok(note.indexOf('hn-lead') > -1, d.date + ': the note has no lead line');
+    /* THE BOX AND ITS MARK. The cherry rim is "the same as race day rule",
+       so it is asserted against the same declarations the work stage uses,
+       and the heading row carries the helmet. */
+    assert.ok(note.indexOf('hn-mark') > -1, d.date + ': the heading row has lost its mark');
+    const p = a.prescriptionOf(d) || {};
+    /* ---- THE WORDS THEMSELVES, NOT WHATEVER THE TABLE NOW HOLDS ----
+       Asked against SINGLE_CARD_NOTE this was circular: it compared the
+       rendered line to the same table the line came from, so swapping the
+       founder's sentence for "Something else entirely." passed. It survived
+       mutation, which is how it was caught. An easy run is the day the
+       founder wrote the note for, so the sentence is pinned literally. */
+    if (p.archetype === 'easy_run'){
+      assert.ok(note.indexOf('Keep it easy.') > -1,
+        d.date + ': an easy day no longer leads with "Keep it easy."');
+      assert.ok(note.indexOf('Finish wanting more.') > -1,
+        d.date + ': an easy day has lost "Finish wanting more."');
+      easies++;
+    } else {
+      /* Every other one-card archetype falls back, in this order, and the
+         fallback must actually produce something -- a blank note is the
+         failure this catches. */
+      const parts = a.singleCardNoteParts(d);
+      assert.ok(parts && parts.lead, d.date + ' (' + p.archetype + '): its note has no lead line');
+      assert.ok(note.indexOf(parts.lead) > -1,
+        d.date + ' (' + p.archetype + '): its lead line is not the one it falls back to');
+      /* THE SPLIT IS A SPLIT, not a sentence quietly dropped. */
+      const whole = a.descMovesToNote(d) || gdFeel(a, d);
+      if (whole && parts.sub) assert.equal(parts.lead + ' ' + parts.sub, whole,
+        d.date + ': splitting the sentence into a lead and a line lost or duplicated words');
+    }
+  });
+  assert.ok(easies >= 20,
+    'only ' + easies + ' easy days carried the founder\u2019s line');
+
+  /* ---- "THE SAME AS RACE DAY RULE" ----
+     Founder: "the cherry boarder should be the same as race day rule. As
+     wide as possible." The work stage on a session rail is where that rule
+     already lives, so the two are read out of the sheet and compared
+     declaration by declaration rather than the note being given its own
+     cherry that could drift from it. */
+  const decls = sel => {
+    const i = RAILCSS.indexOf(sel);
+    if (i < 0) return null;
+    const open = RAILCSS.indexOf('{', i);
+    return RAILCSS.slice(open + 1, RAILCSS.indexOf('}', open))
+      .split(';').map(s => s.trim()).filter(Boolean);
+  };
+  /* ANCHORED ON THE SELECTOR AS THE SHEET SPELLS IT, and each of these two
+     strings occurs exactly once in it — a prefix that matched two rules
+     would silently read the wrong one. */
+  const work = decls('.ws-h-step.ws-work{');
+  const solo = decls('.how-note[data-solo]{');
+  assert.ok(work && solo, 'the work stage or the solo note has lost its rule');
+  ['border:1.5px solid var(--cherry)',
+   'background:var(--cherry-tint), var(--t-tile)',
+   'box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint)'
+  ].forEach(d => {
+    assert.ok(work.indexOf(d) > -1, 'the race-day rule no longer says "' + d + '"');
+    assert.ok(solo.indexOf(d) > -1, 'the one-card note no longer follows it: "' + d + '"');
+  });
+  /* AS WIDE AS POSSIBLE: the full content column, not an inset box. */
+  assert.ok(solo.indexOf('align-items:stretch') > -1,
+    'the one-card note is centring its box again instead of filling the column');
+
+  /* ---------- AND TODAY IS NOT LABELLED TODAY ----------
+     Founder: "Remove today from the top left. We're on the today card. We
+     know." Three things have to hold together, and the first alone is what
+     a mutation slipped through before this was written:
+       1. the Today view hides the flag;
+       2. it is hidden in CSS, not dropped from the markup, because
+          renderDayCard() emits ONE string for all three views and
+          editSessionCoherence holds them identical; and
+       3. it is hidden ONLY there -- in This Week and an opened Full Plan
+          week the flag is what marks today among several days, so a rule
+          that hid it everywhere would be a different and worse change. */
+  assert.match(RAILCSS, /\.view-today \.day \.week-today-flag\{display:none;\}/,
+    'the Today card is labelling itself Today again');
+  const flagRules = RAILCSS.split('}')
+    .filter(r => r.indexOf('week-today-flag') > -1 && /display\s*:\s*none/.test(r));
+  assert.equal(flagRules.length, 1,
+    flagRules.length + ' rules hide the today flag — it is meant to go on the Today tab only');
+  assert.ok(flagRules[0].indexOf('.view-today') > -1,
+    'the today flag is hidden outside the Today view, where it is the thing that marks today');
+  (() => {
+    const a2 = railApp();
+    const today = a2.state.days.filter(d => d.date === a2.todayStr())[0];
+    assert.ok(today, 'the block has no day that is today');
+    assert.ok(a2.renderDayCard(today).indexOf('week-today-flag') > -1,
+      'the today flag was removed from the markup, which makes the three views differ');
+  })();
+  assert.ok(solos >= 20,
+    'only ' + solos + ' one-card days in the block — this is the most common day in the product');
 
   /* AND NOTHING IS LEFT BEHIND. The class, its layout rules, its two
      hairlines, the row-inside-a-panel rules and the two helpers that built
@@ -1474,6 +1606,26 @@ test('every session has exactly one rail, and the rail is above the coaching', (
     if (d.type === 'rest') return;
     const html = a.renderDayCard(d);
     const rails = (html.match(/class="fuel-body ws-rail/g) || []).length;
+    /* ---- ONE CARD IS NOT A RAIL ----
+       Founder: "On a Training day with 1 card - we don't need the picture
+       rail." So the law is no longer "exactly one rail on every session":
+       it is one rail wherever there is a rail at all, and NONE where the
+       blueprint comes to a single card. Both halves are asserted, because
+       "at most one" on its own would be satisfied by a product with no
+       rails anywhere. */
+    if (a.singleCardSession(d)){
+      assert.equal(rails, 0,
+        d.date + ' (' + d.type + '): a single card still draws a rail');
+      assert.equal(html.indexOf('class="ws-block"'), -1,
+        d.date + ': the workout block is still drawn around a rail that is not there');
+      /* RECORDED BEFORE RETURNING. The fixture check at the end wants proof
+         that a one-stage session exists in this block; it still does, it
+         just draws no rail. Returning without recording would have turned
+         that check into "the fixture lost a shape" the moment the shape
+         stopped having a rail. */
+      shapes[d.type + ' x' + steps(d)] = true;
+      return;
+    }
     assert.equal(rails, 1,
       d.date + ' (' + d.type + ', ' + steps(d) + ' stages) draws ' + rails + ' card rails');
     const railAt = html.indexOf('class="fuel-body ws-rail');
@@ -1614,7 +1766,20 @@ test('execution is never a column, and its sentence is never lost', () => {
     let staged = 0;
     try { const s = a.executionStrategyForDisplay(d); staged = (s && !s.suppressed && s.phases) ? s.phases.length : 0; } catch (e) { staged = 0; }
     let stages = 0; try { stages = a.workoutSteps(d).length; } catch (e) { stages = 0; }
-    const toldAlready = staged > 0 || (a.hasWorkoutBlueprint(d) && stages >= 2);
+    /* ---- AND A ONE-CARD DAY NO LONGER HAS ROOM FOR IT ----
+       This sentence was rescued into the Coach's Note when the execution
+       column went. On a one-card day the note is a single line now, and
+       that line is not this sentence, so here it IS dropped -- the one case
+       the comment above does not cover. Nothing else loses it: it is still
+       the whole reason the note exists on every other unstaged session.
+       IT DID LEAVE A HOLE IN THE UNIT LAW, and this is the correction of a
+       claim made here earlier. test/unitConsistencyCopy's first three tests
+       DID need a screen to be printing this sentence -- they rendered an
+       easy run and read "the first mile" out of it -- and they failed when
+       the note came down to one line. They now follow the same law to a
+       steady tempo, whose note still carries @@U@@ copy. */
+    const toldAlready = staged > 0 || (a.hasWorkoutBlueprint(d) && stages >= 2) ||
+                        a.singleCardSession(d);
     assert.equal(n, toldAlready ? 0 : 1,
       d.date + ' (' + d.type + ', ' + stages + ' stages, ' + staged + ' phases): the execution ' +
       'sentence appears ' + n + ' times');
@@ -1625,7 +1790,15 @@ test('execution is never a column, and its sentence is never lost', () => {
         d.date + ': the execution sentence is on the card but not inside the Coach’s Note');
     } else toldByStages++;
   });
-  assert.ok(rescued >= 5 && toldByStages >= 5,
+  /* FIVE BECAME THREE, AND NOT BY LOWERING A BAR TO GET GREEN. The 25 easy
+     days of this block used to be the bulk of the rescued set; a one-card
+     day's note is a single line now, so they are told-by-stages as far as
+     this law is concerned. What is left is the shape the law is actually
+     about -- a session with no staged execution at all -- and the block
+     builds exactly three such days, one of each fuel-rail long run:
+     long_run, long_run_progressive and long_run_goal_insert. If the
+     generator stopped building any of them this would catch it. */
+  assert.ok(rescued >= 3 && toldByStages >= 5,
     'the fixture no longer exercises both halves (' + rescued + ' rescued, ' + toldByStages + ' told by stages)');
 });
 
@@ -1682,6 +1855,10 @@ test('a stage card reads name, figure, sentence — in that order', () => {
 
   a.state.days.forEach(d => {
     if (!a.hasWorkoutBlueprint(d)) return;
+    /* A ONE-CARD SESSION DRAWS NO CARD AT ALL NOW, so there is no title,
+       figure or sentence on it to put in order. The law that replaced it is
+       in "every session has exactly one rail": that day draws zero rails. */
+    if (a.singleCardSession(d)) return;
     const st = steps(d);
     if (!st.length) return;
     const html = a.renderDayCard(d);
@@ -1699,10 +1876,12 @@ test('a stage card reads name, figure, sentence — in that order', () => {
         d.date + ' (' + d.type + '): ' + cues + ' coaching lines for ' + st.length + ' stages');
       withCue++;
     } else {
-      /* ONE STAGE, NO SENTENCE. The card is the session there and the
-         Coach's Note below is already saying it in the athlete's own
-         words; a second copy a centimetre above it is the duplication
-         every other pass here has been removing. */
+      /* UNREACHABLE NOW, AND LEFT STANDING ON PURPOSE. A one-stage session
+         draws no card at all, so the loop above returns before here; this
+         is what would run if one ever drew a card again, and it still holds
+         the old law -- a single card repeating the note is the duplication
+         every pass here has been removing. The count below no longer
+         requires it to have run. */
       assert.equal(cues, 0,
         d.date + ' (' + d.type + '): a one-stage rail carries a coaching line that repeats the note');
       solo++;
@@ -1717,9 +1896,13 @@ test('a stage card reads name, figure, sentence — in that order', () => {
      everything that is still on the card: the stage's name as the title,
      and one coaching line per stage on a multi-stage rail, none on a
      one-stage one. */
-  assert.ok(withCue >= 3 && solo >= 1,
-    'the fixture no longer exercises both (' + withCue + ' multi-stage, ' + solo +
-    ' single-stage)');
+  /* MULTI-STAGE ONLY. There is no single-stage card left to exercise: that
+     day draws no rail, which "every session has exactly one rail" asserts
+     directly and by count. */
+  assert.ok(withCue >= 3,
+    'the fixture no longer exercises a multi-stage rail (' + withCue + ')');
+  assert.equal(solo, 0,
+    solo + ' single-card rails were drawn — a one-card session draws no rail');
 
   /* AND THE HEART RATE DOES NOT COME BACK AS A ROW. This guard was written
      when the heart rate joined the pace band: the row it used to have below
