@@ -1129,12 +1129,21 @@
      Soft surface, not a filled control and not a raised tile: it is the
      same --tile-* recipe every other quiet surface in the product takes,
      so a tab sitting on a card does not read as an object on an object. */
+  /* ---------- ONE text-align, AND IT IS THE ONE THAT APPLIES ----------
+     This block declared text-align:center and then text-align:left three
+     declarations later. The later one won, so every tab title was LEFT
+     aligned -- measured with a Range over the ink: "Share" sat 120px left
+     of the row's centre on a 430px phone, "Valhalla Analysis" 58px. The
+     guard that was supposed to hold the centring matched
+     /\.sess-tab\{[^}]*text-align:center/ and was satisfied by the dead
+     declaration, so it passed on a rule that did the opposite of what it
+     claimed. There is one here now, and the guard reads the LAST one. */
   .sess-tab{
     display:flex; align-items:center; gap:13px; width:100%;
-    padding:13px 15px; min-height:60px; text-align:center;
+    padding:13px 15px; min-height:60px;
     background:var(--tile-sheen), var(--bg-2);
     border:1px solid var(--tile-border); border-radius:var(--tile-radius);
-    cursor:pointer; text-align:left; box-shadow:none;
+    cursor:pointer; text-align:center; box-shadow:none;
     list-style:none; -webkit-tap-highlight-color:transparent;
   }
   /* A <summary> draws its own marker in every engine, and each one needs
@@ -1175,10 +1184,23 @@
     color:#FFFFFF;}
   /* .sess-tab-s is gone with the second line it styled -- see
      sessionTabHtml(). */
+  /* ---------- NOTHING TO SEE IN THERE YET, SAID BY THE TITLE ----------
+     The closed row used to carry "Not scored yet" under the name, and that
+     line went when the founder asked for the tab headings to be the title
+     alone, centred, as big as the narrowest phone allows. What went with it
+     was the GLANCE: you could no longer tell from the outside that the
+     Analysis panel had nothing in it.
+     Given back without the line. An unscored Analysis tab reads quieter --
+     the same thing this product does everywhere else for a surface with
+     nothing in it yet -- so the title still says the state, and it costs no
+     height and breaks no heading. The reason is still inside the panel,
+     where there is room for it: "Log actual KM and average pace to score
+     this session." */
+  .sess-tab.is-quiet .sess-tab-k{color:var(--ink-faint);}
+  .sess-tab.is-quiet .sess-tab-c{color:var(--bronze-text);}
   .sess-tab-c{flex:none; display:flex; align-items:center; justify-content:center;
     width:18px; color:var(--gold-text);
     transition:transform .25s;}
-  .sess-tab-c svg{width:18px; height:18px; display:block;}
   .sess-tab-c svg{width:18px; height:18px; display:block;}
   /* Open is open, whichever element is carrying the state. */
   details[open] > .sess-tab .sess-tab-c,
@@ -33385,8 +33407,23 @@ function analysisTab(dd, body, vLine){
   var cur = currentWeekNum();
   var pastWeek = (dd.week != null) && (cur == null || dd.week < cur);
   var open = isAnalysisOpen(dd) || pastWeek;
+  /* ---------- THE CLOSED ROW SAYS WHETHER THERE IS A SCORE ----------
+     It used to say it in words -- "Not scored yet" on a second line -- and
+     that line went when the tab headings became the title alone. The state
+     is worth a glance, so the title carries it: an unscored Analysis reads
+     quieter, and the reason it is unscored is still inside the panel.
+     ASKED OF THE SAME FUNCTION THE PANEL ASKS. computeExecutionBreakdown is
+     what decides which body renders -- the review, or the line telling the
+     athlete what to log -- so reading it again here is the only way the
+     title cannot end up disagreeing with what opening it shows. A flag
+     passed in by the caller would be one forgotten argument away from a
+     lit tab over an empty panel.
+     NOT aria-anything. Quiet is a hint, not a state a screen reader needs
+     restating: the panel it opens says the same thing in a sentence. */
+  var scored = false;
+  try { scored = !!computeExecutionBreakdown(dd); } catch(e) { scored = false; }
   return '<div class="wc-review">'+
-    '<button type="button" class="sess-tab sess-tab-btn" data-action="view-analysis" '+
+    '<button type="button" class="sess-tab sess-tab-btn'+(scored ? '' : ' is-quiet')+'" data-action="view-analysis" '+
       'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
       sessionTabHtml('Valhalla Analysis')+
     '</button>'+

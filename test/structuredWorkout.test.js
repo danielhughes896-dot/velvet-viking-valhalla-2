@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logAsPrescribed } = require('./fixtures.js');
 
 // STRUCTURED WORKOUT LAYER.
 //
@@ -844,7 +844,24 @@ test('a tab is its name, centred, at the size that fits the narrowest phone', ()
     'the contents list under each tab name is back');
   assert.match(RAILCSS, /\.sess-tab-k\{display:block;[^}]*font-size:21px/,
     'the tab name is no longer 21px');
-  assert.match(RAILCSS, /\.sess-tab\{[^}]*text-align:center/, 'the tab name is left-aligned again');
+  /* ---------- THE LAST text-align, NOT ANY text-align ----------
+     This matched /\.sess-tab\{[^}]*text-align:center/ and passed for weeks
+     on a rule that declared text-align:center and then text-align:left
+     three declarations later. The later one won; every tab title was left
+     aligned, measured at 120px off the row's centre on a 430px phone for
+     "Share". The guard was reading a dead declaration and reporting the
+     opposite of what the sheet did.
+     So: take the block, take the LAST text-align in it -- which is the one
+     the cascade applies -- and require that to be center. A re-introduced
+     text-align:left after it fails here instead of hiding behind it. */
+  const tabBlock = /\.sess-tab\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(tabBlock, 'the session tab rule is gone');
+  const aligns = tabBlock[1].match(/text-align:\s*([a-z]+)/g) || [];
+  assert.ok(aligns.length, 'the tab row sets no text-align at all, so the title takes the page default');
+  assert.equal(aligns.length, 1,
+    'the tab row declares text-align ' + aligns.length + ' times (' + aligns.join(', ') +
+    ') — one of them is dead and the next reader cannot tell which');
+  assert.match(aligns[aligns.length - 1], /center/, 'the tab name is left-aligned again');
   assert.match(RAILCSS, /\.sess-tab::before\{content:''; flex:0 0 19px;\}/,
     'the chevron spacer is gone, so the name is centred in what is left of the row rather than in the row');
 });
@@ -1012,4 +1029,60 @@ test('every card in the rail leads with a word', () => {
       (p.word ? '<span class="ws-h-presc">' + p.word + '</span>' : '') + p.pace,
       'essentialPrescriptionHtml no longer builds itself from the split');
   });
+});
+
+test('an Analysis with no score reads quieter, and says so from the same source', () => {
+  /* The closed row used to carry "Not scored yet" under the name. That line
+     went when the tab headings became the title alone, centred, as big as
+     the narrowest phone allows -- and the GLANCE went with it: you could no
+     longer tell from outside that the panel had nothing in it.
+     Given back as weight rather than as a second line, so the heading is
+     untouched and the row costs no height. The reason is still inside the
+     panel, in a sentence, where there is room for it. */
+  const a = railApp();
+  const past = a.state.days.filter(d => d.type !== 'rest' && d.date < a.todayStr());
+  assert.ok(past.length > 4, 'the fixture has no past sessions to log');
+
+  const scoredDay = past[past.length - 2];
+  logAsPrescribed(a, scoredDay);
+  const lit = a.renderExecutionReview(scoredDay);
+  assert.match(lit, /class="sess-tab sess-tab-btn"/,
+    'a session with a score is showing the quiet tab — the dim says "nothing in here" over a ' +
+    'panel that has a verdict and a percentage in it');
+
+  const blankDay = past[past.length - 4];
+  blankDay.completed = true;          /* done, nothing usable logged */
+  const quiet = a.renderExecutionReview(blankDay);
+  assert.match(quiet, /class="sess-tab sess-tab-btn is-quiet"/,
+    'an Analysis with no score reads the same as one with a verdict in it');
+
+  /* ---------- THE TITLE CANNOT DISAGREE WITH THE PANEL ----------
+     computeExecutionBreakdown is what chooses the body -- the review, or
+     the line telling the athlete what to log -- so the tab reads the same
+     function rather than taking a flag from its caller. A flag is one
+     forgotten argument away from a lit tab over an empty panel. */
+  a.state.days.forEach(d => {
+    if (d.type === 'rest' || !d.completed) return;
+    const html = a.renderExecutionReview(d);
+    if (!html) return;
+    let b; try { b = a.computeExecutionBreakdown(d); } catch (e) { b = null; }
+    assert.equal(/is-quiet/.test(html), !b,
+      d.date + ' (' + d.type + '): the tab\'s weight disagrees with whether the panel has a score');
+  });
+  const fn = RAILCODE.slice(RAILCODE.indexOf('function analysisTab('));
+  const body = fn.slice(0, fn.indexOf('\n}'));
+  assert.match(body, /computeExecutionBreakdown\(dd\)/,
+    'the quiet state is no longer derived from the function that chooses the panel');
+  assert.match(body, /function analysisTab\(dd, body, vLine\)/,
+    'analysisTab has taken an argument for this — it is one forgotten call away from drift');
+
+  /* AND IT IS WEIGHT, NOT A SECOND LINE: the heading the founder asked for
+     is the title alone. */
+  assert.ok(quiet.indexOf('sess-tab-s') === -1 && !/Not scored yet/.test(quiet),
+    'the second line is back under the tab name');
+  assert.match(RAILCSS, /\.sess-tab\.is-quiet \.sess-tab-k\{color:var\(--ink-faint\);\}/,
+    'the quiet tab no longer dims its title, so nothing distinguishes it');
+  /* Measured in Chromium against the row it sits on: 5.94:1 quiet against
+     17.31:1 lit. Clearly dimmer, and still over the 4.5 that even small
+     text owes -- quiet, not disabled. */
 });
