@@ -211,11 +211,17 @@ test('a fuel card and a stage card share one title declaration', () => {
      WHAT IT WAS FOR SURVIVES, and as a stronger statement than the
      equality it used to make: a fuel card, a stage card and an execution
      phase are not merely tuned to match, they share ONE declaration for
-     their title. They cannot drift because there is nothing to drift from. */
+     their title. They cannot drift because there is nothing to drift from.
+     FOUR KINDS NOW. Full Plan's phase carousel is a rail of cards and takes
+     the same rule -- joined as a fourth arm, not copied -- so it is read
+     here with the other three rather than left to resemble them.
+     THE ARMS MUST BE CONTIGUOUS. This walks from one to the next, so a
+     comment wedged between them reads as four declarations that merely look
+     alike; the explanation lives above the rule for exactly that reason. */
   assert.match(CSS, new RegExp(esc(F) + ' \\.ws-rail \\.ws-h-presc:not\\(\\.font-mono\\),[\\s\\S]{0,300}?' +
-    esc(F) + ' \\.how-mod \\.fuel-row \\.k,[\\s\\S]{0,200}?\\.strat-phase-label\\{'),
-    'the three kinds of card no longer share one title declaration, so they can print ' +
-    'three different headings a swipe apart');
+    esc(F) + ' \\.how-mod \\.fuel-row \\.k,[\\s\\S]{0,200}?\\.strat-phase-label,\\s*\\n\\s*\\.view-plan \\.pp-slide-k\\{'),
+    'the four kinds of card no longer share one title declaration, so they can print ' +
+    'four different headings a swipe apart');
 });
 
 test('two rails in one card do not share a set of dots', () => {

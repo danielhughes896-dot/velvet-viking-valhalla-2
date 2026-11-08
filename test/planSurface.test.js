@@ -135,34 +135,36 @@ test('done, now and ahead are one colour language on the plan', () => {
     assert.ok(i > -1, 'rule gone: ' + sel);
     return BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
   };
-  /* ---- THE CHIPS ARE A STEPPER NOW, AND THE LIGHT IS UNCHANGED ----
-     They were four pills: they said which phases exist and which is
-     current, and nothing about the shape between them, when a block is a
-     journey through its phases in order. The marks are joined by a track,
-     the completed span of it in cherry because cherry is progress here, and
-     each phase carries its own week range.
-     What this test protected travels with them: the two state lights are
-     still --glow-done-mark and the gold, from the same tokens the week rows
-     use, so done and current mean the same thing in both places. */
-  assert.match(ruleFor('.pp-step.is-done .pp-step-dot{'), /box-shadow:var\(--glow-done-mark\)/,
-    'a completed phase is no longer lit green');
-  assert.match(BARE, /--glow-done-mark:[^;]*var\(--ok\)/,
-    'the shared mark light stopped naming the done colour');
-  assert.match(ruleFor('.pp-step.is-now .pp-step-dot{'), /box-shadow:[^;]*var\(--gold\)/,
-    'the current phase is no longer lit gold');
-  assert.match(ruleFor('.pp-step.is-done .pp-step-dot{'), /var\(--ok-text\)/,
-    'the tick hand-sets its green again instead of naming the token');
-  assert.doesNotMatch(BARE, /\.pp-step[^{]*\{[^}]*#9BC08C/,
-    'the literal green came back on the phase mark');
-  /* THE TRACK IS THE NEW PART, and the only thing on this screen reporting
-     progress THROUGH the block, so it is held here: cherry, mixed down, and
-     lit only on the span the athlete has already crossed. */
-  assert.match(ruleFor('.pp-step.has-track-done::before{'), /var\(--cherry\)/,
-    'the completed span of the phase track is not cherry');
-  assert.match(ruleFor('.pp-step.has-track-done::before{'), /color-mix/,
-    'the track uses cherry neat, which is the loudest thing on the screen');
-  assert.match(ruleFor('.pp-step::before{'), /opacity:0/,
-    'the first phase draws a track reaching back to nothing');
+  /* ---- THE PHASES ARE A CAROUSEL NOW, AND THE LANGUAGE TRAVELS ----
+     They were four pills, then a stepper: a mark per phase on a track, each
+     phase's week range under its name, all of it at 11.5px because four
+     phases plus a race week have to share 320px when the row is a row. One
+     full-width slide at a time replaces it.
+     WHAT THIS TEST PROTECTED TRAVELS WITH THEM, as the same three tokens:
+     the gold of the phase you are in, the --ok-text of one behind you, the
+     faint ink of one still ahead. The DONE GLOW does not travel, and that
+     is deliberate rather than mislaid -- see "the light is for things that
+     happen once" below and "NO WASH AT LIST SCALE" in the sheet. A slide
+     says Completed in words AND in the colour of those words; a rim light
+     would be the third telling, which is what took the phase disc off the
+     heading in the first place.
+     NOT ASSERTED HERE ANY MORE: --glow-done-mark. Nothing rendered consumes
+     it now (.pp-mark's span went at the gutter pass -- see test/gutterLaw
+     -- and the stepper's dot was its only live user), so a guard on it would
+     be a guard on a dead declaration. */
+  assert.match(ruleFor('.pp-slide.is-now .pp-slide-w{'), /color:var\(--gold-bright\)/,
+    'the phase the athlete is in is no longer gold');
+  assert.match(ruleFor('.pp-slide.is-done .pp-slide-w{'), /color:var\(--ok-text\)/,
+    'a completed phase is no longer green');
+  assert.match(ruleFor('.pp-slide.is-ahead .pp-slide-w{'), /color:var\(--ink-faint\)/,
+    'a phase still ahead is no longer the quiet one');
+  assert.doesNotMatch(BARE, /\.pp-slide[^{]*\{[^}]*(?:#9BC08C|rgba\(122,160,110)/,
+    'the literal green came back on the phase slide');
+  /* GOLD IS WHERE YOU ARE, AND IT IS GEOMETRY AS WELL AS TYPE -- the rim
+     the current day and the selected tab wear, and the one signal
+     .pp-phase.is-now carried before the de-boxing took the phase card. */
+  assert.match(ruleFor('.pp-slide.is-now .pp-slide-body{'), /border-color:var\(--gold\)/,
+    'the current phase slide lost the gold rim, so nothing on it says "you are here"');
   const weeks = BARE.slice(BARE.indexOf('.view-plan .pp-body .week .week-num'));
   assert.match(weeks.slice(0, 1200), /\.week\.is-done \.week-num,[\s\S]{0,120}var\(--ok-text\)/,
     'a completed week row is not green');
@@ -207,8 +209,8 @@ test('every gold glow that marks selection or state names its token', () => {
     'hand-set gold glows: ' + glows.length + ' (expected the 3 the pulse owns)\n  ' +
     glows.join('\n  '));
   /* ...and the pattern they should follow is in the sheet and working. */
-  assert.match(BARE, /\.pp-step\.is-now \.pp-step-dot\{[^}]*color-mix\(in srgb, var\(--gold\)/,
-    'the current phase mark hand-sets its gold again');
+  assert.match(BARE, /\.pp-slide\.is-now \.pp-slide-body\{[^}]*color-mix\(in srgb, var\(--gold\)/,
+    'the current phase slide hand-sets its gold again');
   assert.match(BARE, /\.wk-day\.is-sel\{[^}]*color-mix\(in srgb, var\(--gold\)/,
     'the selected day circle hand-sets its gold again');
 });
@@ -312,19 +314,207 @@ test('SETTINGS: the containers come off, and the rows take the gutter', () => {
  * "Week 10 - Taper", which is This Week's subject, on the screen whose whole
  * job is the block.
  */
-test('the phases read as a route through the block', () => {
+test('the phases read as a carousel, one slide at a time', () => {
+  /* The stepper this replaces said which phases exist, which is current and
+     how far along the block was -- and said all of it at 11.5px, because
+     four phases plus a race week share 320px when the row is a row. One
+     full-width slide per phase buys the name at hero size, a sentence of
+     its own, and a week list below that belongs to the phase on screen. */
   const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
-  const i = src.indexOf('function renderPhaseSteps');
-  assert.ok(i > -1, 'the phase stepper is gone');
+  const i = src.indexOf('function renderPhaseRail');
+  assert.ok(i > -1, 'the phase carousel is gone');
   const fn = src.slice(i, src.indexOf('\n}', i));
-  assert.match(fn, /data-action="toggle-phase"/,
-    'a step stopped opening its own phase, which is all the pill ever did');
-  assert.match(fn, /pp-step-w/, 'the steps no longer carry their week ranges');
-  /* The lit span must end at the phase the athlete is IN, not run past it,
-     so it is decided by the step BEFORE each gap rather than by the step
-     drawing it. */
-  assert.match(fn, /phaseGroupState\(groups\[i-1\]\) === 'done'/,
-    'the track is lit from the wrong end, so it runs past the current phase');
+  /* ONE SLIDE PER PHASE GROUP, IN BLOCK ORDER -- the grouping itself is
+     planPhaseGroups()' and is not re-derived here. */
+  assert.match(fn, /planPhaseGroups\(\)/, 'the carousel invents its own phase grouping');
+  assert.match(fn, /pp-slide-k/, 'the slide no longer names its phase');
+  assert.match(fn, /phaseGroupMeta\(g\)/,
+    'the slide writes its own week span and state instead of taking the one source');
+  assert.match(fn, /phaseMessage\(g\.phase\)/,
+    'the slide carries no phase-specific message, which is the point of a slide');
+  /* THE PAGER IS THE WEEK'S. data-index/data-count and the .wk-track class
+     are the contract wirePagerRail() reads; a second implementation of
+     "full-width slides that track the finger" is the thing being avoided. */
+  assert.match(fn, /data-index="'\+i\+'"/, 'the carousel does not say which slide it is on');
+  assert.match(fn, /data-count="'\+groups\.length\+'"/, 'the carousel does not say how many slides it has');
+  assert.match(fn, /wk-track/, 'the phase track is no longer the week rail\u2019s moving row');
+  assert.match(fn, /data-hswipe="1"/, 'the page pager no longer stands down for the carousel');
+  /* FEWER THAN TWO PHASES IS NOT A CAROUSEL. A maintenance block is one
+     phase end to end, and a carousel of one is a control that cannot move. */
+  assert.match(fn, /groups\.length < 2\) return ''/,
+    'a one-phase block now gets a carousel of one slide');
+
+  const a = app();
+  const html = a.renderPhaseRail();
+  const groups = a.planPhaseGroups();
+  assert.equal((html.match(/class="pp-slide /g) || []).length, groups.length,
+    'the carousel does not have exactly one slide per phase');
+  groups.forEach(g => {
+    assert.ok(html.indexOf('>' + g.phase + '<') > -1, 'no slide names ' + g.phase);
+    assert.ok(html.indexOf(a.phaseMessage(g.phase)) > -1,
+      g.phase + ' has no message on its slide');
+  });
+  /* EXACTLY ONE SLIDE IS CURRENT, and it is the one the dots agree with. */
+  assert.equal((html.match(/class="pp-dot is-on"/g) || []).length, 1,
+    'the dots do not mark exactly one phase as current');
+});
+
+test('a rail card\u2019s title is the hero title, in one declaration', () => {
+  /* The founder's rule for a rail: "in the rails the titles should be white
+     and big like they are in the heroes, same rules". The phase carousel is
+     a rail of cards, so its title takes that declaration rather than a
+     fourth set of numbers that happen to match today -- which is the whole
+     reason EASY / SETTLE / CARB INTAKE were joined to it in the first place.
+     ASSERTED AS MEMBERSHIP, not as 21.85px. A copy with identical values
+     would pass a value check and still be a second definition. */
+  const i = BARE.indexOf('.view-plan .pp-slide-k');
+  assert.ok(i > -1, 'the phase slide title has no rule at all');
+  const open = BARE.indexOf('{', i);
+  const decl = BARE.slice(open + 1, BARE.indexOf('}', open));
+  const head = BARE.lastIndexOf('.ws-rail .ws-h-presc:not(.font-mono)', i);
+  assert.ok(head > -1 && head < i,
+    'the phase slide title is no longer joined to the session rail card title — ' +
+    'it has a declaration of its own, which is a second definition of the hero title');
+  /* Nothing may sit between them but other arms of the same selector list. */
+  const between = BARE.slice(head, i);
+  assert.ok(between.indexOf('}') === -1,
+    'a rule closed between the session card title and the phase slide title, so they ' +
+    'are two declarations that merely look alike');
+  ['font-size:21.85px', 'color:#FFFFFF', 'text-transform:uppercase', 'var(--label-face)']
+    .forEach(d => assert.ok(decl.indexOf(d) > -1,
+      'the shared hero-title declaration stopped setting ' + d));
+});
+
+test('a one-phase block gets the headed section, not a carousel of one', () => {
+  /* A MAINTENANCE BLOCK IS ONE PHASE END TO END. There is nothing to
+     carousel there and nothing for the carousel to select, so the screen
+     keeps the headed, openable section it has always had -- and OPENS it,
+     because there is no slide above naming the phase and nothing else on
+     the screen for the weeks to be in the way of. A carousel of one slide
+     would be a control that cannot move, with dots that cannot do anything.
+     The accordion machinery -- expandedPhases, phaseGroupOpen,
+     handleTogglePhase, the toggle-phase case -- is live for exactly this. */
+  const a = app();
+  a.state.setup.purpose = 'maintain';
+  /* trainingPhase() names the week holding the goal day for the goal day, so
+     a block with one is two groups however it is built. A real maintenance
+     block has no goal effort -- blockArcFor('maintain') sets hasGoalEffort
+     false -- and the fixture is a race block wearing a maintenance purpose,
+     so its race day is removed to get the shape the generator would make. */
+  a.state.days.forEach(d => { if (d.type === 'race') d.type = 'long'; });
+  const groups = a.planPhaseGroups();
+  assert.equal(groups.length, 1, 'the fixture did not produce a one-phase block');
+  assert.equal(a.renderPhaseRail(), '', 'a one-phase block was given a carousel of one slide');
+
+  const view = a.renderFullPlanView();
+  assert.equal((view.match(/is-bare/g) || []).length, 0,
+    'the one-phase block lost its heading to a slide that is not there');
+  assert.match(view, /class="pp-head" data-action="toggle-phase"/,
+    'the one-phase block has no way to open or close its weeks');
+  assert.match(view, /class="pp-phase [^"]*is-open/,
+    'the one-phase block renders closed, so the screen is a heading and nothing else');
+  for (let w = 1; w <= a.totalWeeksInPlan(); w++){
+    assert.ok(view.indexOf('id="week-' + w + '"') > -1, 'week ' + w + ' is missing');
+  }
+  /* AND THE MACHINERY IT DEPENDS ON IS STILL WIRED. */
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  assert.match(src, /case 'toggle-phase': handleTogglePhase/,
+    'toggle-phase is no longer dispatched, so the one-phase heading is a dead control');
+  assert.match(src, /case 'phase-pick': handlePhasePick/,
+    'phase-pick is no longer dispatched, so the carousel dots are dead controls');
+});
+
+test('the carousel opens on the phase the block is actually in', () => {
+  /* The stepper opened nothing by default and Full Plan was a screen for
+     seeing the shape of a block. With one phase on screen the shape IS the
+     carousel, so landing on the current phase costs nothing and a screen
+     that landed on week 1 of 16 would be a layer drawn over the wrong
+     weeks. */
+  const a = app();
+  const groups = a.planPhaseGroups();
+  const cur = a.currentWeekNum();
+  const expect = groups.findIndex(g => g.weeks.indexOf(cur) !== -1);
+  assert.ok(expect > -1, 'the fixture has no current phase to open on');
+  assert.equal(a.planPhaseIndex(groups), expect,
+    'the carousel does not open on the phase holding the current week');
+  /* ...and a swipe or a tap is remembered, without reaching the account row. */
+  a.renderApp = () => {};
+  a.handlePhasePick(groups[groups.length - 1].phase);
+  assert.equal(a.planPhaseIndex(groups), groups.length - 1,
+    'picking a phase does not move the carousel');
+  assert.equal(a.state.planPhaseSel, undefined,
+    'where the athlete swiped to reached the saved state');
+});
+
+test('the week list below the carousel is the carousel\u2019s phase, and Race Day is nobody\u2019s', () => {
+  /* The founder's structure: hero, then the phase carousel, then that
+     phase's weeks, then Race Day. A week row is unchanged -- it is still
+     the way in to the week screen -- and the phase heading goes, because
+     the slide above it already says BASE in 21.85px and a chevron that
+     opens what is already open is not a control. */
+  const a = app();
+  const groups = a.planPhaseGroups();
+  a.renderApp = () => {};
+  groups.forEach(g => {
+    a.handlePhasePick(g.phase);
+    const html = a.renderWeeksList(false, g.phase);
+    assert.equal((html.match(/class="pp-phase /g) || []).length, 1,
+      'the list shows more than one phase while ' + g.phase + ' is selected');
+    assert.match(html, /class="pp-phase is-[a-z]+ is-open is-bare"/,
+      g.phase + ' is listed closed, or still carries a heading the slide already wrote');
+    assert.doesNotMatch(html, /data-action="toggle-phase"/,
+      'the bare section kept the chevron that opens what is already open');
+    g.weeks.forEach(w => {
+      assert.ok(html.indexOf('id="week-' + w + '"') > -1,
+        'week ' + w + ' is missing from ' + g.phase);
+    });
+    /* NO OTHER PHASE'S WEEKS, which is the whole claim of the layer. */
+    groups.filter(o => o !== g).forEach(o => o.weeks.forEach(w => {
+      assert.equal(html.indexOf('id="week-' + w + '"'), -1,
+        'week ' + w + ' is listed under ' + g.phase);
+    }));
+    /* AND THE DESTINATION IS NOT FILTERED BY A PHASE. */
+    assert.match(html, /class="race-event"/,
+      'Race Day disappears when the athlete swipes off the phase it is in');
+  });
+  /* The week row still leads to the week screen and to nothing else. */
+  const one = a.renderWeeksList(false, groups[0].phase);
+  assert.match(one, /data-action="plan-open-week"/, 'a week row stopped being the way in');
+});
+
+test('under the carousel a week is a row, never a drawer', () => {
+  /* THE DEFECT THIS CLOSES, MEASURED. Nothing in the markup has dispatched
+     toggle-week since the week became a way IN -- grep the runtime for
+     data-action="toggle-week" and there is none -- so .week.open was
+     reachable only through initExpanded(), which opens the week holding
+     today. Under a closed phase accordion nobody ever saw it. Under the
+     carousel the current phase is on screen the moment the tab opens, so
+     week 10's seven day rows appeared on the plan, un-closable, duplicating
+     the week screen its own row leads to. Screenshotted at 430px before the
+     fix: the Taper layer ran 7 rows and a repeated taper sentence deep.
+     RENDERED WHOLE IT IS STILL A DRAWER, because that is what rendering the
+     whole plan means. */
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  assert.equal((src.match(/data-action="toggle-week"/g) || []).length, 0,
+    'something dispatches toggle-week again — the drawer has a handle, so re-decide this');
+  const a = app();
+  const cur = a.currentWeekNum();
+  a.initExpanded();                    /* the bootstrap the real app runs on load */
+  assert.ok(a.expandedWeeks[cur], 'initExpanded no longer opens the week holding today');
+  const g = a.planPhaseGroups().filter(x => x.weeks.indexOf(cur) !== -1)[0];
+  const bare = a.renderWeeksList(false, g.phase);
+  assert.ok(bare.indexOf('id="week-' + cur + '"') > -1, 'the current week is not in its own phase');
+  assert.doesNotMatch(bare, /class="week[^"]* open/,
+    'a week under the carousel unfolded a drawer nothing can close');
+  const whole = a.renderWeeksList(true);
+  assert.match(whole, /class="week[^"]* open/,
+    'rendering the plan whole stopped opening its weeks');
+  /* AND THE LEAF NO LONGER DECIDES. renderWeekAccordion() reading
+     expandedWeeks itself is what made "open" mean two different things
+     depending on which caller you were. */
+  const fn = /function renderWeekAccordion\(weekNum, open\)\{[\s\S]*?\n\}/.exec(src)[0];
+  assert.ok(fn.indexOf('expandedWeeks') === -1,
+    'the week accordion reads expandedWeeks again instead of being told');
 });
 
 /* ---------- THE LAW THIS REPLACES TWO GUARDS WITH ----------
@@ -585,6 +775,58 @@ test('the taper line is coaching, lit like coaching', () => {
     'rather than as light');
 });
 
+test('the taper sentence is said once per screen', () => {
+  /* MEASURED AT 430px BEFORE THE FIX. Full Plan's hero prints
+     TAPER_COACHING_LINE whenever the week the athlete is in is a taper week,
+     and a taper week's row printed it again -- the identical sentence twice,
+     270px apart. While the phase sections started closed the two were never
+     on screen together; under the phase carousel the current phase is open
+     from the moment the tab is.
+     THIS TEST PINS THE CLOCK INSIDE THE TAPER AND THEN OUTSIDE IT, because
+     the first version of it did neither: app() lands on week 8 of 12, the
+     hero says nothing there, and "the hero and a row are never both
+     speaking" was vacuously true for the one state it is about. Mutation
+     caught that -- putting the note back unconditionally left it green.
+     NEITHER STRING MOVED AND NEITHER WAS REWRITTEN. One definition, both
+     printers -- see the test below. This is about which of them SPEAKS. */
+  const probe = app();
+  const taperWeeks = [];
+  for (let w = 1; w <= probe.totalWeeksInPlan(); w++) if (probe.isTaperWeek(w)) taperWeeks.push(w);
+  assert.ok(taperWeeks.length, 'the fixture has no taper to prove this with');
+  const inTaper = probe.weekDateRange(taperWeeks[0]).start;
+  const beforeTaper = probe.weekDateRange(1).start;
+
+  const screen = (pin) => {
+    const a = loadApp({ pinnedDate: pin + 'T09:00:00Z' });
+    a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+    buildPlan(a, { weeks: 12, startDate: '2026-07-01', distanceKey: '10k', volume: 40 });
+    const cur = a.currentWeekNum();
+    const g = a.planPhaseGroups().filter(x => x.weeks.indexOf(taperWeeks[0]) !== -1)[0];
+    return {
+      a, cur,
+      heroSays: /class="wk-taper"/.test(a.renderWeekHeroBlock(cur, true)),
+      rowsSay: (a.renderWeeksList(false, g.phase).match(/class="taper-note"/g) || []).length
+    };
+  };
+
+  /* IN THE TAPER: the hero says it, and no row repeats it. */
+  const t = screen(inTaper);
+  assert.ok(t.a.isTaperWeek(t.cur), 'pinning inside the taper did not land in the taper');
+  assert.equal(t.a.taperLineSaidAbove(), true, 'the row cannot tell that the hero is speaking');
+  assert.equal(t.heroSays, true, 'the hero stopped printing the taper sentence in the taper');
+  assert.equal(t.rowsSay, 0,
+    'the taper sentence is on this screen ' + (1 + t.rowsSay) + ' times');
+
+  /* BEFORE IT: the hero carries no taper line at all, so the row is the only
+     place the athlete can read what the taper is for, and it must still. */
+  const b = screen(beforeTaper);
+  assert.equal(b.a.isTaperWeek(b.cur), false, 'pinning before the taper landed inside it');
+  assert.equal(b.a.taperLineSaidAbove(), false, 'the row thinks a silent hero is speaking');
+  assert.equal(b.heroSays, false, 'the hero prints a taper line outside the taper');
+  assert.ok(b.rowsSay >= 1,
+    'nothing on the screen says what the taper is for while the athlete is not in it');
+});
+
 test('the taper sentence still fits two lines', () => {
   /* Measured in Chromium at 360, 412 and 430: two lines at every one, with
      48px of text at a 24px line-height. There is no static way to assert a
@@ -622,7 +864,32 @@ test('the taper sentence still fits two lines', () => {
  * that settled it rather than to the number I happened to type.
  * ========================================================================= */
 
-test('the phase track runs BETWEEN the marks and never into them', () => {
+test('REPLACED: the phase track ran BETWEEN the marks', () => {
+  /* The stepper's track is gone with the stepper. What replaced the law --
+     a full-width slide, and dots that are controls rather than decoration
+     and therefore carry the thumb floor -- is asserted below. */
+  const slide = rule('.pp-slide, .wk-slide');
+  assert.match(slide, /flex:0 0 100%/,
+    'a phase slide is no longer full width, so the carousel shows two at once');
+  /* ONE RULE, BOTH RAILS. The week's slide and the phase's are the same
+     kind of thing and are declared together rather than twice. */
+  assert.ok(rule('.view-plan .pp-rail, .view-week .wk-rail').indexOf('overflow:hidden') > -1,
+    'the rail stopped clipping its track');
+  assert.match(rule('.view-plan .pp-rail, .view-week .wk-rail'), /touch-action:pan-y/,
+    'the rail took pan-x, so a vertical scroll starting on it is lost');
+  /* THE DOTS REPLACED FOUR BUTTONS, so they have to still be buttons: the
+     chips were tappable and keyboard-reachable and the carousel may not
+     quietly make phase selection swipe-only. */
+  assert.match(rule('.pp-dot'), /width:var\(--tap-min\)/,
+    'the phase dot is a 6px tap target');
+  assert.match(rule('.pp-dot::before'), /width:6px/,
+    'the dot itself grew to the size of its target');
+  const a = app();
+  assert.match(a.renderPhaseRail(), /<button type="button" class="pp-dot[^"]*"[^>]*data-action="phase-pick"/,
+    'the dots stopped being controls, so a phase can only be reached by swiping');
+});
+
+test('SUPERSEDED: the stepper geometry', { skip: 'the stepper was replaced by the phase carousel' }, () => {
   /* THE DEFECT, MEASURED. The track was drawn from one dot's centre to the
      next (left:-50% / right:50%) and relied on the dot's own opaque fill to
      cover the overlap. In Chromium at 412px that put the line 13px inside

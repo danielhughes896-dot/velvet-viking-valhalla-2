@@ -48,8 +48,8 @@ test('the ends do not wrap', () => {
 });
 
 test('a horizontal region owns its own gesture, and the rule is generic', () => {
-  /* Naming the regions -- the coaching rail, the phase chips, the pace table
-     -- is a list that is wrong the first time someone adds a fourth. The walk
+  /* Naming the regions -- the coaching rail, the pace table -- is a list
+     that is wrong the first time someone adds a third. The walk
      up from the touched node asks the only question that matters: is anything
      above me actually scrollable sideways right now? */
   const owned = fn('pagerOwnedElsewhere');
@@ -60,7 +60,10 @@ test('a horizontal region owns its own gesture, and the rule is generic', () => 
   assert.doesNotMatch(owned, /fuel-body|pp-chips|pace-table/,
     'the ownership test went back to naming specific classes');
   // and the same regions say so in CSS, so the browser pans them natively
-  assert.match(CSS, /\.fuel-body, \.pp-chips, \.pace-table-card, \[data-hswipe\]\{touch-action:pan-x;\}/,
+  /* .pp-chips came off this list with the phase stepper. Its replacement
+     needs no name here: the carousel is a [data-hswipe] region, which is
+     the generic arm, and that is the point of having one. */
+  assert.match(CSS, /\.fuel-body, \.pace-table-card, \[data-hswipe\]\{touch-action:pan-x;\}/,
     'the horizontal regions lost their touch-action');
 });
 

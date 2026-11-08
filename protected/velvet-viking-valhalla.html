@@ -2615,10 +2615,23 @@
      word off whatever happens to be behind it.
      WHY / FEEL / WATCH FOR keep the gold. They are not on a photograph and
      they are not a title over a figure; their rule is .how-mod .how-row .k
-     and it is untouched. */
+     and it is untouched.
+     AND THE PHASE SLIDE'S NAME, as a fourth arm. Full Plan's phase carousel
+     is a rail of cards and the founder's rule covers a rail: "in the rails
+     the titles should be white and big like they are in the heroes, same
+     rules". Four titles, one declaration, nothing to drift. The glow comes
+     with it -- it earns its keep on a photograph and is barely visible on
+     this card, which is what "same rules" means rather than a reason to
+     write a fourth set of numbers.
+     NOTHING MAY BE WEDGED BETWEEN THESE ARMS, comments included: two guards
+     read this list by walking from one arm to the next (see
+     test/structuredWorkout "label, figure, detail" and test/todayHeroAndFuel
+     "a fuel card and a stage card share one title declaration") and anything
+     in the gap reads to them as four declarations that merely look alike. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono),
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label,
+  .view-plan .pp-slide-k{
     display:block; font-family:var(--label-face); font-size:21.85px; font-weight:600;
     line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
     margin-bottom:4px; text-align:center; color:#FFFFFF;
@@ -5915,8 +5928,10 @@
      the same lesson the coaching rail learned the hard way.
      touch-action:pan-y, not the pan-x [data-hswipe] gives by default: this
      region wants the horizontal gesture and the page still owes a vertical
-     scroll that starts on top of the card. */
-  .view-week .wk-rail{position:relative; overflow:hidden; touch-action:pan-y;}
+     scroll that starts on top of the card.
+     .wk-rail's OWN rule is stated once, with .view-plan .pp-rail, down in
+     the phase carousel: the two are one pager and the clip, the position
+     and that touch-action are the pager's, not this screen's. */
   /* ---------- A LAYER THAT MOVES MUST CARRY ITS OWN GROUND ----------
      will-change:transform promotes this row to its own compositor layer,
      and every element from .wk-rail up to BODY is transparent -- eight
@@ -5931,7 +5946,6 @@
     background:var(--bg);}
   .wk-track.is-settling{transition:transform .24s cubic-bezier(.22,.61,.36,1);}
   @media (prefers-reduced-motion: reduce){ .wk-track.is-settling{transition:none;} }
-  .wk-slide{flex:0 0 100%; min-width:0; box-sizing:border-box;}
   .wk-session-badges{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;}
   .wk-badge{font-size:10px; letter-spacing:.05em; padding:3px 9px; border-radius:99px;
     background:var(--bg-4); color:var(--ink-dim);}
@@ -6003,93 +6017,85 @@
      were compensating for a gap that is now the right size. */
   .view-plan{display:flex; flex-direction:column; gap:var(--wk-gap); padding-top:26px;}
   .view-plan{--wk-gap:18px;}
-  /* The stepper is the hero's own footnote -- the shape of the block the
-     hero is reporting on -- so it sits closer to it than the sections do. */
-  .view-plan > .pp-chips{margin-top:-6px; margin-bottom:-6px;}
+  /* The carousel is the hero's own footnote -- the shape of the block the
+     hero is reporting on -- so it sits closer to it than the sections do,
+     and its dots belong to it rather than being a third block of their own. */
+  .view-plan > .pp-rail{margin-top:-6px;}
+  .view-plan > .pp-dots{margin-top:calc(2px - var(--wk-gap));}
   .view-host .view-plan .view-heading{display:none;}
 
-  /* ---- the chips ---- */
-  /* EQUAL SHARES OF THE ROW. The phases are a sequence of equal standing --
-     one does not matter more than the next -- so they divide the width
-     rather than bunching at the left with dead space after them. flex:1 1 0
-     ignores label length, so BASE and TAPER get the same share and the row
-     stays a row rather than drifting as the words change. min-width:0 lets
-     them shrink on a narrow phone instead of forcing a scroll. */
-  /* THE GLOW NEEDS ROOM INSIDE THE SCROLLER, and this is the overflow-x
-     trap again: overflow-x:auto forces overflow-y to auto as well, so a
-     completed chip's pill-shaped halo was cut off flat at the container's
-     top and bottom edges. A round light clipped to a rectangle reads as a
-     square green block, which is exactly what it looked like. The row still
-     has to scroll at 320px, so it keeps the scroller and gains the vertical
-     room the light needs; the negative margin gives the layout back. */
-  .pp-chips{display:flex; gap:0; justify-content:center;
-    padding:18px 0 20px; margin:-16px 0 -4px;
-    overflow-x:auto; scrollbar-width:none;}
-  .pp-chips::-webkit-scrollbar{display:none;}
-  /* Each step owns an equal share of the row and centres its own mark; the
-     track is drawn by the step to the RIGHT of each gap, reaching back to
-     the previous mark, so a gap can never be drawn past the last phase. */
-  .pp-step{
-    position:relative; flex:1 1 0; min-width:fit-content;
-    display:flex; flex-direction:column; align-items:center; gap:7px;
-    padding:0 4px; background:none; border:0; color:var(--ink);
-    transition:color .18s;
-  }
-  /* ---------- THE TRACK RUNS BETWEEN THE MARKS, NOT INTO THEM ----------
-     It was drawn from one dot's centre to the next and relied on the dot's
-     own opaque fill to hide the overlap -- measured at 13px inside the rim
-     on each side, so the line met the circle with no gap at all and read as
-     cutting through it. The dot is 25px, so 12.5px clears the rim and the
-     5px past that is the breathing room: it is decoration between the
-     phases, and it is allowed not to touch them.
-     top was 12px against a dot whose centre line is 11.5px -- half a pixel
-     low, which is the other half of why it looked like it clipped the rim. */
-  .pp-step::before{
-    content:''; position:absolute; top:11.5px; height:2px; z-index:0;
-    right:calc(50% + 17.5px); left:calc(-50% + 17.5px);
-    background:var(--line); opacity:0;}
-  .pp-step.has-track::before{opacity:1;}
-  /* Cherry is progress in this product, and this is the only track on the
-     screen that reports it. Mixed down rather than used neat: a full-strength
-     cherry line between four small marks reads as the loudest thing on a
-     screen whose subject is the phases, not the line between them. */
-  .pp-step.has-track-done::before{
-    opacity:1; background:color-mix(in srgb, var(--cherry) 55%, transparent);}
-  .pp-step-dot{
-    position:relative; z-index:1; flex:none; width:25px; height:25px;
-    border-radius:50%; display:inline-flex; align-items:center;
-    justify-content:center;
-    border:1.5px solid var(--t-tile-rim); background:var(--bg);
-    color:transparent; transition:border-color .18s, box-shadow .18s, color .18s;}
-  .pp-step-dot svg{width:13px; height:13px;}
-  .pp-step-k{font-size:11.5px; letter-spacing:.08em; white-space:nowrap;
-    color:var(--ink); transition:color .18s;}
-  .pp-step-w{font-size:10px; color:var(--ink-faint); white-space:nowrap;}
-  /* The same two lights the rows below use, from the same tokens: the done
-     green on a phase behind the athlete, the gold on the one they are in. */
-  .pp-step.is-done .pp-step-dot{
-    border-color:color-mix(in srgb, var(--ok) 60%, transparent);
-    background:color-mix(in srgb, var(--ok) 18%, transparent);
-    color:var(--ok-text); box-shadow:var(--glow-done-mark);}
-  .pp-step.is-now .pp-step-dot{
-    border-color:var(--gold); background:rgba(227,177,90,.14);
-    box-shadow:0 0 16px color-mix(in srgb, var(--gold) 26%, transparent);}
-  .pp-step.is-now .pp-step-k{color:var(--gold-bright);}
-  .pp-step.is-ahead .pp-step-k{color:var(--ink-dim);}
-  /* Opening a phase is a selection, and gold is what a selection wears --
-     the same mark the nav's current tab and the builder's chosen row take. */
-  .pp-step.is-open:not(.is-now) .pp-step-dot{border-color:var(--gold-text);}
-  /* A CHIP SAYS ITS STATE WITH LIGHT, NOT WITH THE WORD -- and that is the
-     difference between a control and a row. The week rows below are read,
-     so their state is the colour of the text. These are pressed, and their
-     label colour is already spoken for: gold means SELECTED here, which is
-     the one selection language the product has. Colouring the word by state
-     as well put two meanings on one property and the chips started
-     contradicting themselves the moment a completed phase was opened.
-     So the word stays crisp white at every state, including selected, and
-     the state is a glow behind it -- the same green and the same gold the
-     rows use, from the same tokens. The tick stays green because it is a
-     mark rather than a label. */
+  /* ---- the phase carousel ---- */
+  /* ---------- ONE PHASE AT A TIME, FULL WIDTH ----------
+     This was a stepper: four marks on a track with each phase's week range
+     under its name. It said which phases exist, which one is current and
+     how far along the block was, and it said all of it at 11.5px -- because
+     four phases plus a race week have to share 320px when the row is a row.
+
+     A full-width slide is the founder's call and it buys three things the
+     row could not: the phase's name at hero size, a sentence of its own
+     underneath, and -- because exactly one phase is on screen -- a week
+     list below that belongs to the phase being looked at rather than to
+     whichever accordion was last opened.
+
+     IT IS THE WEEK CAROUSEL'S PAGER, NOT A SECOND ONE. The track takes
+     .wk-track, the slide sits beside .wk-slide in one rule, and the touch
+     handling is wirePagerRail() -- the week rail's, with its commit passed
+     in. "Full-width slides that track the finger, resist at the ends and
+     settle before the re-render" is one implementation in this product.
+
+     NOT ON THE DE-BOXING LIST, for the reason .race-event is not on it: the
+     plan screens strip rows in a list down to rows, and this is one object
+     that IS the layer -- the same standing the Race Day panel has. */
+  .view-plan .pp-rail, .view-week .wk-rail{position:relative; overflow:hidden; touch-action:pan-y;}
+  .pp-slide, .wk-slide{flex:0 0 100%; min-width:0; box-sizing:border-box;}
+  .pp-slide-body{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:5px; min-height:118px; padding:19px 16px;
+    border:1.5px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile); box-shadow:var(--t-lift);}
+  /* The phase the athlete is in takes the gold rim -- the one way this
+     product says "this is where you are", and the same mark the current day
+     and the selected tab wear. It is the signal .pp-phase.is-now carried
+     before the de-boxing took the phase card away. */
+  .pp-slide.is-now .pp-slide-body{
+    border-color:var(--gold);
+    box-shadow:var(--t-lift), 0 0 18px color-mix(in srgb, var(--gold) 18%, transparent);}
+  /* ---- the span and the state, in the colour the rows use ----
+     phaseGroupMeta() writes "Weeks 3 - 7 . Completed" and is the only place
+     those words are written; the colour is the second telling that the week
+     rows below already do with theirs -- green behind, gold now, faint
+     ahead. The WORDS are there either way, so colour is never alone. */
+  .pp-slide-w{font-family:var(--text-face); font-size:11.5px; letter-spacing:.07em;
+    text-transform:uppercase; color:var(--ink-dim);}
+  .pp-slide.is-now .pp-slide-w{color:var(--gold-bright);}
+  .pp-slide.is-done .pp-slide-w{color:var(--ok-text);}
+  .pp-slide.is-ahead .pp-slide-w{color:var(--ink-faint);}
+  /* The phase's own sentence, in the voice a stage cue uses on the session
+     rail: the supporting size, 1.45 leading, 30ch so it breaks where a
+     sentence breaks rather than at the card edge. */
+  .pp-slide-msg{font-family:var(--text-face); font-size:var(--fs-support);
+    line-height:1.45; letter-spacing:0; text-transform:none;
+    color:rgba(255,255,255,.92); max-width:30ch; margin:3px 0 0;}
+  /* ---- the dots are the control, so they carry the thumb floor ----
+     The session rails' dots are an indicator and nothing else: aria-hidden,
+     6px, no target. These replace the chips, which were buttons -- so
+     tapping a phase has to keep working, and it has to be reachable by
+     keyboard. The dot stays 6px and the BUTTON around it is --tap-min
+     wide, which is the same answer .day-actions reached for its glyphs. */
+  .view-plan .pp-dots{display:flex; justify-content:center; gap:0; padding:0;}
+  .pp-dot{
+    width:var(--tap-min); height:34px; padding:0; margin:0; border:0;
+    background:none; display:inline-flex; align-items:center;
+    justify-content:center; cursor:pointer;
+    -webkit-tap-highlight-color:transparent;}
+  .pp-dot::before{
+    content:''; display:block; width:6px; height:6px; border-radius:50%;
+    background:var(--ink-faint); opacity:.34;
+    transition:opacity .25s ease, background-color .25s ease, box-shadow .25s ease;}
+  .pp-dot.is-on::before{
+    background:var(--gold-bright); opacity:1;
+    box-shadow:0 0 8px color-mix(in srgb, var(--gold-bright) 60%, transparent);}
+
 
   /* ---- a phase ---- */
   .pp-phase{
@@ -6713,7 +6719,7 @@
   /* The horizontal regions that own their own gesture say so in CSS as well
      as being detected at runtime: pan-x lets the browser scroll them
      natively even while the pager is listening. */
-  .fuel-body, .pp-chips, .pace-table-card, [data-hswipe]{touch-action:pan-x;}
+  .fuel-body, .pace-table-card, [data-hswipe]{touch-action:pan-x;}
   /* ---------- pan-x IS FOR A REGION THAT SCROLLS SIDEWAYS, NOT FOR ONE
        THAT MERELY LISTENS SIDEWAYS ----------
      THE FAULT THIS FIXES: open a session on This Week and the page could
@@ -48120,6 +48126,13 @@ function dayStatusLabel(dd){
 var expandedWeeks = {};
 function initExpanded(){
   expandedWeeks = {};
+  /* A NEW PLAN IS A NEW SET OF PHASES. Every caller of this is "the block
+     changed under us" -- generated, regenerated, loaded from the cloud,
+     substituted -- and a phase name the athlete swiped to in the last block
+     must not decide which slide the carousel opens on in this one.
+     planPhaseIndex() then falls back to the phase holding the current week,
+     which is what it should be on a plan nobody has swiped yet. */
+  planPhaseSel = null;
   var today = todayStr();
   var totalWeeks = totalWeeksInPlan();
   var found = false;
@@ -48208,6 +48221,17 @@ function weekRowLabel(weekNum){
   var label = weekPhaseLabel(weekNum);
   return label === 'Fitness Checkpoint' ? 'Week '+weekNum : label;
 }
+/* ---- LEFT ALONE ON PURPOSE, AND IT IS A QUESTION ----
+   A taper week's row is labelled "Taper Phase" and carries no number,
+   because .view-plan .pp-body .week-num is display:none and this label is
+   where a week's number lives on this list. Under the phase carousel the
+   slide directly above already says TAPER at 21.85px, so that row now names
+   the phase twice and is the only row in the block with no week number on
+   it. Numbering it is one line here -- return 'Week '+weekNum for anything
+   but vGoalWeek() -- but "the goal week and the taper are the two weeks
+   that genuinely are not week N" is a decision already taken and written
+   down in test/planSurface and test/taperGoalWeekGrouping, not a detail of
+   the carousel, so it is not changed here. */
 function weekRangeLabel(range){
   var a = dShort(range.start), b = dShort(range.end);
   var ma = a.split(' ')[0], mb = b.split(' ')[0];
@@ -48216,7 +48240,28 @@ function weekRangeLabel(range){
      and the two spaces were 10px of the 39 this row was still over. */
   return a + '\u2013' + b;
 }
-function renderWeekAccordion(weekNum, forceOpen){
+/* ---------- WHO DECIDES WHETHER A WEEK IS OPEN ----------
+   This used to read expandedWeeks itself, and nothing in the markup has
+   dispatched toggle-week since the week became a way IN rather than a thing
+   that unfolds: the drawer was reachable only through initExpanded()'s
+   bootstrap, which opens the week holding today. Under a closed phase
+   accordion that was invisible. Under the phase carousel -- where the
+   current phase is on screen from the moment the tab opens -- it put a
+   week's worth of day rows on the plan, un-closable, duplicating the week
+   screen the row leads to.
+   So the decision moves up to renderPhaseSection(), which knows whether it
+   is rendering the plan WHOLE (where the drawer is the point) or one phase
+   under the carousel (where the row is a row). The resolved flag is that answer,
+   already resolved. */
+/* Whether Full Plan's hero is already printing the taper sentence -- which
+   it does on exactly the condition renderWeekHeroBlock() uses, read from the
+   same isTaperWeek(). renderWeekAccordion() is Full Plan's alone, so "above"
+   is never ambiguous: it is that hero or nothing. */
+function taperLineSaidAbove(){
+  var cur = currentWeekNum();
+  return !!cur && isTaperWeek(cur);
+}
+function renderWeekAccordion(weekNum, open){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   var range = weekDateRange(weekNum);
   /* ---- A STRUCTURAL WEEK BEYOND THE MATERIALISED HORIZON ----
@@ -48229,7 +48274,7 @@ function renderWeekAccordion(weekNum, forceOpen){
      never empty for them inside 1..totalWeeksInPlan() and this branch never
      fires. */
   if (!wdays.length && weekNum >= 1 && weekNum <= totalWeeksInPlan()){
-    var openClsU = (forceOpen || expandedWeeks[weekNum]) ? ' open' : '';
+    var openClsU = open ? ' open' : '';
     return '<div class="week week-unshaped'+openClsU+'" id="week-'+weekNum+'">'+
       '<button type="button" class="week-head" data-action="plan-open-week" data-week="'+weekNum+'">'+
         '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
@@ -48256,7 +48301,7 @@ function renderWeekAccordion(weekNum, forceOpen){
      week -- see renderRaceDayEvent(). Leaving it in the list as the seventh
      card made the culmination of a sixteen-week build read as Sunday. */
   var daysHtml = '<div class="pw-rows">'+planWeekRowsHtml(weekNum)+'</div>';
-  var openCls = (forceOpen || expandedWeeks[weekNum]) ? ' open' : '';
+  var openCls = open ? ' open' : '';
   var taper = isTaperWeek(weekNum);
   /* THE SAME SENTENCE THIS WEEK'S HERO PRINTS, because it is the same
      coaching about the same weeks. The "Taper:" label and its bolt went for
@@ -48264,7 +48309,19 @@ function renderWeekAccordion(weekNum, forceOpen){
      already titled TAPER PHASE directly above it, so the word was the
      second telling and the glyph the third. One string, one decision --
      TAPER_COACHING_LINE, shared with renderWeekHeroBlock(). */
-  var taperNote = taper ? '<div class="taper-note">'+TAPER_COACHING_LINE+'</div>' : '';
+  /* ---------- SAID ONCE PER SCREEN ----------
+     Full Plan's hero prints TAPER_COACHING_LINE whenever the week the
+     athlete is in is a taper week, and a taper week's row printed it again.
+     While the phase sections started closed the two were never on screen
+     together; under the phase carousel the current phase is open from the
+     moment the tab is, so the identical sentence appeared twice, 270px
+     apart, at 430px.
+     THE HERO'S COPY IS THE ONE THAT STAYS. It is about the block, which is
+     what this screen is about; the row's was always the echo. Neither
+     string moves and neither is rewritten -- there is still exactly one
+     definition and both printers still take it. */
+  var taperNote = (taper && !taperLineSaidAbove())
+    ? '<div class="taper-note">'+TAPER_COACHING_LINE+'</div>' : '';
   /* THE COMBINED-TOTAL EXPLANATION IS GONE. "Total includes race day: 29.5
      training + 42.2 race = 71.7 km" existed only to explain a number that
      should not have been added together in the first place. With the race out
@@ -48766,78 +48823,172 @@ function planPhaseGroups(){
   }
   return groups;
 }
+/* ---------- WHAT EACH PHASE IS FOR, IN THE ATHLETE'S WORDS ----------
+   The carousel below shows one phase at a time, which gives a phase the room
+   for a sentence the row of chips never had. These are that sentence.
+
+   DRAFT COPY, AND THE FOUNDER'S TO REWRITE. What is NOT a draft is where it
+   comes from: every line is PLAYBOOK_PHASE_RULES[phase].note said to an
+   athlete instead of to the adaptation layer, so the screen cannot tell them
+   a phase is doing something the generator is not. The notes themselves stay
+   exactly where they are -- they are reasoning rules written about the plan
+   ("is NEVER read as declining fitness needing progression"), not sentences
+   to put in front of anybody.
+
+   KEYED ON WHAT planPhaseGroups() ACTUALLY PRODUCES, which is
+   trainingPhase()'s naming -- so 'Race Week' and 'Final Week' both appear
+   rather than a mapping back to 'Final' that would have to be kept in step
+   with vGoalWeek() by hand.
+
+   NOT THE TAPER'S COACHING LINE. TAPER_COACHING_LINE tells the athlete what
+   to DO in a taper ("keep hitting these paces") and the hero already prints
+   it; this says what the PHASE IS. Two jobs, and they have to agree without
+   being the same sentence twice on one screen. */
+var PHASE_MESSAGES = {
+  Base:         'Consistent aerobic running. The engine grows; nothing sharpens yet.',
+  Build:        'More quality work, at the same intensities, week on week.',
+  Peak:         'The race-specific sessions. These are the ones that count.',
+  Taper:        'Load comes down so the work can surface. The fitness is already made.',
+  Maintain:     'Holding what you have. Progression belongs to the next block.',
+  'Race Week':  'Nothing left to add. The race is the session.',
+  'Final Week': 'Nothing left to add. The goal effort is the session.'
+};
+function phaseMessage(phase){
+  return PHASE_MESSAGES[phase] || '';
+}
 /* Which phase sections are open. Module-level and deliberately not on state:
    it is a disclosure the athlete opened a moment ago, not a training fact,
    and it must never reach the account row -- the same reasoning expandedWeeks
-   already follows. */
+   already follows.
+   STILL LIVE, AND ONLY FOR A ONE-PHASE BLOCK. A maintenance block is a single
+   phase, so there is nothing to carousel and nothing for the carousel to
+   select: renderFullPlanView() falls back to the headed, openable section
+   there, which is the surface this flag governs. */
 var expandedPhases = {};
+/* Which phase the athlete is LOOKING at, which is a different question and
+   gets a different variable. Module-level for the same reason: where someone
+   has swiped to a moment ago is not a training fact and must never reach the
+   account row -- as planWeekOpen and weekSelectedDate already do not. */
+var planPhaseSel = null;
 function phaseGroupState(g){
   var cur = currentWeekNum();
   if (!cur) return 'done';
   if (g.weeks.indexOf(cur) !== -1) return 'now';
-  return g.weeks[g.weeks.length-1] < cur ? 'done' : 'ahead';
+  return g.weeks[g.weeks.length - 1] < cur ? 'done' : 'ahead';
 }
 /* ---------- EVERY PHASE STARTS CLOSED ----------
    The phase the athlete is in used to open itself, on the reasoning that it
    is the one they want. On a four-phase block that put one section's worth
    of weeks between the stepper and Race Day every time the screen was
-   opened, and Full Plan is the screen for seeing the SHAPE of the block --
-   the stepper says which phase is current, the hero says how far through it
-   is, and the weeks are what the athlete opens a phase to go and find.
+   opened, and Full Plan is the screen for seeing the SHAPE of the block.
    forceOpenAll still wins: it is how the whole plan is rendered open where
-   something needs all of it at once, and it is not a default. */
+   something needs all of it at once, and it is not a default.
+   THE CAROUSEL ANSWERS THIS DIFFERENTLY, and does not come through here --
+   see planPhaseIndex(). With one phase on screen the shape IS the carousel,
+   so the weeks below it are not in the way of anything; a screen that
+   listed none of them would be a layer drawn with nothing under it. */
 function phaseGroupOpen(g, forceOpenAll){
   if (forceOpenAll) return true;
   if (expandedPhases[g.phase] != null) return !!expandedPhases[g.phase];
   return false;
 }
-/* The chips. One per phase, in block order, so the shape of the whole build
-   is legible before anything is opened -- which is the thing a flat list of
-   fifteen week rows could not say. */
-/* ---------- THE BLOCK AS A ROUTE, NOT A ROW OF PILLS ----------
-   This was four pills in a row. It said which phases exist and which one is
-   current, and nothing about the shape between them -- a block is a journey
-   through its phases in order, and pills are a set, not a sequence.
-   It is a stepper now: a mark per phase joined by a track, the completed
-   span of that track drawn in cherry because cherry is progress in this
-   product, and each phase's own week range under its name so the shape of
-   the build is legible before anything is opened.
-   Still a button, still data-action="toggle-phase": tapping a step opens its
-   phase below, exactly as tapping the pill did. The container keeps its
-   class so the horizontal-scroll law that governs it is untouched. */
-function renderPhaseSteps(){
+/* ---------- WHICH SLIDE THE CAROUSEL OPENS ON ----------
+   The phase the athlete is in, until they swipe somewhere else. Past the end
+   of the block there is no such phase and currentWeekNum() says so by
+   returning null -- and then the LAST phase, the one the goal day was in, is
+   what there is left to look at. */
+function planPhaseIndex(groups){
+  if (!groups || !groups.length) return 0;
+  var i;
+  if (planPhaseSel){
+    for (i = 0; i < groups.length; i++){
+      if (groups[i].phase === planPhaseSel) return i;
+    }
+  }
+  var cur = currentWeekNum();
+  if (cur){
+    for (i = 0; i < groups.length; i++){
+      if (groups[i].weeks.indexOf(cur) !== -1) return i;
+    }
+  }
+  return groups.length - 1;
+}
+function planSelectedPhase(){
+  var groups = planPhaseGroups();
+  if (!groups.length) return null;
+  return groups[planPhaseIndex(groups)].phase;
+}
+function handlePhasePick(phase){
+  if (!phase) return;
+  planPhaseSel = phase;
+  renderApp();
+}
+/* 'Race Week' -> 'race-week', so a phase can carry a CSS hook of its own --
+   which is where a per-phase photograph goes the moment there is one. */
+function phaseSlug(phase){
+  return String(phase).toLowerCase().replace(/[^a-z]+/g, '-');
+}
+/* ---------- THE BLOCK AS A CAROUSEL, NOT A ROW OF MARKS ----------
+   The stepper this replaces is described in the CSS it took with it. What
+   matters here: one slide per phase, in block order, and the week list below
+   belongs to the slide on screen.
+
+   THE SAME PAGER THE WEEK USES -- .wk-track, data-index/data-count, and
+   wirePagerRail() with a commit of its own. Not a second copy of "full-width
+   slides that track the finger, resist at the ends and settle before the
+   re-render".
+
+   FEWER THAN TWO PHASES IS NOT A CAROUSEL. A maintenance block is one phase
+   from end to end; renderFullPlanView() shows the headed section there
+   instead, so this returns nothing rather than a carousel of one. */
+function renderPhaseRail(){
   var groups = planPhaseGroups();
   if (groups.length < 2) return '';
-  return '<div class="pp-chips" role="group" aria-label="Training phases">'+
-    groups.map(function(g, i){
-      var st = phaseGroupState(g);
-      /* The track reaching THIS step is lit when the step before it is
-         behind the athlete -- so the lit span ends at the phase they are in
-         rather than running past it. */
-      var prevDone = i > 0 && phaseGroupState(groups[i-1]) === 'done';
-      var wks = g.weeks.length > 1
-        ? 'W'+g.weeks[0]+'\u2013'+g.weeks[g.weeks.length-1]
-        : 'W'+g.weeks[0];
-      return '<button type="button" class="pp-step is-'+st+
-          (i > 0 ? (prevDone ? ' has-track-done' : ' has-track') : '')+
-          (phaseGroupOpen(g, false) ? ' is-open' : '')+'" '+
-          'data-action="toggle-phase" data-phase="'+escapeHtml(g.phase)+'">'+
-        '<span class="pp-step-dot" aria-hidden="true">'+
-          (st==='done' ? ICONS.check : '')+
-        '</span>'+
-        '<span class="pp-step-k font-head">'+escapeHtml(phaseChipLabel(g.phase))+'</span>'+
-        '<span class="pp-step-w font-mono">'+escapeHtml(wks)+'</span>'+
-      '</button>';
+  var i = planPhaseIndex(groups);
+  var slides = groups.map(function(g){
+    var st = phaseGroupState(g);
+    var msg = phaseMessage(g.phase);
+    return '<div class="pp-slide is-'+st+' ph-'+phaseSlug(g.phase)+'" '+
+        'data-phase="'+escapeHtml(g.phase)+'">'+
+      '<div class="pp-slide-body">'+
+        '<span class="pp-slide-k">'+escapeHtml(g.phase)+'</span>'+
+        /* phaseGroupMeta() and nothing else. "Weeks 3 - 7 . Completed" is
+           the span AND the state, and it has been the only place those words
+           are written since the phase heading gave up its second line. */
+        '<span class="pp-slide-w">'+escapeHtml(phaseGroupMeta(g))+'</span>'+
+        (msg ? '<div class="pp-slide-msg">'+escapeHtml(msg)+'</div>' : '')+
+      '</div>'+
+    '</div>';
+  }).join('');
+  return '<div class="pp-rail" data-hswipe="1" data-index="'+i+'" '+
+      'data-count="'+groups.length+'" role="group" aria-label="Training phases">'+
+      '<div class="pp-track wk-track" style="transform:translate3d(-'+(i*100)+'%,0,0)">'+
+        slides+
+      '</div>'+
+    '</div>'+
+    renderPhaseDots(groups, i);
+}
+/* ---------- THE DOTS ARE THE CONTROL THE CHIPS WERE ----------
+   The session rails' dots say position and nothing else: aria-hidden, no
+   target, railDotCount(). These stand where four buttons stood, so they have
+   to keep doing what those did -- tap a phase, reach it by keyboard, say
+   which one is current to a screen reader. Hence real buttons with real
+   labels, and hence not railDotCount(): that function's whole point is that
+   its dots are decoration. */
+function renderPhaseDots(groups, sel){
+  if (!groups || groups.length < 2) return '';
+  return '<div class="pp-dots">'+
+    groups.map(function(g, k){
+      var on = k === sel;
+      /* aria-current, not role="tab". A tab needs a tabpanel to point at,
+         and these point at a slide inside a scroller; "the current item in
+         a set" is exactly what this is and exactly what aria-current says. */
+      return '<button type="button" class="pp-dot'+(on ? ' is-on' : '')+'" '+
+        (on ? 'aria-current="true" ' : '')+
+        'data-action="phase-pick" data-phase="'+escapeHtml(g.phase)+'" '+
+        'aria-label="'+escapeHtml(g.phase)+'"></button>';
     }).join('')+
   '</div>';
-}
-/* "Taper Phase" on the section, "TAPER" on the chip -- the chip is a label in
-   a row of labels and the word "Phase" five times is noise. "Week" goes for
-   the same reason and because it is what makes the row overflow: measured at
-   320px with five phases, "Race Week" was the one chip that could not fit its
-   own share. The section heading keeps the full name. */
-function phaseChipLabel(phase){
-  return String(phase).replace(/\s*Phase$/i,'').replace(/\s*Week$/i,'');
 }
 function phaseGroupMeta(g){
   var st = phaseGroupState(g);
@@ -48846,8 +48997,8 @@ function phaseGroupMeta(g){
     : 'Week '+g.weeks[0];
   return span+' \u00b7 '+(st==='now' ? 'Now' : st==='done' ? 'Completed' : 'Ahead');
 }
-function renderPhaseSection(g, forceOpenAll){
-  var st = phaseGroupState(g), open = phaseGroupOpen(g, forceOpenAll);
+function renderPhaseSection(g, forceOpenAll, bare){
+  var st = phaseGroupState(g), open = bare || phaseGroupOpen(g, forceOpenAll);
   /* ---------- THE DISC GOES, THE STATE STAYS ----------
      A 28px status disc in front of every phase name, plus its 11px gap, put
      the name at x=57 on a 412px screen -- 41px of the row spent on a mark
@@ -48862,8 +49013,25 @@ function renderPhaseSection(g, forceOpenAll){
      section was collapsed -- the culmination hidden behind a chevron. It is
      emitted once, after every phase, by renderWeeksList() below. */
   var body = g.weeks.map(function(w){
-    return renderWeekAccordion(w, forceOpenAll);
+    /* BARE IS ROWS, FULL IS THE WHOLE PLAN. Under the carousel a week is a
+       way in to the week screen and nothing else; rendered whole, the
+       drawer is what "the whole plan" means. expandedWeeks is read here,
+       the one place that still has a use for it. */
+    return renderWeekAccordion(w, bare ? false : (forceOpenAll || !!expandedWeeks[w]));
   }).join('');
+  /* ---------- BARE: THE CAROUSEL IS ALREADY THE HEADING ----------
+     A heading button under a slide that says BASE in 21.85px would be the
+     phase's name twice, and a chevron that opens what is already open. The
+     weeks keep every class the headed section gives them, so the de-boxing
+     rule, the done light and the taper treatment all still find them --
+     this takes the button off, not the section. The state words
+     phaseGroupMeta() writes are on the slide instead of in an .sr-only
+     span, which is where a screen reader was already getting them. */
+  if (bare){
+    return '<section class="pp-phase is-'+st+' is-open is-bare">'+
+      '<div class="pp-body">'+body+'</div>'+
+    '</section>';
+  }
   return '<section class="pp-phase is-'+st+(open?' is-open':'')+'">'+
     '<button type="button" class="pp-head" data-action="toggle-phase" '+
         'data-phase="'+escapeHtml(g.phase)+'" aria-expanded="'+(open?'true':'false')+'">'+
@@ -48901,9 +49069,22 @@ function handleTogglePhase(phase){
   expandedPhases[phase] = !phaseGroupOpen(g, false);
   renderApp();
 }
-function renderWeeksList(forceOpenAll){
-  var html = planPhaseGroups().map(function(g){
-    return renderPhaseSection(g, forceOpenAll);
+/* ---------- THE WHOLE PLAN, OR THE PHASE ON SCREEN ----------
+   onlyPhase is the carousel's half of the deal: the slide names a phase and
+   this lists that phase's weeks, bare, because the slide has already said
+   which phase they belong to. Omitted, this is the list it has always been
+   -- every phase, each with its own heading -- which is what renders a block
+   whole where something needs all of it at once.
+   RACE DAY IS OUTSIDE BOTH. It is not inside a phase (see renderPhaseSection)
+   and it is not filtered by one: it is the thing the block exists for, and
+   it stays at the foot of this screen whichever phase is being looked at. */
+function renderWeeksList(forceOpenAll, onlyPhase){
+  var groups = planPhaseGroups();
+  if (onlyPhase){
+    groups = groups.filter(function(g){ return g.phase === onlyPhase; });
+  }
+  var html = groups.map(function(g){
+    return renderPhaseSection(g, forceOpenAll, !!onlyPhase);
   }).join('');
   /* Exactly once, and only from the week that actually holds it --
      renderRaceDayEvent() returns '' for every other week, which is what
@@ -58655,11 +58836,20 @@ function renderFullPlanView(){
      renderWeekHeroBlock() -- one block, two screens, so the two cannot print
      different totals for the same week. */
   var cur = currentWeekNum();
+  /* ---------- HERO, CAROUSEL, THE PHASE'S WEEKS, RACE DAY ----------
+     The hero is untouched: the block's own figures and the gold bar, which
+     is what the founder asked be left exactly as it is.
+     Below it one phase at a time. With fewer than two phases there is
+     nothing to carousel, so the screen falls back to the headed section it
+     has always had -- opened, because there is no slide above it naming the
+     phase and nothing else on the screen to be in the way of. */
+  var manyPhases = planPhaseGroups().length >= 2;
   return '<div class="view-plan">'+
     '<div class="view-heading font-head">Full Plan</div>'+
     (cur ? renderWeekHeroBlock(cur, true) : '')+
-    renderPhaseSteps()+
-    renderWeeksList()+
+    renderPhaseRail()+
+    (manyPhases ? renderWeeksList(false, planSelectedPhase())
+                : renderWeeksList(true, null))+
   '</div>';
 }
 // Plan HQ: macro settings only -- block overview, Build New Block, Active
@@ -61517,25 +61707,70 @@ function initViewPager(){
   }catch(e){}
 }
 
-/* SWIPING THE SESSION CARD MOVES THE DAY, AND EVERYTHING FOLLOWS.
-   The gesture is on the card rather than on the day circles above it -- a
-   row of 44px targets is a poor thing to drag, and the card is the thing
-   being read. Committing calls the same handleWeekPickDay() a tap on a
-   circle calls, so the circles, the badges and the full session underneath
-   cannot disagree with the card: there is one selected date and everything
-   reads it. */
+/* SWIPING A FULL-WIDTH RAIL MOVES WHAT IS UNDER IT.
+   The gesture is on the card rather than on the controls above or below it
+   -- a row of small targets is a poor thing to drag, and the card is the
+   thing being read. Committing calls the same handler a tap on the control
+   calls, so the control and the card cannot disagree: there is one selected
+   day, one selected phase, and everything reads them. */
 function wireWeekDayPager(){
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   try{
     var rails = document.querySelectorAll('.wk-rail');
     for (var i=0; i<rails.length; i++) wireWeekRail(rails[i]);
+    /* Full Plan's phase carousel, through the same pager. Wired from here
+       rather than from a second init, because "every full-width rail in the
+       document is wired after a render" is one job. */
+    var phases = document.querySelectorAll('.pp-rail');
+    for (var k=0; k<phases.length; k++) wirePhaseRail(phases[k]);
     var opens = document.querySelectorAll('.wk-session.is-open');
     for (var j=0; j<opens.length; j++) wireWeekFullSwipe(opens[j]);
   }catch(e){}
 }
+/* ---------- SWIPING THE WEEK MOVES THE DAY ----------
+   The rail the gesture is on knows which week it is showing -- see data-week
+   in renderWeekDayTrack() -- and committing calls the same
+   handleWeekPickDay() a tap on a day circle calls, so the circles, the
+   badges and the session underneath cannot disagree with the card. */
 function wireWeekRail(rail){
-  if (!rail || rail.__vvWeekRailed) return;
-  rail.__vvWeekRailed = true;
+  wirePagerRail(rail, 'week', function(dir){
+    /* The week the RAIL is showing, not the week the athlete is in -- see
+       data-week in renderWeekDayTrack(). Falls back to the current week so
+       a rail rendered without the attribute behaves as it always did. */
+    var railWeek = parseInt(rail.getAttribute('data-week'), 10);
+    if (!(railWeek > 0)) railWeek = currentWeekNum();
+    var to = weekStepDate(railWeek, dir);
+    if (!to) return null;
+    return function(){ handleWeekPickDay(to); };
+  });
+}
+/* ---------- AND SWIPING THE PHASE MOVES THE WEEK LIST ----------
+   The same pager, the same commit shape: the neighbour in block order, or
+   null at the ends, where the drag damps rather than stopping dead.
+   data-index is read off the rail rather than closed over, because the rail
+   in the document is always the one the current render wrote. */
+function wirePhaseRail(rail){
+  wirePagerRail(rail, 'phase', function(dir){
+    var groups = planPhaseGroups();
+    var at = parseInt(rail.getAttribute('data-index'), 10) || 0;
+    var g = groups[at + dir];
+    if (!g) return null;
+    return function(){ handlePhasePick(g.phase); };
+  });
+}
+/* ---------- ONE FULL-WIDTH PAGER, TWO THINGS PAGED ----------
+   Full-width slides that track the finger, resist at the ends and settle to
+   where the next slide will sit BEFORE the re-render -- so the fresh track,
+   built at that same offset, lands on the pixel the animation finished on.
+   That is the whole mechanism, and it was the week carousel's alone until
+   the plan's phases needed it too. planCommit(dir) returns the thing to do
+   once the slide has settled, or null for "there is nothing that way"; it
+   closes over its own rail, so nothing else about a rail reaches in here. */
+function wirePagerRail(rail, learnKey, planCommit){
+  if (!rail || rail.__vvPagered) return;
+  rail.__vvPagered = true;
+  /* Both tracks carry .wk-track, which is not a coincidence: it is the class
+     that declares a row which moves and paints its own ground. */
   var track = rail.querySelector ? rail.querySelector('.wk-track') : null;
   if (!track) return;
   var n = parseInt(rail.getAttribute('data-count'), 10) || 0;
@@ -61569,22 +61804,17 @@ function wireWeekRail(rail){
     var p = g; g = null;
     if (!p || p.axis !== 'x') return;
     var w = rail.clientWidth || 1;
-    /* The week the RAIL is showing, not the week the athlete is in -- see
-       data-week in renderWeekDayTrack(). Falls back to the current week so
-       a rail rendered without the attribute behaves as it always did. */
-    var railWeek = parseInt(rail.getAttribute('data-week'), 10);
-    if (!(railWeek > 0)) railWeek = currentWeekNum();
-    var to = (Math.abs(p.dx) > w * PAGER_COMMIT_FRACTION)
-      ? weekStepDate(railWeek, p.dx < 0 ? 1 : -1) : null;
+    var commit = (Math.abs(p.dx) > w * PAGER_COMMIT_FRACTION)
+      ? planCommit(p.dx < 0 ? 1 : -1) : null;
     track.classList.add('is-settling');
-    if (!to){ setX(base()); return; }
-    /* Settle to where the new day will sit, THEN re-render. The fresh track
-       is built at that same offset, so the swap lands on the pixel the
+    if (!commit){ setX(base()); return; }
+    /* Settle to where the new slide will sit, THEN re-render. The fresh
+       track is built at that same offset, so the swap lands on the pixel the
        animation finished on and nothing jumps -- the same ordering the view
        pager needs for the same reason. */
     setX(base() + (p.dx < 0 ? -w : w));
-    swipeMarkLearned('week');
-    window.setTimeout(function(){ handleWeekPickDay(to); pagerHaptic(); }, 240);
+    swipeMarkLearned(learnKey);
+    window.setTimeout(function(){ commit(); pagerHaptic(); }, 240);
   }, { passive:true });
   rail.addEventListener('touchcancel', function(){
     if (!g) return;
@@ -61944,6 +62174,7 @@ document.addEventListener('click', function(e){
     case 'set-athlete-name': handleSetAthleteName(); break;
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'toggle-phase': handleTogglePhase(target.getAttribute('data-phase')); break;
+    case 'phase-pick': handlePhasePick(target.getAttribute('data-phase')); break;
     case 'plan-open-week': handlePlanOpenWeek(target.getAttribute('data-week')); break;
     case 'plan-open-session': handlePlanOpenSession(target.getAttribute('data-day')); break;
     case 'plan-back': handlePlanBack(); break;

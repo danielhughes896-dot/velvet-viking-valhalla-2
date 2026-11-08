@@ -46,6 +46,26 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8'
    false pass in this suite before. */
 const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
+/* ---------- FULL PLAN SHOWS ONE PHASE AT A TIME ----------
+   Under the phase carousel the screen lists the weeks of the phase the
+   athlete is looking at, and opens on the phase holding the CURRENT week.
+   racingBlock() pins today five weeks into a thirteen-week build, so that
+   is the Build phase -- and a test asking "what does this screen say about
+   week 13" has to say which phase it is looking at, exactly as an athlete
+   has to swipe to it.
+   THROUGH THE REAL HANDLER, not by poking the variable: handlePhasePick()
+   is what a dot tap and a swipe both call, so these read the screen the
+   athlete actually gets rather than one assembled by the test. */
+function planViewOn(a, weekNum){
+  const g = a.planPhaseGroups().filter(x => x.weeks.indexOf(weekNum) !== -1)[0];
+  assert.ok(g, 'week ' + weekNum + ' belongs to no phase');
+  const render = a.renderApp;
+  a.renderApp = () => {};
+  a.handlePhasePick(g.phase);
+  a.renderApp = render;
+  return a.renderFullPlanView();
+}
+
 /* A real race block through the app's own generator, exactly as
    handleGeneratePlan builds one -- so the race day, its distance and its
    prescription are the engine's and not this file's. */
@@ -122,7 +142,7 @@ test('the race week header shows training volume only, not training + race', () 
   assert.ok(vol.training < vol.total,
     'the training figure and the all-in figure are the same number');
 
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
   assert.equal(headerVolume(html, race.week), '0/' + a.kmToDisplay(vol.training),
     'the race week header prints a figure that is not the training total');
   assert.ok(headerVolume(html, race.week).indexOf(a.kmToDisplay(vol.total)) === -1,
@@ -187,7 +207,7 @@ test('the race session is still in the programme, with its prescription intact',
 test('the race day renders exactly once, as a standalone event below the last week', () => {
   const a = racingBlock();
   const race = raceDay(a);
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
 
   const cardId = 'id="day-' + race.id + '"';
   const occurrences = html.split(cardId).length - 1;
@@ -217,7 +237,7 @@ test('the race day renders exactly once, as a standalone event below the last we
 test('every other day of race week is still listed inside the week', () => {
   const a = racingBlock();
   const race = raceDay(a);
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
   /* The week lists its sessions as rows now; the race is still excluded from
      that list and emitted separately as its own event. Same claim, read off
      the element the week actually renders. */
@@ -234,18 +254,25 @@ test('every other day of race week is still listed inside the week', () => {
 test('weeks without a race are completely unaffected', () => {
   const a = racingBlock();
   const rw = raceDay(a).week;
-  const html = a.renderFullPlanView();
+  /* ONE RENDER PER WEEK, because the screen shows one phase at a time -- and
+     this is a claim about EVERY week, so every week is actually looked at
+     rather than inferred from the one phase that happened to be open. */
   for (let w = 1; w <= a.totalWeeksInPlan(); w++){
     if (w === rw) continue;
     const vol = a.weekVolume(w);
     assert.equal(vol.race, 0, 'week ' + w + ' reports race kilometres');
     assert.equal(vol.training, vol.total, 'week ' + w + ' training total drifted from its total');
-    assert.equal(headerVolume(html, w), a.kmToDisplay(vol.done) + '/' + a.kmToDisplay(vol.total),
+    assert.equal(headerVolume(planViewOn(a, w), w),
+      a.kmToDisplay(vol.done) + '/' + a.kmToDisplay(vol.total),
       'week ' + w + ' header changed');
   }
-  /* Exactly one standalone race event in the whole plan. */
-  assert.equal(html.split('class="race-event"').length - 1, 1,
-    'more than one standalone race event rendered');
+  /* Exactly one standalone race event, and it is there on every phase --
+     Race Day is not inside a phase and is not filtered by one. */
+  for (let w = 1; w <= a.totalWeeksInPlan(); w++){
+    assert.equal(planViewOn(a, w).split('class="race-event"').length - 1, 1,
+      'the plan showed ' + (w === rw ? 'more than one' : 'the wrong number of') +
+      ' standalone race events while looking at week ' + w);
+  }
 });
 
 test('the all-in figures are still available to callers that want them', () => {
@@ -289,7 +316,7 @@ test('logging the race does not push the header past its own target', () => {
      subtracting the race would print 71.7/29.5. */
   assert.ok(vol.done > vol.doneTraining, 'the completed race was not recorded at all');
 
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
   assert.equal(headerVolume(html, race.week),
     a.kmToDisplay(vol.training) + '/' + a.kmToDisplay(vol.training));
 });
@@ -460,7 +487,7 @@ test('a half-marathon block splits the same way', () => {
   assert.equal(race.km, 21.1);
   const vol = a.weekVolume(race.week);
   assert.equal(vol.training, a.round1(vol.total - 21.1));
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
   assert.equal(headerVolume(html, race.week), '0/' + a.kmToDisplay(vol.training));
   assert.equal(html.split('id="day-' + race.id + '"').length - 1, 1);
 });

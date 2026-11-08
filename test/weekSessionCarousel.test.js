@@ -103,6 +103,12 @@ test('the card and the day circles cannot disagree', () => {
   /* Committing calls the same handler a tapped circle calls, so the circles,
      the badges and the full session underneath all read one selected date
      rather than each deriving their own. */
+  /* ---- THE PAGER IS NOW SHARED, SO THE LAW IS READ IN TWO PLACES ----
+     Full Plan's phase carousel is the same mechanism, so "full-width slides
+     that track the finger, resist at the ends and settle before the
+     re-render" is wirePagerRail() and nothing else. What makes it a WEEK
+     carousel is the commit wireWeekRail() hands it, and that is what the
+     first half of this test reads. */
   const fn = /function wireWeekRail\(rail\)\{[\s\S]*?\n\}/.exec(SRC)[0];
   assert.match(fn, /handleWeekPickDay\(to\)/,
     'the swipe sets the date by some other route than the tap does');
@@ -111,18 +117,33 @@ test('the card and the day circles cannot disagree', () => {
      screen has one now, and there a swipe stepped within the CURRENT week,
      returned a date that was not in the week on screen, and the card did
      not move at all. */
-  assert.match(fn, /weekStepDate\(railWeek, p\.dx < 0 \? 1 : -1\)/,
+  assert.match(fn, /weekStepDate\(railWeek, dir\)/,
     'the swipe no longer steps exactly one day in the direction of the finger');
   assert.match(fn, /data-week/, 'the swipe has stopped reading the week the rail is showing');
-  assert.match(fn, /Math\.abs\(p\.dx\) > w \* PAGER_COMMIT_FRACTION/,
+  /* AND IT IS ONE PAGER. Two copies is how the week's carousel and the
+     plan's drift into two different gestures. */
+  assert.equal((SRC.match(/function wirePagerRail\(/g) || []).length, 1,
+    'there is more than one full-width pager implementation');
+  assert.match(SRC, /function wireWeekRail\(rail\)\{\s*\n\s*wirePagerRail\(rail, 'week',/,
+    'the week rail stopped going through the shared pager');
+  assert.match(SRC, /function wirePhaseRail\(rail\)\{\s*\n\s*wirePagerRail\(rail, 'phase',/,
+    'the phase carousel stopped going through the shared pager');
+
+  const pager = /function wirePagerRail\(rail, learnKey, planCommit\)\{[\s\S]*?\n\}/.exec(SRC)[0];
+  assert.match(pager, /Math\.abs\(p\.dx\) > w \* PAGER_COMMIT_FRACTION/,
     'the card commits on a different threshold from the rest of the product');
-  /* Settle to where the new day will sit, THEN re-render: the fresh track is
-     built at that offset, so the swap lands on the pixel the animation
+  /* Settle to where the new slide will sit, THEN re-render: the fresh track
+     is built at that offset, so the swap lands on the pixel the animation
      finished on. Reversing these is what makes a pager jump. */
-  const settle = fn.indexOf('setX(base() + (p.dx < 0 ? -w : w));');
-  const render = fn.indexOf('handleWeekPickDay(to)');
+  const settle = pager.indexOf('setX(base() + (p.dx < 0 ? -w : w));');
+  const render = pager.indexOf('commit()');
   assert.ok(settle > -1 && render > settle,
-    'the day is swapped before the card has finished moving to it');
+    'the slide is swapped before the card has finished moving to it');
+  /* THE ENDS RESIST RATHER THAN STOPPING DEAD, and a commit the rail has no
+     neighbour for is refused rather than wrapping round. */
+  assert.match(pager, /atEnd \? dx \* 0\.25 : dx/, 'the end-of-rail resistance is gone');
+  assert.match(pager, /if \(!commit\)\{ setX\(base\(\)\); return; \}/,
+    'a swipe with nothing beyond it no longer springs back');
 });
 
 /* NOTHING BELOW THE CARD MOVES WHEN THE DAY CHANGES.
@@ -256,8 +277,25 @@ test('HINT: each region marks itself learned from its own commit', () => {
      hint that would have helped next time. */
   assert.match(SRC, /function pagerFinish\(commit\)\{[\s\S]{0,200}?if \(commit\) swipeMarkLearned\('pager'\)/,
     'the tab pager retires its hint on an abandoned drag, or not at all');
-  assert.match(SRC, /swipeMarkLearned\('week'\);\s*\n\s*window\.setTimeout\(function\(\)\{ handleWeekPickDay/,
-    'the week card does not retire its hint when a swipe commits');
+  /* The shared pager takes the mark with the key the rail was wired with --
+     'week' for the week card, 'phase' for the plan's carousel -- and takes
+     it immediately before the commit runs, which is the only place the
+     swipe is known to have succeeded.
+     ONCE, AND AFTER THE EARLY RETURN. Asserting the right call EXISTS is not
+     the law: a second swipeMarkLearned() higher up the handler retires the
+     hint on a drag that sprang back, and the match below would still pass.
+     Caught by mutation -- adding one line above the threshold left every
+     guard in this file green. */
+  const pg = /function wirePagerRail\(rail, learnKey, planCommit\)\{[\s\S]*?\n\}/.exec(SRC)[0];
+  assert.equal((pg.match(/swipeMarkLearned\(/g) || []).length, 1,
+    'the pager retires its hint in more than one place, so an abandoned drag can retire it');
+  assert.ok(pg.indexOf('swipeMarkLearned(learnKey)') > pg.indexOf('if (!commit){ setX(base()); return; }'),
+    'the hint is retired before the commit is known to have happened, so a drag that ' +
+    'sprang back teaches the athlete nothing and retires the hint anyway');
+  assert.match(pg, /swipeMarkLearned\(learnKey\);\s*\n\s*window\.setTimeout\(function\(\)\{ commit\(\);/,
+    'the rail does not retire its hint when a swipe commits');
+  assert.match(SRC, /wirePagerRail\(rail, 'week',/, 'the week card lost its own hint key');
+  assert.match(SRC, /wirePagerRail\(rail, 'phase',/, 'the phase carousel lost its own hint key');
   assert.match(SRC, /if \(animate\) swipeMarkLearned\('rail'\)/,
     'the rail retires its hint on its own initial placement, not on a swipe');
 });

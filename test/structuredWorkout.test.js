@@ -1024,10 +1024,14 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   assert.ok(fig >= 28, 'the figure is ' + fig + 'px — it was raised to 30 because the card is ' +
     'no longer a third of a phone');
 
-  /* ONE LABEL DECLARATION FOR ALL THREE KINDS OF CARD. The zone word joins
-     the rule that already states WHY, TIME ON FEET and SETTLE rather than
-     getting a fourth that resembles it. */
-  const labRule = /\.ws-rail \.ws-h-presc:not\(\.font-mono\),\s*\n\s*:is\([^)]*\) \.how-mod \.fuel-row \.k,\s*\n\s*:is\([^)]*\) \.how-mod \.strat-phase-label\{([^}]*)\}/;
+  /* ONE LABEL DECLARATION FOR EVERY KIND OF CARD. The zone word joins the
+     rule that already states WHY, TIME ON FEET and SETTLE rather than
+     getting a fourth that resembles it -- and Full Plan's phase slide is
+     the fourth arm of the same rule for the same reason, so it is read here
+     too. The arms have to stay contiguous: this walks from one to the next
+     and a comment in the gap reads as separate declarations, which is why
+     the explanation sits above the rule. */
+  const labRule = /\.ws-rail \.ws-h-presc:not\(\.font-mono\),\s*\n\s*:is\([^)]*\) \.how-mod \.fuel-row \.k,\s*\n\s*:is\([^)]*\) \.how-mod \.strat-phase-label,\s*\n\s*\.view-plan \.pp-slide-k\{([^}]*)\}/;
   const labM = labRule.exec(RAILCSS);
   assert.ok(labM,
     'the stage card has a label declaration of its own again — there is one label voice ' +
