@@ -2146,6 +2146,30 @@
     -webkit-overflow-scrolling:touch;
     scrollbar-width:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) :is(.how-card .fuel-body, .ws-rail)::-webkit-scrollbar{display:none;}
+  /* ---------- THE FLOOR IS THE RAIL'S, NOT THE CARD'S ----------
+     184px was min-height on the card, and the cards stretch to the rail --
+     whose height wireCoachingRail sets from the tallest card's scrollHeight.
+     That is a loop: the script measured 182, set the rail to 182, the card
+     held itself at 184 and had 2px of its photograph cut off at the bottom.
+     Measured: railH 182, cardH 184, on every card of every rail.
+     The floor belongs to the rail, where it is read as min-height against
+     the height the script sets -- so a short rail is 184 and a rail with a
+     taller card is as tall as that card, and the card is never clipped
+     either way.
+     260, NOT 184. The floor is also what decides how much of the card is
+     picture, because the text is anchored to the foot and the scrim under
+     it has to be near-opaque wherever the text reaches. Measured across
+     every card the engine builds, the text block runs from 87px (a fuel
+     fact: label and figure) to 131px (COMMIT, whose target carries a
+     second line). In a 184px card that put the highest run of text at 27%
+     of the card -- in the brightest part of the sunrise -- and gold
+     "INTERVAL" measured 2.64:1 there against 4.5 owed. The same 131px
+     block in a 260px card starts at 50%, and the shortest at 67%.
+     So a taller card is not decoration: it is what lets the scrim be
+     opaque under every line of text AND leave the top 47% of the frame
+     alone. In absolute terms there is MORE photograph visible than before
+     -- about 122px of it against 54px -- not less. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{min-height:260px;}
   /* NO TRAILING SPACE AND NO WIDE LAST MODULE. Both were ways of letting
      the last module reach the LEFT edge, because that is where the active
      one used to be decided. The rail no longer decides it there -- see
@@ -2173,14 +2197,34 @@
      THE SCRIM IS NOT DECORATION. White figures over a sunrise fail
      contrast on the bright half of the frame; the gradient is what makes
      them legible, and it is heaviest exactly where the text sits. */
+  /* ---------- THE CARD IS THE PANEL, FOR EVERY PANEL ----------
+     The photograph was on .ws-h-step, which is the blueprint's own element
+     and does not exist on an execution phase or a fuel fact -- so goal day,
+     which has no blueprint, got plain panels while a tempo session got
+     cards. One rail, one card: the treatment moves onto .how-mod, which
+     every panel in every rail already is, and .ws-h-step becomes
+     display:contents so its three lines are the card's own children rather
+     than a box inside a box. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod{
-    flex:0 0 84%; padding-left:5px; padding-right:5px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{
-    position:relative; overflow:hidden; min-height:184px;
+    /* The 5px either side is the card's breathing room inside its slot, so
+       it comes out of the 84%, not on top of it: a slot wider than the
+       scroller's page would drift the rail out of step with its dots. */
+    flex:0 0 calc(84% - 10px); box-sizing:border-box;
+    position:relative; overflow:hidden;
     display:flex; flex-direction:column; justify-content:flex-end;
-    padding:16px 14px 18px;
+    align-items:center; text-align:center;
+    /* EVERY CARD IS THE SAME HEIGHT. The track is align-items:flex-start and
+       the script sizes the rail to the tallest panel, which was right while
+       a panel was transparent -- a short Feel simply ended early. A
+       photograph that ends early is a ragged card, so each one stretches to
+       the height the rail was given. */
+    align-self:stretch;
+    margin:0 5px; padding:16px 14px 18px;
+    border:1px solid var(--t-tile-rim); border-radius:14px;
     background-image:url('/assets/dawn-road-820.jpg');
-    background-size:cover; background-position:50% 34%;}
+    background-size:cover; background-position:50% 34%;
+    background-clip:padding-box;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{display:contents;}
   /* ---------- THE SCRIM IS SIZED BY MEASUREMENT, NOT BY EYE ----------
      First attempt put the figures mid-card over the sun and ran a gentle
      gradient under them. Sampled against the pixels actually behind each
@@ -2191,12 +2235,100 @@
      So the text sits at the FOOT of the card, where the frame is darkest
      to begin with, and the scrim is near-opaque under it and clear at the
      top where the sunrise is the point. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step::after{
+  /* ---------- THE SCRIM IS A ::before, AND THAT IS NOT A DETAIL ----------
+     It was a ::after while it lived on .ws-h-step, which is the blueprint's
+     own element and has no other rules on its pseudo-elements. On .how-mod
+     the ::after is already taken, twice: `.how-mod + .how-mod::after` is the
+     hairline between columns and `.how-mod.is-active::after` sets its
+     opacity to 0. Both are (0,5,0) selectors declared LATER in this sheet
+     than the scrim was, so they beat it -- the hairline replaced the scrim
+     on every card but the first, and the first card, being .is-active, had
+     its scrim set to opacity 0 and painted no scrim at all.
+     HOW THAT WAS CAUGHT, because it nearly was not: the scrim's stops were
+     changed and the measured contrast came back IDENTICAL to three decimal
+     places on every run of text. A number that does not move when its cause
+     does is not a passing measurement, it is a disconnected one. What was
+     being measured was the photograph's own dark foot.
+     The ::before is the selected-panel pool, which this card does not want
+     anyway -- a photograph does not need a glow behind it to say which one
+     is in front -- and `.ws-rail .how-mod::before` is (0,5,0) against the
+     pool's (0,4,0), so it wins on specificity rather than on source order.
+     The hairline is switched off outright below. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod::before{
     content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+    border-radius:inherit; opacity:1;
+    /* DEEPENED WHERE THE LABEL LANDED. The card grew a line when the zone
+       word moved on top of the figure, which put the highest run of text at
+       about 45% of the card -- where this gradient was still only half
+       opaque, and the sunrise behind it is the brightest part of the frame.
+       Measured there, gold "SETTLE" came out at 4.86:1 against the pixels
+       beside it: over the 4.5 it owes, and with no margin for the next
+       photograph the founder sends. The dark half starts higher now and
+       arrives faster; the top third is left alone, because that is the part
+       of the picture worth having. */
     background:linear-gradient(to bottom,
-      rgba(8,6,10,.10) 0%, rgba(8,6,10,.30) 34%,
-      rgba(8,6,10,.80) 62%, rgba(8,6,10,.94) 100%);}
+      rgba(8,6,10,.05) 0%, rgba(8,6,10,.14) 20%,
+      rgba(8,6,10,.55) 36%, rgba(8,6,10,.92) 47%,
+      rgba(8,6,10,.96) 100%);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod > *,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step > *{position:relative; z-index:1;}
+  /* NO HAIRLINE BETWEEN CARDS. It is a divider for columns that share a
+     row; these are separate photographs with a gap between them, and a 1px
+     rule down the left edge of each one is a line drawn on a picture.
+     (0,6,0), so it beats the hairline's own (0,5,0) wherever either sits. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod + .how-mod::after{content:none;}
+  /* ---------- LABEL, FIGURE, DETAIL -- IN THAT ORDER, ON EVERY CARD ------
+     The founder's order: the zone name on top, the distance under it as the
+     figure, the pace smaller beneath. An execution phase and a fuel fact
+     already render that way (SETTLE / 0-10km / 4:46/km; Carb intake /
+     60-90g/hr); the stage card did not -- it led with the figure and put
+     "Easy" under it. Reordered with flex `order` rather than by rewriting
+     essentialPrescriptionHtml(), which builds both .ws-h-presc spans as one
+     string and is shared with the stacked list where the current order is
+     right. The DOM order is unchanged, so a screen reader still hears
+     "2km, Easy, 5:08-6:06/km" -- a sensible reading either way, and there
+     is nothing interactive here whose order could matter. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono){order:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-qty{order:2;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc.font-mono{order:3;}
+  /* ---------- AND THE SUPPLEMENTARY DETAIL AFTER ALL THREE ----------
+     A stage's HR band and its recovery note carry no `order`, so they took
+     the initial 0 and sorted AHEAD of everything that does -- which put
+     "178-190 BPM" and "Recovery: 3min easy" at the top of the card, in the
+     brightest part of the sunrise, above the label they belong under.
+     Seen in the screenshot before it was measured: both were close to
+     unreadable there, which is the scrim doing its job in the wrong place.
+     4, so they sit under the pace band where the frame is darkest -- and
+     lifted off --ink-faint, which is a colour for a card tint and not for a
+     photograph, the same move the pace band makes below. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-hr,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-note{order:4; color:rgba(255,255,255,.72);}
+  /* THE LABEL is not declared here. Every rail panel's label -- WHY, TIME
+     ON FEET, SETTLE and now EASY -- is one declaration further up this
+     sheet, and the card does not need a second opinion about it. */
+  /* THE FIGURE. 2km, 0-10km, 60-90g/hr: the number the card is about, and
+     the one thing on it that should read from arm's length. 30px because
+     the card is 184px tall and holds three lines -- the stacked blueprint
+     cell's 23px was sized for a third of a phone, which this is not.
+     WHITE, not --ink. Every other figure on this screen sits on the card
+     tint and takes the theme's ink; this one sits on a photograph, and the
+     scrim below was measured against white. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-qty,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .strat-phase-span,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod .fuel-row .v{
+    display:block; font-size:30px; font-weight:700; line-height:1.1;
+    color:#FFFFFF; margin:0;}
+  /* THE DETAIL, quieter than the figure and smaller than the label: the
+     pace band, the phase's target. It qualifies the figure, so it reads as
+     a footnote to it rather than competing. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc.font-mono,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .strat-phase-target{
+    display:block; font-size:var(--fs-data); line-height:1.3;
+    color:rgba(255,255,255,.80); margin:5px 0 0;}
+  /* The fuel figure's own qualifier is already a footnote under it; on a
+     photograph it needs the same lift off --ink-faint that the pace band
+     gets. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod .fuel-v-note{color:rgba(255,255,255,.72);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{height:100%;}
   /* The three columns, laid out in place. Everything else about a .how-mod
      -- its padding, its type, the air inside it -- is the component's and
@@ -2400,6 +2532,12 @@
      at -- so they are one declaration rather than three that resemble each
      other. The execution label joins it here instead of keeping the body
      weight it wore when the phases were a table. */
+  /* The stage card's zone word -- EASY, THRESHOLD -- joins the same
+     declaration rather than getting a fourth one that resembles it. It is
+     the name of the panel you are looking at, which is what this rule is
+     for; it reads as a label only inside the rail, because the stacked
+     blueprint cell uses .ws-h-presc for its prescription line too. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono),
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label{
     display:block; font-family:var(--label-face); font-weight:var(--label-weight);
@@ -2420,7 +2558,7 @@
     font-size:var(--fs-micro, 11.5px); color:var(--ink-faint); letter-spacing:0;}
   /* The heading above the rail is the group's name, not a panel's, so it
      keeps the left edge every other section heading sits on. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-fuel .how-row-heading{text-align:left;}  /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
+  /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
      It was a bordered, tinted rectangle -- the one boxed thing left inside a
      rail built to have no boxes. The box goes; what marks it out is that its
      light is the product's cherry rather than the gold every other module
@@ -3905,8 +4043,10 @@
   }
   @media (max-width:480px){
     .modal-decision-hero{ background-image:url('/assets/valhalla-mountains-420.jpg'); }
-    /* The same swap for the stage card's photograph. */
-    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{
+    /* The same swap for the card's photograph -- on .how-mod, which is
+       every panel in the rail, now that the card is not the blueprint's
+       own element. */
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod{
       background-image:url('/assets/dawn-road-420.jpg'); }
   }
   .modal-decision .modal-head, .modal-decision .modal-body{
@@ -28229,17 +28369,29 @@ function easyZonePaceHtml(){
   var pace = pFast.split('/')[0]+'–'+pSlow;
   return paceBandHtml(pace);
 }
-function essentialPrescriptionHtml(st){
-  if (st.target && !st.wholeSession){
+/* ---------- A PRESCRIPTION IS A WORD AND A NUMBER ----------
+   "Easy" and "5:08-6:06/km"; or, on a work step, no word and "4:09-4:16/km".
+   These were only ever assembled one way -- word then number, in one string
+   -- which is all the stacked list and the three-across row ever needed.
+   The card rail needs them apart: the word is the card's LABEL, on top, and
+   the number is its DETAIL, at the foot. Split here, so that the one place
+   deciding which a stage has stays one place; essentialPrescriptionHtml
+   below still joins them in exactly the order it always did. */
+function stepPrescriptionParts(st){
+  if (st.wholeSession) return { word:'', pace:'' };
+  if (st.target){
     var pace = fmtStrategyPace(st.target.pace, null);
-    if (pace) return paceBandHtml(pace);
+    if (pace) return { word:'', pace:paceBandHtml(pace) };
   }
-  if (st.effort && !st.wholeSession){
-    var out = '<span class="ws-h-presc">'+escapeHtml(st.effort)+'</span>';
-    if (st.effort === 'Easy') out += easyZonePaceHtml();
-    return out;
-  }
-  return '';
+  if (st.effort) return {
+    word: st.effort,
+    pace: st.effort === 'Easy' ? easyZonePaceHtml() : ''
+  };
+  return { word:'', pace:'' };
+}
+function essentialPrescriptionHtml(st){
+  var p = stepPrescriptionParts(st);
+  return (p.word ? '<span class="ws-h-presc">'+escapeHtml(p.word)+'</span>' : '')+p.pace;
 }
 // Everything renderWorkoutStep would have shown that essentialPrescriptionHtml
 // did not use -- HR, a build/ramp note, a completion note, recovery, between-
@@ -28275,10 +28427,29 @@ function renderWorkoutStepHCell(st, i){
      screen the order carries it; through a screen reader there is no order
      to see, and "2km / Easy / 5:09-6:07/km" with no stage name is a worse
      reading of this card than the sighted one. The <ol> still numbers it. */
+  /* ---------- EVERY CARD LEADS WITH A WORD ----------
+     The paragraph above is why the stage name came off these cells: three
+     of them shared a phone, about 105px each, and the row cost the figures
+     the room they needed. That constraint is gone -- one card at a time, at
+     full width -- and the rail these cards are in now gives every other
+     panel a word on top: SETTLE, CARB INTAKE, EASY. Measured on a 4x1200m
+     session, the work card was the one panel in the product with nothing
+     above its figure.
+     THE EFFORT WORD WINS WHERE THERE IS ONE. "Easy" is what the athlete was
+     told to run the warm-up at, and it is the word that belongs on top. A
+     work step has no effort word -- its prescription is a pace band -- so
+     it takes its stage name, "Main set", which is the thing it was already
+     saying silently. Nothing is invented for a card that has neither. */
+  var p = stepPrescriptionParts(st);
+  var word = p.word || st.label;
   return '<div class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
-    '<span class="sr-only">'+escapeHtml(st.label)+'</span>'+
+    /* SPOKEN ONCE. The name stays in the accessibility tree only while the
+       card is showing a different word; where it has been promoted to the
+       label, a second copy would have a screen reader read it twice. */
+    (p.word ? '<span class="sr-only">'+escapeHtml(st.label)+'</span>' : '')+
+    (word ? '<span class="ws-h-presc">'+escapeHtml(word)+'</span>' : '')+
     (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
-    essentialPrescriptionHtml(st)+
+    p.pace+
     renderWorkoutStepSecondary(st)+
   '</div>';
 }
@@ -28337,24 +28508,14 @@ function renderStructuredWorkout(dd){
     '<div class="ws-head font-head">Workout</div>'+body+
   '</section>';
 }
-/* The rail's dots. Counted from the same four conditions the modules are
-   built from, in the same order, so the indicator cannot drift from the
-   thing it indicates. */
-/* `hasStaged`, not the rendered rail -- see renderCoachingDepth. The dots
-   are counted from exactly the conditions the modules are built from, so
-   this has to read the condition the modules read. */
-function railDotsHtml(gd, dd, hasStaged, fuelOn){
-  /* Counted from exactly the conditions the RAIL is built from -- the
-     tables are not in it, so they are not counted. An indicator that can
-     disagree with the thing it indicates is worse than no indicator. */
-  var n = 0;
-  if (gd.why) n++;
-  if (!hasStaged && gd.how) n++;
-  if (gd.feel) n++;
-  if (gd.avoid) n++;
-  return railDotCount(n);
-}
-/* Shared with the fuel rail, which counts its own modules. THE DOTS ARE A
+/* railDotsHtml() stood here: the coaching rail's own dot count, derived
+   from the four conditions its modules were built from. WHY / FEEL / WATCH
+   FOR became three lit columns with nothing to swipe, so its last caller
+   went and it has been dead since -- a function that still read correctly,
+   so nothing complained. Removed rather than kept warm: the guard in
+   structuredWorkout that holds the columns dotless now names the markup it
+   is actually about instead of a function that no longer exists. */
+/* Shared by every rail, each of which counts its own modules. THE DOTS ARE A
    RAIL'S HINT, and they retire like every other one: they say "there is more
    here, sideways", which is worth saying exactly until the athlete has gone
    sideways once. After that they are grey dots under the thing they were
@@ -28531,11 +28692,11 @@ function renderCoachingDepth(dd, pre){
        where there is not.
        NOTHING IS LOST WITH THE RAIL. Its captions are the coaching, and
        they already go to the Coach's Note rather than under the panels --
-       so stratCaps is read here whether or not stratBlock is rendered, and
+       so stratCaps is read here whether or not the phase panels are, and
        a four-phase session on a three-step blueprint still carries all four
        sentences. What goes is the second vocabulary, not the coaching. */
     var hasBlueprint = hasWorkoutBlueprint(dd);
-    var stratBlock = hasBlueprint ? '' : strat.rail, stratCaps = strat.caps;
+    var stratPanels = hasBlueprint ? [] : strat.panels, stratCaps = strat.caps;
     /* THE COACHING RAIL IS THREE COLUMNS, AND THIS IS WHAT KEEPS IT THREE.
        mod('execution') carries the one-SENTENCE execution, and it was
        suppressed whenever a staged execution existed -- expressed as "is
@@ -28545,7 +28706,7 @@ function renderCoachingDepth(dd, pre){
        about what is on screen; it is about whether the engine HAS a staged
        execution, because that is what makes the sentence a second telling.
        A blueprint is the same kind of second telling. */
-    var hasStaged = !!strat.rail || hasBlueprint;
+    var hasStaged = !!strat.panels.length || hasBlueprint;
     var fuelOn;
     try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
     /* ---------- OPEN, AND NOT A DISCLOSURE, ON THE FOCUSED SESSION ----------
@@ -28653,15 +28814,43 @@ function renderCoachingDepth(dd, pre){
          word above a row of labels that already say what they are is a
          label on labels. The phase name takes the gold heading the other
          two rails give WHY and TIME ON FEET, from the same declaration. */
-      (stratBlock ? '<div class="how-table how-exec">'+stratBlock+'</div>' : '')+
-      /* Fuel is a rail now, not the second table. Its wrapper keeps
-         .how-table so the spacing above it is unchanged, and gains .how-fuel
-         so the rail rules can reach it. */
+      /* ---------- SETTLE AND CARB INTAKE ARE ONE RAIL ----------
+         They were two: five phases with five dots, then four fuel facts
+         with four dots, stacked one above the other inside the same
+         disclosure. Nothing separated them but a gap -- no heading on
+         either, by the two notes above -- so the athlete swiped a rail to
+         its end, met an identical rail, and had to work out that the
+         second one was a different subject.
+         ONE RAIL, NINE CARDS, NINE DOTS. The phases first and the fuel
+         after, which is the order they were already read in and the order
+         the day runs: how to run it, then what to take while running it.
+         THE CAPTIONS STILL LINE UP. The execution rail's coaching sentences
+         are matched to panels BY INDEX, and the phases keep indices 0..n-1
+         because they come first; the fuel panels land past the end of the
+         caption list, where wireCoachingRail's loop is bounded by the
+         captions' own length and simply lights none. Verified by swiping a
+         race day to its last fuel card: no caption, nothing thrown.
+         .exec-rail stays on the merged rail only when there are phases on
+         it -- it is what the phase panels' own rules and the caption's
+         sibling selector are hung on. */
+      (function(){
+        var panels = stratPanels.concat(fuelOn ? fuelRailPanels(dd) : []);
+        if (!panels.length) return '';
+        return '<div class="how-table">'+
+            '<div class="fuel-body ws-rail'+(stratPanels.length ? ' exec-rail' : '')+'" data-hswipe="1"'+
+              (stratPanels.length ? ' data-cap="exec-cap-'+dd.id+'"' : '')+'>'+
+              panels.join('')+
+            '</div>'+
+            railDotCount(panels.length)+
+          '</div>';
+      })()+
       /* NO "FUEL" HEADING. Every panel in the rail under it names itself --
          TIME ON FEET, CARB INTAKE, TOTAL CARBS -- and a word above a row of
          labels that already say what they are is a label on labels, which is
          the same argument that took the summary off the coaching rail. */
-      (fuelOn ? '<div class="how-table how-fuel">'+fuelRailHtml(dd)+'</div>' : '')+
+      /* Fuel no longer has a wrapper of its own -- its panels are in the
+         rail above. .how-fuel is gone with it, and the merged rail's
+         wrapper is the plain .how-table the two of them already sat in. */
       /* THE COACH'S NOTE LEAVES THE RAIL. It is not a fifth thing to swipe
          past -- it is the one sentence written about THIS athlete on THIS
          day, and everything above it is written about the session. So it
@@ -28813,7 +29002,7 @@ function fuelSectionBody(dd){
    a focused session .how-mod is display:contents, so This Week and Full
    Plan collapse these straight back into the stacked table they already
    render, byte for byte. */
-function fuelRailHtml(dd){
+function fuelRailPanels(dd){
   var f = fuelFacts(dd);
   var mods = f.rows.map(function(r, i){
     /* BOTH LABELS TRAVEL IN THE STRING AND CSS CHOOSES. renderDayCard() has
@@ -28831,15 +29020,17 @@ function fuelRailHtml(dd){
       '<span class="v font-mono">'+r.v+
         (r.note ? '<span class="fuel-v-note">'+r.note+'</span>' : '')+
       '</span></div></div>';
-  }).join('');
+  });
   /* THE CAVEATS ARE NOT PART OF THE RAIL. They trailed under it as two dim
      left-aligned paragraphs -- the only unlit prose on a screen where every
      other sentence is either a figure, a panel or the Coach's Note. They are
      coaching ("drink to thirst", "build up to that carb range"), so they go
      where the coaching is; see renderDayCard(), which hands them to the
      note. The rail returns the rail. */
-  return '<div class="fuel-body" data-hswipe="1">'+mods+'</div>'+
-    railDotCount(f.rows.length);
+  /* PANELS, NOT A RAIL -- the same move renderExecutionStrategyBlock made,
+     and for the same reason: fuel and the execution phases are one rail on
+     a day that has both, and that can only be decided above both of them. */
+  return mods;
 }
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
@@ -30619,7 +30810,7 @@ function renderStrategyPhaseCaption(ph, i){
    one phase's panel over another phase's coaching.
    One call, one plan, both strings built from it. */
 function renderExecutionStrategyBlock(dd){
-  var NONE = { rail:'', caps:'' };
+  var NONE = { panels:[], caps:'' };
   if (!EXECUTION_STRATEGY_ENABLED) return NONE;
   var s;
   try { s = executionStrategyForDisplay(dd); } catch(e) { return NONE; }
@@ -30639,11 +30830,15 @@ function renderExecutionStrategyBlock(dd){
      the fuel caveats made. The rail NAMES its caption wrapper rather than
      relying on being next to it, because the note is rendered two blocks
      further down; see wireCoachingRail(), which resolves the id. */
+  /* ---------- IT RETURNS PANELS, NOT A RAIL ----------
+     It used to return the finished <div> and its dots, which was right
+     while the phases had a rail to themselves. They share one with fuel
+     now -- see renderCoachingDepth -- and a rail cannot be merged after it
+     has been built: two tracks and two sets of dots concatenate into two
+     rails, not one. So the panels come back loose and the caller is the one
+     thing that decides how many rails there are. */
   return {
-    rail: '<div class="fuel-body exec-rail" data-hswipe="1" data-cap="exec-cap-'+dd.id+'">'+
-        s.phases.map(renderStrategyPhase).join('')+
-      '</div>'+
-      railDotCount(s.phases.length),
+    panels: s.phases.map(renderStrategyPhase),
     caps: '<div class="how-cap" id="exec-cap-'+dd.id+'">'+
         s.phases.map(renderStrategyPhaseCaption).join('')+'</div>'
   };

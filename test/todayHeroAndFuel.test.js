@@ -75,16 +75,32 @@ test('the distance carries the instructed 20% at every clamp stop', () => {
 
 test('fuel renders as a rail of one module per fact', () => {
   const { a, dd } = longDay();
-  const html = a.fuelRailHtml(dd);
+  /* ---------- FUEL HANDS BACK PANELS, NOT A RAIL ----------
+     On the founder's call SETTLE and CARB INTAKE are one rail, and a rail
+     cannot be merged once it has been built -- two tracks and two sets of
+     dots concatenate into two rails. So fuelRailPanels() returns the panels
+     loose and renderCoachingDepth, the one place that knows about both,
+     builds the track and counts the dots from the whole list. */
+  const panels = a.fuelRailPanels(dd);
   const facts = a.fuelFacts(dd);
-  assert.match(html, /<div class="fuel-body" data-hswipe="1">/,
-    'the fuel rail lost its rail container, or the marker that makes the page pager stand down');
-  const mods = html.match(/class="how-mod" data-mod="fuel-\d+"/g) || [];
-  assert.equal(mods.length, facts.rows.length,
-    'one module per fact: expected ' + facts.rows.length + ', found ' + mods.length);
+  assert.ok(Array.isArray(panels), 'fuel is building a rail of its own again');
+  assert.equal(panels.length, facts.rows.length,
+    'one module per fact: expected ' + facts.rows.length + ', found ' + panels.length);
+  panels.forEach((m, i) => assert.match(m, new RegExp('class="how-mod" data-mod="fuel-' + i + '"'),
+    'fuel panel ' + i + ' is not a rail module'));
   assert.ok(facts.rows.length >= 2, 'a rail needs at least two panels to be a rail');
-  assert.match(SRC, /class="how-table how-fuel"[\s\S]{0,80}?fuelRailHtml\(dd\)/,
-    'the card no longer builds its fuel section from the rail');
+  /* AND THE CARD PUTS THEM ON THE SAME TRACK AS THE PHASES. */
+  assert.match(SRC, /stratPanels\.concat\(fuelOn \? fuelRailPanels\(dd\) : \[\]\)/,
+    'the card no longer merges the fuel panels into the execution rail');
+  const card = a.renderDayCard(dd);
+  const tracks = (card.match(/class="fuel-body ws-rail/g) || []).length;
+  assert.equal(tracks, 1,
+    'a long run shows ' + tracks + ' card rails — SETTLE and CARB INTAKE are one rail');
+  const dots = card.match(/<div class="how-dots" aria-hidden="true">((<span class="how-dot"><\/span>)+)<\/div>/);
+  assert.ok(dots, 'the merged rail has no dots');
+  assert.equal((dots[1].match(/how-dot/g) || []).length,
+    a.renderExecutionStrategyBlock(dd).panels.length + facts.rows.length,
+    'the dots do not count the merged rail — the indicator disagrees with the thing it indicates');
 });
 
 test('the standalone Fueling card still renders the stack, untouched', () => {
@@ -107,7 +123,7 @@ test('both renderers read the same arithmetic', () => {
   const { a, dd } = longDay();
   const facts = a.fuelFacts(dd);
   const stack = a.fuelSectionBody(dd);
-  const rail = a.fuelRailHtml(dd);
+  const rail = a.fuelRailPanels(dd).join('');
   facts.rows.forEach(r => {
     assert.ok(stack.includes('>' + r.v + '<') || stack.includes(r.v),
       'the stack does not show the computed value ' + JSON.stringify(r.v));
@@ -150,7 +166,7 @@ test('both renderers read the same arithmetic', () => {
 
 test('one string serves every view: both labels travel, CSS picks one', () => {
   const { a, dd } = longDay();
-  const rail = a.fuelRailHtml(dd);
+  const rail = a.fuelRailPanels(dd).join('');
   const longs = (rail.match(/class="k-long"/g) || []).length;
   const shorts = (rail.match(/class="k-short"/g) || []).length;
   assert.equal(longs, shorts, 'every fuel module needs both labels; found ' + longs + ' long and ' + shorts + ' short');
@@ -257,9 +273,11 @@ test('both rails are the same width, and three panels fit', () => {
      this test is really for. */
   assert.match(mod[1], /flex:0 0 100%/,
     'a rail went off full width. Found: ' + (/flex:[^;]*/.exec(mod[1]) || [''])[0]);
-  assert.ok(!new RegExp(escF(F) + ' \\.how-fuel \\.how-mod\\{[^}]*flex:').test(CSS),
-    'the fuel rail has taken a width of its own again — the two rails are the same ' +
-    'component a centimetre apart and the whole point of this pass was that they match');
+  /* There is no .how-fuel to take a width of its own any more -- fuel's
+     panels are in the merged card rail, which is the same component by
+     construction rather than by agreement. That it has no wrapper at all
+     is asserted once, in "the fuel section has no title of its own"; this
+     test is about the width the rails share, so it stops here. */
   /* THE FLOOR RETIRED WITH THE THIRD IT PROTECTED. 122px existed because a
      third of a 360px screen is 83px of text and EXECUTION is one word with
      nowhere to break. At full width the panel is the rail, so a minimum
@@ -291,11 +309,24 @@ test('a fuel panel and a coaching panel differ only where figures differ from se
 test('the fuel section has no title of its own', () => {
   const i = SRC.indexOf('function renderDayCard(');
   const src = SRC.slice(0, i > -1 ? i : SRC.length);
-  assert.ok(!/class="how-table how-fuel">'\+'<div class="how-row-heading">Fuel/.test(SRC),
+  assert.ok(!/<div class="how-row-heading">Fuel/.test(SRC),
     'the "FUEL" heading is back. Every panel under it names itself, so a word above a ' +
     'row of labels that already say what they are is a label on labels.');
-  assert.match(SRC, /'<div class="how-table how-fuel">'\+fuelRailHtml\(dd\)/,
-    'the fuel section no longer goes straight from its wrapper into the rail');
+  /* .how-fuel went with the wrapper: fuel has no section of its own any
+     more, its panels are in the merged card rail. What is still asserted
+     is that nothing introduces a heading above that rail either.
+     READ WITH THE COMMENTS STRIPPED. The first version of this asserted
+     "how-fuel" appears nowhere in SRC -- and failed, because the note
+     explaining that .how-fuel went away says the words ".how-fuel is gone
+     with it". A guard that reads prose as code answers a question about
+     the prose. */
+  const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  assert.ok(CODE.indexOf('how-fuel') === -1,
+    'the fuel wrapper is back, which is a second rail under a second heading');
+  const i2 = SRC.indexOf('var panels = stratPanels.concat');
+  assert.ok(i2 > -1, 'the merged rail is gone');
+  assert.ok(SRC.slice(i2, i2 + 700).indexOf('how-row-heading') === -1,
+    'the merged rail has grown a heading above it');
 });
 
 test('the guidance under the figures is one line, and the carb caveat survives where it matters', () => {

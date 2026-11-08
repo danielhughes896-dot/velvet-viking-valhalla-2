@@ -575,15 +575,28 @@ test('Execution is the same rail component as the other two', () => {
      data-cap when the captions moved into the Coach's Note, and an
      assertion that pins every attribute fails for reasons that are not
      about the law. */
-  assert.match(SRC, /<div class="fuel-body exec-rail"/,
-    'the execution phases are no longer rendered as a rail body');
+  /* ---------- THE PHASES SHARE A RAIL WITH FUEL NOW ----------
+     renderExecutionStrategyBlock() used to return the finished rail; on the
+     founder's call SETTLE and CARB INTAKE are one rail, and a rail cannot
+     be merged after it has been built -- two tracks and two sets of dots
+     concatenate into two rails. So it returns PANELS, and the one place
+     that knows about both builds the track. The law this guard holds is
+     unchanged: a phase is a rail module, and the dots are counted from the
+     panels they indicate. */
+  assert.match(SRC, /<div class="fuel-body ws-rail'\+\(stratPanels\.length \? ' exec-rail' : ''\)\+'" data-hswipe="1"'\+/,
+    'the execution phases are no longer rendered into the card rail');
   assert.match(SRC, /'<div class="how-mod strat-phase">'/,
     'an execution phase is no longer a rail module');
   const i = SRC.indexOf('function renderExecutionStrategyBlock(');
   const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
-  assert.match(body, /railDotCount\(s\.phases\.length\)/,
-    'the execution rail lost its dots, or they are counted from something other than ' +
-    'the phases they indicate');
+  assert.match(body, /panels: s\.phases\.map\(renderStrategyPhase\)/,
+    'the execution block no longer hands its phases back as panels');
+  assert.ok(body.indexOf('railDotCount') === -1,
+    'the execution block is emitting its own dots again — merged into one rail that ' +
+    'is a second set of dots under the same track');
+  assert.match(SRC, /railDotCount\(panels\.length\)/,
+    'the merged rail lost its dots, or they are counted from something other than the ' +
+    'panels they indicate');
 
   /* ---- AND NOT .strat-phases, WHICH IS WHY IT BROKE ONCE ----
      Merging the old stack's class onto the rail body silently won the
@@ -660,7 +673,9 @@ test('the execution panels are figures and the sentence is a caption', () => {
      each other, so two independent reads are two chances for the athlete to
      get one phase's panel over another phase's coaching. */
   const parts = a.renderExecutionStrategyBlock(race);
-  const block = parts.rail;
+  /* .panels, not .rail: the phases come back loose so they can be merged
+     with fuel into one track. Joined here, which is what the caller does. */
+  const block = (parts.panels || []).join('');
   assert.ok(block, 'the execution block is gone');
 
   /* THE CAPTIONS LEFT THE BLOCK FOR THE COACH'S NOTE. renderExecutionCaptions()
@@ -684,7 +699,10 @@ test('the execution panels are figures and the sentence is a caption', () => {
      and "the element after the dots" cannot reach it. */
   const capId = /id="(exec-cap-[^"]+)"/.exec(caps);
   assert.ok(capId, 'the caption wrapper has no id for the rail to point at');
-  assert.ok(block.indexOf('data-cap="' + capId[1] + '"') > -1,
+  /* ASKED OF THE RENDERED CARD, because the rail is built by the caller
+     now. Same law, one level up: the track that carries these panels names
+     this caption wrapper, or swiping cannot move the sentences. */
+  assert.ok(a.renderDayCard(race).indexOf('data-cap="' + capId[1] + '"') > -1,
     'the rail does not point at its own captions, so swiping cannot move them');
   const card = a.renderDayCard(race);
   const noteAt = card.indexOf('class="how-note"');
@@ -764,9 +782,9 @@ test('the execution rail carries no heart rate', () => {
   let covered = 0;
   a.state.days.forEach(d => {
     let parts; try { parts = a.renderExecutionStrategyBlock(d); } catch (e) { return; }
-    if (!parts || !parts.rail) return;
+    if (!parts || !parts.panels || !parts.panels.length) return;
     covered++;
-    assert.ok(!/BPM/.test(parts.rail),
+    assert.ok(!/BPM/.test(parts.panels.join('')),
       d.type + ': a heart-rate band is back in the execution rail');
   });
   assert.ok(covered >= 3, 'the fixture no longer exercises the execution rail');

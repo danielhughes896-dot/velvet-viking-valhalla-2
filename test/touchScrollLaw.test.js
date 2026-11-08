@@ -135,8 +135,12 @@ test('the ownership walk stops at the card, or the day swipe dies silently', () 
     'the walk no longer stops at the card, so every swipe reads as owned inside');
   assert.match(body, /hasAttribute\('data-hswipe'\)/,
     'the walk no longer looks for the attribute that marks an inner region');
-  /* And the rail it protects still carries that attribute. */
-  assert.match(RUNTIME, /class="fuel-body" data-hswipe="1"/,
+  /* And the rail it protects still carries that attribute. The bare
+     `class="fuel-body" data-hswipe="1"` this matched was the fuel rail's
+     own track, and fuel has no track of its own any more -- its panels are
+     in the merged card rail. Matched on the attribute next to the class
+     the merged rail actually carries. */
+  assert.match(RUNTIME, /class="fuel-body ws-rail'[\s\S]{0,120}?data-hswipe="1"/,
     'the coaching rail no longer advertises that it owns the sideways gesture');
 });
 

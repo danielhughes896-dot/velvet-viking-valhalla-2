@@ -706,14 +706,23 @@ test('a session shows the blueprint or the execution rail, never both', () => {
   assert.ok(withBp.length, 'sanity: the fixture has a blueprint session');
   assert.ok(race, 'sanity: the fixture has a race');
 
+  /* ASKED OF THE PANELS, NOT THE RAIL'S CLASS. This read "bp has no
+     .exec-rail" and "the race has no .ws-rail", which held only while the
+     two vocabularies lived in two differently-named components. They are
+     one component now -- .ws-rail, cards either way -- so the question has
+     to be what is ON the rail: a blueprint step (.ws-h-step) or an
+     execution phase (.strat-phase). Never both, which is the law. */
   const bp = a.renderDayCard(withBp[withBp.length - 1]);
   assert.match(bp, /class="fuel-body ws-rail"/, 'the blueprint is no longer a rail');
-  assert.ok(bp.indexOf('exec-rail') === -1,
-    'a blueprint session is showing the execution rail as well — the same session said twice');
+  assert.match(bp, /ws-h-step/, 'the blueprint session has lost its steps');
+  assert.ok(bp.indexOf('strat-phase-label') === -1,
+    'a blueprint session is showing the execution phases as well — the same session said twice');
 
   const rc = a.renderDayCard(race);
-  assert.match(rc, /exec-rail/, 'a race has no blueprint to fold into and has lost its execution rail');
-  assert.ok(rc.indexOf('ws-rail') === -1, 'a race has grown a blueprint');
+  assert.match(rc, /strat-phase-label/, 'a race has no blueprint to fold into and has lost its execution phases');
+  assert.ok(rc.indexOf('ws-h-step') === -1, 'a race has grown a blueprint');
+  assert.match(rc, /class="fuel-body ws-rail exec-rail"/,
+    'the race’s phases are no longer on the card rail, so they are no longer photographs');
 
   /* NOTHING IS LOST WITH THE RAIL. Its captions are the coaching, and they
      go to the Coach's Note -- so a four-phase execution on a three-step
@@ -803,9 +812,20 @@ test('why / feel / watch for is three columns, not a rail', () => {
   assert.match(RAILCODE, /<div class="how-cols">/, 'the coaching columns are gone or renamed');
   assert.ok(RAILCODE.indexOf('"fuel-body how-rail"') === -1,
     'the coaching columns are a .fuel-body again, which makes them a scrolling rail');
-  const i = RAILCODE.indexOf('<div class="how-cols">');
-  const after = RAILCODE.slice(i, i + 1400);
-  assert.ok(after.indexOf('railDotsHtml') === -1, 'the coaching columns have dots again');
+  /* NAMED BY WHAT IT EMITS, AND BOUNDED BY THE COLUMNS. This read
+     `railDotsHtml` over a flat 1400 characters -- a helper that has since
+     been deleted, so the assertion was true of a name that appears
+     nowhere, and a window that now runs past the columns into the merged
+     rail, which legitimately does call railDotCount. Both halves fixed:
+     the thing asserted is the live emitter, and the region is the columns
+     block itself, cut at the wrapper that follows it. */
+  const cols = /<div class="how-cols">[\s\S]*?(?=<\/div>'\+|<div class="how-table)/.exec(RAILCODE);
+  assert.ok(cols, 'the coaching columns are gone or no longer named');
+  assert.ok(cols[0].indexOf('railDotCount') === -1, 'the coaching columns have dots again');
+  assert.ok(cols[0].length < 1200,
+    'the columns region ran past its own block, so "no dots here" stopped being a claim about the columns');
+  assert.ok(RAILCODE.indexOf('railDotsHtml') === -1,
+    'railDotsHtml is back — it was dead code with no caller');
   assert.match(RAILCSS, /\.how-cols \.how-mod\{[^}]*opacity:1/,
     'the coaching columns dim again — all three are on screen, so none of them is "the" one');
   assert.match(RAILCSS, /\.how-cols \.how-mod::before\{content:none;\}/,
@@ -841,10 +861,17 @@ test('the stage card is a photograph, and the words on it are legible', () => {
     assert.ok(stat.size > 4000, 'assets/' + f + ' is missing or empty');
     assert.ok(stat.size < 160000, 'assets/' + f + ' is ' + stat.size + ' bytes — larger than the photograph it sits beside');
   });
-  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{[^}]*background-image:url\('\/assets\/dawn-road-820\.jpg'\)/,
+  /* ON .how-mod, NOT .ws-h-step. The photograph was keyed to the
+     blueprint's own element, which an execution phase and a fuel fact do
+     not have -- so goal day, which has no blueprint, got plain panels
+     while a tempo session got cards. Every panel in every rail is a
+     .how-mod, so that is what carries the card. */
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*background-image:url\('\/assets\/dawn-road-820\.jpg'\)/,
     'the stage card has lost its photograph');
-  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{\s*\n?\s*background-image:url\('\/assets\/dawn-road-420\.jpg'\)/,
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{\s*\n?\s*background-image:url\('\/assets\/dawn-road-420\.jpg'\)/,
     'the narrow phone still downloads the wide photograph');
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{display:contents;\}/,
+    'the blueprint step is a box inside the card again, so its own tint and rule sit on the photograph');
 
   /* A PHOTOGRAPH IS NOT A BACKGROUND UNTIL THE WORDS ON IT ARE LEGIBLE.
      Measured against the pixels actually behind each run, with the figures
@@ -855,16 +882,134 @@ test('the stage card is a photograph, and the words on it are legible', () => {
      clear at the top where the sunrise is the point: 19.84 / 9.51 / 9.67.
      (The first measurement sampled the row the glyphs are on, so white text
      inflated its own background; it reads the bands beside them now.) */
-  const i = RAILCSS.indexOf('.ws-rail .ws-h-step::after');
+  /* ---------- THE SCRIM IS A ::before, AND IT HAS TO BE ----------
+     .how-mod's ::after is already taken twice -- `.how-mod + .how-mod::after`
+     is the hairline between columns and `.how-mod.is-active::after` zeroes
+     its opacity -- and both are (0,5,0) declared later in the sheet, so a
+     scrim on ::after is overwritten on every card but the first and set to
+     opacity 0 on that one. It painted nothing, and the only thing that
+     showed it was the contrast measurement coming back IDENTICAL to three
+     decimal places after the scrim's stops were changed. */
+  assert.ok(RAILCSS.indexOf('.ws-rail .how-mod::after{') === -1,
+    'the scrim is back on ::after, where the hairline and the active rule overwrite it');
+  assert.match(RAILCSS, /\.ws-rail \.how-mod \+ \.how-mod::after\{content:none;\}/,
+    'the hairline between columns is back on the card rail, drawing a rule on a photograph');
+  const i = RAILCSS.indexOf('.ws-rail .how-mod::before');
   assert.ok(i > -1, 'the scrim under the card text is gone');
   const scrim = RAILCSS.slice(i, RAILCSS.indexOf('}', i));
+  assert.match(scrim, /opacity:1/,
+    'the scrim inherits the selected-panel pool\'s opacity:0 and paints nothing');
   const last = Number((scrim.match(/rgba\(8,6,10,\.(\d+)\) 100%/) || [])[1]);
   assert.ok(last >= 90, 'the scrim ends at .' + last + ' — the figures sit on it and were measured at 1.75:1 without it');
-  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{[^}]*justify-content:flex-end/,
+  /* ---------- OPAQUE BY THE HIGHEST LINE OF TEXT ----------
+     The text is anchored to the foot of the card, so how far up it reaches
+     depends on how many lines the stage has. Measured across every card the
+     engine builds: 87px for a fuel fact, 131px for COMMIT, whose target
+     carries a second line. In a 184px card that put the top run at 27% and
+     gold "INTERVAL" measured 2.64:1 against the 4.5 it owes. The floor is
+     260px for that reason -- 131px of text starts at 50% of it, 87px at
+     67% -- and the scrim is near-opaque from 47% down, which is under both.
+     Re-measured on the composited pixels, every run on every card of every
+     rail now clears its threshold by at least 4.7. */
+  const floor = Number((/\.ws-rail\{min-height:(\d+)px;\}/.exec(RAILCSS) || [])[1]);
+  assert.ok(floor >= 240, 'the card floor is ' + floor + 'px — the text block reaches 131px ' +
+    'and needs to start below the scrim\'s opaque edge');
+  const opaqueAt = Number((/rgba\(8,6,10,\.9\d\) (\d+)%/.exec(scrim) || [])[1]);
+  assert.ok(opaqueAt > 0 && opaqueAt <= 100 * (1 - 131 / floor),
+    'the scrim reaches .9 at ' + opaqueAt + '% but a 131px text block in a ' + floor +
+    'px card starts at ' + Math.round(100 * (1 - 131 / floor)) + '%');
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*justify-content:flex-end/,
     'the figures have left the foot of the card, which is the only part of the frame dark enough for them');
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*align-self:stretch/,
+    'the cards are back to their natural heights, so a short one ends early and the rail is ragged');
 
   /* THE PEEK IS THE FOUNDER'S SECOND DRAWING: a card carried IN a rail
      rather than filling it, with its neighbours showing at both edges. */
-  assert.match(RAILCSS, /\.ws-rail \.how-mod\{\s*\n?\s*flex:0 0 84%/,
+  /* The 5px of breathing room either side comes OUT of the 84%, so the
+     slot is never wider than the page the script scrolls by. */
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*flex:0 0 calc\(84% - 10px\)/,
     'the stage card fills the rail again, so nothing peeks and the rail stops reading as one');
+});
+
+test('label, figure, detail — that order, on every card of every rail', () => {
+  /* The founder's words: "Make the 2km easy bigger like the sessions bigger
+     central. So easy top. Distances 2nd. Then pace smaller."
+     An execution phase and a fuel fact already read that way in the DOM
+     (SETTLE / 0-10km / 4:46/km; CARB INTAKE / 60-90g/hr). A stage card did
+     not -- it led with the figure and put "Easy" under it -- and its HR
+     band and recovery note, carrying no `order` at all, took the initial 0
+     and sorted AHEAD of everything that does: "178-190 BPM" rendered at the
+     TOP of the card, over the brightest part of the sunrise.
+     Reordered with flex `order` rather than by rewriting
+     essentialPrescriptionHtml(), which is shared with the stacked list
+     where the current order is right. */
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-presc:not\(\.font-mono\)\{order:1;\}/,
+    'the zone word is no longer first');
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-qty\{order:2;\}/, 'the distance is no longer second');
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-presc\.font-mono\{order:3;\}/, 'the pace band is no longer third');
+  assert.match(RAILCSS, /\.ws-rail \.ws-hr,\s*\n?\s*:is\([^)]*\) \.ws-rail \.ws-note\{order:4/,
+    'the HR band and the recovery note have lost their order, which puts them at the ' +
+    'top of the card above the label they belong under');
+
+  /* THE FIGURE IS BIGGER THAN THE LABEL AND THE LABEL BIGGER THAN THE
+     DETAIL -- the whole of what was asked for, read off the sheet. */
+  const px = (re) => Number((re.exec(RAILCSS) || [])[1]);
+  const fig = px(/\.ws-rail \.ws-h-qty,[\s\S]{0,400}?font-size:(\d+)px/);
+  const lab = px(/\.ws-rail \.ws-h-presc:not\(\.font-mono\),[\s\S]{0,400}?font-size:(\d+)px/);
+  assert.ok(fig > lab, 'the figure (' + fig + 'px) is no longer bigger than the label (' + lab + 'px)');
+  assert.ok(fig >= 28, 'the figure is ' + fig + 'px — it was raised to 30 because the card is ' +
+    'no longer a third of a phone');
+
+  /* ONE LABEL DECLARATION FOR ALL THREE KINDS OF CARD. The zone word joins
+     the rule that already states WHY, TIME ON FEET and SETTLE rather than
+     getting a fourth that resembles it. */
+  const labRule = /\.ws-rail \.ws-h-presc:not\(\.font-mono\),\s*\n\s*:is\([^)]*\) \.how-mod \.fuel-row \.k,\s*\n\s*:is\([^)]*\) \.how-mod \.strat-phase-label\{/;
+  assert.match(RAILCSS, labRule,
+    'the stage card has a label declaration of its own again — there is one label voice ' +
+    'in this rail and it is stated once');
+});
+
+test('every card in the rail leads with a word', () => {
+  /* The stage name came off these cells when three of them shared a phone.
+     One card at a time has the room, and every other panel in the rail
+     leads with a label: SETTLE, CARB INTAKE, EASY. Measured on a 4x1200m
+     session, the work card was the one panel in the product with nothing
+     above its figure. The effort word wins where the engine has one; a
+     work step, whose prescription is a pace band, takes its stage name. */
+  const a = railApp();
+  let checked = 0;
+  a.state.days.forEach(d => {
+    let steps; try { steps = a.workoutSteps(d); } catch (e) { return; }
+    if (!steps || !steps.length || !a.usesHorizontalWorkoutBlueprint(steps)) return;
+    steps.forEach((st, i) => {
+      const cell = a.renderWorkoutStepHCell(st, i);
+      const lead = /<span class="ws-h-presc">([^<]+)<\/span>/.exec(cell);
+      assert.ok(lead, d.type + ' step ' + i + ': the card has no word above its figure');
+      checked++;
+      /* AND SPOKEN ONCE. The stage name is in the accessibility tree only
+         while the card shows a different word; where it has been promoted
+         to the label, a second copy would be read twice. */
+      const sr = /<span class="sr-only">([^<]*)<\/span>/.exec(cell);
+      if (lead[1] === st.label) assert.ok(!sr,
+        d.type + ' step ' + i + ': "' + st.label + '" is both the label and the sr-only name');
+      else assert.ok(sr && sr[1] === st.label,
+        d.type + ' step ' + i + ': the stage name is no longer spoken');
+    });
+  });
+  assert.ok(checked >= 6, 'the fixture no longer exercises the stage cards (' + checked + ')');
+
+  /* THE SPLIT IS THE ONE PLACE THAT DECIDES. essentialPrescriptionHtml()
+     still joins the two parts in exactly the order it always did, so the
+     stacked list and the three-across row are untouched. */
+  assert.match(RAILCODE, /function stepPrescriptionParts\(st\)\{/,
+    'the prescription is no longer split into a word and a number');
+  const steps = a.workoutSteps(a.state.days.filter(d => {
+    try { return a.usesHorizontalWorkoutBlueprint(a.workoutSteps(d)); } catch (e) { return false; }
+  })[0]);
+  steps.forEach(st => {
+    const p = a.stepPrescriptionParts(st);
+    assert.equal(a.essentialPrescriptionHtml(st),
+      (p.word ? '<span class="ws-h-presc">' + p.word + '</span>' : '') + p.pace,
+      'essentialPrescriptionHtml no longer builds itself from the split');
+  });
 });

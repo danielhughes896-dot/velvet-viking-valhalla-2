@@ -193,14 +193,16 @@ test('Execution Strategy phase copy follows the unit selection', () => {
   const mi = app('mi', 'novice');
   const d = dayOf(mi, 'threshold_continuous');
   assert.ok(d, 'the fixture must contain a threshold_continuous session');
-  /* BOTH HALVES. renderExecutionStrategyBlock returns {rail, caps} since the
-     phase sentences moved into the Coach's Note -- and "[object Object]"
-     satisfies a doesNotMatch, so a test that kept reading the return value
-     as a string would pass while saying nothing at all. Joined, this now
-     covers the figures AND the prose, which is more than it checked before. */
+  /* BOTH HALVES. renderExecutionStrategyBlock returns {panels, caps} -- the
+     phase sentences moved into the Coach's Note, and the phases themselves
+     come back as an ARRAY since they share one rail with fuel and a rail
+     cannot be merged after it is built. Joined explicitly, because the
+     warning this comment has always carried still applies: a value that is
+     not a string satisfies a doesNotMatch, so a test that kept adding the
+     return value to a string would pass while saying nothing at all. */
   const parts = mi.renderExecutionStrategyBlock(d);
-  const html = parts.rail + parts.caps;
-  assert.ok(parts.rail && parts.caps, 'the session earns a staged plan');
+  const html = parts.panels.join('') + parts.caps;
+  assert.ok(parts.panels.length && parts.caps, 'the session earns a staged plan');
   assert.match(html, MI_WORD, 'the phase prose should be talking in miles');
   assert.doesNotMatch(html, KM_WORD);
   assert.equal(html.indexOf('@@'), -1, 'no raw token reaches the phase card');
