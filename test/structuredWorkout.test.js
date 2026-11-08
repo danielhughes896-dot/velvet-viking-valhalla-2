@@ -1220,6 +1220,15 @@ test('a single stage is a card, and yields to the execution phases where there a
     if (n !== 1) return;
     let phases = 0;
     try { const s = a.executionStrategyForDisplay(d); phases = (s && !s.suppressed && s.phases) ? s.phases.length : 0; } catch (e) { phases = 0; }
+    /* EXCEPT A LONG RUN WITH FUEL, which has neither stages nor phases on
+       its rail: the founder's three paired fuel cards took it, and the
+       shape went to the Coach's Note. That is a third answer to "what is
+       this session's rail", and it is decided in one place. */
+    if (a.longRunIsFuelRail(d)){
+      assert.equal(a.hasWorkoutBlueprint(d), false,
+        d.date + ': a long run with fuel is showing stage cards as well as its paired fuel');
+      return;
+    }
     assert.equal(a.hasWorkoutBlueprint(d), phases === 0,
       d.date + ' (' + d.type + '): one stage and ' + phases + ' execution phases, but ' +
       'hasWorkoutBlueprint says ' + a.hasWorkoutBlueprint(d));
@@ -1482,4 +1491,209 @@ test('every stage the engine builds has something to say', () => {
   assert.equal(a.stageCueFor({ role: 'work', intensity: 'interval' }, 'goal_pace'),
     a.STAGE_CUES.work.interval,
     'a work stage reads the session’s intensity rather than its own');
+});
+
+test('a long run is three slides, two facts to a card', () => {
+  /* The founder's drawing, with that session's own numbers:
+         SLIDE 1 - LONG RUN 15km     SLIDE 3 - TAKE 2-3 GELS
+                   TIME ON FEET                or chews · ≈25g each
+                   ≈1h 25m                     FLUID
+         SLIDE 2 - FUEL 30-60g/hr                ≈0.7-1.1 L
+                   TOTAL CARBS
+                   ≈40-85g
+     Each card carries two facts: one compact on a head line, one below as
+     the card's own title and figure. The session heads card one because
+     the stages have gone to the Coach's Note. */
+  const a = railApp();
+  const longs = a.state.days.filter(d => d.type === 'long');
+  assert.ok(longs.length >= 5, 'the fixture has too few long runs');
+  let paired = 0, unfuelled = 0;
+  longs.forEach(d => {
+    const html = a.renderDayCard(d);
+    const cards = (html.match(/class="how-mod[^"]*"/g) || []).length;
+    const dots = (html.match(/<span class="how-dot"><\/span>/g) || []).length;
+    assert.equal(dots, cards, d.date + ': ' + dots + ' dots for ' + cards + ' cards');
+    if (!a.longRunIsFuelRail(d)) { unfuelled++; return; }
+    assert.equal(cards, 3,
+      d.date + ' (' + d.km + 'km) is ' + cards + ' slides — a long run is three');
+    /* NO STAGE AND NO PHASE CARDS: both went to the note. */
+    assert.ok(html.indexOf('ws-h-step') === -1, d.date + ' still shows stage cards');
+    /* THE PANEL, NOT THE WORD. A bare "strat-phase" also matches the
+       caption's own .strat-phase-purpose, which is in the Coach's Note and
+       is supposed to be there. */
+    assert.ok(html.indexOf('class="how-mod strat-phase"') === -1,
+      d.date + ' still shows execution phase cards');
+    /* THE SESSION HEADS CARD ONE. */
+    assert.ok(html.indexOf('<span class="pair-k">' + a.dayTypeLabel(d) + '</span>') > -1,
+      d.date + ': the first card is not headed by the session');
+    assert.ok(html.indexOf('<span class="pair-v font-mono">' + a.fmtDist(d.km) + '</span>') > -1,
+      d.date + ': the session head does not carry the distance');
+    /* AND EVERY FUEL FACT IS STILL ON THE RAIL -- three cards, six facts,
+       nothing dropped in the fold. */
+    const facts = a.fuelFacts(d).rows;
+    facts.forEach(r => assert.ok(html.indexOf(r.v) > -1,
+      d.date + ': the fuel fact ' + JSON.stringify(r.short) + ' (' + r.v + ') is not on the rail'));
+    paired++;
+  });
+  assert.ok(paired >= 5, 'only ' + paired + ' long runs paired');
+  assert.ok(unfuelled >= 1,
+    'the fixture no longer has a long run without fuel, which is the case that keeps its stages');
+
+  /* THE HEAD WORDS ARE THE FOUNDER'S. "Carb intake" reads as FUEL on a head
+     line and "Gels" as TAKE, because a head line is an instruction. */
+  const d15 = longs.filter(d => a.longRunIsFuelRail(d))[0];
+  const h = a.renderDayCard(d15);
+  ['Fuel', 'Take'].forEach(w => assert.ok(h.indexOf('<span class="pair-k">' + w + '</span>') > -1,
+    'the head word "' + w + '" is gone from the paired cards'));
+  assert.match(h, /<span class="pair-v font-mono">[^<]*GELS<\/span>/,
+    'the gels head no longer names its unit, so "2–3" stands alone');
+});
+
+test('race day keeps its phases and pairs only its fuel', () => {
+  /* The founder chose this: goal day goes from nine slides to seven --
+     five execution phases, then two paired fuel cards. The phases stay
+     because the rail IS the session there, which is also why no card is
+     headed by the session the way a long run's first card is. */
+  const a = railApp();
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  const html = a.renderDayCard(race);
+  const cards = (html.match(/class="how-mod[^"]*"/g) || []).length;
+  const phases = (html.match(/class="how-mod strat-phase"/g) || []).length;
+  const pairs = (html.match(/data-mod="pair-\d+"/g) || []).length;
+  assert.equal(phases, 5, 'the race shows ' + phases + ' execution phases');
+  assert.equal(pairs, 2, 'the race’s four fuel facts came to ' + pairs + ' cards, not two');
+  assert.equal(cards, 7, 'goal day is ' + cards + ' slides, not seven');
+  assert.equal((html.match(/<span class="how-dot"><\/span>/g) || []).length, cards,
+    'the dots disagree with the cards on goal day');
+  assert.ok(html.indexOf('<span class="pair-k">' + a.dayTypeLabel(race) + '</span>') === -1,
+    'the race’s first fuel card is headed by the session — the phases are already the session');
+  a.fuelFacts(race).rows.forEach(r => assert.ok(html.indexOf(r.v) > -1,
+    'the fuel fact ' + JSON.stringify(r.short) + ' is not on goal day’s rail'));
+});
+
+test('the phase captions all show where no panel can light them', () => {
+  /* They are lit one at a time by the rail's focus. Where the phase panels
+     are NOT on the rail -- a blueprint session, or a long run after the
+     pairing -- nothing can move that focus, and this was already wrong
+     before the pairing existed: measured in Chromium, an interval showed
+     ONE of its four phase sentences and the other three were markup
+     nobody could reach, because setFocus can only ever reach panel n-1.
+     The guard that said "all four sentences are still carried" was reading
+     the markup, which had them, rather than the screen, which did not. */
+  const a = railApp();
+  assert.match(RAILCODE, /function renderExecutionStrategyBlock\(dd, panelsShown\)/,
+    'the captions no longer know whether their panels are on the rail');
+  assert.match(RAILCODE, /how-cap'\+\(panelsShown \? '' : ' how-cap-all'\)/,
+    'the caption wrapper no longer says whether anything can light it');
+  assert.match(RAILCSS, /\.how-cap-all \.how-cap-i\{display:block;\}/,
+    'the unlightable captions are hidden again, so only the first is ever read');
+
+  let withPanels = 0, without = 0;
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    let s; try { s = a.executionStrategyForDisplay(d); } catch (e) { return; }
+    if (!s || s.suppressed || !s.phases || !s.phases.length) return;
+    const html = a.renderDayCard(d);
+    const onRail = html.indexOf('class="how-mod strat-phase"') > -1;
+    const all = html.indexOf('how-cap how-cap-all') > -1;
+    assert.equal(all, !onRail,
+      d.date + ' (' + d.type + '): phase panels ' + (onRail ? 'ARE' : 'are NOT') +
+      ' on the rail but the captions are ' + (all ? '' : 'not ') + 'all shown');
+    /* And every sentence is in the note either way. */
+    assert.equal((html.match(/class="how-cap-i/g) || []).length, s.phases.length,
+      d.date + ': ' + s.phases.length + ' phases but a different number of sentences');
+    onRail ? withPanels++ : without++;
+  });
+  assert.ok(withPanels >= 1 && without >= 3,
+    'the fixture no longer exercises both (' + withPanels + ' with panels, ' + without + ' without)');
+});
+
+test('wherever fuel rides a rail, it rides it paired', () => {
+  /* The pairing was asserted on the long run and on the race, which are
+     the two the founder drew -- and a mutation swapping the BLUEPRINT
+     rail's fuel back to one-fact-per-card survived all of it. A session
+     with both a blueprint and fuel is not rare: one in this eleven-week
+     fixture, thirteen in a sixteen-week full-marathon block. */
+  const a = railApp();
+  let seen = 0;
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    let fuelled; try { fuelled = a.needsFueling(d); } catch (e) { return; }
+    if (!fuelled) return;
+    const html = a.renderDayCard(d);
+    const facts = a.fuelFacts(d).rows.length;
+    const pairs = (html.match(/data-mod="pair-\d+"/g) || []).length;
+    const singles = (html.match(/data-mod="fuel-\d+"/g) || []).length;
+    assert.equal(singles, 0,
+      d.date + ' (' + d.type + ') shows ' + singles + ' one-fact fuel cards');
+    assert.ok(pairs > 0 && pairs <= Math.ceil((facts + 1) / 2),
+      d.date + ' (' + d.type + '): ' + facts + ' fuel facts came to ' + pairs + ' cards');
+    seen++;
+  });
+  assert.ok(seen >= 6, 'the fixture exercises only ' + seen + ' fuelled sessions');
+
+  /* AND THE SESSION WITH BOTH -- a blueprint AND fuel -- is one of them. */
+  const both = a.state.days.filter(d => {
+    try { return d.type !== 'rest' && a.hasWorkoutBlueprint(d) && a.needsFueling(d); } catch (e) { return false; }
+  });
+  assert.ok(both.length >= 1,
+    'the fixture has no session with both a blueprint and fuel, which is the case a ' +
+    'mutation walked straight through');
+  both.forEach(d => {
+    const html = a.renderDayCard(d);
+    assert.ok(html.indexOf('data-mod="pair-0"') > -1,
+      d.date + ' (' + d.type + '): a blueprint session’s fuel is not paired');
+    assert.ok(html.indexOf('ws-h-step') > -1, d.date + ': its stages have gone too');
+  });
+});
+
+test('the head line sits above the card’s title, and the shape reaches the note', () => {
+  /* ---------- THE HEAD IS ABOVE THE TITLE ----------
+     A paired card is head, title, figure. The head is `order:0` and the
+     title `order:1`; nothing held that, and a mutation moving the head to
+     the bottom of the card passed every other guard here. */
+  const ord = (re) => Number((re.exec(RAILCSS) || [])[1]);
+  const head = ord(/\.ws-rail \.pair-head\{[^}]*order:(\d)/);
+  const title = ord(/\.ws-rail \.ws-h-presc:not\(\.font-mono\)\{order:(\d)/);
+  const note = ord(/\.ws-rail \.pair-note\{[^}]*order:(\d)/);
+  assert.ok(Number.isFinite(head) && Number.isFinite(title),
+    'the head or the title has no order (' + head + ' / ' + title + ')');
+  assert.ok(head < title, 'the head line (order ' + head + ') is no longer above the title (order ' + title + ')');
+  assert.equal(note, head, 'the head’s qualifier has drifted away from the head it qualifies');
+
+  /* ---------- THE SHAPE REACHES THE NOTE, AND ONLY WHERE IT MUST --------
+     A long run's stages went to the Coach's Note. On most long runs the
+     card already says the shape in prose, and a second telling is the
+     thing every pass here removes -- but THREE OF TEN carry no description
+     at all, and on those the stages were the only place it was written.
+     Three mutations walked through this unguarded: never writing it,
+     always writing it, and writing it without the paces. */
+  const a = railApp();
+  let written = 0, withheld = 0;
+  a.state.days.forEach(d => {
+    if (!a.longRunIsFuelRail(d)) return;
+    const html = a.renderDayCard(d);
+    const line = /<b>Session<\/b> ([^<]*)/.exec(html);
+    const hasDesc = /<div class="day-desc">[^<]/.test(html);
+    let steps; try { steps = a.workoutSteps(d); } catch (e) { steps = []; }
+    if (hasDesc || steps.length < 2) {
+      assert.ok(!line, d.date + ': the shape is written to the note as well as the description');
+      withheld++;
+      return;
+    }
+    assert.ok(line, d.date + ': ' + steps.length + ' stages, no description, and no shape in the note — ' +
+      'the session’s shape is said nowhere');
+    steps.forEach(st => {
+      assert.ok(line[1].indexOf(st.label) > -1, d.date + ': the shape omits the stage ' + st.label);
+      const q = a.renderStepQty(st);
+      if (q) assert.ok(line[1].indexOf(q) > -1, d.date + ': the shape omits ' + st.label + '’s distance');
+      const p = a.stepPrescriptionParts(st);
+      if (p.pace) assert.ok(line[1].indexOf(p.pace) > -1,
+        d.date + ': the shape omits ' + st.label + '’s pace (' + p.pace + '), which is the one ' +
+        'thing a stage card carried that the description would not');
+    });
+    written++;
+  });
+  assert.ok(written >= 3 && withheld >= 3,
+    'the fixture no longer exercises both (' + written + ' written, ' + withheld + ' withheld)');
 });

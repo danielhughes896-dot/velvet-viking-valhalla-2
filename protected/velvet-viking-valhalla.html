@@ -1290,6 +1290,12 @@
   .how-cap{margin-top:4px;}
   .how-cap-i{display:none;}
   .how-cap-i.is-on{display:block;}
+  /* ALL OF THEM, where no panel can light one. The rail lights a caption
+     by index, so with the phase panels off the rail the set has nothing
+     moving it: one sentence showed and the rest were unreachable markup.
+     They read as what they are instead -- the phase coaching, in order. */
+  .how-cap-all .how-cap-i{display:block;}
+  .how-cap-all .how-cap-i + .how-cap-i{margin-top:6px;}
   .exec-rail ~ .how-cap .strat-phase-purpose{margin-top:0;}
   /* The numbers stack inside a panel: they are two different quantities and
      a middot between them is a full-width idea. */
@@ -2353,6 +2359,30 @@
      right. The DOM order is unchanged, so a screen reader still hears
      "2km, Easy, 5:08-6:06/km" -- a sensible reading either way, and there
      is nothing interactive here whose order could matter. */
+  /* ---------- THE HEAD LINE, ABOVE THE TITLE ----------
+     A paired card carries two facts: one compact up here -- "LONG RUN
+     15km", "FUEL 30-60g/hr" -- and one below as the card's own title and
+     figure. order:0, so it sits above the title without the title's rules
+     having to know it exists.
+     The label is the gold label voice this product gives every heading;
+     the value beside it is mono, because it is a number. Smaller than the
+     figure beneath on purpose: the head says which fact this is, the body
+     is the one you read from arm's length. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-head{
+    order:0; display:flex; align-items:baseline; justify-content:center;
+    gap:7px; margin:0 0 9px; flex-wrap:wrap;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-k{
+    font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:13px; letter-spacing:var(--label-track); text-transform:uppercase;
+    color:var(--gold-text);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-v{
+    font-size:var(--fs-data); color:#FFFFFF;}
+  /* The qualifier under a head value -- "or chews . ~25g each" -- which
+     belongs to the head, not to the figure below it. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-note{
+    order:0; margin:-5px 0 9px; font-family:var(--text-face);
+    font-size:var(--fs-micro, 11.5px); line-height:1.35; letter-spacing:0;
+    color:rgba(255,255,255,.72);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono){order:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-qty{order:2;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-cue{order:3;}
@@ -28693,7 +28723,7 @@ function renderStructuredWorkout(dd){
        photographs directly under this one. renderCoachingDepth asks the
        same hasWorkoutBlueprint() and stands down. */
     var fuel = [];
-    try { if (needsFueling(dd)) fuel = fuelRailPanels(dd); } catch(e) { fuel = []; }
+    try { if (needsFueling(dd)) fuel = fuelPairPanels(dd); } catch(e) { fuel = []; }
     body = renderStructuredWorkoutSteps(steps, fuel);
   } else {
     body = '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>';
@@ -28850,7 +28880,15 @@ function renderCoachingDepth(dd, pre){
        wrapped one. Both existed only for the coaching columns, and both
        died with them. The icon argument that filled this comment went
        with the icons, two passes before. */
-    var strat = renderExecutionStrategyBlock(dd);
+    /* ---------- WHICH RAIL THIS SESSION HAS, DECIDED FIRST ----------
+       The captions need to know whether their panels will be on the rail,
+       and the answer does not depend on the strategy itself: a blueprint
+       session shows its stages instead, and a long run with fuel shows
+       neither -- the founder's three paired cards, with the stages in the
+       Coach's Note. */
+    var hasBlueprint = hasWorkoutBlueprint(dd);
+    var phasesOnRail = !hasBlueprint && !longRunIsFuelRail(dd);
+    var strat = renderExecutionStrategyBlock(dd, phasesOnRail);
     /* ---------- ONE RAIL FOR THE SESSION'S SHAPE, NEVER TWO ----------
        The blueprint and the execution rail describe the same session in two
        vocabularies: "2km / 3x1600m / 2km" and "SETTLE 0-2km / PRESS from
@@ -28874,8 +28912,7 @@ function renderCoachingDepth(dd, pre){
        so stratCaps is read here whether or not the phase panels are, and
        a four-phase session on a three-step blueprint still carries all four
        sentences. What goes is the second vocabulary, not the coaching. */
-    var hasBlueprint = hasWorkoutBlueprint(dd);
-    var stratPanels = hasBlueprint ? [] : strat.panels, stratCaps = strat.caps;
+    var stratPanels = phasesOnRail ? strat.panels : [], stratCaps = strat.caps;
     /* THE COACHING RAIL IS THREE COLUMNS, AND THIS IS WHAT KEEPS IT THREE.
        mod('execution') carries the one-SENTENCE execution, and it was
        suppressed whenever a staged execution existed -- expressed as "is
@@ -29009,7 +29046,15 @@ function renderCoachingDepth(dd, pre){
         /* NOT when the blueprint has them. A session has one rail, and on
            a blueprint session that rail is the blueprint's -- which
            renderStructuredWorkout has already given the fuel facts to. */
-        var panels = stratPanels.concat((fuelOn && !hasBlueprint) ? fuelRailPanels(dd) : []);
+        /* THE SESSION HEADS THE FIRST CARD where the rail is not already
+           showing it. On a race the five execution phases are the session,
+           so the facts pair off from the first one; on a long run the
+           stages have gone to the note, so "LONG RUN 15km" heads card one
+           and TIME ON FEET is its body -- which is the founder's drawing. */
+        var lead = longRunIsFuelRail(dd)
+          ? { k: dayTypeLabel(dd), v: fmtDist(dd.km), note: '' } : null;
+        var panels = stratPanels.concat(
+          (fuelOn && !hasBlueprint) ? fuelPairPanels(dd, lead) : []);
         if (!panels.length) return '';
         return '<div class="how-table">'+
             '<div class="fuel-body ws-rail'+(stratPanels.length ? ' exec-rail' : '')+'" data-hswipe="1"'+
@@ -29108,8 +29153,12 @@ function renderCoachingDepth(dd, pre){
            while moving it is a second change nobody asked for. */
         var cols = [['Why', gd.why], ['Feel', gd.feel], ['Watch For', gd.avoid]]
           .filter(function(r){ return !!r[1]; });
-        if (!cueText && !hints.length && !caps && !soloHow && !cols.length) return '';
+        /* The shape leads the note, where it is here at all: it is what the
+           session IS, and everything below it is coaching about it. */
+        var shape = longRunIsFuelRail(dd) ? sessionShapeLine(dd) : '';
+        if (!cueText && !hints.length && !caps && !soloHow && !cols.length && !shape) return '';
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
+          (shape ? '<span class="v how-note-row"><b>Session</b> '+escapeHtml(shape)+'</span>' : '')+
           cols.map(function(r){
             return '<span class="v how-note-row"><b>'+escapeHtml(r[0])+'</b> '+escapeHtml(r[1])+'</span>';
           }).join('')+
@@ -29241,16 +29290,68 @@ function fuelSectionBody(dd){
    a focused session .how-mod is display:contents, so This Week and Full
    Plan collapse these straight back into the stacked table they already
    render, byte for byte. */
+/* ---------- TWO FACTS TO A CARD ----------
+   The founder's structure for a long run, drawn with that session's own
+   numbers:
+
+       SLIDE 1 - LONG RUN 15km        SLIDE 2 - FUEL 30-60g/hr
+                 TIME ON FEET                   TOTAL CARBS
+                 =1h 25m                        =40-85g
+
+   Each card carries TWO facts: one compact on a head line, one below as
+   the card's own title and figure. Five fuel facts and the session fold
+   into three cards instead of six.
+   WHICH FACT HEADS THE FIRST CARD depends on whether the rail is already
+   showing the session. On a race it is -- five execution phases -- so the
+   facts pair off from the first one. On a long run the stages have gone to
+   the Coach's Note, so the session heads card one and the first fact is
+   its body, exactly as drawn. */
+function fuelPairPanels(dd, leadHead){
+  var f = fuelFacts(dd);
+  var rows = f.rows.slice();
+  var out = [], head = leadHead || null;
+  /* A head word is the fact's SHORT label: "Carb intake" reads as FUEL on
+     a head line in the founder's drawing, and "Gels" as TAKE, because a
+     head line is an instruction and the body below it is the reading. */
+  var HEAD_WORD = { 'Carb intake':'Fuel', 'Gels':'Take' };
+  while (rows.length || head){
+    if (!head){
+      var h = rows.shift();
+      if (!h) break;
+      head = { k: HEAD_WORD[h.short] || h.short,
+               v: h.short === 'Gels' ? (h.v + ' ' + h.short.toUpperCase()) : h.v,
+               note: h.note || '' };
+    }
+    var body = rows.shift() || null;
+    out.push(
+      '<div class="how-mod" data-mod="pair-'+out.length+'">'+
+        '<div class="ws-card-body">'+
+          '<div class="pair-head">'+
+            '<span class="pair-k">'+escapeHtml(head.k)+'</span>'+
+            '<span class="pair-v font-mono">'+head.v+'</span>'+
+          '</div>'+
+          (head.note ? '<div class="pair-note">'+head.note+'</div>' : '')+
+          /* The body takes the card's own title and figure classes, so a
+             paired card and a stage card are the same card -- one title
+             voice, one figure size, one scrim. */
+          (body ? '<span class="ws-h-presc">'+escapeHtml(body.short)+'</span>'+
+                  '<span class="ws-h-qty font-mono">'+body.v+
+                    (body.note ? '<span class="fuel-v-note">'+body.note+'</span>' : '')+
+                  '</span>' : '')+
+        '</div>'+
+      '</div>');
+    head = null;
+  }
+  return out;
+}
+/* The one-fact-per-card form, still used wherever a rail is not paired. */
 function fuelRailPanels(dd){
   var f = fuelFacts(dd);
   var mods = f.rows.map(function(r, i){
     /* BOTH LABELS TRAVEL IN THE STRING AND CSS CHOOSES. renderDayCard() has
        to emit one identical string for Today, This Week and Full Plan --
        test/editSessionCoherence holds that -- so the rail cannot be given
-       different words at render time. The long label is the one the stacked
-       table has always shown; the short one is what fits a 34% column at
-       heading size. Exactly one of the two is ever display:none, so a screen
-       reader hears one label, not both. */
+       different words at render time. */
     return '<div class="how-mod" data-mod="fuel-'+i+'">'+
       '<div class="ws-card-body">'+
       '<div class="fuel-row"><span class="k">'+
@@ -29261,17 +29362,9 @@ function fuelRailPanels(dd){
         (r.note ? '<span class="fuel-v-note">'+r.note+'</span>' : '')+
       '</span></div></div></div>';
   });
-  /* THE CAVEATS ARE NOT PART OF THE RAIL. They trailed under it as two dim
-     left-aligned paragraphs -- the only unlit prose on a screen where every
-     other sentence is either a figure, a panel or the Coach's Note. They are
-     coaching ("drink to thirst", "build up to that carb range"), so they go
-     where the coaching is; see renderDayCard(), which hands them to the
-     note. The rail returns the rail. */
-  /* PANELS, NOT A RAIL -- the same move renderExecutionStrategyBlock made,
-     and for the same reason: fuel and the execution phases are one rail on
-     a day that has both, and that can only be decided above both of them. */
   return mods;
 }
+
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
   return '<details class="fuel-card">'+
@@ -29389,8 +29482,42 @@ function optionalRunTitleMark(dd){
    execution phases to put there instead. So a single stage is the rail
    only where there is no execution to show in its place -- which is an
    easy run, and is exactly the case this was opened for. */
+/* ---------- A LONG RUN'S RAIL IS ITS FUEL ----------
+   The founder drew the long run as three cards -- the session, then its
+   fuel, two facts to a card -- and asked for the stage breakdown to go to
+   the Coach's Note. So a long run with fuel has no stage cards at all, and
+   hasWorkoutBlueprint says so here rather than at each of the three places
+   that would otherwise have to agree about it. */
+/* ---------- THE SHAPE, IN A SENTENCE, WHERE NOTHING ELSE SAYS IT --------
+   A long run's stages have left the rail for the Coach's Note. On most of
+   them the card already says the shape in prose -- "11.5km @ Easy pace,
+   3km building toward Goal Pace, then 13.5km @ Goal Pace to the finish" --
+   and a second telling is the thing every pass here has been removing.
+   BUT NOT ON ALL OF THEM. Measured across a full block: three of ten long
+   runs carry no description at all (the two-stage 22, 24 and 26km), and on
+   those the stages were the only place the shape was written. Without this
+   it would be said nowhere.
+   So: only where the description is absent, and only where there is more
+   than one stage to describe. */
+function sessionShapeLine(dd){
+  var steps;
+  try { steps = workoutSteps(dd); } catch(e) { return ''; }
+  if (!steps || steps.length < 2) return '';
+  try { if (!workoutCoversDescription(dd) && resolveDesc(dd.desc)) return ''; } catch(e) {}
+  var parts = steps.map(function(st){
+    var qty = renderStepQty(st);
+    var p = stepPrescriptionParts(st);
+    return st.label + (qty ? ' ' + qty : '') + (p.pace ? ' at ' + p.pace : '');
+  });
+  return parts.join(', then ') + '.';
+}
+function longRunIsFuelRail(dd){
+  if (!dd || dd.type !== 'long') return false;
+  try { return !!needsFueling(dd); } catch(e){ return false; }
+}
 function hasWorkoutBlueprint(dd){
   if (!dd || dd.type === 'rest') return false;
+  if (longRunIsFuelRail(dd)) return false;
   var steps;
   try { steps = workoutSteps(dd); } catch(e){ return false; }
   if (!usesHorizontalWorkoutBlueprint(steps)) return false;
@@ -31093,7 +31220,17 @@ function renderStrategyPhaseCaption(ph, i){
    be different lengths or a different order, and the athlete would read
    one phase's panel over another phase's coaching.
    One call, one plan, both strings built from it. */
-function renderExecutionStrategyBlock(dd){
+/* `panelsShown` says whether the PHASE PANELS will be on the rail. The
+   captions are lit one at a time by the rail's focus, so where the panels
+   are not there, nothing can move them -- and this was already true before
+   this argument existed: measured in Chromium, a blueprint session showed
+   ONE of its four phase sentences and the other three were in the DOM and
+   unreachable, because setFocus can only ever reach panel n-1. The guard
+   that claimed "all four sentences are still carried" was reading the
+   markup, which had them, rather than the screen, which did not.
+   So where the panels are suppressed the captions stop being a swipe-linked
+   set and simply all show. */
+function renderExecutionStrategyBlock(dd, panelsShown){
   var NONE = { panels:[], caps:'' };
   if (!EXECUTION_STRATEGY_ENABLED) return NONE;
   var s;
@@ -31123,7 +31260,7 @@ function renderExecutionStrategyBlock(dd){
      thing that decides how many rails there are. */
   return {
     panels: s.phases.map(renderStrategyPhase),
-    caps: '<div class="how-cap" id="exec-cap-'+dd.id+'">'+
+    caps: '<div class="how-cap'+(panelsShown ? '' : ' how-cap-all')+'" id="exec-cap-'+dd.id+'">'+
         s.phases.map(renderStrategyPhaseCaption).join('')+'</div>'
   };
 }

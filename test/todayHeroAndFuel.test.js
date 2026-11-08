@@ -90,7 +90,10 @@ test('fuel renders as a rail of one module per fact', () => {
     'fuel panel ' + i + ' is not a rail module'));
   assert.ok(facts.rows.length >= 2, 'a rail needs at least two panels to be a rail');
   /* AND THE CARD PUTS THEM ON THE SAME TRACK AS THE PHASES. */
-  assert.match(SRC, /stratPanels\.concat\(\(fuelOn && !hasBlueprint\) \? fuelRailPanels\(dd\) : \[\]\)/,
+  /* PAIRED NOW, two facts to a card, on the founder's drawing. The merge
+     itself is unchanged -- the fuel rides whichever rail the session has
+     -- and what changed is how many cards those facts come to. */
+  assert.match(SRC, /\(fuelOn && !hasBlueprint\) \? fuelPairPanels\(dd, lead\) : \[\]/,
     'the card no longer merges the fuel panels into the execution rail');
   /* ---------- AND ON A BLUEPRINT SESSION THEY RIDE THAT RAIL ----------
      A long run with a three-stage blueprint AND fuel drew two photograph
@@ -105,9 +108,16 @@ test('fuel renders as a rail of one module per fact', () => {
     'a long run shows ' + tracks + ' card rails — SETTLE and CARB INTAKE are one rail');
   const dots = card.match(/<div class="how-dots" aria-hidden="true">((<span class="how-dot"><\/span>)+)<\/div>/);
   assert.ok(dots, 'the merged rail has no dots');
-  assert.equal((dots[1].match(/how-dot/g) || []).length,
-    a.renderExecutionStrategyBlock(dd).panels.length + facts.rows.length,
+  /* ---------- COUNTED FROM THE CARDS, NOT FROM A FORMULA ----------
+     This asserted phases + facts, which was the rail's shape at the time
+     and stopped being it the moment the facts started pairing two to a
+     card. A formula that encodes one layout has to be rewritten for every
+     layout; the LAW is that the indicator cannot disagree with the thing
+     it indicates, and that is a comparison with the panels themselves. */
+  const panelCount = (card.match(/class="how-mod[^"]*"/g) || []).length;
+  assert.equal((dots[1].match(/how-dot/g) || []).length, panelCount,
     'the dots do not count the merged rail — the indicator disagrees with the thing it indicates');
+  assert.ok(panelCount >= 2, 'a rail needs at least two cards to be a rail');
 });
 
 test('the standalone Fueling card still renders the stack, untouched', () => {
@@ -410,7 +420,7 @@ test('the Coach\u2019s Note still appears when the only thing to say is the fuel
   const end = SRC.indexOf('})()+', i);
   assert.ok(end > i, 'the Coach\u2019s Note builder is no longer an IIFE — re-anchor this');
   const body = SRC.slice(i, end);
-  assert.match(body, /if \(!cueText && !hints\.length && !caps && !soloHow && !cols\.length\) return '';/,
+  assert.match(body, /if \(!cueText && !hints\.length && !caps && !soloHow && !cols\.length && !shape\) return '';/,
     'the Coach\u2019s Note is gated on the cue again, so a day with no cue drops the fuel ' +
     'caveats -- and now the execution sentences -- off the screen entirely');
   assert.match(body, /cueText \? '<span class="v">/,
