@@ -2197,7 +2197,14 @@
      tab, and hiding its summary would hide the only way to open it. The
      .is-static arm is the open one; .is-tab is never hidden. */
   .how-card.is-static{cursor:default;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card.is-static > summary{display:none;}
+  /* HIDDEN EVERYWHERE, AND BY EXACTLY ONE RULE. This replaced a copy scoped
+     to the focused session: that one could not reach the surface where the
+     founder found "How to run this" still showing, and keeping both would
+     have left two rules deciding one declaration -- which is the silent
+     source-order trap test/coachingRail guards against by counting them.
+     A <summary> that is display:none still names its <details> for
+     assistive technology. */
+  .how-card.is-static > summary{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card > summary::-webkit-details-marker{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card .fuel-chevron{display:none;}
   /* The information glyph goes: the reference heads this box with words. */
@@ -2812,18 +2819,12 @@
     border:1.5px solid var(--cherry); border-radius:var(--tile-radius);
     background:var(--cherry-tint), var(--t-tile);
     box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-head{
-    display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+  /* .hn-head is gone from the markup -- the founder took the mark, the rule
+     and the words COACH'S NOTE off the box. Its rules go with it rather
+     than being left to style an element nothing emits. */
   /* The mark, then a hairline, then the heading -- the divider is the
      element's own left border rather than a third box, so it cannot fall
      out of line with the text beside it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-mark{
-    display:flex; flex:0 0 auto; color:var(--ink-dim);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-mark svg{
-    width:22px; height:22px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .k{
-    padding-left:12px; border-left:1px solid var(--cherry);
-    line-height:1.1;}
   /* THE INSTRUCTION, AT THE SIZE THE FOUNDER DREW IT -- bigger than any
      other sentence in the note, because on this day it is the session. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-lead{
@@ -3066,6 +3067,13 @@
      character-for-character identical -- so a view-conditional branch in
      the builder would break that silently. */
   .view-today .day .week-today-flag{display:none;}
+  /* ---------- AND NO TYPE CHIP ON A SOLO-NOTE DAY ----------
+     Founder: "Do not need the green easy top right." The hero under it
+     already reads EASY AEROBIC, so the chip is the word said twice. Hidden
+     only on the Today tab, and only on a day whose whole card is a hero and
+     a note -- a session with a rail still has several things on it and the
+     chip is how the row is read at a glance. */
+  .view-today .day.is-solo-note .day-badge{display:none;}
   .how-note{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .coach-cue-inline{display:none;}
   /* The bordered, tinted rectangle that stood here is gone, not overridden:
@@ -29060,7 +29068,7 @@ function renderStructuredWorkout(dd){
   /* ONE CARD IS NOT A RAIL -- see singleCardSession. The steps are still
      built above, and still reach Session Details and the export; what is
      withheld is the photograph that restated the hero. */
-  if (singleCardSession(dd)) return '';
+  if (soloNoteSession(dd)) return '';
   var body;
   if (hasWorkoutBlueprint(dd)){
     /* The fuel facts come here rather than to renderCoachingDepth's rail,
@@ -29323,15 +29331,37 @@ function renderCoachingDepth(dd, pre){
        in all three focused views, closed until asked, exactly as Valhalla
        Analysis beneath it is. */
     out += '<details class="fuel-card how-card'+
-        (asTab ? ' is-tab' : (focusedCard ? ' is-static' : ''))+'"'+
+        (asTab ? ' is-tab' : ' is-static')+'"'+
         ((!asTab && focusedCard) ? ' open' : '')+'>'+
+      /* ---------- THERE IS NO "HOW TO RUN THIS" ----------
+         Founder: "How to run this on the left should not be a thing. The
+         coaches note should be open by default. So remove the how to run
+         this. I think that on all sessions other than easy or long run."
+         -- and an easy or long run has no disclosure left to open at all
+         now, so this is every session that still has one.
+         IT WAS ALREADY HIDDEN *WHERE dayCardIsFocused() SAID SO*, which is a
+         reading of state.view at render time. The founder screenshotted a
+         Full Plan session showing the summary and that path could not be
+         reproduced here, so the HIDING no longer asks the question at all:
+         a non-tab card is .is-static on every surface and .is-static's
+         summary is hidden globally.
+         OPENING STILL ASKS IT, deliberately. In a week LISTING the card is
+         one of several and must cost no vertical space unopened -- see
+         coachGuidanceDepth, "the guidance is a closed disclosure". Always
+         opening it would have dumped every day's coaching into the list.
+         So in a listing it is closed with no visible summary, which is
+         nothing on screen; the athlete opens the day to read it, which is
+         how they reach it anyway.
+         THE SUMMARY STAYS IN THE DOM, hidden, because <details> without one
+         gets a browser-drawn default marker and the element still needs its
+         accessible name. Session Details -- the tab a logged session gets --
+         is untouched: that one is a tab the founder designed, and it is the
+         only way to open what it names. */
       (asTab
         ? '<summary class="sess-tab">'+
             sessionTabHtml('Session Details')+
           '</summary>'
-        : (focusedCard
-            ? '<summary class="is-static">'+ICONS.info+'How to run this</summary>'
-            : '<summary>'+ICONS.info+'How to run this<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'))+
+        : '<summary class="is-static">'+ICONS.info+'How to run this</summary>')+
       preBlock+
       /* ---------- ONE WRAPPER PER COACHING MODULE ----------
          Why / Execution / Feel / Watch For / Coach's Note / Fuel were six
@@ -29398,7 +29428,11 @@ function renderCoachingDepth(dd, pre){
            and TIME ON FEET is its body -- which is the founder's drawing. */
         var lead = longRunIsFuelRail(dd)
           ? { k: dayTypeLabel(dd), v: fmtDist(dd.km), note: '' } : null;
-        var panels = stratPanels.concat(
+        /* A SOLO-NOTE DAY DRAWS NO RAIL FROM HERE EITHER. Suppressing the
+           blueprint alone would have left a long run its fuel rail, which
+           is the rail the founder was looking at when they asked for it to
+           go. */
+        var panels = soloNoteSession(dd) ? [] : stratPanels.concat(
           (fuelOn && !hasBlueprint) ? fuelPairPanels(dd, lead) : []);
         if (!panels.length) return '';
         return '<div class="how-table">'+
@@ -29539,7 +29573,7 @@ function renderCoachingDepth(dd, pre){
            any block built so far needs fuelling -- so keeping them changes
            nothing on screen today and means a one-card session that one
            day does need fuelling cannot lose a caveat silently. */
-        if (singleCardSession(dd)){
+        if (soloNoteSession(dd)){
           /* ---------- THE FOUNDER'S MOCK-UP, BUILT AS DRAWN ----------
                [crest] | COACH'S NOTE
                Keep it easy.
@@ -29549,16 +29583,55 @@ function renderCoachingDepth(dd, pre){
              different shape from the note every other session draws --
              which is why it is its own element with its own modifier rather
              than the same rows restyled. */
+          /* ---------- THE BOX IS THE MOCK-UP, AND NOTHING ELSE ----------
+             caps and hints were kept here while this rule covered one-card
+             days only: on an easy run and a shakeout they are empty, so
+             keeping them cost nothing and meant a fuelled one-card session
+             could not lose a caveat silently.
+             A LONG RUN IS NOT EMPTY, and that reasoning does not survive
+             contact with it -- so the two are now told apart, because they
+             are not the same kind of thing.
+             caps IS THE BLOAT AND IT GOES. Those are the execution phase
+             captions. Measured on a full block, they turned the long run's
+             box into the founder's three lines followed by "Open in the
+             easier half of your easy range. Do not chase pace. Almost every
+             bad long run was decided here. Settle into easy pace and stay
+             there..." -- which is the massive coach's note they had just
+             asked to be rid of, reassembled underneath the box.
+             hints IS THE FUELLING CAVEAT AND IT STAYS. "Adjust fluid for
+             heat and thirst. Practise fuelling in training -- nothing new
+             on goal day." That is not prose about how the session feels;
+             it is the condition on the figures, and test/todayHeroAndFuel
+             holds it against the rendered card with the reason written
+             out: "What matters has not changed: the athlete must still
+             read them." A design instruction to shorten a note is not a
+             decision to drop that, and it was not asked for -- so it is
+             kept, and the founder is told it is there.
+             IT COSTS NOTHING ON THE DAY THE FOUNDER DREW. An easy run is
+             not fuelled, so hints is empty and the box is exactly the two
+             lines of the mock-up. It appears only on the long runs, which
+             are the sessions whose fuelling figures this same pass took
+             off the screen. */
           var parts = singleCardNoteParts(dd);
-          if (!parts && !caps && !hints.length) return '';
+          if (!parts && !hints.length) return '';
+          /* ---------- THE CLEANEST IT CAN EVER BE ----------
+             Founder: "Do not need the top row in the box. Remove the symbol
+             | coaches note. Move the keep it easy up drop the . From both
+             lines. That is the cleanest it can ever be."
+             So the heading row goes -- mark, rule and the words COACH'S
+             NOTE -- and the lead rises to the top of the box. The helmet
+             was added one pass earlier and lasted one pass; it is kept in
+             ICONS because nothing else draws it and it costs a line.
+             NO FULL STOPS, and the strip is done here rather than by
+             rewriting the copy: the lines that are not written copy are
+             generated sentences (a long run's structure, a shakeout's
+             description) and they arrive punctuated. One rule, one place,
+             every line in this box. */
           return '<div class="how-note" data-solo="1">'+
-            '<span class="hn-head">'+
-              '<span class="hn-mark" aria-hidden="true">'+ICONS.helmet+'</span>'+
-              '<span class="k font-head">Coach\u2019s Note</span>'+
-            '</span>'+
-            (parts ? '<span class="v hn-lead">'+escapeHtml(parts.lead)+'</span>' : '')+
-            (parts && parts.sub ? '<span class="v hn-sub">'+escapeHtml(parts.sub)+'</span>' : '')+
-            caps+
+            (parts ? '<span class="v hn-lead">'+escapeHtml(unpunct(parts.lead))+'</span>' : '')+
+            ((parts && parts.subs) || []).map(function(t){
+              return '<span class="v hn-sub">'+escapeHtml(unpunct(t))+'</span>';
+            }).join('')+
             hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
           '</div>';
         }
@@ -29951,7 +30024,14 @@ function sessionShapeLine(dd){
    they are not allowed to read the question separately. */
 function descMovesToNote(dd){
   if (!dd || dd.type === 'rest') return '';        /* incl. an optional day */
-  if (!hasWorkoutBlueprint(dd)) return '';         /* no card rail, no gap */
+  /* A SOLO-NOTE DAY TAKES ITS DESCRIPTION DOWN WITH IT. On a long run that
+     description is the session's own structure -- "11.5km @ Easy pace, 3km
+     building toward Goal Pace, then 13.5km @ Goal Pace to the finish" --
+     which is said by no ring, no card and no note. It used to sit on the
+     face because the long run had no card rail for it to duplicate; now
+     that the face is the hero and nothing else, it moves to the note
+     rather than being the one thing left floating above it. */
+  if (!hasWorkoutBlueprint(dd) && !soloNoteSession(dd)) return '';
   if (workoutCoversDescription(dd)) return '';     /* the cards said it */
   try { return resolveDesc(dd.desc) || ''; } catch(e){ return ''; }
 }
@@ -29991,26 +30071,76 @@ function singleCardSession(dd){
    to its moved description and then to gd.feel, so a one-card session
    nobody has written a line for is never a blank note. */
 var SINGLE_CARD_NOTE = {
-  easy_run: { lead:'Keep it easy.', sub:'Finish wanting more.' }
+  easy_run: { lead:'Keep it easy.', subs:['Finish wanting more.'] },
+  long_run: { lead:'Build endurance.',
+              subs:['Run by effort, not pace.',
+                    'Start at the pace you\u2019ll finish at.'] }
 };
+/* ---------- A LONG RUN IS THE SAME DAY AS AN EASY RUN ----------
+   Founder: "Long run should follow the same rules as easy run", with the
+   mock-up above -- LONG RUN 12km, no rail, and the cherry note reading
+   "Build endurance. / Run by effort, not pace. / Start at the pace you'll
+   finish at."
+   SO THE RULE IS NO LONGER ABOUT THE CARD COUNT. A fuel-rail long run
+   never had a single blueprint card; it had a three-card rail of its own
+   (the session, then the fuel facts, then the gels and fluid). It joins
+   the easy run here because the founder put the two days in the same
+   category, not because they build the same shape.
+   WHAT THIS COSTS, AND IT IS THE LARGEST COST IN ANY OF THESE PASSES. The
+   fuel rail is the ONLY place the fuelling numbers appear -- rendered
+   measurements on a full block: 30-60g/hr, "Total carbs" up to 145g, 3-6
+   gels and 1.2-1.8 L of fluid on the 28km progressive long run, and "Time
+   on feet 2h 24m" with them. renderFuelingCard() exists but nothing has
+   called it for some time, so there is no second surface to fall back on.
+   Taking the rail takes those numbers off the product. The fuel CAVEATS
+   (caps and hints) are kept in the note, so what survives is the warnings
+   rather than the amounts. This is flagged to the founder in the same
+   breath as it ships; it is one line to put back. */
+function soloNoteSession(dd){
+  return singleCardSession(dd) || longRunIsFuelRail(dd);
+}
 /* An archetype with no written pair falls back to the sentence it already
    has -- its moved description, then gd.feel -- split at the first full
    stop so it lands in the same shape: the instruction, then the line under
    it. A single sentence simply has no sub and the box is one line. */
+/* A trailing full stop only -- never a question mark, an ellipsis, or the
+   stop inside "4.4km". */
+function unpunct(s){
+  return String(s == null ? '' : s).replace(/\.$/, '');
+}
 function singleCardNoteParts(dd){
   var p = prescriptionOf(dd) || {};
   var written = SINGLE_CARD_NOTE[p.archetype];
   if (written) return written;
-  var text = '';
-  try { text = descMovesToNote(dd) || ''; } catch(e) { text = ''; }
-  if (!text){
-    try { text = (coachingDisclosureFor(dd, athleteExperience()) || {}).feel || ''; }
-    catch(e) { text = ''; }
+  /* ---------- A SHORT LEAD, THEN WHAT THE SESSION IS ----------
+     The first version of this split the day's own sentence at its first
+     full stop and made the opening half the lead. On a long run that put
+     "11.5km @ Easy pace, 3km building toward Goal Pace, then 13.5km @ Goal
+     Pace to the finish." into 31px bold, and left long_run_goal_finish
+     saying "Work, not racing." and nothing else -- its structure is
+     carried by sessionShapeLine rather than by a description, and that
+     line is read in the OTHER branch, so the goal-pace portion of a 22km
+     run had quietly stopped being stated anywhere.
+     So the shape is the mock-up's: a short line in the coach's voice, then
+     the session underneath it. gd.feel is already written short and in
+     that voice ("Easy early, honest work late."), and the structure is
+     whichever of the two carriers this day has. */
+  var gd = null;
+  try { gd = coachingDisclosureFor(dd, athleteExperience()) || null; } catch(e) { gd = null; }
+  var body = '';
+  try { body = descMovesToNote(dd) || ''; } catch(e) { body = ''; }
+  if (!body){ try { body = sessionShapeLine(dd) || ''; } catch(e) { body = ''; } }
+  var lead = (gd && gd.feel) || '';
+  if (!lead){
+    /* No written feel: take the opening sentence of the body as the lead
+       so the box still has one, and keep the remainder underneath. */
+    if (!body) return null;
+    var cut = body.indexOf('. ');
+    if (cut < 0) return { lead:body, subs:[] };
+    return { lead:body.slice(0, cut + 1), subs:[body.slice(cut + 2)] };
   }
-  if (!text) return null;
-  var cut = text.indexOf('. ');
-  if (cut < 0) return { lead:text, sub:'' };
-  return { lead:text.slice(0, cut + 1), sub:text.slice(cut + 2) };
+  /* AND NEVER THE SAME WORDS TWICE. */
+  return { lead:lead, subs:(body && body !== lead) ? [body] : [] };
 }
 function hasWorkoutBlueprint(dd){
   if (!dd || dd.type === 'rest') return false;
@@ -30285,7 +30415,12 @@ function renderDayCard(dd){
      title, the description and the companion below, so those four cannot
      disagree with each other about what kind of day this is. */
   var optState = optionalRunDayState(dd);
-  var cls = 'day type-'+tm.cls + (optState?' is-optional':'') + (isToday?' is-today':'');
+  /* is-solo-note is a fact about the DAY, not about the screen, so it is
+     the same in all three views and renderDayCard still emits one string --
+     which editSessionCoherence holds character-for-character. It exists so
+     the sheet can find a day whose whole card is a hero and a note. */
+  var cls = 'day type-'+tm.cls + (optState?' is-optional':'') + (isToday?' is-today':'')+
+            (soloNoteSession(dd)?' is-solo-note':'');
   var blueprint = hasWorkoutBlueprint(dd);
   var targetsHtml = '';
   if (!blueprint){

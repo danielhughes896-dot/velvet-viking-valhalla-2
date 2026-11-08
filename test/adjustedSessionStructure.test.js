@@ -100,20 +100,22 @@ const STRUCTURED = /class="ws-block"/;
    session. That was read off the rendered .ws-block, which was a fair proxy
    while every structured day drew one.
    IT IS NO LONGER A FAIR PROXY. Founder: "On a Training day with 1 card -
-   we don't need the picture rail." A session whose blueprint comes to a
-   single card (an easy run, a shakeout) now draws no rail and therefore no
-   .ws-block, while its prescription and its steps are entirely intact --
-   which is what these tests are actually about. Reading the block alone
-   would call every adjusted easy run a blanked day.
+   we don't need the picture rail", and then "Long run should follow the
+   same rules as easy run." A session that draws the solo cherry note --
+   an easy run, a shakeout, a fuel-rail long run -- draws no rail and
+   therefore no .ws-block, while its prescription and its steps are
+   entirely intact, which is what these tests are actually about. Reading
+   the block alone would call every adjusted easy run and every long run a
+   blanked day.
    SO IT ASKS FOR THE STRUCTURE ITSELF where the block is absent by design,
    and still demands the block everywhere else. A day that genuinely lost
    its prescription has neither, and still fails. */
 function structured(a, dd){
   if (STRUCTURED.test(a.renderDayCard(dd))) return true;
-  if (!a.singleCardSession(dd)) return false;
+  if (!a.soloNoteSession(dd)) return false;
   let st = null;
   try { st = a.workoutSteps(dd); } catch (e) { return false; }
-  return !!(st && st.length === 1 && a.prescriptionOf(dd));
+  return !!(st && st.length >= 1 && a.prescriptionOf(dd));
 }
 const ADJUSTED_PANEL = /class="evo-panel adjusted-detail"/;
 

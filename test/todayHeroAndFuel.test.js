@@ -102,10 +102,28 @@ test('fuel renders as a rail of one module per fact', () => {
      cannot land on both or on neither. */
   assert.match(SRC, /body = renderStructuredWorkoutSteps\(steps, fuel, dd\);/,
     'the blueprint rail no longer takes the fuel facts, so a long run draws two rails');
-  const card = a.renderDayCard(dd);
+  /* ---------- A LONG RUN DRAWS NO RAIL TO MERGE ONTO ----------
+     Founder: "Long run should follow the same rules as easy run", with a
+     mock-up of a long run as a hero and a cherry note and nothing else. So
+     the day this test was written around no longer has a rail at all, and
+     the merge law moves to a session that still does. The fuel figures
+     leaving the screen with it is asserted, with its cost named, in
+     structuredWorkout's "a long run draws no rail, and its fuel figures
+     leave the screen with it". */
+  const longCard = a.renderDayCard(dd);
+  assert.equal((longCard.match(/class="fuel-body ws-rail/g) || []).length, 0,
+    'a long run still draws a card rail');
+  assert.ok(longCard.indexOf('data-solo') > -1,
+    'a long run has lost the cherry note that replaced its rail');
+
+  /* THE MERGE ITSELF, ON GOAL DAY -- five execution phases and the fuel
+     facts, one track, one set of dots. */
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(race, 'the fixture no longer builds a goal day, so the merge is untested');
+  const card = a.renderDayCard(race);
   const tracks = (card.match(/class="fuel-body ws-rail/g) || []).length;
   assert.equal(tracks, 1,
-    'a long run shows ' + tracks + ' card rails — SETTLE and CARB INTAKE are one rail');
+    'goal day shows ' + tracks + ' card rails — the phases and the fuel are one rail');
   const dots = card.match(/<div class="how-dots" aria-hidden="true">((<span class="how-dot"><\/span>)+)<\/div>/);
   assert.ok(dots, 'the merged rail has no dots');
   /* ---------- COUNTED FROM THE CARDS, NOT FROM A FORMULA ----------
@@ -322,7 +340,12 @@ test('the fuel section has no title of its own', () => {
   const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
   assert.ok(CODE.indexOf('how-fuel') === -1,
     'the fuel wrapper is back, which is a second rail under a second heading');
-  const i2 = SRC.indexOf('var panels = stratPanels.concat');
+  /* THE ANCHOR MOVED, THE MERGE DID NOT. A solo-note day short-circuits to
+     an empty panel list in front of this ("Long run should follow the same
+     rules as easy run"), so the concat is now the else of that ternary.
+     What this line is checking is that the two sets are still merged into
+     ONE rail wherever a rail is drawn, and they are. */
+  const i2 = SRC.indexOf('stratPanels.concat');
   assert.ok(i2 > -1, 'the merged rail is gone');
   assert.ok(SRC.slice(i2, i2 + 700).indexOf('how-row-heading') === -1,
     'the merged rail has grown a heading above it');

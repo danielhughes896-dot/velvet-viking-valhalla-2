@@ -111,8 +111,15 @@ test('the guidance is a closed disclosure, so it costs no vertical space unopene
        has always been about. */
     a.state.view = 'week';
     const html = a.renderCoachingDepth(dayWith(a, 'easy_run'));
-    assert.match(html, /<details class="fuel-card how-card">/);
+    /* .is-static NOW RIDES IT ON EVERY SURFACE. Founder: "How to run this
+       on the left should not be a thing." That class is what hides the
+       summary, and it stopped being conditional so the summary cannot
+       reappear on a surface nobody tested. What stayed conditional is
+       OPEN, which is the half this law is about. */
+    assert.match(html, /<details class="fuel-card how-card is-static">/);
     assert.ok(!/<details[^>]*\bopen\b/.test(html), 'never open by default at ' + level);
+    assert.ok(!/How to run this<span class="fuel-chevron"/.test(html),
+      'the pressable "How to run this" summary is back at ' + level);
   });
 });
 
