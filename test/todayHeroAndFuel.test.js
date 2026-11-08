@@ -269,8 +269,18 @@ test("the Coach's Note is centred, heading and sentence together", () => {
      screens that show it is the per-screen drift this sheet spends its
      length undoing. */
   const esc = s2 => s2.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const note = new RegExp(esc(F) + ' \\.how-note\\{([^}]*)\\}').exec(CSS);
+  /* :not([data-solo]) -- the solo box opted out of this rule by name. It is
+     left-aligned by instruction ("Move the keep it easy up"), it is the
+     session rather than a note under one, and it shows on surfaces this
+     selector does not cover. Everything below is still the law for the
+     Coach's Note that appears beneath a session with a rail. */
+  const note = new RegExp(esc(F) + ' \\.how-note:not\\(\\[data-solo\\]\\)\\{([^}]*)\\}').exec(CSS);
   assert.ok(note, "the focused Coach's Note rule is gone");
+  /* AND THE BOX IS NOT CENTRED, which is the other half of the same choice. */
+  const solo = /\.how-note\[data-solo\]\{([^}]*)\}/.exec(CSS);
+  assert.ok(solo, 'the solo box rule is gone');
+  assert.match(solo[1], /text-align:left/,
+    'the solo box is centred again — the founder moved its lead to the top left');
   assert.match(note[1], /align-items:center/,
     "the Coach's Note heading and sentence are no longer centred as boxes");
   assert.match(note[1], /text-align:center/,

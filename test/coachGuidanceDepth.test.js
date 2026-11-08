@@ -109,8 +109,15 @@ test('the guidance is a closed disclosure, so it costs no vertical space unopene
        a week LISTING, where the card is one of several, it is still a
        closed disclosure and costs no vertical space, which is what this
        has always been about. */
+    /* ---- ASKED OF A SESSION THAT STILL COLLAPSES ----
+       An easy run is a solo-note day now: no rail, no modules, two lines in
+       a box, and the founder asked for it on every screen -- "that needs to
+       follow the every place a day card is" -- so it is deliberately open
+       in a listing too. It is no longer an example of this law.
+       A track session still has the rail and the modules this law is about:
+       in a week LISTING that card must cost no vertical space unopened. */
     a.state.view = 'week';
-    const html = a.renderCoachingDepth(dayWith(a, 'easy_run'));
+    const html = a.renderCoachingDepth(dayWith(a, 'track_reps'));
     /* .is-static NOW RIDES IT ON EVERY SURFACE. Founder: "How to run this
        on the left should not be a thing." That class is what hides the
        summary, and it stopped being conditional so the summary cannot

@@ -2775,7 +2775,12 @@
      on a near-black screen is nothing. The ending shape stops inside the
      ::before (96% x 82%) so the light reaches zero before the box does and
      there is no edge anywhere to find. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note{
+  /* :not([data-solo]) -- this rule outranks .how-note[data-solo] (its
+     :is() carries three classes), so without the exclusion the solo box
+     lost its border, padding and alignment on every surface where both
+     applied. Named rather than answered with more specificity: one
+     element, one rule, which is the discipline this sheet is built on. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note:not([data-solo]){
     position:relative; display:flex; flex-direction:column; gap:3px;
     /* CENTRED, HEADING AND SENTENCE TOGETHER, by instruction. align-items
        centres the two boxes and text-align centres the words inside them --
@@ -2813,12 +2818,36 @@
      sheet put a more specific-looking rule ABOVE its sibling and lost on
      source order with no warning; same specificity means the later one
      wins, so it goes later. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo]{
+  /* ---------- EVERY PLACE A DAY CARD IS ----------
+     Founder: "So that needs to follow the every place a day card is.
+     Today, this week, full plan... The easy run simpleness follows the
+     today this week and full plan. As simple as this."
+     So this rule is NOT scoped to the focused session. .how-note is
+     display:none at large and lit only inside a focused card; a solo note
+     is not a disclosure inside a session, it IS the session, so it shows
+     wherever its day shows and says so here.
+     NO GLOW. Founder: "Remove the glow from behind as well." Three things
+     were making it: the outer cherry bloom, the inset one, and the
+     full-bleed radial behind every Coach's Note (.how-note::before), which
+     is suppressed for this box further down. What is left is a flat tile
+     and a cherry line -- which also means this box no longer copies the
+     race-day rule wholesale, only its border; the law that held the two
+     together is rewritten to say exactly that.
+     display:flex RESTATED because the base .how-note{display:none} would
+     otherwise win on source order for every surface outside the focused
+     one -- which is all of the surfaces this change is for. */
+  .how-note[data-solo]{
+    display:flex; flex-direction:column;
     align-items:stretch; text-align:left;
     gap:2px; padding:20px 22px 24px;
+    width:100%; box-sizing:border-box; margin:24px 0 2px;
     border:1.5px solid var(--cherry); border-radius:var(--tile-radius);
-    background:var(--cherry-tint), var(--t-tile);
-    box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);}
+    background:var(--t-tile);
+    box-shadow:none;}
+  /* The note's full-bleed light is for a Coach's Note sitting under a
+     session. This box is the session, and the founder asked for it flat. */
+  .how-note[data-solo]::before, .how-note[data-solo]::after{
+    content:none; display:none;}
   /* .hn-head is gone from the markup -- the founder took the mark, the rule
      and the words COACH'S NOTE off the box. Its rules go with it rather
      than being left to style an element nothing emits. */
@@ -2827,13 +2856,13 @@
      out of line with the text beside it. */
   /* THE INSTRUCTION, AT THE SIZE THE FOUNDER DREW IT -- bigger than any
      other sentence in the note, because on this day it is the session. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-lead{
+  .how-note[data-solo] .hn-lead{
     font-family:var(--text-face); font-size:31px; font-weight:700; line-height:1.15;
     color:#fff; letter-spacing:-0.01em; margin-top:2px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note[data-solo] .hn-sub{
+  .how-note[data-solo] .hn-sub{
     font-family:var(--text-face); font-size:25px; font-weight:400; line-height:1.2;
     color:var(--ink-dim);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note::before{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note:not([data-solo])::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
     /* FULL-BLEED LIGHT, COLUMN-ALIGNED WORDS. The note sits inside the page
        gutter and the day card's padding, so a glow confined to its own box
@@ -3067,13 +3096,18 @@
      character-for-character identical -- so a view-conditional branch in
      the builder would break that silently. */
   .view-today .day .week-today-flag{display:none;}
-  /* ---------- AND NO TYPE CHIP ON A SOLO-NOTE DAY ----------
-     Founder: "Do not need the green easy top right." The hero under it
-     already reads EASY AEROBIC, so the chip is the word said twice. Hidden
-     only on the Today tab, and only on a day whose whole card is a hero and
-     a note -- a session with a rail still has several things on it and the
-     chip is how the row is read at a glance. */
-  .view-today .day.is-solo-note .day-badge{display:none;}
+  /* ---------- NO SYMBOLS ON A SOLO-NOTE DAY, ANYWHERE ----------
+     Founder: "Do not need the green easy top right", then "No symbols what
+     so ever like the mock up" with the rule extended to Today, This Week
+     and Full Plan. The hero immediately under them reads EASY AEROBIC or
+     LONG RUN, so each of these is the day said a second time in a smaller
+     voice: the type chip, the TODAY flag and the status pill.
+     NOT SCOPED TO A VIEW, unlike the first version of this rule. The chips
+     were still on This Week's day and on an opened Full Plan week, which
+     is the gap the founder was pointing at. A day with a rail keeps all
+     three -- it has several things on it and the chips are how it is read
+     at a glance. */
+  .day.is-solo-note :is(.day-badge, .week-today-flag, .day-status-label){display:none;}
   .how-note{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .coach-cue-inline{display:none;}
   /* The bordered, tinted rectangle that stood here is gone, not overridden:
@@ -29332,7 +29366,7 @@ function renderCoachingDepth(dd, pre){
        Analysis beneath it is. */
     out += '<details class="fuel-card how-card'+
         (asTab ? ' is-tab' : ' is-static')+'"'+
-        ((!asTab && focusedCard) ? ' open' : '')+'>'+
+        ((!asTab && (focusedCard || soloNoteSession(dd))) ? ' open' : '')+'>'+
       /* ---------- THERE IS NO "HOW TO RUN THIS" ----------
          Founder: "How to run this on the left should not be a thing. The
          coaches note should be open by default. So remove the how to run
@@ -29345,13 +29379,16 @@ function renderCoachingDepth(dd, pre){
          reproduced here, so the HIDING no longer asks the question at all:
          a non-tab card is .is-static on every surface and .is-static's
          summary is hidden globally.
-         OPENING STILL ASKS IT, deliberately. In a week LISTING the card is
-         one of several and must cost no vertical space unopened -- see
-         coachGuidanceDepth, "the guidance is a closed disclosure". Always
-         opening it would have dumped every day's coaching into the list.
-         So in a listing it is closed with no visible summary, which is
-         nothing on screen; the athlete opens the day to read it, which is
-         how they reach it anyway.
+         OPENING STILL ASKS IT, with one exception. In a week LISTING a card
+         with a rail and six coaching modules must cost no vertical space
+         unopened -- see coachGuidanceDepth, "the guidance is a closed
+         disclosure" -- so that one stays closed and the athlete opens the
+         day to read it.
+         A SOLO-NOTE DAY IS THE EXCEPTION, because there is nothing to
+         collapse: no rail, no modules, two lines in a box. Founder: "that
+         needs to follow the every place a day card is. Today, this week,
+         full plan." Closed, it was simply absent from both listings --
+         which is what they were looking at when they asked.
          THE SUMMARY STAYS IN THE DOM, hidden, because <details> without one
          gets a browser-drawn default marker and the element still needs its
          accessible name. Session Details -- the tab a logged session gets --
@@ -29612,8 +29649,9 @@ function renderCoachingDepth(dd, pre){
              lines of the mock-up. It appears only on the long runs, which
              are the sessions whose fuelling figures this same pass took
              off the screen. */
-          var parts = singleCardNoteParts(dd);
-          if (!parts && !hints.length) return '';
+          return renderSoloNote(dd);
+        }
+        if (false){
           /* ---------- THE CLEANEST IT CAN EVER BE ----------
              Founder: "Do not need the top row in the box. Remove the symbol
              | coaches note. Move the keep it easy up drop the . From both
@@ -29627,13 +29665,6 @@ function renderCoachingDepth(dd, pre){
              generated sentences (a long run's structure, a shakeout's
              description) and they arrive punctuated. One rule, one place,
              every line in this box. */
-          return '<div class="how-note" data-solo="1">'+
-            (parts ? '<span class="v hn-lead">'+escapeHtml(unpunct(parts.lead))+'</span>' : '')+
-            ((parts && parts.subs) || []).map(function(t){
-              return '<span class="v hn-sub">'+escapeHtml(unpunct(t))+'</span>';
-            }).join('')+
-            hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
-          '</div>';
         }
         if (!cueText && !hints.length && !caps && !soloHow && !cols.length && !shape) return '';
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
@@ -30107,6 +30138,42 @@ function soloNoteSession(dd){
    stop inside "4.4km". */
 function unpunct(s){
   return String(s == null ? '' : s).replace(/\.$/, '');
+}
+/* ---------- THE BOX, AS A FUNCTION, BECAUSE TWO SCREENS DRAW IT ----------
+   Founder: "So that needs to follow the every place a day card is. Today,
+   this week, full plan... The easy run simpleness follows the today this
+   week and full plan."
+   Today draws the day through renderDayCard(); This Week and Full Plan's
+   week screen draw it through weekSlideHtml(), which is a DIFFERENT
+   renderer -- .wk-overview has no .day element in it at all, which is why
+   every CSS rule aimed at the day card missed those two screens entirely
+   and the box was simply absent there. So the markup is built once here
+   and both callers ask for it.
+   RETURNS '' FOR ANY DAY THAT IS NOT A SOLO-NOTE DAY, so a caller can call
+   it unconditionally. */
+function renderSoloNote(dd){
+  if (!soloNoteSession(dd)) return '';
+  var hints = [];
+  try { if (needsFueling(dd)) hints = fuelFacts(dd).railHints || []; } catch(e) { hints = []; }
+  var parts = singleCardNoteParts(dd);
+  if (!parts && !hints.length) return '';
+  /* ---------- THE CLEANEST IT CAN EVER BE ----------
+     Founder: "Do not need the top row in the box. Remove the symbol |
+     coaches note. Move the keep it easy up drop the . From both lines.
+     That is the cleanest it can ever be."
+     So no heading row -- no mark, no rule, no words COACH'S NOTE -- and the
+     lead is the first thing in the box. The full stop is stripped here
+     rather than by rewriting the copy, because the lines that are not
+     written copy are generated sentences (a long run's structure, a
+     shakeout's description) and they arrive punctuated. One rule, one
+     place, every line in this box. */
+  return '<div class="how-note" data-solo="1">'+
+    (parts ? '<span class="v hn-lead">'+escapeHtml(unpunct(parts.lead))+'</span>' : '')+
+    ((parts && parts.subs) || []).map(function(t){
+      return '<span class="v hn-sub">'+escapeHtml(unpunct(t))+'</span>';
+    }).join('')+
+    hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
+  '</div>';
 }
 function singleCardNoteParts(dd){
   var p = prescriptionOf(dd) || {};
@@ -59120,9 +59187,20 @@ function renderWeekDaySelector(weekNum){
 function weekSlideHtml(dd, i){
   var tm = TYPE_META[dd.type];
   var isToday = dd.date === todayStr();
-  var badges = (isToday ? '<span class="wk-badge is-today font-head">Today</span>' : '')+
-    (tm ? '<span class="wk-badge type-'+dd.type+' font-head">'+escapeHtml(tm.label)+'</span>' : '')+
-    (dd.completed ? '<span class="wk-badge is-done font-head">Done</span>' : '');
+  /* ---------- NO SYMBOLS ON A SOLO-NOTE DAY ----------
+     Founder: "No symbols what so ever like the mock up", with the rule
+     extended to This Week and Full Plan. These are this screen's own chips
+     -- .wk-badge, not the day card's .day-badge -- which is why hiding the
+     day card's chips did not touch them. The hero directly beneath reads
+     EASY AEROBIC or LONG RUN, so each of these says the day a second time.
+     DONE IN THE BUILDER, not in CSS, because this renderer is not shared
+     with renderDayCard(): there is no one-string-for-three-views law to
+     keep here, and the chips are built right at this line. A day with a
+     rail keeps all three. */
+  var badges = soloNoteSession(dd) ? ''
+    : (isToday ? '<span class="wk-badge is-today font-head">Today</span>' : '')+
+      (tm ? '<span class="wk-badge type-'+dd.type+' font-head">'+escapeHtml(tm.label)+'</span>' : '')+
+      (dd.completed ? '<span class="wk-badge is-done font-head">Done</span>' : '');
   /* ---------- ONE REST DAY, NOT TWO ----------
      This branched away from the hero because a rest day had no hero to
      show -- renderDayHeroBlock() returned '' for any day with no ring and
@@ -59136,10 +59214,14 @@ function weekSlideHtml(dd, i){
   var uid = 'th-grad-w' + i;
   body = body.split('url(#th-grad)').join('url(#'+uid+')')
              .split('id="th-grad"').join('id="'+uid+'"');
+  /* THE BOX FOLLOWS THE DAY. On a solo-note day the hero and this note are
+     the whole session, so This Week and Full Plan show exactly what Today
+     shows rather than a hero with nothing under it. */
   return '<div class="wk-slide" data-date="'+escapeHtml(dd.date)+'">'+
     '<div class="wk-overview">'+
-      '<div class="wk-session-badges">'+badges+'</div>'+
+      (badges ? '<div class="wk-session-badges">'+badges+'</div>' : '')+
       body+
+      renderSoloNote(dd)+
     '</div></div>';
 }
 function weekDayIndex(weekNum){

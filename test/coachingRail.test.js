@@ -216,7 +216,13 @@ test('the active module is lit, and nothing in the rail is boxed', () => {
 });
 
 test("the Coach's Note is cherry, borderless, and dissolves inside its own box", () => {
-  const before = focusRule('.how-note::before');
+  /* ---- THE MULTI-ROW NOTE, WHICH IS THE ONE THIS LAW IS ABOUT ----
+     The solo box excluded itself from these rules by name:
+     .how-note:not([data-solo]). Founder: "Remove the glow from behind as
+     well" -- that box is flat, has a cherry border, and is the session
+     rather than a note under it. Everything below still governs the Coach's
+     Note that appears beneath a session with a rail. */
+  const before = focusRule('.how-note:not([data-solo])::before');
   /* On the cherry ramp BY NAME. Asserting a particular rgb triple is how a
      test ends up blessing an invented in-between colour -- this one did,
      for one revision -- so it asks for the token instead. */
@@ -259,7 +265,7 @@ test("the Coach's Note is cherry, borderless, and dissolves inside its own box",
      collapses, so .day-detail's animation clip only cuts the light off. */
   assert.match(focusRule('.day-detail'), /overflow:visible/,
     "the focused card clips again -- the note's light will stop at the card edge");
-  const note = focusRule('.how-note');
+  const note = focusRule('.how-note:not([data-solo])');
   assert.match(note, /border:0/, "the Coach's Note has a border again");
   assert.match(note, /background:none/, 'the tinted rectangle came back');
 });

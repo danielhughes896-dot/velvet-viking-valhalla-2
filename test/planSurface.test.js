@@ -1063,7 +1063,10 @@ test('the taper line is coaching, lit like coaching', () => {
   assert.match(next[1], /text-align:center/, "What's Next is no longer centred like the coaching it is");
   assert.match(next[1], /position:relative/,
     'without a positioning context its glow escapes to the nearest ancestor');
-  const note = /\.how-note::before\{([^}]*)\}/.exec(CSS);
+  /* :not([data-solo]) -- the solo box excluded itself from the note's glow
+     by name ("Remove the glow from behind as well"), which changed this
+     selector's spelling and not the declaration What's Next copies. */
+  const note = /\.how-note:not\(\[data-solo\]\)::before\{([^}]*)\}/.exec(CSS);
   assert.ok(note, "the Coach's Note glow this was copied from is gone");
 
   const radial = body => {

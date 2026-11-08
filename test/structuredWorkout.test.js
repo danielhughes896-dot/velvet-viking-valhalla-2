@@ -728,6 +728,63 @@ test('every other archetype keeps its description — on the face or in the note
   });
 });
 
+/* ---------- THE BOX FOLLOWS THE DAY TO EVERY SCREEN ----------
+   Founder: "So that needs to follow the every place a day card is. Today,
+   this week, full plan... No symbols what so ever like the mock up. The
+   easy run simpleness follows the today this week and full plan."
+   THIS WAS COMPLETELY UNGUARDED until it was mutation-tested. Deleting the
+   box from the week slide, leaving the chips on it, and hiding the box
+   outside the focused card all passed the whole suite -- because every
+   existing law reads renderDayCard(), and This Week and Full Plan's week
+   screen do not use it: they build their own slide through weekSlideHtml(),
+   whose .wk-overview contains no .day element at all. That is exactly why
+   the box was missing from those two screens in the first place. */
+test('a solo-note day looks the same on Today, This Week and Full Plan', () => {
+  const a = railApp();
+  let solo = 0, railed = 0;
+  a.state.days.forEach((d, i) => {
+    const slide = a.weekSlideHtml(d, i);
+    if (a.soloNoteSession(d)){
+      solo++;
+      /* THE BOX IS ON THE SLIDE, and it is the same one Today draws -- the
+         markup comes from renderSoloNote(), which both callers ask. */
+      assert.ok(slide.indexOf('data-solo') > -1,
+        d.date + ': This Week and Full Plan show the hero with nothing under it');
+      assert.equal(slide, slide.replace(/<div class="wk-session-badges">/, '___'),
+        d.date + ': the slide still draws a chip row on a solo-note day');
+      assert.equal(slide.indexOf('wk-badge'), -1,
+        d.date + ': "No symbols what so ever" — the slide still carries a chip');
+      /* AND IT IS THE SAME WORDS AS THE DAY CARD. */
+      const card = a.renderDayCard(d);
+      const parts = a.singleCardNoteParts(d);
+      if (parts) assert.ok(
+        slide.indexOf(parts.lead.replace(/\.$/, '')) > -1 &&
+        card.indexOf(parts.lead.replace(/\.$/, '')) > -1,
+        d.date + ': the two screens are saying different things');
+    } else if (a.hasWorkoutBlueprint(d)){
+      railed++;
+      /* A DAY WITH A RAIL IS UNTOUCHED: it keeps its chips, and it does not
+         grow a box it has no business having. */
+      assert.ok(slide.indexOf('wk-badge') > -1,
+        d.date + ': a session with a rail lost the chips that identify it');
+      assert.equal(slide.indexOf('data-solo'), -1,
+        d.date + ': a session with a rail grew a solo box');
+    }
+  });
+  assert.ok(solo >= 20 && railed >= 5,
+    'the block built ' + solo + ' solo-note days and ' + railed + ' railed ones — this proves little');
+
+  /* ---- AND THE SHEET LETS IT SHOW THERE ----
+     .how-note is display:none at large and lit only inside a focused card.
+     The box restates display:flex for itself; without that it is built,
+     present in the DOM, and invisible on exactly the two screens this law
+     is about -- which no rendered-markup assertion above would catch. */
+  const solonote = /\.how-note\[data-solo\]\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(solonote, 'the solo box rule is gone');
+  assert.match(solonote[1], /display:flex/,
+    'the box no longer shows itself outside a focused card, so This Week and Full Plan hide it');
+});
+
 /* ---------- THE SENTENCE ITSELF, AGAINST A REAL BLOCK ----------
    The test above can only check structure: its fixture gives every day the
    placeholder description "prose". This one reads the 11-week block, where
@@ -1230,13 +1287,28 @@ test('why, feel and watch for left the screen for the Coach’s Note', () => {
   const work = decls('.ws-h-step.ws-work{');
   const solo = decls('.how-note[data-solo]{');
   assert.ok(work && solo, 'the work stage or the solo note has lost its rule');
-  ['border:1.5px solid var(--cherry)',
-   'background:var(--cherry-tint), var(--t-tile)',
-   'box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint)'
-  ].forEach(d => {
-    assert.ok(work.indexOf(d) > -1, 'the race-day rule no longer says "' + d + '"');
-    assert.ok(solo.indexOf(d) > -1, 'the one-card note no longer follows it: "' + d + '"');
-  });
+  /* ---- THE BORDER IS THE RACE-DAY RULE; THE GLOW IS NOT, ANY MORE ----
+     The box copied all three of the work stage's declarations -- the cherry
+     line, the tint wash and the two shadows. Founder, after seeing it:
+     "Remove the glow from behind as well." So the line still comes from the
+     same place, and the light deliberately does not.
+     BOTH HALVES ARE HELD. The border is still asserted against the work
+     stage's own rule, so the two cannot drift to different cherries; and
+     the box is asserted FLAT, so a glow cannot creep back by being copied
+     from the stage a second time. */
+  assert.ok(work.indexOf('border:1.5px solid var(--cherry)') > -1,
+    'the race-day rule no longer draws a 1.5px cherry border');
+  assert.ok(solo.indexOf('border:1.5px solid var(--cherry)') > -1,
+    'the box no longer takes its border from the race-day rule');
+  assert.ok(solo.indexOf('box-shadow:none') > -1,
+    'the box has a shadow again — the founder asked for the glow removed');
+  assert.ok(solo.indexOf('cherry-tint') === -1,
+    'the tint wash is back behind the box');
+  /* AND THE FULL-BLEED LIGHT EVERY OTHER NOTE HAS IS NOT BEHIND THIS ONE. */
+  assert.match(RAILCSS, /\.how-note\[data-solo\]::before, \.how-note\[data-solo\]::after\{[^}]*content:none/,
+    'the note glow is no longer suppressed behind the box');
+  assert.match(RAILCSS, /\.how-note:not\(\[data-solo\]\)::before\{/,
+    'the note glow rule no longer excludes the box, so it will light it again');
   /* AS WIDE AS POSSIBLE: the full content column, not an inset box. */
   assert.ok(solo.indexOf('align-items:stretch') > -1,
     'the one-card note is centring its box again instead of filling the column');
@@ -1254,12 +1326,28 @@ test('why, feel and watch for left the screen for the Coach’s Note', () => {
           that hid it everywhere would be a different and worse change. */
   assert.match(RAILCSS, /\.view-today \.day \.week-today-flag\{display:none;\}/,
     'the Today card is labelling itself Today again');
+  /* ---- TWO RULES NOW, AND BOTH ARE MEANT ----
+     This counted rules because a second one would have overridden the first
+     silently. There are two by design: the Today tab hides it on every day
+     ("We're on the today card. We know"), and a solo-note day hides it
+     everywhere along with its other chips ("No symbols what so ever").
+     WHAT STILL HAS TO HOLD is that neither of them is unscoped -- in This
+     Week and an opened Full Plan week, a day WITH a rail is still marked
+     as today, and a rule with no qualifier at all would take that away
+     from every screen at once. So each rule is required to name either the
+     Today view or a solo-note day. */
   const flagRules = RAILCSS.split('}')
     .filter(r => r.indexOf('week-today-flag') > -1 && /display\s*:\s*none/.test(r));
-  assert.equal(flagRules.length, 1,
-    flagRules.length + ' rules hide the today flag — it is meant to go on the Today tab only');
-  assert.ok(flagRules[0].indexOf('.view-today') > -1,
-    'the today flag is hidden outside the Today view, where it is the thing that marks today');
+  assert.equal(flagRules.length, 2,
+    flagRules.length + ' rules hide the today flag — expected the Today tab and the solo-note day');
+  flagRules.forEach(r => assert.ok(
+    r.indexOf('.view-today') > -1 || r.indexOf('.is-solo-note') > -1,
+    'a rule hides the today flag with no qualifier, so no screen marks today any more: ' +
+    r.trim().slice(0, 80)));
+  /* AND A DAY WITH A RAIL KEEPS ITS CHIPS. */
+  const chipRule = flagRules.filter(r => r.indexOf('.is-solo-note') > -1)[0];
+  assert.ok(chipRule && chipRule.indexOf('.day.is-solo-note') > -1,
+    'the chip rule no longer asks whether the day is a solo-note day');
   (() => {
     const a2 = railApp();
     const today = a2.state.days.filter(d => d.date === a2.todayStr())[0];
