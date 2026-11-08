@@ -549,3 +549,79 @@ test('suppressing the purpose line is scoped to races and nothing else', () => {
   assert.ok(s.phases.some(ph => ph.purpose),
     'a long run keeps the standing purpose wording it always had');
 });
+
+/* =====================================================================
+ * GOAL DAY SAYS EACH THING ONCE
+ * ---------------------------------------------------------------------
+ * Three separate duplications on the one screen the whole block is built
+ * for, each removed on the founder's call, each with the fact it duplicated
+ * still present somewhere better.
+ * ===================================================================== */
+
+test('the ceiling keeps the fast edge and loses the words', () => {
+  const { a, race } = athlete();
+  const s = a.executionStrategyForDisplay(race);
+  const settle = s.phases.filter(p => p.paceRole === 'ceiling')[0];
+  assert.ok(settle, 'sanity: an even-pace race opens with a ceiling phase');
+
+  const shown = a.fmtStrategyPace(settle.pace, settle.paceRole);
+  assert.doesNotMatch(shown, /no faster than/,
+    'the rail panel is prefixing the figure again — the caption under it already says it');
+
+  /* THE BEHAVIOUR IS UNCHANGED, which is the half that matters: a ceiling
+     is the FAST EDGE ONLY and never a band, because a ceiling caps how
+     fast and not how slow. Dropping the words must not have dropped that. */
+  const band = a.fmtStrategyPace(settle.pace, 'target');
+  if (settle.pace.slow != null && settle.pace.slow !== settle.pace.fast)
+    assert.notEqual(shown, band, 'the ceiling is printing a BAND now — it has stopped being a ceiling');
+  assert.equal(shown.indexOf('–'), -1, 'the ceiling printed a range');
+
+  /* AND THE CEILING IS STILL SAID, in the Coach's Note, which is where the
+     founder asked for it. This is the fact the rail stopped repeating. */
+  const cap = a.renderStrategyPhaseCaption(settle, 0);
+  assert.match(cap, /No faster than goal pace/,
+    'the ceiling is now said NOWHERE — it came off the rail on the grounds the note carries it');
+
+  /* The split that rendered the qualifier above the figure goes with it. */
+  const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  assert.ok(CODE.indexOf('sp-q') === -1,
+    'the qualifier line is still in the markup or the sheet with nothing left to put in it');
+});
+
+test('goal day drops time-on-feet; every long run keeps it', () => {
+  /* On goal day the hero ring above this rail carries the goal time, so the
+     panel was that number rounded worse, one swipe away. Every other
+     session is the only place a duration can be read at all. */
+  const { a, race, days } = athlete();
+  const key = r => r.short || r.k;
+  const raceRows = a.fuelFacts(race).rows.map(key);
+  assert.ok(raceRows.indexOf('Time on feet') === -1,
+    'time-on-feet is back on goal day, under a ring that already states the goal time');
+  assert.ok(raceRows.length >= 3, 'the race lost more than the one row it was meant to');
+
+  const long = days.filter(d => d.type === 'long' && d.km > 0).slice(-1)[0];
+  assert.ok(long, 'sanity: the fixture has a long run');
+  assert.ok(a.fuelFacts(long).rows.map(key).indexOf('Time on feet') > -1,
+    'a long run lost time-on-feet — it was only ever meant to come off the race');
+
+  /* TAKEN OUT BY THE DAY, NEVER BY THE SURFACE. renderDayCard() must emit
+     one identical string for Today, This Week and Full Plan, so the stacked
+     Fueling card and the rail have to agree about whether this fact exists. */
+  assert.equal(a.fuelSectionBody(race).indexOf('time-on-feet'), -1,
+    'the stacked card still shows time-on-feet while the rail does not — two surfaces, two answers');
+});
+
+test('the race lede is centred, and only the race lede', () => {
+  const { a, race, days } = athlete();
+  const card = a.renderDayCard(race);
+  assert.match(card, /class="day-desc day-desc-race"/,
+    'the race lede has lost the class that centres it');
+  const CSS = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8')
+    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(CSS, /\.day-desc-race\{text-align:center;\}/, 'the race lede is no longer centred');
+
+  /* NO OTHER DAY MOVED. The modifier is on the race line alone. */
+  const other = days.filter(d => d.type !== 'race' && d.type !== 'rest' && d.desc)[0];
+  if (other) assert.ok(a.renderDayCard(other).indexOf('day-desc-race') === -1,
+    'an ordinary session is being centred too — the modifier has widened past the race');
+});

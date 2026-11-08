@@ -1000,3 +1000,41 @@ test('the list calls the checkpoint week by its number', () => {
   taperWeek.forEach(w => assert.equal(a.weekRowLabel(w), a.weekPhaseLabel(w),
     'week ' + w + ' has been numbered, losing the phase name the list row carries'));
 });
+
+test('a phase says its state in colour, and still says it in words', () => {
+  /* "Weeks 3 - 7 . Completed" was a 12px line under every phase name saying
+     two things the screen already says. The RANGE is on the stepper at the
+     top of this view -- W1-2, W3-7, W8-9, W10-11, under the phase it
+     belongs to -- and the week rows inside are numbered. The STATE becomes
+     the colour of the name, the way This Week already says it.
+     Measured at 412px with every phase open: done names rgb(155,192,140)
+     (--ok-text), the current one rgb(245,208,97) (--gold-bright), head
+     height 49px against the 44px floor, and the chevron's centre 0.0px from
+     the name's on all four. */
+  const a = app();
+  const html = a.renderWeeksList(true);
+  assert.ok(html.indexOf('class="pp-meta"') === -1,
+    'the phase subtitle is back under the name');
+  assert.ok(!/Weeks \d+ – \d+ · (Completed|Now|Ahead)</.test(html.replace(/<span class="sr-only">[^<]*<\/span>/g, '')),
+    'the phase range and state are being printed visibly again');
+
+  /* COLOUR ALONE IS NOT A SIGNAL. The words it replaced stay in the button
+     for a screen reader, which is also why phaseGroupMeta() is still the
+     one place they are written. */
+  assert.match(html, /<span class="sr-only">Weeks [^<]*(Completed|Now|Ahead)<\/span>/,
+    'the state is now carried by colour alone — nothing announces it');
+
+  /* DONE IS THE DAY CIRCLE'S GREEN. --ok is the ring and field on
+     .wk-day.is-done; --ok-text is that same colour at text contrast. */
+  assert.match(rule('.pp-phase.is-done .pp-name'), /color:var\(--ok-text\)/,
+    'a completed phase is no longer green, so nothing says it is complete');
+  assert.match(rule('.pp-phase.is-now .pp-name'), /color:var\(--gold-bright\)/,
+    'the current phase has lost its gold, so done and now read the same');
+  assert.match(rule('.wk-day.is-done'), /var\(--ok\)/,
+    'the day circle has moved off --ok, so the phase name no longer matches it');
+
+  /* THE CHEVRON IS IN LINE WITH THE TITLE because the head centres a
+     single-line text block; a second line returning would move it off. */
+  assert.match(rule('.pp-head'), /align-items:center/,
+    'the phase head no longer centres its row, so the chevron drifts off the title');
+});

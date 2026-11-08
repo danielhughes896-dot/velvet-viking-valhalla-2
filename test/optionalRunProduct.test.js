@@ -178,7 +178,13 @@ test('3. a protected rest day still renders Rest, and offers nothing', () => {
     const html = a.renderDayCard(d);
     assert.match(html, /day-badge type-rest font-head">Rest</, d.date + ' keeps the rest badge');
     assert.match(html, /Rest Day/, d.date + ' keeps the rest title');
-    assert.match(html, /Full rest/, d.date + ' keeps the rest instruction');
+    /* WAS /Full rest/. That line -- "Full rest. Legs up, hydrate, stay
+       ahead of the block." -- was removed on the founder's call because the
+       Coach's Note under it says the same thing as coaching rather than as
+       stage directions. The day still says what it is for; this checks the
+       sentence that now says it. */
+    assert.match(html, /Rest is part of the plan/, d.date + ' keeps the rest instruction');
+    assert.doesNotMatch(html, /Full rest/, d.date + ' is printing the old stage directions again');
     assert.doesNotMatch(html, /optional-block/, d.date + ' must not be invited to run');
     assert.doesNotMatch(html, /Log a run/, d.date + ' must not offer logging');
     assert.equal(a.optionalRunDayState(d), null);

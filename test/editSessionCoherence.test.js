@@ -278,7 +278,23 @@ test('6. Reset restores a coherent (Rest) identity -- no leftover Easy guidance,
   const after = a.findDay(dd.id);
   assert.equal(after.type, 'rest');
   assert.equal(after.title, 'Rest Day');
-  assert.equal(a.renderCoachingDepth(after), '');
+  /* WAS assert.equal(renderCoachingDepth(after), ''). That expressed "no
+     leftover Easy guidance" as "nothing at all", which was only ever true
+     because a rest day rendered nothing at all -- the hole this file's own
+     comment, three lines below, says should not exist: a reset day "gets
+     the SAME ordinary Rest guidance any untouched generated Rest day
+     gets". Emptiness could never check that claim. This does, and it is
+     the stronger assertion: byte-identical to a rest day the athlete never
+     touched, which fails on leftover Easy guidance AND on rest guidance
+     that differs for having been edited. */
+  const virginRest = a.state.days.filter(d => d.type === 'rest' && d.id !== after.id && !d.manualEdit)[0];
+  assert.ok(virginRest, 'sanity: the fixture has an untouched rest day to compare against');
+  assert.equal(a.renderCoachingDepth(after), a.renderCoachingDepth(virginRest),
+    'a reset rest day no longer renders what an untouched rest day renders');
+  assert.match(a.renderCoachingDepth(after), /Rest is part of the plan/,
+    'the reset rest day carries no rest coaching at all');
+  assert.doesNotMatch(a.renderCoachingDepth(after), /aerobic|best effort|Lavidia|tempo|threshold/i,
+    'the edited Easy session\u2019s guidance survived the reset');
   assert.equal(a.coachIntentLine(after), '');
   assert.doesNotMatch(a.renderDayCard(after), /aerobic base|best effort|Lavidia/i);
   // Reset produces a genuinely clean Rest day, not one still quarantined by

@@ -53,8 +53,16 @@ test('the hero title carries the instructed 15%', () => {
 });
 
 test('the distance carries the instructed 20% at every clamp stop', () => {
-  const span = /\.th-dist span\{[^}]*font-size:clamp\(([\d.]+)px, ([\d.]+)vw, ([\d.]+)px\)/.exec(CSS);
+  /* THE CLAMP MOVED TO A TOKEN, and the values did not. --th-dist-size is
+     stated on .th-dist because the rest-day hero reserves exactly this
+     height to put its title on a run day's line -- read, never copied. So
+     this reads the token AND checks the figure still uses it: a token with
+     the right numbers that nothing consumes is the same defect as the wrong
+     numbers. */
+  const span = /\.th-dist\{--th-dist-size:clamp\(([\d.]+)px, ([\d.]+)vw, ([\d.]+)px\)/.exec(CSS);
   assert.ok(span, 'the distance figure no longer clamps');
+  assert.match(CSS, /\.th-dist span\{[^}]*font-size:var\(--th-dist-size\)/,
+    'the figure has stopped reading its own size token, so the rest hero reserves a height nothing uses');
   assert.deepEqual(span.slice(1, 4), ['45.6', '14.4', '57.6'],
     'the distance figure is no longer 38/12vw/48 scaled by 1.2. Scaling only the ceiling ' +
     'would leave every phone under ~400px at the old size and make the increase a step.');

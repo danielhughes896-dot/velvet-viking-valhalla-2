@@ -116,13 +116,30 @@ test('the guidance is a closed disclosure, so it costs no vertical space unopene
   });
 });
 
-test('a rest day stays silent for everyone but a novice, as before', () => {
+test('a rest day explains itself, and explains nothing it does not have', () => {
+  /* WAS "a rest day stays silent for everyone but a novice", asserting
+     renderCoachingDepth() === '' above novice. That silence was the defect,
+     not the rule: Today opened on a rest day with two chips and a line of
+     stage directions, and the cue written for rest days -- "Rest is part of
+     the plan, adaptation happens on the days you don't run" -- had been in
+     the product all along, computed below the early return that sends rest
+     days home so nothing could reach it. Changed on the founder's call.
+     WHAT SURVIVES UNCHANGED is the half this test was really protecting: a
+     rest day has no execution to explain, so it gets no disclosure, no
+     rail, no fuel -- it gets one sentence. */
   LEVELS.forEach(level => {
     const a = app(level);
     const dd = { id: 'r', date: a.todayStr(), type: 'rest', title: 'Rest', km: 0 };
     const html = a.renderCoachingDepth(dd);
-    assert.ok(!/How to run this|Session Details/.test(html), 'a rest day has no execution to explain');
-    if (level !== 'novice') assert.equal(html, '');
+    assert.ok(!/How to run this|Session Details/.test(html), 'a rest day has no execution to explain, at ' + level);
+    assert.ok(!/fuel-body|how-mod|exec-rail|how-table/.test(html),
+      'a rest day has grown a coaching rail at ' + level + ' — it has one sentence, not a session');
+    assert.match(html, /Rest is part of the plan/,
+      'the rest day is silent again at ' + level);
+    /* One sentence means one sentence: the note for a focused session and
+       the inline cue for a list, which are two POSITIONS of it, not two. */
+    assert.equal((html.match(/Rest is part of the plan/g) || []).length, 2,
+      'the rest cue is not in exactly its two positions (note + inline cue) at ' + level);
   });
 });
 

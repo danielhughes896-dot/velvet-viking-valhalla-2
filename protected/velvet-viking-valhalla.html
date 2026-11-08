@@ -1244,10 +1244,6 @@
   /* The numbers stack inside a panel: they are two different quantities and
      a middot between them is a full-width idea. */
   .exec-rail .sp-n{display:block;}
-  /* Out of the mono face and down a tier: it qualifies the figure below it,
-     it is not one. */
-  .exec-rail .sp-q{display:block; font-family:var(--text-face);
-    font-size:var(--fs-support); color:var(--ink-faint); letter-spacing:.01em;}
   /* IN THE RAIL THE HEAD STACKS. space-between is a full-width idea: label
      left, span right. In a 125px column it puts "0-10km" hard against the
      right edge with nowhere to go, so it wrapped mid-range -- "10-" above
@@ -1779,6 +1775,43 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-ring-wrap{
     flex:0 0 40%; display:flex; align-items:center; justify-content:center;
     padding:0; background:none; border:0; border-radius:0;}
+  /* ---------- A REST DAY'S TITLE LANDS ON THE RUN DAY'S LINE ----------
+     Measured on Today at 412px before this: the title was byte-identical in
+     every respect that is type -- Oswald, 21.85px, weight 600, 26.22px line
+     box, x=20 -- and sat 23px higher up the screen, because the hero is a
+     flex row that centres its text column against the ring, and a rest day
+     has no ring to centre against. Same type, different line. Identical
+     means the line too.
+     So the rest hero reserves the two things it does not have, and reserves
+     them from the rules that draw them rather than from numbers copied out
+     of a screenshot: --th-ring-size is stated by .th-ring, --th-dist-size by
+     .th-dist, and both are clamps, so this holds at every width rather than
+     at the one it was measured on.
+     The ::after is the figure's line. .th-hero-main is a flex column with
+     gap:2px, so an empty block child takes the gap for free and the column
+     becomes exactly as tall as a run day's -- which is what makes the
+     EXISTING align-items:center put the title in the same place. Nothing
+     here positions the title; it restores the conditions the centring
+     already had. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-rest{
+    --th-ring-size:clamp(116px, 35vw, 144px);
+    min-height:calc(var(--th-ring-size) + 14px);}
+  /* THE RESERVE IS THE ELEMENT, NOT A NUMBER FOR ITS HEIGHT. First attempt
+     was a ::after of --th-dist-size, the figure's own font-size at
+     line-height 1 -- and it landed the title 4px low, because .th-dist is a
+     baseline-aligned flex row and the unit's <em> descends BELOW the
+     number's baseline: 65px measured, against the 57.6px the number alone
+     accounts for. A second constant to cover the descent would have been a
+     number copied out of a measurement, which is the thing this file keeps
+     paying for.
+     So the rest hero reserves a real .th-dist, emptied. Its height is
+     computed by the rules that size the real one, from the same two clamps,
+     including the descent -- so it is exact now and stays exact if either
+     type size ever moves. Both cells hold a non-breaking space because a
+     line box is sized by its font, not by its glyph: nothing is drawn, and
+     no invented figure enters the markup. visibility rather than display,
+     which is the whole point -- it has to occupy the space. */
+  .th-dist-hold{visibility:hidden;}
   /* ---- THE ZONE WORD LEAVES THE RING ----
      Checked across every session type the engine builds, not just the easy
      day that prompted it: the ring's label is BYTE-IDENTICAL to the type
@@ -1821,8 +1854,13 @@
      proportional; raising only the ceiling would have left every phone
      narrower than ~400px at the old size and made the increase arrive as a
      step at one width. */
+  /* --th-dist-size IS THE FIGURE'S HEIGHT, because line-height is 1. The
+     rest-day hero reserves exactly this to put its title on the same line
+     as a run day's, so the number is stated here, once, and read there --
+     not copied. Same reason --th-ring-size exists below. */
+  .th-dist{--th-dist-size:clamp(45.6px, 14.4vw, 57.6px);}
   .th-dist span{font-family:var(--text-face); font-weight:700; line-height:1;
-    font-size:clamp(45.6px, 14.4vw, 57.6px); letter-spacing:-0.02em;
+    font-size:var(--th-dist-size); letter-spacing:-0.02em;
     font-variant-numeric:tabular-nums; color:#FFFFFF;
     /* Already pure white at peak 255; what it gains here is REACH -- a
        wider, stronger bloom, which is lit area rather than a brighter
@@ -1843,7 +1881,8 @@
      the text measures. */
   /* And a little more diameter with it: area scales with both, and the ring
      is the one object on this screen that is the session itself. */
-  .th-ring{position:relative; flex:none; width:clamp(116px, 35vw, 144px);
+  .th-ring{--th-ring-size:clamp(116px, 35vw, 144px);
+    position:relative; flex:none; width:var(--th-ring-size);
     aspect-ratio:1/1; display:block;}
   .th-arc{position:absolute; inset:0; width:100%; height:100%;
     /* A MID STOP AT REST, so the cycle has somewhere brighter to go without
@@ -2661,6 +2700,20 @@
 
   @media (max-width:360px){
     :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero{flex-direction:column;}
+    /* ---------- AND THE REST DAY'S RESERVE COMES OFF HERE ----------
+       The reserve exists because the hero is a ROW and centres its text
+       column against the ring; below 360 the hero stacks and the text is
+       simply first, so a run day's title is already at the top of its box.
+       Left on, the reserve pushed the rest day's title 17px BELOW the run
+       day's -- the exact fault it was added to fix, inverted, at the width
+       nobody checks. Measured at 360: run title y=109, rest y=126 with the
+       reserve, 109 without.
+       Height cannot match here and should not: a stacked run hero is 240px
+       because the ring sits under the words, and reserving 200px of empty
+       column on a rest day would be a hole, not an alignment. The LINE is
+       what has to match, and it does. */
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-rest{min-height:0;}
+    .th-dist-hold{display:none;}
     :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row{flex-direction:column;}
   }
   @media (prefers-reduced-motion:reduce){
@@ -3114,6 +3167,7 @@
      how HR is treated in the Pace Reference and Plan HQ zone cards. */
   .day-targets .hr{color:var(--ink-faint);}
   .day-desc{ color:var(--ink-dim); margin-top:6px;}
+  .day-desc-race{text-align:center;}
   /* card accordion -- same max-height technique as the week accordion above,
      so both behave identically. The header row stays put; the detail and the
      logging drawer collapse. */
@@ -5660,7 +5714,11 @@
   .pp-head-text{flex:1 1 auto; min-width:0;}
   .pp-name{display:block; font-size:15.5px; font-weight:600; color:var(--ink); line-height:1.2;}
   .pp-phase.is-now .pp-name{color:var(--gold-bright);}
-  .pp-meta{display:block; font-size:12px; color:var(--ink-dim); margin-top:1px;}
+  /* DONE IS THE DAY CIRCLE'S GREEN. --ok is the ring and field on
+     .wk-day.is-done; --ok-text is that colour at text contrast, which is
+     what .pp-mark.is-done already used for its tick. One done colour, two
+     forms, and the phase name now takes the text form. */
+  .pp-phase.is-done .pp-name{color:var(--ok-text);}
   .pp-chev{flex:none; display:inline-flex; color:var(--gold); transition:transform .18s;}
   .pp-chev svg{width:19px; height:19px;}
   .pp-phase.is-open .pp-chev{transform:rotate(180deg);}
@@ -28145,6 +28203,29 @@ function renderCoachingDepth(dd, pre){
   var focusedCard = dayCardIsFocused(dd);
   var level = athleteExperience();
   var g = coachingEntryFor(dd);
+  /* ---------- THE CUE IS READ BEFORE THE REST-DAY RETURN, NOT AFTER ------
+     It was computed below the early return, which is why a rest day could
+     never carry one: the function had already left. A rest day HAS a cue
+     written for it -- "Rest is part of the plan, adaptation happens on the
+     days you don't run" -- and has had all along; nothing could reach it.
+     Advanced falls back to the standing cue, because the essential/standing
+     split is about what is dangerous to get wrong in a session, and a rest
+     day has no steps to get wrong. */
+  var cueText = (level==='advanced') ? ((g && (g.essential || g.cue)) || '')
+                                     : ((g && g.cue) || '');
+  /* BOTH POSITIONS, ONE STRING -- the pattern the note already uses on a
+     run day. .how-note is display:none except inside a focused session and
+     .coach-cue-inline is display:none inside one, so Today shows the note
+     while This Week and Full Plan show the inline cue, from one render.
+     No new CSS: a rest day simply stops being excluded from rules that
+     were already there. */
+  var restCoachHtml = function(){
+    if (!cueText) return '';
+    return '<div class="coach-cue coach-cue-inline">'+ICONS.info+
+        '<span>'+escapeHtml(cueText)+'</span></div>'+
+      '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
+        '<span class="v">'+escapeHtml(cueText)+'</span></div>';
+  };
   /* NOTHING TO COACH IS NOT NOTHING TO SHOW. These two returns predate the
      tab: with no coaching entry, or on a rest day for anyone past novice,
      there was simply no disclosure. The session's own description now lives
@@ -28152,12 +28233,12 @@ function renderCoachingDepth(dd, pre){
      card. The tab is emitted with the preamble and no rail -- and still
      nothing at all when there is no preamble either. */
   if (!g || (dd.type==='rest' && level!=='novice')){
-    return (preBlock && asTab)
+    return ((preBlock && asTab)
       ? '<details class="fuel-card how-card is-tab">'+'<summary class="sess-tab">'+
       sessionTabHtml('Session Details',
         'Why \u00b7 Execution \u00b7 Feel \u00b7 Coach\u2019s Note')+
     '</summary>'+preBlock+'</details>'
-      : preBlock;
+      : preBlock)+(dd.type==='rest' ? restCoachHtml() : '');
   }
   /* The cue line is where depth used to be decided; it still is. Advanced sees
      one only where getting it wrong ruins the session, everyone else sees the
@@ -28175,7 +28256,6 @@ function renderCoachingDepth(dd, pre){
      copy out of the accessibility tree too, so nothing is announced twice.
      The SENTENCE is unchanged, and so is which sentence each experience
      level gets -- advanced still sees only the essential cue. */
-  var cueText = (level==='advanced') ? (g.essential || '') : (g.cue || '');
   var out = '';
   if (cueText){
     out += '<div class="coach-cue coach-cue-inline">'+ICONS.info+
@@ -28198,7 +28278,15 @@ function renderCoachingDepth(dd, pre){
      gate and fuelSectionBody()'s own numbers; there is no second fuelling
      system here, only a second place its existing output is allowed to sit. */
   var gd = coachingDisclosureFor(dd, level);
-  if (gd && dd.type!=='rest'){
+  /* A NOVICE'S REST DAY REACHES HERE instead of the early return above, and
+     coachingDisclosureFor() returns nothing for a rest day at any level --
+     so without this it falls through the whole block below and ends with
+     the inline cue alone, which is the same hole by another route. One rest
+     day, one answer, whichever path it took here. */
+  if (dd.type==='rest') return out + restCoachHtml().replace(
+    '<div class="coach-cue coach-cue-inline">'+ICONS.info+
+      '<span>'+escapeHtml(cueText)+'</span></div>', '');
+  if (gd){
     var row = function(k, v){
       return v ? '<div class="how-row"><span class="k">'+k+'</span><span class="v">'+escapeHtml(v)+'</span></div>' : '';
     };
@@ -28395,8 +28483,23 @@ function fuelFacts(dd){
   var gelsLow = Math.max(1,Math.round(carbsLow/FUEL_GEL_CARB_G)), gelsHigh = Math.max(1,Math.round(carbsHigh/FUEL_GEL_CARB_G));
   var fluidLow = hours*FUEL_FLUID_ML_PER_HOUR_LO, fluidHigh = hours*FUEL_FLUID_ML_PER_HOUR_HI;
   var h = Math.floor(durSec/3600), m = Math.round((durSec%3600)/60);
-  var rows = [
-    { k:'Est. time-on-feet', short:'Time on feet', v:h+'h '+(m<10?'0':'')+m+'m' },
+  /* ---------- GOAL DAY ALREADY SAID THE TIME ----------
+     Est. time-on-feet is a derived duration, and on every other session it
+     is the only place the athlete can read one. On goal day it is not
+     derived at all: the hero ring above this rail carries the goal time --
+     3:29:45 against "3h 30m" here -- so the panel was the same number,
+     rounded worse, a swipe below the one that matters. It comes out on the
+     race alone. Every long run keeps it, which is the session that needs it
+     most. Taken out in fuelFacts() rather than in the rail, because
+     renderDayCard() has to emit ONE identical string for Today, This Week
+     and Full Plan (test/editSessionCoherence holds that) -- so the choice
+     may vary by the DAY, never by the surface. The stacked Fueling card
+     loses it on goal day too, which is the point: two surfaces disagreeing
+     about whether this fact exists is worse than either answer. */
+  var rows = [];
+  if (dd.type !== 'race')
+    rows.push({ k:'Est. time-on-feet', short:'Time on feet', v:h+'h '+(m<10?'0':'')+m+'m' });
+  rows = rows.concat([
     { k:'Carb intake', short:'Carb intake', v:band.lo+'\u2013'+band.hi+'g/hr' },
     { k:'Total carbs (est.)', short:'Total carbs', v:'\u2248'+carbsLow+'\u2013'+carbsHigh+'g' },
     /* "Gels" alone in the rail: with the slash and both words it is the one
@@ -28407,7 +28510,7 @@ function fuelFacts(dd){
     { k:'Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)', short:'Gels',
       v:gelsLow+'\u2013'+gelsHigh, note:'or chews \u00b7 \u2248'+FUEL_GEL_CARB_G+'g each' },
     { k:'Fluid guide (est.)', short:'Fluid', v:fmtFluidEstimate(fluidLow, fluidHigh) }
-  ];
+  ]);
   /* ---------- TWO SETS OF WORDS, AND THE SUITE IS WHY ----------
      The short line below was written for Today, where three paragraphs under
      the shortest facts on the card made the prose the longest thing on the
@@ -28739,7 +28842,25 @@ function renderDayHeroDistance(dd){
 function renderDayHeroBlock(dd, targets){
   var ring = renderDayTargetRing(dd, targets);
   var dist = renderDayHeroDistance(dd);
-  if (!ring && !dist) return '';
+  /* ---------- A REST DAY IS A DAY IN THE PLAN, SO IT LOOKS LIKE ONE ------
+     This returned '' the moment a day had neither a ring nor a distance,
+     which is every rest day -- so Today opened on a rest day with two chips
+     and a sentence, and the athlete's eye had nothing to land on. A rest
+     day has no distance and no target, and that is the whole point of it;
+     it still has an IDENTITY, and the identity is what the title is for.
+     So the hero renders with its title and nothing else: no ring, no
+     figure, no invented metric to fill the space the ring left. It is the
+     same .th-hero-title a run day uses, at the same size, in the same
+     place, because it is the same thing -- the name of the day.
+     Only for rest. Any other day that somehow reaches here with neither a
+     ring nor a distance still renders nothing, exactly as before. */
+  var isRest = dd.type === 'rest';
+  if (!ring && !dist && !isRest) return '';
+  /* See .th-dist-hold: an emptied copy of the figure, so the title centres
+     against the same column height a run day's does. aria-hidden because it
+     says nothing -- the day's identity is the title above it. */
+  if (isRest) dist = '<div class="th-dist th-dist-hold" aria-hidden="true">'+
+    '<span>\u00a0</span><em>\u00a0</em></div>';
   /* Said once, where the ring is, and only when the day genuinely has
      step-specific targets -- the blueprint is the prescription for those
      steps and stays the authority on them.
@@ -28766,7 +28887,7 @@ function renderDayHeroBlock(dd, targets){
      the right one. .day-title stays exactly where it is in the markup for
      This Week and Full Plan; CSS shows one copy and hides the other, the
      same way the Coach's Note has two positions. One string, every view. */
-  return '<div class="th-hero'+(multi?'':' th-hero-solo')+'">'+
+  return '<div class="th-hero'+(multi?'':' th-hero-solo')+(isRest?' th-hero-rest':'')+'">'+
     '<div class="th-hero-main">'+
       '<div class="th-hero-title">'+escapeHtml(displayCardTitle(dd))+'</div>'+
       dist+
@@ -28831,7 +28952,24 @@ function renderDayCard(dd){
     /* A race day says what the athlete chose; see raceSummarySentence().
        Every other day is untouched. */
     var raceLine = raceSummarySentence(dd);
-    if (raceLine) return '<div class="day-desc">'+escapeHtml(raceLine)+'</div>';
+    /* CENTRED, AND ONLY THIS ONE. Every other day's description is a
+       prescription sitting left under a left-aligned hero. This is not a
+       prescription -- it is the strategy the athlete chose for the day the
+       whole block was built for, and it reads as a statement about the race
+       rather than an instruction for it. The modifier is on the race line
+       alone so no other day's words move. */
+    if (raceLine) return '<div class="day-desc day-desc-race">'+escapeHtml(raceLine)+'</div>';
+    /* ---------- A REST DAY SAYS IT ONCE ----------
+       "Full rest. Legs up, hydrate, stay ahead of the block." sat between
+       the title and the Coach's Note, and the note underneath it says the
+       same thing better: rest is part of the plan, adaptation happens on
+       the days you don't run. One is a line of stage directions, the other
+       is the coach telling the athlete why the day exists. The description
+       goes and the coaching stays.
+       AFTER the optional-run branch above, deliberately: an optional run is
+       type 'rest' too, and its headline is the one thing on that card that
+       says there is a run available. That line is not this line. */
+    if (dd.type === 'rest') return '';
     return workoutCoversDescription(dd)
       ? ''
       : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>';
@@ -30078,7 +30216,15 @@ function fmtStrategyPace(pace, paceRole){
   var unit = displayUnit();
   var toDisp = function(s){ return state.units==='mi' ? s*1.60934 : s; };
   var lo = secToPace(toDisp(pace.fast));
-  if (paceRole==='ceiling') return 'no faster than '+lo+'/'+unit;
+  /* THE WORDS COME OFF, THE BEHAVIOUR STAYS. 'ceiling' still returns the
+     FAST EDGE ONLY and never a band -- that is what makes it a ceiling, and
+     it is unchanged. What goes is "no faster than" in front of it, because
+     the caption under this very panel already opens with "No faster than
+     goal pace. A few seconds slower here is the right mistake to make." --
+     the sentence the founder asked to be put in the Coach's Note, where it
+     reads as coaching rather than as a prefix on a figure. Saying it twice,
+     once as a qualifier squeezed into a 125px column, was the duplication. */
+  if (paceRole==='ceiling') return lo+'/'+unit;
   if (pace.slow==null || pace.fast===pace.slow) return lo+'/'+unit;
   var hi = secToPace(toDisp(pace.slow));
   return lo+'–'+hi+'/'+unit;
@@ -30137,19 +30283,13 @@ function renderStrategyPhase(ph){
      ragged lines; as two deliberate ones it sets three, and for an ordinary
      phase two. They are two different numbers and reading them as two
      lines is not a compromise. */
-  /* THE QUALIFIER IS NOT PART OF THE NUMBER. "no faster than 4:46/km" is
-     one mono string, and mono is wide: at 125px it broke into "no faster /
-     than / 4:46/km" -- three lines, two of them words, to say one pace.
-     The words come out of the monospace and sit above it as the quieter
-     thing they are, so the figure reads as a figure. The string itself is
-     untouched; only where it breaks changed. */
+  /* The qualifier split that used to live here is gone with the qualifier.
+     It existed because "no faster than 4:46/km" is one mono string and mono
+     is wide -- at 125px it broke into three lines, two of them words, to
+     say one pace. There is nothing left to split: every panel now carries a
+     figure and only a figure. */
   var lines = '';
-  if (target){
-    var m = /^(no faster than )(.*)$/.exec(target);
-    lines += m
-      ? '<span class="sp-q">'+escapeHtml(m[1].trim())+'</span><span class="sp-n">'+escapeHtml(m[2])+'</span>'
-      : '<span class="sp-n">'+escapeHtml(target)+'</span>';
-  }
+  if (target) lines += '<span class="sp-n">'+escapeHtml(target)+'</span>';
   if (hr) lines += '<span class="sp-n">'+escapeHtml(hr)+'</span>';
   if (!lines && ph.effort) lines = '<span class="sp-n">'+escapeHtml(ph.effort)+'</span>';
   var span = fmtStrategySpan(ph);
@@ -47801,7 +47941,21 @@ function renderPhaseSection(g, forceOpenAll){
            "Taper Phase", not the bare phase key -- and it is what the
            reference draws. One naming function, not a second one here. */
         '<span class="pp-name">'+escapeHtml(phaseDividerLabel(g.weeks[0]))+'</span>'+
-        '<span class="pp-meta">'+escapeHtml(phaseGroupMeta(g))+'</span>'+
+        /* ---------- THE SECOND LINE GOES, THE STATE STAYS ----------
+           "Weeks 3 - 7 . Completed" was a 12px line under every phase name
+           saying two things the screen says already. The RANGE is on the
+           stepper at the top of this view -- W1-2, W3-7, W8-9, W10-11, under
+           the phase it belongs to -- and the week rows inside the section
+           are numbered. The STATE becomes the colour of the name itself,
+           which is how This Week already says it: --ok is the done ring on
+           a day circle, and --ok-text is that same colour as TEXT (the two
+           are written out longhand beside .pp-mark.is-done for exactly this
+           reason). Gold is now, green is done, plain ink is ahead.
+           COLOUR ALONE IS NOT A SIGNAL, so the words it replaces stay in
+           the button for a screen reader rather than being deleted. This is
+           also why phaseGroupMeta() is still here and still the only place
+           those words are written. */
+        '<span class="sr-only">'+escapeHtml(phaseGroupMeta(g))+'</span>'+
       '</span>'+
       '<span class="pp-chev" aria-hidden="true">'+ICONS.chevronDown+'</span>'+
     '</button>'+
