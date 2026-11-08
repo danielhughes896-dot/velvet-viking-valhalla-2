@@ -89,13 +89,14 @@ test('the rail panels carry no glyph, and the heading takes the room', () => {
   assert.ok(!/how-mod-i/.test(CSS), 'the rail panel icons are back in the sheet');
   assert.ok(!/how-mod-i/.test(SRC), 'the rail is emitting panel icons again');
   assert.ok(!/MOD_ICON/.test(SRC), 'the rail icon table is back');
-  const k = rule(F + ' .how-mod .how-row .k');
-  assert.match(k, /text-align:\s*center/,
-    'with no glyph above it the heading is the only thing at the top of the ' +
-    'column, so it is centred over its own panel');
-  assert.match(k, /font-size:\s*17px/,
-    '17px is the measured ceiling: "Watch For" is 88px of ink in a 96px ' +
-    'column on a 360px phone, and at 18px it wraps');
+  /* The heading this measured was the coaching column's, and the columns
+     are gone from the product -- see structuredWorkout. What the panels
+     have at the top of them now is the card's title, and it is centred for
+     the same reason: with nothing above it, it is the panel's own mark.
+     Its size is the hero title's and is held where that comparison lives. */
+  assert.match(rule(F + ' .ws-rail .how-mod'), /text-align:\s*center/,
+    'with no glyph above it the title is the only thing at the top of the ' +
+    'panel, so it is centred over its own card');
 });
 
 test('the Coach\u2019s Note leads with its words', () => {
@@ -460,9 +461,14 @@ test('Clear log sits on the panel grid like every other row', () => {
 
 test('the rail panel reads on one axis', () => {
   const F = CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/)[0];
-  assert.match(rule(F + ' .how-mod .how-row .v'), /text-align:\s*center/,
-    'the sentence is left-aligned under a centred heading, so the panel ' +
+  /* Same law, same reason, on the element that still exists: everything in
+     a card shares one axis, or the panel reads as objects stacked rather
+     than as one thing. */
+  assert.match(rule(F + ' .ws-rail .how-mod'), /text-align:\s*center/,
+    'the card content is left-aligned under a centred title, so the panel ' +
     'reads as two objects stacked rather than one');
+  assert.match(rule(F + ' .ws-rail .ws-card-body'), /align-items:center/,
+    'the card body no longer centres its own children');
 });
 
 test('no glyph leads the taper line or the withholding note', () => {

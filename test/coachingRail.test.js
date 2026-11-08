@@ -72,15 +72,26 @@ function todayCard(a) {
 // ---------------------------------------------------------------------------
 test('every coaching module is named, once, in the one string all three views share', () => {
   const a = app();
-  const dd = a.state.days.find(d => d.type !== 'rest' && d.km > 0);
+  /* A MULTI-STAGE DAY. "the first day with distance" is an easy run, which
+     the engine describes in one stage -- so the card emits a single module
+     and "several" stopped being true of it once the columns went. */
+  const dd = a.state.days.find(d => {
+    try { return d.type !== 'rest' && d.km > 0 && a.workoutSteps(d).length >= 2; } catch (e) { return false; }
+  });
+  assert.ok(dd, 'the fixture has no multi-stage session');
   const html = a.renderDayCard(dd);
-  const keys = [...html.matchAll(/class="how-mod" data-mod="([a-z]+)"/g)].map(m => m[1]);
-  assert.ok(keys.length >= 3, 'expected several coaching modules, found ' + keys.length);
-  // Order is the coaching order and is not incidental: why it exists, how to
-  // run it, what it should feel like, what to watch for, then the coach.
-  const canonical = ['why', 'execution', 'feel', 'watch', 'note', 'fuel'];
-  const expected = canonical.filter(k => keys.includes(k));
-  assert.deepEqual(keys, expected, 'the coaching modules are out of order');
+  /* ---------- THE MODULES ARE THE RAIL'S NOW ----------
+     This counted why / execution / feel / watch and held them in the
+     coaching order. Those four were the columns, and the columns are gone
+     -- so the keys a card emits are the rail's panels: the blueprint's
+     stages (ws-N) or the fuel facts (fuel-N). The law that survives is the
+     one about the wrapper: one per module, never nested, whatever the
+     module is. The ORDER of the rail's panels is held where it belongs,
+     in structuredWorkout, against the stages themselves. */
+  const keys = [...html.matchAll(/class="how-mod" data-mod="([a-z]+)-?\d*"/g)].map(m => m[1]);
+  assert.ok(keys.length >= 2, 'expected several rail modules, found ' + keys.length);
+  assert.ok(keys.every(k => /^(ws|fuel)-?\d*$/.test(k)),
+    'a card is emitting a module that is neither a stage nor a fuel fact: ' + keys.join(', '));
   // One wrapper per module, never nested.
   assert.doesNotMatch(html, /how-mod[^>]*>\s*<div class="how-mod"/,
     'a module wrapper contains another -- the rail would nest panels');
@@ -133,12 +144,17 @@ test('the rail moves the FOCUS, and moves itself only when it must', () => {
   /* .how-rail names the COACHING rail specifically: the hairlines between
      its three columns belong to it and not to the fuel, execution or
      blueprint rails, which are cards swiped one at a time. */
-  /* The coaching columns are NOT a rail any more -- three fit, and a rail
-     that never needs swiping hides a third of itself behind a gesture
-     nobody makes. They have no .fuel-body, no data-hswipe and no dots; see
-     .how-cols. What this line protects now is the rails that remain. */
-  assert.match(SRC, /<div class="how-cols">/,
-    'the coaching columns are gone or renamed');
+  /* The coaching columns are gone from the product altogether -- the
+     founder took them off, and what they said is in the Coach's Note; see
+     "why, feel and watch for left the screen" in structuredWorkout. What
+     this line protected was that they were NOT a rail, and the strongest
+     version of that is now that they do not exist. */
+  /* READ WITH THE COMMENTS STRIPPED. The note explaining that .how-cols
+     went away says the words ".how-cols", so a bare search of SRC answers
+     a question about the prose rather than about the code -- the same trap
+     a guard in todayHeroAndFuel fell into over .how-fuel. */
+  assert.ok(SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').indexOf('how-cols') === -1,
+    'the coaching columns are back');
   assert.match(SRC, /<div class="fuel-body ws-rail" data-hswipe="1">/,
     'the blueprint rail has lost data-hswipe, so the page pager will claim it');
   const mod = focusRule('.how-mod');

@@ -2414,30 +2414,14 @@
      gets. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod .fuel-v-note{color:rgba(255,255,255,.72);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{height:100%;}
-  /* The three columns, laid out in place. Everything else about a .how-mod
-     -- its padding, its type, the air inside it -- is the component's and
-     is untouched; what changes is that these do not scroll and none of
-     them is selected. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols{
-    display:flex; align-items:flex-start; gap:0; padding:0 0 4px; margin:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols .how-mod{
-    flex:1 1 0; min-width:0; opacity:1;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols .how-mod::before{content:none;}
-  /* ---------- TWO HAIRLINES, AND THEY FADE ----------
-     The coaching columns had nothing between them. Two decorative rules
-     now separate the three, and they are decoration rather than table
-     rules for the reason the whole hairline sweep turned on: each is a
-     gradient that dissolves at BOTH ends, so it never meets the panel's
-     edge. Drawn on the SECOND and THIRD panels, which is exactly two for
-     three columns and stays correct if a column is ever dropped. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols .how-mod + .how-mod{position:relative;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-cols .how-mod + .how-mod::after{
-    content:''; position:absolute; left:0; top:14%; bottom:14%; width:1px;
-    background:linear-gradient(to bottom,
-      transparent 0%,
-      color-mix(in srgb, var(--gold-text) 60%, transparent) 50%,
-      transparent 100%);
-    opacity:.55; pointer-events:none;}
+  /* .how-cols stood here: the three coaching columns, their flex layout,
+     the suppressed selection pool and the two dissolving hairlines between
+     them. The founder took the columns off every screen -- the coaching is
+     on the rail -- so the class is emitted nowhere and every rule hung on
+     it described a thing that cannot appear. Removed rather than kept
+     warm: dead CSS reads as a layout that might still happen. What Why,
+     Feel and Watch For actually say is in the Coach's Note; see
+     renderCoachingDepth. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod{
         /* A PERCENTAGE ALONE IS NOT ENOUGH, because the percentage is of the
        RAIL and the rail shrinks with the phone. At 31% a 430pt screen gives
@@ -2465,8 +2449,7 @@
        underneath say how many there are. Applied to the component rather
        than to one rail, so the blueprint, the execution phases and the
        fuel facts all read the same way -- which is the founder's rule:
-       every rail follows it. The coaching columns are no longer a rail at
-       all and are laid out by .how-cols below. */
+       every rail follows it. */
     display:block; flex:0 0 100%; min-width:0; box-sizing:border-box;
     /* THE AIR IS INSIDE THE MODULE, NOT AROUND IT, AND THAT IS FORCED.
        A glow that overspills has to overspill into something, and it cannot
@@ -2506,45 +2489,14 @@
     background:var(--line-soft); opacity:.3; pointer-events:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod.is-active::after,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod.is-active + .how-mod::after{opacity:0;}
-  /* ---- THE ICON ----
-     Shown only here. In the stack these are rows of text and an icon per row
-     is decoration; in a 27% column it is what identifies the panel before
-     the label has been read. */
-  /* The label grows into a heading, because in a column it IS the heading --
-     there is nothing else at the top of the panel to carry it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row{display:block; padding:0; border:0;}
-  /* ---------- THE HEADING IS THE PANEL'S MARK NOW ----------
-     With the glyph above it gone the heading is the only thing at the top
-     of the column, so it is centred over its own panel -- and the sentence
-     under it is centred with it. Left-aligned under a centred heading the
-     two read as two different objects stacked up; the panel is one object,
-     so it has one axis.
-
-     17px IS THE CEILING, AND IT IS MEASURED, NOT CHOSEN. The longest
-     heading is "Watch For", and on a 360px phone its column is 96px wide.
-     At 17px that heading is 88px of ink -- one line with 8px to spare. At
-     18px it wraps, and a two-line heading over a three-line body is a
-     different panel. Raise this only with that measurement redone. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row .k{
-    display:block; font-size:17px; letter-spacing:.055em; margin-bottom:10px;
-    text-align:center; color:var(--gold-text);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row .v{
-    text-align:center;
-    /* The tiers, not numbers. 13.5px/1.42 was the same size the support tier
-       already carries and the typography guard was right to refuse it: a
-       hand-set sentence is how 47 of them drifted apart in the first place,
-       and a new one written during a redesign is exactly when it happens. */
-    font-size:var(--fs-support); line-height:1.6;
-    /* NOT overflow-wrap:anywhere, which .how-row .v carries by default. In
-       a full-width row that setting never fires; in a 31% column it fires
-       constantly, and it is allowed to break INSIDE a word with no hyphen
-       -- "Conversational" came out as "Conversation / al". break-word only
-       breaks a word that cannot fit on a line of its own, which here is
-       none of them. */
-    overflow-wrap:break-word; word-break:normal;
-    /* And if a longer word is ever written than the floor above allows for,
-       it breaks WITH a hyphen rather than silently mid-word. */
-    hyphens:auto; -webkit-hyphens:auto;}
+  /* .how-mod .how-row stood here: the row's layout inside a panel, its
+     17px heading and the centred sentence under it. A .how-row only ever
+     reached a .how-mod through the coaching columns, and those are gone
+     from every screen -- the one .how-row still emitted in this product
+     is in the Supporting Work block, which is not a panel and has its own
+     rules. Removed with them; dead CSS reads as a layout that might still
+     happen. The measurement that set 17px went with it, and is recorded
+     in the commit rather than left describing nothing. */
   /* ---- THE ACTIVE MODULE IS LIT, NOT BOXED ----
      A soft gold pool of light behind the words, falling off to nothing well
      inside the module's own edges, so there is no line anywhere -- the panel
@@ -2657,6 +2609,13 @@
     font-size:var(--fs-micro, 11.5px); color:var(--ink-faint); letter-spacing:0;}
   /* The heading above the rail is the group's name, not a panel's, so it
      keeps the left edge every other section heading sits on. */
+  /* The word in front of a rescued column line: the same gold label voice
+     the heading had, at prose size and inline, so the sentence still reads
+     as a sentence rather than as a row in a table. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note-row b{
+    font-family:var(--label-face); font-weight:var(--label-weight);
+    letter-spacing:var(--label-track); text-transform:uppercase;
+    color:var(--gold-text); margin-right:5px;}
   /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
      It was a bordered, tinted rectangle -- the one boxed thing left inside a
      rail built to have no boxes. The box goes; what marks it out is that its
@@ -28887,25 +28846,10 @@ function renderCoachingDepth(dd, pre){
     '<div class="coach-cue coach-cue-inline">'+ICONS.info+
       '<span>'+escapeHtml(cueText)+'</span></div>', '');
   if (gd){
-    var row = function(k, v){
-      return v ? '<div class="how-row"><span class="k">'+k+'</span><span class="v">'+escapeHtml(v)+'</span></div>' : '';
-    };
-    /* An empty module is not emitted at all. A rail with a blank panel in it
-       is worse than a rail with five panels, and the stack never showed one
-       either -- row() has always returned '' for a fact the engine does not
-       have.
-       THE ICON IS GONE, AND THE ARGUMENT FOR IT WITH IT. A clock, a link, a
-       smile and a trend line sat above WHY, EXECUTION, FEEL and WATCH FOR,
-       on the reasoning that a glyph identifies a 34%-wide column before its
-       label is read. On a phone that is not what happens -- the label is
-       read first, because the label is the word -- and the glyph cost 21px
-       of height plus an 11px gap above every panel: 32px spent, four times,
-       restating the heading underneath it. The heading takes that room
-       instead, and grows into it. */
-    var mod = function(key, inner){
-      if (!inner) return '';
-      return '<div class="how-mod" data-mod="'+key+'">'+inner+'</div>';
-    };
+    /* row() and mod() stood here -- a labelled row, and the panel that
+       wrapped one. Both existed only for the coaching columns, and both
+       died with them. The icon argument that filled this comment went
+       with the icons, two passes before. */
     var strat = renderExecutionStrategyBlock(dd);
     /* ---------- ONE RAIL FOR THE SESSION'S SHAPE, NEVER TWO ----------
        The blueprint and the execution rail describe the same session in two
@@ -29075,20 +29019,21 @@ function renderCoachingDepth(dd, pre){
             railDotCount(panels.length)+
           '</div>';
       })()+
-      '<div class="how-cols">'+
-        mod('why', row('Why', gd.why))+
-        /* Only when Execution is a SENTENCE. A staged execution -- SETTLE,
-           PRESS, RECOVER, ABSORB, each with its own pace and instruction --
-           is a table, and a table is not a micro-module: at a quarter of a
-           phone it is unreadable, and at full width it is the tallest thing
-           in the rail and drags every short panel's height up with it. It
-           renders below the rail instead, where it already reads well and
-           where it has always read well. The rail is the coaching
-           SENTENCES; the tables are reference. */
-        /* No mod('execution'): see soloHow above. */
-        mod('feel', row('Feel', gd.feel))+
-        mod('watch', row('Watch For', gd.avoid))+
-      '</div>'+
+      /* ---------- WHY / FEEL / WATCH FOR ARE NOT COLUMNS ANY MORE ------
+         Three gold headings with a sentence under each, under the rail, on
+         every session. The founder took them off on the grounds that the
+         coaching is on the rail now.
+         IT IS NOT ALL ON THE RAIL, and that was measured before they went.
+         A stage card says how to run THAT STAGE -- "Get the legs ready for
+         the first rep, not tired by it" -- while these say what the
+         SESSION is for and how it fails: "VO2 max and running economy",
+         "Racing the first two reps". Feel overlaps the work stage's line;
+         Why and Watch For appear nowhere on the rail at all.
+         SO THEY GO WHERE THIS SCREEN PUTS COACHING THAT LOSES ITS PANEL --
+         the Coach's Note, which already took the fuel caveats, the
+         execution captions and the one-sentence execution before them.
+         The columns are gone from every end point, which is what was
+         asked; the purpose and the failure mode are not. */
       /* ONE DOT PER MODULE, AND THE COUNT COMES FROM THE MODULES. Written
          here rather than injected by the rail script so that a rail whose
          script never runs still shows how many panels there are -- and so
@@ -29149,8 +29094,25 @@ function renderCoachingDepth(dd, pre){
            the coaching for the phase the athlete is looking at, so it
            follows the lit panel from inside the note. */
         var caps = stratCaps;
-        if (!cueText && !hints.length && !caps && !soloHow) return '';
+        /* ---------- WHAT THE COLUMNS USED TO SAY ----------
+           Why, Feel and Watch For, in the order they stood in, each kept
+           with its own word in front of it -- without one, "VO2 max and
+           running economy." is a fragment with nothing to attach to. The
+           founder's own spec for a stage card writes the label this way
+           ("WHY: Prepare to hit goal pace smoothly."), so the idiom is
+           theirs. Rendered here rather than in a block of their own so
+           that the note stays one voice: this screen has exactly one place
+           where the coach talks, and these are the coach talking. */
+        /* "Watch For", with the product's own capitals: it is the same
+           string the column heading carried, and changing a label's case
+           while moving it is a second change nobody asked for. */
+        var cols = [['Why', gd.why], ['Feel', gd.feel], ['Watch For', gd.avoid]]
+          .filter(function(r){ return !!r[1]; });
+        if (!cueText && !hints.length && !caps && !soloHow && !cols.length) return '';
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
+          cols.map(function(r){
+            return '<span class="v how-note-row"><b>'+escapeHtml(r[0])+'</b> '+escapeHtml(r[1])+'</span>';
+          }).join('')+
           (cueText ? '<span class="v">'+escapeHtml(cueText)+'</span>' : '')+
           (soloHow ? '<span class="v">'+escapeHtml(soloHow)+'</span>' : '')+
           caps+

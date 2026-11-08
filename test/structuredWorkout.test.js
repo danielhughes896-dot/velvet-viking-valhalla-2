@@ -743,119 +743,65 @@ test('a session shows the blueprint or the execution rail, never both', () => {
   }
 });
 
-test('the coaching rail stays three columns, with two hairlines', () => {
-  /* mod('execution') carries the one-SENTENCE execution and was suppressed
-     whenever the staged rail was RENDERED. Choosing not to render it on a
-     blueprint session turned the sentence back on and the rail became four
-     columns with three hairlines. The condition is whether the engine HAS a
-     staged execution, not what is on screen. */
+test('why, feel and watch for left the screen for the Coach’s Note', () => {
+  /* They were three gold headings with a sentence under each, under the
+     rail, on every session. The founder took them off: the coaching is on
+     the rail now.
+     IT IS NOT ALL ON THE RAIL, which is why this test exists rather than
+     going with them. A stage card says how to run THAT STAGE -- "Get the
+     legs ready for the first rep, not tired by it" -- while these say what
+     the SESSION is for and how it fails: "VO2 max and running economy",
+     "Racing the first two reps". Feel overlaps the work stage's line; Why
+     and Watch For appear nowhere on the rail at all.
+     So the columns are gone from every end point, and what they said is in
+     the Coach's Note -- which already took the fuel caveats, the execution
+     captions and the one-sentence execution before them. */
   const a = railApp();
-  const withBp = a.state.days.filter(d => { try { return a.usesHorizontalWorkoutBlueprint(a.workoutSteps(d)); } catch(e){ return false; } });
-  const bp = a.renderDayCard(withBp[withBp.length - 1]);
-  const rail = /<div class="how-cols">[\s\S]*?(?=<\/div><div class="how-table|<div class="how-note)/.exec(bp);
-  assert.ok(rail, 'the coaching columns are gone or no longer named');
-  const mods = (rail[0].match(/class="how-mod" data-mod=/g) || []).length;
-  assert.equal(mods, 3, 'the coaching rail is ' + mods + ' columns, not three — two hairlines need three columns');
-  assert.ok(rail[0].indexOf('data-mod="execution"') === -1,
-    'the one-sentence Execution column is back alongside a blueprint that already says it');
+  const level = a.athleteExperience();
+  let checked = 0;
+  a.state.days.forEach(d => {
+    if (d.type === 'rest') return;
+    const html = a.renderDayCard(d);
+    assert.ok(html.indexOf('how-cols') === -1,
+      d.date + ' (' + d.type + ') still draws the coaching columns');
+    let gd; try { gd = a.coachingDisclosureFor(d, level); } catch (e) { return; }
+    if (!gd) return;
+    const note = html.slice(html.indexOf('class="how-note"'));
+    [['Why', gd.why], ['Feel', gd.feel], ['Watch For', gd.avoid]].forEach(pair => {
+      const k = pair[0], v = pair[1];
+      if (!v) return;
+      assert.ok(note.indexOf(v) > -1,
+        d.date + ' (' + d.type + '): ' + k + ' is not in the Coach’s Note — ' +
+        JSON.stringify(v.slice(0, 40)) + ' has been dropped, not moved');
+      assert.ok(note.indexOf('<b>' + k + '</b>') > -1,
+        d.date + ': "' + k + '" has lost the word in front of it, so the sentence is a fragment');
+      checked++;
+    });
+  });
+  assert.ok(checked >= 30, 'the fixture no longer exercises the moved lines (' + checked + ')');
 
-  /* AND THEY FADE. Decoration, not table rules -- the distinction the whole
-     hairline sweep turned on. Drawn on the second and third panels, which
-     is exactly two for three columns. */
-  const i = RAILCSS.indexOf('.how-cols .how-mod + .how-mod::after');
-  assert.ok(i > -1, 'the coaching columns have no separating hairlines');
-  const body = RAILCSS.slice(i, RAILCSS.indexOf('}', i));
-  assert.match(body, /transparent 0%/, 'the hairline starts solid — that is a table rule, not decoration');
-  assert.match(body, /transparent 100%\)/, 'the hairline ends solid');
-  assert.match(body, /width:1px/, 'the hairline is no longer a hairline');
-});
-
-test('the blueprint rail is the rail component, wired like one', () => {
-  /* Every rule that makes a rail a rail was scoped to ".how-card
-     .fuel-body", because every rail lived inside Session Details. The
-     blueprint does not -- it is the session's own words, above the tab --
-     so it got the PANEL styling and none of the TRACK styling, and three
-     cards stacked vertically with nothing scrolling. Measured after: three
-     panels at 380px of 380, three dots, first lit. */
-  assert.match(RAILCSS, /:is\(\.how-card \.fuel-body, \.ws-rail\)\{\s*display:flex/,
-    'the blueprint rail is not in the rail track rule, so its cards stack');
-  /* Full width is the COMPONENT's now, not this rail's -- see "every rail
-     is one card at a time" below, which asserts it where it lives. */
-  assert.match(RAILCSS, /\.view-week \.wk-overview\) \.how-mod\{[^}]*flex:0 0 100%/,
-    'rail panels are no longer full width');
-  assert.match(RAILSRC, /querySelectorAll\('\.how-card \.fuel-body, \.ws-rail'\)/,
-    'the blueprint rail is not bound by the rail script, so its dots never light');
-  /* COUNTED FROM THE PANELS, NOT THE STEPS. The fuel facts ride this rail
-     on a session that has both -- one rail per session -- so a count of
-     stages would leave the last few cards with no dot. */
-  /* READ INSIDE renderStructuredWorkoutSteps. A bare match on RAILSRC was
-     satisfied by renderCoachingDepth's identical call, so breaking THIS
-     rail's count changed nothing the guard could see: a mutation swapping
-     it for steps.length survived. Both rails emit one dot per panel; each
-     is asserted where it lives. */
-  const rs = RAILSRC.slice(RAILSRC.indexOf('function renderStructuredWorkoutSteps('));
-  const rsBody = rs.slice(0, rs.indexOf('\n}'));
-  assert.match(rsBody, /railDotCount\(panels\.length\)/,
-    'the blueprint rail has no dots, or they are counted from the stages rather than the ' +
-    'panels — the fuel cards ride this rail and would have no dot');
-  /* NAMED ON THE DOT CALL, not banned from the function. steps.length is
-     legitimately read here now -- it is what decides whether the cards get
-     a sentence -- so "the word does not appear" went from a law to a
-     coincidence. What must not happen is the DOTS being counted from it. */
-  assert.ok(!/railDotCount\(steps\.length\)/.test(rsBody),
-    'the blueprint rail counts its stages again, so its fuel cards have no dots');
-  assert.match(rsBody, /\.concat\(extra \|\| \[\]\)/,
-    'the blueprint rail cannot carry the fuel facts, so a long run draws two photograph rails');
-});
-
-test('every rail is one card at a time, and keeps its dots', () => {
-  /* The founder's rule: every end point that has a rail follows the new
-     one. Measured at 412px -- blueprint 2 panels at 380/380 with 2 dots;
-     race day's execution 5 at 380/380 with 5; its fuel 4 at 380/380 with 4.
-     The width lives on the COMPONENT, not on one rail, which is what makes
-     that true everywhere rather than in the place it was first asked for. */
-  const i = RAILCSS.indexOf('.view-week .wk-overview) .how-mod{');
-  assert.ok(i > -1, 'the rail panel rule is gone or its selector changed');
-  const body = RAILCSS.slice(i, RAILCSS.indexOf('}', i));
-  assert.match(body, /flex:0 0 100%/, 'rail panels are back to sharing the row');
-  assert.ok(!/min-width:122px/.test(body),
-    'the 122px floor is back — it existed for a third-width column and a full-width card has no use for it');
-
-  /* THE DOTS ARE A POSITION NOW, NOT A HINT. They used to disappear once
-     swipeLearned('rail') was true. With one panel on screen they are the
-     only thing saying which of five you are on. */
-  const dc = RAILCODE.slice(RAILCODE.indexOf('function railDotCount'), RAILCODE.indexOf('function railDotCount') + 300);
-  assert.ok(dc.indexOf("swipeLearned('rail')") === -1,
-    'the dots vanish once the swipe is learned — on a full-width rail they are the position, not the hint');
-});
-
-test('why / feel / watch for is three columns, not a rail', () => {
-  /* It was a rail when Execution's sentence made it four. Three fit, and a
-     rail that never needs swiping hides a third of itself behind a gesture
-     nobody makes. So: no .fuel-body, no data-hswipe, no dots, nothing
-     selected -- all three lit, because with all three on screen there is
-     nothing to select. Measured: opacity 1,1,1. */
-  assert.match(RAILCODE, /<div class="how-cols">/, 'the coaching columns are gone or renamed');
-  assert.ok(RAILCODE.indexOf('"fuel-body how-rail"') === -1,
-    'the coaching columns are a .fuel-body again, which makes them a scrolling rail');
-  /* NAMED BY WHAT IT EMITS, AND BOUNDED BY THE COLUMNS. This read
-     `railDotsHtml` over a flat 1400 characters -- a helper that has since
-     been deleted, so the assertion was true of a name that appears
-     nowhere, and a window that now runs past the columns into the merged
-     rail, which legitimately does call railDotCount. Both halves fixed:
-     the thing asserted is the live emitter, and the region is the columns
-     block itself, cut at the wrapper that follows it. */
-  const cols = /<div class="how-cols">[\s\S]*?(?=<\/div>'\+|<div class="how-table)/.exec(RAILCODE);
-  assert.ok(cols, 'the coaching columns are gone or no longer named');
-  assert.ok(cols[0].indexOf('railDotCount') === -1, 'the coaching columns have dots again');
-  assert.ok(cols[0].length < 1200,
-    'the columns region ran past its own block, so "no dots here" stopped being a claim about the columns');
+  /* AND NOTHING IS LEFT BEHIND. The class, its layout rules, its two
+     hairlines, the row-inside-a-panel rules and the two helpers that built
+     them were all for the columns alone. Dead CSS reads as a layout that
+     might still happen. */
+  assert.ok(RAILCODE.indexOf('how-cols') === -1, 'the columns are still being emitted');
+  const liveCss = RAILCSS.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  assert.ok(liveCss.indexOf('.how-cols') === -1, 'the column rules are still in the sheet');
+  assert.ok(liveCss.indexOf('.how-mod .how-row') === -1,
+    'the row-inside-a-panel rules are still in the sheet, and a .how-row can no longer reach a .how-mod');
   assert.ok(RAILCODE.indexOf('railDotsHtml') === -1,
     'railDotsHtml is back — it was dead code with no caller');
-  assert.match(RAILCSS, /\.how-cols \.how-mod\{[^}]*opacity:1/,
-    'the coaching columns dim again — all three are on screen, so none of them is "the" one');
-  assert.match(RAILCSS, /\.how-cols \.how-mod::before\{content:none;\}/,
-    'the selected-panel pool is back on columns where nothing is selected');
+
+  /* ---------- AND THE WORD IN FRONT KEEPS THE COLUMN'S VOICE ----------
+     Removing this rule left the three lines reading as plain bold prose,
+     and every guard above still passed: they asserted the word was THERE,
+     which it was. The heading was gold, in the label face, and it is the
+     only thing distinguishing "Why" from the sentence it introduces. */
+  const lab = /\.how-note-row b\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(lab, 'the word in front of a moved line has no rule, so it reads as plain bold prose');
+  assert.match(lab[1], /color:var\(--gold-text\)/, 'the moved lines’ labels are no longer gold');
+  assert.match(lab[1], /font-family:var\(--label-face\)/, 'the labels left the product’s label voice');
+  assert.match(lab[1], /text-transform:uppercase/, 'the labels are no longer set as labels');
 });
 
 test('a tab is its name, centred, at the size that fits the narrowest phone', () => {
@@ -1105,13 +1051,10 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   });
   assert.match(labM[1], /text-shadow:/,
     'the card title lost the hero glow, which on a photograph is what lifts it off the frame');
-  /* AND THE COLUMNS KEEP THE GOLD. WHY / FEEL / WATCH FOR are not titles
-     over figures and are not on a photograph; their rule is separate and
-     must stay separate. */
-  const colM = /\.how-mod \.how-row \.k\{([^}]*)\}/.exec(RAILCSS);
-  assert.ok(colM, 'the coaching column heading rule is gone');
-  assert.match(colM[1], /color:var\(--gold-text\)/,
-    'the coaching column headings went white with the card titles — they are a different thing');
+  /* The columns this used to be measured against are gone from the
+     product -- see "why, feel and watch for left the screen" above -- so
+     what is left to hold is that the card title is the HERO's, which the
+     comparison above does property by property. */
 });
 
 test('every card in the rail leads with a word', () => {
@@ -1236,10 +1179,14 @@ test('every session has exactly one rail, and the rail is above the coaching', (
     assert.equal(rails, 1,
       d.date + ' (' + d.type + ', ' + steps(d) + ' stages) draws ' + rails + ' card rails');
     const railAt = html.indexOf('class="fuel-body ws-rail');
-    const colsAt = html.indexOf('<div class="how-cols">');
-    assert.ok(colsAt > -1, d.date + ': the coaching columns are gone');
-    assert.ok(railAt < colsAt,
-      d.date + ' (' + d.type + ') puts its coaching columns above its rail');
+    /* THE RAIL IS ABOVE THE COACHING, and the coaching is the Coach's Note
+       now that the columns have gone. Same law, one fewer thing between
+       them: the rail is the session, the note is the coach talking about
+       it, and the note comes after. */
+    const noteAt = html.indexOf('class="how-note"');
+    assert.ok(noteAt > -1, d.date + ': the Coach\u2019s Note is gone');
+    assert.ok(railAt < noteAt,
+      d.date + ' (' + d.type + ') puts its Coach\u2019s Note above its rail');
     shapes[d.type + ' x' + steps(d)] = true;
   });
   /* The fixture has to contain the shapes this is about, or it proves

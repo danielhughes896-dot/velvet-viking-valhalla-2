@@ -191,59 +191,21 @@ test('one string serves every view: both labels travel, CSS picks one', () => {
     'the short label is no longer shown inside a rail module');
 });
 
-test('a fuel module is the same panel as a coaching module', () => {
+test('a fuel card and a stage card share one title declaration', () => {
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  /* THREE HEADINGS NOW, AND THE FIRST TWO SHARE ONE DECLARATION. The
-     execution rail's phase name joined the fuel heading's rule rather than
-     copying it, so the selector is a list and the old regex -- which
-     required '{' straight after '.k' -- no longer matched. Read the rule by
-     its list, and assert the execution label is IN that list, which is a
-     stronger statement than the equality below: they cannot disagree
-     because they are the same declaration. */
-  const fuelK = new RegExp(esc(F) + ' \\.how-mod \\.fuel-row \\.k[,{][^{]*\\{([^}]*)\\}').exec(CSS);
-  const howK = new RegExp(esc(F) + ' \\.how-mod \\.how-row \\.k\\{([^}]*)\\}').exec(CSS);
-  assert.ok(fuelK && howK, 'one of the two module heading rules is gone');
-  assert.match(CSS, new RegExp(esc(F) + ' \\.how-mod \\.fuel-row \\.k,[\\s\\S]{0,200}?\\.strat-phase-label\\{'),
-    'the execution phase name no longer shares the fuel heading declaration, so the ' +
-    'three rails can print three different headings');
-  /* ---------- THEY ARE NO LONGER THE SAME HEADING, ON PURPOSE ----------
-     This required the fuel heading and the coaching heading to agree on
-     size, alignment and colour, because both were a gold label at the top
-     of a panel a centimetre apart. They stopped being the same thing when
-     the founder asked for the rail's titles to read "white and big like
-     they are in the heros": CARB INTAKE is now a title over a figure on a
-     photograph and takes .th-hero-title's declaration, while WHY is a
-     label over a sentence on the card tint and keeps the gold.
-     What survives is the half that still holds: the three CARD titles are
-     one declaration (asserted above), and the two kinds are each internally
-     consistent. Alignment is still shared -- both are centred, which is the
-     founder's rule for everything under a heading -- so that one is kept
-     and the two that now differ are asserted to differ, loudly, rather
-     than quietly dropped. */
-  const read = (b, re) => (re.exec(b) || [])[1];
-  assert.equal(read(fuelK[1], /text-align:([^;]+)/).trim(),
-               read(howK[1], /text-align:([^;]+)/).trim(),
-    'a card title and a column heading disagree on alignment — everything under a heading ' +
-    'is centred on this screen');
-  assert.equal(read(howK[1], /color:([^;]+)/).trim(), 'var(--gold-text)',
-    'the coaching column heading is no longer gold');
-  assert.equal(read(fuelK[1], /color:([^;]+)/).trim(), '#FFFFFF',
-    'the card title is no longer white');
-  assert.notEqual(read(fuelK[1], /font-size:([^;]+)/).trim(),
-                  read(howK[1], /font-size:([^;]+)/).trim(),
-    'a card title and a column heading are the same size again — the card title is a hero ' +
-    'title and the column heading is a label, and they were asked to read differently');
-  /* SUPERSEDED, AND THE REASON IS THE SCREENSHOT THAT FOLLOWED IT.
-     This used to require the fuel column to be WIDER than the coaching one
-     (40% against 34%), so its headings would not wrap. It bought that at a
-     price nobody had looked at: at 40% only two and a half panels fit, so
-     the third arrived cut in half by the viewport — TOTAL CARBS sliced down
-     the middle, which reads as broken rather than as "there is more
-     sideways". Three whole panels is worth a two-line heading, and on a
-     430px phone nothing wraps at a third anyway. Both rails are one number
-     now, asserted below where the shared rule lives. */
-  assert.ok(!new RegExp(esc(F) + ' \\.how-fuel \\.how-mod\\{[^}]*flex:').test(CSS),
-    'the fuel rail has taken a width of its own again');
+  /* ---------- THERE IS NO COACHING MODULE TO COMPARE WITH ----------
+     This measured a fuel panel against a WHY / FEEL / WATCH FOR panel, on
+     the grounds that the two sat a centimetre apart and had to read as one
+     thing. The founder has taken the columns off every screen and what
+     they said is in the Coach's Note, so that comparison has one side.
+     WHAT IT WAS FOR SURVIVES, and as a stronger statement than the
+     equality it used to make: a fuel card, a stage card and an execution
+     phase are not merely tuned to match, they share ONE declaration for
+     their title. They cannot drift because there is nothing to drift from. */
+  assert.match(CSS, new RegExp(esc(F) + ' \\.ws-rail \\.ws-h-presc:not\\(\\.font-mono\\),[\\s\\S]{0,300}?' +
+    esc(F) + ' \\.how-mod \\.fuel-row \\.k,[\\s\\S]{0,200}?\\.strat-phase-label\\{'),
+    'the three kinds of card no longer share one title declaration, so they can print ' +
+    'three different headings a swipe apart');
 });
 
 test('two rails in one card do not share a set of dots', () => {
@@ -314,23 +276,17 @@ test('both rails are the same width, and three panels fit', () => {
     'the 122px floor is back, and at full width it protects nothing');
 });
 
-test('a fuel panel and a coaching panel differ only where figures differ from sentences', () => {
-  /* Measured in Chromium rather than read off the sheet: the headings match
-     on size, weight, face, colour, tracking and alignment, and the values
-     match on everything except the face — mono for figures, which is the
-     product's convention for every number it prints. The one thing that had
-     drifted was colour: the fuel value hand-set --ink-dim while the coaching
-     value inherited --ink, so a figure read dimmer than a sentence beside
-     it. Neither sets a colour now. */
-  const fuelV = new RegExp(escF(F) + ' \\.how-mod \\.fuel-row \\.v\\{([^}]*)\\}').exec(CSS);
-  const howV = new RegExp(escF(F) + ' \\.how-mod \\.how-row \\.v\\{([^}]*)\\}').exec(CSS);
-  assert.ok(fuelV && howV, 'one of the two value rules is gone');
+test('the fuel value still hand-sets nothing', () => {
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  /* It used to set --ink-dim while the coaching value inherited --ink, so a
+     figure read dimmer than a sentence beside it. The coaching value is
+     gone with the columns; the discipline that caught that is not, and it
+     is what stops the next figure drifting from the ones around it. */
+  const fuelV = new RegExp(esc(F) + ' \\.how-mod \\.fuel-row \\.v\\{([^}]*)\\}').exec(CSS);
+  assert.ok(fuelV, 'the fuel value rule is gone');
   assert.ok(!/(^|;)\s*color\s*:/.test(fuelV[1]),
-    'the fuel value hand-sets a colour again, so it will drift from the coaching value ' +
-    'beside it the next time the focused card changes its ink');
-  const size = r => (/font-size:([^;]+)/.exec(r) || [])[1];
-  assert.equal(size(fuelV[1]), size(howV[1]),
-    'the two rails disagree on value size (' + size(fuelV[1]) + ' vs ' + size(howV[1]) + ')');
+    'the fuel value hand-sets a colour again in its base rule, which is how it drifted ' +
+    'from every other figure in the card the last time');
 });
 
 test('the fuel section has no title of its own', () => {
@@ -454,7 +410,7 @@ test('the Coach\u2019s Note still appears when the only thing to say is the fuel
   const end = SRC.indexOf('})()+', i);
   assert.ok(end > i, 'the Coach\u2019s Note builder is no longer an IIFE — re-anchor this');
   const body = SRC.slice(i, end);
-  assert.match(body, /if \(!cueText && !hints\.length && !caps && !soloHow\) return '';/,
+  assert.match(body, /if \(!cueText && !hints\.length && !caps && !soloHow && !cols\.length\) return '';/,
     'the Coach\u2019s Note is gated on the cue again, so a day with no cue drops the fuel ' +
     'caveats -- and now the execution sentences -- off the screen entirely');
   assert.match(body, /cueText \? '<span class="v">/,
