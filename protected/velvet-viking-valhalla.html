@@ -58642,7 +58642,7 @@ function handleWeekPickDay(date){
    follows, and rolling would change the header, the progress bar and the
    zone breakdown underneath a gesture that was aimed at a card. */
 function weekStepDate(weekNum, delta){
-  var days = weekSessionDays(weekNum);
+  var days = weekCarouselDays(weekNum);
   if (!days.length) return null;
   var i = weekDayIndex(weekNum) + delta;
   if (i < 0 || i > days.length - 1) return null;
@@ -59106,13 +59106,56 @@ var weekSelectedDate = null;
    for why the card is in the markup either way. */
 var weekSessionOpen = false;
 function weekSessionDays(weekNum){
-  /* RACE DAY IS STILL NOT ONE OF THE WEEK'S SESSIONS -- renderRaceDayEvent()
-     below remains the one place it is shown, exactly as the accordion had
-     it, so the two surfaces cannot disagree about the week's total. */
+  /* RACE DAY IS NOT ONE OF THE WEEK'S TRAINING SESSIONS. This is the list
+     Full Plan's week ROW LIST reads, and that list sits directly above the
+     dedicated RACE DAY card -- so the race belongs in one of the two, not
+     both.
+     THE REASON THIS COMMENT USED TO GIVE WAS WRONG: it said the exclusion
+     kept "the two surfaces from disagreeing about the week's total". No
+     total reads this function; they all filter state.days by week directly
+     and have always counted the race. Excluding it here is what made race
+     week read 70.2km in the header and 28.0km across the days you could
+     reach. The carousel reads weekCarouselDays() for exactly that reason;
+     see the note there. */
   return state.days.filter(function(dd){ return dd.week===weekNum && dd.type!=='race'; });
 }
+/* ---------- THE CAROUSEL REACHES GOAL DAY; THE ROW LIST DOES NOT ----------
+   Founder: "Should race day be added? But left in it's current place
+   aswell?" -- Yes, and the week's own numbers are the argument.
+   MEASURED on the block this file's tests build: race week's header reads
+   70.2km and the carousel could only reach 28.0km of it. The 42.2km race is
+   counted in the total -- every week total filters state.days by week
+   directly and always included it -- while weekSessionDays() excluded it
+   from the days you can swipe to. So goal day, the day the whole block
+   exists for, was the one day of that week the athlete could not open, and
+   the week promised 70km while showing 28.
+   THE OLD COMMENT HAD THE REASON BACKWARDS. It said the exclusion existed
+   "so the two surfaces cannot disagree about the week's total". The totals
+   never read this function; excluding the race is what MADE them disagree.
+   SO WHY A SECOND FUNCTION RATHER THAN WIDENING THE FIRST. weekSessionDays()
+   also feeds Full Plan's week ROW LIST, which sits directly above the
+   dedicated RACE DAY card on that same screen -- adding the race there
+   would print goal day twice on one screen, which is the duplication this
+   whole pass has been removing. The base list keeps one definition of "the
+   week's training days"; this adds, in one named place, "and the race,
+   because the carousel is the only way to reach it".
+   ITS SLIDE IS STILL HELD BACK, by the founder's earlier instruction --
+   "Leave race day separate for the time being" -- so goal day's slide is a
+   hero and the one remaining "View full session" button, and its five
+   execution phases are read on the full card. That exception was defensive
+   before this and is reachable now. */
+function weekCarouselDays(weekNum){
+  var days = weekSessionDays(weekNum);
+  var race = state.days.filter(function(dd){
+    return dd.week === weekNum && dd.type === 'race';
+  });
+  if (!race.length) return days;
+  return days.concat(race).sort(function(x, y){
+    return x.date < y.date ? -1 : (x.date > y.date ? 1 : 0);
+  });
+}
 function weekSelectedDay(weekNum){
-  var wdays = weekSessionDays(weekNum);
+  var wdays = weekCarouselDays(weekNum);
   if (!wdays.length) return null;
   var picked = weekSelectedDate && wdays.filter(function(dd){ return dd.date===weekSelectedDate; })[0];
   if (picked) return picked;
@@ -59240,7 +59283,7 @@ function renderWeekHeroBlock(weekNum, asBlock){
 function renderWeekDaySelector(weekNum){
   var sel = weekSelectedDay(weekNum);
   var today = todayStr();
-  var cells = weekSessionDays(weekNum).map(function(dd){
+  var cells = weekCarouselDays(weekNum).map(function(dd){
     var cls = 'wk-day';
     if (dd.completed) cls += ' is-done';
     else if (dd.date < today){
@@ -59368,13 +59411,13 @@ function weekSlideHtml(dd, i){
     '</div></div>';
 }
 function weekDayIndex(weekNum){
-  var days = weekSessionDays(weekNum), sel = weekSelectedDay(weekNum);
+  var days = weekCarouselDays(weekNum), sel = weekSelectedDay(weekNum);
   if (!sel) return 0;
   for (var i=0; i<days.length; i++){ if (days[i].date === sel.date) return i; }
   return 0;
 }
 function renderWeekDayTrack(weekNum){
-  var days = weekSessionDays(weekNum);
+  var days = weekCarouselDays(weekNum);
   if (!days.length) return '';
   var i = weekDayIndex(weekNum);
   var slides = '';

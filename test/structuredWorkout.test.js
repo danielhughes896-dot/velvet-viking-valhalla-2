@@ -1048,6 +1048,48 @@ test('every day on the week slide carries its note, and its rail if it has one',
     'the slide\u2019s caption anchor is no longer made unique to the slide');
 });
 
+/* ---------- THE WEEK CAN REACH EVERY KILOMETRE IT CLAIMS ----------
+   Founder: "Should race day be added? But left in it's current place
+   aswell?" The week's own numbers made the case: race week's header read
+   70.2km while the carousel could reach 28.0km of it, because every week
+   total filters state.days by week directly and has always counted the
+   42.2km race, while weekSessionDays() kept it out of the days you can
+   swipe to. Goal day -- the day the block exists for -- was the one day of
+   that week that could not be opened. */
+test('the week carousel reaches every day the week counts', () => {
+  const a = railApp();
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(race, 'the block builds no goal day, so this proves nothing');
+  const w = race.week;
+  const km = list => list.reduce((t, d) => t + (d.km || 0), 0);
+  const header = a.state.days.filter(d => d.week === w);
+  /* THE NUMBERS AGREE, which is the whole point and is read the same way
+     the header reads it rather than from a constant. */
+  assert.ok(Math.abs(km(a.weekCarouselDays(w)) - km(header)) < 0.01,
+    'the week header counts ' + km(header).toFixed(1) + 'km and the carousel reaches ' +
+    km(a.weekCarouselDays(w)).toFixed(1) + 'km');
+  assert.ok(a.weekCarouselDays(w).some(d => d.date === race.date),
+    'goal day is still not one of the days the week can be swiped to');
+  /* IN DATE ORDER, or it lands in the middle of the week. */
+  const dates = a.weekCarouselDays(w).map(d => d.date);
+  assert.deepEqual(dates, dates.slice().sort(), 'the carousel days are out of order');
+
+  /* ---- AND NOT IN THE ROW LIST, WHICH IS THE REASON FOR A SECOND LIST ----
+     Full Plan's week rows sit directly above the dedicated RACE DAY card on
+     the same screen. Widening the shared list rather than adding this one
+     would print goal day twice there, which is the duplication this whole
+     pass has been removing. */
+  assert.ok(!a.weekSessionDays(w).some(d => d.type === 'race'),
+    'the race is back in the row list, so Full Plan prints goal day twice');
+  const rows = /function renderPlanWeekRows?\(/.test(RAILCODE) ? null : null;
+  /* Every other week is unchanged by the addition. */
+  for (let x = 1; x < w; x++){
+    assert.deepEqual(a.weekCarouselDays(x).map(d => d.date),
+      a.weekSessionDays(x).map(d => d.date),
+      'week ' + x + ' has no race, so its carousel must be its training days exactly');
+  }
+});
+
 /* ---------- THE SENTENCE ITSELF, AGAINST A REAL BLOCK ----------
    The test above can only check structure: its fixture gives every day the
    placeholder description "prose". This one reads the 11-week block, where
