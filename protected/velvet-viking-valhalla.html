@@ -2349,7 +2349,7 @@
        athlete a vertical scroll that starts on top of the rail. The page
        pager keeps its hands off because the markup carries data-hswipe,
        which it checks before the overflow it can no longer see. */
-    overflow-x:hidden; overflow-y:hidden; touch-action:pan-y;
+    overflow-x:hidden; overflow-y:hidden; touch-action:pan-y pinch-zoom;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) :is(.how-card .fuel-body, .ws-rail)::-webkit-scrollbar{display:none;}
@@ -5528,7 +5528,7 @@
   .share-stage{position:relative; display:flex; justify-content:center;
     background:#0b0907; border:1px solid var(--line); border-radius:14px; padding:10px;}
   .share-canvas{width:auto; height:min(46vh,380px); max-width:100%; border-radius:8px;
-    touch-action:none; cursor:grab; display:block;}
+    touch-action:pinch-zoom; cursor:grab; display:block;}
   .share-canvas:active{cursor:grabbing;}
   .share-stage.has-img .share-empty{display:none;}
   .share-empty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
@@ -6521,7 +6521,7 @@
      NOT ON THE DE-BOXING LIST, for the reason .race-event is not on it: the
      plan screens strip rows in a list down to rows, and this is one object
      that IS the layer -- the same standing the Race Day panel has. */
-  .view-plan .pp-rail, .view-week .wk-rail{position:relative; overflow:hidden; touch-action:pan-y;}
+  .view-plan .pp-rail, .view-week .wk-rail{position:relative; overflow:hidden; touch-action:pan-y pinch-zoom;}
   .pp-slide, .wk-slide{flex:0 0 100%; min-width:0; box-sizing:border-box;}
   /* ---------- A SLIDE'S PICTURES STAY INSIDE THAT SLIDE ----------
      Founder: "There is a wrapping issue? So when you swipe the images
@@ -7353,7 +7353,21 @@
   /* The horizontal regions that own their own gesture say so in CSS as well
      as being detected at runtime: pan-x lets the browser scroll them
      natively even while the pager is listening. */
-  .fuel-body, .pace-table-card, [data-hswipe]{touch-action:pan-x;}
+  /* ---------- EVERY touch-action KEEPS pinch-zoom ----------
+     Founder: "Enable native pinch-to-zoom across the entire Valhalla app.
+     This must be a global behaviour, not implemented separately per screen."
+     Nothing was switching zoom off on purpose. The viewport meta has never
+     carried user-scalable=no or a maximum-scale, and all four touchmove
+     handlers already return on e.touches.length !== 1, so a two-finger
+     gesture never reaches their preventDefault. What blocked it was this
+     property: pan-x, pan-y and none each name the ONLY things the browser
+     may do, and none of those lists includes zooming. Adding the pinch-zoom
+     token to each restores it without giving back any of the panning these
+     rules exist to suppress -- the swipe rails, the pager and the share
+     composer's drag all behave exactly as before.
+     SIX DECLARATIONS, WHICH IS ALL OF THEM: nothing else in the sheet sets
+     touch-action, so there is no per-screen variant to keep in step. */
+  .fuel-body, .pace-table-card, [data-hswipe]{touch-action:pan-x pinch-zoom;}
   /* ---------- pan-x IS FOR A REGION THAT SCROLLS SIDEWAYS, NOT FOR ONE
        THAT MERELY LISTENS SIDEWAYS ----------
      THE FAULT THIS FIXES: open a session on This Week and the page could
@@ -7387,8 +7401,8 @@
      Scoped to [data-hswipe] on purpose: it may only ever relax an element
      the rule above had already restricted, never take pinch-zoom away from
      one that still has it. */
-  .wk-session.is-open[data-hswipe]{touch-action:pan-y;}
-  .how-card .fuel-body[data-hswipe]{touch-action:pan-y;}
+  .wk-session.is-open[data-hswipe]{touch-action:pan-y pinch-zoom;}
+  .how-card .fuel-body[data-hswipe]{touch-action:pan-y pinch-zoom;}
   /* ONE CARD RADIUS. --radius (16px), the same value .hub-card.tile-card and
      .ev-card already use. The bare rule carried --radius-sm (10px), so the
      identical class rendered two different corners depending on whether the

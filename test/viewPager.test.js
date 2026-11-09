@@ -63,8 +63,18 @@ test('a horizontal region owns its own gesture, and the rule is generic', () => 
   /* .pp-chips came off this list with the phase stepper. Its replacement
      needs no name here: the carousel is a [data-hswipe] region, which is
      the generic arm, and that is the point of having one. */
-  assert.match(CSS, /\.fuel-body, \.pace-table-card, \[data-hswipe\]\{touch-action:pan-x;\}/,
-    'the horizontal regions lost their touch-action');
+  /* READ AS TOKENS, NOT AS A STRING. This pinned the exact declaration text,
+     so adding the pinch-zoom token -- which changes nothing about panning --
+     failed it while the regions behaved identically. What it means to claim
+     is that these regions pan sideways and not vertically, and (since zoom
+     is a global guarantee now) that they still zoom. */
+  const i = CSS.indexOf('.fuel-body, .pace-table-card, [data-hswipe]{touch-action:');
+  assert.ok(i > -1, 'the horizontal regions lost their touch-action');
+  const toks = CSS.slice(CSS.indexOf(':', i) + 1, CSS.indexOf(';', i)).trim().split(/\s+/);
+  assert.ok(toks.indexOf('pan-x') !== -1 && toks.indexOf('pan-y') === -1,
+    'the horizontal regions no longer pan sideways only: ' + toks.join(' '));
+  assert.ok(toks.indexOf('pinch-zoom') !== -1,
+    'the horizontal regions stopped allowing pinch-zoom: ' + toks.join(' '));
 });
 
 test('vertical intent wins, and keeps winning for the whole gesture', () => {

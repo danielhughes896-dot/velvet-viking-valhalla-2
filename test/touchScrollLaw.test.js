@@ -42,6 +42,21 @@ const { buildPlan } = require('./fixtures.js');
 const ROOT = path.join(__dirname, '..');
 const RUNTIME = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 
+/* ---- WHAT A touch-action RULE CLAIMS, READ AS TOKENS ----
+   These laws used to pin the exact declaration text ("touch-action:pan-x;}").
+   That is a FORMATTING pin, not a behavioural one: adding the pinch-zoom
+   token to restore native zoom -- which changes none of the panning these
+   rules exist to control -- broke all three at once while the screens
+   behaved identically. Read the tokens and assert what each one MEANS: the
+   axis that is allowed, the axis that is not, and that zooming survived. */
+const CSS_BARE = RUNTIME.replace(/\/\*[\s\S]*?\*\//g, '');
+function touchTokens(selector){
+  const i = CSS_BARE.indexOf(selector + '{touch-action:');
+  assert.ok(i > -1, 'no touch-action rule for: ' + selector);
+  const from = i + selector.length + '{touch-action:'.length;
+  return CSS_BARE.slice(from, CSS_BARE.indexOf(';', from)).trim().split(/\s+/);
+}
+
 function app(){
   const a = loadApp({ pinnedDate: '2026-11-06T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {};
@@ -55,14 +70,24 @@ function app(){
 test('the pan-x default is still what the overrides are overriding', () => {
   /* If this ever becomes pan-y on its own, the two rules below stop being
      load-bearing and should be deleted rather than left as decoration. */
-  assert.match(RUNTIME, /\[data-hswipe\]\{touch-action:pan-x;\}/,
-    'the horizontal-region default changed; re-read the two overrides below');
+  const t = touchTokens('[data-hswipe]');
+  assert.ok(t.indexOf('pan-x') !== -1,
+    'the horizontal-region default changed; re-read the two overrides below: ' + t.join(' '));
+  assert.equal(t.indexOf('pan-y'), -1,
+    'the horizontal-region default now allows vertical panning too, which is ' +
+    'what the two overrides below exist to grant: ' + t.join(' '));
+  assert.ok(t.indexOf('pinch-zoom') !== -1,
+    'the horizontal regions stopped allowing pinch-zoom, so the app no longer ' +
+    'zooms over a rail: ' + t.join(' '));
 });
 
 test('the open week session lets the page scroll vertically', () => {
-  assert.match(RUNTIME, /\.wk-session\.is-open\[data-hswipe\]\{touch-action:pan-y;\}/,
+  const t = touchTokens('.wk-session.is-open[data-hswipe]');
+  assert.ok(t.indexOf('pan-y') !== -1 && t.indexOf('pan-x') === -1,
     'This Week’s open session takes pan-x again -- the card cannot be ' +
-    'scrolled past on a phone, and no mouse will ever show it');
+    'scrolled past on a phone, and no mouse will ever show it: ' + t.join(' '));
+  assert.ok(t.indexOf('pinch-zoom') !== -1,
+    'the open week session stopped allowing pinch-zoom: ' + t.join(' '));
 });
 
 test('the coaching stack outside a focused session lets the page scroll', () => {
@@ -70,8 +95,11 @@ test('the coaching stack outside a focused session lets the page scroll', () => 
      not a sideways rail at all -- it is a tall vertical stack of coaching
      rows, and pan-x over it blocks the page exactly as it did on the week
      card. The focused copy has carried its own pan-y for a long time. */
-  assert.match(RUNTIME, /\.how-card \.fuel-body\[data-hswipe\]\{touch-action:pan-y;\}/,
-    'the unfocused coaching stack takes pan-x again');
+  const t = touchTokens('.how-card .fuel-body[data-hswipe]');
+  assert.ok(t.indexOf('pan-y') !== -1 && t.indexOf('pan-x') === -1,
+    'the unfocused coaching stack takes pan-x again: ' + t.join(' '));
+  assert.ok(t.indexOf('pinch-zoom') !== -1,
+    'the unfocused coaching stack stopped allowing pinch-zoom: ' + t.join(' '));
   assert.match(RUNTIME, /\.how-mod\{display:contents;\}/,
     'the unfocused rail is no longer a vertical stack -- re-check the rule above');
 });
@@ -192,4 +220,25 @@ test('nothing opaque sits between those layers and the page, so --bg is the righ
     assert.doesNotMatch(r, /background:(?!none)/,
       sel + ' now paints a ground of its own; the sliding layers assume --bg');
   });
+});
+
+test('every touch-action in the sheet still allows pinch-zoom', () => {
+  /* Founder: "Enable native pinch-to-zoom across the entire Valhalla app.
+     This must be a GLOBAL behaviour, not implemented separately per screen."
+     pan-x, pan-y and none each name the ONLY gestures the browser may
+     perform on that subtree, and none of those lists includes zooming -- so
+     every such declaration is a place the app stops zooming, and a new one
+     added later is a new such place. This is the law that makes the
+     behaviour global rather than six separate fixes: it does not care which
+     selectors exist, only that no declaration anywhere withholds zoom.
+     manipulation and auto are not listed because neither blocks zooming. */
+  const decls = CSS_BARE.match(/touch-action:[^;}]+/g) || [];
+  assert.ok(decls.length >= 6,
+    'the touch-action declarations vanished -- this law is reading nothing');
+  const offenders = decls
+    .map(d => d.slice('touch-action:'.length).trim())
+    .filter(v => /\b(pan-x|pan-y|none)\b/.test(v) && !/\bpinch-zoom\b/.test(v));
+  assert.deepEqual(offenders, [],
+    'these touch-action declarations withhold pinch-zoom, so the app stops ' +
+    'zooming wherever they apply: ' + offenders.join(' | '));
 });
