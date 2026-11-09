@@ -60251,7 +60251,25 @@ function weekSlideHtml(dd, i){
   /* A PREVIEW: open, because a closed <details> here is an empty gap rather
      than a disclosure anyone can press; and without the Coach's Note, which
      the founder put back on the canonical full session only. */
-  var depth = (dd.type === 'race') ? '' : renderCoachingDepth(dd, '', true);
+  /* ---------- A FINISHED SESSION HANDS ITS OWN WORDS IN ----------
+     renderCoachingDepth builds the "Session Details" tab only when it is
+     given a preamble to put behind it -- that is how the day card does it,
+     passing its .day-detail in once the prescription is reference. Calling
+     it with '' here meant a completed NON-SOLO BLUEPRINT session got no tab
+     at all: three tabs on the slide where Today has four, and the rail it
+     should have held sitting loose above the panel.
+     A solo-note day was unaffected and hid the gap, because its disclosure
+     builds the tab from its own body rather than from a preamble -- which
+     is why this only showed on two days of eight. */
+  /* RACE DAY IS HELD BACK FROM THE COACHING ONLY, which is what the
+     instruction was about -- its five execution phases stay off the slide.
+     Its blueprint rail is drawn here exactly as it always was, and it never
+     moves behind a tab, because there is no disclosure on that day to put
+     it in. */
+  var slideOwn = hasWorkoutBlueprint(dd) ? renderStructuredWorkout(dd) : '';
+  var foldOwnIn = prescriptionIsReference(dd) && dd.type !== 'race';
+  var depth = (dd.type === 'race') ? ''
+    : renderCoachingDepth(dd, foldOwnIn ? slideOwn : '', true);
   var capId = 'exec-cap-' + dd.id;
   depth = depth.split(capId).join(capId + '-w' + i);
   /* THE BOX FOLLOWS THE DAY. On a solo-note day the hero and this note are
@@ -60287,7 +60305,19 @@ function weekSlideHtml(dd, i){
          is a list and not the rail the founder is asking for; a race and a
          goal-pace long run draw their rail inside renderCoachingDepth
          instead, and those keep the button. */
-      (hasWorkoutBlueprint(dd) ? renderStructuredWorkout(dd) : '')+
+      /* ---- AND ONCE IT IS RUN, THE PRESCRIPTION GOES BEHIND THE TAB ----
+         The rail is drawn here while the session is still ahead, which is
+         what the founder asked for ("so when you swipe the day the work out
+         is there"). Once it is logged the prescription is reference, and
+         the day card's own rule puts it inside Session Details -- "a tab
+         with that name whose details were stacked outside it would be a
+         label standing apart from the thing it labels".
+         The slide was keeping it above the panel either way, so a completed
+         blueprint day showed its rail loose AND had no Session Details tab
+         at all: the mount it was handed held only the preview cue, which
+         builds no disclosure. Three tabs where Today has four, on exactly
+         the days the founder was looking at. */
+      (foldOwnIn ? '' : slideOwn)+
       /* ---------- THE WHOLE SESSION, NOT A WAY IN TO IT ----------
          Founder: "I want the full session swapping. So I don't want view
          full session button. I want the rail and the coaches note being

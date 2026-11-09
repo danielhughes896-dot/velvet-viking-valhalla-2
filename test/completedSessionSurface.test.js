@@ -630,6 +630,43 @@ test('the week slide carries a finished session’s tabs, in the founder’s ord
     'the slide grew Today’s Ask Coach caveat');
 });
 
+test('every shape of finished session gets the same four tabs on the slide', () => {
+  /* SWEPT, BECAUSE ONE DAY IS NOT THE CLAIM. The first version of this
+     change passed a single-day check while being wrong on two days in
+     eight: a completed NON-SOLO BLUEPRINT session got three tabs, not four.
+     renderCoachingDepth only builds the Session Details tab when it is
+     handed a preamble to put behind it, and the slide was calling it with
+     none -- so the rail sat loose above the panel and the tab that should
+     have held it did not exist. A solo-note day hid the gap, because its
+     disclosure builds the tab from its own body instead.
+     So every completed day in the block is asked, and the shapes are
+     counted to make sure the sweep contains the one that broke. */
+  const a = slideApp();
+  const want = ['Share', 'Session Details', 'Your Log', 'Valhalla Analysis'];
+  let solo = 0, blueprint = 0, other = 0;
+  a.state.days.forEach(d => {
+    if (d.type === 'rest' || !(d.km > 0) || d.type === 'race') return;
+    logAsPrescribed(a, d, { quality: 1 });
+    const slide = a.weekSlideHtml(d, a.state.days.indexOf(d));
+    const tabs = slideTabs(slide);
+    assert.deepEqual(tabs, want,
+      d.date + ' (blueprint=' + (a.hasWorkoutBlueprint(d) ? 1 : 0) +
+      ', solo=' + (a.soloNoteSession(d) ? 1 : 0) + '): the finished slide shows ' +
+      JSON.stringify(tabs));
+    /* AND THE PRESCRIPTION IS BEHIND THE TAB, not loose above it -- the day
+       card's own rule once a session is reference. */
+    const ws = slide.indexOf('ws-block'), panel = slide.indexOf('actual-panel');
+    if (ws > -1) assert.ok(ws > panel,
+      d.date + ': the rail is still loose above the completion panel');
+    if (a.soloNoteSession(d)) solo++;
+    else if (a.hasWorkoutBlueprint(d)) blueprint++;
+    else other++;
+  });
+  assert.ok(solo >= 3 && blueprint >= 3 && other >= 1,
+    'the sweep saw ' + solo + ' solo, ' + blueprint + ' blueprint and ' + other +
+    ' other finished sessions \u2014 it no longer covers the shape that broke');
+});
+
 test('an unrun day on the week slide is untouched by any of it', () => {
   const a = slideApp();
   const d = a.state.days.filter(x => x.type !== 'rest' && x.km > 0 && !x.completed &&
