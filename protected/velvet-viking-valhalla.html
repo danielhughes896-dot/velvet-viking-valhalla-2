@@ -7011,8 +7011,23 @@
   .view-plan .pp-body .week:has(.week-today-flag){
     box-shadow:0 0 18px color-mix(in srgb, var(--gold) 20%, transparent);}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
-  .view-plan .pp-body .week + .week,
   .view-plan-week .pw-progress{padding:0 0 14px;}
+  /* ---------- THE WEEK ROWS SIT APART BY THE SAME 14px ----------
+     Founder, across all four phases: "The spaces between the weeks on full
+     plan are not the same."
+     .week WAS IN THE RULE ABOVE AND DOES NOT BELONG THERE. That declaration
+     is right for .pw-row, whose base is padding:14px 0 -- taking the top off
+     every row after the first leaves 14px between each pair. .week has no
+     base padding at all (see the de-boxing rule), so the same declaration
+     padded the BOTTOM of rows two onwards: nothing after the first row, 14px
+     after every other, and a stray 14px tail under the last.
+     MEASURED at 430px, every phase of a 14-week block: the first row came
+     out 44px tall and every other 58px, so the space after week 1 was 14px
+     tighter than after week 2. Base, Build, Peak and Taper all did it.
+     PADDING THE TOP OF EVERY ROW BUT THE FIRST is the same "space between,
+     not around" idiom, applied to the edge .week actually has: 14px between
+     each pair, the first row still flush under the dots, and no tail. */
+  .view-plan .pp-body .week + .week{padding:14px 0 0;}
 
   /* ---- THE NAVIGATION IS LIT, NOT DRAWN ----
      No surface of its own, no rule along the top: the bar is the page, and

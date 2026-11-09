@@ -1085,6 +1085,45 @@ test('a block with no carousel keeps the goal day in its list', () => {
     'the goal-day card appears more than once when the plan is rendered whole');
 });
 
+/* ---------- THE WEEK ROWS SIT APART BY THE SAME SPACE ----------
+   Founder, across all four phases: "The spaces between the weeks on full
+   plan are not the same."
+   MEASURED at 430px on a 14-week block, between the printed rows rather
+   than their boxes (the boxes are flush either way, the space lives inside
+   one of them). Before: 0, 14 on Base; 0, 14, 14, 14, 14 on Build; 0, 14 on
+   Peak; 0 on Taper. After: 14 everywhere. The first gap was always nothing. */
+test('every week row is the same distance from the one above it', () => {
+  /* THE PREMISE, AND THE REASON THE BUG WAS INVISIBLE IN THE SHEET.
+     .pw-row carries padding:14px 0, so taking the top off every row after
+     the first leaves 14px between each pair -- correct. .week carries no
+     vertical padding at all, so the identical declaration padded the BOTTOM
+     of rows two onwards instead: nothing after the first row and a tail
+     under the last. The two were written as one rule and only one of them
+     was right. */
+  const base = rule('.view-plan .pp-body .week');
+  assert.equal(/padding(-top|-bottom)?:\s*[1-9]/.test(base), false,
+    'the week row has taken a base padding — the between-rows idiom below ' +
+    'depends on it having none, so re-decide both together: ' + base);
+  const pwBase = rule(':is(.view-plan, .view-plan-week, .view-plan-session) .pw-row');
+  assert.match(pwBase, /padding:14px 0/,
+    'the session row lost the base padding that makes its own sibling rule right');
+
+  /* THE SPACE GOES ON THE TOP OF EVERY ROW BUT THE FIRST. Bottom padding
+     here is the bug: it leaves the first pair flush and hangs a tail off
+     the last row. */
+  const sib = rule('.view-plan .pp-body .week + .week');
+  assert.match(sib, /padding:14px 0 0/,
+    'the week rows space themselves by padding something other than the top, ' +
+    'which leaves the first pair tighter than the rest: ' + sib);
+
+  /* AND THE TWO RULES ARE SEPARATE. They were one grouped selector, which
+     is how a declaration right for .pw-row came to be applied to .week. */
+  const grouped = new RegExp('\\.pw-row \\+ \\.pw-row[^{]*\\.view-plan \\.pp-body \\.week \\+ \\.week');
+  assert.equal(grouped.test(BARE), false,
+    'the week row and the session row share one declaration again — their ' +
+    'base paddings differ, so one of them will be wrong');
+});
+
 test('under the carousel a week is a row, never a drawer', () => {
   /* THE DEFECT THIS CLOSES, MEASURED. Nothing in the markup has dispatched
      toggle-week since the week became a way IN -- grep the runtime for
