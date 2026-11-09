@@ -6198,9 +6198,17 @@
      the timer alone would have re-rendered mid-flight, which is the jump
      the ordering exists to prevent. So it is a token now, read by the
      stylesheet here and by pagerSettleMs() there, and it cannot drift.
-     150ms: the slide still decelerates into place rather than cutting, and
-     the day now arrives ~185ms after the finger leaves instead of ~275. */
-  :root{ --pager-settle:150ms; }
+     100ms, ASKED FOR AFTER FEELING 150. Measured at each, three swipes
+     apiece, from touchend to the day being on screen:
+       240ms -> 264, 263, 277 ms   (what it was)
+       150ms -> 181, 173, 177 ms
+       100ms -> 130, 130, 127 ms   (this)
+         0ms ->  37,  31,  29 ms   (the floor: renderApp() itself)
+     The easing is unchanged, so the slide still decelerates into place
+     rather than cutting -- it simply does it briskly. Below this the
+     animation stops reading as movement at all, and the only thing left to
+     win is the ~30ms the re-render costs, which is a different change. */
+  :root{ --pager-settle:100ms; }
   .wk-track.is-settling{transition:transform var(--pager-settle) cubic-bezier(.22,.61,.36,1);}
   /* AND A REAL BUG THIS TOKEN CLOSES. Reduced motion already killed the
      transition, but the commit still sat on a 240ms timer -- so the one
