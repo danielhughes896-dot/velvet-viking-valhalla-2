@@ -7156,13 +7156,26 @@
   .view-plan .pp-body .week .week-phase{color:var(--ink);}
   .view-plan .pp-body .week.is-done .week-num,
   .view-plan .pp-body .week.is-done .week-phase{color:var(--ok-text);}
+  /* ONE SELECTOR, NOT TWO. The :has(.week-today-flag) arm existed because
+     the pill was the only marker of the current row; the pill is gone and
+     the row carries .is-now itself, so the arm would now match nothing and
+     a dead selector is a thing that drifts. */
   .view-plan .pp-body .week.is-now .week-num,
-  .view-plan .pp-body .week.is-now .week-phase,
-  .view-plan .pp-body .week:has(.week-today-flag) .week-num,
-  .view-plan .pp-body .week:has(.week-today-flag) .week-phase{color:var(--gold-bright);}
-  .view-plan .pp-body .week.is-now,
-  .view-plan .pp-body .week:has(.week-today-flag){
-    box-shadow:0 0 18px color-mix(in srgb, var(--gold) 20%, transparent);}
+  .view-plan .pp-body .week.is-now .week-phase{color:var(--gold-bright);}
+  /* ---------- AND THE HALO IS ROUNDED, OR IT IS A BOX ----------
+     Founder: "The black box over the week is there a chance to smooth the
+     sides out?"
+     It was a box because a box-shadow traces the border-box, and this row
+     is de-boxed: border-radius 0. Measured at 430px -- a 398x44 row with
+     0 0 18px of gold at 20% and no radius -- so the glow painted a crisp
+     rectangle and its two vertical seams read as the sides of a panel.
+     The radius is what rounds the halo; the row itself still has no
+     background and no border, so nothing is re-boxed. Spread a little
+     wider and softer at the same time, because a tighter glow on a rounded
+     edge reads as a rim rather than as light. */
+  .view-plan .pp-body .week.is-now{
+    border-radius:var(--radius); 
+    box-shadow:0 0 26px 2px color-mix(in srgb, var(--gold) 16%, transparent);}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
   .view-plan-week .pw-progress{padding:0 0 14px;}
   /* ---------- THE WEEK ROWS SIT APART BY THE SAME 14px ----------
@@ -49857,11 +49870,20 @@ function renderWeekAccordion(weekNum, open){
   var weekPct = vol.training > 0
     ? Math.max(0, Math.min(100, Math.round(100*vol.doneTraining/vol.training))) : 0;
   var doneCls = (vol.training > 0 && weekPct >= 100) ? ' is-done' : '';
-  return '<div class="week'+openCls+doneCls+(taperLook?' is-taper':'')+(taperFinal?' is-taper-final':'')+'" id="week-'+weekNum+'">'+
+  return '<div class="week'+openCls+doneCls+(hasToday?' is-now':'')+(taperLook?' is-taper':'')+(taperFinal?' is-taper-final':'')+'" id="week-'+weekNum+'">'+
     '<button type="button" class="week-head" data-action="plan-open-week" data-week="'+weekNum+'">'+
       '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
       '<div class="week-meta">'+
-        '<div class="week-phase font-head">'+weekRowLabel(weekNum)+(hasToday?'<span class="week-today-flag font-head">Now</span>':'')+'</div>'+
+        /* ---------- NO "NOW" PILL ----------
+           Founder: "Can we remove the now tab on full plan? The gold text
+           makes that point." It does: this row's number and phase are lit
+           gold-bright, and nothing else on the list is.
+           THE CLASS IS WHAT LIGHTS IT NOW. The sheet selected the current
+           row with :has(.week-today-flag) -- the pill WAS the hook -- so
+           deleting the element alone would have taken the gold text and
+           the glow with it, which is the one thing the founder is keeping.
+           .is-now is emitted on the row below and the sheet reads that. */
+        '<div class="week-phase font-head">'+weekRowLabel(weekNum)+'</div>'+
         '<div class="week-range font-mono">'+weekRangeLabel(range)+'</div>'+
       '</div>'+
       /* The same pair the hero shows, plus the share of it that is done --
@@ -60151,8 +60173,17 @@ function renderWeekHeroBlock(weekNum, asBlock){
   var wkPos = asBlock
     ? '<div class="wk-hero-wk font-head">Week '+weekNum+' of '+totalWeeksInPlan()+'</div>'
     : '';
+  /* ---------- THE RECOVERY CHIP IS VALHALLA'S ----------
+     Founder: "Recovery normal top right doesn't need to be there neither
+     - that's all ok Valhalla tab."
+     Full Plan is the shape of the block; how recovery is going today is a
+     reading about the athlete, and Valhalla is the screen that makes those.
+     THIS WEEK KEEPS IT, deliberately: the instruction and the screenshot
+     are both Full Plan, and This Week is the screen about the week the
+     athlete is actually in, where a reading about right now has a claim to
+     be. One line, asBlock, rather than a second hero. */
   return '<div class="wk-hero">'+
-    renderWeekStatusChip()+
+    (asBlock ? '' : renderWeekStatusChip())+
     '<div class="wk-hero-title font-head">'+escapeHtml(title)+'</div>'+
     (sub.length ? '<div class="wk-hero-sub">'+escapeHtml(sub.join(' \u00b7 '))+'</div>' : '')+
     '<div class="wk-hero-figs">'+

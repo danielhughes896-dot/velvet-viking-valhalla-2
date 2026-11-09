@@ -200,7 +200,11 @@ test('done, now and ahead are one colour language on the plan', () => {
   const weeks = BARE.slice(BARE.indexOf('.view-plan .pp-body .week .week-num'));
   assert.match(weeks.slice(0, 1200), /\.week\.is-done \.week-num,[\s\S]{0,120}var\(--ok-text\)/,
     'a completed week row is not green');
-  assert.match(weeks.slice(0, 1600), /:has\(\.week-today-flag\) \.week-phase\{color:var\(--gold-bright\);?\}/,
+  /* SELECTED BY .is-now, NOT BY THE PILL. The sheet used to find this row
+     with :has(.week-today-flag) -- the "Now" pill WAS the hook. The founder
+     took the pill off ("the gold text makes that point"), so the row
+     carries the class itself and the pairing is asserted below. */
+  assert.match(weeks.slice(0, 1600), /\.week\.is-now \.week-phase\{color:var\(--gold-bright\);?\}/,
     'the current week row is not gold');
 });
 
@@ -210,12 +214,25 @@ test('the current week is lit again after the de-boxing took its ring', () => {
      border those were drawn on and left nothing marking it at all. It comes
      back as illumination, which is what the rest of the product selects
      with -- not as the ring, which is the geometry that went. */
-  const i = BARE.indexOf('.view-plan .pp-body .week:has(.week-today-flag){');
+  const i = BARE.indexOf('.view-plan .pp-body .week.is-now{');
   assert.ok(i > -1, 'the current week has no treatment at all');
   const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
-  assert.match(body, /box-shadow:0 0 \d+px color-mix\(in srgb, var\(--gold\)/,
+  assert.match(body, /box-shadow:0 0 \d+px(?: \d+px)? color-mix\(in srgb, var\(--gold\)/,
     'the current week is no longer lit');
-  assert.doesNotMatch(body, /0 0 0 1px|border/, 'the gold ring came back around the current week');
+  /* ---------- AND THE LIGHT IS ROUNDED, OR IT IS A PANEL ----------
+     Founder: "The black box over the week is there a chance to smooth the
+     sides out?" A box-shadow traces the border-box, and this row is
+     de-boxed -- border-radius 0 -- so the glow painted a crisp 398x44
+     rectangle whose two vertical seams read as the sides of a box. */
+  assert.match(body, /border-radius:var\(--radius/,
+    'the glow is square again, so its sides read as a box around the row');
+  /* THE RING IS STILL GONE. border-radius is not a ring, so the old
+     /border/ match would now trip on the very fix above; what this has
+     always meant is a drawn edge. */
+  assert.doesNotMatch(body, /0 0 0 1px|border(?!-radius)/,
+    'the gold ring came back around the current week');
+  assert.doesNotMatch(body, /background/,
+    'the current week row grew a fill, which is the box this was de-boxed out of');
 });
 
 test('every gold glow that marks selection or state names its token', () => {
@@ -2196,4 +2213,51 @@ test('re-tapping FULL PLAN repaints when it changed something, and not otherwise
   a.handleSetView('full');
   assert.equal(renders, 0,
     're-tapping FULL PLAN with nothing to clear is no longer the no-op every other tab is');
+});
+
+test('the Now pill is gone, and the row it used to light is still lit', () => {
+  /* Founder: "Can we remove the now tab on full plan? The gold text makes
+     that point."
+     THE PAIRING IS THE LAW. The pill was not only a label -- the sheet
+     selected the current row with :has(.week-today-flag), so deleting the
+     element on its own would have taken the gold text AND the glow with
+     it, which is the one thing the founder is keeping. The row carries
+     .is-now itself now, and both halves are asserted together so neither
+     can go without the other being noticed. */
+  const a = app();
+  const html = a.renderWeeksList(true, null);
+  assert.equal((html.match(/week-today-flag/g) || []).length, 0,
+    'the Now pill is back on the Full Plan week rows');
+  const lit = (html.match(/class="week[^"]*\bis-now\b/g) || []);
+  assert.equal(lit.length, 1,
+    lit.length + ' week rows claim to be the current one');
+  /* AND IT IS THE RIGHT ROW. A class on every row, or on none, would also
+     satisfy a bare count if the fixture had one week. */
+  const cur = a.currentWeekNum();
+  const row = new RegExp('<div class="(week[^"]*)" id="week-' + cur + '"').exec(html);
+  assert.ok(row, 'the current week has no row in the list');
+  assert.match(row[1], /\bis-now\b/,
+    'the lit row is not the week the athlete is in');
+
+  /* THE DAY-LEVEL FLAG IS A DIFFERENT ELEMENT WITH THE SAME CLASS, and it
+     is untouched -- it says "Today" on a day row, not "Now" on a week. */
+  const today = a.state.days.filter(d => d.date === a.todayStr())[0];
+  if (today) assert.match(a.renderDayCard(today), /week-today-flag/,
+    'the day row lost its Today flag along with the week pill');
+});
+
+test('Full Plan does not carry the recovery chip; This Week does', () => {
+  /* Founder: "Recovery normal top right doesn't need to be there neither -
+     that's all ok Valhalla tab."
+     Full Plan is the shape of the block; how recovery is going is a reading
+     about the athlete and Valhalla is the screen that makes those. This
+     Week keeps it on purpose -- the instruction and the screenshot are both
+     Full Plan, and This Week is the screen about the week the athlete is
+     actually in. One hero function, so the two are asserted together. */
+  const a = app();
+  const cur = a.currentWeekNum();
+  assert.equal(a.renderWeekHeroBlock(cur, true).indexOf('wk-chip'), -1,
+    'the recovery chip is back on Full Plan');
+  assert.ok(a.renderWeekHeroBlock(cur, false).indexOf('wk-chip') > -1,
+    'This Week lost its recovery chip as well, which was not the instruction');
 });
