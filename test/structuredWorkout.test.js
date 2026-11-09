@@ -893,6 +893,66 @@ test('the tick and the edit control sit together, clear of the ring, in both sta
   assert.ok(edits >= 30, 'only ' + edits + ' slides were checked');
 });
 
+/* ---------- THE WORKOUT IS ON THE WEEK SLIDE, AND IT OWNS ITS OWN SWIPE ----
+   Founder: "I think the work out now should be open like full plan. So when
+   you swipe the day the work out is there."
+   A solo-note day already showed everything it had; a day with a card rail
+   showed a hero, a gap, and a button offering to reveal the session. */
+test('a session with a rail shows that rail on the week slide', () => {
+  const a = railApp();
+  let railed = 0, solo = 0;
+  a.state.days.forEach((d, i) => {
+    const slide = a.weekSlideHtml(d, i);
+    const cards = (slide.match(/ws-card-body/g) || []).length;
+    /* SOLO FIRST: a solo-note day HAS a blueprint -- that is what makes it
+       one -- so asking hasWorkoutBlueprint() first claims every easy run. */
+    if (a.soloNoteSession(d)){
+      solo++;
+      assert.equal(cards, 0, d.date + ': a solo-note day grew a card rail on the slide');
+    } else if (a.hasWorkoutBlueprint(d)){
+      railed++;
+      assert.ok(cards >= 1,
+        d.date + ' (' + d.type + '): the week slide shows no workout, only a button to find it');
+      /* THE SAME RAIL THE FOCUSED CARD DRAWS -- one function, so the two
+         screens cannot describe the session differently. */
+      assert.equal(cards, (a.renderDayCard(d).match(/ws-card-body/g) || []).length,
+        d.date + ': the week slide and the day card draw different numbers of cards');
+    }
+  });
+  assert.ok(railed >= 10 && solo >= 20,
+    'the block exercised ' + railed + ' railed and ' + solo + ' solo days — this proves little');
+});
+
+test('swiping the workout does not also change the day', () => {
+  /* ---- A GESTURE BELONGS TO THE INNERMOST THING THAT WANTS IT ----
+     The workout rail is a horizontal region of its own -- scroll-snap, no
+     handler, no stopPropagation -- so once it sits inside the week's day
+     carousel its swipes reach that carousel too. MEASURED IN A BROWSER
+     before the fix: a swipe across the cards moved the week from index 1 to
+     index 2 while the cards scrolled as well; after it, the week stays at 1
+     and a swipe starting on the hero still moves it to 2.
+     THE HELPER ALREADY EXISTED. wireWeekFullSwipe() asks exactly this for
+     the open card, written when the coaching rail inside a session did the
+     same thing to it. Reused rather than re-derived, and passed `rail` as
+     the stopping point because the rail carries data-hswipe itself -- a
+     walk that did not stop there would find that attribute and always
+     answer yes, standing the pager down on every touch and killing the day
+     swipe altogether. */
+  const pg = /function wirePagerRail\(rail, learnKey, planCommit\)\{[\s\S]*?\n\}/.exec(RAILCODE)[0];
+  assert.match(pg, /weekSwipeOwnedInside\(e\.target, rail\)/,
+    'the day carousel claims swipes that belong to the rail inside it');
+  /* AND IT BAILS ON TOUCHSTART, before a gesture is tracked: deciding later
+     would already have moved the track under the finger. */
+  const start = pg.slice(pg.indexOf("addEventListener('touchstart'"));
+  assert.ok(start.indexOf('weekSwipeOwnedInside') > -1 &&
+            start.indexOf('weekSwipeOwnedInside') < start.indexOf('g = { x:'),
+    'the ownership test runs after the gesture has started being tracked');
+  /* THE HELPER STOPS AT THE ELEMENT IT IS GIVEN, which is what keeps this
+     from standing the pager down on every touch. */
+  assert.match(RAILCODE, /function weekSwipeOwnedInside\(node, card\)\{[\s\S]*?el !== card/,
+    'the ownership walk no longer stops at the rail, so it will swallow every swipe');
+});
+
 /* ---------- THE SENTENCE ITSELF, AGAINST A REAL BLOCK ----------
    The test above can only check structure: its fixture gives every day the
    placeholder description "prose". This one reads the 11-week block, where

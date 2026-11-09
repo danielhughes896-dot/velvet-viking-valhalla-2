@@ -59292,6 +59292,24 @@ function weekSlideHtml(dd, i){
       (act ? '<div class="day-rail wk-rail-act"><div class="day-actions">'+act+'</div></div>' : '')+
       (badges ? '<div class="wk-session-badges">'+badges+'</div>' : '')+
       body+
+      /* ---------- THE WORKOUT IS THERE WHEN YOU SWIPE TO IT ----------
+         Founder: "I think the work out now should be open like full plan.
+         So when you swipe the day the work out is there."
+         A solo-note day already showed everything it has. A day with a card
+         rail showed its hero, a gap, and a button offering to reveal the
+         session -- so the one screen whose job is reading the week made you
+         tap into each day to see what the day actually was.
+         THE SAME RAIL THE FOCUSED CARD DRAWS, from the same function, so
+         the two cannot say different things. It styles correctly here
+         without a new rule: Full Plan's week screen carries .view-week
+         alongside .view-plan-week, so .view-week .wk-overview -- already an
+         arm of the focused-session selector -- matches on both screens.
+         BLUEPRINT RAILS ONLY. Where hasWorkoutBlueprint() is false,
+         renderStructuredWorkout() falls back to a plain <ol> of steps, which
+         is a list and not the rail the founder is asking for; a race and a
+         goal-pace long run draw their rail inside renderCoachingDepth
+         instead, and those keep the button. */
+      (hasWorkoutBlueprint(dd) ? renderStructuredWorkout(dd) : '')+
       renderSoloNote(dd)+
     '</div></div>';
 }
@@ -62640,6 +62658,19 @@ function wirePagerRail(rail, learnKey, planCommit){
   function setX(x){ track.style.transform = 'translate3d(' + Math.round(x) + 'px,0,0)'; }
   rail.addEventListener('touchstart', function(e){
     if (!e.touches || e.touches.length !== 1){ g = null; return; }
+    /* ---- A GESTURE BELONGS TO THE INNERMOST THING THAT WANTS IT ----
+       The week slide carries the session's own card rail now ("when you
+       swipe the day the work out is there"), and that rail is a horizontal
+       region of its own -- scroll-snap, no handler, no stopPropagation. So
+       a swipe across the workout cards reached this pager too and committed
+       a DAY CHANGE: measured, swiping the cards moved the week from index 1
+       to index 2 while the cards also scrolled.
+       THE SAME QUESTION, AND THE SAME HELPER, that wireWeekFullSwipe()
+       already asks for the open card -- written when the coaching rail
+       inside a session did exactly this to it. Asked from one level in and
+       stopping at `rail`, because the rail carries data-hswipe itself and a
+       walk that did not stop would always answer yes. */
+    if (weekSwipeOwnedInside(e.target, rail)){ g = null; return; }
     g = { x:e.touches[0].clientX, y:e.touches[0].clientY, dx:0, axis:null };
     track.classList.remove('is-settling');
   }, { passive:true });
