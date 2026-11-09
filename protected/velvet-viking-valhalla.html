@@ -6126,7 +6126,15 @@
      320px screen with a four-digit block total this is the element that
      would otherwise wrap to two lines and push the bar down. */
   .wk-hero-wk{font-size:17px; color:var(--ink); font-variant-numeric:tabular-nums;
-    white-space:nowrap; min-width:0;}
+    white-space:nowrap; flex:none;}
+  /* flex:none, NOT min-width:0. nowrap plus a shrinkable box is a box that
+     gets squeezed under its own words and clips them -- measured on a
+     19-week block at 320px, "Week 19 of 19" wanted 98px and was given 90.
+     It is the shortest of the three figures and the one with no room to
+     give, so it keeps its width and the row wraps below if it must. */
+  @media (max-width:374px){
+    .view-plan .wk-hero-figs{flex-wrap:wrap; row-gap:4px;}
+  }
   /* NO overflow:hidden. It was clipping the fill's own glow to the track, so
      the bar's halo -- the thing that makes it one of the three instruments
      that breathe -- could never leave a 9px-tall box and was invisible at
@@ -6820,6 +6828,27 @@
   .view-plan .pp-body .week-range{
     font-size:var(--fs-row); margin-top:0; white-space:nowrap; flex:0 0 auto;
     color:var(--ink-faint);}
+  /* ---------- ON A NARROW PHONE THE NAME KEEPS ITS ROOM ----------
+     Founder: "The current design fits correctly on my larger phone but
+     clips/overflows on a narrower phone."
+     The rule above ellipsises the label, and the note beside it already
+     settled which way that trade should go: "truncating a week's NAME to
+     make a date fit is the wrong trade." It is the trade that was still
+     being made below 375px, because the row's other four columns are
+     fixed -- volume, percentage, chevron and the gaps come to 175px of a
+     328px row at 360, leaving 153 for a meta that wants 159.
+     Measured, with a 19-week block: at 360 "TAPER PHASE" wanted 89px and
+     had 83; "FINAL WEEK" wanted 77 and had 74. At 320 the shortfall is
+     46px, which is more than any amount of tightening can find.
+     SO THE DATE MOVES DOWN INSTEAD OF THE NAME BEING CUT, and only where
+     it has to. 375px and wider is untouched -- every width from 375 up
+     measured clean before this and renders identically after it -- so
+     this cannot change the screen the founder says already fits. */
+  @media (max-width:374px){
+    .view-plan .pp-body .week-meta{flex-wrap:wrap;}
+    .view-plan .pp-body .week-phase{overflow:visible; text-overflow:clip; flex:0 0 auto;}
+    .view-plan .pp-body .week-range{flex:1 0 100%; margin-top:1px;}
+  }
   .view-plan .pp-body .week-vol{
     display:flex; align-items:baseline; gap:4px; text-align:left;
     /* SIZED TO WHAT IT NEEDS, NOT TO A ROUND NUMBER: measured in place at
