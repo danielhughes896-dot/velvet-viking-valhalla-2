@@ -1678,8 +1678,13 @@ test('tapping the Full Plan tab returns to the Full Plan', () => {
     'FULL PLAN while a session is open still does nothing — the exact bug this fixes');
 
   /* And the re-tap still has to repaint, or the state changes under a screen
-     that never redraws. */
-  assert.match(body, /if \(leftASubScreen\) renderApp\(\);/,
+     that never redraws.
+     THE CONDITION IS ALLOWED TO GROW. It reads `leftASubScreen || leftAPhase`
+     now -- the tab also clears a swiped-to phase, and that needs the same
+     repaint for the same reason -- so what is pinned is that clearing the
+     sub-screens is still one of the things that triggers it, not the exact
+     text of the test. */
+  assert.match(body, /if \(leftASubScreen[^)]*\) renderApp\(\);/,
     'clearing the sub-screens no longer repaints, so the tab clears state and shows ' +
     'the old screen anyway');
 });
@@ -2107,4 +2112,88 @@ test('This Week does not repeat the week number in its own figures', () => {
     'This Week prints "Week N of T" under a title that already says the week');
   assert.match(html, /class="wk-hero-title font-head">Week /,
     'the fixture assumption is gone: This Week no longer leads with the week');
+});
+
+/* ---------------------------------------------------------------------------
+ * FULL PLAN OPENS ON THE PHASE THE ATHLETE IS IN
+ * ---------------------------------------------------------------------------
+ * Founder: "When opening full plan. The default screen should be the phase
+ * the user is in."
+ * planPhaseIndex() always fell back to the stop holding the current week, so
+ * a cold open was right. What was wrong is that planPhaseSel LATCHES on the
+ * first swipe and nothing cleared it: glancing back at Base in week 9,
+ * tapping TODAY and tapping FULL PLAN again re-opened on Base. The screen
+ * remembered a glance as if it were a choice.
+ */
+function phaseApp(pin){
+  const a = loadApp({ pinnedDate: pin + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 11, startDate: '2026-09-04', distanceKey: 'full', volume: 46,
+    benchSec: 45 * 60, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 6 } });
+  a.state.athlete = a.makeAthleteRecord();
+  a.state.view = 'full';
+  return a;
+}
+
+test('a cold Full Plan opens on the phase holding the current week', () => {
+  /* Walked across the block rather than sampled, because "the phase the user
+     is in" is a different answer in every one of them, and a fallback that
+     returned a constant would pass any single probe. */
+  const seen = {};
+  [['2026-09-07', 'Base'], ['2026-09-28', 'Build'],
+   ['2026-10-26', 'Peak'], ['2026-11-02', 'Taper']].forEach(([pin, want]) => {
+    const a = phaseApp(pin);
+    const stops = a.planRailStops();
+    assert.ok(stops.length >= 4, pin + ': the fixture no longer builds a multi-phase rail');
+    assert.equal(a.planSelectedPhase(), want,
+      pin + ' (week ' + a.currentWeekNum() + '): Full Plan opens on the wrong phase');
+    seen[want] = true;
+  });
+  assert.equal(Object.keys(seen).length, 4,
+    'the sweep collapsed onto fewer phases than it names, so it proves less than it looks');
+});
+
+test('opening the tab clears a swipe; the back arrow inside it does not', () => {
+  const a = phaseApp('2026-10-26');            // week 9, Peak
+  assert.equal(a.planSelectedPhase(), 'Peak', 'fixture assumption: the athlete is in Peak');
+
+  a.handlePhasePick('Base');
+  assert.equal(a.planSelectedPhase(), 'Base', 'a swipe no longer selects anything');
+
+  /* ---- LEAVING AND COMING BACK IS "OPENING FULL PLAN" ---- */
+  a.handleSetView('today');
+  a.handleSetView('full');
+  assert.equal(a.planSelectedPhase(), 'Peak',
+    'Full Plan re-opened on a phase the athlete glanced at, not the one they are in');
+
+  /* ---- DRILLING IN AND PRESSING BACK IS NOT ----
+     handlePlanBack() is a different door on purpose. An athlete who opened a
+     Base week FROM Base must land back on Base, or the back arrow throws
+     away the place they were reading. */
+  a.handlePhasePick('Base');
+  a.handlePlanWeekOpenForTest ? a.handlePlanWeekOpenForTest(2) : (a.planWeekOpen = 2);
+  a.handlePlanBack();
+  assert.equal(a.planSelectedPhase(), 'Base',
+    'the back arrow inside Full Plan reset the carousel, losing the week the athlete was reading');
+});
+
+test('re-tapping FULL PLAN repaints when it changed something, and not otherwise', () => {
+  /* The clear happens before handleSetView's already-on-this-view return, so
+     without this pairing a re-tap would change which slide is selected and
+     leave the old one on screen until some unrelated render. */
+  const a = phaseApp('2026-10-26');
+  let renders = 0;
+  a.renderApp = () => { renders++; };
+
+  a.handlePhasePick('Base');
+  renders = 0;
+  a.handleSetView('full');
+  assert.equal(a.planSelectedPhase(), 'Peak', 're-tapping the active tab did not return to the current phase');
+  assert.equal(renders, 1, 're-tapping changed the selected phase without repainting');
+
+  renders = 0;
+  a.handleSetView('full');
+  assert.equal(renders, 0,
+    're-tapping FULL PLAN with nothing to clear is no longer the no-op every other tab is');
 });

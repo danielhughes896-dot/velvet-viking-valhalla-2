@@ -62828,11 +62828,25 @@ function handleSetView(view){
      reason the voice probe above it is: the case that needs this most is
      the one where the view is already 'full'. */
   var leftASubScreen = (view==='full' && (planSessionOpen || planWeekOpen));
-  if (view==='full'){ planSessionOpen = null; planWeekOpen = null; }
+  /* ---------- AND THE CAROUSEL RETURNS TO THE PHASE YOU ARE IN ----------
+     Founder: "When opening full plan. The default screen should be the
+     phase the user is in."
+     planPhaseIndex() already falls back to the stop holding the current
+     week -- that part was right -- but planPhaseSel latches the moment the
+     athlete swipes, and nothing cleared it. So looking back at Base in week
+     9, tapping TODAY and tapping FULL PLAN again re-opened on Base: the
+     screen remembered a glance as if it were a choice.
+     THE SAME DOORWAY THE SUB-SCREENS ARE CLEARED IN, and for the same
+     reason. plan-back does NOT come through here -- it is handlePlanBack()
+     -- so drilling into a Base week from Base and pressing back still
+     returns to Base. Only arriving at the tab resets the swipe, which is
+     what "opening full plan" means. */
+  var leftAPhase = (view==='full' && planPhaseSel !== null);
+  if (view==='full'){ planSessionOpen = null; planWeekOpen = null; planPhaseSel = null; }
   if (state.view===view){
-    /* ...unless clearing those two just changed what 'full' draws. A re-tap
+    /* ...unless clearing those just changed what 'full' draws. A re-tap
        that changed nothing stays the no-op every other tab is. */
-    if (leftASubScreen) renderApp();
+    if (leftASubScreen || leftAPhase) renderApp();
     /* Re-tapping VALHALLA used to return from Coach or Record to the
        overview. There is no Coach or Record to return from, so this is a
        no-op again, exactly like every other tab. */
