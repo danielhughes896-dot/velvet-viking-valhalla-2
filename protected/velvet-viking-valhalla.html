@@ -57578,16 +57578,23 @@ function renderVoiceCardBody(dd){
   if (!bits && !imported) return '';
 
   var html = bits ? '<div class="voice-row">'+bits+'</div>' : '';
-  /* ONE LINE, AND ONLY WHERE IT EXPLAINS SOMETHING. With controls on the card
-     it says what they will and will not cover; with nothing left to offer it
-     keeps the sentence it always had. Not a panel, and not a repeat of the
-     written review above, which is untouched and complete either way. */
-  if (imported){
+  /* ---------- ONE LINE, AND ONLY WHERE NOTHING ELSE CAN SAY IT ----------
+     Founder: "The text under ask coach and hear what's next isn't needed?"
+     It is not, where Ask Coach is on the card. The coach answers exactly
+     this question the moment it is asked -- ASK_LOCAL_COPY.strava_session:
+     "That run came in from Strava, so I can't go through it here -- not the
+     pace, the heart rate, the splits, or how it went. I can still help with
+     what's coming." So the card was pre-empting, in a standing paragraph,
+     an answer the athlete gets at the point they want it.
+     WITH NO CONTROLS IT STAYS, and that is the whole of the remaining
+     case: there is nothing to tap, so there is no way to find out, and the
+     sentence is the only explanation the athlete will ever see.
+     Not a panel, and not a repeat of the written review above, which is
+     untouched and complete either way. */
+  if (imported && !bits){
     html += '<div class="voice-row voice-unavailable"><div class="voice-note">'+
-      (bits ? 'Ask coach can still help with what\u2019s next. It can\u2019t discuss '+
-              'this completed run because it came from Strava.'
-            : 'Your coach cannot talk about this session — it came in from Strava. '+
-              'The written review above is unaffected.')+
+      'Your coach cannot talk about this session — it came in from Strava. '+
+      'The written review above is unaffected.'+
       '</div></div>';
   }
   /* THE ADAPTIVE-REASON LINE IS GONE FROM TODAY. "Fuller detail -- you have

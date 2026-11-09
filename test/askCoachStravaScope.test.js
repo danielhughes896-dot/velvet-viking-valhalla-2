@@ -163,18 +163,38 @@ test('the briefing offered is about the NEXT session, and that session is Valhal
   assert.match(html, /what’s next/, 'the control still claims to be about today');
 });
 
-test('the athlete is told what the coach can and cannot do, in one line', () => {
+test('the athlete is told why the run is off limits \u2014 by whatever can still say it', () => {
+  /* Founder: "The text under ask coach and hear what's next isn't needed?"
+     It is not, where Ask Coach is on the card. The coach answers exactly
+     this question the moment it is asked, so a standing paragraph under
+     the button was pre-empting an answer the athlete gets at the point
+     they want it. With no controls there is nothing to ask and the line is
+     the only explanation there will ever be, so it stays.
+     BOTH HALVES ARE ASSERTED, and the second one is why this is not simply
+     a deletion: the information has to survive the line going. */
   const a = app();
   importOnto(a, todayDay(a));
   const html = a.renderVoiceCard(todayDay(a));
-  assert.match(html, /came from Strava/, 'the athlete is not told why the run is off limits');
-  assert.match(html, /can still help with what’s next/,
-    'the athlete is not told what is still available');
-  /* Restraint: one quiet note, not a panel, and not a second copy of the
-     written review that is already on the card above. */
-  assert.equal((html.match(/voice-note/g) || []).length, 1,
-    'more than one explanatory note was drawn');
-  assert.ok(!/voice-warning|alert/.test(html), 'the note escalated into a warning');
+  assert.match(html, /data-action="voice-ask-open"/,
+    'the fixture has no Ask Coach control, so this is testing the other branch');
+  assert.doesNotMatch(html, /can still help with what\u2019s next/,
+    'the card still pre-empts the answer Ask Coach gives when asked');
+  assert.equal((html.match(/voice-note/g) || []).length, 0,
+    'a standing explanatory note is back on a card that has controls');
+
+  /* AND THE COACH ITSELF STILL SAYS IT. If this ever stops being true the
+     line above has deleted the explanation rather than relocated it. */
+  ['how did that run go', 'what was my pace today'].forEach(q => {
+    assert.equal(a.askRequiresStravaSession(q), true,
+      JSON.stringify(q) + ' is no longer recognised as a question about the imported run');
+    const r = a.askLocalResolve(q);
+    assert.equal(r.why, 'strava_session',
+      JSON.stringify(q) + ' is no longer refused as a Strava-session question');
+    assert.match(r.answer, /came in from Strava/,
+      'the coach no longer explains why it cannot discuss the run');
+    assert.match(r.answer, /I can still help with what\u2019s coming/,
+      'the coach no longer says what it CAN still do');
+  });
 });
 
 test('with no safe next session the original refusal is kept, not manufactured content', () => {
@@ -637,11 +657,16 @@ test('the explanatory note is not announced as an alert or a live region', () =>
   /* It is standing context, not an event. A polite live region here would have
      a screen reader read the Strava sentence over the coaching every time the
      card is patched. */
+  /* READ FROM THE BRANCH THAT STILL HAS A NOTE. The note is only drawn now
+     where there are no controls at all -- with Ask Coach on the card the
+     coach answers the question itself and the standing line was cut. */
   const a = app();
-  importOnto(a, todayDay(a));
+  const dd = importOnto(a, todayDay(a));
+  a.voiceCoachAvailable = false;
+  a.state.days = a.state.days.filter(d => d.date <= TODAY);
   const note = /<div class="voice-row voice-unavailable">[\s\S]*?<\/div><\/div>/.exec(
-    a.renderVoiceCard(todayDay(a)));
-  assert.ok(note, 'the note is gone');
+    a.renderVoiceCard(dd));
+  assert.ok(note, 'the note is gone from the one branch that still carries it');
   assert.ok(!/aria-live|role="alert"|role="status"/.test(note[0]),
     'the note became a live region');
 });

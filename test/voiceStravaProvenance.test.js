@@ -111,7 +111,7 @@ test('the availability probe is a deployment question, not an account one', () =
     'the client sends a token to a route that no longer needs one');
 });
 
-test('TODAY being Strava-derived withdraws the DAY, and it says so', () => {
+test('TODAY being Strava-derived withdraws the DAY, and the coach says why', () => {
   /* The one case where the day itself cannot be discussed -- and it is the DAY
      that cannot be discussed, not the athlete's whole plan.
 
@@ -131,10 +131,21 @@ test('TODAY being Strava-derived withdraws the DAY, and it says so', () => {
   dd.stravaActivityId = 'X';
   const html = a.renderVoiceCard(dd);
 
-  assert.match(html, /came in from Strava|came from Strava/,
-    'the athlete is not told why the run is off limits');
   assert.ok(html.indexOf('data-day="' + dd.id + '"') === -1,
     'the imported day is the subject of a voice control');
+  /* ---------- AND THE REASON MOVED TO WHERE IT IS ASKED FOR ----------
+     This asked the CARD for the sentence. The founder has cut that
+     standing line wherever Ask Coach is on the card -- "the text under ask
+     coach and hear what's next isn't needed?" -- because the coach answers
+     the same question the moment it is asked. The claim is unchanged and
+     the carrier moved, so it is asked of the carrier; the POLICY half of
+     this law, above and below, is untouched. */
+  ['how did that run go', 'what was my pace today'].forEach(q => {
+    assert.equal(a.askRequiresStravaSession(q), true,
+      JSON.stringify(q) + ' is no longer recognised as a question about the imported run');
+    assert.match(a.askLocalResolve(q).answer, /came in from Strava|came from Strava/,
+      'the athlete is not told why the run is off limits');
+  });
   /* The day is still out of the context entirely, which is the half that
      carries the policy claim. */
   assert.equal(a.voiceCoachContext().todaySession, null);

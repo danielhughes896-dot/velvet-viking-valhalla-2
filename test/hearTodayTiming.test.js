@@ -328,6 +328,18 @@ test('a Strava-derived day is still refused whole', async () => {
   await settle(); await settle();
   assert.equal(net.calls.length, 0, 'a Strava-derived day reached the speech vendor');
   assert.ok(!briefingVisible(a.renderVoiceCard(dd)), 'a Strava-derived day was spoken about');
-  assert.match(a.renderVoiceCard(dd), /voice-unavailable/,
-    'the athlete is not told why the coach will not talk about this day');
+  /* ---------- AND THE REASON IS STILL REACHABLE, FROM THE COACH ----------
+     This asked the CARD for a .voice-unavailable note. The founder has cut
+     that line wherever Ask Coach is on the card -- "the text under ask
+     coach and hear what's next isn't needed?" -- because the coach answers
+     the same question the moment it is asked, which is where the athlete
+     actually wants it. So the claim is unchanged and the carrier moved:
+     the athlete is still told why, by asking. */
+  ['how did that run go', 'what was my pace today'].forEach(q => {
+    assert.equal(a.askRequiresStravaSession(q), true,
+      JSON.stringify(q) + ' is no longer recognised as a question about this run');
+    const r = a.askLocalResolve(q);
+    assert.match(r.answer, /came in from Strava/,
+      'the athlete is not told why the coach will not talk about this day');
+  });
 });

@@ -204,8 +204,19 @@ test('a Strava-derived day is never the subject of anything the coach says', () 
   a.voiceSpeak = boom('spoken aloud');
   a.handleVoiceListen(today.id);
 
-  assert.match(html, /came from Strava|came in from Strava/,
-    'the athlete is not told why the run is off limits');
+  /* ---------- AND THE REASON MOVED TO WHERE IT IS ASKED FOR ----------
+     This asked the CARD for the sentence. The founder has cut that
+     standing line wherever Ask Coach is on the card -- "the text under ask
+     coach and hear what's next isn't needed?" -- because the coach answers
+     the same question the moment it is asked. The claim is unchanged and
+     the carrier moved, so it is asked of the carrier; the POLICY half of
+     this law, above and below, is untouched. */
+  ['how did that run go', 'what was my pace today'].forEach(q => {
+    assert.equal(a.askRequiresStravaSession(q), true,
+      JSON.stringify(q) + ' is no longer recognised as a question about the imported run');
+    assert.match(a.askLocalResolve(q).answer, /came in from Strava|came from Strava/,
+      'the athlete is not told why the run is off limits');
+  });
   assert.equal(a.voiceTodayIsStravaDerived(), true);
   /* And the boundary that actually carries the policy claim is untouched. */
   assert.equal(a.aiContextRefusalReason(today), 'strava_derived');
