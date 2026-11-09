@@ -827,6 +827,72 @@ test('a solo-note day offers no full session to open', () => {
     'the fixture week exercised ' + ghosted + ' ghosted and ' + offered + ' open-able days');
 });
 
+/* ---------- TICK AND EDIT ON TODAY; EDIT ON THE OTHER TWO ----------
+   Founder: "I think that's right tick and edit on today. Edit this week.
+   And edit full plan." -- and then, on the completed card: "the tick and
+   edit button over lap the ring. I like the position at the top right. But
+   they should both be there all the time."
+   THE OVERLAP WAS MEASURED, NOT EYEBALLED. The rail was absolute at
+   right:0 laying its controls out in a row, so it grew leftwards as it
+   gained them: one control sat at x370, clear of a ring spanning x261-405;
+   logging the session added the notes button and pushed the tick to x310,
+   onto the ring. It is a right-aligned row of its own now, above the hero,
+   so the two states are identical and nothing can collide with the ring
+   however many controls the rail ends up holding. */
+test('the tick and the edit control sit together, clear of the ring, in both states', () => {
+  const a = railApp();
+  const today = a.state.days.filter(d => d.date === a.todayStr())[0];
+  assert.ok(today, 'the block has no day that is today');
+
+  /* BOTH CONTROLS, IN BOTH STATES. dayActionButton() returns the pencil
+     before the session is run and the notes button after, never both, so
+     "both there all the time" means the tick and whichever one applies. */
+  [false, true].forEach(done => {
+    today.completed = done;
+    const html = a.renderDayCard(today);
+    assert.ok(html.indexOf('data-action="toggle-complete"') > -1,
+      'completed=' + done + ': the tick is gone from the day card');
+    assert.ok(html.indexOf('data-action="open-edit"') > -1,
+      'completed=' + done + ': there is no edit control on the day card');
+    assert.ok(html.indexOf('class="day-rail"') > -1,
+      'completed=' + done + ': the two controls are no longer in one rail');
+  });
+  today.completed = false;
+
+  /* AND TODAY NO LONGER HIDES THE PENCIL. Two rules did it, and the second
+     hid the whole rail unless it held a notes button -- which with the
+     pencil back would hide the pencil. */
+  assert.equal(RAILCSS.indexOf('.view-today .day-act-plan{display:none'), -1,
+    'Today hides the edit control again');
+  assert.equal(RAILCSS.indexOf('.view-today .day-actions:not(:has(.day-act-log))'), -1,
+    'Today hides the whole action rail again, which takes the pencil with it');
+
+  /* THE RAIL IS A ROW, NOT A CORNER. An absolute right:0 rail grows
+     leftwards into the ring as controls are added; this is what stops it. */
+  const rail = /\.day-rail\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(rail, 'the focused rail rule is gone');
+  assert.match(rail[1], /justify-content:flex-end/,
+    'the rail is not right-aligned, so the controls have left the top right');
+  assert.equal(/position:absolute/.test(rail[1]), false,
+    'the rail is absolutely positioned again, so it will overlap the ring once it holds two controls');
+
+  /* ---- EDIT ON THIS WEEK AND FULL PLAN, AND NO TICK THERE ----
+     Both screens draw their day through weekSlideHtml(). Before this, a
+     solo-note day had neither: its full card is not openable, and that card
+     was the only thing carrying the control. */
+  let edits = 0;
+  a.state.days.forEach((d, i) => {
+    if (d.type === 'rest') return;
+    const slide = a.weekSlideHtml(d, i);
+    assert.ok(slide.indexOf('data-action="open-edit"') > -1,
+      d.date + ' (' + d.type + '): no edit control on the week slide');
+    assert.equal(slide.indexOf('data-action="toggle-complete"'), -1,
+      d.date + ': the week slide grew a tick — the founder put that on Today');
+    edits++;
+  });
+  assert.ok(edits >= 30, 'only ' + edits + ' slides were checked');
+});
+
 /* ---------- THE SENTENCE ITSELF, AGAINST A REAL BLOCK ----------
    The test above can only check structure: its fixture gives every day the
    placeholder description "prose". This one reads the 11-week block, where

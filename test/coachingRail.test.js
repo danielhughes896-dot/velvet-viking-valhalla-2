@@ -467,31 +467,46 @@ test('selection is illumination and nothing else -- no geometry anywhere in the 
     'the divider runs the full height again');
 });
 
-test('Today offers only what Today is for', () => {
-  /* Today = DO. This Week = MANAGE. Full Plan = PLAN. A screen should only
-     expose the actions that serve its own purpose, and changing what the
-     session IS is not one of Today's -- it is one tap away on the two
-     screens whose job that is.
-     RECORDING WHAT WAS RUN STAYS. That is doing the session, not
-     re-planning it, which is why the two had to be separated: they have
-     always shared one data-action and one rail position. */
+test('every screen that shows a session offers the edit that screen is for', () => {
+  /* ---- THIS LAW HELD THE OPPOSITE, AND THE FOUNDER OVERRULED IT ----
+     It read "Today offers only what Today is for": Today = DO, This Week =
+     MANAGE, Full Plan = PLAN, so changing what the session IS was removed
+     from Today because it was "one tap away on the two screens whose job
+     that is."
+     THAT PREMISE STOPPED BEING TRUE. A solo-note day's "View full session"
+     button is ghosted -- there is nothing to open -- and the card behind it
+     was the only thing carrying the control, so on exactly the days This
+     Week is simplest there was no way to edit the session at all. Founder:
+     "I think that's right tick and edit on today. Edit this week. And edit
+     full plan."
+     SO THE LAW IS NOW THE DISTRIBUTION ITSELF, which is the thing that can
+     actually break: the control exists, it is on all three screens, and the
+     tick is on Today alone. The .day-act-plan / .day-act-log split is kept
+     and still asserted -- it is what lets a screen offer one and not the
+     other, and it is how the week slide is checked not to have grown a
+     tick. */
   const a = app();
   const dd = a.state.days.find(d => d.type !== 'rest' && d.km > 0);
   const html = a.renderDayCard(dd);
   assert.match(html, /class="day-act-plan"|class="day-act-log"/,
-    'the two edit actions are no longer distinguishable, so Today cannot keep one and lose the other');
+    'the two edit actions are no longer distinguishable, so a screen cannot keep one and lose the other');
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(bare, /\.view-today \.day-act-plan\{display:none;\}/,
-    'Edit Session is back on Today');
-  // ...and the rail collapses with it rather than leaving a hole where a
-  // button used to be.
-  assert.match(bare, /\.view-today \.day-actions:not\(:has\(\.day-act-log\)\)\{display:none;\}/,
-    'an empty action rail is left behind on Today');
-  // The control must still EXIST -- removed from a screen, not from the app.
-  // Unanchored, this matched the .view-today rule itself. The question is
-  // whether a rule hides it WITHOUT that scope.
+
+  /* NOTHING HIDES THE EDIT CONTROL ANY MORE -- not on Today, not anywhere. */
+  assert.doesNotMatch(bare, /\.view-today \.day-act-plan\{display:none;\}/,
+    'Today hides Edit Session again, and it is no longer one tap away on the other screens');
+  assert.doesNotMatch(bare, /\.view-today \.day-actions:not\(:has\(\.day-act-log\)\)\{display:none;\}/,
+    'Today hides the action rail unless it holds a notes button, which takes the pencil with it');
   assert.doesNotMatch(bare, /(^|\}|;)\s*\.day-act-plan\{display:none;\}/,
-    'Edit Session was hidden everywhere, not just on Today');
+    'Edit Session is hidden everywhere');
+
+  /* AND IT REACHES THE OTHER TWO, which draw their day through a different
+     renderer -- the reason this was missed until the founder found it. */
+  const slide = a.weekSlideHtml(dd, 0);
+  assert.match(slide, /data-action="open-edit"/,
+    'This Week and Full Plan have no edit control on the day they are showing');
+  assert.doesNotMatch(slide, /data-action="toggle-complete"/,
+    'the week slide grew a tick — the founder put that on Today');
 });
 
 test('nothing on the focused session is drawn as a box', () => {

@@ -1775,9 +1775,27 @@
      button crowded together to the left of it. One flex rail now holds
      whatever is there and spaces it, so a card with a tick and an edit, or
      with only one of them, is correct without a second set of numbers. */
+  /* ---------- THE CONTROLS GET A ROW, NOT A CORNER ----------
+     Founder: "When you click done on today. The tick and edit button over
+     lap the ring. I like the position at the top right. But they should
+     both be there all the time. I think it's because the hero doesn't move.
+     But it doesn't have to because everything else opens below it any way."
+     MEASURED, AND THE DIAGNOSIS IS RIGHT. The rail was absolute at right:0
+     and laid its controls out in a flex row, so it grew LEFTWARDS as it
+     gained them. One control sat clear of the ring at x370; the moment a
+     session was logged and the notes button appeared, the tick was pushed
+     to x310 -- and the ring spans x261-405. Nothing had moved except the
+     number of things in the rail.
+     SO IT IS A ROW OF ITS OWN, right-aligned, above the hero. The ring can
+     no longer be collided with, whatever the rail is holding, and the
+     position the founder asked to keep -- top right -- is where it ends up.
+     The hero drops by the rail's height, which is what they said it may do.
+     NOT SOLVED BY MOVING THE TICK LEFT-TO-RIGHT or by shrinking the ring:
+     either leaves the next control added to this rail colliding again. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-rail{
-    position:absolute; top:-2px; right:0; z-index:2;
-    display:flex; align-items:center; gap:16px;}
+    position:relative; z-index:2;
+    display:flex; justify-content:flex-end; align-items:center; gap:16px;
+    margin-bottom:2px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-rail .day-check,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-rail .day-actions{
     position:static;}
@@ -6937,14 +6955,18 @@
      -- Today is where the athlete executes what Valhalla prescribed. The
      control is not removed from the product: it is one tap away on This
      Week and on Full Plan, which are the screens whose job it is.
-     THE LOG BUTTON STAYS. Recording what was actually run is doing the
-     session, not re-planning it, so a completed day on Today keeps its
-     notes button -- which is why these two needed separating at all.
-     :has() so the rail disappears with the only thing in it rather than
-     leaving a hole where a button used to be; the same selector family the
-     hero already uses for .th-hero:has(+ .th-steps-note). */
-  .view-today .day-act-plan{display:none;}
-  .view-today .day-actions:not(:has(.day-act-log)){display:none;}
+     THAT REASONING NO LONGER HOLDS, AND THE FOUNDER HAS OVERRULED IT:
+     "tick and edit on today. Edit this week. And edit full plan." Its
+     premise was that edit is one tap away on the other two screens, and
+     that stopped being true when a solo-note day's "View full session"
+     button was ghosted -- the card holding the control became unreachable
+     on exactly the days with nothing else to open. Edit is on all three
+     screens now: here, and on the week slide, which is where This Week and
+     Full Plan draw their day.
+     BOTH RULES GO. The second hid the whole rail unless it held a notes
+     button, which with the pencil back would hide the pencil. The builder
+     already omits .day-actions when there is nothing to put in it, so the
+     hole those rules were avoiding cannot open in the first place. */
   /* ---------- THE VIEW PAGER ----------
      The stage the current screen slides on, and the only thing the gesture
      moves. It is NOT given overflow:hidden: the Coach's Note's light and the
@@ -59248,8 +59270,17 @@ function weekSlideHtml(dd, i){
   /* THE BOX FOLLOWS THE DAY. On a solo-note day the hero and this note are
      the whole session, so This Week and Full Plan show exactly what Today
      shows rather than a hero with nothing under it. */
+  /* ---------- EDIT, ON THE SCREENS WHOSE JOB IT IS ----------
+     Founder: "Edit this week. And edit full plan." It used to be reached by
+     opening the full card, which a solo-note day no longer offers -- so on
+     exactly the days this screen is simplest, there was no way to change
+     the session at all. The control is the same dayActionButton() the day
+     card builds, so there is one definition of what "edit" means here.
+     NO TICK BESIDE IT: the founder put that on Today. */
+  var act = dayActionButton(dd);
   return '<div class="wk-slide" data-date="'+escapeHtml(dd.date)+'">'+
     '<div class="wk-overview">'+
+      (act ? '<div class="day-rail wk-rail-act"><div class="day-actions">'+act+'</div></div>' : '')+
       (badges ? '<div class="wk-session-badges">'+badges+'</div>' : '')+
       body+
       renderSoloNote(dd)+
