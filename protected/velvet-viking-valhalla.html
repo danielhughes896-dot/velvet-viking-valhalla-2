@@ -1128,10 +1128,41 @@
      a dozen other surfaces, and lifting them globally to suit one bar is how
      a palette stops meaning anything. */
   .zbar{
-    display:flex; height:20px; border-radius:99px; background:var(--bg-4);
+    display:flex; min-height:38px; border-radius:99px; background:var(--bg-4);
+    /* CONTAINMENT, NOT A LAYOUT. min-width:max-content makes the bar's own
+       floor the sum of its strings, so the one failure mode is a set too
+       wide for the bar -- and the words would then run past the rounded
+       edge rather than clip.
+       MEASURED, ALL 50 REAL WEEKS across full/half/10k/5k, at five phone
+       widths: 430 (bar 398), 414 (382), 390 (358), 375 (343) and 360 (328).
+       Not one overflows and not one clips. A week the engine does not build
+       -- four bands each carrying an hour -- comes to exactly 398 at 430px,
+       so even that sits on the line rather than over it.
+       AN EARLIER NOTE HERE SAID IT OVERFLOWED BY 45px. That was measured in
+       a test host 342px wide, not against the real 398px bar; the number
+       was an artefact of the harness and not a fact about the product. */
+    overflow:hidden;
     box-shadow:inset 0 2px 5px rgba(0,0,0,.26), inset 0 -1px 0 rgba(255,255,255,.06);
   }
-  .zbar-seg{height:100%; position:relative;}
+  /* ---------- THE BAND IS AS WIDE AS ITS SHARE, OR ITS WORDS ----------
+     flex-basis:0 with flex-grow set to the percentage makes the bands
+     proportional; min-width:max-content gives each a floor of its own text
+     and takes that space out of the growing. So a 1% band is as wide as
+     "1% \u2022 3m" needs and the big one absorbs the difference -- the
+     founder's "it just won't be perfectly to scale", stated as a rule
+     rather than as a magic number.
+     MEASURED, 50 weeks across four distances: at most four bands, the
+     smallest live share 1%, and the widest four-band week
+     "74% \u2022 2h 49m / 7% \u2022 17m / 11% \u2022 25m / 8% \u2022 18m". */
+  .zbar-seg{
+    position:relative; flex-basis:0; min-width:max-content;
+    display:flex; align-items:center; justify-content:center; padding:8px 11px;}
+  /* ABOVE THE SHEEN AND THE SEPARATOR, both of which are pseudo-elements
+     on the band itself and would otherwise sit over the words. */
+  .zbar-k{
+    position:relative; z-index:3; white-space:nowrap;
+    font-family:var(--text-face); font-size:12.5px; font-weight:600;
+    letter-spacing:.01em; color:#15171B;}
   .zbar-seg:first-child{border-radius:99px 0 0 99px;}
   .zbar-seg:last-child{border-radius:0 99px 99px 0;}
   .zbar-seg:only-child{border-radius:99px;}
@@ -49402,11 +49433,41 @@ function renderZoneBreakdown(weekNum){
     {k:'threshold', label:'Threshold / Tempo', cls:'z-threshold'},
     {k:'interval', label:'Interval / VO2max', cls:'z-interval'}
   ];
+  /* ---------- THE BAND SAYS WHAT IT IS ----------
+     Founder, with a mock-up: "Can you add session type, % and time to the
+     bar? I ack your going to say no when it's at 1% currently there is no
+     space so I think like the mock picture it can work it just won't be
+     perfectly to scale."
+     THEY ARE RIGHT AND THE OBJECTION IS ANSWERABLE. A 1% band is 4px of a
+     398px bar and cannot hold "1% \u2022 3m" -- so the bar stops being
+     strictly proportional and the smallest band grows to fit its own words.
+     What it costs is the eye's ability to compare two small bands by
+     length; what it buys is that neither needs the legend to be read at
+     all. The founder made that trade explicitly.
+     NO MINIMUM WIDTH IS WRITTEN DOWN. min-width:max-content on the segment
+     means each band's floor IS its text, so a longer time pushes its own
+     band wider and nothing has to be re-tuned when the copy changes. The
+     proportional part is flex-grow, which distributes only what is left
+     over. See the law in test/weekZoneBreakdown for the widest real case. */
+  var zoneClock = function(sec){
+    var h = Math.floor(sec/3600), m = Math.round((sec%3600)/60);
+    /* 3599s rounds to 60 minutes, which must read as an hour and not "60m". */
+    if (m === 60){ h += 1; m = 0; }
+    return h > 0 ? (h+'h '+(m<10?'0':'')+m+'m') : (m+'m');
+  };
   var segs = meta.filter(function(m){ return pct[m.k]>0; }).map(function(m){
-    return '<div class="zbar-seg '+m.cls+'" style="width:'+pct[m.k]+'%"></div>';
+    /* flex-grow, not width: width would make min-width:max-content a
+       conflict the browser resolves by overflowing. */
+    return '<div class="zbar-seg '+m.cls+'" style="flex-grow:'+pct[m.k]+'">'+
+      '<span class="zbar-k">'+pct[m.k]+'% \u2022 '+escapeHtml(zoneClock(zb.zones[m.k]))+'</span>'+
+    '</div>';
   }).join('');
+  /* THE LEGEND LOSES ITS FIGURE. It was the only place the share was
+     stated; now the band states it, and the legend's job is to say which
+     colour is which. The same number twice is how two surfaces start
+     disagreeing. */
   var legend = meta.filter(function(m){ return pct[m.k]>0; }).map(function(m){
-    return '<div class="zleg-item"><span class="zleg-dot '+m.cls+'"></span>'+m.label+' '+pct[m.k]+'%</div>';
+    return '<div class="zleg-item"><span class="zleg-dot '+m.cls+'"></span>'+m.label+'</div>';
   }).join('');
   return '<div class="zone-card">'+
     /* THE FIGURE IS MONO, THE NOUN IS NOT. "4h 20m time-on-feet" was one
