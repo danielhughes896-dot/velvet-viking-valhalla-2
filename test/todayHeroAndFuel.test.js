@@ -465,3 +465,118 @@ test('the Coach\u2019s Note still appears when the only thing to say is the fuel
   assert.match(body, /cueText \? '<span class="v">/,
     'the cue is no longer optional inside the note, so a caveat-only day cannot render');
 });
+
+/* ---------------------------------------------------------------------------
+ * THE HERO SAYS THE DISTANCE ONCE
+ * ---------------------------------------------------------------------------
+ * Founder, on a threshold card: "The title has threshold 9km and the 9km
+ * under it. Remove the top distance figure."
+ * The hero is a title with the session's distance set large directly beneath
+ * it, so a title ending in that same distance printed it twice -- "THRESHOLD
+ * 9KM" over "9km". heroCardTitle() drops the title's copy.
+ *
+ * THE RISK IS NOT THE STRIPPING, IT IS STRIPPING TOO MUCH. Most titles carry
+ * a figure that is NOT the hero's and that the athlete needs: "Fitness
+ * Checkpoint: 6km Time Trial" on a 9.6km day, "Interval: 4x600m" on 7.5km,
+ * "Hill Repeats 5x38s", "Long Run + Broken Goal Pace (2x1.8km)". So both
+ * halves are held here, and the second one is the half with teeth.
+ */
+const titleApp = (distanceKey, volume) => {
+  const a = loadApp({ pinnedDate: '2026-11-08T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 12, startDate: '2026-09-04', distanceKey: distanceKey,
+    volume: volume, benchSec: 45 * 60, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 6 } });
+  a.state.athlete = a.makeAthleteRecord();
+  return a;
+};
+
+test('the hero says the session distance once', () => {
+  let heroes = 0, stripped = 0, keptAFigure = 0;
+  [['half', 46], ['full', 46], ['10k', 30], ['5k', 70]].forEach(([dk, vol]) => {
+    let a; try { a = titleApp(dk, vol); } catch (e) { return; }
+    a.state.days.forEach(d => {
+      if (d.km == null) return;
+      const m = /<div class="th-hero-title">([^<]*)<\/div>/.exec(a.renderDayCard(d));
+      if (!m) return;
+      heroes++;
+      const hero = m[1], listing = a.displayCardTitle(d), fig = a.fmtDist(d.km);
+      /* ---- NEVER THE SAME FIGURE TWICE IN ONE HERO ---- */
+      assert.ok(fig && hero.slice(-fig.length) !== fig,
+        d.date + ' (' + dk + '): the hero title ends in the figure printed under it — ' +
+        JSON.stringify(hero) + ' over ' + JSON.stringify(fig));
+      if (listing.length > fig.length && listing.slice(-fig.length) === fig) {
+        stripped++;
+        /* AND WHAT IS LEFT IS STILL THE SESSION'S NAME. Stripping to nothing
+           would satisfy the line above and leave the hero anonymous. */
+        assert.ok(hero.trim().length > 1 && !/[\s–—,:;-]$/.test(hero),
+          d.date + ': the title was stripped to ' + JSON.stringify(hero) + ', leaving no identity');
+      } else {
+        /* ---- AND NOTHING ELSE IS TOUCHED ---- */
+        assert.equal(hero, listing,
+          d.date + ' (' + dk + '): the hero rewrote a title that did not repeat the figure: ' +
+          JSON.stringify(listing) + ' -> ' + JSON.stringify(hero));
+        if (/\d/.test(listing)) keptAFigure++;
+      }
+    });
+  });
+  /* THE SWEEP HAS TO CONTAIN BOTH CASES. Measured across these four blocks:
+     threshold_continuous and goal_pace_block are the only two archetypes
+     whose title ends in the session's own distance, and every other figure-
+     bearing title -- the reps, the durations, the time trial's leg -- is in
+     the second set. If either empties, one half of this law is checking
+     nothing. */
+  assert.ok(heroes >= 100, 'only ' + heroes + ' heroes were read');
+  assert.ok(stripped >= 5,
+    'only ' + stripped + ' titles repeated the hero figure, so the strip is barely exercised');
+  assert.ok(keptAFigure >= 20,
+    'only ' + keptAFigure + ' titles carry a figure of their own, so "nothing else is ' +
+    'touched" is barely exercised');
+});
+
+test('the listings keep the distance the hero drops', () => {
+  /* .day-title on This Week's and Full Plan's ROWS has no figure under it,
+     so there the distance in the title is the only one there is. The hero's
+     copy is the only one that gives it up, which is why heroCardTitle exists
+     beside displayCardTitle rather than replacing it. */
+  const a = titleApp('half', 46);
+  const d = a.state.days.filter(x => {
+    const p = a.prescriptionOf(x);
+    return p && p.archetype === 'threshold_continuous';
+  })[0];
+  assert.ok(d, 'the fixture no longer builds a threshold, so this proves nothing');
+  const fig = a.fmtDist(d.km);
+  /* ---- READ OFF THE MARKUP, NOT OFF THE FUNCTION ----
+     Asking displayCardTitle() for the listing title tests the wrong thing:
+     it is still correct when the ROW has been re-pointed at the hero's
+     version. Pointing .day-title at heroCardTitle passed this file, and
+     every other file that mentions the title, with the distance gone from
+     This Week's and Full Plan's rows. The element is what the athlete reads. */
+  const html = a.renderDayCard(d);
+  const row = /<div class="day-title">([^<]*)/.exec(html);
+  assert.ok(row, 'the card no longer carries a .day-title for the listings');
+  assert.equal(row[1].slice(-fig.length), fig,
+    'the listing title has lost the distance too \u2014 the rows have no figure to replace it');
+  const heroEl = /<div class="th-hero-title">([^<]*)<\/div>/.exec(html);
+  assert.ok(heroEl, 'the card no longer carries a hero title');
+  assert.notEqual(heroEl[1], row[1],
+    'the hero and the listing are the same string again, so one of them says it twice')
+;
+});
+
+test('a title that is nothing but the distance keeps it', () => {
+  /* THE FALLBACK IN heroCardTitle, WHICH NO GENERATED TITLE REACHES. Every
+     archetype names itself before its figure, so stripping always leaves an
+     identity behind -- and a mutation deleting the `|| t` guard therefore
+     passed the sweep above untouched. A hand-edited title can be nothing but
+     a dash and a distance, and for that day the figure IS the identity:
+     taking it away leaves a hero with no words at all. Exercised directly,
+     because the generator will not produce the case. */
+  const a = titleApp('half', 46);
+  const d = a.state.days.filter(x => x.km != null)[0];
+  assert.ok(d, 'the fixture has no day with a distance');
+  const fig = a.fmtDist(d.km);
+  const bare = { id: 'bare', date: d.date, type: d.type, km: d.km, title: '\u2014 ' + fig };
+  assert.equal(a.heroCardTitle(bare), '\u2014 ' + fig,
+    'a title that is only the distance was stripped to nothing, leaving the hero anonymous');
+});

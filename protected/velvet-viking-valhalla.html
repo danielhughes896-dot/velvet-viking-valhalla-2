@@ -30592,6 +30592,36 @@ function displayCardTitle(dd){
   if (!m || dd.km == null) return dd.title;
   return m[1]+' '+fmtDist(dd.km);
 }
+/* ---------- THE HERO SAYS THE DISTANCE ONCE ----------
+   Founder, on a threshold card: "The title has threshold 9km and the 9km
+   under it. Remove the top distance figure."
+   The hero is a title with the session's distance set large directly
+   beneath it, so a title ending in that same distance prints it twice,
+   three lines apart -- "THRESHOLD 9KM" over "9km". The figure beneath is
+   the one that is meant to be read, so the title gives its copy up.
+   ONLY THE SESSION'S OWN DISTANCE, AND ONLY AT THE END. Most titles carry
+   a figure that is NOT what the hero shows and must survive untouched: a
+   time trial is "Fitness Checkpoint: 6km Time Trial" on a 9.6km day, an
+   interval is "Interval: 4x600m" on 7.5km, a tempo is "Steady: 22min",
+   and a broken long run ends "(2x1.7km)" on 13km. So the test is an exact
+   tail match against fmtDist(dd.km) -- the very string the figure below
+   renders -- rather than "a title ending in a number".
+   WHICH ALSO MAKES IT UNIT-SAFE: fmtDist answers in whatever unit the
+   athlete reads, so a title re-unitted to miles is stripped in miles.
+   THE LISTINGS KEEP THEIRS. .day-title on This Week's and Full Plan's rows
+   has no figure under it, so there the distance in the title is the only
+   one there is. This is the hero's copy of the title, and only the hero's. */
+function heroCardTitle(dd){
+  var t = displayCardTitle(dd);
+  if (dd.km == null || !t) return t;
+  var fig = fmtDist(dd.km);
+  if (!fig || t.length <= fig.length || t.slice(-fig.length) !== fig) return t;
+  /* The separator goes with it -- a dash, a colon or the space that was
+     holding the figure on. If nothing but punctuation is left, the title
+     WAS the distance and there is no identity to keep, so it stands. */
+  var cut = t.slice(0, t.length - fig.length).replace(/[\s\u2013\u2014,:;-]+$/, '');
+  return cut || t;
+}
 /* The headline answer, in the athlete's own terms and never the algorithm's.
    Date-aware only because "today" has to be true on the card that says it. */
 function optionalRunHeadline(dd){
@@ -31118,7 +31148,7 @@ function renderDayHeroBlock(dd, targets){
      same way the Coach's Note has two positions. One string, every view. */
   return '<div class="th-hero'+(hasRail?'':' th-hero-solo')+(isRest?' th-hero-rest':'')+'">'+
     '<div class="th-hero-main">'+
-      '<div class="th-hero-title">'+escapeHtml(displayCardTitle(dd))+'</div>'+
+      '<div class="th-hero-title">'+escapeHtml(heroCardTitle(dd))+'</div>'+
       dist+
     '</div>'+
     (ring ? '<div class="th-ring-wrap">'+ring+'</div>' : '')+
