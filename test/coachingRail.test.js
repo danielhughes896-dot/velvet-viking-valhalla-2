@@ -412,14 +412,30 @@ test('the session is the brightest thing on the screen, and the ring has a filam
   assert.match(title, /text-shadow:/, 'the session title lost its backlight');
 });
 
-test('the ring drops the zone word only because the badge above it already says it', () => {
-  /* THE JUSTIFICATION IS THE TEST. Hiding .th-ring-k is lossless only while
-     the type badge on the same card carries the identical string -- and it
-     does, for every session type the engine builds: Interval, Easy, Long
-     Run, Tempo, Threshold, Checkpoint, Race Day. Both read dayTypeLabel(),
-     which is why. If a future change gives the ring a word the badge does
-     not have, this fails and the hiding has to be reconsidered rather than
-     quietly losing information. */
+test('the focused session says its type once at most, and still says what it is', () => {
+  /* THE JUSTIFICATION MOVED, AND THIS IS WHERE IT IS RECORDED.
+     This law used to read "the ring drops the zone word only because the
+     badge above it already says it" -- true while the badge was on the
+     card. The founder has since taken the badge off the focused session
+     too ("See the little tabs. There not needed. It's another
+     duplication."), so that justification is spent: what carries the
+     session's identity now is the TITLE, and nothing else.
+     SO THE COST IS COUNTED HERE RATHER THAN ASSUMED AWAY. On most
+     archetypes the title contains the badge's exact word and nothing is
+     lost. On the rest it does not, and for those the focused card no
+     longer names the type anywhere. Measured across six block shapes
+     (5k/10k/half/full at two volumes each): NINE of twenty-one --
+     easy_strides, fartlek, goal_pace_block, goal_pace_reps, hill_repeats,
+     ladder, race, shakeout, steady_tempo.
+     WHY THAT IS ACCEPTED: in every one of the nine the title is the more
+     specific statement. "Hill Repeats 6x46s" over "Interval", "Steady:
+     15min" over "Tempo", "Full Marathon Goal Effort" over "Goal Day". What
+     goes is the coarse category, not the identity.
+     The ceiling below is a tripwire on the count getting worse -- a title
+     rewritten into something that names neither -- not a blessing of the
+     nine.
+     THE RING AND THE BADGE ARE STILL ONE STRING, which is what makes
+     hiding them one decision rather than two. */
   const a = app();
   const seen = new Set();
   a.state.days.filter(d => d.type !== 'rest' && d.km > 0).forEach(d => {
@@ -435,6 +451,41 @@ test('the ring drops the zone word only because the badge above it already says 
   });
   assert.ok(seen.size >= 4, 'expected several session types to check, saw ' + seen.size);
   assert.match(focusRule('.th-ring-k'), /display:none/, 'the zone word is back inside the ring');
+  assert.match(focusRule('.day-badge'), /display:none/,
+    'the type badge is back on the focused session, above a title that says the same word');
+
+  /* ---- AND THE MARKUP STILL CARRIES IT, because the LISTINGS need it ----
+     A week row is a date, a badge and a title on one line; there the badge
+     is the only thing saying what kind of day it is. Hidden by scope, not
+     deleted -- measured in Chromium: 0 badges painted on Today and on This
+     Week's open day, 13 painted in Full Plan's week list. */
+  const anyCard = a.renderDayCard(a.state.days.filter(d => d.type !== 'rest' && d.km > 0)[0]);
+  assert.match(anyCard, /class="day-badge /,
+    'the badge was removed from the markup, so the listings lost it too');
+
+  /* ---- THE IDENTITY SURVIVES ON EVERY FOCUSED CARD ----
+     With the badge and the ring word both hidden, the title is the only
+     thing left naming the session. An empty one would leave the hero
+     anonymous, and nothing else in the suite would see it. */
+  const missingWord = [];
+  const titled = new Set();
+  a.state.days.forEach(d => {
+    if (d.type === 'rest' || !(d.km > 0)) return;
+    const p = a.prescriptionOf(d);
+    const arch = (p && p.archetype) || d.type;
+    if (titled.has(arch)) return;
+    titled.add(arch);
+    const title = a.heroCardTitle(d);
+    assert.ok(title && String(title).trim().length > 2,
+      arch + ': the focused hero has no title, so the session is now unnamed');
+    const word = a.dayTypeLabel(d);
+    if (word && String(title).toUpperCase().indexOf(String(word).toUpperCase()) === -1)
+      missingWord.push(arch + ' ("' + word + '" vs "' + title + '")');
+  });
+  assert.ok(titled.size >= 10, 'only ' + titled.size + ' archetypes were read');
+  assert.ok(missingWord.length <= 10,
+    missingWord.length + ' archetypes no longer name their type anywhere on the focused ' +
+    'card, which is past the nine this was measured and accepted at: ' + missingWord.join('; '));
   /* ...and what the ring is left holding is clamped to the hollow it sits
      in. A flat 13px pace band measured 53px from the centre on a 360pt
      phone against ~50px of usable radius -- drawn over its own stroke. */

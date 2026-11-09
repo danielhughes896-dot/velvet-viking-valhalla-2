@@ -2008,6 +2008,27 @@
      SCOPED, and the markup is untouched -- dayTypeLabel() still renders for
      the week overview's own ring and for anything else that shows one. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-ring-k{display:none;}
+  /* ---------- AND THE BADGE GOES THE SAME WAY, FOR THE SAME REASON ------
+     Founder, on a THRESHOLD chip above a THRESHOLD title and a REST chip
+     above REST DAY: "See the little tabs. There not needed. It's another
+     duplication."
+     The argument above ends here. When the ring's label went, the badge was
+     what it was byte-identical TO -- the remaining copy, four inches up.
+     With the title now carrying the session's name on its own, that copy is
+     the duplicate: counted across a real block, 12 of 17 archetypes have
+     the badge's exact word inside the title beneath it (Long Run, Easy,
+     Interval, Tempo, Checkpoint, Threshold, Optional).
+     THE OTHER FIVE LOSE A WORD AND IT IS WORTH NAMING: "Tempo" over
+     "Steady: 22min" and over "Goal Pace Block", "Interval" over a Ladder,
+     "Easy" over "Pre-Goal Shakeout", "Goal Day" over "Full Marathon Goal
+     Effort". A badge that appeared on five sessions and not the other
+     twelve would be an element that comes and goes from the same corner,
+     which is the opposite of the founder's call that the card's furniture
+     sit in the same place every time.
+     SCOPED TO THE FOCUSED SESSION, markup untouched. A week LISTING row is
+     a date, a badge and a title on one line -- there the badge is the only
+     thing saying what kind of day it is, and it stays. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-badge{display:none;}
   /* THE SIZE IS CLAMPED TO THE RING, because the hollow it has to sit in
      is. The ring is clamp(116px, 35vw, 144px), so a 360pt phone gives a
      126px ring and a ~50px usable radius -- and a flat 13px pace band
