@@ -49563,11 +49563,24 @@ function renderDayCheck(dd){
           : dd.date < todayStr() ? 'Past sessions keep the record they were logged with'
           : 'Mark session complete';
   return '<label class="day-check'+(locked?' locked':'')+'" title="'+escapeHtml(why)+'">'+
-    /* sessionRan, not dd.completed: a future day must never render ticked, and
-       a past day whose Strava activity is still attached must not render blank.
-       The box shows what the evidence says, and the evidence is what the coach
-       reads too. */
-    '<input type="checkbox" '+(sessionRan(dd)?'checked':'')+' '+(locked?'disabled':'')+
+    /* ---------- A CONTROL SHOWS WHAT IT CHANGES; A STATEMENT SHOWS THE
+       EVIDENCE ---------- Founder: "The tick function is stuck."
+       It was, and only on a Strava-imported session. The box rendered from
+       sessionRan(), which is true whenever an activity is attached --
+       whatever dd.completed says -- while the tap toggles dd.completed. So
+       on an imported run the tick could not change: every tap flipped the
+       completion underneath and re-rendered the box identically ticked.
+       Reproduced four taps deep: completed went true, false, true, false
+       and the box read checked every time, with the completion panel
+       appearing and disappearing beneath a control that looked inert.
+       THE TWO REASONS sessionRan WAS CHOSEN BOTH SURVIVE, because they are
+       both about days this box is DISABLED on -- canToggleCompletion() is
+       today-only. A future day must never render ticked and a past day
+       with an activity attached must not render blank: both are locked, so
+       both keep reading the evidence.
+       WHERE IT IS LIVE -- today, not a rest day -- it reads dd.completed,
+       which is the one thing the tap changes. */
+    '<input type="checkbox" '+((locked ? sessionRan(dd) : !!dd.completed)?'checked':'')+' '+(locked?'disabled':'')+
     ' data-action="toggle-complete" data-day="'+dd.id+'"'+
     ' aria-label="'+escapeHtml(why)+'"></label>';
 }

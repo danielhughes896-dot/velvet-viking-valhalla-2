@@ -169,3 +169,58 @@ test('a displaced plan keeps its provenance through the conflict path', () => {
     'the exact sequence HQ performed live must return the Strava record intact');
   assert.equal(back.completed, true);
 });
+
+/* ---------------------------------------------------------------------------
+ * THE TICK SHOWS WHAT THE TICK CHANGES
+ * ---------------------------------------------------------------------------
+ * Founder: "The tick function is stuck."
+ * It was, and only on a Strava-imported session. The box rendered from
+ * sessionRan(), true whenever an activity is attached whatever `completed`
+ * says, while the tap toggles `completed`. So on an imported run the control
+ * could not change: every tap flipped the completion underneath and redrew the
+ * box identically ticked, with the completion panel appearing and disappearing
+ * beneath a control that looked inert.
+ *
+ * sessionRan() is still the read rule everywhere this box is DISABLED, which
+ * is every day but today -- and that is where both of its reasons live.
+ */
+const todayOf = a => a.state.days.filter(d => d.date === a.todayStr() && d.type !== 'rest')[0];
+const tickChecked = (a, d) => /<input type="checkbox" checked/.test(a.renderDayCard(d));
+
+test('the tick on an imported run moves when it is pressed', () => {
+  const a = block(app());
+  const d = todayOf(a);
+  assert.ok(d, 'the fixture has no runnable day today');
+  a.replaceCard = () => {}; a.patchDerivedStats = () => {}; a.scheduleSave = () => {};
+  d.stravaActivityId = 987654321;
+  assert.equal(a.applyCompletion(d, true), true, 'the fixture could not be completed');
+  assert.equal(tickChecked(a, d), true, 'an imported, completed run does not read ticked');
+
+  /* THE WHOLE DEFECT IN ONE LINE: before the fix this stayed true. */
+  a.handleToggleComplete(d.id);
+  assert.equal(!!d.completed, false, 'the tap did not change the completion');
+  assert.equal(tickChecked(a, d), false,
+    'the tick is stuck: the run is no longer complete and the box still reads ticked');
+
+  a.handleToggleComplete(d.id);
+  assert.equal(!!d.completed, true, 'the second tap did not restore the completion');
+  assert.equal(tickChecked(a, d), true, 'the tick did not come back with the completion');
+});
+
+test('and the two reasons it read the evidence are both still honoured', () => {
+  /* Both are about days the box is disabled on -- canToggleCompletion() is
+     today-only -- so both still read sessionRan() and neither regressed. */
+  const a = block(app());
+
+  const p = past(a);
+  p.stravaActivityId = 55;
+  p.completed = false;
+  assert.equal(a.canToggleCompletion(p), false, 'a past day became tickable');
+  assert.equal(tickChecked(a, p), true,
+    'a past day with its Strava activity attached renders blank again');
+
+  const f = a.state.days.filter(d => d.date > a.todayStr() && d.type !== 'rest')[0];
+  f.completed = true;                       // a drifted flag, as the file's note describes
+  assert.equal(a.canToggleCompletion(f), false, 'a future day became tickable');
+  assert.equal(tickChecked(a, f), false, 'a future day renders ticked again');
+});
