@@ -30601,8 +30601,19 @@ function renderExecutionPill(dd){
 function patchExecutionUI(dd){
   var pill = document.getElementById('exec-pill-'+dd.id);
   if (pill) pill.innerHTML = renderExecutionPill(dd);
-  var review = document.getElementById('exec-review-'+dd.id);
-  if (review) review.innerHTML = renderExecutionReview(dd);
+  /* ---------- EVERY MOUNT FOR THIS DAY, NOT THE FIRST ONE ----------
+     getElementById returns one element, and a completed day can now have
+     its panel in two places at once: This Week keeps the canonical
+     renderDayCard in .wk-full AND the day's own slide carries the finished
+     session's tabs. With one id the lookup found whichever copy came first
+     in the document -- the hidden one -- so an edit patched the card nobody
+     was looking at and the visible analysis went stale. Exactly the failure
+     this file has recorded twice before, for the ring gradient and for the
+     execution captions, and the slide's copies are suffixed the same way.
+     Asked by data attribute so the suffix cannot hide a mount from its own
+     patch, and ALL of them are written, because both copies are real. */
+  var mounts = document.querySelectorAll('[data-exec-review="'+dd.id+'"]');
+  for (var i = 0; i < mounts.length; i++) mounts[i].innerHTML = renderExecutionReview(dd);
 }
 /* PRESENTATION-ONLY display title. dd.title itself is never touched here --
    Garmin, ICS export, swap/reschedule, notifications and Edit Session all
@@ -31184,6 +31195,157 @@ function renderDayHeroBlock(dd, targets){
     (ring ? '<div class="th-ring-wrap">'+ring+'</div>' : '')+
   '</div>'+stepNote;
 }
+/* ---------- THE FINISHED SESSION IS A PANEL, AND IT IS ONE PANEL ------
+   Founder: "A completed run on today should be moved on this week and full
+   plan. Just the tabs."
+   It was built inline inside renderDayCard, so Today and Full Plan's
+   SESSION screen had the whole stack -- Session complete, Share, Session
+   Details, Your Log, Valhalla Analysis -- while This Week and Full Plan's
+   WEEK screen, which build their day from weekSlideHtml() instead, had
+   only the Session Details disclosure. The same finished run read as two
+   different things depending on which way in you took.
+   LIFTED RATHER THAN COPIED, for the reason the rest of this slide was:
+   "one function, as everywhere else on this slide: the week screen cannot
+   describe a session differently from the day card because it is not
+   building its own version of it."
+   detailHtml IS THE MOUNT, passed in, because the two callers have a
+   different thing to put behind Session Details -- the day card hands in
+   its .day-detail, the slide hands in the preview-mode coaching it had
+   already built. That is also what stops the slide showing the tab twice. */
+function renderCompletedPanel(dd, detailHtml){
+    var a = dd.actual || {};
+    var detailOpen = isDetailOpen(dd);
+    /* THE TWO THE ENGINE GRADES AGAINST, always visible. Distance alone is a
+       real rung of the evidence ladder -- it earns a completion assessment on
+       its own -- and pace is what turns that into a whole-session execution
+       judgement. Neither is compulsory: a missing pace narrows what Valhalla
+       will claim, and is never treated as a failure. */
+    return '<div class="actual-panel">'+
+      /* The log opens under a statement of fact, not under a form. On a
+         focused session this is the one green thing on the screen and it is
+         lit, never boxed -- same rule as the Coach's Note. */
+      '<div class="actual-done"><span class="actual-done-i" aria-hidden="true">'+ICONS.check+'</span>'+
+        '<span class="actual-done-k">Session complete</span></div>'+
+      /* SHARING IS OFFERED HERE, UNDER THE THING IT IS ABOUT. It used to sit
+         at the foot of the completion card as one of three buttons in a row
+         -- share, analysis, continue -- which is three doors at the bottom of
+         a screen and no hierarchy between them. The rest of this product
+         offers one clear tab that opens what it names, so sharing becomes
+         exactly that, directly beneath "Session complete", and the composer
+         unfolds in place underneath it. Still offered, never urged: no badge,
+         no streak, no prompt that returns if ignored. */
+      renderShareLaunch(dd)+
+      /* The prescription, as reference, under what you did. Spans the log's
+         two columns like Share and the analysis above and below it. */
+      '<div class="sess-details-mount">'+detailHtml+'</div>'+
+      /* ---- THE COMPLETION IS THREE THINGS, IN THIS ORDER ----
+         Session complete / Share / View Analysis. The analysis mounted
+         BELOW the log before this, which put the coach's reading of the
+         session underneath every field the athlete might edit -- so the
+         one thing they are most likely to want after finishing was the
+         last thing on a very long card, and on a phone it was reached by
+         scrolling past the whole form. It is a tab like Share now: it sits
+         with the other two, and opens what it names directly beneath
+         itself.
+         The log keeps its place under all three. Editing what was logged
+         is a correction, not the point of the screen. */
+      /* ---------- AND THE LOG IS THE FOURTH TAB ----------
+         Everything on a finished session is now a tab that opens what it
+         names: Share, Session Details, Valhalla Analysis, Your Log. The
+         fields used to lie loose under the other three, so the card ended
+         on a form -- and the form is a CORRECTION, not the point of the
+         screen; the session is already logged by the time it is read.
+         A button with aria-expanded rather than a <details>, for the reason
+         recorded at logOpenFor: the browser's own state does not survive a
+         re-render, and three ordinary actions on this card re-render it.
+         The body carries its own two-column grid, because it is no longer a
+         child of .actual-panel's. */
+      '<div class="log-tab">'+
+        '<button type="button" class="sess-tab sess-tab-btn" data-action="toggle-log" '+
+          'data-day="'+dd.id+'" aria-expanded="'+(logTabOpen(dd)?'true':'false')+'">'+
+          sessionTabHtml('Your Log')+
+        '</button>'+
+        (logTabOpen(dd) ? '<div class="log-body">'+
+      '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+      /* One control, in the same quiet voice the session breakdown already
+         uses. Open when the athlete asks, and open by default whenever this
+         day already carries any of it -- a record can never be made less
+         visible than it was. */
+      '<div class="actual-field full">'+
+        '<button type="button" class="splits-toggle" data-action="toggle-detail" data-day="'+dd.id+'" aria-expanded="'+(detailOpen?'true':'false')+'">'+
+          (detailOpen ? '<span class="st-k">Hide detail</span>'
+                      : '<span class="st-k">+ Add detail</span>'+
+                        '<span class="st-sub">Heart rate \u00b7 effort \u00b7 elevation \u00b7 feel \u00b7 notes</span>')+
+        '</button>'+
+      '</div>'+
+      (detailOpen ? (
+      /* HEART RATE AND FEEL ARE THE TWO COVERED BOXES IN THIS PANEL. Without
+         consent they are not shown, because inviting somebody to type a
+         resting-heart-rate figure Valhalla is not allowed to read is worse
+         than not asking. Distance, pace, RPE and the athlete's own notes are
+         ordinary training data and are unchanged. One line says why the two
+         are missing and where the choice lives; it is an explanation attached
+         to an absent control, not a standing request. */
+      (healthConsentGranted()
+        ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
+        : '')+
+      '<div class="actual-field"><label>RPE (1\u201310)</label><input type="number" min="1" max="10" inputmode="numeric" value="'+(a.rpe!=null?a.rpe:'')+'" data-action="actual-field" data-field="rpe" data-day="'+dd.id+'"></div>'+
+      /* ELEVATION IS OPTIONAL AND BLANK MEANS UNKNOWN. A flat run and an
+         unmeasured one are different facts, so an empty box stays null and
+         never becomes 0 -- and a genuine 0 the athlete types is kept. This is
+         ordinary training data, not health information, so it sits with RPE
+         rather than behind the consent gate. */
+      '<div class="actual-field"><label>Elevation (m) \u2014 optional</label><input type="number" min="0" step="1" inputmode="numeric" placeholder="unknown" value="'+(a.elevationGainM!=null?a.elevationGainM:'')+'" data-action="actual-field" data-field="elevationGainM" data-day="'+dd.id+'"></div>'+
+      (healthConsentGranted()
+        ? '<div class="actual-field full feel-field"><label>Feel</label>'+
+            '<div class="feel-row" role="group" aria-label="How the body felt">'+
+              FEEL_ORDER.map(function(k){
+                return '<button type="button" class="feel-btn'+(a.feel===k?' on':'')+'" '+
+                  'aria-pressed="'+(a.feel===k?'true':'false')+'" '+
+                  'data-action="set-feel" data-feel="'+k+'" data-day="'+dd.id+'">'+FEEL_META[k].short+'</button>';
+              }).join('')+
+            '</div></div>'
+        : '<div class="actual-field full"><div class="field-hint">Heart rate and how the session felt are '+
+          'health information, and Valhalla only records them if you have said it may. '+
+          'Settings \u2192 Health &amp; Readiness.</div></div>')+
+      '<div class="actual-field full notes-field"><label>Notes \u2014 optional</label>'+
+        '<div class="notes-wrap">'+
+          '<textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'" '+
+          'placeholder="e.g. Legs felt heavy after 12km, strong headwind, slept badly, HR strap seemed off.">'+escapeHtml(a.notes||'')+'</textarea>'+
+          '<button type="button" class="notes-wand" data-action="notes-wand" data-day="'+dd.id+'" '+
+            'title="Read my notes" aria-label="Read my notes for coaching signals">\u2728</button>'+
+        '</div>'+
+        '<span class="field-hint">Anything the numbers don\u2019t show \u2014 tired legs, poor sleep, heat, wind, hills, illness, pain, treadmill, HR sensor trouble.</span>'+
+        renderNoteSignalChips(dd)+
+      '</div>'
+      ) : '')+
+      /* THE THIRD RUNG, and it already lived behind its own disclosure -- a
+         quiet one-line control that opens on tap or when the day carries real
+         lap data. Left exactly as it was: warm-up, quality, recoveries and
+         cool-down are still logged segment by segment, and nothing about the
+         simplified surface above flattens what a watch or a connected service
+         supplied. */
+      renderSplitsBlock(dd)+
+      /* LAST, UNDER THE JUDGEMENT -- and now inside the tab with the log it
+         undoes, rather than loose at the foot of the card where it would be
+         the only thing left outside the four tabs. */
+      '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
+        '</div>' : '')+
+      '</div>'+
+      /* ---------- THE ANALYSIS COMES LAST ----------
+         Share, Session Details, Your Log, Valhalla Analysis. It sat third
+         before, between the prescription and the log, which put Valhalla's
+         reading of the session above the figures that reading is OF. The
+         card now runs in the order the athlete moves through it: send it,
+         check what was asked, record what happened, then read the verdict.
+         Still the same mount and the same id, so patchExecutionUI() finds
+         it exactly as before. */
+      '<div class="exec-review-mount" id="exec-review-'+dd.id+'" '+
+        'data-exec-review="'+escapeHtml(String(dd.id))+'">'+renderExecutionReview(dd)+'</div>'+
+    '</div>'+
+    (dd.type === 'calibration' ? renderCalibrationResult(dd) : '');
+}
 function renderDayCard(dd){
   var tm = TYPE_META[dd.type];
   var targets = getDayTargets(dd);
@@ -31360,139 +31522,7 @@ function renderDayCard(dd){
      applyCompletion() refuses them. So this clause changes nothing that was
      previously reachable, and the optional-run record renders its own compact
      line instead -- see renderOptionalRunCompanion(). */
-  if (logHoldsDetail){
-    var a = dd.actual || {};
-    var detailOpen = isDetailOpen(dd);
-    /* THE TWO THE ENGINE GRADES AGAINST, always visible. Distance alone is a
-       real rung of the evidence ladder -- it earns a completion assessment on
-       its own -- and pace is what turns that into a whole-session execution
-       judgement. Neither is compulsory: a missing pace narrows what Valhalla
-       will claim, and is never treated as a failure. */
-    actualHtml = '<div class="actual-panel">'+
-      /* The log opens under a statement of fact, not under a form. On a
-         focused session this is the one green thing on the screen and it is
-         lit, never boxed -- same rule as the Coach's Note. */
-      '<div class="actual-done"><span class="actual-done-i" aria-hidden="true">'+ICONS.check+'</span>'+
-        '<span class="actual-done-k">Session complete</span></div>'+
-      /* SHARING IS OFFERED HERE, UNDER THE THING IT IS ABOUT. It used to sit
-         at the foot of the completion card as one of three buttons in a row
-         -- share, analysis, continue -- which is three doors at the bottom of
-         a screen and no hierarchy between them. The rest of this product
-         offers one clear tab that opens what it names, so sharing becomes
-         exactly that, directly beneath "Session complete", and the composer
-         unfolds in place underneath it. Still offered, never urged: no badge,
-         no streak, no prompt that returns if ignored. */
-      renderShareLaunch(dd)+
-      /* The prescription, as reference, under what you did. Spans the log's
-         two columns like Share and the analysis above and below it. */
-      '<div class="sess-details-mount">'+detailHtml+'</div>'+
-      /* ---- THE COMPLETION IS THREE THINGS, IN THIS ORDER ----
-         Session complete / Share / View Analysis. The analysis mounted
-         BELOW the log before this, which put the coach's reading of the
-         session underneath every field the athlete might edit -- so the
-         one thing they are most likely to want after finishing was the
-         last thing on a very long card, and on a phone it was reached by
-         scrolling past the whole form. It is a tab like Share now: it sits
-         with the other two, and opens what it names directly beneath
-         itself.
-         The log keeps its place under all three. Editing what was logged
-         is a correction, not the point of the screen. */
-      /* ---------- AND THE LOG IS THE FOURTH TAB ----------
-         Everything on a finished session is now a tab that opens what it
-         names: Share, Session Details, Valhalla Analysis, Your Log. The
-         fields used to lie loose under the other three, so the card ended
-         on a form -- and the form is a CORRECTION, not the point of the
-         screen; the session is already logged by the time it is read.
-         A button with aria-expanded rather than a <details>, for the reason
-         recorded at logOpenFor: the browser's own state does not survive a
-         re-render, and three ordinary actions on this card re-render it.
-         The body carries its own two-column grid, because it is no longer a
-         child of .actual-panel's. */
-      '<div class="log-tab">'+
-        '<button type="button" class="sess-tab sess-tab-btn" data-action="toggle-log" '+
-          'data-day="'+dd.id+'" aria-expanded="'+(logTabOpen(dd)?'true':'false')+'">'+
-          sessionTabHtml('Your Log')+
-        '</button>'+
-        (logTabOpen(dd) ? '<div class="log-body">'+
-      '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
-      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
-      /* One control, in the same quiet voice the session breakdown already
-         uses. Open when the athlete asks, and open by default whenever this
-         day already carries any of it -- a record can never be made less
-         visible than it was. */
-      '<div class="actual-field full">'+
-        '<button type="button" class="splits-toggle" data-action="toggle-detail" data-day="'+dd.id+'" aria-expanded="'+(detailOpen?'true':'false')+'">'+
-          (detailOpen ? '<span class="st-k">Hide detail</span>'
-                      : '<span class="st-k">+ Add detail</span>'+
-                        '<span class="st-sub">Heart rate \u00b7 effort \u00b7 elevation \u00b7 feel \u00b7 notes</span>')+
-        '</button>'+
-      '</div>'+
-      (detailOpen ? (
-      /* HEART RATE AND FEEL ARE THE TWO COVERED BOXES IN THIS PANEL. Without
-         consent they are not shown, because inviting somebody to type a
-         resting-heart-rate figure Valhalla is not allowed to read is worse
-         than not asking. Distance, pace, RPE and the athlete's own notes are
-         ordinary training data and are unchanged. One line says why the two
-         are missing and where the choice lives; it is an explanation attached
-         to an absent control, not a standing request. */
-      (healthConsentGranted()
-        ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
-        : '')+
-      '<div class="actual-field"><label>RPE (1\u201310)</label><input type="number" min="1" max="10" inputmode="numeric" value="'+(a.rpe!=null?a.rpe:'')+'" data-action="actual-field" data-field="rpe" data-day="'+dd.id+'"></div>'+
-      /* ELEVATION IS OPTIONAL AND BLANK MEANS UNKNOWN. A flat run and an
-         unmeasured one are different facts, so an empty box stays null and
-         never becomes 0 -- and a genuine 0 the athlete types is kept. This is
-         ordinary training data, not health information, so it sits with RPE
-         rather than behind the consent gate. */
-      '<div class="actual-field"><label>Elevation (m) \u2014 optional</label><input type="number" min="0" step="1" inputmode="numeric" placeholder="unknown" value="'+(a.elevationGainM!=null?a.elevationGainM:'')+'" data-action="actual-field" data-field="elevationGainM" data-day="'+dd.id+'"></div>'+
-      (healthConsentGranted()
-        ? '<div class="actual-field full feel-field"><label>Feel</label>'+
-            '<div class="feel-row" role="group" aria-label="How the body felt">'+
-              FEEL_ORDER.map(function(k){
-                return '<button type="button" class="feel-btn'+(a.feel===k?' on':'')+'" '+
-                  'aria-pressed="'+(a.feel===k?'true':'false')+'" '+
-                  'data-action="set-feel" data-feel="'+k+'" data-day="'+dd.id+'">'+FEEL_META[k].short+'</button>';
-              }).join('')+
-            '</div></div>'
-        : '<div class="actual-field full"><div class="field-hint">Heart rate and how the session felt are '+
-          'health information, and Valhalla only records them if you have said it may. '+
-          'Settings \u2192 Health &amp; Readiness.</div></div>')+
-      '<div class="actual-field full notes-field"><label>Notes \u2014 optional</label>'+
-        '<div class="notes-wrap">'+
-          '<textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'" '+
-          'placeholder="e.g. Legs felt heavy after 12km, strong headwind, slept badly, HR strap seemed off.">'+escapeHtml(a.notes||'')+'</textarea>'+
-          '<button type="button" class="notes-wand" data-action="notes-wand" data-day="'+dd.id+'" '+
-            'title="Read my notes" aria-label="Read my notes for coaching signals">\u2728</button>'+
-        '</div>'+
-        '<span class="field-hint">Anything the numbers don\u2019t show \u2014 tired legs, poor sleep, heat, wind, hills, illness, pain, treadmill, HR sensor trouble.</span>'+
-        renderNoteSignalChips(dd)+
-      '</div>'
-      ) : '')+
-      /* THE THIRD RUNG, and it already lived behind its own disclosure -- a
-         quiet one-line control that opens on tap or when the day carries real
-         lap data. Left exactly as it was: warm-up, quality, recoveries and
-         cool-down are still logged segment by segment, and nothing about the
-         simplified surface above flattens what a watch or a connected service
-         supplied. */
-      renderSplitsBlock(dd)+
-      /* LAST, UNDER THE JUDGEMENT -- and now inside the tab with the log it
-         undoes, rather than loose at the foot of the card where it would be
-         the only thing left outside the four tabs. */
-      '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
-        '</div>' : '')+
-      '</div>'+
-      /* ---------- THE ANALYSIS COMES LAST ----------
-         Share, Session Details, Your Log, Valhalla Analysis. It sat third
-         before, between the prescription and the log, which put Valhalla's
-         reading of the session above the figures that reading is OF. The
-         card now runs in the order the athlete moves through it: send it,
-         check what was asked, record what happened, then read the verdict.
-         Still the same mount and the same id, so patchExecutionUI() finds
-         it exactly as before. */
-      '<div class="exec-review-mount" id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>'+
-    '</div>'+
-    (dd.type === 'calibration' ? renderCalibrationResult(dd) : '');
-  }
+  if (logHoldsDetail) actualHtml = renderCompletedPanel(dd, detailHtml);
 
   // Accordion: the header row always shows, everything below it collapses.
   // Completed sessions default shut (the prescription has served its purpose,
@@ -35786,8 +35816,18 @@ function renderShareLaunch(dd){
    work for a panel nobody has asked to see. */
 function toggleShareInline(dd, btn){
   if (!dd || !btn) return;
-  var host = document.getElementById('share-inline-' +
-    String(dd.id != null ? dd.id : dd.date));
+  /* ---------- THE HOST BESIDE THE BUTTON THAT WAS PRESSED ----------
+     This was a getElementById, which returns ONE element -- and the
+     finished session's panel can now be on screen twice on This Week: once
+     in the canonical card inside .wk-full and once on the day's own slide.
+     Pressing Share on the slide opened the composer into the hidden copy.
+     The host is always a sibling inside the panel the button belongs to, so
+     that is what is asked for; the id lookup stays as the fallback for any
+     caller whose button is not inside one. */
+  var panel = btn.closest ? btn.closest('.actual-panel') : null;
+  var host = (panel && panel.querySelector('.share-inline')) ||
+    document.getElementById('share-inline-' +
+      String(dd.id != null ? dd.id : dd.date));
   if (!host) return;
   if (host.classList.contains('is-open')){
     host.classList.remove('is-open');
@@ -60265,7 +60305,36 @@ function weekSlideHtml(dd, i){
          for the time being" -- so its five execution phases stay off the
          slide, and it is the one day that keeps the button, because
          otherwise goal day on This Week would be a hero and nothing. */
-      depth+
+      /* ---------- A FINISHED RUN LOOKS FINISHED ON EVERY SCREEN ----------
+         Founder: "A completed run on today should be moved on this week and
+         full plan. Just the tabs."
+         Until now a completed day on this slide was a hero and a Session
+         Details disclosure. Today and Full Plan's session screen carried
+         the whole stack -- Session complete, Share, Session Details, Your
+         Log, Valhalla Analysis -- because both build from renderDayCard and
+         this slide does not. So the same run read as two different things
+         depending on which way in you took.
+         "JUST THE TABS", and that is the whole instruction. What does NOT
+         come across is everything else Today wraps around them: Hear What's
+         Next, Ask Coach, the line about Strava, Injured or ill. Those are
+         Today's business -- the screen about the run you are doing now.
+         THE DISCLOSURE GOES IN AS THE MOUNT, not beside it. depth is where
+         this slide's Session Details lives; handing it to the panel puts it
+         behind the Session Details tab in the founder's order (complete,
+         Share, Details, Log, Analysis) instead of printing it twice. */
+      (prescriptionIsReference(dd)
+        ? (function(){
+            /* ONE id PER SLIDE, for the third time in this function and for
+               the same reason as the ring gradient and the captions above:
+               the canonical card is still in the document behind this
+               carousel, so every id the panel carries would exist twice.
+               Measured before this line: share-inline-2026-11-02 and
+               exec-review-2026-11-02, both doubled. */
+            var panel = renderCompletedPanel(dd, depth);
+            return panel.split('exec-review-'+dd.id).join('exec-review-'+dd.id+'-w'+i)
+                        .split('share-inline-'+dd.id).join('share-inline-'+dd.id+'-w'+i);
+          })()
+        : depth)+
     '</div></div>';
 }
 function weekDayIndex(weekNum){

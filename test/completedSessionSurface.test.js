@@ -578,3 +578,98 @@ test('the analysis tab does not promise a verdict it has not got', () => {
   assert.match(a.renderDayCard(distOnly), /average pace/,
     'the unscored analysis no longer says what is missing');
 });
+
+/* ---------------------------------------------------------------------------
+ * A FINISHED RUN LOOKS FINISHED ON EVERY SCREEN
+ * ---------------------------------------------------------------------------
+ * Founder: "A completed run on today should be moved on this week and full
+ * plan. Just the tabs."
+ * Today and Full Plan's SESSION screen both build from renderDayCard and so
+ * carried the whole stack. This Week and Full Plan's WEEK screen build their
+ * day from weekSlideHtml() instead, and carried only the Session Details
+ * disclosure -- the same run reading as two different things depending on
+ * which way in you took. The panel is one function now and both call it.
+ */
+function slideApp() {
+  const a = loadApp({ pinnedDate: '2026-11-08T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 11, startDate: '2026-09-04', distanceKey: 'full', volume: 46,
+    benchSec: 45 * 60, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 6 } });
+  a.state.athlete = a.makeAthleteRecord();
+  return a;
+}
+const slideTabs = h => (h.match(/sess-tab-k[^>]*>([^<]*)</g) || [])
+  .map(x => /> ?([^<]*)</.exec(x)[1]);
+
+test('the week slide carries a finished session’s tabs, in the founder’s order', () => {
+  const a = slideApp();
+  const d = a.state.days.filter(x => x.type !== 'rest' && x.km > 0)[0];
+  logAsPrescribed(a, d, { quality: 1 });
+  const slide = a.weekSlideHtml(d, a.state.days.indexOf(d));
+
+  assert.match(slide, /actual-done-k">Session complete/,
+    'the week slide does not say the session is complete');
+  const tabs = slideTabs(slide);
+  assert.deepEqual(tabs, ['Share', 'Session Details', 'Your Log', 'Valhalla Analysis'],
+    'the week slide does not carry the finished session’s four tabs in order: ' +
+    JSON.stringify(tabs));
+
+  /* ---- ONE SESSION DETAILS, NOT TWO ----
+     The slide already built its own disclosure; it is handed to the panel
+     as the mount rather than printed beside it. */
+  assert.equal((slide.match(/sess-tab-k[^>]*>Session Details</g) || []).length, 1,
+    'the slide prints Session Details twice');
+
+  /* ---- "JUST THE TABS" ----
+     Today wraps the panel in things that are Today's business, and the
+     instruction was explicit that only the tabs come across. */
+  assert.doesNotMatch(slide, /Hear what’s next|Hear What’s Next/i,
+    'the slide grew Today’s voice button');
+  assert.doesNotMatch(slide, /can still help with what’s next/i,
+    'the slide grew Today’s Ask Coach caveat');
+});
+
+test('an unrun day on the week slide is untouched by any of it', () => {
+  const a = slideApp();
+  const d = a.state.days.filter(x => x.type !== 'rest' && x.km > 0 && !x.completed &&
+    x.date > a.todayStr())[0];
+  assert.ok(d, 'the fixture has no unrun day ahead');
+  const slide = a.weekSlideHtml(d, a.state.days.indexOf(d));
+  assert.equal(slide.indexOf('actual-panel'), -1,
+    'an unrun session is showing a completion panel');
+  assert.doesNotMatch(slide, /Session complete/, 'an unrun session says it is complete');
+});
+
+test('the finished panel is one function, and its ids are unique on the week screen', () => {
+  /* THE SLIDE IS NOT THE ONLY COPY. This Week keeps the canonical
+     renderDayCard inside .wk-full behind the carousel, so every id the
+     panel carries existed twice the moment the slide grew one -- measured
+     before the fix: share-inline-2026-11-02 and exec-review-2026-11-02,
+     both doubled. getElementById returns the first, which is the hidden
+     one, so Share opened into a card nobody could see and the visible
+     analysis never refreshed. Same failure the ring gradient and the
+     execution captions had on this same slide, fixed the same way. */
+  const a = slideApp();
+  a.state.days.filter(x => x.date < a.todayStr() && x.type !== 'rest')
+    .forEach(d => logAsPrescribed(a, d, { quality: 1 }));
+  const cur = a.currentWeekNum();
+  const done = a.state.days.filter(x => x.week === cur && x.completed)[0];
+  assert.ok(done, 'the fixture has no completed day in the current week to select');
+  if (a.handleWeekPickDay) a.handleWeekPickDay(done.date);
+
+  const html = a.renderWeekView();
+  assert.ok((html.match(/actual-panel/g) || []).length >= 2,
+    'the week screen is not showing the panel in both places, so this proves nothing');
+  const ids = (html.match(/\sid="([^"]+)"/g) || []).map(x => /id="([^"]+)"/.exec(x)[1]);
+  const seen = {}, dup = [];
+  ids.forEach(i => { if (seen[i]) dup.push(i); seen[i] = true; });
+  assert.deepEqual(dup, [], 'the week screen has duplicate ids: ' + dup.join(', '));
+
+  /* AND EVERY COPY IS STILL REACHABLE BY ITS PATCH. Suffixing the ids would
+     be a silent way to make the slide's analysis unpatchable, so the hook
+     patchExecutionUI actually reads is counted instead. */
+  const hooks = (html.match(/data-exec-review="/g) || []).length;
+  assert.ok(hooks >= (html.match(/actual-panel/g) || []).length,
+    'only ' + hooks + ' execution mounts carry the hook their patch reads');
+});

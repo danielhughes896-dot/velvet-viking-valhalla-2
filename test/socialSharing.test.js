@@ -552,7 +552,13 @@ test('finishing a session opens no modal, from any path', () => {
      complete" instead of below the whole log, and this guard is about it
      being in the card at all -- not about which line of renderDayCard
      emits it. */
-  assert.ok(/id="exec-review-'\+dd\.id\+'">'\+renderExecutionReview\(dd\)/.test(src),
+  /* THE MOUNT AND THE CALL, WITH WHATEVER IS BETWEEN THEM. The mount took
+     a data-exec-review hook so patchExecutionUI can write EVERY copy of it
+     -- a completed day's panel is now on This Week twice, in the canonical
+     card and on the day's own slide, and getElementById was patching the
+     hidden one. Pinning the exact characters between the id and the call
+     made this fail on an attribute that does not change the claim. */
+  assert.ok(/id="exec-review-'\+dd\.id\+'"[\s\S]{0,200}renderExecutionReview\(dd\)/.test(src),
     'the execution review left the day card');
 });
 
