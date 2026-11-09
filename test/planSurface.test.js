@@ -2053,3 +2053,58 @@ test('a rest day in the week carousel is the rest day Today shows', () => {
   assert.ok(/th-hero|th-ring/.test(box) || !box,
     'the rest day in the carousel has no hero');
 });
+
+/* ---------------------------------------------------------------------------
+ * FULL PLAN SAYS WHERE IN THE BLOCK YOU ARE
+ * ---------------------------------------------------------------------------
+ * Founder, weighing this against Runna's row of week dots: "put week 1 of 11
+ * then move the 0 / 796.6km then 0%".
+ * The figures answer "how much of the work is done"; nothing answered "how
+ * far through the plan am I", which on day one is the kinder question -- the
+ * denominator of a marathon build is close to a thousand kilometres. Dots
+ * were the alternative and were declined: the phase rail directly beneath
+ * this hero already owns a row of dots, and a second row meaning something
+ * else would be two dot languages a centimetre apart.
+ */
+test('the Full Plan hero names the week, the volume and the percentage, in that order', () => {
+  const a = app();
+  const cur = a.currentWeekNum();
+  const html = a.renderWeekHeroBlock(cur, true);
+  const wk = /<div class="wk-hero-wk[^"]*"[^>]*>([^<]*)<\/div>/.exec(html);
+  assert.ok(wk, 'the Full Plan hero no longer says which week of the block this is');
+  assert.equal(wk[1], 'Week ' + cur + ' of ' + a.totalWeeksInPlan(),
+    'the week position does not read "Week N of T"');
+
+  /* ---- AND IN THE ORDER THE FOUNDER GAVE ---- */
+  const iWk = html.indexOf('wk-hero-wk');
+  const iVol = html.indexOf('wk-hero-vol');
+  const iPct = html.indexOf('wk-hero-pct');
+  assert.ok(iWk > -1 && iVol > -1 && iPct > -1, 'the hero has lost one of its three figures');
+  assert.ok(iWk < iVol && iVol < iPct,
+    'the hero figures are not week, volume, percentage in that order');
+  /* All three inside the one row, or "in that order" is about nothing. */
+  const figs = html.indexOf('wk-hero-figs');
+  assert.ok(figs > -1 && figs < iWk, 'the week position is outside the figures row');
+
+  /* ---- THE NUMBERS ARE THE BLOCK'S, AND SO IS THE POSITION ----
+     The subline this replaces was struck off precisely because it named the
+     block over "Week 10 of 11" while the figures underneath measured the
+     CURRENT WEEK -- one period named, another measured. This only belongs
+     here while the figures are the block's. */
+  let bPlanned = 0;
+  for (let w = 1; w <= a.totalWeeksInPlan(); w++) bPlanned += a.weekVolume(w).training;
+  assert.ok(html.indexOf(a.fmtDist(bPlanned)) > -1,
+    'the hero prints a week total beside a block position again');
+});
+
+test('This Week does not repeat the week number in its own figures', () => {
+  /* Its title already reads "Week 10 · Taper". The same hero function serves
+     both screens, so the asBlock branch is the only thing keeping the number
+     off a screen that has said it one line above. */
+  const a = app();
+  const html = a.renderWeekHeroBlock(a.currentWeekNum(), false);
+  assert.equal(html.indexOf('wk-hero-wk'), -1,
+    'This Week prints "Week N of T" under a title that already says the week');
+  assert.match(html, /class="wk-hero-title font-head">Week /,
+    'the fixture assumption is gone: This Week no longer leads with the week');
+});

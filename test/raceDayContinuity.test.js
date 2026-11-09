@@ -82,8 +82,17 @@ test('A. early/mid race block: the continuity card is quiet, no premature recove
   const { a } = racingBlock({ weeks: 12, back: 40 });   // well inside the block
   assert.equal(a.nextBlockRecommendation(), null);
   const card = a.renderContinuityCard();
-  assert.match(card, /What.s next/i);
-  assert.match(card, /Finish this block first/);
+  /* ---------- QUIET NOW MEANS SILENT, NOT SOFTLY SPOKEN ----------
+     Mid-block this card used to say "Finish this block first. Once Race Day
+     passes..." -- true, but an answer to a question the athlete has not
+     asked in week 5 of 12, at the foot of a long scroll. Founder: "The
+     what's next at the bottom. Does that need to be there now? Or is it
+     better on just taper or just race day?" It waits for the taper.
+     THE CLAIM THIS LAW IS NAMED FOR IS UNCHANGED and is now held in its
+     strongest form: nothing offers recovery, a recommendation, or anything
+     else before the race has happened. */
+  assert.equal(card, '',
+    'the continuity card speaks mid-block again, before the athlete has asked');
   assert.doesNotMatch(card, /Start Recovery/i);
   assert.doesNotMatch(card, /RECOMMENDED NEXT|Recommended next/i);
 });
@@ -292,7 +301,12 @@ test('the retired congratulations banner does not come back as a parallel mechan
 });
 
 test('renderWeeksList() actually carries the continuity card in production, not just in isolation', () => {
-  const { a } = racingBlock({ weeks: 12, back: 40 });
+  /* READ FROM THE TAPER, because that is now the earliest the card speaks.
+     At back:40 this fixture is mid-block and the card is deliberately
+     silent, so asking there would have tested the gate rather than the
+     wiring -- and would have passed with renderWeeksList() having dropped
+     the card entirely. back:70 of a 12-week block is inside the taper. */
+  const { a } = racingBlock({ weeks: 12, back: 70 });
   const html = a.renderWeeksList();
   assert.match(html, /What.s next/i);
 });

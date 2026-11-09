@@ -53,23 +53,54 @@ const today = (a) => a.renderTodayView();
 const hasWhatsNext = (h) => /What’s next|What next\?|Recommended next/.test(h);
 
 // ---------------------------------------------------------------------------
-// 1. THE CARD IS PERMANENT -- from the start of the block, not only at the end
+// 1. THE CARD WAITS FOR THE TAPER -- and then it is permanent to the end
 // ---------------------------------------------------------------------------
-test('Full Plan answers "where does this go next" from the first week of a race block', () => {
+/* IT USED TO BE PERMANENT FROM WEEK ONE, so that the athlete "learns before
+   Race Day that the plan does not end there". Founder, looking at week 1 of
+   11: "The what's next at the bottom. Does that need to be there now? Or is
+   it better on just taper or just race day?"
+   Taper, not race day: the intent survives -- taper IS before Race Day, and
+   it is when thinking past the race starts -- while the card stops answering
+   a question nobody has yet, at the bottom of a long scroll. Race-day-only
+   would have arrived after the question had already formed.
+   ONLY THIS ONE BRANCH IS GATED. A real block recommendation, a pending race
+   outcome and a running development block each speak the moment they can,
+   and their laws below are untouched. */
+test('Full Plan says nothing about what is next in the first week of a race block', () => {
   const a = raceBlock('2026-07-28');            // week 1
-  const html = fullPlan(a);
-  assert.ok(hasWhatsNext(html), 'week 1 of a race build has no What’s next card');
-  assert.match(html, /Once <b>Race Day<\/b> passes/,
-    'the card does not tell the athlete the plan continues past Race Day');
+  assert.ok(!hasWhatsNext(fullPlan(a)),
+    'week 1 of a race build is being told to finish the block first');
 });
 
-test('mid-block it still says it, and still recommends nothing', () => {
+test('mid-block it is still silent, and still recommends nothing', () => {
   const a = raceBlock('2026-08-27');
-  assert.ok(hasWhatsNext(fullPlan(a)), 'the card disappeared mid-block');
+  assert.ok(!hasWhatsNext(fullPlan(a)), 'the card speaks mid-block');
   assert.equal(a.nextBlockRecommendation(), null,
     'a recommendation appeared while the race block was still running');
   assert.equal(a.renderBlockTransitionCard(), '',
     'the actionable transition card appeared mid-block');
+});
+
+test('from the taper it says it, and keeps saying it to Race Day', () => {
+  /* THE HALF THAT STOPS THE GATE BECOMING A DELETION. Without this, removing
+     the card outright passes both laws above. Walked day by day from the
+     start of the taper to Race Day itself, so a gate that opens for one week
+     and shuts again is caught too. */
+  let seen = 0;
+  const probe = (pin) => {
+    const a = raceBlock(pin);
+    const ph = a.phaseForWeek(a.currentWeekNum(), a.totalWeeksInPlan(),
+                              a.planPurpose(), a.planDistanceKey());
+    if (ph !== 'Taper' && ph !== 'Final') return;
+    seen++;
+    const html = fullPlan(a);
+    assert.ok(hasWhatsNext(html), pin + ' (' + ph + '): the card is missing from the taper');
+    assert.match(html, /Once <b>Race Day<\/b> passes/,
+      pin + ': the card does not tell the athlete the plan continues past Race Day');
+  };
+  ['2026-10-13', '2026-10-16', '2026-10-20', '2026-10-23', '2026-10-25'].forEach(probe);
+  assert.ok(seen >= 3,
+    'only ' + seen + ' taper/race-week days were reached, so this proves nothing');
 });
 
 test('THE TAPER CONTINUITY BUG: taper week offers no premature recovery', () => {
