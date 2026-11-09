@@ -210,6 +210,34 @@ test('a committed swipe does not then fade the destination in', () => {
     'the commit no longer suppresses the redundant fade');
 });
 
+test('a committed RAIL swipe does not fade either, for the same reason', () => {
+  /* ---- THE ONE GESTURE THAT WAS STILL PAYING FOR ITS OWN TRANSITION ----
+     Founder: "When you swipe the rails on this week and full plan - there is
+     a little flash. It doesn't happen when moving between nav tabs."
+     The law above covers the nav tabs; the day carousel on This Week and the
+     phase carousel on Full Plan commit through wirePagerRail(), which
+     re-renders via renderApp() and so took .view-fade -- a 180ms fadein from
+     nothing on a slide the finger had already delivered. Measured by sampling
+     document.getAnimations() every frame across a committed swipe: the frame
+     the track is replaced was the frame "fadein@view-fade view-host" appeared.
+     ORDER IS THE WHOLE POINT, so it is what is asserted. Raising the flag
+     AFTER commit() would suppress nothing -- the render has already read it --
+     and would still satisfy a test that only looked for the assignment. */
+  const wired = fn('wirePagerRail');
+  assert.match(wired, /pagerSuppressFade = true;/,
+    'a committed rail swipe fades the screen in again');
+  const raise = wired.indexOf('pagerSuppressFade = true;');
+  const call = wired.indexOf('commit();');
+  assert.ok(call > -1, 'wirePagerRail no longer commits, so this law reads nothing');
+  assert.ok(raise > -1 && raise < call,
+    'the suppression is raised after commit() runs, so the render has already faded');
+  /* AND IT IS RAISED ONCE, IN THE PAGER, not per-rail: both rails go through
+     this function, and a second copy in a planCommit would be a suppression
+     that can drift out of step with the render it is for. */
+  assert.equal((wired.match(/pagerSuppressFade = true;/g) || []).length, 1,
+    'the rail raises the fade suppression more than once');
+});
+
 test('the destination renders under the peek, then the peek lifts', () => {
   /* Reversing these two paints the outgoing page back at centre for a frame. */
   const finish = fn('pagerFinish');

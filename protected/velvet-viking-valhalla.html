@@ -27702,15 +27702,24 @@ function renderTopbar(){
     return '<div class="topbar">'+inner+'</div>';
   }
 
-  /* TODAY PUTS ITS HEADING ON THE BRAND ROW, as the approved design has it:
-     TODAY on the left, the wordmark centred, the date on the right. It
-     reuses the three-slot layout this function already has for onboarding
-     rather than inventing a second header, and it is gated on the Today tab
-     -- This Week, Full Plan, Plan HQ and Settings keep the brand-only bar
-     they have now, unchanged. */
+  /* TODAY PUTS ITS DATE ON THE BRAND ROW: the wordmark centred, the date on
+     the right. It reuses the three-slot layout this function already has for
+     onboarding rather than inventing a second header, and it is gated on the
+     Today tab -- This Week, Full Plan, Plan HQ and Settings keep the
+     brand-only bar they have now, unchanged.
+     THE WORD "TODAY" IS NO LONGER ON THE LEFT. Founder: "On the today card.
+     The very top left has today. We know that because we're on the today
+     card. Remove it." It was the third time the screen said so: the tab in
+     the bottom nav is lit, the date on the right is today's, and the view's
+     own heading row is already hidden here for the same reason (see
+     .view-today .view-heading-row).
+     THE SLOT STAYS, EMPTY. .tb-slot-left is flex:0 0 28% and the wordmark is
+     centred by the slots either side of it, not by the bar -- so deleting
+     the element would slide the wordmark 28% to the left rather than leave
+     it where the founder is looking at it. */
   if ((state.view || 'today') === 'today'){
     return '<div class="topbar"><div class="topbar-inner topbar-inner-today">'+
-      '<div class="tb-slot-left"><span class="tb-today font-head">Today</span></div>'+
+      '<div class="tb-slot-left"></div>'+
       '<div class="tb-slot-center">'+titleHtml+'</div>'+
       '<div class="tb-slot-right"><span class="tb-date font-head">'+
         escapeHtml(dow(todayStr())+', '+dShort(todayStr()))+'</span></div>'+
@@ -62664,7 +62673,32 @@ function wirePagerRail(rail, learnKey, planCommit){
        pager needs for the same reason. */
     setX(base() + (p.dx < 0 ? -w : w));
     swipeMarkLearned(learnKey);
-    window.setTimeout(function(){ commit(); pagerHaptic(); }, 240);
+    window.setTimeout(function(){
+      /* ---------- THE SWIPE HAS ALREADY DONE THE TRANSITION ----------
+         Founder: "When you swipe the rails on this week and full plan -
+         there is a little flash. It doesn't happen when moving between nav
+         tabs."
+         That is the whole diagnosis, and the mechanism it points at already
+         exists. commit() re-renders through renderApp(), and #view-mount
+         takes .view-fade on every render -- a 180ms fadein from nothing.
+         Right when a tab is TAPPED; wrong the instant a rail has just been
+         dragged into place, because the slide the finger delivered blinks
+         out to the black ground and fades back.
+         THE NAV TABS DO NOT FLASH FOR EXACTLY THIS REASON: the view pager
+         raises pagerSuppressFade before its own commit (see the peek swap
+         in the pager's touchend). The day carousel never did, so it was the
+         one gesture left paying for a transition it had already performed.
+         MEASURED, NOT GUESSED: sampling document.getAnimations() every frame
+         across a committed swipe, the frame the track is replaced is the
+         frame "fadein@view-fade view-host" appears.
+         RAISED HERE RATHER THAN INSIDE EACH planCommit, so both rails that
+         go through this pager -- the week's day carousel and Full Plan's
+         phase carousel -- are covered by one line. Reading the flag consumes
+         it, so a render that is not this one cannot inherit the suppression. */
+      pagerSuppressFade = true;
+      commit();
+      pagerHaptic();
+    }, 240);
   }, { passive:true });
   rail.addEventListener('touchcancel', function(){
     if (!g) return;

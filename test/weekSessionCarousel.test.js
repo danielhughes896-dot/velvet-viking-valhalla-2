@@ -298,8 +298,19 @@ test('HINT: each region marks itself learned from its own commit', () => {
   assert.ok(pg.indexOf('swipeMarkLearned(learnKey)') > pg.indexOf('if (!commit){ setX(base()); return; }'),
     'the hint is retired before the commit is known to have happened, so a drag that ' +
     'sprang back teaches the athlete nothing and retires the hint anyway');
-  assert.match(pg, /swipeMarkLearned\(learnKey\);\s*\n\s*window\.setTimeout\(function\(\)\{ commit\(\);/,
-    'the rail does not retire its hint when a swipe commits');
+  /* ---- THE RELATIONSHIP, NOT THE FORMATTING ----
+     This pinned the whole line, "window.setTimeout(function(){ commit();",
+     and broke the first time that callback grew a second statement -- the
+     fade suppression a committed rail swipe now raises. The law is that the
+     mark is taken immediately before the timeout that commits, and that the
+     timeout really is the one that commits; neither depends on the body
+     being written on one line. */
+  assert.match(pg, /swipeMarkLearned\(learnKey\);\s*\n\s*window\.setTimeout\(function\(\)\{/,
+    'the hint is no longer retired immediately before the committing timeout');
+  const after = pg.slice(pg.indexOf('swipeMarkLearned(learnKey);'));
+  const body = after.slice(after.indexOf('window.setTimeout('));
+  assert.ok(body.indexOf('commit();') > -1 && body.indexOf('commit();') < body.indexOf('}, 240)'),
+    'the timeout the hint is marked against is not the one that commits');
   assert.match(SRC, /wirePagerRail\(rail, 'week',/, 'the week card lost its own hint key');
   assert.match(SRC, /wirePagerRail\(rail, 'phase',/, 'the phase carousel lost its own hint key');
   assert.match(SRC, /if \(animate\) swipeMarkLearned\('rail'\)/,

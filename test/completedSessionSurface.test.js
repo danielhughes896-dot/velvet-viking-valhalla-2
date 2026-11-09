@@ -245,6 +245,41 @@ test('the header is one height on every view, so the page under it cannot shift'
     'the redundant rule under the header is back');
 });
 
+test('the Today header does not say Today', () => {
+  /* Founder: "On the today card. The very top left has today. We know that
+     because we're on the today card. Remove it." It was the third time the
+     screen said so -- the bottom nav's tab is lit, the date on the right is
+     today's, and the view's own heading row is hidden here for exactly this
+     reason (.view-today .view-heading-row{display:none}).
+     THE DATE STAYS. It is the one thing in that bar the athlete cannot read
+     off anything else on the screen.
+     AND THE SLOT STAYS, EMPTY, which is the half of this that is easy to
+     undo by accident. .tb-slot-left is flex:0 0 28% and the wordmark is
+     centred by the slots either side of it, not by the bar -- so deleting
+     the element slides VELVET VIKING 28% to the left. Measured after this
+     change: the wordmark's centre and the bar's centre are both 215px on a
+     430px screen. */
+  const a = app();
+  a.state.view = 'today';
+  const bar = a.renderTopbar();
+  assert.match(bar, /topbar-inner-today/, 'Today no longer renders its own header');
+  assert.equal(bar.indexOf('tb-today'), -1,
+    'the Today header says "Today" again, which the lit tab and the date already say');
+  assert.match(bar, /<div class="tb-slot-left"><\/div>/,
+    'the left slot was deleted rather than emptied, so the wordmark is no longer centred');
+  assert.match(bar, /class="tb-date font-head"/,
+    'the date went with the label — it is the one thing in that bar nothing else says');
+
+  /* The other views are untouched: brand only, no date, no label. */
+  ['week', 'full'].forEach(v => {
+    a.state.view = v;
+    const other = a.renderTopbar();
+    assert.match(other, /topbar-inner-brand-only/, v + ' no longer renders the brand-only header');
+    assert.equal(other.indexOf('tb-today'), -1, v + ' grew a Today label');
+  });
+  a.state.view = 'today';
+});
+
 test('the breakdown disclosure is not the one tile left on the page', () => {
   /* A structured session renders its breakdown as an .ev-card summary rather
      than a plain toggle, so two controls doing the same job -- open a
