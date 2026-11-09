@@ -414,7 +414,16 @@
        THE SESSION RAIL ADDS ITS OWN 4px of padding-bottom under the card,
        so its min-height is the picture plus that. The PICTURE is what has
        to match, not the box around it. */
-    --rail-pic:223px;
+    /* 223 -> 274. Founder, drawing a line in the empty band under the rail:
+       "Can we make the rail bigger? ... We extend the rail height to the
+       white line." MEASURED against that drawing: at 274 the picture's
+       bottom lands at y=598 on Today and the line was at ~598.
+       THE CROPS MOVED WITH IT, which is the only reason this is allowed to
+       change -- see the ratio guard in test/planSurface. All nine
+       photographs are re-cut to 430/274 = 1.569:1 (820x523, 420x268) from
+       1080x608 sources, so every one is a DOWNSCALE. The old 820x425 files
+       would have been upscaled 1.29x at this height. */
+    --rail-pic:274px;
     --shadow:0 10px 30px rgba(0,0,0,0.4);
     --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
     /* SOFT SURFACE / ROUNDED TILE -- the Level 2 depth recipe (Active Goal,
@@ -2829,10 +2838,17 @@
        would be the kind of per-screen drift the rest of this sheet spends
        its length undoing. */
     align-items:center; text-align:center;
-    /* ITS OWN INTERVENTION, SO ITS OWN SPACE. 14px put it in the rail's
-       rhythm, as though it were a sixth panel that had fallen below the
-       others. At 32px it reads as the coach stopping to say something. */
-    width:100%; box-sizing:border-box; margin:32px 0 2px;
+    /* THE 32px IS GONE, BY INSTRUCTION. It was here so the note would not
+       read as a sixth panel fallen out of the rail -- "at 32px it reads as
+       the coach stopping to say something" -- and the founder, having grown
+       the rail into the band it created, asked for it back: "Cut the note's
+       32px margin."
+       THE SPACE IS NOT ALL GONE WITH IT. The note keeps its own 34px of
+       padding above the heading, so the first word still sits 34px clear of
+       the card edge; what goes is the 32px of outer air. Measured on Today:
+       the note's box rises from y=614 to 582 and its first line from 648 to
+       616, while the rail below the hero grows 51px. */
+    width:100%; box-sizing:border-box; margin:0 0 2px;
     padding:34px 26px 36px; border:0; background:none; border-radius:0;}
   /* ---------- THE ONE-CARD DAY'S NOTE IS A CHERRY BOX ----------
      Founder, with a mock-up of an easy day: "the cherry boarder should be

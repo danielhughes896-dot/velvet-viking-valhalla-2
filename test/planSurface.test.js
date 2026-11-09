@@ -555,12 +555,14 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
      moves. Both numbers are derived here from .wrap itself rather than
      written down a second time.
      THE HEIGHT IS THE SHARED ONE, and it is not this screen's to set:
-     --rail-pic is 223px for every picture in the product (see "every
-     picture rail is the same size"). At 430px that is 1.928:1 and all nine
+     --rail-pic is 274px for every picture in the product (see "every
+     picture rail is the same size"). At 430px that is 1.569:1 and all nine
      photographs are cut to it. The ratio is checked rather than the pixels
      -- the picture may grow again, as long as the crops are re-cut with
-     it. Measured at 430px after the change: the rail sits at x=0, w=430,
-     h=223 on a 430px viewport. */
+     it, which is exactly what happened here: 223 -> 274 on the founder's
+     drawn line, with every photograph re-cut from a 1080x608 source to
+     820x523 and 420x268. Measured at 430px after the change: the rail sits
+     at x=0, w=430, h=274 on a 430px viewport. */
   const gutter = /padding:0 (\d+)px/.exec(rule('.wrap'));
   assert.ok(gutter, 'the page gutter is no longer a single px value — re-derive the breakout');
   const g = Number(gutter[1]);
@@ -581,8 +583,8 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
   assert.ok(pic, 'the shared picture height is gone');
   const PHONE = 430;
   const aspect = PHONE / Number(pic[1]);
-  assert.ok(Math.abs(aspect - 1.928) < 0.04,
-    'the picture is now ' + aspect.toFixed(3) + ':1 at ' + PHONE + 'px, against the 1.928:1 the ' +
+  assert.ok(Math.abs(aspect - 1.569) < 0.04,
+    'the picture is now ' + aspect.toFixed(3) + ':1 at ' + PHONE + 'px, against the 1.569:1 the ' +
     'photographs were cut to — re-cut them or put the height back');
 
   /* AND NOTHING ELSE ON THIS SCREEN STEPS OUT. One breakout is a decision;
@@ -590,6 +592,68 @@ test('the picture runs edge to edge, and tracks the gutter it steps out of', () 
   const outs = (BARE.match(/\.view-plan > \.[a-z-]+\{[^}]*margin-left:-\d+px/g) || []);
   assert.equal(outs.length, 1,
     'more than one Full Plan child breaks out of the page gutter: ' + outs.join(' | '));
+});
+
+/* ---------- THE CROPS AND THE HEIGHT ARE ONE DECISION ----------
+   The ratio guard above says the photographs must be cut to the rail's
+   shape. Nothing checked that they ARE: it read the stylesheet and took the
+   files on trust, so a height change with no re-cut passed it and the
+   pictures were silently upscaled on every screen. That is exactly what the
+   223 -> 274 change would have done -- the old files were 820x425, and at
+   274pt on a 2x phone the app asks for 548 device pixels of height from 425,
+   a 1.29x upscale. This reads the files. */
+test('every rail photograph is cut to the rail\u2019s own shape', () => {
+  const dir = path.join(ROOT, 'assets');
+  const pic = /--rail-pic:(\d+)px/.exec(BARE);
+  const want = 430 / Number(pic[1]);
+  /* JPEG SOF marker, walked rather than guessed: the segment carries the
+     real pixel dimensions, which is the only thing that settles this. */
+  const dims = file => {
+    const b = fs.readFileSync(file);
+    let i = 2;
+    while (i < b.length){
+      if (b[i] !== 0xFF){ i++; continue; }
+      const m = b[i + 1];
+      if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC)
+        return { w: b.readUInt16BE(i + 7), h: b.readUInt16BE(i + 5) };
+      i += 2 + b.readUInt16BE(i + 2);
+    }
+    return null;
+  };
+  /* THE PHOTOGRAPHS THAT SIT IN A RAIL, AND ONLY THOSE. Read out of the
+     stylesheet so one added later is covered without this being remembered
+     -- but scoped to the two tokens that put a picture IN a rail,
+     --card-pic (a session card) and --phase-pic (a phase slide).
+     NOT EVERY JPEG IN assets/. The first version of this matched them all
+     and failed on valhalla-mountains-820, which is 820x1093: a 3:4 portrait
+     behind the Valhalla hero, not a rail picture at all. It was right to
+     fail and the selector was wrong. */
+  const named = [...new Set(
+    (BARE.match(/--(?:card|phase)-pic:url\('(\/assets\/[a-z-]+-\d+\.jpg)'\)/g) || [])
+      .map(m => /\('([^']+)'\)/.exec(m)[1]))];
+  assert.ok(named.length >= 10,
+    'only ' + named.length + ' rail photographs are referenced — re-check the selector');
+  let checked = 0;
+  named.forEach(u => {
+    const file = path.join(dir, u.split('/').pop());
+    assert.ok(fs.existsSync(file), 'the stylesheet names a photograph that is not here: ' + u);
+    const d = dims(file);
+    assert.ok(d, 'could not read the dimensions of ' + u);
+    const got = d.w / d.h;
+    assert.ok(Math.abs(got - want) < 0.03,
+      u + ' is ' + d.w + 'x' + d.h + ' (' + got.toFixed(3) + ':1) against the rail\u2019s ' +
+      want.toFixed(3) + ':1 — the height moved and this crop did not');
+    /* AND IT IS NOT BEING UPSCALED. At 430pt wide on a 2x screen the app
+       asks for 860x(2 x --rail-pic) device pixels; a source shorter than
+       that is stretched, which is the softness this whole pass avoided. */
+    if (u.indexOf('-820') > -1){
+      assert.ok(d.h >= Number(pic[1]) * 2 * 0.95,
+        u + ' is only ' + d.h + 'px tall against the ' + (Number(pic[1]) * 2) +
+        ' a 2x screen asks for — it will be upscaled');
+    }
+    checked++;
+  });
+  assert.ok(checked >= 10, 'only ' + checked + ' photographs were checked');
 });
 
 test('every picture rail sits the same distance below what is above it', () => {
@@ -654,7 +718,7 @@ test('every picture rail is the same size', () => {
      own padding here rather than written down twice. */
   const pic = /--rail-pic:(\d+)px/.exec(BARE);
   assert.ok(pic, 'the shared picture height is gone');
-  assert.equal(Number(pic[1]), 223, 'the shared picture height is no longer the agreed 223px');
+  assert.equal(Number(pic[1]), 274, 'the shared picture height is no longer the agreed 274px');
 
   assert.match(rule('.pp-slide-body'), /min-height:var\(--rail-pic\)/,
     'the phase slide no longer takes the shared picture height');
