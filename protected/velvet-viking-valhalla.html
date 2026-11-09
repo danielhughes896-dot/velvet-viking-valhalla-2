@@ -96,6 +96,15 @@
      renderPhaseRail() returns nothing and the screen shows the headed
      section instead -- there is no Maintain slide to give a picture to. */
   .ph-race-week, .ph-final-week{--phase-pic:url('/assets/phase-final-820.jpg');}
+  /* AND THE GOAL DAY'S OWN SLIDE, which is the picture's real home. The two
+     classes above need trainingPhase() to NAME a week "Race Week" or "Final
+     Week", and goalWeekContinuesTaper() keeps the goal week inside the taper
+     on an ordinary block -- so on Base/Build/Peak/Taper this photograph was
+     in the repository and on no screen. phaseSlug(vGoalDay()) is what the
+     slide wears: race-day with an event, goal-day without. A steady block's
+     "Review" is not listed because it builds no race day and therefore no
+     stop -- see planRailStops(). */
+  .ph-race-day, .ph-goal-day{--phase-pic:url('/assets/phase-final-820.jpg');}
   :root{
     /* Neutral-charcoal foundation (RC2 palette refinement) -- replaces the
        former warm brown-black ramp (H~30deg) with a near-neutral one
@@ -4365,6 +4374,7 @@
     .ph-peak{--phase-pic:url('/assets/phase-peak-420.jpg');}
     .ph-taper{--phase-pic:url('/assets/phase-taper-420.jpg');}
     .ph-race-week, .ph-final-week{--phase-pic:url('/assets/phase-final-420.jpg');}
+    .ph-race-day, .ph-goal-day{--phase-pic:url('/assets/phase-final-420.jpg');}
   }
   .modal-decision .modal-head, .modal-decision .modal-body{
     position:relative; z-index:1;
@@ -6732,6 +6742,35 @@
   .view-plan > .race-event .rd-open::before{
     content:''; position:absolute; left:0; right:0; top:-17px; height:1px;
     background:var(--cherry-line);}
+
+  /* ---------- THE GOAL DAY'S STOP, UNDER ITS OWN SLIDE ----------
+     The same lit cherry panel the race event has always been -- identity and
+     date left, distance right -- with the founder's two additions between
+     the figures and the way in: "Target time / target pace if one exists",
+     then the chosen strategy. One row of label-and-figure pairs that wraps,
+     so a plan carrying all three reads as three facts about one day rather
+     than a table.
+     QUIETER THAN THE TWO ABOVE IT, deliberately. The date and the distance
+     are the day's identity and carry the panel's weight at 28px; these are
+     what the athlete is aiming AT, and a third 28px figure would make the
+     panel an argument between four numbers. 15px, white, tabular.
+     The hairline is drawn by this block rather than on the button, for the
+     reason recorded above it: .rd-open's rim is a gradient and a border on
+     the same edge throws it away. The button moves to row 4. */
+  .view-plan > .race-stop .rst-figs{
+    grid-column:1 / -1; grid-row:3; position:relative;
+    display:flex; flex-wrap:wrap; gap:7px 22px; margin-top:14px; padding-top:14px;}
+  .view-plan > .race-stop .rst-figs::before{
+    content:''; position:absolute; left:0; right:0; top:0; height:1px;
+    background:var(--cherry-line);}
+  .view-plan > .race-stop .rst-fig{display:flex; align-items:baseline; gap:8px;}
+  .view-plan > .race-stop .rst-k{
+    font-family:var(--text-face); font-size:11.5px; letter-spacing:.07em;
+    text-transform:uppercase; color:var(--ink-dim);}
+  .view-plan > .race-stop .rst-fig b{
+    font-family:var(--text-face); font-weight:700; font-size:15px;
+    letter-spacing:.01em; font-variant-numeric:tabular-nums; color:#FFFFFF;}
+  .view-plan > .race-stop .rd-open{grid-row:4;}
 
   /* =======================================================
      FULL PLAN -- the week and the session, each its own screen.
@@ -49769,6 +49808,106 @@ function planPhaseIndex(groups){
   }
   return groups.length - 1;
 }
+/* ---------- THE RAIL ENDS AT THE DAY THE BLOCK EXISTS FOR ----------
+   Founder, looking at Full Plan: "The goal day card looks like the last
+   version of the app. Not the current swiping version. I think it should be
+   added to the rail at the end. Base -> Build -> Peak -> Taper -> Race Day."
+
+   A STOP, NOT A PHASE. planPhaseGroups() answers "which weeks are in which
+   phase" and is read by the week list, the dividers and trainingPhase()'s
+   own naming; goal day is not a phase and must not become one there. This is
+   the carousel's list and only the carousel's: the phases, then the day.
+
+   weeks IS EMPTY ON PURPOSE. planPhaseIndex() falls back to "the stop that
+   contains the current week", and giving this stop the race's week would
+   open Full Plan on the goal day for the whole of race week instead of on
+   the taper the athlete is still running. It is reached by swiping to the
+   end or tapping its dot, which is what the founder drew.
+
+   NO RACE DAY, NO STOP. A steady block has a review point rather than a goal
+   day and builds no race day at all, so this asks state.days rather than the
+   setup -- the same question renderRaceDayEvent() asks. */
+function planRailStops(){
+  var stops = planPhaseGroups();
+  var race = state.days ? state.days.filter(function(d){ return d.type==='race'; })[0] : null;
+  if (!race) return stops;
+  /* Keyed by the goal day's own name. vGoalDay() says "Race Day", "Goal Day"
+     or "Review"; trainingPhase() says Base, Build, Peak, Taper, Maintain,
+     "Race Week" or "Final Week". The two vocabularies do not overlap, so the
+     phase string stays a usable key for planPhaseSel and for a dot. */
+  return stops.concat([{ phase: vGoalDay(), weeks: [], race: race }]);
+}
+/* ---------- WHAT SITS UNDER THE GOAL DAY'S SLIDE ----------
+   The founder wrote the contents out:
+     "GOAL DAY  Date  distance, same rules as the rest of the rail.
+      Target time / target pace if one exists.
+      RACE STRATEGY  Even Pace / Negative Split / Custom
+        Just the currently selected strategy shown here.
+      VIEW RACE SESSION"
+   and the reason: "you can plan for the big day before the race/goal day
+   happens."
+
+   EVERY FIGURE COMES FROM WHERE THE RING GETS IT. The race's ring already
+   prints these two numbers -- getDayTargets() for the pace, and
+   raceExecutionPlan().impliedSec through secToClock() for the finish, which
+   is the strategy's own arithmetic rather than goal pace x distance. Read
+   from the same two places here, so this panel cannot tell the athlete a
+   different race from the one the card shows.
+
+   "IF ONE EXISTS" IS LOAD-BEARING. A block with no benchmark has no goal
+   pace, and raceExecutionPlan() returns null below a distance it can build
+   blocks for. Each row is emitted only when its own figure is there, and the
+   section disappears entirely when neither is.
+
+   THE STRATEGY IS SHOWN, NOT OFFERED. The picker -- three chips, the
+   recommendation, the custom stepper -- stays on the race session screen
+   where the execution blocks it reshapes are, which is a decision this
+   product already made. Here it is one line of state, and the way to change
+   it is the button underneath. */
+function renderPlanRaceStop(race){
+  if (!race) return '';
+  var rp = null;
+  try { rp = raceExecutionPlan(race.km || 0); } catch(e) { rp = null; }
+  var targets = {};
+  try { targets = getDayTargets(race) || {}; } catch(e) { targets = {}; }
+  var rows = '';
+  if (rp && rp.impliedSec)
+    rows += '<div class="rst-fig"><span class="rst-k">Target time</span>'+
+      '<b class="font-mono">'+escapeHtml(secToClock(Math.round(rp.impliedSec)))+'</b></div>';
+  if (targets.pace)
+    rows += '<div class="rst-fig"><span class="rst-k">Target pace</span>'+
+      '<b class="font-mono">'+escapeHtml(targets.pace)+'</b></div>';
+
+  /* RACE_STRATEGIES is the one table of these names; raceStrategyKey() is
+     the one reader of the stored preference. Neither is restated here. */
+  var strat = '';
+  var sk = raceStrategyKey();
+  var meta = RACE_STRATEGIES[sk];
+  if (meta){
+    strat = '<div class="rst-fig"><span class="rst-k">Race strategy</span>'+
+      '<b>'+escapeHtml(meta.label)+'</b></div>';
+  }
+
+  return '<div class="race-event race-stop">'+
+      '<div class="phase-divider race-divider">'+
+        '<span class="l font-head">'+escapeHtml(vGoalDay())+'</span>'+
+        '<span class="r" aria-hidden="true"></span>'+
+      '</div>'+
+      '<div class="race-event-when font-mono">'+escapeHtml(dLong(race.date))+'</div>'+
+      '<div class="race-event-dist font-mono"><b>'+kmToDisplay(race.km||0)+'</b> '+
+        '<span>'+escapeHtml(displayUnit())+'</span></div>'+
+      (rows || strat ? '<div class="rst-figs">'+rows+strat+'</div>' : '')+
+      '<button type="button" class="rd-open sess-nav" data-action="plan-open-session" '+
+        'data-day="'+escapeHtml(String(race.id))+'">View '+
+        (planHasEvent() ? 'race' : 'goal')+' session '+
+        '<span aria-hidden="true">\u2192</span></button>'+
+    '</div>';
+}
+function planRailRaceStop(){
+  var stops = planRailStops();
+  var sel = stops[planPhaseIndex(stops)];
+  return (sel && sel.race) ? sel : null;
+}
 function planSelectedPhase(){
   var groups = planPhaseGroups();
   if (!groups.length) return null;
@@ -49798,10 +49937,33 @@ function phaseSlug(phase){
    from end to end; renderFullPlanView() shows the headed section there
    instead, so this returns nothing rather than a carousel of one. */
 function renderPhaseRail(){
-  var groups = planPhaseGroups();
+  var groups = planRailStops();
   if (groups.length < 2) return '';
   var i = planPhaseIndex(groups);
   var slides = groups.map(function(g){
+    /* ---------- THE GOAL DAY'S OWN SLIDE ----------
+       The founder's hero, in their words: "Race Day / 14 February 2027 /
+       42.2 km". Same slide, same body, same dots -- what changes is that the
+       second line is a date and a distance rather than a week span and a
+       state, because a day has no span and "Ahead" is what the whole slide
+       already means.
+       THE PHOTOGRAPH IS ALREADY IN THE REPOSITORY. assets/phase-final-*.jpg
+       is the finish arch, mapped to .ph-race-week / .ph-final-week -- and
+       those classes need trainingPhase() to NAME a week "Race Week", which
+       it only does when the goal week opens a group of its own.
+       goalWeekContinuesTaper() keeps it inside the taper, so on an ordinary
+       block (Base/Build/Peak/Taper) that picture was unreachable. This is
+       the slide it was taken for. */
+    if (g.race){
+      return '<div class="pp-slide is-ahead is-race ph-'+phaseSlug(g.phase)+'" '+
+          'data-phase="'+escapeHtml(g.phase)+'">'+
+        '<div class="pp-slide-body">'+
+          '<span class="pp-slide-k">'+escapeHtml(g.phase)+'</span>'+
+          '<span class="pp-slide-w">'+escapeHtml(dLong(g.race.date))+'</span>'+
+          '<div class="pp-slide-msg">'+kmToDisplay(g.race.km||0)+' '+escapeHtml(displayUnit())+'</div>'+
+        '</div>'+
+      '</div>';
+    }
     var st = phaseGroupState(g);
     var msg = phaseMessage(g.phase);
     return '<div class="pp-slide is-'+st+' ph-'+phaseSlug(g.phase)+'" '+
@@ -49945,8 +50107,21 @@ function renderWeeksList(forceOpenAll, onlyPhase){
   /* Exactly once, and only from the week that actually holds it --
      renderRaceDayEvent() returns '' for every other week, which is what
      keeps "appears exactly once" true without this knowing which week it is. */
-  var total = totalWeeksInPlan();
-  for (var w=1; w<=total; w++) html += renderRaceDayEvent(w);
+  /* ---------- NOT UNDER EVERY PHASE ANY MORE ----------
+     This loop runs over every week and renderRaceDayEvent() returns '' for
+     all but one, which is what kept "appears exactly once" true without this
+     knowing which week it is. What it did NOT know is which SLIDE is on
+     screen: with the carousel showing one phase at a time, the goal day's
+     card was printed under Base, under Build, under Peak and under Taper --
+     the founder's "the goal day card looks like the last version of the app",
+     four times over. It has a stop of its own now.
+     KEPT WHERE THERE IS NO CAROUSEL. A single-phase block (a maintenance
+     programme) draws the headed list instead, with onlyPhase null, and the
+     goal day has nowhere else to be. */
+  if (!onlyPhase){
+    var total = totalWeeksInPlan();
+    for (var w=1; w<=total; w++) html += renderRaceDayEvent(w);
+  }
   html += renderContinuityCard();
   return html;
 }
@@ -59864,13 +60039,18 @@ function renderFullPlanView(){
      nothing to carousel, so the screen falls back to the headed section it
      has always had -- opened, because there is no slide above it naming the
      phase and nothing else on the screen to be in the way of. */
-  var manyPhases = planPhaseGroups().length >= 2;
+  var manyPhases = planRailStops().length >= 2;
+  /* THE LAST STOP HAS ITS OWN BODY. Every other slide is a phase and what
+     belongs under it is that phase's weeks; the goal day is a day, and what
+     belongs under it is the day. */
+  var raceStop = manyPhases ? planRailRaceStop() : null;
   return '<div class="view-plan">'+
     '<div class="view-heading font-head">Full Plan</div>'+
     (cur ? renderWeekHeroBlock(cur, true) : '')+
     renderPhaseRail()+
-    (manyPhases ? renderWeeksList(false, planSelectedPhase())
-                : renderWeeksList(true, null))+
+    (raceStop ? renderPlanRaceStop(raceStop.race)
+      : manyPhases ? renderWeeksList(false, planSelectedPhase())
+                   : renderWeeksList(true, null))+
   '</div>';
 }
 // Plan HQ: macro settings only -- block overview, Build New Block, Active
@@ -62772,7 +62952,9 @@ function wireWeekRail(rail){
    in the document is always the one the current render wrote. */
 function wirePhaseRail(rail){
   wirePagerRail(rail, 'phase', function(dir){
-    var groups = planPhaseGroups();
+    /* THE SAME LIST THE RAIL WAS DRAWN FROM, or the swipe stops one slide
+       short of the goal day and its dot becomes the only way to reach it. */
+    var groups = planRailStops();
     var at = parseInt(rail.getAttribute('data-index'), 10) || 0;
     var g = groups[at + dir];
     if (!g) return null;

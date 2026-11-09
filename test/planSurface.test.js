@@ -359,9 +359,17 @@ test('the phases read as a carousel, one slide at a time', () => {
   const i = src.indexOf('function renderPhaseRail');
   assert.ok(i > -1, 'the phase carousel is gone');
   const fn = src.slice(i, src.indexOf('\n}', i));
-  /* ONE SLIDE PER PHASE GROUP, IN BLOCK ORDER -- the grouping itself is
-     planPhaseGroups()' and is not re-derived here. */
-  assert.match(fn, /planPhaseGroups\(\)/, 'the carousel invents its own phase grouping');
+  /* ONE SLIDE PER STOP, IN BLOCK ORDER -- the phases, then the goal day.
+     The grouping itself is still planPhaseGroups()' and is not re-derived
+     here; planRailStops() is that list plus the one stop that is not a
+     phase. Both halves are asserted, because reading the carousel's list
+     off planPhaseGroups() directly is what dropped the goal day's slide,
+     and re-deriving the phases here is what the original law forbade. */
+  assert.match(fn, /planRailStops\(\)/, 'the carousel no longer reads the rail\u2019s own list');
+  const stopsFn = src.slice(src.indexOf('function planRailStops'),
+                            src.indexOf('\n}', src.indexOf('function planRailStops')));
+  assert.match(stopsFn, /planPhaseGroups\(\)/,
+    'the rail invents its own phase grouping instead of taking planPhaseGroups()');
   assert.match(fn, /pp-slide-k/, 'the slide no longer names its phase');
   assert.match(fn, /phaseGroupMeta\(g\)/,
     'the slide writes its own week span and state instead of taking the one source');
@@ -381,14 +389,27 @@ test('the phases read as a carousel, one slide at a time', () => {
 
   const a = app();
   const html = a.renderPhaseRail();
+  const stops = a.planRailStops();
   const groups = a.planPhaseGroups();
-  assert.equal((html.match(/class="pp-slide /g) || []).length, groups.length,
-    'the carousel does not have exactly one slide per phase');
+  /* ONE SLIDE PER STOP, and the stops are the phases plus the goal day --
+     measured, not assumed: the fixture builds Base/Build/Peak/Taper and a
+     race, so 4 phases and 5 slides. */
+  assert.equal(stops.length, groups.length + 1,
+    'the fixture no longer has a goal day to put at the end of the rail');
+  assert.equal((html.match(/class="pp-slide /g) || []).length, stops.length,
+    'the carousel does not have exactly one slide per stop');
   groups.forEach(g => {
     assert.ok(html.indexOf('>' + g.phase + '<') > -1, 'no slide names ' + g.phase);
     assert.ok(html.indexOf(a.phaseMessage(g.phase)) > -1,
       g.phase + ' has no message on its slide');
   });
+  /* THE LAST ONE IS THE DAY, NOT A PHASE. Founder: "Base -> Build -> Peak ->
+     Taper -> Race Day". It names itself with vGoalDay(), so a block with no
+     event reads "Goal Day" rather than promising a race nobody entered. */
+  assert.ok(html.indexOf('>' + a.vGoalDay() + '<') > -1,
+    'the rail does not end at the goal day');
+  assert.match(html, /class="pp-slide is-ahead is-race ph-/,
+    'the goal day\u2019s slide is drawn as a phase, so it takes a phase\u2019s state word');
   /* EXACTLY ONE SLIDE IS CURRENT, and it is the one the dots agree with. */
   assert.equal((html.match(/class="pp-dot is-on"/g) || []).length, 1,
     'the dots do not mark exactly one phase as current');
@@ -780,13 +801,146 @@ test('the week list below the carousel is the carousel\u2019s phase, and Race Da
       assert.equal(html.indexOf('id="week-' + w + '"'), -1,
         'week ' + w + ' is listed under ' + g.phase);
     }));
-    /* AND THE DESTINATION IS NOT FILTERED BY A PHASE. */
-    assert.match(html, /class="race-event"/,
-      'Race Day disappears when the athlete swipes off the phase it is in');
+    /* ---- AND THE GOAL DAY IS NOT UNDER THIS PHASE ----
+       THIS REVERSES THE LAW THAT WAS HERE. It required the race event under
+       EVERY phase, on the reasoning that the destination is not filtered by
+       a phase. True of the destination, false of the card: the loop that
+       emits it runs over every week and knows which week the race is in, but
+       not which SLIDE is on screen -- so it printed under Base, Build, Peak
+       and Taper alike. Founder, looking at exactly that: "The goal day card
+       looks like the last version of the app. Not the current swiping
+       version. I think it should be added to the rail at the end."
+       It has a stop of its own now, asserted in its own test below. */
+    assert.equal(html.indexOf('class="race-event"'), -1,
+      'the goal day\u2019s card is back under ' + g.phase + ', where it is one of four copies');
   });
   /* The week row still leads to the week screen and to nothing else. */
   const one = a.renderWeeksList(false, groups[0].phase);
   assert.match(one, /data-action="plan-open-week"/, 'a week row stopped being the way in');
+});
+
+/* ---------- THE RAIL ENDS AT THE DAY THE BLOCK EXISTS FOR ----------
+   Founder: "I think it should be added to the rail at the end. Base ->
+   Build -> Peak -> Taper -> Race Day", with the contents written out:
+   date and distance, "Target time / target pace if one exists", the chosen
+   strategy, and the way into the session. Their reason for putting it here
+   rather than leaving it for the day: "you can plan for the big day before
+   the race/goal day happens." */
+test('the goal day is the last stop on the rail, and carries the day', () => {
+  const a = app();
+  const stops = a.planRailStops();
+  const last = stops[stops.length - 1];
+  assert.ok(last && last.race, 'the rail does not end at the goal day');
+  assert.equal(last.phase, a.vGoalDay(),
+    'the stop is named something other than what this block calls its goal day');
+
+  /* ---- IT IS NOT A PHASE, AND MUST NOT LEAK INTO ONE ----
+     planPhaseGroups() answers "which weeks are in which phase" and is read
+     by the week list, the dividers and trainingPhase()'s own naming. A stop
+     that reached it would put a phase called "Race Day" into all three. */
+  assert.equal(a.planPhaseGroups().filter(g => g.race || g.phase === last.phase).length, 0,
+    'the goal-day stop has leaked into the phase grouping');
+  /* ---- AND IT DOES NOT STEAL THE OPENING SLIDE ----
+     planPhaseIndex() falls back to "the stop holding the current week". The
+     stop carries no weeks on purpose: with the race's week on it, Full Plan
+     would open on the goal day for the whole of race week instead of on the
+     taper still being run. */
+  /* LENGTH, NOT deepEqual: the runtime runs in its own vm realm, so its []
+     and this file's [] have different Array prototypes and deepStrictEqual
+     fails on two empty arrays. */
+  assert.equal(last.weeks.length, 0,
+    'the goal-day stop claims a week, so it will open in place of that week\u2019s phase');
+  a.renderApp = () => {};
+  a.planPhaseSel = null;
+  assert.notEqual(a.planRailStops()[a.planPhaseIndex(a.planRailStops())], last,
+    'Full Plan opens on the goal day rather than on the phase the athlete is in');
+
+  /* ---- THE PANEL SAYS WHAT THE FOUNDER ASKED IT TO ---- */
+  a.handlePhasePick(last.phase);
+  const view = a.renderFullPlanView();
+  assert.ok(view.indexOf('class="race-event race-stop"') > -1,
+    'selecting the goal day shows no panel');
+  assert.equal(view.indexOf('class="pp-phase '), -1,
+    'the goal day\u2019s stop still lists a phase\u2019s weeks underneath it');
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(view.indexOf(a.dLong(race.date)) > -1, 'the panel does not say when');
+  assert.ok(view.indexOf(a.kmToDisplay(race.km || 0)) > -1, 'the panel does not say how far');
+  assert.match(view, /data-action="plan-open-session"/, 'there is no way into the session');
+
+  /* ---- AND ITS FIGURES ARE THE RING'S FIGURES ----
+     The race's own card already prints both numbers. Asserted as equality
+     with what renderDayTargetRing() produces rather than against literals,
+     because a literal would pass while the two surfaces drifted apart --
+     and this panel is read days or weeks before the card it must agree
+     with. */
+  /* ON A NEGATIVE SPLIT, because that is the only setting where the two
+     candidate finishes are different numbers. impliedSec is what the
+     strategy's own blocks add up to; targetSec is goal pace x distance.
+     MEASURED on this fixture: even 43:39 / 43:39, negative 43:40 / 43:39.
+     Compared under 'even' this law passes whichever of the two the panel
+     prints, which is no law at all -- the mutation that swaps them survived
+     until this was moved onto a negative split. */
+  a.state.setup.raceStrategy = 'negative';
+  const rp = a.raceExecutionPlan(race.km || 0);
+  const targets = a.getDayTargets(race);
+  const ring = a.renderDayTargetRing(race, targets);
+  const clock = a.secToClock(Math.round(rp.impliedSec));
+  assert.notEqual(clock, a.secToClock(Math.round(rp.targetSec)),
+    'the two finishes round the same even on a negative split, so this proves nothing');
+  const split = a.renderFullPlanView();
+  assert.ok(ring.indexOf(clock) > -1, 'the ring stopped printing the finish, so re-point this');
+  assert.ok(split.indexOf(clock) > -1,
+    'the panel\u2019s target time is not the finish the ring shows');
+  assert.ok(ring.indexOf(targets.pace) > -1, 'the ring stopped printing the pace');
+  assert.ok(split.indexOf(targets.pace) > -1,
+    'the panel\u2019s target pace is not the pace the ring shows');
+
+  /* ---- AND THE SWIPE REACHES IT ----
+     The dot is not the only way to the last stop. wirePhaseRail()'s commit
+     steps to the neighbour in the list it is handed, and handed the phases
+     alone it returns null at Taper: the slide the founder put at the end of
+     the rail would be reachable by tapping and by nothing else. Read from
+     source because that commit only runs inside a gesture; what is asserted
+     is that both halves read ONE list, which is the defect itself. */
+  const wire = SRC.slice(SRC.indexOf('function wirePhaseRail'),
+                         SRC.indexOf('\n}', SRC.indexOf('function wirePhaseRail')));
+  assert.match(wire, /planRailStops\(\)/,
+    'the swipe steps through the phases only, so the goal day is reachable by dot alone');
+  assert.equal(wire.indexOf('planPhaseGroups()'), -1,
+    'the swipe and the rail now read two different lists');
+
+  /* ---- THE STRATEGY IS SHOWN, NOT OFFERED ----
+     "Just the currently selected strategy shown here." The picker -- chips,
+     the recommendation, the custom stepper -- stays on the race session. */
+  /* READ OFF `split`, the render taken AFTER the strategy was changed above
+     -- so this also checks the panel follows the preference rather than
+     printing whatever was chosen when the screen was first drawn. */
+  const sel = a.RACE_STRATEGIES[a.raceStrategyKey()];
+  assert.equal(a.raceStrategyKey(), 'negative', 'the strategy set above did not take');
+  assert.ok(split.indexOf(sel.label) > -1, 'the panel does not say which strategy is chosen');
+  assert.equal(split.indexOf('data-action="set-race-strategy"'), -1,
+    'the strategy picker has moved onto the plan, where it is a control and not a fact');
+  Object.keys(a.RACE_STRATEGIES).filter(k => k !== a.raceStrategyKey()).forEach(k => {
+    assert.equal(split.indexOf(a.RACE_STRATEGIES[k].label), -1,
+      'the panel lists ' + a.RACE_STRATEGIES[k].label + ' as well as the chosen one');
+  });
+});
+
+test('a block with no carousel keeps the goal day in its list', () => {
+  /* THE ONE PLACE THE OLD CARD IS STILL RIGHT. renderWeeksList() stopped
+     emitting it per phase because the stop carries it -- but a single-phase
+     block draws no carousel at all (renderPhaseRail returns '' under two
+     stops), so there is no stop to carry it and the goal day would simply
+     vanish. The guard is onlyPhase, which is null on exactly that path. */
+  const a = app();
+  const withPhase = a.renderWeeksList(false, a.planPhaseGroups()[0].phase);
+  assert.equal(withPhase.indexOf('class="race-event"'), -1,
+    'the per-phase list prints the goal-day card again');
+  const whole = a.renderWeeksList(true, null);
+  assert.ok(whole.indexOf('class="race-event"') > -1,
+    'a block rendered whole has lost its goal day entirely');
+  assert.equal((whole.match(/class="race-event"/g) || []).length, 1,
+    'the goal-day card appears more than once when the plan is rendered whole');
 });
 
 test('under the carousel a week is a row, never a drawer', () => {
