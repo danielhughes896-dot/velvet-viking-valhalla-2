@@ -7202,9 +7202,33 @@
      background and no border, so nothing is re-boxed. Spread a little
      wider and softer at the same time, because a tighter glow on a rounded
      edge reads as a rim rather than as light. */
+  /* ---------- AND THE HALO NEEDS AIR AT THE SIDES ----------
+     Founder: "The black box over the current week needs extending to fit
+     the full week in. Looks a little tight and cuts the W."
+     MEASURED at 320/360/375/390/412/430: the lit row's cushion was 10.5px
+     top and bottom and 0px left and right, at every one of them. The
+     de-boxing above took .week-head's 16px side padding, and a halo traces
+     the BORDER-BOX, so the rounded rect landed exactly on the W of WEEK and
+     exactly on the chevron -- air above and below, none beside.
+     THE CUSHION IS ADDED AS PADDING AND TAKEN STRAIGHT BACK OFF AS MARGIN,
+     so the box grows outward by 10px a side and NOTHING MOVES: the week
+     text keeps the same left edge as every other row, which is the
+     alignment the de-boxing exists to give. 10px answers the 10.5px already
+     there vertically, and .pp-body is inset 16px from the viewport, so the
+     wider box still clears the screen edge by 6px at 320px -- the narrowest
+     width the app supports.
+     DECLARED HERE, IN THE ONE is-now RULE, NOT IN A SECOND ONE. A separate
+     rule with the same selector is how a declaration goes missing: the
+     cascade reads both and a reader reads the first.
+     AND IN LONGHANDS, because ".week + .week" sets a spacing declaration on
+     this element further down; a margin shorthand here, or there, would
+     reset the other edge and the cushion would hold on the first row of a
+     phase and quietly stop holding on every other. */
   .view-plan .pp-body .week.is-now{
     border-radius:var(--radius); 
-    box-shadow:0 0 26px 2px color-mix(in srgb, var(--gold) 16%, transparent);}
+    box-shadow:0 0 26px 2px color-mix(in srgb, var(--gold) 16%, transparent);
+    padding-left:10px; padding-right:10px;
+    margin-left:-10px; margin-right:-10px;}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
   .view-plan-week .pw-progress{padding:0 0 14px;}
   /* ---------- THE WEEK ROWS SIT APART BY THE SAME 14px ----------
@@ -7219,11 +7243,21 @@
      MEASURED at 430px, every phase of a 14-week block: the first row came
      out 44px tall and every other 58px, so the space after week 1 was 14px
      tighter than after week 2. Base, Build, Peak and Taper all did it.
-     PADDING THE TOP OF EVERY ROW BUT THE FIRST is the same "space between,
+     SPACING THE TOP OF EVERY ROW BUT THE FIRST is the same "space between,
      not around" idiom, applied to the edge .week actually has: 14px between
-     each pair, the first row still flush under the dots, and no tail. */
-  .view-plan .pp-body .week + .week{padding:14px 0 0;}
-
+     each pair, the first row still flush under the dots, and no tail.
+     (It was padding when written; see the note on the declaration itself
+     for why it is now margin.) */
+  /* MARGIN, NOT PADDING, BECAUSE THE CURRENT ROW IS LIT NOW. Padding-top
+     was right while nothing painted this box -- .week is background:none,
+     border:0, box-shadow:none -- but the halo below traces the BORDER-BOX,
+     so 14px of padding sat INSIDE the light: measured 24.5px of glow above
+     the text against 10.5px below, on every current week that is not the
+     first row of its phase. Week 1 sits first and looked even, which is
+     why the lopsidedness has not been seen yet; it would have started at
+     week 2 of each phase. Margin puts the same 14px between the rows and
+     outside the box, so the gap is unchanged and the halo is even. */
+  .view-plan .pp-body .week + .week{margin-top:14px;}
   /* ---- THE NAVIGATION IS LIT, NOT DRAWN ----
      No surface of its own, no rule along the top: the bar is the page, and
      the tabs are light on it. Resting tabs take the same crisp white and the

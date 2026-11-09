@@ -235,6 +235,64 @@ test('the current week is lit again after the de-boxing took its ring', () => {
     'the current week row grew a fill, which is the box this was de-boxed out of');
 });
 
+test('the lit week has air at its sides without leaving the column', () => {
+  /* Founder: "The black box over the current week needs extending to fit the
+     full week in. Looks a little tight and cuts the W."
+     MEASURED BEFORE THE FIX, at 320/360/375/390/412/430: 10.5px of cushion
+     above and below the text and 0px at either side -- at every one of them.
+     The de-boxing took .week-head's 16px side padding and a halo traces the
+     border-box, so the rounded rect landed exactly on the W of WEEK and
+     exactly on the chevron.
+     THE INVARIANT IS THAT THE CUSHION IS GIVEN AND TAKEN STRAIGHT BACK.
+     Padding grows the lit box outward; an equal negative margin pulls the
+     box back out to the column, so the week text keeps the same left edge as
+     every other row -- which is the alignment the de-boxing exists to give.
+     EITHER HALF ALONE IS A BUG, which is why both are asserted: padding
+     alone indents the current week out of the column that every other row
+     sits in, and margin alone widens the box without putting any air in it. */
+  const lit = rule('.view-plan .pp-body .week.is-now');
+  const px = re => { const m = lit.match(re); return m ? Number(m[1]) : null; };
+  const padL = px(/padding-left:(-?\d+)px/), padR = px(/padding-right:(-?\d+)px/);
+  const marL = px(/margin-left:(-?\d+)px/),  marR = px(/margin-right:(-?\d+)px/);
+
+  assert.ok(padL > 0 && padR > 0,
+    'the lit week has no side cushion, so its halo sits on the W of WEEK: ' + lit);
+  assert.equal(padL, padR,
+    'the side cushion is uneven, so the halo is off-centre on the row: ' + lit);
+  assert.equal(marL, -padL,
+    'the left cushion is not taken back off, so the current week indents out ' +
+    'of the column every other row sits in: ' + lit);
+  assert.equal(marR, -padR,
+    'the right cushion is not taken back off, so the current row is wider ' +
+    'than the column: ' + lit);
+
+  /* AND IT STAYS ON THE SCREEN. .pp-body is inset 16px from the viewport, so
+     a cushion wider than that puts the lit box off the edge at 320px -- the
+     narrowest width the app supports, and the one this was measured at. */
+  assert.ok(padL <= 16,
+    'the side cushion is wider than the 16px the plan body is inset by, so ' +
+    'the halo runs off the screen edge on a narrow phone: ' + lit);
+
+  /* THE CUSHION IS WRITTEN IN LONGHANDS, both here and in the sibling rule
+     that spaces the rows. Those two rules set spacing on the same element at
+     equal specificity, so a shorthand in either resets the edges the other
+     owns -- the cushion would hold on the first row of a phase and be reset
+     on every other. That looks right on week 1, which is the screen this was
+     reported from, and stops being right from week 2 of each phase on. */
+  assert.equal(/(^|;)\s*(padding|margin):/.test(lit), false,
+    'the cushion uses a padding or margin shorthand, which resets the other ' +
+    'edges the sibling rule sets: ' + lit);
+  assert.equal(/(^|;)\s*margin:/.test(rule('.view-plan .pp-body .week + .week')), false,
+    'the row spacing uses a margin shorthand, which resets the side cushion ' +
+    'on every current week that is not the first row of its phase');
+
+  /* AND THERE IS EXACTLY ONE is-now RULE. Two rules with one selector is how
+     a declaration goes missing here: the cascade reads both, a reader reads
+     the first, and so does every helper in this file. */
+  assert.equal(BARE.split('.view-plan .pp-body .week.is-now{').length - 1, 1,
+    'the current week is styled by more than one rule with the same selector');
+});
+
 test('every gold glow that marks selection or state names its token', () => {
   /* color-mix was already the pattern in this property -- .ev-card:hover,
      .splits-summary:hover, .v-call and the HQ panel all used it -- while the
@@ -1125,13 +1183,23 @@ test('every week row is the same distance from the one above it', () => {
   assert.match(pwBase, /padding:14px 0/,
     'the session row lost the base padding that makes its own sibling rule right');
 
-  /* THE SPACE GOES ON THE TOP OF EVERY ROW BUT THE FIRST. Bottom padding
-     here is the bug: it leaves the first pair flush and hangs a tail off
-     the last row. */
+  /* THE SPACE GOES ON THE TOP OF EVERY ROW BUT THE FIRST, AND OUTSIDE THE
+     LIGHT. Bottom spacing here is the bug it always was: it leaves the first
+     pair flush and hangs a tail off the last row.
+     IT IS MARGIN NOW, NOT PADDING, AND THAT IS LOAD-BEARING. Padding was
+     right while nothing painted this box. The current row is lit by a halo
+     and a halo traces the BORDER-BOX, so padding put the 14px INSIDE the
+     light: measured 24.5px of glow above the text against 10.5px below, on
+     every current week that is not the first row of its phase. Week 1 sits
+     first, so the screen the lopsidedness would first have been seen on was
+     the one screen it did not show on. */
   const sib = rule('.view-plan .pp-body .week + .week');
-  assert.match(sib, /padding:14px 0 0/,
-    'the week rows space themselves by padding something other than the top, ' +
+  assert.match(sib, /margin-top:14px/,
+    'the week rows space themselves by something other than the top margin, ' +
     'which leaves the first pair tighter than the rest: ' + sib);
+  assert.equal(/padding/.test(sib), false,
+    'the week rows space themselves with padding again, which puts the gap ' +
+    'inside the current row\'s halo and lights it lopsided: ' + sib);
 
   /* AND THE TWO RULES ARE SEPARATE. They were one grouped selector, which
      is how a declaration right for .pw-row came to be applied to .week. */
