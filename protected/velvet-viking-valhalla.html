@@ -6184,8 +6184,31 @@
      the layer simply stops being see-through while it is in flight. */
   .wk-track{display:flex; align-items:stretch; will-change:transform;
     background:var(--bg);}
-  .wk-track.is-settling{transition:transform .24s cubic-bezier(.22,.61,.36,1);}
-  @media (prefers-reduced-motion: reduce){ .wk-track.is-settling{transition:none;} }
+  /* ---------- ONE NUMBER FOR THE SETTLE, READ BY BOTH SIDES ----------
+     Founder: "When I move days there is a natural delay until the day
+     moves. I get it but can this be made as small as possible."
+     MEASURED FIRST, on This Week at 430px: renderApp() fired 241ms after
+     touchend and took 30-38ms, so the day appeared ~275ms after the finger
+     left. The 240 was the whole of the first number -- the slide animates
+     into place and the re-render waits for it, so the swap lands on the
+     pixel the animation finished on.
+     .24s AND 240 WERE TWO NUMBERS THAT HAPPENED TO AGREE, one in this sheet
+     and one in wirePagerRail(). Shortening the animation alone would have
+     left the commit waiting 90ms after the slide had stopped; shortening
+     the timer alone would have re-rendered mid-flight, which is the jump
+     the ordering exists to prevent. So it is a token now, read by the
+     stylesheet here and by pagerSettleMs() there, and it cannot drift.
+     150ms: the slide still decelerates into place rather than cutting, and
+     the day now arrives ~185ms after the finger leaves instead of ~275. */
+  :root{ --pager-settle:150ms; }
+  .wk-track.is-settling{transition:transform var(--pager-settle) cubic-bezier(.22,.61,.36,1);}
+  /* AND A REAL BUG THIS TOKEN CLOSES. Reduced motion already killed the
+     transition, but the commit still sat on a 240ms timer -- so the one
+     athlete who asked for no animation waited longest, for nothing. At 0ms
+     the token tells both sides there is nothing to wait for. */
+  @media (prefers-reduced-motion: reduce){
+    :root{ --pager-settle:0ms; }
+    .wk-track.is-settling{transition:none;} }
   .wk-session-badges{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;}
   .wk-badge{font-size:10px; letter-spacing:.05em; padding:3px 9px; border-radius:99px;
     background:var(--bg-4); color:var(--ink-dim);}
@@ -63021,6 +63044,20 @@ function wirePhaseRail(rail){
    the plan's phases needed it too. planCommit(dir) returns the thing to do
    once the slide has settled, or null for "there is nothing that way"; it
    closes over its own rail, so nothing else about a rail reaches in here. */
+/* THE SETTLE, AS THE STYLESHEET DECLARES IT. parseFloat handles "150ms"
+   and "0ms"; a value in seconds is converted, so the token may be written
+   either way. Falls back to the old 240 if the property is missing, which
+   is what an older cached stylesheet would look like. */
+function pagerSettleMs(){
+  try{
+    var v = getComputedStyle(document.documentElement)
+              .getPropertyValue('--pager-settle').trim();
+    if (!v) return 240;
+    var n = parseFloat(v);
+    if (!(n >= 0)) return 240;
+    return /ms\s*$/.test(v) ? n : n * 1000;
+  }catch(e){ return 240; }
+}
 function wirePagerRail(rail, learnKey, planCommit){
   if (!rail || rail.__vvPagered) return;
   rail.__vvPagered = true;
@@ -63107,7 +63144,7 @@ function wirePagerRail(rail, learnKey, planCommit){
       pagerSuppressFade = true;
       commit();
       pagerHaptic();
-    }, 240);
+    }, pagerSettleMs());
   }, { passive:true });
   rail.addEventListener('touchcancel', function(){
     if (!g) return;

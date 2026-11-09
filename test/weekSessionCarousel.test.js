@@ -316,8 +316,33 @@ test('HINT: each region marks itself learned from its own commit', () => {
     'the hint is no longer retired immediately before the committing timeout');
   const after = pg.slice(pg.indexOf('swipeMarkLearned(learnKey);'));
   const body = after.slice(after.indexOf('window.setTimeout('));
-  assert.ok(body.indexOf('commit();') > -1 && body.indexOf('commit();') < body.indexOf('}, 240)'),
+  assert.ok(body.indexOf('commit();') > -1,
     'the timeout the hint is marked against is not the one that commits');
+
+  /* ---- AND ITS DELAY IS THE STYLESHEET'S, NOT A SECOND COPY OF IT ----
+     THIS PINNED "}, 240)". That number had a twin in the stylesheet --
+     .wk-track.is-settling's transition -- and the two were only ever equal
+     by hand: shorten the animation and the commit waits after the slide has
+     stopped; shorten the timer and it re-renders mid-flight, which is the
+     jump the whole settle-then-swap ordering exists to prevent. Founder:
+     "can this be made as small as possible" -- which is a change to a
+     number that lived in two places.
+     ONE TOKEN NOW, asserted as the relationship: the timeout reads it, the
+     transition reads it, and reduced motion sets it to zero. Any of the
+     three breaking is a drift this would have missed. */
+  assert.match(body, /\},\s*pagerSettleMs\(\)\)/,
+    'the committing timeout carries its own delay again instead of the shared settle');
+  const fn = /function pagerSettleMs\(\)\{[\s\S]*?\n\}/.exec(SRC);
+  assert.ok(fn, 'pagerSettleMs() is gone, so the timeout has no token to read');
+  assert.match(fn[0], /--pager-settle/,
+    'pagerSettleMs() no longer reads the stylesheet\u2019s own settle token');
+  assert.match(CSS, /\.wk-track\.is-settling\{transition:transform var\(--pager-settle\)/,
+    'the settling track no longer takes its duration from the shared token');
+  /* REDUCED MOTION WAITED LONGEST, FOR NOTHING. The transition was already
+     killed there while the commit sat on the full timer, so the one athlete
+     who asked for no animation got the longest delay in the app. */
+  const rm = /@media \(prefers-reduced-motion: reduce\)\{[\s\S]{0,240}?--pager-settle:\s*0m?s/.exec(CSS);
+  assert.ok(rm, 'reduced motion no longer zeroes the settle, so it waits for an animation it does not run');
   assert.match(SRC, /wirePagerRail\(rail, 'week',/, 'the week card lost its own hint key');
   assert.match(SRC, /wirePagerRail\(rail, 'phase',/, 'the phase carousel lost its own hint key');
   assert.match(SRC, /if \(animate\) swipeMarkLearned\('rail'\)/,
