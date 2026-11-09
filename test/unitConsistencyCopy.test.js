@@ -84,12 +84,24 @@ const MI_WORD = /\bmiles?\b/i;
    Both are still asserted below, and the source-level sweep further down
    this file catches hard-coded unit words in copy that no fixture renders. */
 const UNIT_CARRIER = 'steady_tempo';
+/* ---------- READ OFF THE CARD, NOT OFF THE DISCLOSURE ----------
+   These three asked renderCoachingDepth() for the sentence, because the
+   unit-bearing copy was a row of the coaching disclosure. A steady tempo is
+   a blueprint session and has no disclosure any more: its coaching was
+   distributed onto the stage cards and its purpose into WHY THIS SESSION,
+   so the function returns the inline cue and nothing else.
+   THE SENTENCE IS NOT LOST, WHICH IS THE POINT OF CHECKING. On miles it
+   now reads "Warm up until the first hard mile does not feel like a shock"
+   on the warm-up card; on kilometres the same line says kilometre. So the
+   carrier is the whole day card, which is what the athlete actually sees,
+   and the law -- resolved at render through displayUnitNoun, off
+   state.units -- is unchanged. */
 
 test('the reported sentence follows the unit selection', () => {
   const mi = app('mi');
   const d = dayOf(mi, UNIT_CARRIER);
   assert.ok(d, 'the fixture no longer builds a ' + UNIT_CARRIER + ' to read');
-  const html = mi.renderCoachingDepth(d);
+  const html = mi.renderDayCard(d);
   assert.match(html, MI_WORD,
     'a tester on miles must be told about MILES');
   assert.doesNotMatch(html, KM_WORD,
@@ -100,7 +112,7 @@ test('the same sentence is unchanged for an athlete on kilometres', () => {
   const km = app('km');
   const d = dayOf(km, UNIT_CARRIER);
   assert.ok(d, 'the fixture no longer builds a ' + UNIT_CARRIER + ' to read');
-  const html = km.renderCoachingDepth(d);
+  const html = km.renderDayCard(d);
   assert.match(html, KM_WORD);
   assert.doesNotMatch(html, MI_WORD, 'nothing about miles belongs on a km card');
 });
@@ -109,12 +121,12 @@ test('toggling units re-renders the sentence rather than freezing the first read
   const a = app('km');
   const day = dayOf(a, UNIT_CARRIER);
   assert.ok(day, 'the fixture no longer builds a ' + UNIT_CARRIER + ' to read');
-  assert.match(a.renderCoachingDepth(day), KM_WORD);
+  assert.match(a.renderDayCard(day), KM_WORD);
   a.state.units = 'mi';
-  assert.match(a.renderCoachingDepth(day), MI_WORD,
+  assert.match(a.renderDayCard(day), MI_WORD,
     'the copy is resolved on render, so a toggle is enough');
   a.state.units = 'km';
-  assert.match(a.renderCoachingDepth(day), KM_WORD, 'and it comes back');
+  assert.match(a.renderDayCard(day), KM_WORD, 'and it comes back');
 });
 
 // ---------------------------------------------------------------------------

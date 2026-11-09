@@ -32,15 +32,50 @@ const wordCount = s => (s || '').trim().split(/\s+/).filter(Boolean).length;
 // ---------------------------------------------------------------------------
 // AVAILABILITY AT EVERY LEVEL
 // ---------------------------------------------------------------------------
+/* ---------- WHAT CARRIES THE AID, PER FAMILY ----------
+   The aid used to be one thing: a disclosure headed "How to run this" (or
+   "Session Details" once logged). It is three things now. Where a session
+   has a rail of stage cards, the founder's instruction moved the coaching
+   onto them -- "the rail becomes the coach: each part tells the athlete
+   what to do and how to execute it when they are looking at that part" --
+   with the purpose below the rail in WHY THIS SESSION, and the disclosure
+   was removed because both its halves were then empty. Where there is no
+   such rail, the disclosure or the solo note still carries it.
+   ASKED OF THE WHOLE CARD, because that is the only place all three can be
+   seen; renderCoachingDepth() alone can no longer answer the question this
+   file is about. */
+function aidCarrier(a, dd) {
+  const html = a.renderDayCard(dd);
+  if (/How to run this|Session Details/.test(html)) return 'disclosure';
+  if (/class="fuel-body ws-rail/.test(html) && html.indexOf('class="why-session"') > -1)
+    return 'rail+why';
+  if (html.indexOf('class="how-note"') > -1) return 'note';
+  return null;
+}
+
 test('every workout family offers the guidance at every experience level', () => {
   const missing = [];
+  const carriers = {};
   LEVELS.forEach(level => {
     const a = app(level);
     Object.keys(a.ARCHETYPE_GUIDANCE).forEach(arch => {
-      if (!/How to run this|Session Details/.test(a.renderCoachingDepth(dayWith(a, arch)))) missing.push(arch + '/' + level);
+      const c = aidCarrier(a, dayWith(a, arch));
+      if (!c) missing.push(arch + '/' + level);
+      (carriers[arch] = carriers[arch] || {})[level] = c;
     });
   });
   assert.deepEqual(missing, [], 'no family may lose the coaching aid at any level');
+  /* AND EXPERIENCE DOES NOT DECIDE WHERE IT IS EITHER. The original law
+     said experience may decide how MUCH is written, never whether the aid
+     exists -- which it checked by looking for one fixed element. With three
+     possible carriers that check would pass a build where novices got a
+     disclosure and advanced athletes got nothing but a rail, so the stronger
+     half of the claim is now stated outright: same family, same carrier, at
+     every level. */
+  const varies = Object.keys(carriers).filter(arch =>
+    new Set(LEVELS.map(l => carriers[arch][l])).size > 1);
+  assert.deepEqual(varies, [],
+    'the aid moves house with experience, which is the defect this file was opened for');
 });
 
 test('a legacy day with no prescription still gets it, at every level', () => {
@@ -96,7 +131,13 @@ test('advanced keeps its single essential cue AND gains the disclosure', () => {
   const html = a.renderCoachingDepth(dayWith(a, 'progressive_tempo'));
   assert.match(html, /coach-cue/, 'the one-line cue an advanced athlete gets is unchanged');
   assert.match(html, /Start controlled/, 'and it is still the essential line, not the standing cue');
-  assert.match(html, /How to run this|Session Details/, 'the aid is available rather than withheld');
+  /* THE AID IS AVAILABLE, AND FOR THIS FAMILY IT IS THE RAIL. A
+     progressive tempo is a blueprint session: its coaching rides the stage
+     cards and its purpose rides WHY THIS SESSION, so there is no
+     disclosure to find and asking for one asked for the old furniture.
+     The claim -- available rather than withheld -- is asked of the card. */
+  assert.equal(aidCarrier(a, dayWith(a, 'progressive_tempo')), 'rail+why',
+    'the aid is available rather than withheld');
 });
 
 test('the guidance is a closed disclosure, so it costs no vertical space unopened', () => {
@@ -114,10 +155,17 @@ test('the guidance is a closed disclosure, so it costs no vertical space unopene
        a box, and the founder asked for it on every screen -- "that needs to
        follow the every place a day card is" -- so it is deliberately open
        in a listing too. It is no longer an example of this law.
-       A track session still has the rail and the modules this law is about:
-       in a week LISTING that card must cost no vertical space unopened. */
+       NOR IS A TRACK SESSION, ANY MORE. It was the example here, because it
+       had the rail and the modules this law is about. It has no disclosure
+       at all now: the rail carries its coaching and WHY THIS SESSION
+       carries its purpose, so there is nothing left to collapse and nothing
+       taking vertical space unopened either.
+       A THRESHOLD CALIBRATION STILL HAS ONE -- four stages, no blueprint,
+       not a solo note -- so the modules still ship inside a <details> and
+       the law has something to hold. Checked at all three levels, which is
+       what the loop around this is for. */
     a.state.view = 'week';
-    const html = a.renderCoachingDepth(dayWith(a, 'track_reps'));
+    const html = a.renderCoachingDepth(dayWith(a, 'threshold_calibration'));
     /* .is-static NOW RIDES IT ON EVERY SURFACE. Founder: "How to run this
        on the left should not be a thing." That class is what hides the
        summary, and it stopped being conditional so the summary cannot

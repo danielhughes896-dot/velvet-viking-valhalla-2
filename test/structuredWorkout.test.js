@@ -332,13 +332,55 @@ test('the step table sits above the rail until the session is run, then inside i
      from the thing it labels, so the table goes in with the rail. */
   const a = app();
 
+  /* ---------- ON A BLUEPRINT SESSION THE TABLE *IS* THE CARD ----------
+     These sessions have no coaching disclosure left at all. The rail
+     carries the stage coaching and WHY THIS SESSION carries the purpose,
+     so the tab had nothing behind it -- and rendered anyway, as a bare
+     "How to run this" summary opening on an empty body, until it was taken
+     out. What this law is FOR is untouched by that: before it is run the
+     prescription is the card and nothing stands between the athlete and
+     it. So that is what is asked here, and the ordering claim moves to a
+     session that still has a disclosure to be ordered against. */
   const todo = day(a, 'threshold_continuous');
   const ahead = a.renderDayCard(todo);
-  const wsA = ahead.indexOf('ws-block'), howA = ahead.indexOf('how-card');
-  assert.ok(wsA > -1 && howA > -1, 'the unrun card lost its steps or its rail');
-  assert.ok(wsA < howA, 'an unrun session hid its step table behind the rail');
+  assert.ok(ahead.indexOf('ws-block') > -1, 'the unrun blueprint card lost its steps');
   assert.doesNotMatch(ahead, /sess-tab-k">Session Details/,
     'an unrun session is behind a tab again -- it is the card, not a reference');
+  /* AND THE COACHING IT NO LONGER DISCLOSES IS STILL ON THE CARD. Without
+     this line the law passes just as well on a card that lost the tab AND
+     the coaching with it, which is the failure the removal risked. */
+  assert.ok(ahead.indexOf('why-session') > -1,
+    'the blueprint card has no disclosure and no Why -- the purpose is nowhere');
+  /* ---------- AND NO EMPTY DISCLOSURE EITHER ----------
+     Standing the note's CONTENT down is not the same as standing the
+     disclosure down, and for one pass it was not: with the body returning
+     '' and the execution rail already suppressed in favour of the
+     blueprint, renderCoachingDepth still emitted its <details> -- 780
+     characters on a threshold card, every one of them chrome, reaching the
+     screen as a "How to run this" summary that opened on nothing.
+     NOTHING IN THE SUITE NOTICED. Deleting the suppression passed all 82
+     laws in this file and coachingRail together, which is why this line
+     exists and why it names the summary as well as the element: an empty
+     tab is invisible to any law that only asks what the card contains. */
+  assert.equal(ahead.indexOf('how-card'), -1,
+    'an unrun blueprint session renders a coaching disclosure with nothing left in it');
+  assert.equal(ahead.indexOf('How to run this'), -1,
+    'the blueprint card offers a "How to run this" tab whose body has moved to the rail');
+  assert.match(ahead, /class="fuel-body ws-rail"/,
+    'the blueprint card has no disclosure and no rail -- the coaching is nowhere');
+
+  /* ---------- WHERE A DISCLOSURE STILL RENDERS, THE TABLE IS ABOVE IT ----
+     A goal-finish long run has no blueprint, so it keeps the staged
+     execution rail inside the disclosure and keeps a step table above it:
+     the original two-element ordering, held on the session that still has
+     both elements. */
+  const staged = day(a, 'long_run_goal_finish');
+  assert.equal(a.hasWorkoutBlueprint(staged), false,
+    'fixture assumption: a goal-finish long run has no blueprint, so it keeps its disclosure');
+  const aheadS = a.renderDayCard(staged);
+  const wsA = aheadS.indexOf('ws-block'), howA = aheadS.indexOf('how-card');
+  assert.ok(wsA > -1 && howA > -1, 'the unrun card lost its steps or its rail');
+  assert.ok(wsA < howA, 'an unrun session hid its step table behind the rail');
 
   /* AND ON A FOCUSED CARD IT MUST BE OPEN, which is the dangerous half.
      The open rail's summary is display:none -- correct, because a heading
@@ -348,9 +390,9 @@ test('the step table sits above the rail until the session is run, then inside i
      on the one screen that exists to show them, and nothing else in the
      suite notices. */
   a.state.view = 'full';
-  a.planSessionOpen = todo.id;
-  const focused = a.renderDayCard(todo);
-  assert.ok(a.dayCardIsFocused(todo), 'the fixture stopped being a focused card');
+  a.planSessionOpen = staged.id;
+  const focused = a.renderDayCard(staged);
+  assert.ok(a.dayCardIsFocused(staged), 'the fixture stopped being a focused card');
   assert.match(focused, /class="fuel-card how-card is-static" open/,
     'a focused unrun session renders its rail shut behind a hidden summary');
   a.planSessionOpen = null;
@@ -383,18 +425,26 @@ test('the coaching disclosure keeps every section it had', () => {
      the NOTE no longer prints their headings. The sections are still all
      reachable on the card, which is what this test is named for, so it
      asks for the SENTENCES rather than the note's headings. */
+  /* ---------- THE SECTIONS ARE SENTENCES NOW, NOT HEADINGS ----------
+     The disclosure itself is gone from a blueprint session: its stage
+     coaching rides the rail cards and its purpose rides WHY THIS SESSION,
+     so "How to run this" and "Feel" are no longer written anywhere as
+     words. Asking for those two strings was asking for the old furniture,
+     and this law was never about the furniture -- it is about nothing
+     being LOST when the step list arrived. So every section is asked for
+     by the sentence it carries, which is the thing the athlete reads. */
   const gdSec = a.coachingDisclosureFor(dd, a.athleteExperience()) || {};
-  ['How to run this', 'Feel'].forEach(k => {
-    assert.ok(html.indexOf(k) > -1, 'the coaching disclosure lost: ' + k);
-  });
-  [['Why', gdSec.why], ['Watch For', gdSec.avoid]].forEach(pair => {
+  [['Why', gdSec.why], ['Feel', gdSec.feel], ['Watch For', gdSec.avoid]].forEach(pair => {
     if (!pair[1]) return;
     assert.ok(html.indexOf(pair[1]) > -1,
       'the card lost ' + pair[0] + ' entirely: ' + JSON.stringify(pair[1].slice(0, 40)));
   });
-  [].forEach(k => {
-    assert.ok(html.indexOf(k) > -1, 'the coaching disclosure lost: ' + k);
-  });
+  /* AND THE SENTENCES MUST EXIST TO BE FOUND. Three `if (!pair[1]) return`
+     guards in a row will pass a card that shows nothing at all the moment
+     coachingDisclosureFor() stops answering for this archetype, which is
+     exactly the regression this law exists to catch. */
+  assert.ok(gdSec.why && gdSec.feel && gdSec.avoid,
+    'the fixture has no coaching to lose, so this law is checking nothing');
   /* EXECUTION IS A RAIL NOW AND HAS NO HEADING. The word went the way FUEL's
      did -- every panel under it names itself (SETTLE, HOLD, PRESS, COMMIT)
      and a word above a row of self-naming labels is a label on labels. The
@@ -411,8 +461,27 @@ test('the coaching disclosure keeps every section it had', () => {
   if (hasBlueprint){
     assert.match(html, /class="fuel-body ws-rail"/,
       'the session has no execution rail AND no blueprint — its shape is nowhere');
-    assert.match(html, /class="how-note"/,
-      'the blueprint carries the stages but the phase coaching has nowhere to go');
+    /* ---------- THE PHASE COACHING RIDES THE STAGES IT DESCRIBES --------
+       It used to be swept into the Coach's Note, because the blueprint had
+       taken the execution rail's place and the phase sentences had nowhere
+       else to be. On the founder's call -- "the rail becomes the coach:
+       each part tells the athlete what to do and how to execute it when
+       they are looking at that part" -- they are distributed onto the
+       stage cards instead, and the Note went with the last thing in it.
+       Asked phase by phase rather than by looking for a container, so the
+       law holds whatever the carrier is called next. */
+    const strat = a.executionStrategyForDisplay(dd);
+    assert.ok(strat && !strat.suppressed && strat.phases && strat.phases.length,
+      'the fixture has no execution phases, so this branch is checking nothing');
+    strat.phases.forEach(ph => {
+      ['purpose', 'cue'].forEach(k => {
+        if (!ph[k]) return;
+        const t = a.resolveDesc(ph[k]);
+        assert.ok(html.indexOf(t) > -1,
+          'the blueprint carries the stages but the ' + ph.key + ' ' + k +
+          ' has nowhere to go: ' + JSON.stringify(t.slice(0, 40)));
+      });
+    });
   } else {
     assert.ok(/class="how-table how-exec"/.test(html) || /class="how-row-heading">Execution/.test(html),
       'the coaching disclosure lost Execution');
@@ -557,7 +626,13 @@ test('no card in any rail carries a pace or a heart rate', () => {
     /* EVERY rail: the blueprint's stage cards, the execution rail's phase
        cards and the fuel rail's panels all render a .ws-card-body, which is
        what "a card in a rail" means on this screen. */
-    const bodies = html.match(/<div class="ws-card-body">[\s\S]*?<\/div><\/div>/g) || [];
+    /* MATCHED WITH A DELIMITER, NOT AS AN EXACT ATTRIBUTE. The stage card's
+       body took a second class (.ws-step-body, which is what runs its words
+       full width and left) and an exact `class="ws-card-body"` stopped
+       seeing it: the scan went from 55 cards on 16 days to 25 on 7, and
+       passed, because the floor below was still met by the other two rails.
+       Every stage card in the product had quietly left this law. */
+    const bodies = html.match(/<div class="ws-card-body[ "][\s\S]*?<\/div><\/div>/g) || [];
     if (bodies.length) days++;
     bodies.forEach((c, i) => {
       cards++;
@@ -602,12 +677,26 @@ test('no card in any rail carries a pace or a heart rate', () => {
 });
 
 test('the coaching rides the cards, one sentence each, and the work card is the last work stage', () => {
-  /* Founder: "Then coaches note is not needed." Why on the first card,
-     Watch For on the work card. Feel stayed in the note, and that is a
-     measurement rather than a preference: with all three on the cards the
+  /* Founder: "the rail becomes the coach -- each part tells the athlete
+     what to do and how to execute it when they are looking at that part."
+     WATCH FOR and FEEL ride the work card; the execution phase captions
+     ride the stage each describes; and WHY left the cards altogether for
+     WHY THIS SESSION under the rail, which is the section the founder
+     asked for in the same instruction.
+
+     THE SENTENCE CAP IS A MEASUREMENT AND IT HAS BEEN RE-TAKEN. It used to
+     read "two fit, three do not", from a rail whose picture was 223px: the
      interval's work card came to 233px of text against the 189 the picture
-     leaves, which dragged the rail to 259px and broke the one-size rule.
-     TWO SENTENCES FIT, THREE DO NOT -- so no card may carry three. */
+     left and dragged the rail to 259px. Both numbers moved afterwards --
+     --rail-pic is 274px now, and the card body is left-aligned rather than
+     centred, which took the bodies from 308px to 220px. Re-measured in
+     Chromium at 360px wide on the two worst cards the product builds:
+     every .how-mod is exactly 274px with scrollHeight == clientHeight, the
+     4-sentence work card of the 6km time trial has a 182px body ending
+     64px clear of the card's bottom, and the 3-sentence interval card has
+     a 149px body. So FOUR FIT. Five is not known to and not asserted to:
+     the cap stays one above nothing, as a tripwire, and a fifth sentence
+     is a reason to re-measure rather than to raise the number here. */
   const a = railApp();
   const level = a.athleteExperience();
   let railsSeen = 0, sawTwoWork = false;
@@ -622,11 +711,25 @@ test('the coaching rides the cards, one sentence each, and the work card is the 
     const cards = (a.renderStructuredWorkout(d, a.state) || '').split('class="how-mod"').slice(1);
     cards.forEach((c, i) => {
       const n = (c.match(/class="ws-h-cue/g) || []).length;
-      assert.ok(n <= 2, d.date + ' card' + i + ' carries ' + n +
-        ' sentences; three do not fit the shared picture height');
+      assert.ok(n <= 4, d.date + ' card' + i + ' carries ' + n +
+        ' sentences; four is the most that was measured to fit the shared ' +
+        'picture height — re-measure before raising this');
     });
-    if (gd.why) assert.ok((cards[0] || '').indexOf(gd.why) > -1,
-      d.date + ': Why is not on the first card');
+    /* ---------- WHY IS NOT ON A CARD, AND IS NOT GONE ----------
+       It was on the first one. The founder moved it below the rail --
+       "Below the rail, add a simple WHY THIS SESSION section containing
+       the overall purpose/physiological reason for the workout" -- so the
+       card must NOT carry it and the section MUST, and both halves are
+       asked for: dropping the second would let the sentence vanish. */
+    if (gd.why){
+      cards.forEach((c, i) => assert.ok(c.indexOf(gd.why) === -1,
+        d.date + ' card' + i + ': Why is on a stage card — it belongs under the rail'));
+      const whole = a.renderDayCard(d);
+      const wi = whole.indexOf('class="why-session"');
+      assert.ok(wi > -1, d.date + ': there is no WHY THIS SESSION section');
+      assert.ok(whole.indexOf(gd.why) > wi,
+        d.date + ': Why left the cards and never arrived under the rail');
+    }
     /* THE WORK CARD IS THE LAST role=work STEP. Every session but one has a
        single work stage between a warm-up and a cool-down, so first and
        last are the same card. A strides session has two -- work/easy then
@@ -637,8 +740,12 @@ test('the coaching rides the cards, one sentence each, and the work card is the 
     steps.forEach((st, i) => { if (st.role === 'work') workIdx = i; });
     if (gd.avoid && workIdx > -1) assert.ok((cards[workIdx] || '').indexOf(gd.avoid) > -1,
       d.date + ': Watch For is not on the work card (card' + workIdx + ')');
-    if (gd.feel) cards.forEach((c, i) => assert.ok(c.indexOf(gd.feel) === -1,
-      d.date + ' card' + i + ': Feel is on a card — it is the third sentence that overflowed'));
+    /* FEEL JOINED WATCH FOR ON THE WORK CARD. It was kept off the cards by
+       the 223px measurement above and nothing else; with the room re-taken
+       it rides the stage it describes, like everything else on the rail.
+       Asked on the LAST work stage for the same reason Watch For is. */
+    if (gd.feel && workIdx > -1) assert.ok((cards[workIdx] || '').indexOf(gd.feel) > -1,
+      d.date + ': Feel is not on the work card (card' + workIdx + ')');
   });
   assert.ok(railsSeen >= 5, 'only ' + railsSeen + ' stage rails in the fixture');
   assert.ok(sawTwoWork,
@@ -678,7 +785,12 @@ test('every other archetype keeps its description — on the face or in the note
      telling them apart:
        the cards said it         -> it is not printed at all
        it adds something, and
-         there IS a card rail    -> it moves to the Coach's Note
+         there IS a card rail    -> it moves under the rail, into WHY THIS
+                                    SESSION, which is where the founder put
+                                    the session's reason for being; it used
+                                    to move into the Coach's Note, and on
+                                    the sessions that still have a note it
+                                    is in both
          there is NO card rail   -> it stays on the face, where it was
      The third case is most of them: a long run's stages are the fuel rail
      rather than a card rail, and a race or an optional day has no rail at
@@ -723,8 +835,15 @@ test('every other archetype keeps its description — on the face or in the note
     const html = a.renderDayCard(day(a, n));
     assert.equal(html.indexOf('day-desc'), -1,
       n + ': still prints its description between the hero and the cards');
-    assert.ok(html.indexOf('class="how-note"') > -1,
-      n + ': its description came off the face and there is no Coach\u2019s Note to have taken it');
+    /* ASKED OF THE SECTION THAT NOW CARRIES IT ON EVERY SESSION. The note
+       was the old home and four of these six still have one, so asking for
+       "a note OR a Why section" would pass those four with the Why section
+       deleted -- and a time trial, which has no note left, would be the
+       only thing holding it up. WHY THIS SESSION is universal here: it is
+       built from descMovesToNote() itself, the same predicate this set was
+       filtered by. */
+    assert.ok(html.indexOf('why-session-s') > -1,
+      n + ': its description came off the face and there is no WHY THIS SESSION to have taken it');
   });
 });
 
@@ -1092,19 +1211,41 @@ test('a week slide carries its rail and its solo note, and never the Coach\u2019
         d.date + ': a goal-pace long run shows no rail on the slide');
     }
   });
-  assert.ok(previewed >= 45 && soloBoxes >= 25 && fuelRailed >= 3 && disclosed >= 40,
+  /* THE DISCLOSURE FLOOR DROPPED WITH THE RESTRUCTURE, and it is a floor on
+     an instrument rather than a claim about the product: it exists so the
+     ` open>` check above cannot quietly run on nothing. A blueprint session
+     emits no disclosure at all now -- its rail carries the coaching and its
+     purpose rides WHY THIS SESSION, so the <details> had an empty body and
+     was taken out. Measured after: 35 of the 50 non-rest previews still
+     carry one (the rest days, the solo notes and the fuel-rail long runs),
+     where 40+ did before. The floor is set below that, not at it. */
+  assert.ok(previewed >= 45 && soloBoxes >= 25 && fuelRailed >= 3 && disclosed >= 30,
     'the block exercised ' + previewed + ' previews, ' + soloBoxes +
     ' solo notes, ' + fuelRailed + ' goal-pace long runs and ' +
     disclosed + ' disclosures');
 
-  /* ---- AND THE NOTE IS STILL THERE WHERE IT BELONGS ----
+  /* ---- AND THE COACHING IS STILL THERE WHERE IT BELONGS ----
      The half of the rule that has nowhere else to be asserted. Every day
      above is checked as a slide; this checks the same days as the canonical
      full session, so "withheld from previews" cannot quietly become
      "deleted". Each day is pinned as TODAY in turn, because dayCardIsFocused()
-     is what the note's open state hangs on. */
+     is what the note's open state hangs on.
+
+     IT USED TO ASK track_reps AND steady_tempo FOR A NOTE, and both are
+     blueprint sessions, which no longer have one: their coaching was
+     distributed onto the rail cards and their purpose into WHY THIS
+     SESSION. Asking those two for a <div class="how-note"> was asking for
+     the carrier rather than the coaching, so each kind of session is now
+     asked for the carrier it actually has -- and BOTH kinds are asked,
+     because this law's whole job is to catch coaching that fell off the
+     full view while the previews looked unchanged. */
   let onToday = 0;
-  ['track_reps', 'steady_tempo'].forEach(arch => {
+  /* THE NOTE, where a note is still what carries it: a goal-pace long run
+     runs on the fuel rail rather than a blueprint, so renderCoachingDepth
+     still owns its coaching and still prints it. Plain <div class="how-note">
+     with no attributes, which is what tells it from the solo box -- that
+     one carries data-solo="1" and is asserted on the slides above. */
+  ['long_run_goal_finish', 'long_run_goal_insert'].forEach(arch => {
     const g = railApp();
     const d = g.state.days.filter(x => {
       const p = g.prescriptionOf(x);
@@ -1118,6 +1259,42 @@ test('a week slide carries its rail and its solo note, and never the Coach\u2019
     onToday++;
   });
   assert.equal(onToday, 2, 'neither archetype was found, so the Today half proves nothing');
+
+  /* THE RAIL AND THE WHY, where those carry it. A blueprint session shows
+     no note on any screen now, so the thing that must not quietly vanish
+     from the full view is the stage coaching and the purpose. Asked for the
+     sentences, not the containers: Watch For on the work card, and the Why
+     under the rail. */
+  let bpToday = 0;
+  ['track_reps', 'steady_tempo'].forEach(arch => {
+    const g = railApp();
+    const d = g.state.days.filter(x => {
+      const p = g.prescriptionOf(x);
+      return p && p.archetype === arch;
+    })[0];
+    if (!d) return;
+    g.todayStr = function(){ return d.date; };
+    assert.ok(g.hasWorkoutBlueprint(d) && !g.soloNoteSession(d),
+      d.date + ' (' + arch + '): fixture assumption \u2014 this is the session kind with no note');
+    const html = g.renderDayCard(d);
+    const gd = g.coachingDisclosureFor(d, g.athleteExperience()) || {};
+    assert.ok(gd.why && gd.avoid,
+      d.date + ' (' + arch + '): no coaching written for it, so this proves nothing');
+    const wi = html.indexOf('class="why-session"');
+    assert.ok(wi > -1 && html.indexOf(gd.why) > wi,
+      d.date + ' (' + arch + '): the purpose is not under the rail on the full view');
+    assert.ok(html.indexOf(gd.avoid) > -1,
+      d.date + ' (' + arch + '): Watch For has gone from the full view');
+    /* AND THE PREVIEW STILL WITHHOLDS THE SECTION, which is the other half
+       of "the Coach's Note belongs to the canonical Full Session view, not
+       session previews" -- the Why section inherited that rule along with
+       the content. The rail itself does show on a slide, as it always has. */
+    const idx = g.state.days.indexOf(d);
+    assert.equal(g.weekSlideHtml(d, idx).indexOf('class="why-session"'), -1,
+      d.date + ' (' + arch + '): WHY THIS SESSION is on a preview');
+    bpToday++;
+  });
+  assert.equal(bpToday, 2, 'neither blueprint archetype was found, so that half proves nothing');
 
   /* ---- AND NO SLIDE EVER CARRIES THE DAY CARD'S CAPTION ID ----
      This Week embeds the whole renderDayCard() behind the carousel, so
@@ -1201,7 +1378,7 @@ test('the week carousel reaches every day the week counts', () => {
    the thing the founder asked for -- "if it does add to coaches note" --
    word for word in both directions: gone from above the cards, present
    below them. */
-test('a description that leaves the face arrives in the Coach\u2019s Note', () => {
+test('a description that leaves the face arrives under the rail', () => {
   const a = railApp();
   const text = h => h.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ')
                       .replace(/\s+/g, ' ').trim();
@@ -1213,9 +1390,23 @@ test('a description that leaves the face arrives in the Coach\u2019s Note', () =
     const html = a.renderDayCard(d);
     assert.equal(html.indexOf('day-desc'), -1,
       d.date + ': still prints a description between the hero and the cards');
-    const at = html.indexOf('class="how-note"');
-    assert.ok(at > -1, d.date + ': no Coach\u2019s Note to carry "' + want + '"');
-    const note = text(html.slice(at));
+    /* ---------- THE CARRIER IS WHERE THE FOUNDER PUT IT ----------
+       This read the Coach's Note, because that was the only place a
+       description could go when it came off the face. It goes under the
+       rail now, into WHY THIS SESSION, and the Note is gone from every
+       session whose rail carries its own coaching -- so on the time trial
+       the note this law looked for does not exist, and the sentence it was
+       looking for is one element further down the card.
+       ASKED OF THE SECTION THAT IS THERE ON ALL SIX. The four long runs and
+       the shakeout keep a note as well and have the sentence in both, so
+       reading "the note if there is one, else the Why" would hold five of
+       these days up on a carrier that could be deleted without this law
+       noticing. The Why section is the universal one and it is read alone.
+       The written-copy claim below is a claim about the NOTE, and it is
+       still asked of the note, on the days that still have one. */
+    const at = html.indexOf('class="why-session"');
+    assert.ok(at > -1, d.date + ': no WHY THIS SESSION to carry "' + want + '"');
+    const carrier = text(html.slice(at));
     /* ---- WRITTEN COPY REPLACES THE DESCRIPTION, DELIBERATELY ----
        Where the founder has written the note for an archetype, that copy
        IS the day's words and the generated description is not also shown.
@@ -1236,17 +1427,29 @@ test('a description that leaves the face arrives in the Coach\u2019s Note', () =
          only the final one, which is why "4.4km" and "Light. Finish
          fresher..." are unaffected. */
       const nodot = t => text(t).replace(/\.$/, '');
+      /* STILL A CLAIM ABOUT THE NOTE, so it is still read from the note.
+         Every archetype with written copy is a solo-note session and keeps
+         one; if that ever stops being true this line says so rather than
+         quietly reading the written lines off some other element. */
+      const noteAt = html.indexOf('class="how-note"');
+      assert.ok(noteAt > -1,
+        d.date + ' (' + p.archetype + '): has written note copy and no note to print it in');
+      const note = text(html.slice(noteAt));
       [written.lead].concat(written.subs || []).forEach(line => {
         assert.ok(note.indexOf(nodot(line)) > -1,
           d.date + ' (' + p.archetype + '): the written note has lost "' + line + '"');
       });
       assert.ok(note.indexOf(nodot(written.lead) + '.') === -1,
         d.date + ': the lead kept its full stop');
-    } else {
-      /* Same strip: the box prints these lines without their final stop. */
-      assert.ok(note.indexOf(text(want).replace(/\.$/, '')) > -1,
-        d.date + ': "' + want + '" left the face and is in no note');
     }
+    /* AND THE DAY'S OWN SENTENCE SURVIVES UNDER THE RAIL, written copy or
+       not. It used to be asserted only where there was no written copy,
+       because written copy REPLACED the description in the note. The Why
+       section carries the day's own shape either way, so all six days are
+       asked the same question here. Same strip: the box prints the line
+       without its final stop. */
+    assert.ok(carrier.indexOf(text(want).replace(/\.$/, '')) > -1,
+      d.date + ': "' + want + '" left the face and is nowhere under the rail');
   });
   /* THE BLOCK HAS TO CONTAIN THE CASE. Measured: exactly two days of 73 do
      -- the time trial and the shakeout -- and a fixture that stopped
@@ -1523,19 +1726,44 @@ test('a session shows the blueprint or the execution rail, never both', () => {
   assert.match(rc, /class="fuel-body ws-rail exec-rail"/,
     'the race’s phases are no longer on the card rail, so they are no longer photographs');
 
-  /* NOTHING IS LOST WITH THE RAIL. Its captions are the coaching, and they
-     go to the Coach's Note -- so a four-phase execution on a three-step
-     blueprint still carries all four sentences. */
-  assert.match(bp, /class="how-note"/, 'a blueprint session lost its Coach’s Note with the execution rail');
-  const phases = a.executionStrategyForDisplay(withBp[withBp.length - 1]);
-  if (phases && phases.phases && phases.phases.length){
-    const caps = (bp.match(/how-cap-i/g) || []).length;
-    assert.equal(caps, phases.phases.length,
-      'the Coach’s Note carries ' + caps + ' phase sentences for ' + phases.phases.length + ' phases');
-  }
+  /* NOTHING IS LOST WITH THE RAIL. Its captions ARE the coaching, and they
+     used to be swept into the Coach's Note because the blueprint had taken
+     the execution rail's place and they had nowhere else to be. They are
+     distributed onto the stage cards now -- founder: "the rail becomes the
+     coach: each part tells the athlete what to do and how to execute it
+     when they are looking at that part" -- and the Note went with the last
+     thing that was in it.
+     SO A FOUR-PHASE EXECUTION ON A THREE-STEP BLUEPRINT STILL CARRIES ALL
+     FOUR SENTENCES, which is the claim this always made; only the carrier
+     changed. Counted off workoutStepCaptions() rather than off a class in
+     the markup, because the count is the thing at risk: the placement maps
+     phases onto fewer stages than there are phases, and an off-by-one in
+     that arithmetic silently drops the last one. */
+  const bpDay = withBp[withBp.length - 1];
+  const phases = a.executionStrategyForDisplay(bpDay);
+  assert.ok(phases && !phases.suppressed && phases.phases && phases.phases.length,
+    'the blueprint fixture has no execution phases, so nothing is being checked');
+  const placed = a.workoutStepCaptions(bpDay, a.workoutSteps(bpDay));
+  const nPlaced = placed.reduce((n, x) => n + x.length, 0);
+  assert.equal(nPlaced, phases.phases.length,
+    'the stage cards carry ' + nPlaced + ' phase sentences for ' +
+    phases.phases.length + ' phases');
+  phases.phases.forEach(ph => {
+    ['purpose', 'cue'].forEach(k => {
+      if (!ph[k]) return;
+      const t = a.resolveDesc(ph[k]);
+      assert.ok(bp.indexOf(t) > -1,
+        'the ' + ph.key + ' ' + k + ' is on no stage card: ' + JSON.stringify(t.slice(0, 40)));
+    });
+  });
+  /* AND THE NOTE IS NOT ALSO CARRYING THEM, which would be the same session
+     said twice -- the failure this whole law is named for, in the other
+     vocabulary. */
+  assert.equal(bp.indexOf('how-cap-i'), -1,
+    'the phase captions are on the cards AND in the Coach\u2019s Note');
 });
 
-test('why, feel and watch for left the screen for the Coach’s Note', () => {
+test('why, feel and watch for left the screen — Why for its own section, the rest for the Note', () => {
   /* They were three gold headings with a sentence under each, under the
      rail, on every session. The founder took them off: the coaching is on
      the rail now.
@@ -1571,7 +1799,30 @@ test('why, feel and watch for left the screen for the Coach’s Note', () => {
        since left the note for the stage cards, on any rail with stages to
        put them on. What has not changed is the law this test is for: the
        sentence is still somewhere, and it is not in two places at once. */
-    [['Why', gd.why], ['Feel', gd.feel], ['Watch For', gd.avoid]].forEach(pair => {
+    /* ---------- WHY IS NOT IN THIS LOOP, AND NOT FOR A SOFT REASON ----
+       It has one home now -- WHY THIS SESSION, under the rail -- so "one
+       place or the other" is not the question for it; "its own section, and
+       not a note row as well" is. Asked that way below.
+       AND THE LOOP COULD NOT ASK IT HONESTLY ANY MORE. These comparisons
+       are substring tests, and on a goal-pace long run the execution
+       phase's own caption OPENS with the session's why: "Goal pace on legs
+       that are already tired. This is the point of the session..." against
+       a why of "Goal pace on legs that are already tired." Both strings
+       used to sit inside the note, so the test never had to tell them
+       apart; with the Why section above the note it read the caption as a
+       second copy and called a duplication on three long runs that have
+       none. The overlap is authored into the phase copy and is older than
+       this change. */
+    const whyRow = note.indexOf('<b>Why</b>') > -1;
+    if (gd.why){
+      const wi = html.indexOf('class="why-session"');
+      assert.ok(wi > -1 && html.indexOf(gd.why) > wi,
+        d.date + ' (' + d.type + '): Why is not in WHY THIS SESSION — ' +
+        JSON.stringify(gd.why.slice(0, 40)) + ' has been dropped, not moved');
+      assert.ok(!whyRow,
+        d.date + ' (' + d.type + '): Why is in its own section AND a row of the Coach’s Note');
+    }
+    [['Feel', gd.feel], ['Watch For', gd.avoid]].forEach(pair => {
       const k = pair[0], v = pair[1];
       if (!v) return;
       const inNote = note.indexOf(v) > -1;
@@ -1894,7 +2145,16 @@ test('the stage card is a photograph, and the words on it are legible', () => {
   const wide = (RAILCSS.match(/--card-pic:url\('\/assets\/[^']+-820\.jpg'\)/g) || []).length;
   assert.equal(swapped, wide,
     'the narrow phone swaps ' + swapped + ' of ' + wide + ' pictures — the rest download the wide file');
-  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{display:contents;\}/,
+  /* ---------- THE CLAIM IS display:contents, NOT THE WHOLE DECLARATION ----
+     This was written as the exact text `{display:contents;}` and broke the
+     moment a second property joined it, which says nothing about whether
+     the step is a box. The property that joined it is load-bearing, which
+     is the irony: display:contents dissolves the BOX but not inheritance,
+     so .ws-h-step's own text-align:center still reached every cue inside a
+     card whose body had been set to left -- found by walking computed style
+     up from a cue, after setting text-align on .ws-card-body changed
+     nothing at all. The law asks for the declaration it is about. */
+  assert.match(RAILCSS, /\.ws-rail \.ws-h-step\{[^}]*display:contents/,
     'the blueprint step is a box inside the card again, so its own tint and rule sit on the photograph');
 
   /* A PHOTOGRAPH IS NOT A BACKGROUND UNTIL THE WORDS ON IT ARE LEGIBLE.
@@ -1917,9 +2177,11 @@ test('the stage card is a photograph, and the words on it are legible', () => {
      It passed its contrast measurement anyway, because the track
      photograph happens to be dark at that height. That is luck.
      So the gradient hangs off .ws-card-body, whose height IS the text, and
-     its stops are in PIXELS: one fade, 76px long, finishing as the first
-     line begins and flat underneath however many lines follow. Nothing
-     about it is a proportion of the card, which is what made it fragile.
+     its stops are in PIXELS: one fade, finishing as the first line begins
+     and flat underneath however many lines follow. Nothing about it is a
+     proportion of the card, which is what made it fragile. (It was 76px
+     long; it is 28px now, re-tuned so the founder's photograph is visible
+     above it, and it still finishes before the text -- see below.)
      PROVEN RATHER THAN ASSUMED: the tallest block in the product was put
      over the brightest photograph in the set -- an interval on the misty
      road, a pairing the mapping would never produce -- and every run of
@@ -1934,6 +2196,12 @@ test('the stage card is a photograph, and the words on it are legible', () => {
 
   assert.ok(RAILCODE.indexOf('<div class="ws-card-body">') > -1,
     'the panels no longer wrap their content, so there is nothing for the scrim to be sized by');
+  /* AND THE STAGE CARD WRAPS ITS OWN, under the class that carries its
+     alignment. Named separately because the line above is satisfied by the
+     fuel facts and the execution phases alone -- so the stage card could
+     lose its wrapper, and its scrim with it, while this still passed. */
+  assert.ok(RAILCODE.indexOf('<div class="ws-card-body ws-step-body">') > -1,
+    'the stage card no longer wraps its content, so it has no scrim to be sized by');
   const bodies = (RAILCODE.match(/ws-card-body/g) || []).length;
   assert.ok(bodies >= 3,
     'only ' + bodies + ' panel kinds wrap their content — a stage, a fuel fact and an ' +
@@ -1943,9 +2211,34 @@ test('the stage card is a photograph, and the words on it are legible', () => {
   assert.ok(si > -1, 'the scrim under the card text is gone');
   const scrim = RAILCSS.slice(si, RAILCSS.indexOf('}', si));
   /* ABOVE THE TEXT AND PAST THE PADDING. A scrim starting at the text's own
-     top leaves the first line sitting in the fade. */
+     top leaves the first line sitting in the fade.
+     ASKED AS THAT SENTENCE NOW, NOT AS `top >= 60`. The 60 was a proxy for
+     a 76px fade reaching well above the first line, and it stopped meaning
+     what it said when the scrim was re-tuned: the founder wanted the
+     photograph visible ("Photos stay. I think they add value.") and only
+     11px of a 274px frame was getting out from under it. The fade is 28px
+     now and FINISHES where the text begins, which is the thing the comment
+     above actually claims -- so the ramp's end is compared against the
+     scrim's own top offset instead of against a number.
+     RE-MEASURED, because a shorter fade is a legibility question and no
+     structural assertion answers it. Chromium, 360px, the two worst cards
+     in the product (a 4x1200m interval and the 6km time trial), sampling
+     the backdrop pixels in the band beside each run of ink at that run's
+     own rows: 17 runs of text, white at 17.90 to 20.23, and the worst
+     overall 5.03 -- the cherry-tinted Watch For line, still above 4.5. */
   const top = Number((/top:-(\d+)px/.exec(scrim) || [])[1]);
-  assert.ok(top >= 60, 'the scrim reaches only ' + top + 'px above the text — the first line sits in the fade');
+  assert.ok(top >= 20,
+    'the scrim reaches only ' + top + 'px above the text, which is not past the padding');
+  const stops = (scrim.match(/rgba\(8,6,10,([\d.]+)\)\s+(\d+)px/g) || []).map(x => {
+    const m = /rgba\(8,6,10,([\d.]+)\)\s+(\d+)px/.exec(x);
+    return { a: Number(m[1]), px: Number(m[2]) };
+  });
+  assert.ok(stops.length >= 2, 'the scrim has no pixel-stopped ramp to measure');
+  const plateau = Math.max.apply(null, stops.map(x => x.a));
+  const rampEnd = Math.min.apply(null, stops.filter(x => x.a === plateau).map(x => x.px));
+  assert.ok(rampEnd <= top,
+    'the scrim is still fading ' + rampEnd + 'px down, past the text top at ' + top +
+    'px — the first line sits in the fade');
   assert.match(scrim, /bottom:-\d+px/, 'the scrim stops at the text, leaving the card’s bottom padding bare');
   /* THE STOPS ARE PIXELS, and this is the whole of the fix: a percentage
      stop is a proportion of the text block, so one rule ramps over 95px on
@@ -1957,8 +2250,34 @@ test('the stage card is a photograph, and the words on it are legible', () => {
     'proportion of the text and ramp differently on every card');
   assert.ok((scrim.match(/\d+px/g) || []).length >= 5,
     'the scrim no longer ramps in pixels, so its fade is not the same on every card');
-  const last = Number((/rgba\(8,6,10,\.(\d+)\) 100%/.exec(scrim) || [])[1]);
-  assert.ok(last >= 90, 'the scrim ends at .' + last + ' — the figures sit on it and were measured at 1.75:1 without it');
+  /* ---------- IT HOLDS THROUGH THE WORDS AND RELEASES BELOW THEM ----
+     This read "the gradient's 100% stop is at least .90", because the
+     figures sat on the card's FLOOR and were measured at 1.75:1 with no
+     scrim under them. They sit at the HEAD now -- founder: "THRESHOLD top
+     left distance top right... Then the text across the full width?" -- so
+     nothing of the session's own words is at the 100% stop any more, and
+     ending there at .96 drew a hard horizontal edge across the photograph
+     on the short cards, where the picture below the text is the point.
+     SO THE CLAIM BECOMES THE ONE THAT MATTERS: the scrim is at full
+     opacity for every pixel the text occupies, and the release happens
+     entirely in the margin it overhangs by. Asserted as the geometry --
+     the plateau runs to 100% minus the bottom overhang -- so neither the
+     release nor the overhang can be changed alone without this failing. */
+  const bottom = Number((/bottom:-(\d+)px/.exec(scrim) || [])[1]);
+  assert.ok(bottom > 0, 'the scrim no longer overhangs the text at the foot');
+  const plateauA = Math.max.apply(null,
+    (scrim.match(/rgba\(8,6,10,([\d.]+)\)/g) || []).map(x => Number(/([\d.]+)\)/.exec(x)[1])));
+  assert.ok(plateauA >= 0.7,
+    'the scrim only reaches ' + plateauA + ' — the words were measured at 1.75:1 without it');
+  const held = /rgba\(8,6,10,([\d.]+)\)\s+calc\(100% - (\d+)px\)/.exec(scrim);
+  assert.ok(held, 'the scrim has no stop holding its opacity to the end of the text');
+  assert.equal(Number(held[2]), bottom,
+    'the scrim releases ' + held[2] + 'px from the end but overhangs the text by ' + bottom +
+    'px \u2014 the release is inside the words or short of the margin');
+  assert.equal(Number(held[1]), plateauA,
+    'the scrim is already fading at the end of the text: ' + held[1] + ' against a plateau of ' + plateauA);
+  assert.match(scrim, /rgba\(8,6,10,0\)\s+100%/,
+    'the scrim ends at full opacity again, which draws a hard edge across the photograph');
 
   /* AND THE CARD KEEPS A VEIL of its own, so a bright frame cannot shout
      over its neighbours and the figures have a floor above the fade. */
@@ -1967,8 +2286,56 @@ test('the stage card is a photograph, and the words on it are legible', () => {
   assert.match(RAILCSS.slice(vi, RAILCSS.indexOf('}', vi)), /linear-gradient/,
     'the veil is no longer a gradient');
 
-  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*justify-content:flex-end/,
-    'the figures have left the foot of the card, which is where the scrim is built to meet them');
+  /* ---------- AND THE WORDS START AT THE HEAD, WHERE THE SCRIM DOES ----
+     This asked for justify-content:flex-end, because the card's content sat
+     on its floor and the scrim was built upward to meet it. The founder
+     moved it: "The title and distance should be fixed in the same place on
+     every card" -- which bottom-anchored content cannot do, since the head
+     of a one-line card and the head of a four-line card land in different
+     places. Top-anchored, every head is at the same inset and the
+     photograph is read below the words instead.
+     THE PAIRING IS WHAT IS ASSERTED, not the keyword: the scrim's ramp is
+     above the text (top:-28px, measured against the head's own inset), so
+     content anchored to the other end of the card would sit on the part of
+     the frame the scrim never reaches. One or the other cannot move alone. */
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*justify-content:flex-start/,
+    'the words have left the head of the card, which is where the scrim is built to meet them');
+  assert.ok(top > 0 && bottom > 0,
+    'the scrim no longer brackets the text, so nothing ties it to where the words start');
+
+  /* ---------- AND THE WORDS USE THE WHOLE WIDTH ----------
+     Founder, on the first version of the distributed coaching: "Why is the
+     text not using the full width?" The card was centred, so every
+     sentence was ragged on both sides and wrapped early.
+     TWO DECLARATIONS, AND THE SECOND ONE IS THE TRAP. Setting text-align
+     on .ws-card-body changed nothing at all: .ws-h-step is display:contents,
+     which dissolves the BOX but not inheritance, so its own
+     text-align:center still reached every cue inside the body that had just
+     been set to left. Found by walking computed style up from a cue.
+     MEASURED: left-aligning the bodies took them from 308px to 220px --
+     the same words, fewer lines -- which is most of why four sentences fit
+     a 274px card at all (see the sentence cap above).
+     BOTH ARE ASSERTED because removing either one re-centres the cues and
+     nothing else in the suite sees it: deleting the .ws-h-step half passed
+     all 82 laws in this file and coachingRail together.
+     AND IT IS .ws-step-body, NOT .ws-card-body. The first version of this
+     put the change on the shared body class, which the fuel facts and the
+     race's execution phases also use -- measured on race day, "Fuel
+     60-90g/hr" and a long run's "Long Run 22km" went from centred blocks
+     to full-width left, a change to two panels nobody asked about. The
+     stage card has its own class so the law can name it. */
+  [['ws-step-body', 'the stage card body'], ['ws-h-step', 'the blueprint step']].forEach(([cls, what]) => {
+    const m = new RegExp('\\.ws-rail \\.' + cls + '\\{[^}]*\\btext-align:left').test(RAILCSS);
+    assert.ok(m, what + ' no longer aligns its words left, so the sentences are centred ' +
+      'and wrap early \u2014 the founder asked for the full width');
+  });
+  /* AND "FULL WIDTH" IS THE OTHER HALF OF IT. text-align decides where the
+     words sit inside their line box; align-items decides how wide that box
+     is. With the body back to centring its children, the lines that carry
+     no width of their own -- Watch For is one -- shrink to their text and
+     sit centred in the card, left-aligned inside a centred block. */
+  assert.match(RAILCSS, /\.ws-rail \.ws-step-body\{[^}]*align-items:stretch/,
+    'the stage card body centres its children again, so the short lines no longer run full width');
   assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*align-self:stretch/,
     'the cards are back to their natural heights, so a short one ends early and the rail is ragged');
 
@@ -2216,12 +2583,54 @@ test('every session has exactly one rail, and the rail is above the coaching', (
        now that the columns have gone. Same law, one fewer thing between
        them: the rail is the session, the note is the coach talking about
        it, and the note comes after. */
+    /* THE COACHING IS WHICHEVER CARRIER THE SESSION HAS. It was always the
+       Coach's Note; a blueprint session has none now -- its stage coaching
+       rides the cards and its purpose rides WHY THIS SESSION -- so asking
+       every session for a note asked for the old furniture and failed on
+       2026-09-08. WHY THIS SESSION is the universal one, and where a note
+       is still rendered it is asked for too: a session may not put either
+       above its rail. */
+    const whyAt = html.indexOf('class="why-session"');
+    assert.ok(whyAt > -1, d.date + ': WHY THIS SESSION is gone');
+    /* MARKUP ORDER ONLY WHERE MARKUP ORDER IS THE ANSWER. A goal-pace long
+       run's rail is built inside renderCoachingDepth, so it ships inside
+       .how-card -- later in the string than the Why section, which rides
+       with the session's own words. For that shape the question is which
+       way the stylesheet orders the two, and it is asked once, below. */
+    const howAt = html.indexOf('class="fuel-card how-card');
+    const railInsideNote = howAt > -1 && railAt > howAt;
+    if (!railInsideNote) assert.ok(railAt < whyAt,
+      d.date + ' (' + d.type + ') puts WHY THIS SESSION above its rail');
     const noteAt = html.indexOf('class="how-note"');
-    assert.ok(noteAt > -1, d.date + ': the Coach\u2019s Note is gone');
-    assert.ok(railAt < noteAt,
+    if (noteAt > -1) assert.ok(railAt < noteAt,
       d.date + ' (' + d.type + ') puts its Coach\u2019s Note above its rail');
     shapes[d.type + ' x' + steps(d)] = true;
   });
+  /* ---------- AND THE STYLESHEET MAY NOT PUT IT BACK ON TOP ----------
+     .day-detail is a flex column with explicit order values, so markup
+     order is not the last word: .day-desc is 1, .ws-block is 2 and
+     .how-card is 3. WHY THIS SESSION shares the rail's own slot and lands
+     under it on SOURCE order alone, which is a quiet way to depend on
+     something -- one `order:1` on .why-session and the section the founder
+     asked for below the rail renders above it, with every markup assertion
+     in this law still passing. So the numbers are compared. */
+  const ordOf = cls => {
+    const m = new RegExp('\\.day-detail > \\.' + cls + '\\{order:(\\d+);\\}').exec(RAILCSS);
+    return m ? Number(m[1]) : null;
+  };
+  const oBlock = ordOf('ws-block'), oWhy = ordOf('why-session'), oHow = ordOf('how-card');
+  assert.ok(oBlock !== null, '.ws-block has lost its order, so the column is source-ordered');
+  assert.ok(oWhy !== null, '.why-session has lost its order');
+  assert.ok(oHow !== null, '.how-card has lost its order');
+  assert.ok(oWhy >= oBlock,
+    'the stylesheet orders WHY THIS SESSION (' + oWhy + ') above the blueprint rail (' + oBlock + ')');
+  /* AND ABOVE THE OTHER RAIL TOO. A goal-pace long run's rail is inside
+     .how-card; at order 2 the Why section rendered above it. This is the
+     half that was actually broken, so it is the half with a number. */
+  assert.ok(oWhy > oHow,
+    'the stylesheet orders WHY THIS SESSION (' + oWhy + ') above the fuel rail, which ships ' +
+    'inside .how-card (' + oHow + ') \u2014 the section the founder asked for below the rail is above it');
+
   /* The fixture has to contain the shapes this is about, or it proves
      nothing: a one-stage session, a multi-stage one, and a session whose
      rail is execution phases rather than stages. */
@@ -2463,11 +2872,68 @@ test('a stage card reads name, figure, sentence — in that order', () => {
          the card carried no name at all. */
       assert.ok(html.indexOf('<span class="ws-h-presc">' + s.label + '</span>') > -1,
         d.date + ' (' + d.type + ') stage ' + i + ': the card does not lead with "' + s.label + '"');
+      /* ---------- NAME AND FIGURE ON ONE ROW, AT THE HEAD ----------
+         Founder: "Could we put THRESHOLD top left distance top right?
+         Similar to the hero on the day?" and then, after seeing it, "The
+         title and distance should be fixed in the same place on every
+         card." So they share one element rather than stacking, and that
+         element is the first thing in the card. */
+      /* ASSERTED AS THE HEAD'S SHAPE, NOT FROM THE STEP'S OWN FIELDS.
+         Not every stage has a figure -- a cool down prescribed by nothing
+         but "cool down" carries none and its head is the name alone -- and
+         `step.qty` is not the question either: a reps stage leaves it null
+         and the card composes "4 x 1200m" from the count and the distance.
+         So the rule is about what may follow the name INSIDE the head: the
+         figure, or the end of the row, and nothing else. That holds for
+         both shapes without this law having to predict which one a stage
+         is, and it still fails the moment the figure moves out from beside
+         the name. */
+      const head = '<div class="ws-h-head"><span class="ws-h-presc">' +
+        s.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '</span>';
+      assert.ok(new RegExp(head + '(<span class="ws-h-qty|</div>)').test(html),
+        d.date + ' (' + d.type + ') stage ' + i + ': "' + s.label +
+        '" and its figure are no longer one head row');
     });
+    /* AND THE FIGURES HAVE NOT SIMPLY GONE. The line above is satisfied by
+       a rail of name-only heads, so each session is asked for at least one
+       figure -- every one of them opens with a warm-up that has a distance. */
+    assert.ok((html.match(/class="ws-h-qty/g) || []).length >= 1,
+      d.date + ' (' + d.type + '): not one stage card carries a figure');
 
-    const cues = (html.match(/class="ws-h-cue"/g) || []).length;
+    /* ---------- ONE LINE PER STAGE BECAME AT LEAST ONE PER STAGE -------
+       The founder distributed the coaching onto the rail -- "each part
+       tells the athlete what to do and how to execute it when they are
+       looking at that part" -- so a work stage can now carry its execution
+       caption, its Feel line and, on a time trial, four captions at once,
+       while a warm-up still carries one. The law that matters is the one
+       this was a proxy for: NO STAGE IS SILENT. Measured across the block:
+       15 multi-stage sessions, every stage card with at least one line, and
+       stage cards exactly equal to stages every time.
+       COUNTED PER STAGE CARD, NOT ACROSS THE CARD. A total of three lines
+       for three stages is also what two silent stages and one card doing
+       all the talking looks like -- which is the arrangement this rail
+       replaced, so it is exactly the regression to catch.
+       AND THE STAGE CARDS ARE PICKED OUT BY .ws-h-step: a fuelled session's
+       rail carries fuel facts as well, and those have no coaching line and
+       are not supposed to. Measured: an 8x1200m interval ships six cards
+       for three stages.
+       MATCHED WITH A DELIMITER. The class attribute now carries modifiers
+       (ws-h-cue ws-h-exec, ws-h-cue ws-h-feel), so the old exact-attribute
+       match found none at all; a bare prefix would have counted a future
+       .ws-h-cuex as a cue, which is the mistake a law here made once with
+       class="race-event". */
+    const stageCards = html.split('class="how-mod"').slice(1)
+      .filter(c => /class="ws-h-step/.test(c));
+    const cues = (html.match(/class="ws-h-cue[ "]/g) || []).length;
     if (st.length >= 2) {
-      assert.equal(cues, st.length,
+      assert.equal(stageCards.length, st.length,
+        d.date + ' (' + d.type + '): ' + stageCards.length + ' stage cards for ' + st.length + ' stages');
+      stageCards.forEach((c, i) => {
+        const n = (c.match(/class="ws-h-cue[ "]/g) || []).length;
+        assert.ok(n >= 1,
+          d.date + ' (' + d.type + ') stage ' + i + ' says nothing about how to run it');
+      });
+      assert.ok(cues >= st.length,
         d.date + ' (' + d.type + '): ' + cues + ' coaching lines for ' + st.length + ' stages');
       withCue++;
     } else {
@@ -2482,6 +2948,26 @@ test('a stage card reads name, figure, sentence — in that order', () => {
       solo++;
     }
   });
+
+  /* ---------- AND THE HEAD ROW IS FIXED, NOT FLOATED ----------
+     The founder's words again: "The title and distance should be fixed in
+     the same place on every card." The cards are one height and carry
+     anywhere from one to four sentences, so a head that simply precedes
+     the body in source lands wherever the body's height puts it -- which
+     is the arrangement they were looking at when they asked. Two
+     declarations hold it: order:1 pins the head above the body whatever
+     the flex column does with the rest, and space-between is what puts
+     the name left and the figure right on that row.
+     BOTH ARE HERE BECAUSE NOTHING ELSE SEES THEM. Removing either one
+     passed all 82 laws in this file and coachingRail together: the head's
+     markup is unchanged either way, so every content assertion above
+     still holds while the card looks wrong. */
+  const headRule = (/\.ws-rail \.ws-h-head\{([^}]*)\}/.exec(RAILCSS) || [])[1] || '';
+  assert.ok(headRule, 'the stage card head has no rule of its own any more');
+  assert.match(headRule, /\border:1\b/,
+    'the head row is no longer pinned to the top of the card, so it moves with the body height');
+  assert.match(headRule, /justify-content:space-between/,
+    'the head row no longer puts the name left and the figure right');
 
   /* THE NUMBERS HALF OF THIS LAW IS GONE WITH THE NUMBERS. It held that a
      card's pace and heart rate were joined on one line rather than stacked
@@ -2706,16 +3192,66 @@ test('the phase captions all show where no panel can light them', () => {
     const html = a.renderDayCard(d);
     const onRail = html.indexOf('class="how-mod strat-phase"') > -1;
     const all = html.indexOf('how-cap how-cap-all') > -1;
+    const caps = (html.match(/class="how-cap-i/g) || []).length;
+    /* ---------- THERE ARE THREE ARRANGEMENTS NOW, NOT TWO ----------
+       This law was written when a phase sentence had exactly two possible
+       homes: a caption beside a panel on the rail, lit one at a time, or a
+       caption in the Coach's Note with .how-cap-all forcing all of them
+       visible because nothing could light them. A blueprint session is a
+       third case: its sentences were distributed onto the stage cards --
+       founder, "the rail becomes the coach" -- so there is no caption
+       wrapper on that card at all, and `all === !onRail` read the absence
+       of one as "the captions are not all shown" and failed on 14 days.
+       MEASURED ACROSS THE BLOCK: 14 blueprint sessions with no wrapper and
+       every sentence on a stage card, 3 goal-pace long runs with the
+       wrapper and .how-cap-all, and one race with its panels on the rail.
+       WHAT EVERY BRANCH STILL HAS TO SHOW is every sentence -- which is
+       the thing this law is for, and the thing a markup-only guard got
+       wrong before it: an interval once showed one of four sentences and
+       called the other three carried. */
+    if (a.hasWorkoutBlueprint(d)){
+      assert.ok(!onRail,
+        d.date + ' (' + d.type + '): a blueprint session has the execution panels on its rail as well');
+      assert.equal(caps, 0,
+        d.date + ' (' + d.type + '): the phase sentences are on the stage cards AND in a caption wrapper');
+      s.phases.forEach(ph => {
+        ['purpose', 'cue'].forEach(k => {
+          if (!ph[k]) return;
+          const txt = a.resolveDesc(ph[k]);
+          assert.ok(html.indexOf(txt) > -1,
+            d.date + ' (' + d.type + '): the ' + ph.key + ' ' + k +
+            ' reaches no stage card: ' + JSON.stringify(txt.slice(0, 40)));
+        });
+      });
+      without++;
+      return;
+    }
     assert.equal(all, !onRail,
       d.date + ' (' + d.type + '): phase panels ' + (onRail ? 'ARE' : 'are NOT') +
       ' on the rail but the captions are ' + (all ? '' : 'not ') + 'all shown');
     /* And every sentence is in the note either way. */
-    assert.equal((html.match(/class="how-cap-i/g) || []).length, s.phases.length,
+    assert.equal(caps, s.phases.length,
       d.date + ': ' + s.phases.length + ' phases but a different number of sentences');
     onRail ? withPanels++ : without++;
   });
   assert.ok(withPanels >= 1 && without >= 3,
     'the fixture no longer exercises both (' + withPanels + ' with panels, ' + without + ' without)');
+  /* AND IT STILL EXERCISES ALL THREE. `without` now counts the blueprint
+     days and the goal-pace long runs together, so the floor above would be
+     met by blueprint sessions alone -- and the .how-cap-all branch, which
+     is what this law was originally written for, would stop being reached
+     without anything saying so. */
+  let capAllDays = 0, bpDays = 0;
+  a.state.days.forEach(d => {
+    if (d.type === 'rest' || a.soloNoteSession(d)) return;
+    let s; try { s = a.executionStrategyForDisplay(d); } catch (e) { return; }
+    if (!s || s.suppressed || !s.phases || !s.phases.length) return;
+    if (a.hasWorkoutBlueprint(d)) bpDays++;
+    else if (a.renderDayCard(d).indexOf('how-cap how-cap-all') > -1) capAllDays++;
+  });
+  assert.ok(bpDays >= 5 && capAllDays >= 1,
+    'the fixture exercises ' + bpDays + ' blueprint sessions and ' + capAllDays +
+    ' unlightable-caption sessions \u2014 one of the three arrangements is no longer checked');
 });
 
 /* ---- EXCEPT WHERE THERE IS NO RAIL AT ALL ----

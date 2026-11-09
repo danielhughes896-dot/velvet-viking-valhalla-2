@@ -2408,7 +2408,17 @@
        the rail cannot drift out of step with its dots. */
     flex:0 0 100%; box-sizing:border-box;
     position:relative; overflow:hidden;
-    display:flex; flex-direction:column; justify-content:flex-end;
+    /* ---------- THE HEAD IS IN THE SAME PLACE ON EVERY CARD ----------
+       Founder: "The title and distance should be fixed in the same place on
+       every card."
+       IT WAS justify-content:flex-end, so the content sat on the card's
+       floor and the head rode on top of however much text was beneath it.
+       Measured at 430px on a threshold session: the head sat 87px down on
+       the work card and 178px down on the warm-up -- a 91px jump between
+       two cards of one rail, which is what the founder was watching move
+       as they swiped. Anchored to the top, it is the same on all of them
+       and the text grows downwards. */
+    display:flex; flex-direction:column; justify-content:flex-start;
     align-items:center; text-align:center;
     /* EVERY CARD IS THE SAME HEIGHT. The track is align-items:flex-start and
        the script sizes the rail to the tallest panel, which was right while
@@ -2416,7 +2426,7 @@
        photograph that ends early is a ragged card, so each one stretches to
        the height the rail was given. */
     align-self:stretch;
-    margin:0; padding:16px 14px 18px;
+    margin:0; padding:28px 14px 18px;
     /* NO RIM, NO RADIUS. A photograph that runs to both edges of the screen
        is the page there; a rim round it would be the gap drawn in another
        colour, which is the thing being removed. */
@@ -2437,7 +2447,18 @@
     background-clip:padding-box;}
   /* The blueprint's own element stays contents so its three lines are the
      body's flex items rather than a box inside a box. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{display:contents;}
+  /* display:contents DISSOLVES THE BOX, NOT THE INHERITANCE. .ws-h-step
+     carries text-align:center for the three-across table this rail
+     replaced, and that centring reached every cue through it even though
+     the element itself lays nothing out -- which is why setting
+     text-align:left on .ws-card-body alone changed nothing on screen.
+     Measured by walking the computed style up from a cue: body left, step
+     centre, cue centre. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{display:contents; text-align:left;}
+  /* THE STAGE NAME IS THE CARD'S TITLE NOW, not a label under a figure --
+     the founder's mock-up has it white and level with the distance. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-head .ws-h-presc:not(.font-mono){
+    color:#FFFFFF; margin-top:0;}
   /* ---------- THE SCRIM IS SIZED BY MEASUREMENT, NOT BY EYE ----------
      First attempt put the figures mid-card over the sun and ran a gentle
      gradient under them. Sampled against the pixels actually behind each
@@ -2470,25 +2491,76 @@
      rule that zeroes its opacity on the active panel, both declared later
      in this sheet and both (0,5,0). That collision is what made an earlier
      scrim paint nothing at all. */
+  /* ---------- THE CARD READS LEFT, ACROSS THE FULL WIDTH ----------
+     Founder: "Why is the text not using the full width?" Because this was
+     align-items:center and the cue under it carried max-width:30ch -- a
+     30-character measure centred in a 402px card, so every sentence wrapped
+     at about half the room it had. That was right when a card held one
+     short line under a figure; the rail is the coach now and a work card
+     holds a paragraph.
+     IT IS ALSO THE HEIGHT LEVER. Measured at 430px across all eleven
+     blueprint archetypes: centred at 30ch, nine of them overflowed the
+     shared --rail-pic by 2-68px. Full width is the same words in fewer
+     lines -- see the law in test/structuredWorkout for the figures after. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-card-body{
     position:relative; z-index:1; width:100%;
     display:flex; flex-direction:column; align-items:center;}
+  /* AND THE STAGE CARD'S BODY, ALONE, RUNS FULL WIDTH AND LEFT. Scoped to
+     .ws-step-body so the fuel facts and the execution phases keep the
+     centred panel they were designed as. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-step-body{
+    align-items:stretch; text-align:left;}
+  /* NAME LEFT, FIGURE RIGHT, on one baseline -- the founder's mock-up. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-head{
+    order:1; display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; width:100%;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-head .ws-h-qty{margin-top:0; white-space:nowrap;}
+  /* THE ONE CHERRY LINE ON THE CARD. What ruins the stage, above the rule,
+     in the voice the product already uses for a warning. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-avoid{
+    order:2; font-family:var(--text-face); font-size:var(--fs-support);
+    font-style:italic; line-height:1.4; color:var(--cherry-text);
+    margin:6px 0 0;}
+  /* THE COACHING, UNDER ONE RULE. A card with nothing to say draws none,
+     because the wrapper is only emitted when there are lines in it. */
+  /* NO RULE ON THE CARD, by instruction. The gap does the separating. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-body{
+    order:3; width:100%; margin:10px 0 0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-card-body::before{
     content:''; position:absolute; z-index:-1; pointer-events:none;
-    left:-14px; right:-14px; bottom:-18px; top:-76px;
+    /* ---------- THE SCRIM HUGS THE WORDS NOW ----------
+       Founder: "Photos stay. I think they add value."
+       76px of fade above the text was right while the text sat on the
+       card's floor -- the fade had the whole upper card to run through and
+       the photograph was read above it. Top-anchored, that same 76px starts
+       48px ABOVE the card and the picture is gone: measured, 11px of 274
+       was showing clear.
+       28px to match the head's own inset, and the photograph is read BELOW
+       the words instead -- which is where the room now is, and there is
+       more of it on the stages that say least. */
+    left:-14px; right:-14px; bottom:-18px; top:-28px;
     /* STOPS IN PIXELS, NOT PERCENTAGES. Percentages are of this element,
        whose height is the text -- so the same gradient ramped over 95px on
        a tall card and 34px on a short one, and the tall one showed a step
        across the frame where .42 arrived. The founder's words about the
        first glow apply exactly: "its container edges are visible, making it
        look like a box".
-       In pixels it is one fade, 76px long, ending just as the first line of
-       text begins, and flat underneath however many lines follow. The same
-       dissolve on every card whatever it says. */
+       In pixels it is one fade -- 76px long when the text sat on the card's
+       floor, 28px now that it is top-anchored -- ending just as the first
+       line of text begins, and flat underneath however many lines follow.
+       The same dissolve on every card whatever it says. */
+    /* ---------- AND IT FADES OUT AT THE FOOT, NOT STOPS ----------
+       The old ramp ended at .96 and the element ended with it, which was
+       invisible while the scrim ran to the card's floor. Hugging the words,
+       that same ending drew a hard horizontal edge across the photograph --
+       seen on the warm-up card, where the text is short and the picture
+       below it is the point. So it ramps up over the head's 28px, holds
+       through the words, and releases over the 18px it overhangs by. */
     background:linear-gradient(to bottom,
-      rgba(8,6,10,0) 0px, rgba(8,6,10,.10) 20px,
-      rgba(8,6,10,.34) 40px, rgba(8,6,10,.70) 58px,
-      rgba(8,6,10,.92) 76px, rgba(8,6,10,.96) 100%);}
+      rgba(8,6,10,0) 0px, rgba(8,6,10,.46) 14px,
+      rgba(8,6,10,.80) 28px,
+      rgba(8,6,10,.80) calc(100% - 18px),
+      rgba(8,6,10,0) 100%);}
   /* A LIGHT VEIL OVER THE WHOLE FRAME as well. The gradient above covers
      the words; this keeps a bright photograph from fighting the card's
      neighbours and gives the figures a floor on the few pixels the fade
@@ -2565,7 +2637,18 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-cue{
     display:block; font-family:var(--text-face); font-size:var(--fs-support);
     line-height:1.45; letter-spacing:0; text-transform:none;
-    color:rgba(255,255,255,.92); margin:7px 0 0; max-width:30ch;}
+    color:rgba(255,255,255,.92); margin:7px 0 0;}
+  /* THE MEASURE IS GONE, NOT WIDENED. 30ch was a centred measure; left
+     against the card's own 402px the line length is the card's to decide. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-body .ws-h-cue:first-child{margin-top:0;}
+  /* ---------- STACKED CUES NEED LESS AIR BETWEEN THEM THAN THE FIRST ----
+     7px was set when a card carried one of these under its figure. The rail
+     is the coach now and a work card can carry four -- feel, what to watch,
+     and a phase's instruction twice over -- where the same 7px between
+     every pair is 28px of margin on a card whose height is shared with
+     every other picture in the product. Between consecutive cues it is 4px;
+     the first still clears the figure by 7. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-cue + .ws-h-cue{margin-top:4px;}
   /* The heart rate joins the pace after a middot rather than taking a row.
      .74, not the .66 this started at: measured on the composited card, .66
      came back at 5.22:1 against the 4.5 it owes, while the pace band
@@ -2881,6 +2964,46 @@
        616, while the rail below the hero grows 51px. */
     width:100%; box-sizing:border-box; margin:0 0 2px;
     padding:34px 26px 36px; border:0; background:none; border-radius:0;}
+  /* ---------- WHY THIS SESSION ----------
+     Founder: "Below the rail, add a simple WHY THIS SESSION section
+     containing the overall purpose/physiological reason for the workout."
+     SIMPLE WAS THE WORD, so this is a label and a sentence and nothing
+     else -- no box, no rim, no glow. The Coach's Note it replaces had a
+     34px inset and a radial behind it because it was an intervention; this
+     is a caption for the rail above it and is built to sit under, not to
+     compete with, the photographs.
+     CENTRED, because the rail's own cards are and this reads as their
+     footnote rather than as a new column of prose. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    gap:5px; width:100%; box-sizing:border-box; margin:18px 0 2px; padding:0 18px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-k{
+    font-family:var(--text-face); font-size:var(--fs-label); font-weight:600;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--gold);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-v{
+    font-family:var(--text-face); font-size:var(--fs-body); line-height:1.45;
+    color:var(--ink); max-width:34ch;}
+  /* The session's own sentence sits under the reason, quieter: it says what
+     the day IS, which the rail has already shown card by card. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-s{
+    font-family:var(--text-face); font-size:var(--fs-support); line-height:1.45;
+    color:var(--ink-dim); max-width:34ch;}
+  /* The rail is .ws-block at order 2 and the coaching card at 3; this is a
+     footnote to the rail, so it takes the rail's slot and follows it in
+     source. */
+  /* ---------- ORDER 4: AFTER EVERY RAIL, BEFORE EVERYTHING ELSE --------
+     Founder: "Below the rail, add a simple WHY THIS SESSION section." The
+     column is ordered, not source-ordered (.day-desc 1, .ws-block 2,
+     .how-card 3, everything else 5), and WHICH ELEMENT IS THE RAIL DEPENDS
+     ON THE SESSION: a blueprint session's rail is .ws-block, while a
+     goal-pace long run's is built inside renderCoachingDepth and ships
+     inside .how-card.
+     At order 2 this sat under the first of those and ABOVE the second --
+     seen on 2026-09-20, the Why section above the very rail it explains,
+     because .how-card is 3. At 4 it is below both, and still above the log,
+     the share composer and the analysis, which are all on the catch-all 5. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .why-session{order:4;}
+
   /* ---------- THE ONE-CARD DAY'S NOTE IS A CHERRY BOX ----------
      Founder, with a mock-up of an easy day: "the cherry boarder should be
      the same as race day rule. As wide as possible."
@@ -29159,8 +29282,23 @@ function renderWorkoutStepHCell(st, i, ctx){
      what the session's WORK stage is, which a single step cannot see, and
      it is withheld entirely on a one-stage rail -- see stageCueFor. */
   var cue = ctx && ctx.cues ? stageCueFor(st, ctx.work) : '';
+  /* ---------- ONE VOICE PER STAGE ----------
+     The stage cue and the execution caption are both "how to run this part"
+     and on the work card they say it twice: an interval's cue reads "Hold
+     the same shape on the last rep as the first" beside a caption reading
+     "Every rep in the target window, first to last." The caption is the
+     richer of the two and is the one the founder asked for by name, so
+     where a stage has one the cue stands down. A stage with no caption --
+     a fuel pair, a step the strategy does not phase -- keeps its cue. */
+  var stageCaps = (ctx && ctx.caps && ctx.caps[i]) ? ctx.caps[i] : [];
+  if (stageCaps.length) cue = '';
   var gd = (ctx && ctx.gd) || null;
-  var why   = (gd && i === 0) ? (gd.why || '') : '';
+  /* WHY HAS LEFT THE CARD. Founder: "Below the rail, add a simple WHY THIS
+     SESSION section containing the overall purpose/physiological reason for
+     the workout." It was printed here, on card one -- a fact about the whole
+     session sitting on the warm-up. renderWhySession() draws it under the
+     rail now, from this same gd.why. */
+  var why   = '';
   var isWork = !!(ctx && ctx.workIdx === i);
   /* ---------- FEEL STAYS IN THE NOTE, AND THAT IS A MEASUREMENT ----------
      Why, Feel and Watch For all moved to the cards first. Driven at 430px
@@ -29172,19 +29310,52 @@ function renderWorkoutStepHCell(st, i, ctx){
      already about how the stage should feel ('Hold the same shape on the
      last rep as the first'), while Why and Watch For say things no card
      says otherwise. */
-  var feel  = '';
+  /* ---------- FEEL COMES BACK, AND THIS IS THE ROOM IT COSTS ----------
+     It was taken off because "Why, Feel and Watch For all moved to the cards
+     first... the interval's work card came to 233px of text against the 189
+     the picture leaves, dragged the whole rail to 259px, and every picture
+     on that screen stopped being the shared --rail-pic. Two sentences fit;
+     three do not."
+     THAT MEASUREMENT WAS TAKEN AT A SHORTER RAIL. --rail-pic has since gone
+     223 -> 274 on the founder's own line, and Why has left this card for the
+     section below, so the work card trades one sentence for another and
+     gains the room the taller picture bought. Re-measured across every
+     archetype at 430px before this was kept -- see the law in
+     test/structuredWorkout. */
+  var dayCue = (ctx && isWork) ? (ctx.dayCue || '') : '';
+  var feel  = (gd && isWork) ? (gd.feel || '') : '';
   var avoid = (gd && isWork) ? (gd.avoid || '') : '';
+  /* THE STAGE'S OWN EXECUTION GUIDANCE, which is the whole of the founder's
+     instruction: "each part tells the athlete what to do and how to execute
+     it when they are looking at that part." */
+  var execCaps = stageCaps;
   /* .ws-card-body: the one element whose height IS the text. See the scrim
      rule -- it hangs off this rather than off the card, so it covers the
      words whatever they come to. */
-  return '<div class="ws-card-body"><div class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
+  /* ---------- THE STAGE CARD'S BODY IS ITS OWN CLASS ----------
+     The founder's full-width, left-aligned words are for THIS panel. The
+     first attempt put them on .ws-card-body, which is shared by the fuel
+     facts and the race's execution phases as well -- and those quietly
+     re-aligned with it: measured on race day, "Fuel 60-90g/hr" and a long
+     run's "Long Run 22km" went from centred blocks to full-width left,
+     which nobody asked for. .ws-step-body is the stage card alone. */
+  return '<div class="ws-card-body ws-step-body"><div class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
     /* SPOKEN ONCE. The name stays in the accessibility tree only while the
        card is showing a different word; where it has been promoted to the
        label, a second copy would have a screen reader read it twice. */
     /* No sr-only copy of the name: it is on the card now, so a second one
        would be read twice. */
-    (word ? '<span class="ws-h-presc">'+escapeHtml(word)+'</span>' : '')+
-    (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
+    /* ---------- NAME LEFT, FIGURE RIGHT ----------
+       Founder, with a mock-up: "Could we put THRESHOLD top left distance top
+       right? Similar to the hero on the day? Then the text across the full
+       width?" They were stacked and centred, which is what forced the cue
+       underneath into a narrow centred measure. A wrapper is needed because
+       .ws-h-step is display:contents in the rail -- its children are flex
+       items of the card body, so two of them cannot form a row without one. */
+    '<div class="ws-h-head">'+
+      (word ? '<span class="ws-h-presc">'+escapeHtml(word)+'</span>' : '')+
+      (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
+    '</div>'+
     /* ---------- THE SENTENCES, IN THE ORDER THE FOUNDER DREW THEM ----------
        Why the session exists on the first card, then that stage's own cue,
        then how the work should feel and what to watch on the work card.
@@ -29194,9 +29365,30 @@ function renderWorkoutStepHCell(st, i, ctx){
        and the four existing orders on this card do not have to be
        renumbered to fit three more things in. */
     (why ? '<div class="ws-h-cue ws-h-why">'+escapeHtml(why)+'</div>' : '')+
-    (cue ? '<div class="ws-h-cue">'+escapeHtml(cue)+'</div>' : '')+
-    (feel ? '<div class="ws-h-cue ws-h-feel">'+escapeHtml(feel)+'</div>' : '')+
-    (avoid ? '<div class="ws-h-cue ws-h-avoid">'+escapeHtml(avoid)+'</div>' : '')+
+    /* WHAT TO WATCH SITS ABOVE THE RULE, in the founder's mock-up's own
+       order: the stage, then the one thing that ruins it, then how to run
+       it. It is the only line on the card in the cherry voice. */
+    (avoid ? '<div class="ws-h-avoid">'+escapeHtml(avoid)+'</div>' : '')+
+    /* AND THE COACHING IS ONE BLOCK UNDER ONE RULE, rather than four
+       separately spaced lines. The rule is drawn by this wrapper, so a card
+       with nothing to say draws none. */
+    (function(){
+      /* ---------- THE DAY'S CUE IS NOT ON THE CARD ----------
+         Founder, pointing at the line above "One continuous effort, even
+         from start to finish": "take this away."
+         IT WAS THE DUPLICATE. coachingEntryFor()'s cue and the Hold phase's
+         own caption both open "One continuous effort" on a threshold
+         session -- two sentences written for two places, reading as a
+         stutter now they share a card. The phase's caption is the one that
+         belongs to the stage the athlete is looking at, so the day's cue is
+         the one that goes. */
+      var lines = []
+        .concat(feel ? ['<div class="ws-h-cue ws-h-feel">'+escapeHtml(feel)+'</div>'] : [])
+        .concat(execCaps.map(function(t){
+          return '<div class="ws-h-cue ws-h-exec">'+escapeHtml(t)+'</div>'; }))
+        .concat(cue ? ['<div class="ws-h-cue">'+escapeHtml(cue)+'</div>'] : []);
+      return lines.length ? '<div class="ws-h-body">'+lines.join('')+'</div>' : '';
+    })()+
     renderWorkoutStepSecondary(st)+
   '</div></div>';
 }
@@ -29221,6 +29413,131 @@ function renderWorkoutStepHCell(st, i, ctx){
    merged SETTLE and CARB INTAKE in the first place. Which rail they ride
    is decided by hasWorkoutBlueprint(), in one place, so they can never
    appear on both or on neither. */
+/* ---------- THE RAIL BECOMES THE COACH ----------
+   Founder: "Remove Coach's Note as a standalone section on Today. Instead,
+   distribute the coaching guidance into the relevant session slides in the
+   existing rail... The principle is: the rail becomes the coach -- each part
+   tells the athlete what to do and how to execute it when they are looking
+   at that part."
+
+   BY ROLE, NEVER BY INDEX, and that is the whole difficulty. The rail's
+   cards are BLUEPRINT STEPS and the coaching captions belong to EXECUTION
+   PHASES, and the two do not correspond -- the fact recorded above
+   renderCoachingDepth and measured across the engine:
+
+     threshold   3 steps   3 phases   Settle / Hold / Absorb
+     tempo       3 steps   3 phases   Settle / Hold / Absorb
+     interval    3 steps   4 phases   Settle / Press / Recover / Absorb
+     progressive 3 steps   4 phases   Settle / Build / Press / Absorb
+     long+goal   2 steps   3 phases   Settle / Hold / Hold
+
+   Pairing them card-for-card is what the founder's example invites, because
+   a threshold session is the case where they happen to be 3 and 3. Do that
+   and an interval session silently loses "Recovery is part of the
+   prescription, not a gap in it" -- the one caption an athlete standing on
+   a track most needs. So the phase is asked what it is ABOUT and handed to
+   the step that does that job: settle to the warm-up, absorb to the cool
+   down, everything in between to the work. A step may hold two captions; no
+   caption is ever dropped.
+
+   AND WHERE A ROLE IS MISSING, the caption falls to the nearest step that
+   exists -- a long run with goal pace has no warm-up step, so Settle joins
+   its first work step rather than vanishing. */
+function workoutStepCaptions(dd, steps){
+  var out = steps.map(function(){ return []; });
+  if (!steps.length) return out;
+  var s = null;
+  try { s = executionStrategyForDisplay(dd); } catch(e) { return out; }
+  if (!s || s.suppressed || !s.phases || !s.phases.length) return out;
+
+  var warmIdx = -1, coolIdx = -1, workIdx = [];
+  steps.forEach(function(st, i){
+    if (st.role === 'warmup' && warmIdx < 0) warmIdx = i;
+    else if (st.role === 'cooldown') coolIdx = i;
+    else workIdx.push(i);
+  });
+  /* A rail of nothing but warm-up and cool-down has no middle; the work
+     captions then belong to whichever of the two is there. */
+  if (!workIdx.length) workIdx = [warmIdx >= 0 ? warmIdx : 0];
+  if (warmIdx < 0) warmIdx = workIdx[0];
+  if (coolIdx < 0) coolIdx = workIdx[workIdx.length - 1];
+
+  /* The work phases spread across the work steps in order. Equal counts
+     pair one to one (a long run's two Holds to its Easy and its Goal pace);
+     more phases than steps stack (an interval's Press and Recover both onto
+     the one Interval card). */
+  var mid = s.phases.filter(function(ph){
+    return ph.key !== 'settle' && ph.key !== 'absorb';
+  });
+  var midAt = {};
+  mid.forEach(function(ph, k){
+    midAt[k] = workIdx[Math.min(workIdx.length - 1,
+      Math.floor(k * workIdx.length / Math.max(1, mid.length)))];
+  });
+  var midSeen = 0;
+  var placed = [];
+  s.phases.forEach(function(ph){
+    var at;
+    if (ph.key === 'settle') at = warmIdx;
+    else if (ph.key === 'absorb') at = coolIdx;
+    else { at = midAt[midSeen]; midSeen++; }
+    placed.push({ at: at, ph: ph });
+  });
+  /* ---------- A CARD WITH TWO PHASES ON IT STATES TWO PURPOSES ----------
+     A caption is a purpose and then a cue elaborating it. One phase on a
+     card can afford both; two cannot, and the rail's height is shared, so
+     the card that cannot afford it decides for nobody but itself.
+     MEASURED at 430px across every archetype the engine builds. Carrying
+     purpose and cue for every phase, 8 of 11 rails overflowed -- deuce by
+     143px, ladder 133, track_reps 120, hill_repeats 100, and four more by
+     80-83 -- while the founder's own threshold session fitted exactly. A
+     rail that grows on two sessions in three is the failure recorded above
+     renderCoachingDepth: "every picture on that screen stopped being the
+     shared --rail-pic".
+     THE PURPOSE IS THE INSTRUCTION and the cue is the elaboration, so the
+     elaboration is what a crowded card gives up. Nothing is dropped from a
+     card that holds one phase. */
+  /* EVERY PHASE KEEPS ITS PURPOSE AND ITS CUE. An earlier pass dropped the
+     cue from any card holding two phases, to buy height back from a rail
+     that was overflowing on 9 archetypes of 11. The founder's own question
+     -- "Why is the text not using the full width?" -- bought it instead:
+     left-aligned across the card, the worst body came down from 308px to
+     220px against a 274px rail, so nothing has to be given up. */
+  placed.forEach(function(x){
+    var text = [x.ph.purpose, x.ph.cue].filter(function(t){ return t; })
+      .map(function(t){ return resolveDesc(t); }).join(' ');
+    if (text && out[x.at]) out[x.at].push(text);
+  });
+  return out;
+}
+
+/* ---------- WHY THIS SESSION ----------
+   Founder: "Below the rail, add a simple WHY THIS SESSION section containing
+   the overall purpose/physiological reason for the workout."
+   THE SAME STRING THE FIRST CARD USED TO CARRY. gd.why was printed on card
+   one, where it was a fact about the whole session sitting on the warm-up;
+   it is about the session, so it sits under the session. Nothing new is
+   written and nothing is derived a second way. */
+function renderWhySession(dd){
+  var gd = null;
+  /* THE SAME LEVEL THE RAIL ASKS FOR, so the sentence under the rail and
+     the sentences on it come from one reading of the athlete. */
+  try { gd = coachingDisclosureFor(dd, athleteExperience()); } catch(e) { gd = null; }
+  var why = gd && gd.why ? resolveDesc(gd.why) : '';
+  /* AND THE SESSION'S OWN SENTENCE WHERE IT HAS ONE. descMovesToNote() is
+     the day's description, which the Coach's Note used to carry under
+     "Session"; 7 blueprint days in a full block have one. It is about the
+     whole session, like the Why, so it comes here rather than being lost
+     with the note. */
+  var shape = '';
+  try { shape = descMovesToNote(dd) || ''; } catch(e) { shape = ''; }
+  if (!why && !shape) return '';
+  return '<div class="why-session">'+
+      '<span class="why-session-k font-head">Why this session</span>'+
+      (why ? '<span class="why-session-v">'+escapeHtml(why)+'</span>' : '')+
+      (shape ? '<span class="why-session-s">'+escapeHtml(shape)+'</span>' : '')+
+    '</div>';
+}
 function renderStructuredWorkoutSteps(steps, extra, dd){
   /* WHAT THE SESSION IS, resolved once for the whole rail: the intensity
      of its WORK stage, which is what a warm-up and a cool-down are about.
@@ -29256,8 +29573,23 @@ function renderStructuredWorkoutSteps(steps, extra, dd){
      so for the same reason. */
   var gd = null;
   if (steps.length >= 2){ try { gd = coachingDisclosureFor(dd, athleteExperience()); } catch(e) { gd = null; } }
+  /* THE EXECUTION CAPTIONS, ONE BUCKET PER STEP. See workoutStepCaptions:
+     mapped by what the phase is about, not by its position, so an interval's
+     fourth phase has somewhere to go on a three-card rail. */
+  var caps = [];
+  try { caps = workoutStepCaptions(dd, steps); } catch(e) { caps = []; }
+  /* THE DAY'S ESSENTIAL CUE, which the founder named for the work card:
+     "roughly an hour-race effort, continuous and controlled". It was the
+     first line of the Coach's Note; coachingEntryFor() is still the only
+     place it comes from. */
+  var dayCue = '';
+  try {
+    var ce = coachingEntryFor(dd), lvl = athleteExperience();
+    dayCue = (lvl === 'advanced') ? ((ce && (ce.essential || ce.cue)) || '')
+                                  : ((ce && ce.cue) || '');
+  } catch(e) { dayCue = ''; }
   var ctx = { work: workStep ? workStep.intensity : null, cues: steps.length >= 2,
-              ring: ring, gd: gd, workIdx: workIdx };
+              ring: ring, gd: gd, workIdx: workIdx, caps: caps, dayCue: dayCue };
   var panels = steps.map(function(st, i){
     return '<div class="how-mod" data-mod="ws-'+i+'">'+renderWorkoutStepHCell(st, i, ctx)+'</div>';
   }).concat(extra || []);
@@ -29408,6 +29740,22 @@ function renderCoachingDepth(dd, pre, preview){
      closed disclosure in a list. */
   var asTab = prescriptionIsReference(dd);
   var preBlock = pre ? '<div class="how-pre">'+pre+'</div>' : '';
+  /* ---------- THE PREAMBLE OUTLIVES EVERY REASON TO LEAVE EARLY ----------
+     Two returns below bail out of the disclosure -- nothing to coach, and
+     nothing left to disclose because the rail took it -- and BOTH still owe
+     the caller the session's own words, which renderDayCard hands in here
+     once the prescription is reference ("a tab called Session Details with
+     the session's details stacked above it is the label standing outside
+     the thing it labels"). Written once because the second return learned
+     this the hard way: it returned the cue alone and a logged threshold
+     session lost its step table off the card altogether. */
+  var preOnly = function(){
+    return (preBlock && asTab)
+      ? '<details class="fuel-card how-card is-tab">'+'<summary class="sess-tab">'+
+          sessionTabHtml('Session Details')+
+        '</summary>'+preBlock+'</details>'
+      : preBlock;
+  };
   var focusedCard = dayCardIsFocused(dd);
   var level = athleteExperience();
   var g = coachingEntryFor(dd);
@@ -29441,11 +29789,7 @@ function renderCoachingDepth(dd, pre, preview){
      card. The tab is emitted with the preamble and no rail -- and still
      nothing at all when there is no preamble either. */
   if (!g || (dd.type==='rest' && level!=='novice')){
-    return ((preBlock && asTab)
-      ? '<details class="fuel-card how-card is-tab">'+'<summary class="sess-tab">'+
-      sessionTabHtml('Session Details')+
-    '</summary>'+preBlock+'</details>'
-      : preBlock)+(dd.type==='rest' ? restCoachHtml() : '');
+    return preOnly()+(dd.type==='rest' ? restCoachHtml() : '');
   }
   /* The cue line is where depth used to be decided; it still is. Advanced sees
      one only where getting it wrong ruins the session, everyone else sees the
@@ -29595,6 +29939,18 @@ function renderCoachingDepth(dd, pre, preview){
        a tab that opens what it names. So Session Details is a disclosure
        in all three focused views, closed until asked, exactly as Valhalla
        Analysis beneath it is. */
+    /* ---------- NOTHING LEFT TO DISCLOSE ON A BLUEPRINT SESSION ----------
+       The rail carries the coaching now and the note returns '' below, and
+       this session's execution rail is already suppressed in favour of the
+       blueprint ("a session shows the blueprint or the execution rail,
+       never both"). Both halves of the disclosure are therefore empty, and
+       what reached the screen was a bare "How to run this" tab that opened
+       on nothing -- seen on a threshold card: 780 characters of coaching
+       block, every one of them chrome.
+       THE INLINE CUE ABOVE IS KEPT, which is what `out` already holds: the
+       week and plan previews read it, and .coach-cue-inline is display:none
+       inside a focused session, so Today is unaffected either way. */
+    if (hasWorkoutBlueprint(dd) && !soloNoteSession(dd)) return out+preOnly();
     out += '<details class="fuel-card how-card'+
         (asTab ? ' is-tab' : ' is-static')+'"'+
         ((!asTab && (focusedCard || preview || soloNoteSession(dd))) ? ' open' : '')+'>'+
@@ -29813,8 +30169,21 @@ function renderCoachingDepth(dd, pre, preview){
            return below is what makes it disappear rather than print a
            heading over nothing. */
         var railHasCoaching = hasBlueprint && manyStages;
+        /* ---------- WHY IS NOT A ROW HERE ANY MORE ----------
+           It is WHY THIS SESSION, under the rail, on every session that has
+           one -- the founder asked for that section by name and it is built
+           from the same gd.why this row used to print. Leaving the row in
+           printed the sentence twice on the one kind of session that still
+           has a note AND a rail: a goal-pace long run, whose stages are the
+           fuel rail rather than cards, so railHasCoaching is false and the
+           note kept all three columns. Seen on 2026-09-20 -- "Goal pace on
+           legs that are already tired." in the Why section and again under
+           a <b>Why</b> in the note, nine lines apart.
+           FEEL AND WATCH FOR STAY, on the sessions whose rail does not
+           carry them: that rail has no stage cards to put them on, and the
+           note is still the only place they can be. */
         var cols = (railHasCoaching ? [['Feel', gd.feel]]
-          : [['Why', gd.why], ['Feel', gd.feel], ['Watch For', gd.avoid]])
+          : [['Feel', gd.feel], ['Watch For', gd.avoid]])
             .filter(function(r){ return !!r[1]; });
         /* The shape leads the note, where it is here at all: it is what the
            session IS, and everything below it is coaching about it. */
@@ -29892,6 +30261,25 @@ function renderCoachingDepth(dd, pre, preview){
            inside the same <details> and the founder asked for that rail on
            the slide: "Yeh I want that on the goal-pace long runs." */
         if (preview) return '';
+        /* ---------- THE RAIL IS THE COACH NOW ----------
+           Founder: "Remove Coach's Note as a standalone section on Today.
+           Instead, distribute the coaching guidance into the relevant
+           session slides in the existing rail."
+           EVERY ROW OF THIS NOTE HAS A HOME ON A BLUEPRINT SESSION. The
+           execution captions are on the stage each one is about, the day's
+           cue, Feel and Watch For are on the work card, and Why is the
+           section under the rail -- see workoutStepCaptions() and
+           renderWhySession(). Printing them again here is the duplication
+           the whole move exists to remove.
+           ASKED THE SAME WAY renderStructuredWorkout ASKS IT, so the note
+           can only stand down where a rail actually took the words: a
+           session with no blueprint (a fuel-rail long run, a race) keeps
+           its note, because nothing on those screens has taken anything.
+           MEASURED FIRST: of 63 blueprint days across four distances, none
+           carries a fuel caveat, so standing the note down here strands no
+           figure an athlete has to read. The 7 that carry a session line
+           hand it to the Why section rather than losing it. */
+        if (hasWorkoutBlueprint(dd) && !soloNoteSession(dd)) return '';
         if (false){
           /* ---------- THE CLEANEST IT CAN EVER BE ----------
              Founder: "Do not need the top row in the box. Remove the symbol
@@ -30863,8 +31251,13 @@ function renderDayCard(dd){
      still ahead -- which is what the focused order rules below expect
      (.day-desc order 1, .ws-block 2, .how-card 3) -- and handed INTO
      Session Details once the session is history. */
+  /* BELOW THE RAIL, BY INSTRUCTION. Founder: "Below the rail, add a simple
+     WHY THIS SESSION section containing the overall purpose/physiological
+     reason for the workout." It rides with ownWords so a reference
+     prescription hands it to Session Details with the rest of them, and
+     takes .day-desc's order slot so it lands under .ws-block either way. */
   var ownWords = (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
-                 descHtml+renderStructuredWorkout(dd);
+                 descHtml+renderStructuredWorkout(dd)+renderWhySession(dd);
   var asReference = prescriptionIsReference(dd);
   var detailHtml = '<div class="day-detail">'+
           (asReference ? '' : ownWords)+
