@@ -855,6 +855,22 @@ test('no day but race offers a full session to open', () => {
   assert.ok(race, 'the block builds no goal day, so the exception is untested');
   assert.equal(a.weekSlideHtml(race, 0).indexOf('class="how-note"'), -1,
     'goal day\u2019s coaching reached the slide — it is meant to be held back for now');
+  /* ---- WITHHELD ON THE SLIDE, NOT TAKEN AWAY ----
+     Founder: "you have removed coaches note? Which is actually ok if it
+     shows up on today card for that session?" It does, and that is the
+     half of this that matters: the slide is the only place goal day's
+     coaching is held back. Asserted here because the exclusion lives in
+     weekSlideHtml() and nothing stopped it being copied into the day card
+     the next time someone made the two agree. Checked with goal day as
+     TODAY, which is the only day it is ever the Today card. */
+  const g = railApp();
+  const gRace = g.state.days.filter(d => d.type === 'race')[0];
+  g.todayStr = function(){ return gRace.date; };
+  const card = g.renderDayCard(gRace);
+  assert.ok(card.indexOf('class="how-note"') > -1,
+    'goal day has lost its Coach\u2019s Note on the day card as well, which was never the ask');
+  assert.ok((card.match(/ws-card-body/g) || []).length >= 5,
+    'goal day has lost its execution phases on the day card');
   const box = /function renderWeekSessionBox\(weekNum\)\{[\s\S]*?\n\}/.exec(RAILCODE)[0];
   assert.match(box, /dd\.type !== 'race' && !weekSessionOpen/,
     'the full-session button no longer makes an exception of goal day');
@@ -1005,12 +1021,32 @@ test('swiping the workout does not also change the day', () => {
    coaches note being visible. Less clicks effectively." */
 test('every day on the week slide carries its note, and its rail if it has one', () => {
   const a = railApp();
-  let noted = 0, fuelRailed = 0;
+  let noted = 0, fuelRailed = 0, disclosed = 0;
   a.state.days.forEach((d, i) => {
     if (d.type === 'race') return;          /* held back by instruction */
     const slide = a.weekSlideHtml(d, i);
     assert.ok(slide.indexOf('class="how-note"') > -1,
       d.date + ' (' + d.type + '): the week slide has no Coach\u2019s Note');
+    /* ---- BUILT IS NOT THE SAME AS SHOWN ----
+       The line above passed while the founder was looking at an empty gap:
+       the note was in the markup, inside a <details> that nothing ever
+       opened. renderCoachingDepth() opens itself on a focused card or a
+       solo-note day, and the carousel focuses nothing -- the slide IS the
+       session. MEASURED in a browser on both This Week and Full Plan before
+       the fix: detailsOpen false, the note itself reporting display:flex and
+       a 390px box, the slide 500px tall; after it, open, and the slide 937px.
+       The markup check alone is worthless here; this is the one with teeth. */
+    /* A REST DAY'S NOTE IS NOT IN A DISCLOSURE AT ALL -- measured, not
+       assumed: 22 of the 72 days carry no <details>, and every one of them
+       is a rest day. So the open check runs where there IS one, and the
+       count below is what stops it quietly checking nothing. */
+    const det = (slide.match(/<details class="fuel-card how-card[^>]*>/g) || [])[0];
+    if (det){
+      disclosed++;
+      assert.match(det, / open>/,
+        d.date + ' (' + d.type + '): the week slide\u2019s Coach\u2019s Note is closed \u2014 ' +
+        'it renders as an empty gap, which is the bug this line exists for');
+    }
     noted++;
     /* A FUEL-RAIL LONG RUN DRAWS ITS RAIL HERE TOO -- "Yeh I want that on
        the goal-pace long runs." Its rail is built inside renderCoachingDepth
@@ -1022,8 +1058,9 @@ test('every day on the week slide carries its note, and its rail if it has one',
         d.date + ': a goal-pace long run shows no rail on the slide');
     }
   });
-  assert.ok(noted >= 60 && fuelRailed >= 3,
-    'the block exercised ' + noted + ' noted days and ' + fuelRailed + ' goal-pace long runs');
+  assert.ok(noted >= 60 && fuelRailed >= 3 && disclosed >= 40,
+    'the block exercised ' + noted + ' noted days, ' + fuelRailed +
+    ' goal-pace long runs and ' + disclosed + ' disclosures');
 
   /* ---- AND THE CAPTION ANCHOR IS UNIQUE PER SLIDE ----
      This Week embeds the whole renderDayCard() behind the carousel, so

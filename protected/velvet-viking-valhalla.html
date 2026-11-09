@@ -29233,7 +29233,16 @@ function prescriptionIsReference(dd){
    unchanged and leaves the caller owning what the session is.
    display:contents on the wrapper, so the three of them lay themselves out
    inside the panel exactly as they did as siblings. */
-function renderCoachingDepth(dd, pre){
+/* alwaysOpen: the week slide draws this OUTSIDE a focused card, and the
+   disclosure's open state is decided by dayCardIsFocused(), which asks
+   whether a session has been opened on the current screen. On the carousel
+   nothing is ever "opened" -- the slide IS the session -- so the coaching
+   was built, laid out and never painted: a closed <details> under the rail
+   and an empty gap where the Coach's Note should be. Caught from a founder
+   screenshot of Full Plan showing exactly that gap, then measured:
+   detailsOpen false on both This Week and Full Plan while the note itself
+   reported display:flex and a 390px box. */
+function renderCoachingDepth(dd, pre, alwaysOpen){
   /* A TAB ONLY WHERE THE PRESCRIPTION IS REFERENCE. Everywhere else this is
      what it always was: open and summary-less on a focused session, a
      closed disclosure in a list. */
@@ -29428,7 +29437,7 @@ function renderCoachingDepth(dd, pre){
        Analysis beneath it is. */
     out += '<details class="fuel-card how-card'+
         (asTab ? ' is-tab' : ' is-static')+'"'+
-        ((!asTab && (focusedCard || soloNoteSession(dd))) ? ' open' : '')+'>'+
+        ((!asTab && (focusedCard || alwaysOpen || soloNoteSession(dd))) ? ' open' : '')+'>'+
       /* ---------- THERE IS NO "HOW TO RUN THIS" ----------
          Founder: "How to run this on the left should not be a thing. The
          coaches note should be open by default. So remove the how to run
@@ -59353,7 +59362,10 @@ function weekSlideHtml(dd, i){
      captions and its own would never have moved -- the same failure the
      ring gradient had, recorded a few lines above this, and fixed the same
      way: one id per slide, rewritten in the one string that mentions it. */
-  var depth = (dd.type === 'race') ? '' : renderCoachingDepth(dd);
+  /* OPEN, because this is the session rather than a disclosure about one.
+     Without it the coaching renders into a closed <details> and the slide
+     shows a gap. */
+  var depth = (dd.type === 'race') ? '' : renderCoachingDepth(dd, '', true);
   var capId = 'exec-cap-' + dd.id;
   depth = depth.split(capId).join(capId + '-w' + i);
   /* THE BOX FOLLOWS THE DAY. On a solo-note day the hero and this note are
