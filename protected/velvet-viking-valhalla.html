@@ -59894,6 +59894,25 @@ function renderWeekSessionBox(weekNum){
      next swipe. "Hide full session" must also survive on a card the athlete
      opened before the rule applied. */
   var isRest = dd.type !== 'race' && !weekSessionOpen;
+  /* ---------- AND THE GHOST ONLY WHERE A SWIPE CAN REVEAL IT ----------
+     Founder, on This Week: "Can it be moved up? There's a weird gap between
+     the bottom of the rail and the bar."
+     MEASURED: the hint ended at y=954 and the zone card began at 1037, with
+     a 52px button and its 13px margin in between -- 65px of a button with
+     visibility:hidden. That is the weird gap, and it is almost all of it.
+     THE REASON IT IS GHOSTED IS GOOD AND IS KEPT. Race day still carries
+     the real button, because its five execution phases are deliberately off
+     the slide; reserving its box means swiping onto race day does not drop
+     everything below it and snap back on the next swipe.
+     IT IS ONLY A REASON IN RACE WEEK. Every other week has no day in its
+     carousel that can ever show the button, so the box is reserved against
+     a swipe that cannot happen -- 65px of nothing on 15 weeks of 16. Asked
+     of weekCarouselDays(), which is the list the swipe actually steps
+     through, rather than of state.days: a race in some other week is not
+     reachable from here and must not reserve space here. */
+  var ghostEarnsItsSpace = weekCarouselDays(weekNum).some(function(d){
+    return d.type === 'race';
+  });
   /* data-week for the same reason the rail carries it: the OPEN card is
      swipeable too, and its commit stepped within currentWeekNum() -- which
      is wrong on every week screen but This Week. One source for "which week
@@ -59902,12 +59921,13 @@ function renderWeekSessionBox(weekNum){
     (weekSessionOpen ? ' data-hswipe="1"' : '')+'>'+
     overview+
     swipeHintHtml('week', 'Swipe for another day')+
-    '<button type="button" class="wk-open sess-nav'+(isRest ? ' is-ghost' : '')+'"'+
-      (isRest ? ' aria-hidden="true" tabindex="-1"'
-              : ' data-action="week-open-session" data-date="'+escapeHtml(dd.date)+'"'+
-                ' aria-expanded="'+(weekSessionOpen?'true':'false')+'"')+'>'+
-      (weekSessionOpen ? 'Hide full session' : 'View full session')+
-      ' <span class="wk-open-caret" aria-hidden="true">\u2192</span></button>'+
+    ((isRest && !ghostEarnsItsSpace) ? '' :
+      '<button type="button" class="wk-open sess-nav'+(isRest ? ' is-ghost' : '')+'"'+
+        (isRest ? ' aria-hidden="true" tabindex="-1"'
+                : ' data-action="week-open-session" data-date="'+escapeHtml(dd.date)+'"'+
+                  ' aria-expanded="'+(weekSessionOpen?'true':'false')+'"')+'>'+
+        (weekSessionOpen ? 'Hide full session' : 'View full session')+
+        ' <span class="wk-open-caret" aria-hidden="true">\u2192</span></button>')+
     full+
   '</div>';
 }

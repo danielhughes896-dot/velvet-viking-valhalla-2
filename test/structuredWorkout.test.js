@@ -798,9 +798,18 @@ test('a solo-note day looks the same on Today, This Week and Full Plan', () => {
    checked for the words. */
 test('no day but race offers a full session to open', () => {
   const a = railApp();
-  const wk = a.currentWeekNum();
-  const days = a.weekSessionDays(wk);
+  /* ---- READ IN THE WEEK THAT HAS A RACE IN IT ----
+     THIS USED TO READ THE CURRENT WEEK, and the reserved box has since
+     stopped being drawn in weeks whose carousel holds no race day -- there
+     the button can never appear, so the box was 65px of nothing on 15 weeks
+     of 16 (see renderWeekSessionBox). The claim here is about the exception
+     race day makes, so it is asserted where race day is. */
+  const raceDay = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(raceDay, 'the block builds no race day, so the exception is untested');
+  const wk = raceDay.week;
+  const days = a.weekCarouselDays(wk);
   assert.ok(days.length >= 5, 'the fixture week is too small to prove anything');
+  assert.ok(days.some(d => d.type === 'race'), 'the race is not in its own week\u2019s carousel');
   let ghosted = 0, offered = 0;
   days.forEach(d => {
     a.handleWeekPickDay(d.date);

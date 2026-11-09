@@ -193,14 +193,79 @@ test('a rest day holds the session button\'s slot instead of collapsing it', () 
      no two sides left in this fixture. What it was really protecting is
      unchanged and is what is asserted: the BOX is there on both, so the
      zone breakdown below it cannot move as the athlete swipes the week. */
-  assert.ok(hasClass(onWork, 'wk-open'), 'the session day lost its button');
-  assert.ok(hasClass(onRest, 'wk-open'), 'the rest day lost its button');
-  assert.ok(hasClass(onWork, 'is-ghost') && hasClass(onRest, 'is-ghost'),
-    'a day is offering to open a session the slide is already showing');
+  /* ---- THE CLAIM IS STABILITY, NOT A GHOST ON EVERY DAY ----
+     What this protects, in its own words above: "the BOX is there on both,
+     so the zone breakdown below it cannot move as the athlete swipes the
+     week." A week where EVERY day holds the slot satisfies that. So does a
+     week where NO day has it -- and that is what weeks with no race day in
+     their carousel now do, because there the button can never appear and
+     the reserved box was 65px of nothing under the rail. Founder: "There's
+     a weird gap between the bottom of the rail and the bar."
+     WHAT WOULD BREAK IT is a week that disagrees with itself: some days
+     holding the box and some not, so the breakdown steps up and down under
+     a finger mid-swipe. That is what is asserted, across every week of the
+     block rather than one. */
+  const agree = (w) => {
+    const ds = a.weekCarouselDays(w);
+    const has = ds.map(d => { a.weekSelectedDate = d.date;
+      return hasClass(a.renderWeekSessionBox(w), 'wk-open'); });
+    return { w, n: ds.length, yes: has.filter(Boolean).length };
+  };
+  let steady = 0;
+  for (let w = 1; w <= a.totalWeeksInPlan(); w++){
+    const r = agree(w);
+    if (!r.n) continue;
+    assert.ok(r.yes === 0 || r.yes === r.n,
+      'week ' + r.w + ' holds the session box on ' + r.yes + ' of its ' + r.n +
+      ' days, so the zone breakdown moves as the week is swiped');
+    steady++;
+  }
+  assert.ok(steady >= 10, 'only ' + steady + ' weeks were checked');
+  /* ---- AND THE "NONE" HALF, WHICH IS THE FOUNDER'S GAP ----
+     The law above is satisfied by all-or-none, so it passes just as happily
+     with the box reserved on every week -- which is the state that was
+     reported: "There's a weird gap between the bottom of the rail and the
+     bar", measured at 65px of a button with visibility:hidden. Caught by
+     mutation: forcing the box back on every week left every other guard in
+     this file green. This is the half that says a week which can never
+     reveal the button reserves nothing for it. */
+  let bare = 0;
+  for (let w = 1; w <= a.totalWeeksInPlan(); w++){
+    const ds = a.weekCarouselDays(w);
+    if (!ds.length || ds.some(d => d.type === 'race')) continue;
+    ds.forEach(d => {
+      a.weekSelectedDate = d.date;
+      assert.equal(hasClass(a.renderWeekSessionBox(w), 'wk-open'), false,
+        'week ' + w + ' ' + d.date + ': reserves a box for a button no swipe in ' +
+        'this week can ever reveal');
+    });
+    bare++;
+  }
+  assert.ok(bare >= 10, 'only ' + bare + ' week(s) without a race were checked');
+  /* AND THE WEEK THAT KEEPS IT KEEPS IT GHOSTED on every day but race --
+     held, never offered, because the slide already shows the session. */
+  const raceDay = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(raceDay, 'the block builds no race day, so the exception is untested');
+  const rw = raceDay.week;
+  a.weekCarouselDays(rw).filter(d => d.type !== 'race').forEach(d => {
+    a.weekSelectedDate = d.date;
+    const html = a.renderWeekSessionBox(rw);
+    assert.ok(hasClass(html, 'wk-open'),
+      d.date + ': race week stopped reserving the box, so swiping onto the race jumps the page');
+    assert.ok(hasClass(html, 'is-ghost'),
+      d.date + ': a day is offering to open a session the slide is already showing');
+  });
+  a.weekSelectedDate = rest.date;
 
   /* Held, not offered. A rest day has nothing to open, so the reserved box
      must not be reachable by pointer, by tab, or by the delegated handler. */
-  const ghostM = /<button[^>]*class="[^"]*\bis-ghost\b[^"]*"[^>]*>/.exec(onRest);
+  /* READ THE HELD SLOT WHERE ONE IS STILL HELD. onRest comes from the
+     current week, which has no race in its carousel and therefore no box to
+     reserve; the slot's own properties are unchanged and are checked on the
+     week that still has one. */
+  a.weekSelectedDate = a.weekCarouselDays(rw).filter(d => d.type !== 'race')[0].date;
+  const onHeld = a.renderWeekSessionBox(rw);
+  const ghostM = /<button[^>]*class="[^"]*\bis-ghost\b[^"]*"[^>]*>/.exec(onHeld);
   assert.ok(ghostM, 'no held slot in the markup at all');
   const ghost = ghostM[0];
   assert.doesNotMatch(ghost, /data-action=/, 'the held slot can still be fired');
