@@ -240,10 +240,20 @@ test('the race day renders exactly once, as a standalone event on its own stop',
      the character that ends the name. */
   assert.equal((stop.match(/class="race-event[ "]/g) || []).length, 1,
     'the standalone event did not render exactly once on its own stop');
-  assert.match(stop, /class="phase-divider race-divider"/,
-    'the race day has no divider of its own');
-  assert.match(stop, /class="race-event-dist font-mono"><b>42\.2<\/b>/,
-    'the race distance is not shown on the standalone event');
+  /* ---- THE IDENTITY IS ON THE SLIDE, NOT IN THE PANEL ----
+     The two assertions that were here required a title row and a distance
+     INSIDE the panel. Founder, having seen it: "we don't need the title
+     within it as the card tells us... the look gives it a hero finish and
+     shouldn't look like the rest of the full plan." The slide directly above
+     carries the name, the date and the distance; the panel carries what the
+     slide does not say. Both halves are asserted, so "withheld from the
+     panel" cannot quietly become "gone from the screen". */
+  const above = stop.slice(0, stop.indexOf('class="race-event race-stop"'));
+  assert.ok(above.indexOf('42.2') > -1,
+    'the race distance has gone from the slide as well as the panel');
+  assert.ok(above.indexOf(a.vGoalDay()) > -1, 'the slide no longer names the day');
+  assert.equal(stop.indexOf('race-divider'), -1,
+    'the panel grew back the title row the slide already writes');
   assert.match(stop, /data-action="plan-open-session"/,
     'the standalone event is no longer the way in to the race session');
 
@@ -530,10 +540,12 @@ test('a half-marathon block splits the same way', () => {
   const html = planViewOn(a, race.week);
   assert.equal(headerVolume(html, race.week), '0/' + a.kmToDisplay(vol.training));
   /* THE SPLIT, READ WHERE EACH HALF LIVES: the week's header counts training
-     only, and the 21.1km it leaves out is on the goal day's own stop. */
+     only, and the 21.1km it leaves out is on the goal day's own stop --
+     on its slide, which is where the distance moved when the panel became a
+     hero figure and two conditions. */
   assert.equal(html.indexOf('id="day-' + race.id + '"'), -1,
     'the half-marathon is listed inside its week again');
-  assert.match(planStopView(a), /class="race-event-dist font-mono"><b>21\.1<\/b>/,
+  assert.ok(planStopView(a).indexOf('21.1') > -1,
     'the half-marathon is not on the goal day\u2019s stop either, so it is nowhere');
 });
 
@@ -541,15 +553,18 @@ test('the standalone event uses the plan\'s own name for the day', () => {
   /* "Race Day" for a real event, "Goal Day" for a self-set target -- vGoalDay()
      already decides that everywhere else and this must not invent a second
      vocabulary. */
+  /* ---- THE NAME MOVED TO THE SLIDE, AND THERE IS ONLY ONE OF IT ----
+     This read the panel's own divider until the founder took that row off:
+     "we don't need the title within it as the card tells us". The claim is
+     unchanged -- the day is named with the plan's own vocabulary, "Race Day"
+     for a real event and "Goal Day" for a self-set target -- and is now read
+     where the name lives. */
   const a = racingBlock();
   const html = planStopView(a);
-  const divider = /<div class="phase-divider race-divider"><span class="l font-head">([^<]*)<\/span>/.exec(html);
-  assert.ok(divider, 'the race divider did not render');
-  assert.equal(divider[1], a.vGoalDay(),
-    'the standalone event names the day something the rest of the app does not');
-  /* AND THE SLIDE ABOVE IT AGREES. The stop's own title is the second place
-     this day is named; two names for one day on one screen is the thing
-     vGoalDay() exists to prevent. */
   assert.ok(html.indexOf('<span class="pp-slide-k">' + a.vGoalDay() + '</span>') > -1,
-    'the stop\u2019s slide names the day something other than its own panel does');
+    'the stop\u2019s slide names the day something the rest of the app does not');
+  /* ONCE ON THE SCREEN. Two names for one day is what vGoalDay() exists to
+     prevent, and a panel that names it again is the second one. */
+  assert.equal((html.match(new RegExp('>' + a.vGoalDay() + '<', 'g')) || []).length, 1,
+    'the goal day is named more than once on its own stop');
 });

@@ -863,9 +863,33 @@ test('the goal day is the last stop on the rail, and carries the day', () => {
   assert.equal(view.indexOf('class="pp-phase '), -1,
     'the goal day\u2019s stop still lists a phase\u2019s weeks underneath it');
   const race = a.state.days.filter(d => d.type === 'race')[0];
-  assert.ok(view.indexOf(a.dLong(race.date)) > -1, 'the panel does not say when');
-  assert.ok(view.indexOf(a.kmToDisplay(race.km || 0)) > -1, 'the panel does not say how far');
-  assert.match(view, /data-action="plan-open-session"/, 'there is no way into the session');
+  /* ---- READ THE PANEL, NOT THE SCREEN ----
+     THE LAW THAT WAS HERE SEARCHED THE WHOLE VIEW for the date and the
+     distance, and the slide above the panel carries both -- so when the
+     panel stopped printing them it went on passing, proving nothing about
+     the card it was written for. Everything below is scoped to the panel's
+     own markup. */
+  const panel = /<div class="race-event race-stop">[\s\S]*?<\/button><\/div>/.exec(view);
+  assert.ok(panel, 'the panel could not be isolated — re-point this before trusting it');
+  const card = panel[0];
+  const slide = view.slice(0, view.indexOf('class="race-event race-stop"'));
+
+  /* ---- IT REPEATS NOTHING THE SLIDE SAYS ----
+     Founder: "we don't need the title within it as the card tells us... the
+     look gives it a hero finish and shouldn't look like the rest of the full
+     plan." The panel carried the day's name, its date and its distance, all
+     three of which the slide directly above it already says -- which is what
+     made it read as a second, lesser hero. */
+  assert.ok(slide.indexOf(a.vGoalDay()) > -1, 'the slide stopped naming the day');
+  assert.ok(slide.indexOf(a.dLong(race.date)) > -1, 'the slide stopped saying when');
+  assert.ok(slide.indexOf(a.kmToDisplay(race.km || 0)) > -1, 'the slide stopped saying how far');
+  assert.equal(card.indexOf(a.vGoalDay()), -1,
+    'the panel names the day again, which the slide above it already does');
+  assert.equal(card.indexOf(a.dLong(race.date)), -1,
+    'the panel prints the date again, which the slide above it already does');
+  assert.equal(card.indexOf('race-divider'), -1,
+    'the panel grew its title row back');
+  assert.match(card, /data-action="plan-open-session"/, 'there is no way into the session');
 
   /* ---- AND ITS FIGURES ARE THE RING'S FIGURES ----
      The race's own card already prints both numbers. Asserted as equality
@@ -887,13 +911,23 @@ test('the goal day is the last stop on the rail, and carries the day', () => {
   const clock = a.secToClock(Math.round(rp.impliedSec));
   assert.notEqual(clock, a.secToClock(Math.round(rp.targetSec)),
     'the two finishes round the same even on a negative split, so this proves nothing');
-  const split = a.renderFullPlanView();
+  const split = /<div class="race-event race-stop">[\s\S]*?<\/button><\/div>/
+    .exec(a.renderFullPlanView())[0];
   assert.ok(ring.indexOf(clock) > -1, 'the ring stopped printing the finish, so re-point this');
-  assert.ok(split.indexOf(clock) > -1,
-    'the panel\u2019s target time is not the finish the ring shows');
+  /* ---- AND THE FINISH IS THE HERO, not a row ----
+     Founder's pick of four drawn directions: "B with distance as the
+     fallback". The slide's hero is the day's identity; this one is what the
+     day is aimed at. Asserted as the hero element rather than as presence
+     anywhere in the card, because a target time in the sub-row would satisfy
+     "the panel shows it" while losing the whole decision. */
+  assert.match(split, new RegExp('<span class="rst-k">Target time</span>' +
+    '<div class="rst-v">' + clock.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '</div>'),
+    'the panel\u2019s hero is not the finish the ring shows');
   assert.ok(ring.indexOf(targets.pace) > -1, 'the ring stopped printing the pace');
   assert.ok(split.indexOf(targets.pace) > -1,
     'the panel\u2019s target pace is not the pace the ring shows');
+  assert.equal(split.indexOf(a.kmToDisplay(race.km || 0)), -1,
+    'the panel prints the distance although it has a target time to lead with');
 
   /* ---- AND THE SWIPE REACHES IT ----
      The dot is not the only way to the last stop. wirePhaseRail()'s commit
@@ -924,6 +958,50 @@ test('the goal day is the last stop on the rail, and carries the day', () => {
     assert.equal(split.indexOf(a.RACE_STRATEGIES[k].label), -1,
       'the panel lists ' + a.RACE_STRATEGIES[k].label + ' as well as the chosen one');
   });
+});
+
+/* ---------- AND A HERO WHEN THERE IS NO FINISH TO STATE ----------
+   Founder, choosing between four drawn directions: "B with distance as the
+   fallback." A block with no benchmark has no VDOT, so getGoalPaceSecPerKm()
+   returns null, raceExecutionPlan() has nothing to build blocks from, and the
+   hero the whole panel is built around would be blank. */
+test('with no target time the goal day leads with its distance', () => {
+  const a = app();
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  const before = a.raceExecutionPlan(race.km || 0);
+  assert.ok(before && before.impliedSec,
+    'the fixture has no target time to lose, so this proves nothing');
+
+  /* THE REAL CAUSE, not a stubbed renderer: getGoalPaceSecPerKm() reads
+     getActiveVDOT(), and a block with no benchmark has none. */
+  a.getActiveVDOT = function(){ return null; };
+  assert.equal(a.getGoalPaceSecPerKm(), null, 'the block still has a goal pace');
+  assert.equal(a.raceExecutionPlan(race.km || 0), null, 'the race still has an execution plan');
+
+  a.renderApp = () => {};
+  const stops = a.planRailStops();
+  a.handlePhasePick(stops[stops.length - 1].phase);
+  const card = /<div class="race-event race-stop">[\s\S]*?<\/button><\/div>/
+    .exec(a.renderFullPlanView())[0];
+
+  assert.match(card, /<span class="rst-k">Distance<\/span><div class="rst-v">/,
+    'with no target time the panel has no hero at all');
+  assert.ok(card.indexOf(a.kmToDisplay(race.km || 0)) > -1,
+    'the fallback hero does not state the distance');
+  assert.equal(card.indexOf('Target time'), -1,
+    'the panel offers a target time it cannot compute');
+  /* THE UNIT RIDES SMALLER, as it does everywhere else a distance is
+     printed -- the hero is the figure, not the figure and its unit at one
+     size. */
+  assert.match(card, /<span class="rst-u">/, 'the fallback hero lost its unit span');
+  /* AND WHAT IS LEFT BELOW IT STILL STANDS UP. No goal pace means no pace
+     column; the strategy and the way in are unaffected. */
+  assert.equal(card.indexOf('Target pace'), -1,
+    'the panel offers a target pace it cannot compute');
+  assert.ok(card.indexOf(a.RACE_STRATEGIES[a.raceStrategyKey()].label) > -1,
+    'the strategy went with the pace, and it did not depend on it');
+  assert.match(card, /data-action="plan-open-session"/,
+    'the way into the session went with the target time');
 });
 
 test('a block with no carousel keeps the goal day in its list', () => {

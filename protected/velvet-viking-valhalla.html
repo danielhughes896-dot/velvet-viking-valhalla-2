@@ -6743,34 +6743,50 @@
     content:''; position:absolute; left:0; right:0; top:-17px; height:1px;
     background:var(--cherry-line);}
 
-  /* ---------- THE GOAL DAY'S STOP, UNDER ITS OWN SLIDE ----------
-     The same lit cherry panel the race event has always been -- identity and
-     date left, distance right -- with the founder's two additions between
-     the figures and the way in: "Target time / target pace if one exists",
-     then the chosen strategy. One row of label-and-figure pairs that wraps,
-     so a plan carrying all three reads as three facts about one day rather
-     than a table.
-     QUIETER THAN THE TWO ABOVE IT, deliberately. The date and the distance
-     are the day's identity and carry the panel's weight at 28px; these are
-     what the athlete is aiming AT, and a third 28px figure would make the
-     panel an argument between four numbers. 15px, white, tabular.
-     The hairline is drawn by this block rather than on the button, for the
-     reason recorded above it: .rd-open's rim is a gradient and a border on
-     the same edge throws it away. The button moves to row 4. */
-  .view-plan > .race-stop .rst-figs{
-    grid-column:1 / -1; grid-row:3; position:relative;
-    display:flex; flex-wrap:wrap; gap:7px 22px; margin-top:14px; padding-top:14px;}
-  .view-plan > .race-stop .rst-figs::before{
-    content:''; position:absolute; left:0; right:0; top:0; height:1px;
-    background:var(--cherry-line);}
-  .view-plan > .race-stop .rst-fig{display:flex; align-items:baseline; gap:8px;}
+  /* ---------- THE GOAL DAY'S STOP: ONE HERO, TWO CONDITIONS ----------
+     Founder, on the first version: "we don't need the title within it as the
+     card tells us... the look gives it a hero finish and shouldn't look like
+     the rest of the full plan. It's right." Drawn four ways against these
+     tokens; this is the one they picked.
+     IT OPTS OUT OF THE TWO-COLUMN GRID ABOVE. That grid exists to put a
+     title and a date on the left and a distance on the right, and this panel
+     carries none of the three -- the slide does. Left as a grid it would lay
+     a centred hero into column one. */
+  .view-plan > .race-stop{display:block; text-align:center; padding:18px 16px 16px;}
   .view-plan > .race-stop .rst-k{
-    font-family:var(--text-face); font-size:11.5px; letter-spacing:.07em;
-    text-transform:uppercase; color:var(--ink-dim);}
-  .view-plan > .race-stop .rst-fig b{
-    font-family:var(--text-face); font-weight:700; font-size:15px;
+    display:block; font-family:var(--text-face); font-size:11.5px;
+    font-weight:500; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--ink-dim); margin-bottom:6px;}
+  /* THE SAME WHITE AND THE SAME HALO the date and distance wore when they
+     were the heroes here -- the panel's weight did not change, only which
+     figure carries it. */
+  .view-plan > .race-stop .rst-v{
+    font-family:var(--text-face); font-weight:700; font-size:52px; line-height:1;
+    letter-spacing:-0.01em; font-variant-numeric:tabular-nums; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
+  /* ONLY THE FALLBACK HERO HAS A UNIT, and it rides smaller, as a unit does
+     everywhere else this product prints one. */
+  .view-plan > .race-stop .rst-u{
+    font-size:24px; letter-spacing:.01em; margin-left:4px; text-transform:uppercase;}
+  .view-plan > .race-stop .rst-rule{
+    height:1px; background:var(--cherry-line); margin:15px 0;}
+  .view-plan > .race-stop .rst-subs{display:flex;}
+  .view-plan > .race-stop .rst-sub{flex:1; min-width:0; padding:0 6px;}
+  .view-plan > .race-stop .rst-sub + .rst-sub{border-left:1px solid var(--cherry-line);}
+  .view-plan > .race-stop .rst-sub b{
+    display:block; font-family:var(--text-face); font-weight:700; font-size:16px;
     letter-spacing:.01em; font-variant-numeric:tabular-nums; color:#FFFFFF;}
-  .view-plan > .race-stop .rd-open{grid-row:4;}
+  /* THE RULE ABOVE THE BUTTON IS DROPPED HERE. .rd-open draws one for the
+     race event's own layout, where the button follows a block of figures
+     with no divider of its own; this panel already has a rule in the middle
+     and a second one two rows below it reads as a table. */
+  /* WIDTH IS EXPLICIT. .sess-nav is display:flex and centres its own
+     contents, but a <button> still sizes to its text: in the grid above it
+     was stretched by grid-column:1/-1, and taking the grid away left it
+     shrink-wrapped against the left edge. Caught in a browser, not in the
+     markup -- the HTML was identical either way. */
+  .view-plan > .race-stop .rd-open{margin-top:16px; width:100%;}
+  .view-plan > .race-stop .rd-open::before{display:none;}
 
   /* =======================================================
      FULL PLAN -- the week and the session, each its own screen.
@@ -49838,65 +49854,85 @@ function planRailStops(){
   return stops.concat([{ phase: vGoalDay(), weeks: [], race: race }]);
 }
 /* ---------- WHAT SITS UNDER THE GOAL DAY'S SLIDE ----------
-   The founder wrote the contents out:
-     "GOAL DAY  Date  distance, same rules as the rest of the rail.
-      Target time / target pace if one exists.
-      RACE STRATEGY  Even Pace / Negative Split / Custom
-        Just the currently selected strategy shown here.
-      VIEW RACE SESSION"
+   The founder wrote the contents out: date and distance, "Target time /
+   target pace if one exists", the chosen strategy, "VIEW RACE SESSION" --
    and the reason: "you can plan for the big day before the race/goal day
    happens."
 
-   EVERY FIGURE COMES FROM WHERE THE RING GETS IT. The race's ring already
-   prints these two numbers -- getDayTargets() for the pace, and
-   raceExecutionPlan().impliedSec through secToClock() for the finish, which
-   is the strategy's own arithmetic rather than goal pace x distance. Read
-   from the same two places here, so this panel cannot tell the athlete a
-   different race from the one the card shows.
+   THEN THEY SAW IT AND CUT IT BACK: "we don't need the title within it as
+   the card tells us... The target time pace and strategy is good. And then
+   the session is obvs needed. I also think currently the look gives it a
+   hero finish and shouldn't look like the rest of the full plan."
+   Four directions were drawn against the real tokens and they chose the one
+   where THE FINISH TIME IS THE HERO.
 
-   "IF ONE EXISTS" IS LOAD-BEARING. A block with no benchmark has no goal
-   pace, and raceExecutionPlan() returns null below a distance it can build
-   blocks for. Each row is emitted only when its own figure is there, and the
-   section disappears entirely when neither is.
+   SO THE PANEL REPEATS NOTHING THE SLIDE SAYS. The slide directly above it
+   carries RACE DAY, the date and the distance; this carried all three again,
+   which is what made it read as a second, lesser hero. What is left is what
+   the slide does NOT say: what the day is aimed at, how it is to be run, and
+   the way in.
 
-   THE STRATEGY IS SHOWN, NOT OFFERED. The picker -- three chips, the
-   recommendation, the custom stepper -- stays on the race session screen
-   where the execution blocks it reshapes are, which is a decision this
-   product already made. Here it is one line of state, and the way to change
-   it is the button underneath. */
+   THE HERO IS THE OUTCOME, not the identity. 3:19:47 is the one number the
+   whole block is aimed at; pace and strategy are the conditions on it, and
+   are sized as conditions. This is the founder's "hero finish" with a figure
+   to be the hero of.
+
+   THE FALLBACK IS THE DISTANCE, by the founder's decision ("B with distance
+   as the fallback"). A block with no benchmark has no goal pace, so
+   raceExecutionPlan() has no finish to state and the hero would be blank.
+   The distance is then the only thing left that is true of the day and big
+   enough to carry it -- and yes, it repeats the slide, which is the accepted
+   cost of the card always having a hero.
+
+   EVERY FIGURE COMES FROM WHERE THE RING GETS IT. getDayTargets() for the
+   pace, raceExecutionPlan().impliedSec through secToClock() for the finish --
+   the strategy's own arithmetic, not goal pace x distance. Read from the same
+   two places here so a panel read months early cannot describe a different
+   race from the card on the day.
+
+   THE STRATEGY IS SHOWN, NOT OFFERED. The picker -- chips, recommendation,
+   custom stepper -- stays on the race session where the blocks it reshapes
+   are, which is a decision this product already made. */
 function renderPlanRaceStop(race){
   if (!race) return '';
   var rp = null;
   try { rp = raceExecutionPlan(race.km || 0); } catch(e) { rp = null; }
   var targets = {};
   try { targets = getDayTargets(race) || {}; } catch(e) { targets = {}; }
-  var rows = '';
-  if (rp && rp.impliedSec)
-    rows += '<div class="rst-fig"><span class="rst-k">Target time</span>'+
-      '<b class="font-mono">'+escapeHtml(secToClock(Math.round(rp.impliedSec)))+'</b></div>';
-  if (targets.pace)
-    rows += '<div class="rst-fig"><span class="rst-k">Target pace</span>'+
-      '<b class="font-mono">'+escapeHtml(targets.pace)+'</b></div>';
 
-  /* RACE_STRATEGIES is the one table of these names; raceStrategyKey() is
-     the one reader of the stored preference. Neither is restated here. */
-  var strat = '';
-  var sk = raceStrategyKey();
-  var meta = RACE_STRATEGIES[sk];
-  if (meta){
-    strat = '<div class="rst-fig"><span class="rst-k">Race strategy</span>'+
-      '<b>'+escapeHtml(meta.label)+'</b></div>';
+  var heroK, heroV;
+  if (rp && rp.impliedSec){
+    heroK = 'Target time';
+    heroV = escapeHtml(secToClock(Math.round(rp.impliedSec)));
+  } else {
+    /* The unit rides at a smaller size on its own span, the way the distance
+       already does everywhere else this product prints one. */
+    heroK = 'Distance';
+    heroV = kmToDisplay(race.km || 0) +
+      '<span class="rst-u">' + escapeHtml(displayUnit()) + '</span>';
   }
 
+  /* BUILT AS A LIST so the row is right with one of them as well as two: a
+     block with no goal pace keeps the strategy and the rule above it, and
+     loses only the column it cannot fill. */
+  var subs = [];
+  if (targets.pace) subs.push(['Target pace', targets.pace]);
+  var meta = RACE_STRATEGIES[raceStrategyKey()];
+  if (meta) subs.push(['Strategy', meta.label]);
+
   return '<div class="race-event race-stop">'+
-      '<div class="phase-divider race-divider">'+
-        '<span class="l font-head">'+escapeHtml(vGoalDay())+'</span>'+
-        '<span class="r" aria-hidden="true"></span>'+
+      '<div class="rst-hero">'+
+        '<span class="rst-k">'+escapeHtml(heroK)+'</span>'+
+        '<div class="rst-v">'+heroV+'</div>'+
       '</div>'+
-      '<div class="race-event-when font-mono">'+escapeHtml(dLong(race.date))+'</div>'+
-      '<div class="race-event-dist font-mono"><b>'+kmToDisplay(race.km||0)+'</b> '+
-        '<span>'+escapeHtml(displayUnit())+'</span></div>'+
-      (rows || strat ? '<div class="rst-figs">'+rows+strat+'</div>' : '')+
+      (subs.length
+        ? '<div class="rst-rule" aria-hidden="true"></div><div class="rst-subs">'+
+            subs.map(function(r){
+              return '<div class="rst-sub"><span class="rst-k">'+escapeHtml(r[0])+'</span>'+
+                '<b>'+escapeHtml(r[1])+'</b></div>';
+            }).join('')+
+          '</div>'
+        : '')+
       '<button type="button" class="rd-open sess-nav" data-action="plan-open-session" '+
         'data-day="'+escapeHtml(String(race.id))+'">View '+
         (planHasEvent() ? 'race' : 'goal')+' session '+
