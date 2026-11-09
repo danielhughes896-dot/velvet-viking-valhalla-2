@@ -49537,7 +49537,29 @@ function canEditCompletion(dd){
    is history and stays exactly as it was asked -- canEditCompletion() above
    is the separate, wider rule for correcting what actually happened. */
 function canEditPrescription(dd){
-  if (!dd || dd.type==='rest') return false;
+  /* ---------- RESET MUST NOT BE A ONE-WAY DOOR ----------
+     Founder: "I've just edited a session. And then clicked reset it put it
+     as a rest day and then removed the ability to edit. So now it's stuck
+     on rest day. The edit button should not do that."
+     It did. "Reset this session" wipes the day to a canonical Rest day by
+     design, and this predicate refused every rest day -- so the button that
+     performed the reset was the same button the reset deleted, and the only
+     way back (the type field, which lives in that modal) went with it.
+     Reproduced on a future day and on today: pencil before, no control at
+     all after.
+     ONLY THE DAY THE ATHLETE RESET, and that narrowness is the point. Every
+     other rest day is left exactly as it was, because whether a rest day may
+     take work is the optional-run system's question, not this one's --
+     optionalRunEligible() offers a run where one is safe and protectedRest
+     deliberately refuses. Opening the prescription on every rest day would
+     have let an athlete schedule a session straight onto a protected one and
+     walk around that design. The marker is set only by handleResetDay() and
+     cleared the moment the day stops being rest.
+     STILL ONLY FORWARD: the date rules below are untouched, and Reset is
+     only ever offered where this predicate is already true, so it cannot
+     strand a past day either. */
+  if (!dd) return false;
+  if (dd.type === 'rest' && !dd.athleteReset) return false;
   if (dd.date > todayStr()) return true;
   if (dd.date === todayStr()) return !sessionRan(dd);
   return false;
@@ -53461,6 +53483,12 @@ function handleSaveEdit(dayId){
     if (desc !== resolveDesc(before.desc)) changed.push('desc');
 
     dd.title=title; dd.type=type; dd.km=newKm; dd.mpSegment=mp;
+    /* THE RESET MARKER LASTS EXACTLY AS LONG AS THE REST DAY DOES. It exists
+       to keep the edit modal reachable on a rest day the athlete made with
+       Reset (see canEditPrescription); the moment they use it to make the day
+       a session again, an ordinary session is what it is, and a stale flag
+       would sit in the saved plan claiming otherwise. */
+    if (dd.type !== 'rest') delete dd.athleteReset;
     /* The modal shows resolved text, so writing it back unconditionally used to
        strip the @@D:n@@ tokens from every session that was opened and saved --
        even when the description was never touched -- and a de-tokenised day can
@@ -53551,6 +53579,11 @@ function handleResetDay(dayId){
   delete dd.coachKeptAt;
   delete dd.prescription;
   delete dd.calibration;
+  /* THE WAY BACK. canEditPrescription() refuses a rest day, so without this
+     the button that did the reset is the button the reset removes -- see the
+     note there. Set here and nowhere else: it marks a rest day the ATHLETE
+     made, which is the only kind that needs re-opening. */
+  dd.athleteReset = true;
   closeModal();
   scheduleSave();
   renderApp();

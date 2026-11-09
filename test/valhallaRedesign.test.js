@@ -503,3 +503,82 @@ test('SAFETY: computeConfidenceScore, coachAnalyse and raceOutlook are untouched
   assert.equal(JSON.stringify(a.raceOutlook()), before.outlook);
   assert.equal(JSON.stringify((a.coachAnalyse().decision || {})), before.decision);
 });
+
+/* ===========================================================================
+ * RESET IS NOT A ONE-WAY DOOR
+ * ===========================================================================
+ * Founder: "I've just edited a session. And then clicked reset it put it as a
+ * rest day and then removed the ability to edit. So now it's stuck on rest
+ * day. The edit button should not do that."
+ *
+ * "Reset this session" wipes the day to a canonical Rest day by design, and
+ * canEditPrescription() refused every rest day -- so the button that performed
+ * the reset was the same button the reset deleted, and the type field that
+ * would undo it lives inside the modal that button opens.
+ */
+function resetApp() {
+  const a = loadApp({ pinnedDate: TODAY });
+  buildPlan(a, { distanceKey: 'half', volume: 45, weeks: 12 });
+  a.showToast = () => {}; a.closeModal = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+  return a;
+}
+
+test('RESET: the day you reset can still be edited back', () => {
+  const a = resetApp();
+  const d = a.state.days.filter(x => x.type !== 'rest' && x.km > 0 && x.date > a.todayStr())[0];
+  assert.ok(d, 'the fixture has no future session to reset');
+  assert.match(a.dayActionButton(d), /aria-label="Edit session"/,
+    'the fixture session was not editable to begin with');
+
+  a.handleResetDay(d.id);
+  assert.equal(d.type, 'rest', 'Reset no longer produces a rest day');
+  /* THE DEFECT IN ONE LINE: before the fix this was ''. */
+  assert.match(a.dayActionButton(d), /aria-label="Edit session"/,
+    'the day the athlete reset offers no way back -- it is stuck on rest');
+  /* AND THE MODAL ACTUALLY OPENS ON IT, which is where the type lives. */
+  assert.equal(a.canEditPrescription(d), true,
+    'the edit modal will not open on the day the athlete just reset');
+});
+
+test('RESET: and every other rest day is left exactly as it was', () => {
+  /* THE NARROWNESS IS THE POINT. Whether a rest day may take work is the
+     optional-run system's question -- optionalRunEligible() offers a run
+     where one is safe, and a protected rest day deliberately refuses.
+     Opening the prescription on EVERY rest day would let an athlete schedule
+     a session straight onto a protected one and walk around that design. */
+  const a = resetApp();
+  const plain = a.state.days.filter(x => x.type === 'rest' && x.date > a.todayStr() && !x.athleteReset);
+  assert.ok(plain.length >= 3, 'the fixture has too few plan-generated rest days to prove this');
+  plain.forEach(d => {
+    assert.equal(a.canEditPrescription(d), false,
+      d.date + ': an ordinary rest day became prescription-editable');
+    assert.equal(a.dayActionButton(d), '',
+      d.date + ': an ordinary rest day grew an edit button');
+  });
+});
+
+test('RESET: the marker lasts exactly as long as the rest day does', () => {
+  /* It exists only to keep the modal reachable. Once the athlete uses it to
+     make the day a session again, a stale flag would sit in the saved plan
+     claiming the day is something it is not. */
+  const a = resetApp();
+  const d = a.state.days.filter(x => x.type !== 'rest' && x.km > 0 && x.date > a.todayStr())[0];
+  a.handleResetDay(d.id);
+  assert.equal(!!d.athleteReset, true, 'Reset did not record that the athlete made this rest day');
+
+  /* Back to a session through the real save path, not by assignment, so the
+     clearing is proved where it actually has to happen. */
+  const fields = {
+    'ef-title': { value: 'Easy Aerobic' },
+    'ef-type': { value: 'easy' },
+    'ef-km': { value: '6' },
+    'ef-mp': { checked: false },
+    'ef-desc': { value: 'Easy run.' },
+    'ef-swap': { value: '' },
+  };
+  a.document.getElementById = (id) => fields[id] || null;
+  a.handleSaveEdit(d.id);
+  assert.equal(d.type, 'easy', 'the day did not come back as a session');
+  assert.equal(!!d.athleteReset, false,
+    'the reset marker survived into a day that is no longer rest');
+});
