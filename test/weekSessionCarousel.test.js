@@ -186,10 +186,17 @@ test('a rest day holds the session button\'s slot instead of collapsing it', () 
      assertion was just pinned to a string that was never the claim. */
   const hasClass = (html, cls) =>
     new RegExp('class="[^"]*\\b' + cls + '\\b[^"]*"').test(html);
+  /* ---- EVERY DAY GHOSTS IT NOW, WHICH IS WHY THE SLOT MATTERS MORE ----
+     This compared a session day (button offered) with a rest day (button
+     held but ghosted). The founder has since taken the button off every day
+     but race -- the slide carries the full session -- so the comparison has
+     no two sides left in this fixture. What it was really protecting is
+     unchanged and is what is asserted: the BOX is there on both, so the
+     zone breakdown below it cannot move as the athlete swipes the week. */
   assert.ok(hasClass(onWork, 'wk-open'), 'the session day lost its button');
-  assert.ok(!hasClass(onWork, 'is-ghost'), 'the session day\u2019s button is a ghost');
-  assert.ok(hasClass(onRest, 'wk-open') && hasClass(onRest, 'is-ghost'),
-    'the rest day drops the button again, so the page below it moves');
+  assert.ok(hasClass(onRest, 'wk-open'), 'the rest day lost its button');
+  assert.ok(hasClass(onWork, 'is-ghost') && hasClass(onRest, 'is-ghost'),
+    'a day is offering to open a session the slide is already showing');
 
   /* Held, not offered. A rest day has nothing to open, so the reserved box
      must not be reachable by pointer, by tab, or by the delegated handler. */

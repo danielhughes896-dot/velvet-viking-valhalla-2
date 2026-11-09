@@ -796,7 +796,7 @@ test('a solo-note day looks the same on Today, This Week and Full Plan', () => {
    next swipe. Both halves are asserted -- it is not pressable, and its box
    is still there -- because deleting it would also pass a test that only
    checked for the words. */
-test('a solo-note day offers no full session to open', () => {
+test('no day but race offers a full session to open', () => {
   const a = railApp();
   const wk = a.currentWeekNum();
   const days = a.weekSessionDays(wk);
@@ -808,7 +808,16 @@ test('a solo-note day offers no full session to open', () => {
     const btn = /<button type="button" class="wk-open sess-nav([^"]*)"([^>]*)>/.exec(html);
     assert.ok(btn, d.date + ': the week screen has no full-session button at all');
     const ghost = btn[1].indexOf('is-ghost') > -1;
-    if (a.soloNoteSession(d) || d.type === 'rest'){
+    /* ---- THE RULE WIDENED FROM SOLO-NOTE DAYS TO EVERY DAY BUT RACE ----
+       Founder: "I want the full session swapping. So I don't want view full
+       session button. I want the rail and the coaches note being visible."
+       The slide carries the hero, the rail and the Coach's Note now, so the
+       button offered to reveal what was already on screen.
+       RACE IS THE EXCEPTION, by instruction -- "Leave race day separate for
+       the time being" -- and it is a real one, not a leftover: its five
+       execution phases are still deliberately off the slide, so the full
+       card is the only place they can be read. */
+    if (d.type !== 'race'){
       ghosted++;
       assert.ok(ghost, d.date + ' (' + d.type + '): still offers to open a session it is already showing');
       assert.equal(btn[2].indexOf('data-action'), -1,
@@ -818,13 +827,51 @@ test('a solo-note day offers no full session to open', () => {
         d.date + ': the button was deleted rather than ghosted, so the week will jump on a swipe');
     } else {
       offered++;
-      assert.ok(!ghost, d.date + ' (' + d.type + '): a session with a rail can no longer be opened');
+      assert.ok(!ghost, d.date + ': goal day can no longer be opened, and its phases are only there');
       assert.ok(btn[2].indexOf('data-action="week-open-session"') > -1,
         d.date + ': the full-session button lost its action');
     }
   });
-  assert.ok(ghosted >= 2 && offered >= 1,
-    'the fixture week exercised ' + ghosted + ' ghosted and ' + offered + ' open-able days');
+  /* The fixture week has no race day, so `offered` is 0 here; the race arm
+     is exercised by the race-day laws elsewhere in this file. What this
+     week proves is that every ordinary day ghosts it. */
+  assert.ok(ghosted >= 5,
+    'the fixture week exercised only ' + ghosted + ' ghosted days');
+
+  /* ---- AND GOAL DAY, WHICH IS THE ONE DAY THAT STILL OPENS ----
+     The fixture week above has no race day, so without this the race arm of
+     the condition was never run -- removing it entirely passed every test
+     in this file. Goal day's five execution phases are deliberately still
+     off the slide, so the full card is the only place to read them. */
+  /* ---- GOAL DAY, ASSERTED AT THE UNIT RATHER THAN ON SCREEN ----
+     Checked before writing this: goal day is not in any week's carousel.
+     Week 11 runs to Nov 14 and the race is Nov 15, so weekSessionDays()
+     never returns it -- the race has its own card on Full Plan instead. The
+     exception is therefore DEFENSIVE: it is what stops goal day becoming a
+     hero and nothing if it ever does reach this rail. Asserted where it can
+     be: the slide withholds its coaching, and the button condition names
+     the exception rather than having quietly become unconditional. */
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(race, 'the block builds no goal day, so the exception is untested');
+  assert.equal(a.weekSlideHtml(race, 0).indexOf('class="how-note"'), -1,
+    'goal day\u2019s coaching reached the slide — it is meant to be held back for now');
+  const box = /function renderWeekSessionBox\(weekNum\)\{[\s\S]*?\n\}/.exec(RAILCODE)[0];
+  assert.match(box, /dd\.type !== 'race' && !weekSessionOpen/,
+    'the full-session button no longer makes an exception of goal day');
+
+  /* ---- A SLIDE'S PICTURES STAY INSIDE THAT SLIDE ----
+     Founder: "There is a wrapping issue? So when you swipe the images
+     follow on?" Measured at 430px before the fix: slide 16->414, card
+     0->430, so each card overhung 16px into both neighbours and only the
+     rail clipped. Three rules move the breakout from the card to the rail;
+     all three are needed, and removing the clip alone passed every other
+     law in this file. */
+  assert.match(RAILCSS, /\.view-week \.wk-rail\{margin-left:-16px; margin-right:-16px; width:calc\(100% \+ 32px\);\}/,
+    'the week rail is no longer full-bleed, so the slide cannot hold the breakout');
+  assert.match(RAILCSS, /\.view-week \.wk-slide\{overflow:hidden;\}/,
+    'a slide no longer clips, so a neighbour\u2019s picture paints into it');
+  assert.match(RAILCSS, /\.view-week \.wk-overview\{padding-left:16px; padding-right:16px;\}/,
+    'the slide lost its gutter, so the hero now starts at the screen edge');
 });
 
 /* ---------- TICK AND EDIT ON TODAY; EDIT ON THE OTHER TWO ----------
@@ -951,6 +998,54 @@ test('swiping the workout does not also change the day', () => {
      from standing the pager down on every touch. */
   assert.match(RAILCODE, /function weekSwipeOwnedInside\(node, card\)\{[\s\S]*?el !== card/,
     'the ownership walk no longer stops at the rail, so it will swallow every swipe');
+});
+
+/* ---------- THE SLIDE IS THE WHOLE SESSION ----------
+   Founder: "I want the full session swapping... I want the rail and the
+   coaches note being visible. Less clicks effectively." */
+test('every day on the week slide carries its note, and its rail if it has one', () => {
+  const a = railApp();
+  let noted = 0, fuelRailed = 0;
+  a.state.days.forEach((d, i) => {
+    if (d.type === 'race') return;          /* held back by instruction */
+    const slide = a.weekSlideHtml(d, i);
+    assert.ok(slide.indexOf('class="how-note"') > -1,
+      d.date + ' (' + d.type + '): the week slide has no Coach\u2019s Note');
+    noted++;
+    /* A FUEL-RAIL LONG RUN DRAWS ITS RAIL HERE TOO -- "Yeh I want that on
+       the goal-pace long runs." Its rail is built inside renderCoachingDepth
+       rather than by renderStructuredWorkout, which is why adding the
+       blueprint rail alone did not reach it. */
+    if (a.longRunIsFuelRail(d) && !a.soloNoteSession(d)){
+      fuelRailed++;
+      assert.ok((slide.match(/ws-card-body/g) || []).length >= 3,
+        d.date + ': a goal-pace long run shows no rail on the slide');
+    }
+  });
+  assert.ok(noted >= 60 && fuelRailed >= 3,
+    'the block exercised ' + noted + ' noted days and ' + fuelRailed + ' goal-pace long runs');
+
+  /* ---- AND THE CAPTION ANCHOR IS UNIQUE PER SLIDE ----
+     This Week embeds the whole renderDayCard() behind the carousel, so
+     drawing the coaching on the slide too put id="exec-cap-<day>" in the
+     document twice. getElementById returns the first match, so the visible
+     rail would have driven the hidden card's captions and its own would
+     never have moved -- the ring gradient's failure, in a second place. */
+  /* ANY DAY WITH EXECUTION CAPTIONS, not just a fuel-rail long run: the
+     anchor is emitted by the captions block whenever there are captions,
+     whether or not the phases ride the rail. Found by reading the slides
+     rather than assumed from the archetype. */
+  let capDay = null;
+  a.state.days.forEach((d, i) => {
+    if (capDay || d.type === 'race') return;
+    if (a.weekSlideHtml(d, 4).indexOf('exec-cap-') > -1) capDay = d;
+  });
+  assert.ok(capDay, 'no slide carries an execution caption anchor, so this proves nothing');
+  const slide = a.weekSlideHtml(capDay, 4);
+  assert.equal(slide.indexOf('exec-cap-' + capDay.id + '"'), -1,
+    'the slide reuses the day card\u2019s caption id, so one of the two would drive the other');
+  assert.ok(slide.indexOf('exec-cap-' + capDay.id + '-w4') > -1,
+    'the slide\u2019s caption anchor is no longer made unique to the slide');
 });
 
 /* ---------- THE SENTENCE ITSELF, AGAINST A REAL BLOCK ----------

@@ -6282,6 +6282,27 @@
      that IS the layer -- the same standing the Race Day panel has. */
   .view-plan .pp-rail, .view-week .wk-rail{position:relative; overflow:hidden; touch-action:pan-y;}
   .pp-slide, .wk-slide{flex:0 0 100%; min-width:0; box-sizing:border-box;}
+  /* ---------- A SLIDE'S PICTURES STAY INSIDE THAT SLIDE ----------
+     Founder: "There is a wrapping issue? So when you swipe the images
+     follow on?" They do, and it is a bug.
+     MEASURED at 430px: the rail, the slide and the overview all run 16->414
+     (398 wide), while a session card inside the slide runs 0->430. The card
+     carries the full-bleed breakout -- margin:0 -16px -- which is right on
+     Today, where the rail is the only thing on the row. In a carousel it
+     makes every slide 16px wider than its neighbour's gap, so the slide to
+     the left paints from x16 to x32 of the slide on screen. Only .wk-rail
+     clipped, and it clips at its own edges, not at each slide's.
+     THE RAIL TAKES THE BREAKOUT INSTEAD OF THE CARD. The rail becomes the
+     full screen, the slide inside it carries the 16px gutter the page uses,
+     and the card's own -16px then reaches exactly the slide's edges: still
+     edge to edge, and nothing overhangs into the neighbour. overflow:hidden
+     on the slide is the belt to that braces -- anything that overflows a
+     slide in future is clipped to it rather than painted onto the next day.
+     SCOPED TO THE WEEK CAROUSEL. Today's rail is not inside a slide and is
+     left exactly as it is. */
+  .view-week .wk-rail{margin-left:-16px; margin-right:-16px; width:calc(100% + 32px);}
+  .view-week .wk-slide{overflow:hidden;}
+  .view-week .wk-overview{padding-left:16px; padding-right:16px;}
   /* ---------- A PHASE SLIDE IS A PHOTOGRAPH ----------
      The same card language the session rail speaks: the picture fills it,
      a veil sits over the picture, and the words sit over the veil. The
@@ -59276,6 +59297,22 @@ function weekSlideHtml(dd, i){
   var uid = 'th-grad-w' + i;
   body = body.split('url(#th-grad)').join('url(#'+uid+')')
              .split('id="th-grad"').join('id="'+uid+'"');
+  /* ---------- AND THE SAME FOR THE CAPTIONS, FOR THE SAME REASON ----------
+     The slide draws the session's coaching now, and This Week still embeds
+     the whole renderDayCard() behind it (editSessionCoherence holds that all
+     three views carry the identical card string). So the execution rail's
+     caption anchor -- id="exec-cap-<day>", found by the rail through
+     data-cap -- existed TWICE in the document the moment a fuel-rail long
+     run reached the slide. Confirmed by reading the DOM: one duplicated id,
+     exec-cap-2026-09-15.
+     A DUPLICATE ID IS NOT COSMETIC HERE. getElementById returns the first
+     match, so the visible rail would have been driving the hidden card's
+     captions and its own would never have moved -- the same failure the
+     ring gradient had, recorded a few lines above this, and fixed the same
+     way: one id per slide, rewritten in the one string that mentions it. */
+  var depth = (dd.type === 'race') ? '' : renderCoachingDepth(dd);
+  var capId = 'exec-cap-' + dd.id;
+  depth = depth.split(capId).join(capId + '-w' + i);
   /* THE BOX FOLLOWS THE DAY. On a solo-note day the hero and this note are
      the whole session, so This Week and Full Plan show exactly what Today
      shows rather than a hero with nothing under it. */
@@ -59310,7 +59347,24 @@ function weekSlideHtml(dd, i){
          goal-pace long run draw their rail inside renderCoachingDepth
          instead, and those keep the button. */
       (hasWorkoutBlueprint(dd) ? renderStructuredWorkout(dd) : '')+
-      renderSoloNote(dd)+
+      /* ---------- THE WHOLE SESSION, NOT A WAY IN TO IT ----------
+         Founder: "I want the full session swapping. So I don't want view
+         full session button. I want the rail and the coaches note being
+         visible. Less clicks effectively." And, on the goal-pace long
+         runs: "Yeh I want that on the goal-pace long runs."
+         renderCoachingDepth() is both of those at once. It is where the
+         Coach's Note is built, and where a session whose rail is NOT a
+         blueprint -- a fuel-rail long run -- draws that rail. So the slide
+         now carries what the opened card carried, and the button that
+         opened it has nothing left to reveal.
+         ONE FUNCTION, as everywhere else on this slide: the week screen
+         cannot describe a session differently from the day card because it
+         is not building its own version of it.
+         RACE DAY IS HELD BACK, by instruction -- "Leave race day separate
+         for the time being" -- so its five execution phases stay off the
+         slide, and it is the one day that keeps the button, because
+         otherwise goal day on This Week would be a hero and nothing. */
+      depth+
     '</div></div>';
 }
 function weekDayIndex(weekNum){
@@ -59430,7 +59484,20 @@ function renderWeekSessionBox(weekNum){
      construction.
      STILL SHOWN ONCE OPEN, so "Hide full session" can close a card the
      athlete opened before the rule applied. */
-  var isRest = (dd.type === 'rest' || soloNoteSession(dd)) && !weekSessionOpen;
+  /* ---------- THERE IS NOTHING LEFT TO OPEN ----------
+     Founder: "I don't want view full session button." The slide carries the
+     hero, the rail and the Coach's Note now, so on every day but one the
+     button offered to reveal what the athlete was already reading.
+     RACE DAY KEEPS IT, because its execution rail is deliberately still off
+     the slide (see weekSlideHtml) and the full card is the only place those
+     five phases can be read. When race day joins the rest, this condition
+     becomes unconditional and the button goes entirely.
+     STILL GHOSTED RATHER THAN DELETED, and still only while closed: the
+     slides are one height for the week and this button sits below the rail,
+     so removing its box drops everything under it and snaps it back on the
+     next swipe. "Hide full session" must also survive on a card the athlete
+     opened before the rule applied. */
+  var isRest = dd.type !== 'race' && !weekSessionOpen;
   /* data-week for the same reason the rail carries it: the OPEN card is
      swipeable too, and its commit stepped within currentWeekNum() -- which
      is wrong on every week screen but This Week. One source for "which week
