@@ -29233,16 +29233,28 @@ function prescriptionIsReference(dd){
    unchanged and leaves the caller owning what the session is.
    display:contents on the wrapper, so the three of them lay themselves out
    inside the panel exactly as they did as siblings. */
-/* alwaysOpen: the week slide draws this OUTSIDE a focused card, and the
-   disclosure's open state is decided by dayCardIsFocused(), which asks
-   whether a session has been opened on the current screen. On the carousel
-   nothing is ever "opened" -- the slide IS the session -- so the coaching
-   was built, laid out and never painted: a closed <details> under the rail
-   and an empty gap where the Coach's Note should be. Caught from a founder
-   screenshot of Full Plan showing exactly that gap, then measured:
-   detailsOpen false on both This Week and Full Plan while the note itself
-   reported display:flex and a 390px box. */
-function renderCoachingDepth(dd, pre, alwaysOpen){
+/* preview: this is a week slide -- This Week or Full Plan -- and not the
+   canonical full session. It does two things, and they are one decision.
+
+   IT OPENS THE DISCLOSURE. The open state is decided by dayCardIsFocused(),
+   which asks whether a session has been opened on the current screen. On the
+   carousel nothing is ever "opened" -- the slide IS the session -- so the
+   rail and the note were built, laid out and never painted: a closed
+   <details> and an empty gap beneath the hero. Measured on both screens
+   before this existed: detailsOpen false, the note reporting display:flex
+   and a 390px box inside a 500px slide.
+
+   IT WITHHOLDS THE COACH'S NOTE. Founder, having swapped a session to reach
+   this on Today and looked at both: "Coach's Note belongs to the canonical
+   Full Session view, not session previews... So only visible on today card."
+   THE SOLO NOTE IS NOT THAT NOTE and stays. It is the two lines the founder
+   wrote out for an easy or long run, and it had its heading row -- mark,
+   rule, the words COACH'S NOTE -- taken off at their instruction precisely
+   because it is not a note ABOUT the session: on those days it IS the
+   session, and the slide would otherwise be a hero with nothing under it.
+   "The easy run simpleness follows the today this week and full plan."
+   So: the rail yes, the solo note yes, the Why/Feel/Watch For prose no. */
+function renderCoachingDepth(dd, pre, preview){
   /* A TAB ONLY WHERE THE PRESCRIPTION IS REFERENCE. Everywhere else this is
      what it always was: open and summary-less on a focused session, a
      closed disclosure in a list. */
@@ -29437,7 +29449,7 @@ function renderCoachingDepth(dd, pre, alwaysOpen){
        Analysis beneath it is. */
     out += '<details class="fuel-card how-card'+
         (asTab ? ' is-tab' : ' is-static')+'"'+
-        ((!asTab && (focusedCard || alwaysOpen || soloNoteSession(dd))) ? ' open' : '')+'>'+
+        ((!asTab && (focusedCard || preview || soloNoteSession(dd))) ? ' open' : '')+'>'+
       /* ---------- THERE IS NO "HOW TO RUN THIS" ----------
          Founder: "How to run this on the left should not be a thing. The
          coaches note should be open by default. So remove the how to run
@@ -29722,6 +29734,16 @@ function renderCoachingDepth(dd, pre, alwaysOpen){
              off the screen. */
           return renderSoloNote(dd);
         }
+        /* ---------- AND ON A PREVIEW, NOTHING BELOW THE RAIL ----------
+           AFTER the solo branch, not before it: a solo-note day returns its
+           own box above and never reaches here, which is what keeps the
+           easy-run mock-up on all three screens while the prose note comes
+           off two of them. Returned empty rather than skipped at the call
+           site, because the rail this function also builds -- a goal-pace
+           long run's, which renderStructuredWorkout() does not draw -- is
+           inside the same <details> and the founder asked for that rail on
+           the slide: "Yeh I want that on the goal-pace long runs." */
+        if (preview) return '';
         if (false){
           /* ---------- THE CLEANEST IT CAN EVER BE ----------
              Founder: "Do not need the top row in the box. Remove the symbol
@@ -59362,9 +59384,9 @@ function weekSlideHtml(dd, i){
      captions and its own would never have moved -- the same failure the
      ring gradient had, recorded a few lines above this, and fixed the same
      way: one id per slide, rewritten in the one string that mentions it. */
-  /* OPEN, because this is the session rather than a disclosure about one.
-     Without it the coaching renders into a closed <details> and the slide
-     shows a gap. */
+  /* A PREVIEW: open, because a closed <details> here is an empty gap rather
+     than a disclosure anyone can press; and without the Coach's Note, which
+     the founder put back on the canonical full session only. */
   var depth = (dd.type === 'race') ? '' : renderCoachingDepth(dd, '', true);
   var capId = 'exec-cap-' + dd.id;
   depth = depth.split(capId).join(capId + '-w' + i);

@@ -1016,17 +1016,43 @@ test('swiping the workout does not also change the day', () => {
     'the ownership walk no longer stops at the rail, so it will swallow every swipe');
 });
 
-/* ---------- THE SLIDE IS THE WHOLE SESSION ----------
-   Founder: "I want the full session swapping... I want the rail and the
-   coaches note being visible. Less clicks effectively." */
-test('every day on the week slide carries its note, and its rail if it has one', () => {
+/* ---------- A SLIDE IS A PREVIEW, AND A PREVIEW HAS NO COACH'S NOTE ------
+   Founder, first: "I want the full session swapping... I want the rail and
+   the coaches note being visible. Less clicks effectively."
+   Then, having swapped a session forward to reach one on Today and read
+   both: "Coach's Note belongs to the canonical Full Session view, not
+   session previews... So only visible on today card."
+   So the rail swaps with the day and the prose note does not. The two
+   halves are asserted together because they are one rule, and because the
+   way to break this quietly is to satisfy either half alone -- strip the
+   note and the rail goes with it (they share one <details>), or keep the
+   rail and the note rides along. */
+test('a week slide carries its rail and its solo note, and never the Coach\u2019s Note', () => {
   const a = railApp();
-  let noted = 0, fuelRailed = 0, disclosed = 0;
+  let soloBoxes = 0, fuelRailed = 0, disclosed = 0, previewed = 0;
   a.state.days.forEach((d, i) => {
     if (d.type === 'race') return;          /* held back by instruction */
     const slide = a.weekSlideHtml(d, i);
-    assert.ok(slide.indexOf('class="how-note"') > -1,
-      d.date + ' (' + d.type + '): the week slide has no Coach\u2019s Note');
+    /* A REST DAY IS NOT A SESSION and has no full view to be a preview of:
+       its one line is the whole day, and stripping it would leave a hero
+       over nothing. Left exactly as it was, and the founder told so. */
+    if (d.type !== 'rest'){
+      previewed++;
+      assert.equal(slide.indexOf('<div class="how-note">'), -1,
+        d.date + ' (' + d.type + '): the Coach\u2019s Note is back on a preview');
+    }
+    /* ---- THE SOLO NOTE IS NOT THAT NOTE ----
+       Two lines in the founder's own words, with the heading row -- mark,
+       rule, the words COACH'S NOTE -- taken off at their instruction,
+       because on an easy or long run it IS the session rather than a note
+       about one. "The easy run simpleness follows the today this week and
+       full plan." Told apart by data-solo, which is the only thing in the
+       markup that distinguishes them. */
+    if (a.soloNoteSession(d)){
+      soloBoxes++;
+      assert.ok(slide.indexOf('data-solo="1"') > -1,
+        d.date + ' (' + d.type + '): a solo-note day\u2019s slide is a hero over nothing');
+    }
     /* ---- BUILT IS NOT THE SAME AS SHOWN ----
        The line above passed while the founder was looking at an empty gap:
        the note was in the markup, inside a <details> that nothing ever
@@ -1047,7 +1073,6 @@ test('every day on the week slide carries its note, and its rail if it has one',
         d.date + ' (' + d.type + '): the week slide\u2019s Coach\u2019s Note is closed \u2014 ' +
         'it renders as an empty gap, which is the bug this line exists for');
     }
-    noted++;
     /* A FUEL-RAIL LONG RUN DRAWS ITS RAIL HERE TOO -- "Yeh I want that on
        the goal-pace long runs." Its rail is built inside renderCoachingDepth
        rather than by renderStructuredWorkout, which is why adding the
@@ -1058,31 +1083,64 @@ test('every day on the week slide carries its note, and its rail if it has one',
         d.date + ': a goal-pace long run shows no rail on the slide');
     }
   });
-  assert.ok(noted >= 60 && fuelRailed >= 3 && disclosed >= 40,
-    'the block exercised ' + noted + ' noted days, ' + fuelRailed +
-    ' goal-pace long runs and ' + disclosed + ' disclosures');
+  assert.ok(previewed >= 45 && soloBoxes >= 25 && fuelRailed >= 3 && disclosed >= 40,
+    'the block exercised ' + previewed + ' previews, ' + soloBoxes +
+    ' solo notes, ' + fuelRailed + ' goal-pace long runs and ' +
+    disclosed + ' disclosures');
 
-  /* ---- AND THE CAPTION ANCHOR IS UNIQUE PER SLIDE ----
-     This Week embeds the whole renderDayCard() behind the carousel, so
-     drawing the coaching on the slide too put id="exec-cap-<day>" in the
-     document twice. getElementById returns the first match, so the visible
-     rail would have driven the hidden card's captions and its own would
-     never have moved -- the ring gradient's failure, in a second place. */
-  /* ANY DAY WITH EXECUTION CAPTIONS, not just a fuel-rail long run: the
-     anchor is emitted by the captions block whenever there are captions,
-     whether or not the phases ride the rail. Found by reading the slides
-     rather than assumed from the archetype. */
-  let capDay = null;
-  a.state.days.forEach((d, i) => {
-    if (capDay || d.type === 'race') return;
-    if (a.weekSlideHtml(d, 4).indexOf('exec-cap-') > -1) capDay = d;
+  /* ---- AND THE NOTE IS STILL THERE WHERE IT BELONGS ----
+     The half of the rule that has nowhere else to be asserted. Every day
+     above is checked as a slide; this checks the same days as the canonical
+     full session, so "withheld from previews" cannot quietly become
+     "deleted". Each day is pinned as TODAY in turn, because dayCardIsFocused()
+     is what the note's open state hangs on. */
+  let onToday = 0;
+  ['track_reps', 'steady_tempo'].forEach(arch => {
+    const g = railApp();
+    const d = g.state.days.filter(x => {
+      const p = g.prescriptionOf(x);
+      return p && p.archetype === arch;
+    })[0];
+    if (!d) return;
+    g.todayStr = function(){ return d.date; };
+    assert.ok(g.renderDayCard(d).indexOf('<div class="how-note">') > -1,
+      d.date + ' (' + arch + '): the Coach\u2019s Note has gone from the Today card too, ' +
+      'which is the one place the founder asked for it');
+    onToday++;
   });
-  assert.ok(capDay, 'no slide carries an execution caption anchor, so this proves nothing');
-  const slide = a.weekSlideHtml(capDay, 4);
-  assert.equal(slide.indexOf('exec-cap-' + capDay.id + '"'), -1,
-    'the slide reuses the day card\u2019s caption id, so one of the two would drive the other');
-  assert.ok(slide.indexOf('exec-cap-' + capDay.id + '-w4') > -1,
-    'the slide\u2019s caption anchor is no longer made unique to the slide');
+  assert.equal(onToday, 2, 'neither archetype was found, so the Today half proves nothing');
+
+  /* ---- AND NO SLIDE EVER CARRIES THE DAY CARD'S CAPTION ID ----
+     This Week embeds the whole renderDayCard() behind the carousel, so
+     anything the slide emits with id="exec-cap-<day>" exists TWICE in the
+     document. getElementById returns the first match, so the visible rail
+     would drive the hidden card's captions and its own would never move --
+     the ring gradient's failure, in a second place. It was real and
+     measured: one duplicated id, exec-cap-2026-09-15.
+     IT IS NOW VACUOUS, AND DELIBERATELY STILL HERE. The execution captions
+     lived inside the Coach's Note, so withholding that note from a preview
+     took the anchors with it -- measured across the block: 0 slides carry
+     an anchor, 0 carry a dangling data-cap pointing at one. Stated as the
+     invariant rather than as "the id is rewritten", so it holds whichever
+     way the slide satisfies it, and the uniquifying line in weekSlideHtml()
+     is kept for the same reason: it costs one string pass and it is what
+     makes the note's return to a slide safe. */
+  let reused = 0, checked = 0;
+  a.state.days.forEach((d, i) => {
+    if (d.type === 'race') return;
+    checked++;
+    const slide = a.weekSlideHtml(d, i);
+    if (slide.indexOf('exec-cap-' + d.id + '"') > -1) reused++;
+    /* NOTHING POINTS AT A CAPTION THAT IS NOT ON THIS SLIDE. */
+    (slide.match(/data-cap="([^"]+)"/g) || []).forEach(m => {
+      const want = 'id="' + m.slice(10, -1) + '"';
+      assert.ok(slide.indexOf(want) > -1,
+        d.date + ': the slide\u2019s rail points at a caption anchor it does not contain');
+    });
+  });
+  assert.equal(reused, 0,
+    reused + ' slides reuse the day card\u2019s caption id, so one of the two would drive the other');
+  assert.ok(checked >= 60, 'only ' + checked + ' slides were checked');
 });
 
 /* ---------- THE WEEK CAN REACH EVERY KILOMETRE IT CLAIMS ----------
