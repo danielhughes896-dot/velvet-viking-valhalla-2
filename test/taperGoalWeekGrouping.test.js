@@ -163,7 +163,14 @@ test('the goal week takes the SAME taper treatment as the week above it', () => 
   assert.match(taper, /\bis-taper\b/, 'the taper week above is unchanged');
   assert.doesNotMatch(taper, /\bis-taper-final\b/, 'and is not the goal week');
 
-  const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  /* READ WITH THE COMMENTS STRIPPED, the same correction this repo has
+     made before. Both assertions below are substring searches for a class
+     name, and the runtime's own prose names it -- the note beside the taper
+     rules explains what is-taper-final is for and why it carries no colour.
+     Read raw, that explanation IS a match, and the guard starts answering a
+     question about the prose instead of about the sheet. */
+  const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
   /* is-taper-final is a MARKER. If it ever acquires styling of its own, the two
      cards can diverge again -- which is exactly what this amendment undid. */
   assert.doesNotMatch(CODE, /\.week\.is-taper-final\s*[,{]/,

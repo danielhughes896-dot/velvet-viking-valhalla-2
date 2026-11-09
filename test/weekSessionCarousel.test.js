@@ -164,7 +164,13 @@ test('a rest day holds the session button\'s slot instead of collapsing it', () 
   const w = a.currentWeekNum();
   const days = a.weekSessionDays(w);
   const rest = days.filter(d => d.type === 'rest')[0];
-  const work = days.filter(d => d.type !== 'rest')[0];
+  /* A DAY THAT STILL HAS SOMETHING TO OPEN. Founder: "On easy sessions the
+     view full session isnt needed" -- a solo-note day's button is ghosted
+     for the same reason a rest day's is, so picking the week's first
+     non-rest day now picks a ghost about half the time. This law is about
+     the slot being HELD on a day with nothing to open and OFFERED on a day
+     with something, so it needs the latter. */
+  const work = days.filter(d => d.type !== 'rest' && !a.soloNoteSession(d))[0];
   assert.ok(rest && work, 'this fixture week needs both a rest day and a session day');
 
   a.weekSelectedDate = work.date;

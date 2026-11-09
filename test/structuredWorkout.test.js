@@ -785,6 +785,48 @@ test('a solo-note day looks the same on Today, This Week and Full Plan', () => {
     'the box no longer shows itself outside a focused card, so This Week and Full Plan hide it');
 });
 
+/* ---------- NOTHING MORE TO OPEN ON A SOLO-NOTE DAY ----------
+   Founder: "On easy sessions the view full session isnt needed." The full
+   card on those days is the hero and the cherry box, and the overview above
+   the button already shows both, so the button was offering to reveal what
+   the athlete was looking at.
+   GHOSTED RATHER THAN DELETED, the way a rest day's already was: the slides
+   are one height for the week and this button sits below the rail, so
+   removing it outright drops everything beneath it and snaps it back on the
+   next swipe. Both halves are asserted -- it is not pressable, and its box
+   is still there -- because deleting it would also pass a test that only
+   checked for the words. */
+test('a solo-note day offers no full session to open', () => {
+  const a = railApp();
+  const wk = a.currentWeekNum();
+  const days = a.weekSessionDays(wk);
+  assert.ok(days.length >= 5, 'the fixture week is too small to prove anything');
+  let ghosted = 0, offered = 0;
+  days.forEach(d => {
+    a.handleWeekPickDay(d.date);
+    const html = a.renderWeekSessionBox(wk);
+    const btn = /<button type="button" class="wk-open sess-nav([^"]*)"([^>]*)>/.exec(html);
+    assert.ok(btn, d.date + ': the week screen has no full-session button at all');
+    const ghost = btn[1].indexOf('is-ghost') > -1;
+    if (a.soloNoteSession(d) || d.type === 'rest'){
+      ghosted++;
+      assert.ok(ghost, d.date + ' (' + d.type + '): still offers to open a session it is already showing');
+      assert.equal(btn[2].indexOf('data-action'), -1,
+        d.date + ': the ghosted button is still pressable');
+      /* THE BOX STAYS, or the page jumps under a finger mid-swipe. */
+      assert.ok(html.indexOf('wk-open sess-nav') > -1,
+        d.date + ': the button was deleted rather than ghosted, so the week will jump on a swipe');
+    } else {
+      offered++;
+      assert.ok(!ghost, d.date + ' (' + d.type + '): a session with a rail can no longer be opened');
+      assert.ok(btn[2].indexOf('data-action="week-open-session"') > -1,
+        d.date + ': the full-session button lost its action');
+    }
+  });
+  assert.ok(ghosted >= 2 && offered >= 1,
+    'the fixture week exercised ' + ghosted + ' ghosted and ' + offered + ' open-able days');
+});
+
 /* ---------- THE SENTENCE ITSELF, AGAINST A REAL BLOCK ----------
    The test above can only check structure: its fixture gives every day the
    placeholder description "prose". This one reads the 11-week block, where
@@ -842,10 +884,14 @@ test('a description that leaves the face arrives in the Coach\u2019s Note', () =
   /* THE BLOCK HAS TO CONTAIN THE CASE. Measured: exactly two days of 73 do
      -- the time trial and the shakeout -- and a fixture that stopped
      building either would make every assertion above unreachable. */
-  /* TWO BECAME EIGHT when the long runs joined the rule. Counted, so that
-     a change which quietly stopped moving them shows up here. */
-  assert.equal(n, 8,
-    n + ' days moved a description to the note, not the 8 this block builds');
+  /* TWO BECAME SIX, HAVING BRIEFLY BEEN EIGHT. Every fuel-rail long run
+     joined the rule for one commit, and the founder caught it: "I only
+     wanted it from 1 card rails. So on long runs with marathon pace need to
+     have the rails." Only long_run has a single stage, and the block builds
+     four of them; the time trial and the shakeout make six. The three
+     goal-pace long runs keep their rails and their descriptions. */
+  assert.equal(n, 6,
+    n + ' days moved a description to the note, not the 6 this block builds');
   /* Named instructions that must still be on the card. The point is not that
      the DESCRIPTION survives -- for the timed four it deliberately does not --
      but that the instruction does, wherever it now lives: a step, the gold
@@ -1973,8 +2019,13 @@ test('execution is never a column, and its sentence is never lost', () => {
      rescue and does not get it, fails here and gets read by a person.
      The half of the law that still does work every day is the one above --
      the sentence is never printed TWICE. */
-  assert.equal(rescued, 0,
-    rescued + ' sessions now rescue the execution sentence — the rule changed, read this comment');
+  /* BACK TO TWO. It was pinned at zero for one commit, when every fuel-rail
+     long run drew the solo box; with the goal-pace ones back on rails,
+     long_run_goal_insert and long_run_progressive rescue the sentence into
+     their notes again, which is what this law was written for. A plain
+     long_run is a solo-note day and does not. */
+  assert.equal(rescued, 2,
+    rescued + ' sessions rescue the execution sentence, not the 2 this block builds');
   assert.ok(toldByStages >= 5,
     'only ' + toldByStages + ' sessions tell their execution by stages');
 });
@@ -2177,13 +2228,28 @@ test('a long run draws no rail, and its fuel figures leave the screen with it', 
   const a = railApp();
   const longs = a.state.days.filter(d => d.type === 'long');
   assert.ok(longs.length >= 5, 'the fixture has too few long runs');
-  let paired = 0, unfuelled = 0;
+  let paired = 0, unfuelled = 0, railed = 0;
   longs.forEach(d => {
     const html = a.renderDayCard(d);
     const cards = (html.match(/class="how-mod[^"]*"/g) || []).length;
     const dots = (html.match(/<span class="how-dot"><\/span>/g) || []).length;
     assert.equal(dots, cards, d.date + ': ' + dots + ' dots for ' + cards + ' cards');
     if (!a.longRunIsFuelRail(d)) { unfuelled++; return; }
+    /* ---- ONLY THE ONE-STAGE LONG RUN LOSES ITS RAIL ----
+       Founder: "I only wanted it from 1 card rails. So on long runs with
+       marathon pace need to have the rails." A long run that inserts,
+       finishes with or builds to goal pace has two or three stages; those
+       stages ARE the session, and their fuel figures ride the same rail.
+       So those keep everything, and this law is about the plain one. */
+    if (!a.soloNoteSession(d)){
+      assert.ok(cards >= 3,
+        d.date + ' (' + d.km + 'km) has marathon-pace work and lost its rail anyway');
+      const facts = a.fuelFacts(d).rows;
+      facts.forEach(r => assert.ok(html.indexOf(r.v) > -1,
+        d.date + ': a goal-pace long run lost the fuel figure ' + JSON.stringify(r.short)));
+      railed++;
+      return;
+    }
     assert.equal(cards, 0,
       d.date + ' (' + d.km + 'km) still draws ' + cards + ' slides — a long run draws no rail');
     assert.ok(html.indexOf('data-solo') > -1,
@@ -2202,7 +2268,9 @@ test('a long run draws no rail, and its fuel figures leave the screen with it', 
       d.date + ' still shows execution phase cards');
     paired++;
   });
-  assert.ok(paired >= 5, 'only ' + paired + ' long runs paired');
+  assert.ok(paired >= 2 && railed >= 2,
+    'the block built ' + paired + ' one-stage long runs and ' + railed +
+    ' goal-pace ones — this law needs both sides');
   assert.ok(unfuelled >= 1,
     'the fixture no longer has a long run without fuel, which is the case that keeps its stages');
 

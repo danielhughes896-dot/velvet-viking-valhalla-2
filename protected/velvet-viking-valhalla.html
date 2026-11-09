@@ -946,8 +946,18 @@
   .cb-icon{font-size:18px; line-height:1; flex:none;}
   .cb-text{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink);}
   .cb-text b{color:var(--gold-text);}
-  .week.is-taper{border-color:var(--bronze);}
-  .week.is-taper .week-head{background:var(--c-gold-soft);}
+  /* ---------- THE TAPER WEEK LOOKS LIKE EVERY OTHER WEEK ----------
+     Founder: "Remove the gold in full week taper week. Just leave it the
+     same as the rest." Two rules made it: a bronze border on the block and
+     --c-gold-soft behind its head row, which is the olive band under TAPER
+     PHASE and RACE WEEK in Full Plan. Both go; the week takes .week's own
+     border and surface like the rest of the list.
+     THE CLASS STAYS AND IS STILL DOING WORK. is-taper is what groups the
+     taper weeks under one heading, and is-taper-final marks the one that
+     closes the block -- see renderPlanWeek and taperGoalWeekGrouping. What
+     is removed is the colour, not the grouping. There is deliberately no
+     rule left for .week.is-taper: an empty one would read as a thing that
+     might still fire. */
   .taper-note{
     display:flex; align-items:center; gap:7px; color:var(--bronze-text);
     padding:8px 16px; background:var(--c-gold-soft);
@@ -30128,7 +30138,28 @@ var SINGLE_CARD_NOTE = {
    rather than the amounts. This is flagged to the founder in the same
    breath as it ships; it is one line to put back. */
 function soloNoteSession(dd){
-  return singleCardSession(dd) || longRunIsFuelRail(dd);
+  if (singleCardSession(dd)) return true;
+  /* ---------- ONE CARD, WHATEVER KIND OF RAIL IT IS ----------
+     THIS WAS WRONG AND THE FOUNDER CAUGHT IT: "You removed the rail from
+     all long runs. I only wanted it from 1 card rails. So on long runs with
+     marathon pace need to have the rails."
+     The first version read "a fuel-rail long run" and took the rail off
+     every one of them. The rule was never about long runs -- it is "On a
+     Training day with 1 card - we don't need the picture rail", and the
+     mock-up that came with it was a plain LONG RUN with one stage. A long
+     run that inserts, finishes with or builds to goal pace has two or three
+     stages, and those stages are the session: taking their rail took the
+     marathon-pace work off the screen with it.
+     SO IT ASKS THE STEP COUNT, which is the question all along. A fuel-rail
+     long run joins the rule only when its workout comes to a single step.
+     long_run does; long_run_goal_insert, long_run_goal_finish and
+     long_run_progressive do not, and keep their rails and their fuel
+     figures. long_run_goal_broken was never in this at all -- it draws a
+     blueprint rail. */
+  if (!longRunIsFuelRail(dd)) return false;
+  var steps;
+  try { steps = workoutSteps(dd); } catch(e){ return false; }
+  return !!(steps && steps.length === 1);
 }
 /* An archetype with no written pair falls back to the sentence it already
    has -- its moved description, then gd.feel -- split at the first full
@@ -59327,7 +59358,21 @@ function renderWeekSessionBox(weekNum){
      press would be. */
   /* Collapsed only. If a rest day is somehow open, the real button renders
      so there is always a way back out of the full card. */
-  var isRest = dd.type === 'rest' && !weekSessionOpen;
+  /* ---------- NOTHING MORE TO OPEN ----------
+     Founder: "On easy sessions the view full session isnt needed." True of
+     every solo-note day: the full card is the hero and the cherry box, and
+     the overview above this button is already showing both. The button was
+     offering to reveal what the athlete is looking at.
+     GHOSTED, NOT REMOVED, which is the mechanism a rest day has used all
+     along and the reason is a measured one: the slides are one height for
+     the whole week and this button sits BELOW the rail, so deleting it on
+     some days dropped the zone breakdown by the button's box and snapped it
+     back on the next swipe -- the page moving under a finger on exactly the
+     days with nothing to open. The reserved box is the real one by
+     construction.
+     STILL SHOWN ONCE OPEN, so "Hide full session" can close a card the
+     athlete opened before the rule applied. */
+  var isRest = (dd.type === 'rest' || soloNoteSession(dd)) && !weekSessionOpen;
   /* data-week for the same reason the rail carries it: the OPEN card is
      swipeable too, and its commit stepped within currentWeekNum() -- which
      is wrong on every week screen but This Week. One source for "which week

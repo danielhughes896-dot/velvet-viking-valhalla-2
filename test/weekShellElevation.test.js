@@ -62,9 +62,27 @@ test('the shell keeps its own radius, spacing and overflow clipping (the accordi
   assert.match(week, /overflow\s*:\s*hidden/);
 });
 
-test('the taper accent still overrides the border colour on top of the new tile border', () => {
-  const taper = ruleFor('.week.is-taper');
-  assert.match(taper, /border-color\s*:\s*var\(--bronze\)/);
+test('the taper week is not accented at all any more', () => {
+  /* THIS HELD THE OPPOSITE UNTIL THE FOUNDER LOOKED AT IT: "Remove the gold
+     in full week taper week. Just leave it the same as the rest." The
+     bronze border and the --c-gold-soft head band are gone, so there is
+     nothing left to override .week's own treatment.
+     ASSERTED AS AN ABSENCE OF RULES, not of declarations: an empty
+     .week.is-taper{} would satisfy a "no bronze" check while reading like
+     something that still fires, and the next person to touch this would
+     have to work out whether it mattered. */
+  /* CODE is this file's comment-stripped copy of the runtime -- the same
+     one ruleFor() reads, so an explanation mentioning the selector cannot
+     be mistaken for the selector. */
+  const bare = CODE;
+  assert.equal(bare.indexOf('.week.is-taper{'), -1,
+    'the taper week has a block rule again — it is meant to look like the rest');
+  assert.equal(bare.indexOf('.week.is-taper .week-head'), -1,
+    'the gold band is back behind the taper week head');
+  /* AND THE GROUPING IS UNTOUCHED: the class still goes on the element,
+     because it is what puts the taper weeks under one heading. */
+  assert.ok(SRC.indexOf("(taperLook?' is-taper':'')") > -1,
+    'is-taper stopped being applied, which regroups the taper weeks');
 });
 
 test('.week now owns the hairline-lift recipe outright, because the control it borrowed it from is gone', () => {
