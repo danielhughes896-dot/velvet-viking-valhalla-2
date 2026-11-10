@@ -9160,6 +9160,38 @@
 var STORAGE_KEY = 'velvet-viking-generator-v2';
 var BUILD_ID = '2026-08-10.1';
 
+/* ---------- THE NATIVE SHELL IS THE ONE THING A DEPLOY CANNOT FIX ----------
+   Founder: "the web app cannot silently replace the native Android app
+   itself. But it absolutely can detect that the native shell is outdated
+   and give the user a proper Update App action."
+   WHY THIS EXISTS AT ALL. The APK is a Capacitor WebView pointed at this
+   live site, so virtually every change reaches an installed app the moment
+   it deploys -- which is why there has never been an update prompt. A
+   handful of changes are not like that: anything compiled into the shell,
+   such as the Android zoomEnabled setting that turns pinch-to-zoom on. For
+   those the athlete is running an app the web cannot repair, and nothing on
+   screen says so.
+
+   LATEST_NATIVE_BUILD IS THE versionCode THAT IS LIVE ON PLAY, which is NOT
+   the same fact as the versionCode in android/app/build.gradle. The repo
+   runs ahead: a native change is committed, CI builds an .aab, and it is
+   uploaded and reviewed before anyone can install it. Setting this from the
+   gradle file would tell every athlete an update was available while there
+   was nothing to install -- a prompt that cannot be satisfied is worse than
+   no prompt. So it is bumped when a release goes LIVE, and the law holds it
+   at or below the gradle versionCode, because a build that is not in the
+   repository cannot have been released from it.
+
+   COMPARED BY versionCode, NOT versionName. The integer is the thing
+   Android itself orders releases by and it is monotonic; "1.0" vs "1.10"
+   needs a parser, and a parser is a place to be wrong. */
+var LATEST_NATIVE_BUILD = 1;
+/* The store page for THIS package. The id is asserted against
+   capacitor.config.json and android/app/build.gradle rather than trusted:
+   it is the same identity written in three files, and the one nobody edits
+   is the one that goes stale. */
+var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.velvetviking.valhalla';
+
 /* ---------- THE CANONICAL LEGAL DOCUMENTS ----------
    These two live on the website and NOWHERE ELSE. The app links to them; it does
    not carry its own copy, and it must not start to. Three copies of a privacy
@@ -25339,6 +25371,47 @@ function nativePlugin(name){
   catch(e){ return null; }
 }
 function nativeAppPlugin(){ return nativePlugin('App'); }
+
+/* ---------- WHAT THE INSTALLED SHELL ACTUALLY IS ----------
+   Asked once, at startup, and cached. App.getInfo() is a promise and the
+   Settings screen renders synchronously, so there is nothing to await at
+   render time: until the answer arrives nativeAppInfo is null and the row
+   simply is not drawn.
+   IT FAILS CLOSED, EVERYWHERE. No Capacitor, no App plugin, an older
+   installed build whose plugin predates getInfo, a rejected promise, a
+   build string that is not a number -- every one of those leaves the
+   notice hidden rather than shown. A false "update available" sends an
+   athlete to a store page with nothing to install and teaches them to
+   ignore the row; a missed one costs nothing they did not already have. */
+var nativeAppInfo = null;
+function loadNativeAppInfo(){
+  if (!isNativeApp()) return;
+  var App = nativeAppPlugin();
+  if (!App || !App.getInfo) return;
+  try{
+    App.getInfo().then(function(info){
+      if (!info) return;
+      nativeAppInfo = info;
+      /* Only a repaint, and only when it would change what is on screen.
+         The answer usually arrives before Settings is ever opened. */
+      if (nativeUpdateAvailable() && state && state.view === 'settings'){
+        try{ renderApp(); }catch(e){}
+      }
+    }, function(){});
+  }catch(e){}
+}
+function nativeInstalledBuild(){
+  var raw = nativeAppInfo && nativeAppInfo.build;
+  if (raw == null) return null;
+  var n = parseInt(raw, 10);
+  return isFinite(n) ? n : null;
+}
+function nativeUpdateAvailable(){
+  if (!isNativeApp()) return false;
+  var installed = nativeInstalledBuild();
+  if (installed === null) return false;
+  return installed < LATEST_NATIVE_BUILD;
+}
 
 /* ---------- saving files out of the app ----------
    A blob: download is a browser affordance. Inside the Android shell there is
@@ -63001,6 +63074,26 @@ function renderSettingsHubView(){
   var hasPlan = !!(state.setup && state.days && state.days.length);
   var healthOn = healthConsentGranted();
 
+  /* ---------- AND THE ONE NOTICE A DEPLOY CANNOT DELIVER ----------
+     Founder: "show a small UPDATE AVAILABLE notice in Settings rather than
+     expecting you to know you need another APK/AAB."
+     FIRST, ABOVE ACCOUNT, because it is the only row on this screen that is
+     time-sensitive -- and absent the rest of the time. stgGroup() returns ''
+     for empty rows, so when the shell is current this is not an empty
+     container or a greyed row, it is nothing at all.
+     AN <a>, NOT A BUTTON. Capacitor has no allowNavigation entry for
+     play.google.com, so the shell hands an off-origin https URL to the
+     system -- which is how the Play app opens on the right page, and the
+     same route the legal links below already take. A market:// scheme would
+     need its own handling and buys nothing over an App Link the store
+     already claims. */
+  var appUpdate = nativeUpdateAvailable()
+    ? stgRow({ title:'Update Valhalla',
+        sub:'A newer version of the app is available',
+        pill:'UPDATE AVAILABLE', pillTone:'is-gold',
+        href:PLAY_STORE_URL, external:true })
+    : '';
+
   var account =
     (sub ? stgPanelRow('Subscription', subscriptionRowLine(sub),
              'subscription', subscriptionRowPill(sub), 'is-gold') : '')+
@@ -63052,6 +63145,7 @@ function renderSettingsHubView(){
      containers without touching either of them. */
   return '<div class="view-settings">'+
     '<div class="view-heading font-head">Settings</div>'+
+    stgGroup('App', appUpdate)+
     stgGroup('Account', account)+
     stgGroup('Training', training)+
     stgGroup('Connect', connect)+
@@ -64846,6 +64940,10 @@ function init(){
   registerServiceWorker();
   startNotificationScheduler();
   initHardwareBackButton();
+  /* Un-awaited, like cloudInit() below: the answer is only needed if the
+     athlete opens Settings, and a slow or absent plugin must never hold up
+     the first paint. */
+  loadNativeAppInfo();
   /* Bound once to the document, not per render: the pager reads the live DOM
      at the moment of a touch, so it survives every re-render without being
      re-attached -- and re-attaching per render is how duplicate listeners
