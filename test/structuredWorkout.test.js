@@ -2551,7 +2551,17 @@ test('label, figure, detail — that order, on every card of every rail', () => 
      too. The arms have to stay contiguous: this walks from one to the next
      and a comment in the gap reads as separate declarations, which is why
      the explanation sits above the rule. */
-  const labRule = /\.ws-rail \.ws-h-presc:not\(\.font-mono\),\s*\n\s*:is\([^)]*\) \.how-mod \.fuel-row \.k,\s*\n\s*:is\([^)]*\) \.how-mod \.strat-phase-label,\s*\n\s*\.view-plan \.pp-slide-k\{([^}]*)\}/;
+  /*
+     THE FOURTH ARM HAS LEFT, ON INSTRUCTION. Full Plan's phase slide was
+     joined here under the founder's rule "in the rails the titles should be
+     white and big like they are in the heroes, same rules". They have since
+     said of that rail: "I need a magnifying glass to read it ... I want the
+     title to be bigger than the rest", and chose, when given the two
+     options, to split the slide off rather than grow this declaration and
+     take EASY, SETTLE and CARB INTAKE with it. The slide's own rule and its
+     character are pinned in test/planSurface; THREE kinds of card share
+     this one, and that is still the thing being asserted here. */
+  const labRule = /\.ws-rail \.ws-h-presc:not\(\.font-mono\),\s*\n\s*:is\([^)]*\) \.how-mod \.fuel-row \.k,\s*\n\s*:is\([^)]*\) \.how-mod \.strat-phase-label\{([^}]*)\}/;
   const labM = labRule.exec(RAILCSS);
   assert.ok(labM,
     'the stage card has a label declaration of its own again — there is one label voice ' +

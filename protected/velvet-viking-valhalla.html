@@ -2900,9 +2900,37 @@
      in the gap reads to them as four declarations that merely look alike. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono),
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label,
-  .view-plan .pp-slide-k{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label{
     display:block; font-family:var(--label-face); font-size:21.85px; font-weight:600;
+    line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
+    margin-bottom:4px; text-align:center; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
+                0 0 34px rgba(255,255,255,.10);}
+  /* ---------- AND THE PHASE SLIDE HAS LEFT THAT DECLARATION ----------
+     It was the fourth arm of the selector above, on the founder's rule "in
+     the rails the titles should be white and big like they are in the
+     heroes, same rules", and a law asserted the MEMBERSHIP so nobody could
+     make a second copy of the hero title by accident.
+     Founder, on the Full Plan rail: "it's nice and small ... not haha. The
+     point of the rail is to tell them. I want the title to be bigger than
+     the rest ... at the minute I need a magnifying glass." Presented with
+     the choice between growing the shared declaration -- which would take
+     EASY, SETTLE and CARB INTAKE on every session card with it -- and
+     splitting this one off, the founder chose the split.
+     SO THE CHARACTER IS STILL SHARED AND ONLY THE SIZE IS NOT: white,
+     uppercase, --label-face and the same three-layer glow, copied here
+     deliberately and pinned by the law, which now asserts those four rather
+     than membership. The glow is doing real work -- this title sits on a
+     photograph, which is also the reason it is the one that needed the
+     size.
+     MEASURED at 412px before the number was chosen: the band is 274px and
+     the words were 92px of it, so 144px of photograph was empty. At 31px
+     the block is 119px and 117px is still empty, nothing clips at 320px,
+     and the veil still carries it -- the brightest patch under each line,
+     across all five photographs, gives 9.28:1 on the title against a 4.5
+     floor (9.58:1 before). */
+  .view-plan .pp-slide-k{
+    display:block; font-family:var(--label-face); font-size:31px; font-weight:600;
     line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
     margin-bottom:4px; text-align:center; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
@@ -3021,8 +3049,8 @@
     display:flex; flex-direction:column; align-items:center; text-align:center;
     gap:5px; width:100%; box-sizing:border-box; margin:18px 0 2px; padding:0 18px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-k{
-    font-family:var(--text-face); font-size:var(--fs-label); font-weight:600;
-    letter-spacing:.12em; text-transform:uppercase; color:var(--gold);}
+    font-family:var(--text-face); font-size:15px; font-weight:700;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--ink);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-v{
     font-family:var(--text-face); font-size:var(--fs-body); line-height:1.45;
     color:var(--ink); max-width:34ch;}
@@ -3127,7 +3155,7 @@
      the exec review card, the taper note and the year-round panel, and both
      notes take it identically -- which is the point of this change. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note > *{position:relative; z-index:1;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k{font-size:15px; letter-spacing:.055em; gap:7px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k{font-size:17px; letter-spacing:.055em; gap:7px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k svg{width:16px; height:16px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .v{font-size:var(--fs-body); line-height:var(--lh-body);}
 
@@ -3342,9 +3370,9 @@
      here, because it is `display:none` by default -- the note has two
      positions in the markup and this is the one a focused session shows. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note{display:flex;}
-  .how-note .k{display:flex; align-items:center; gap:6px; font-size:11.5px;
+  .how-note .k{display:flex; align-items:center; gap:6px; font-size:13px;
     font-weight:700; letter-spacing:.06em; text-transform:uppercase;
-    color:var(--gold-text);}
+    color:var(--ink);}
   .how-note .k svg{width:13px; height:13px;}
   /* EVERY LINE IN THE NOTE READS AS ONE VOICE. The phase sentence arrives
      carrying .strat-phase-purpose's own dim colour from the table it used
@@ -3434,18 +3462,22 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day.open .day-drawer,
   :is(.view-today .day.is-today.open, .view-week .wk-full .day.open) .day-drawer{overflow:visible;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row{display:flex; gap:12px; margin:13px 0 0;}
-  /* The same rim as the three boxes: quiet at the top left, full gold at
-     the bottom right. A border cannot hold a gradient, so the pill paints
-     its fill to the padding box and the rim to the border box -- and the
-     fill is the charcoal ground written as a gradient, because a background
-     COLOUR may only occupy the final layer of the shorthand. */
+  /* ---- VELVET CHERRY: THE TWO THINGS YOU DO TO THE COACH ----
+     This WAS the three boxes' gradient rim -- quiet at the top left, full
+     gold at the bottom right -- painted as two backgrounds because a border
+     cannot hold a gradient. Hear Today and Ask Coach are interaction, so
+     under the hierarchy they take the accent, and a gradient cannot carry a
+     glow in the same breath: the rim is flat cherry and the light is the
+     product's own cherry glow, the same two declarations the chosen option
+     tile, the Coach's Note and the selected day circle all wear.
+     The fill stays the charcoal ground it already was, written flat now
+     that it is not fighting a border-box gradient for the same property. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row .voice-btn{
     flex:1 1 0; justify-content:center; height:48px; border-radius:24px;
-    border:1.5px solid transparent;
-    background:linear-gradient(#121316, #121316) padding-box,
-      var(--t-rim-grad) border-box;
-    font-size:13px; font-weight:700; color:var(--gold-text);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row .voice-btn svg{color:var(--gold-text);}
+    border:1.5px solid var(--cherry); background:#121316;
+    box-shadow:0 0 16px var(--cherry-dim);
+    font-size:13px; font-weight:700; color:var(--cherry-text);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row .voice-btn svg{color:var(--cherry-text);}
 
   @media (max-width:360px){
     :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero{flex-direction:column;}
@@ -3862,10 +3894,19 @@
     /* The scroll is the only thing that says "there is more" on a short list,
        so the edge is drawn rather than left to chance. */
   }
+  /* WHITE, on instruction, with the rest of the gold this sheet has given up.
+     AND OPAQUE, which is a bug fix rather than a preference: this said
+     `background:var(--surface-1)` and no such token is declared anywhere in
+     the sheet, so the declaration was invalid and the sticky header had no
+     ground at all. Week 2's heading sat ON TOP of Tuesday's row as the list
+     scrolled -- visible in the founder's own screenshot. --modal-surface is
+     the ramp this sheet is painted from and is what .modal-head already
+     sticks against. */
   .swap-week{
-    font-size:var(--fs-meta); letter-spacing:1px; text-transform:uppercase;
-    color:var(--gold-text); padding:8px 2px 2px; position:sticky; top:0;
-    background:var(--surface-1); z-index:1;
+    font-family:var(--label-face); font-size:var(--fs-meta); letter-spacing:1px;
+    text-transform:uppercase; font-weight:var(--label-weight);
+    color:var(--ink); padding:8px 2px 4px; position:sticky; top:0;
+    background:var(--bg); z-index:2;
   }
   .swap-week:first-child{padding-top:2px;}
   .swap-day{
@@ -3874,6 +3915,15 @@
     font:inherit;
   }
   .swap-main{flex:1; min-width:0;}
+  /* ONE LINE: the name takes the width it needs and gives the rest back, the
+     date is pinned to the trailing edge in the product's numeral face. */
+  .swap-day .swap-line{display:flex; align-items:baseline; gap:10px; min-width:0;}
+  .swap-day .swap-name{flex:0 1 auto; min-width:0; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;
+    font-family:var(--text-face); font-size:var(--fs-body);
+    font-weight:700; color:var(--ink);}
+  .swap-day .swap-when{flex:none; margin-left:auto;
+    font-family:var(--num-face); font-size:var(--fs-meta); color:var(--ink-faint);}
   .swap-day .day-title{font-size:var(--fs-body); margin-top:2px;}
   /* PICKED IS CHERRY, because selection is cherry everywhere in this product
      and gold is the identity colour. The rail keeps its type colour -- the
@@ -3885,7 +3935,13 @@
     border:2px solid var(--line); color:transparent; background:var(--bg-2);
   }
   .swap-day .swap-tick svg{width:12px; height:12px;}
-  .swap-day.is-picked{box-shadow:inset 0 0 0 1.5px var(--cherry);}
+  /* Founder: "no gold glow, the same option section as build, cherry."
+     .opt-grid button.active's own two declarations, so a chosen day here and
+     a chosen option in the builder are one control in two places. 1px and
+     not the 1.5px this used to inset, for the reason builderNineStages
+     records: the Coach's Note this quotes RENDERS 1px. */
+  .swap-day.is-picked{border-color:var(--cherry);
+    box-shadow:0 0 16px var(--cherry-dim);}
   .swap-day.is-picked .swap-tick{
     background:var(--cherry); border-color:var(--cherry); color:var(--cherry-btn-ink);
   }
@@ -4757,13 +4813,19 @@
     min-height:44px; padding:9px 10px;
     font-family:var(--label-face); font-size:var(--fs-support); font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase;
-    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
-    background:var(--ctl-bg); color:var(--ink-dim);
-    box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.05);
+    /* VELVET CHERRY: these are the two things an athlete DOES to the coach,
+       which is interaction, so they take the accent. A RIM AND A GLOW, not
+       a fill -- the builder's Continue is the cherry fill, and two filled
+       cherry slabs side by side under the hero would read as the primary
+       action twice. Same two declarations the chosen option grid tile and
+       the Coach's Note already wear. */
+    border:1px solid var(--cherry); border-radius:var(--tile-radius);
+    background:var(--ctl-bg); color:var(--cherry-text);
+    box-shadow:0 0 16px var(--cherry-dim), inset 0 1px 0 rgba(255,255,255,.05);
     cursor:pointer;
   }
   .voice-btn svg{width:15px; height:15px; flex:none;}
-  .voice-btn:hover{color:var(--ink); border-color:var(--ctl-border-hi, var(--ctl-border));}
+  .voice-btn:hover{color:var(--cherry-text); border-color:var(--cherry);}
   .voice-btn:active{transform:translateY(1px);}
   /* .voice-why is retired: the adaptive-reason line no longer appears on
      Today. The rule kept only so a stale cached page cannot render unstyled. */
@@ -5408,6 +5470,88 @@
   .builder-light .bld-date input[type="date"]{
     background:var(--t-tile); border-color:var(--t-tile-rim); border-radius:var(--tile-radius);
   }
+
+  /* ---------- THE MONTH GRID ----------
+     THE COMMENT ABOVE USED TO SAY "Native picker kept -- it is the safest
+     control on a phone and the one athletes already know." The founder has
+     overruled it against a screenshot of Android's own dialog sitting on
+     top of the builder: teal, Material type, CLEAR / CANCEL / SET. The
+     argument that beat familiarity is the one that already retired the
+     day-swap list and Session Type -- the athlete taps a Velvet Viking
+     field and an operating system answers.
+     The native input has NOT gone. It is still the value every reader
+     reads, still carries min and the browser's own validation, and is
+     still focusable, so a keyboard or a screen reader gets the real
+     control and its own picker. It is simply invisible and untouchable by
+     a finger: .vvcal-open takes the taps and opens ours. */
+  .vvcal-field{position:relative;}
+  /* opacity, NOT display:none and NOT hidden -- both take it out of the
+     focus order, which is the half of this that AT depends on.
+     pointer-events:none is what stops a finger ever reaching the OS. */
+  .vvcal-native{position:absolute; inset:0; width:100%; height:100%;
+    opacity:0; pointer-events:none; margin:0; padding:0; border:0;}
+  .vvcal-open{
+    position:relative; width:100%; display:flex; align-items:center;
+    justify-content:space-between; gap:10px; text-align:left;
+    min-height:52px; padding:14px 13px;
+    font-family:var(--num-face); font-size:var(--fs-data); letter-spacing:.4px;
+    color:var(--ctl-text); background:var(--ctl-bg);
+    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);}
+  .builder-light .vvcal-open{background:var(--t-tile); border-color:var(--t-tile-rim);}
+  .vvcal-open svg{width:17px; height:17px; flex:none; color:var(--cherry-text);}
+  .vvcal-shown.is-empty{color:var(--ctl-placeholder);}
+  /* The ring moves to the trigger because the input it belongs to is
+     invisible: a keyboard athlete tabbing onto the field would otherwise
+     see nothing happen at all. */
+  .vvcal-field:focus-within .vvcal-open{
+    border-color:var(--ctl-accent); box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);}
+
+  /* z-index 150: above .modal-overlay's 100, below #toast-mount's 200, so a
+     date can be picked over the builder and a toast still lands on top. */
+  .vvcal-scrim{position:fixed; inset:0; z-index:150; display:flex;
+    align-items:center; justify-content:center; padding:16px;
+    background:rgba(8,8,10,.62); animation:fadein .18s ease;}
+  .vvcal{width:100%; max-width:344px; border:1px solid var(--t-tile-rim);
+    border-radius:var(--tile-radius); background:var(--t-card);
+    box-shadow:0 18px 48px rgba(0,0,0,.55); overflow:hidden;}
+  .vvcal-head{padding:15px 17px 13px;}
+  .vvcal-kick{font-family:var(--label-face); font-size:var(--fs-label);
+    letter-spacing:var(--label-track); text-transform:uppercase;
+    font-weight:var(--label-weight); color:var(--ink-faint); margin-bottom:5px;}
+  .vvcal-date{font-family:var(--num-face); font-size:23px; font-weight:700;
+    letter-spacing:.4px; color:var(--ink); line-height:1.1;}
+  .vvcal-nav{display:flex; align-items:center; justify-content:space-between; padding:2px 11px 4px;}
+  .vvcal-month{font-family:var(--label-face); font-size:13px;
+    font-weight:var(--label-weight); letter-spacing:2.2px;
+    text-transform:uppercase; color:var(--ink);}
+  .vvcal-arrow{width:var(--tap-min); height:var(--tap-min); display:flex;
+    align-items:center; justify-content:center; border-radius:50%;
+    border:1px solid var(--line); background:var(--bg-2); color:var(--ink-dim);}
+  .vvcal-arrow svg{width:16px; height:16px;}
+  .vvcal-arrow.is-prev svg{transform:rotate(180deg);}
+  .vvcal-dow{display:grid; grid-template-columns:repeat(7,1fr); padding:4px 11px 2px;}
+  .vvcal-dow span{text-align:center; font-family:var(--label-face);
+    font-size:var(--fs-label); letter-spacing:1.1px; color:var(--ink-faint);
+    text-transform:uppercase;}
+  .vvcal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:4px 11px 12px;}
+  .vvcal-cell{position:relative; aspect-ratio:1; min-height:38px; padding:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--num-face); font-size:15px; font-weight:600;
+    color:var(--ink); border-radius:50%; border:1px solid transparent;
+    background:none;}
+  .vvcal-cell.is-empty{visibility:hidden;}
+  /* A DAY BEFORE min IS SHOWN AND REFUSED, not hidden. The builder has
+     always enforced `min` on Continue; this is the first time the athlete
+     can SEE which days are out before tapping one. */
+  .vvcal-cell[disabled]{color:var(--ink-faint); opacity:.32;}
+  .vvcal-cell.is-today{border-color:var(--bronze); color:var(--gold-text);}
+  /* The chosen day wears the option grid's own chosen language: cherry and
+     the product's cherry glow, not a colour invented for this one control. */
+  .vvcal-cell.is-picked{background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    border-color:transparent;
+    box-shadow:inset 0 0 0 1px var(--cherry), 0 0 16px var(--cherry-dim);}
+  .vvcal-foot{display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:9px 13px 14px;}
+  .vvcal-foot .btn{min-height:48px;}
 
   /* ---------- EVERY NUMBER THE ATHLETE TYPES IS A NUMBER ----------
      Audited at 412px across all eleven stages: the option tiles, the event
@@ -6160,19 +6304,19 @@
      Space does the same job -- 26 between blocks, the rhythm the week's
      analysis already reads on: 14 from .es-body's gap, 12 here. */
   .es-sec + .es-sec{margin-top:12px;}
-  .es-sec-head{
-    display:flex; align-items:center; gap:12px; padding:14px 0;
-    cursor:pointer; list-style:none;
-  }
-  .es-sec-head::-webkit-details-marker{display:none;}
-  .es-sec-text{flex:1 1 auto; min-width:0;}
-  .es-sec-title{display:block; font-size:14px; letter-spacing:.06em; color:var(--ink);}
-  .es-sec-sub{display:block; color:var(--ink-dim); margin-top:2px;}
-  .es-sec-chev{flex:none; display:flex; color:var(--gold); transition:transform .18s;}
-  .es-sec-chev svg{width:19px; height:19px;}
-  .es-sec[open] > .es-sec-head .es-sec-chev{transform:rotate(180deg);}
-  .es-sec-body{padding:2px 0 15px;}
-  .es-sec-body > .field:last-child{margin-bottom:0;}
+  /* The summary, the chevron and the [open] state went with the
+     <details> they styled. .es-sec itself stays: it is the flat
+     section wrapper now, and the spacing rule above is what keeps
+     the two apart without a hairline. */
+  /* ---- THE SHEET'S WORDS ARE WHITE ----
+     Founder: "all text in bold white." The field eyebrows were --ink-dim and
+     <legend> was --bronze-text, so SESSION TITLE, DISTANCE and SESSION TYPE
+     read grey and COMPLETED read gold -- three brightnesses for one kind of
+     word. Scoped to .es-body: <legend> and .field > label are shared with
+     every other form in the product and are not being repainted globally. */
+  .es-body .field > label,
+  .es-body legend{color:var(--ink); font-weight:var(--label-weight);}
+  .es-sec .setup-section-title{color:var(--ink); margin-top:0;}
   .es-reset{margin-top:14px; padding-top:13px;}
   /* One action, full width, at the foot -- Reset moved in beside the fields
      it undoes, so nothing destructive sits next to the confirm. */
@@ -6194,13 +6338,30 @@
      move with it, and should not -- saving is a commit, not a way through
      to somewhere.) */
   .es-actions .btn{width:100%;}
+  /* Founder: "save needs changing to the cherry glow boarder and white
+     text." The paragraph above argued against cherry on two grounds. The
+     first -- that .btn-primary stays bronze outside .builder-light -- still
+     holds and is why this is still a scoped rule rather than a change to
+     .btn-primary. The second, that cherry would make Save look like the
+     Reset above it, no longer does: Reset is a BRIGHTER RED now, on the same
+     instruction, which is what separates them. */
   .es-actions .btn-primary{
     display:flex; align-items:center; justify-content:center; gap:8px;
-    background:var(--t-card); border:1px solid var(--t-tile-rim);
-    border-radius:14px; color:var(--gold);
+    background:var(--t-card); border:1px solid var(--cherry);
+    box-shadow:0 0 16px var(--cherry-dim);
+    border-radius:14px; color:var(--ink);
     font-family:var(--text-face); font-size:14.5px; font-weight:600;
-    letter-spacing:.01em; padding:11px 16px; box-shadow:none; text-shadow:none;}
+    letter-spacing:.01em; padding:11px 16px; text-shadow:none;}
   .es-actions .btn-primary svg{width:16px; height:16px;}
+  /* ---- RESET IS A BRIGHTER RED ----
+     Founder: "rest session is good as it's red danger haha maybe make it a
+     brighter red so it stands out?" --c-threshold is the SEMANTIC threshold
+     colour: it paints day badges and type pills on a dozen surfaces and is
+     muted for printing, not for carrying a warning on a dark sheet.
+     --z-threshold is the same hue already lit for the zone bar, which is the
+     product's own bright version of it rather than a red invented here.
+     Scoped to this button: every other .btn-danger keeps the muted rim. */
+  .es-reset .btn-danger{border-color:var(--z-threshold); color:var(--z-threshold);}
   .modal-actions .btn{flex:1;}
 
   fieldset{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin:0 0 14px;}
@@ -6422,8 +6583,10 @@
   .wk-notes{margin-top:10px; color:var(--ink-faint);}
   /* The title must not run under the chip. */
   .wk-hero-title{padding-right:46%;}
-  .wk-hero-title{font-size:23px; font-weight:600; letter-spacing:.015em;
-    color:var(--gold); line-height:1.15;}
+  /* WHITE: it names the week, which is information. The two figures beneath
+     it carry the cherry now. */
+  .wk-hero-title{font-size:23px; font-weight:700; letter-spacing:.015em;
+    color:var(--ink); line-height:1.15;}
   .wk-hero-sub{margin-top:3px; color:var(--ink-dim);}
   .wk-hero-figs{display:flex; align-items:baseline; justify-content:space-between;
     gap:12px; margin-top:11px;}
@@ -6436,11 +6599,11 @@
   .wk-hero-title + .wk-hero-figs{margin-top:34px;}
   /* The completed figure is the one that moves, so it is the one that is lit
      -- the same backlight the Today hero's distance uses. */
-  .wk-hero-vol b{font-size:27px; font-weight:700; color:var(--gold);
+  .wk-hero-vol b{font-size:27px; font-weight:700; color:var(--cherry-text);
     font-variant-numeric:tabular-nums; letter-spacing:-0.01em;
-    text-shadow:0 0 12px rgba(227,177,90,.30);}
+    text-shadow:0 0 12px rgba(154,84,108,.45);}
   .wk-hero-vol span{font-size:17px; color:var(--ink); font-variant-numeric:tabular-nums;}
-  .wk-hero-pct{font-size:25px; font-weight:700; color:var(--gold);
+  .wk-hero-pct{font-size:25px; font-weight:700; color:var(--cherry-text);
     font-variant-numeric:tabular-nums;}
   /* WHERE IN THE BLOCK, NOT A THIRD FIGURE. The two gold numbers either
      side of it are the hero; this is the caption that says which stretch
@@ -6652,19 +6815,21 @@
      every past day indiscriminately. */
   .wk-day.is-past{opacity:.55;}
   .wk-day.is-rest .wk-day-n{color:var(--ink-faint);}
+  /* VELVET CHERRY. Done stays green and missed stays red: those are
+     outcomes. This is the day you are ON, which is interaction. */
   .wk-day.is-sel{
-    border-color:var(--gold); color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 34%, transparent);
+    border-color:var(--cherry); color:var(--cherry-text);
+    box-shadow:0 0 0 1px var(--cherry), 0 0 16px color-mix(in srgb, var(--cherry) 44%, transparent);
   }
-  .wk-day.is-sel .wk-day-n{color:var(--gold);
-    text-shadow:0 0 10px rgba(227,177,90,.45);}
+  .wk-day.is-sel .wk-day-n{color:var(--cherry-text);
+    text-shadow:0 0 10px rgba(154,84,108,.55);}
   /* Today is a fact about the date and the selection is a fact about the
      tap. They are usually the same day and must still be distinguishable
      when they are not, so today keeps an underline of its own. */
   .wk-day.is-today{position:relative;}
   .wk-day.is-today::after{
     content:''; position:absolute; left:28%; right:28%; bottom:-7px; height:2px;
-    border-radius:2px; background:var(--gold); box-shadow:0 0 8px color-mix(in srgb, var(--gold) 55%, transparent);
+    border-radius:2px; background:var(--cherry); box-shadow:0 0 8px color-mix(in srgb, var(--cherry) 65%, transparent);
   }
 
   /* ---- BOX 2: the selected session ---- */
@@ -6946,7 +7111,7 @@
      those words are written; the colour is the second telling that the week
      rows below already do with theirs -- green behind, gold now, faint
      ahead. The WORDS are there either way, so colour is never alone. */
-  .pp-slide-w{font-family:var(--text-face); font-size:11.5px; letter-spacing:.07em;
+  .pp-slide-w{font-family:var(--text-face); font-size:14.5px; letter-spacing:.07em;
     text-transform:uppercase; color:var(--ink-dim);}
   .pp-slide.is-now .pp-slide-w{color:var(--gold-bright);}
   .pp-slide.is-done .pp-slide-w{color:var(--ok-text);}
@@ -6962,7 +7127,11 @@
   /* The phase's own sentence, in the voice a stage cue uses on the session
      rail: the supporting size, 1.45 leading, 30ch so it breaks where a
      sentence breaks rather than at the card edge. */
-  .pp-slide-msg{font-family:var(--text-face); font-size:var(--fs-support);
+  /* --fs-body, NOT a hand-set 17.5px. typographyConsistency holds every
+     line of prose in the app to one of two tiers, and this is prose; 16px
+     is the primary body tier and the jump from --fs-support's 13.5 is what
+     the founder asked for. */
+  .pp-slide-msg{font-family:var(--text-face); font-size:var(--fs-body);
     line-height:1.45; letter-spacing:0; text-transform:none;
     color:rgba(255,255,255,.92); max-width:30ch; margin:3px 0 0;}
   /* ---- the dots are the control, so they carry the thumb floor ----
@@ -7026,7 +7195,7 @@
   .pp-chev{flex:none; display:inline-flex; color:var(--gold); transition:transform .18s;}
   .pp-chev svg{width:19px; height:19px;}
   .pp-phase.is-open .pp-chev{transform:rotate(180deg);}
-  .week-pct{flex:none; font-size:var(--fs-data); font-weight:700; color:var(--gold);
+  .week-pct{flex:none; font-size:var(--fs-data); font-weight:700; color:var(--cherry-text);
     font-variant-numeric:tabular-nums; margin-left:10px;}
   .pp-body{display:none; padding:0 9px 9px;}
   .pp-phase.is-open .pp-body{display:block;}
@@ -7397,10 +7566,10 @@
   }
   .pw-figs{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
     margin-bottom:9px;}
-  .pw-vol b{font-size:26px; font-weight:700; color:var(--gold);
+  .pw-vol b{font-size:26px; font-weight:700; color:var(--cherry-text);
     font-variant-numeric:tabular-nums; text-shadow:0 0 12px rgba(227,177,90,.30);}
   .pw-vol span{font-size:16px; color:var(--ink); font-variant-numeric:tabular-nums;}
-  .pw-pct{font-size:24px; font-weight:700; color:var(--gold); font-variant-numeric:tabular-nums;}
+  .pw-pct{font-size:24px; font-weight:700; color:var(--cherry-text); font-variant-numeric:tabular-nums;}
 
   /* ---- the seven sessions ----
      A row is a way in, not a thing that opens, so it is the same height
@@ -7513,8 +7682,11 @@
      the pill was the only marker of the current row; the pill is gone and
      the row carries .is-now itself, so the arm would now match nothing and
      a dead selector is a thing that drifts. */
+  /* VELVET CHERRY: the week you are IN. The phase marks beside these rows
+     keep their gold -- a phase is a destination, this is where training
+     actually is. .is-done above keeps --ok-text. */
   .view-plan .pp-body .week.is-now .week-num,
-  .view-plan .pp-body .week.is-now .week-phase{color:var(--gold-bright);}
+  .view-plan .pp-body .week.is-now .week-phase{color:var(--cherry-text);}
   /* ---------- AND THE HALO IS ROUNDED, OR IT IS A BOX ----------
      Founder: "The black box over the week is there a chance to smooth the
      sides out?"
@@ -7550,7 +7722,7 @@
      phase and quietly stop holding on every other. */
   .view-plan .pp-body .week.is-now{
     border-radius:var(--radius); 
-    box-shadow:0 0 26px 2px color-mix(in srgb, var(--gold) 16%, transparent);
+    box-shadow:0 0 26px 2px color-mix(in srgb, var(--cherry) 26%, transparent);
     padding-left:10px; padding-right:10px;
     margin-left:-10px; margin-right:-10px;}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
@@ -7624,8 +7796,15 @@
      Three things answer that: the brighter gold, a heavier weight, and real
      illumination -- four layers rather than the resting two, carrying much
      further out. */
+  /* ---- VELVET CHERRY: THE ACTIVE TAB IS WHERE YOU ARE, NOT WHERE YOU ARE
+       GOING ---- Gold is the brand and the destination; the tab you are
+       standing on is interaction. The structure above is untouched and is
+       the reason this works at 8.5px: four layers rather than the resting
+       two, because --cherry-text sits below white in luminance exactly as
+       the gold it replaces did, and it is the illumination rather than the
+       hue that makes the chosen tab the loudest thing in the bar. */
   .bn-item.active{
-    color:var(--gold-bright); font-weight:700; background:none;
+    color:var(--cherry-text); font-weight:700; background:none;
     /* Every radius 10% wider than the set below it, alphas unchanged.
        The widest layer is the one to watch: past about 34px over a short
        wide label the halos merge into a soft rectangle behind the word
@@ -7633,11 +7812,11 @@
        ceiling for a label this shape.
          was  1 / 6 / 15 / 28
          now  1.1 / 6.6 / 16.5 / 30.8 */
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);
+    text-shadow:0 0 1.1px rgba(196,106,137,.85), 0 0 6.6px rgba(154,84,108,.78),
+                0 0 16.5px rgba(154,84,108,.42), 0 0 30.8px rgba(154,84,108,.15);
   }
   .bn-item.active svg{stroke-width:2.3;
-    filter:drop-shadow(0 0 4.4px rgba(245,208,97,.70)) drop-shadow(0 0 15.4px rgba(227,177,90,.45));}
+    filter:drop-shadow(0 0 4.4px rgba(196,106,137,.70)) drop-shadow(0 0 15.4px rgba(154,84,108,.45));}
   .bn-item:active{ transform:scale(.95); }
   /* LIGHT-MODE ACTIVE TAB.
      It used to be a near-black slab with bright gold on it -- the dark
@@ -8847,13 +9026,19 @@
      .ev-card -- a box of boxes on a card. Both go: the rows sit on the
      panel they are already on, and the chosen one is LIT rather than
      outlined. */
-  .ef-type-list{border:0; border-radius:var(--tile-radius);
-    overflow:hidden; margin-top:6px;}
+  /* ---- AND THEN THEY BECAME THE BUILDER'S BOXES ----
+     Founder: "session types should now use the same boxes we had in build
+     plan. Cherry ticks." The rows above sat bare on the panel; they are now
+     discrete tiles with the option grid's own ground and rim, stacked with
+     the option grid's own 8px gap. The type rail survives the change, for
+     the reason it was added. */
+  .ef-type-list{border:0; border-radius:0; overflow:visible; margin-top:6px;
+    display:flex; flex-direction:column; gap:8px;}
   .ev-card.ef-type-row{
-    position:relative; background:none; border-color:transparent;
+    position:relative; background:var(--tile-sheen), var(--bg-2);
+    border:1px solid var(--tile-border); border-radius:var(--tile-radius);
     box-shadow:none; margin:0;}
-  .ev-card.ef-type-row{ padding:11px 13px; gap:11px;}
-  .ev-card.ef-type-row:first-child{border-top:0;}
+  .ev-card.ef-type-row{ padding:13px; gap:11px;}
   /* The rail takes its colour from the same six tokens .day.type-* paints a
      card's left edge with, so a Tempo in this list is the colour a Tempo is
      everywhere else in the plan. Written out rather than inherited, because
@@ -8871,15 +9056,17 @@
     border-radius:50%; align-items:center; justify-content:center;
     border:2px solid var(--line); color:transparent; background:var(--bg-2);}
   .ef-type-row .swap-tick svg{width:12px; height:12px;}
-  /* ---------- A CHOSEN TYPE IS GOLD, AND THAT IS THE LAW RATHER THAN A
-       PREFERENCE ----------
-     This was a cherry inset ring. Cherry is progress and action in this
-     product; GOLD is choice -- it is what the bottom nav's selected tab,
-     the A/B/C goal options and the builder's choices all wear. Picking a
-     session type is a choice, so it takes the choice colour, lit the same
-     way: the coaching rail's radial pool behind the row (.how-mod::before)
-     and the nav's gold on the tick. No ring, because the row has no box
-     left to ring. */
+  /* ---------- A CHOSEN TYPE IS CHERRY, AND THE LAW ABOVE IT IS DEAD ----------
+     THIS BLOCK USED TO SAY "A CHOSEN TYPE IS GOLD, AND THAT IS THE LAW
+     RATHER THAN A PREFERENCE", on the argument that cherry is progress and
+     gold is choice. That argument no longer describes the product. The
+     founder has since taken the builder's chosen option to a cherry line
+     ("not fully cherry, like the coaches note"), then its fields, then its
+     titles, and has now said of this list: "cherry ticks ... no gold glow,
+     the same option section as build."
+     So choice is cherry, here and in the builder, and the gold pool goes
+     with it -- a radial wash behind a row that now has a box of its own was
+     two selected states arguing anyway. The rail keeps its type colour. */
   .ef-type-row::before{
     content:''; position:absolute; inset:0; border-radius:var(--tile-radius);
     pointer-events:none; z-index:0;
@@ -8887,13 +9074,12 @@
       rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
     opacity:0; transition:opacity .34s ease;}
   .ef-type-row > *{position:relative; z-index:1;}
-  .ef-type-row.is-picked::before{opacity:1;}
-  .ef-type-row.is-picked{box-shadow:none;}
-  .ef-type-row.is-picked .stg-row-title{color:var(--gold-bright);
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42);}
+  .ef-type-row.is-picked::before{opacity:0;}
+  .ef-type-row.is-picked{border-color:var(--cherry);
+    box-shadow:0 0 16px var(--cherry-dim);}
+  .ef-type-row.is-picked .stg-row-title{color:var(--ink); text-shadow:none;}
   .ef-type-row.is-picked .swap-tick{
-    background:var(--gold); border-color:var(--gold); color:#20180A;}
+    background:var(--cherry); border-color:var(--cherry); color:var(--cherry-btn-ink);}
   .ev-card.ef-type-row[disabled]{opacity:.55; cursor:default;}
   .stg-nav-label{flex:1 1 auto; min-width:0; font-family:var(--text-face); font-weight:600; letter-spacing:.2px; color:var(--ink);}
   .rs-head{display:flex; align-items:center; gap:12px;}
@@ -10373,6 +10559,14 @@ function addDays(dateStr, n){
   return d.toISOString().slice(0,10);
 }
 function dow(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{weekday:'short'}); }
+/* "Friday 13 Nov" -- the reschedule list's own date voice. Long weekday
+   because the row has the width for it now that it is one line, and the day
+   of the week is what an athlete is actually choosing between. */
+function swapWhen(dateStr){
+  var d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'short' });
+}
 function dShort(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
 function dLong(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); }
 function todayStr(){
@@ -49879,7 +50073,7 @@ function openRestrictionModal(){
     '<div class="setup-section-title">For how long?</div>'+
     '<div class="rs-pick-row" role="radiogroup" aria-label="For how long?">'+durBtns+'</div>'+
     '<div class="field" style="margin-top:8px;"><label for="rs-until">Or pick the last restricted day</label>'+
-      '<input type="date" id="rs-until" min="'+todayStr()+'" value="'+escapeHtml(restrictionDraft.until||'')+'"></div>'+
+      vvCalFieldHtml('rs-until', restrictionDraft.until||'', todayStr())+'</div>'+
     '<div class="field-hint">Ends '+dShort(restrictionDraftUntil())+'. You can end it early or extend it at any time — nothing is locked in.</div>'+
     '<div class="modal-actions">'+
       (open ? '<button type="button" class="btn btn-ghost" data-action="restriction-end">I am back</button>' : '')+
@@ -52654,7 +52848,7 @@ function openSetupModal(){
         '</div>'+
       '</div>'+
       '<div id="su-event-box" data-mode="'+eventMode+'">'+
-        '<div class="field when-event bld-date bld-race-only bld-reveal" id="f-racedate"><label>Event date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
+        '<div class="field when-event bld-date bld-race-only bld-reveal" id="f-racedate"><label for="su-racedate">Event date</label>'+vvCalFieldHtml('su-racedate', raceDate, todayStr())+
           '<div class="field-hint">Progression and taper anchor to this day.</div>'+
           '<div class="field-hint" id="su-runway-note" hidden></div>'+
         '</div>'+
@@ -52752,7 +52946,7 @@ function openSetupModal(){
       '<div class="field" id="f-entry-long-date"'+
         (parseFloat(entryLong) > 0 ? '' : ' hidden')+'><label>'+
         escapeHtml(EV_F.longestRunDate.label)+'</label>'+
-        '<input type="date" id="su-entry-long-date" value="'+escapeHtml(entryLongDate)+'">'+
+        vvCalFieldHtml('su-entry-long-date', entryLongDate, '')+
         '<div class="field-hint">'+escapeHtml(EV_F.longestRunDate.hint)+'</div>'+
         /* Said rather than refused, in the same register as the entry note
            above: an answer outside the window is still recorded, and the
@@ -53316,6 +53510,172 @@ function bldFail(fieldId, message){
    as Week's neighbours always did. Benchmark
    has no rule here because it never had one -- handleGeneratePlan() falls back
    to the stored benchmark when the field is blank. */
+
+/* ===========================================================================
+ * THE MONTH GRID -- OUR CALENDAR, NOT THE OPERATING SYSTEM'S
+ * ---------------------------------------------------------------------------
+ * Three fields used <input type="date"> and got Android's Material dialog or
+ * iOS's wheel: another product's colours, type and buttons on top of ours.
+ * This is the same answer the day-swap list and Session Type already took --
+ * draw the control, keep the native element as the value holder -- applied to
+ * the last place in the app where an operating system still answers for us.
+ *
+ * WHAT DID NOT MOVE, deliberately: the <input type="date"> is still in the
+ * DOM with the same id, the same value and the same min, so bldValidateStage(),
+ * bldSyncRunwayNote(), readBuilderEntryEvidence(), restrictionReadDateField(),
+ * bldRenderReview() and handleGeneratePlan() all read exactly what they read
+ * before and none of them knows a grid exists. Committing a date writes the
+ * input and fires 'input' and 'change', which is what typing one did.
+ * ======================================================================== */
+var VVCAL = null;
+var VVCAL_MONTHS = ['January','February','March','April','May','June','July',
+                    'August','September','October','November','December'];
+function vvPad2(n){ return (n < 10 ? '0' : '') + n; }
+function vvCalIsIso(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v); }
+function vvCalShown(v){
+  if (!vvCalIsIso(v)) return 'Choose a date';
+  var d = new Date(v + 'T00:00:00');
+  if (isNaN(d.getTime())) return 'Choose a date';
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+function vvCalHero(v){
+  if (!vvCalIsIso(v)) return 'No date yet';
+  var d = new Date(v + 'T00:00:00');
+  if (isNaN(d.getTime())) return 'No date yet';
+  return d.toLocaleDateString('en-GB',
+    { weekday:'short', day:'numeric', month:'short', year:'numeric' })
+    .replace(/,/g, '').toUpperCase();
+}
+/* The markup every date field now emits. The trigger is aria-hidden and out
+   of the tab order on purpose: the real <input type="date"> beside it is the
+   accessible control and keeps its own keyboard and screen-reader behaviour,
+   so exposing a second one would announce the same field twice. */
+function vvCalFieldHtml(id, value, minAttr){
+  var v = vvCalIsIso(value) ? value : '';
+  return '<div class="vvcal-field">'+
+    '<input type="date" class="vvcal-native" id="'+id+'" value="'+escapeHtml(v)+'"'+
+      (minAttr ? ' min="'+escapeHtml(minAttr)+'"' : '')+'>'+
+    '<button type="button" class="vvcal-open" tabindex="-1" aria-hidden="true" '+
+      'data-action="cal-open" data-cal-for="'+id+'">'+
+      '<span class="vvcal-shown'+(v ? '' : ' is-empty')+'">'+escapeHtml(vvCalShown(v))+'</span>'+
+      ICONS.calendarWeek+
+    '</button>'+
+  '</div>';
+}
+function vvCalSyncTrigger(input){
+  if (!input || !input.parentElement) return;
+  var span = input.parentElement.querySelector
+    ? input.parentElement.querySelector('.vvcal-shown') : null;
+  if (!span) return;
+  span.textContent = vvCalShown(input.value);
+  if (span.classList && span.classList.toggle) span.classList.toggle('is-empty', !input.value);
+}
+function vvCalOpen(id){
+  var input = id ? document.getElementById(id) : null;
+  if (!input || !document.body || !document.body.appendChild) return;
+  vvCalClose();
+  var picked = vvCalIsIso(input.value) ? input.value : '';
+  var min = input.getAttribute ? (input.getAttribute('min') || '') : '';
+  var anchor = picked || (vvCalIsIso(min) ? min : '') || todayStr();
+  VVCAL = { id: id, picked: picked, view: anchor.slice(0, 7) };
+  var scrim = document.createElement('div');
+  scrim.className = 'vvcal-scrim';
+  scrim.setAttribute('data-action', 'cal-dismiss');
+  document.body.appendChild(scrim);
+  vvCalRender();
+}
+function vvCalClose(){
+  var s = document.querySelector ? document.querySelector('.vvcal-scrim') : null;
+  if (s && s.parentElement && s.parentElement.removeChild) s.parentElement.removeChild(s);
+  VVCAL = null;
+}
+function vvCalShiftMonth(step){
+  if (!VVCAL || !step) return;
+  var y = parseInt(VVCAL.view.slice(0,4), 10);
+  var m = parseInt(VVCAL.view.slice(5,7), 10) - 1 + step;
+  y += Math.floor(m / 12);
+  m = ((m % 12) + 12) % 12;
+  VVCAL.view = y + '-' + vvPad2(m + 1);
+  vvCalRender();
+}
+function vvCalPick(iso){
+  if (!VVCAL || !vvCalIsIso(iso)) return;
+  VVCAL.picked = iso;
+  vvCalRender();
+}
+function vvCalCommit(){
+  if (!VVCAL) return;
+  var id = VVCAL.id, v = VVCAL.picked;
+  vvCalClose();
+  if (!vvCalIsIso(v)) return;
+  var input = document.getElementById(id);
+  if (!input) return;
+  input.value = v;
+  vvCalSyncTrigger(input);
+  /* The events typing a date would have fired. bldSyncRunwayNote() listens
+     on 'input'; the restriction sheet and the entry-evidence reveal read on
+     'input' too. Both are fired so nothing has to know which we chose. */
+  if (typeof Event === 'function' && input.dispatchEvent){
+    input.dispatchEvent(new Event('input',  { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+function vvCalRender(){
+  var scrim = document.querySelector ? document.querySelector('.vvcal-scrim') : null;
+  if (!VVCAL || !scrim) return;
+  var input = document.getElementById(VVCAL.id);
+  var min = (input && input.getAttribute) ? (input.getAttribute('min') || '') : '';
+  var max = (input && input.getAttribute) ? (input.getAttribute('max') || '') : '';
+  var y = parseInt(VVCAL.view.slice(0,4), 10);
+  var m = parseInt(VVCAL.view.slice(5,7), 10) - 1;
+  if (isNaN(y) || isNaN(m)) return;
+  /* UTC throughout: a local-time Date on a day the clock shifts can land on
+     the wrong date, and these cells ARE the dates. */
+  var lead = (new Date(Date.UTC(y, m, 1)).getUTCDay() + 6) % 7;
+  var days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  var today = todayStr();
+  var cells = '', i, iso, off, cls;
+  for (i = 0; i < lead; i++) cells += '<div class="vvcal-cell is-empty" aria-hidden="true"></div>';
+  for (i = 1; i <= days; i++){
+    iso = y + '-' + vvPad2(m + 1) + '-' + vvPad2(i);
+    off = (min && iso < min) || (max && iso > max);
+    cls = 'vvcal-cell';
+    if (iso === today) cls += ' is-today';
+    if (iso === VVCAL.picked) cls += ' is-picked';
+    cells += '<button type="button" class="'+cls+'" data-action="cal-day" data-date="'+iso+'"'+
+      (off ? ' disabled' : '') + (iso === VVCAL.picked ? ' aria-current="date"' : '') +
+      '>' + i + '</button>';
+  }
+  /* The grid names the field it is answering for, taken from that field's own
+     label rather than restated here, so the three callers cannot drift. */
+  var field = (input && input.closest) ? input.closest('.field') : null;
+  var labelEl = (field && field.querySelector) ? field.querySelector('label') : null;
+  var kick = (labelEl && labelEl.textContent) ? labelEl.textContent.trim() : 'Date';
+  scrim.innerHTML =
+    '<div class="vvcal" role="dialog" aria-modal="true" data-action="cal-stay" '+
+      'aria-label="'+escapeHtml(kick)+'">'+
+      '<div class="vvcal-head">'+
+        '<div class="vvcal-kick">'+escapeHtml(kick)+'</div>'+
+        '<div class="vvcal-date">'+escapeHtml(vvCalHero(VVCAL.picked))+'</div>'+
+      '</div>'+
+      '<div class="vvcal-nav">'+
+        '<button type="button" class="vvcal-arrow is-prev" data-action="cal-month" '+
+          'data-step="-1" aria-label="Previous month">'+ICONS.chevronRight+'</button>'+
+        '<div class="vvcal-month">'+VVCAL_MONTHS[m]+' '+y+'</div>'+
+        '<button type="button" class="vvcal-arrow" data-action="cal-month" '+
+          'data-step="1" aria-label="Next month">'+ICONS.chevronRight+'</button>'+
+      '</div>'+
+      '<div class="vvcal-dow"><span>M</span><span>T</span><span>W</span><span>T</span>'+
+        '<span>F</span><span>S</span><span>S</span></div>'+
+      '<div class="vvcal-grid">'+cells+'</div>'+
+      '<div class="vvcal-foot">'+
+        '<button type="button" class="btn btn-ghost" data-action="cal-dismiss">Cancel</button>'+
+        '<button type="button" class="btn btn-primary" data-action="cal-set"'+
+          (vvCalIsIso(VVCAL.picked) ? '' : ' disabled')+'>Set date</button>'+
+      '</div>'+
+    '</div>';
+}
+
 function bldValidateStage(i){
   bldClearErrors();
   if (i === BLD_STAGE.EVENT){
@@ -54691,13 +55051,18 @@ function openEditModal(dayId){
       var tm = TYPE_META[x.type] || {};
       swapRows += '<button type="button" class="swap-day day type-'+(tm.cls||'rest')+'" '+
           'role="radio" aria-checked="false" data-action="ef-swap-pick" data-swap="'+x.id+'">'+
-        '<span class="swap-main">'+
-          '<span class="day-row1">'+
-            '<span class="day-date font-mono">'+dow(x.date)+' '+dShort(x.date)+'</span>'+
-            '<span class="day-badge type-'+(tm.cls||'rest')+' font-head">'+escapeHtml(dayTypeLabel(x))+'</span>'+
-          '</span>'+
-          '<span class="day-title">'+escapeHtml(x.title)+'</span>'+
-        '</span>'+
+        /* ---- ONE LINE. Founder: "within the box it should be easy aerobic
+           Friday 13 Nov on one line."
+           It was two: a mono date and a type pill above, the session name
+           below. The pill is gone with the second line rather than squeezed
+           onto the first -- it said EASY beside a title reading "Easy
+           Aerobic", over a rail already painted the easy colour, which is
+           the same fact three times. The rail stays: it is the one thing
+           the OS picker could not draw and the reason this list exists. */
+        '<span class="swap-main"><span class="swap-line">'+
+          '<span class="swap-name">'+escapeHtml(x.title)+'</span>'+
+          '<span class="swap-when font-mono">'+escapeHtml(swapWhen(x.date))+'</span>'+
+        '</span></span>'+
         '<span class="swap-tick" aria-hidden="true">'+ICONS.check+'</span>'+
       '</button>';
     });
@@ -54737,17 +55102,22 @@ function openEditModal(dayId){
      product and these two were the last section heads carrying one -- and
      with the panel flattened above, an icon here would be the only thing
      standing between the title and the gutter. */
-  var section = function(id, title, sub, body, open){
-    return '<details class="es-sec" id="'+id+'"'+(open ? ' open' : '')+'>'+
-      '<summary class="es-sec-head">'+
-        '<span class="es-sec-text">'+
-          '<span class="es-sec-title font-head">'+escapeHtml(title)+'</span>'+
-          (sub ? '<span class="es-sec-sub">'+escapeHtml(sub)+'</span>' : '')+
-        '</span>'+
-        '<span class="es-sec-chev" aria-hidden="true">'+ICONS.chevronDown+'</span>'+
-      '</summary>'+
-      '<div class="es-sec-body">'+body+'</div>'+
-    '</details>';
+  /* ---- NO TABS. Founder: "Reschedule -- has tabs!! Remove them all."
+     These were two <details>: a chevron, a summary and a body each, with
+     Reschedule shut by default. Two consequences and both were wrong. The
+     thing most athletes open this sheet to do was behind a tap, and the
+     second section's title was the word already printed in the modal head,
+     so the sheet said EDIT SESSION twice forty pixels apart -- the same
+     fault the build pages were just cleared of.
+     The id survives the <details> it used to be on: valhallaRedesign uses
+     #ef-sec-reschedule to assert a locked session can still be moved, and
+     that is still exactly what it tests. */
+  var section = function(id, title, sub, body){
+    return '<div class="es-sec" id="'+id+'">'+
+      (title ? '<div class="setup-section-title">'+escapeHtml(title)+'</div>' : '')+
+      (sub ? '<div class="es-sec-sub">'+escapeHtml(sub)+'</div>' : '')+
+      body+
+    '</div>';
   };
   var fields =
     (editable ? '' : '<div class="field-hint" style="margin-bottom:14px;">This session already happened \u2014 you can still record what you actually did below.</div>')+
@@ -54774,8 +55144,8 @@ function openEditModal(dayId){
   '<div class="modal-body es-body">'+
     summary+
     section('ef-sec-reschedule', 'Reschedule',
-            'Move or swap this session with another day.', reschedule, false)+
-    section('ef-sec-edit', 'Edit Session', '', fields, true)+
+            'Move or swap this session with another day.', reschedule)+
+    section('ef-sec-edit', '', '', fields)+
     '<div class="modal-actions es-actions">'+
       '<button type="button" class="btn btn-primary btn-block" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
     '</div>'+
@@ -65792,6 +66162,16 @@ document.addEventListener('click', function(e){
     case 'add-split': handleAddSplit(target.getAttribute('data-day')); break;
     case 'delete-split': handleDeleteSplit(target.getAttribute('data-day'), parseInt(target.getAttribute('data-index'),10)); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
+    /* The month grid. 'cal-stay' is the card itself and does nothing on
+       purpose: the scrim behind it carries 'cal-dismiss', and without a
+       data-action of its own the card would let closest() walk a tap on its
+       padding up to the scrim and close the thing being used. */
+    case 'cal-open':    vvCalOpen(target.getAttribute('data-cal-for')); break;
+    case 'cal-month':   vvCalShiftMonth(parseInt(target.getAttribute('data-step'), 10)); break;
+    case 'cal-day':     vvCalPick(target.getAttribute('data-date')); break;
+    case 'cal-set':     vvCalCommit(); break;
+    case 'cal-dismiss': vvCalClose(); break;
+    case 'cal-stay':    break;
     case 'race-outcome': handleRaceOutcome(target.getAttribute('data-outcome')); break;
     /* INJURY / ILLNESS. Every one of these is a tap the athlete made; none
        of them is reachable from anything Valhalla decided on its own. */

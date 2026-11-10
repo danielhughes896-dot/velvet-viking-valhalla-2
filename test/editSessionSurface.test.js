@@ -71,25 +71,43 @@ test('a field is a surface, not a hole', () => {
     'the fields are pills again -- --tile-radius is for panels');
 });
 
-test('nothing in Edit Session is a box inside a box', () => {
+test('the list around the type rows is still not a box', () => {
+  /* HALF OF THIS CHANGED SIDES. It also required .ev-card.ef-type-row to be
+     `background:none` -- rows bare on the panel -- and the founder has since
+     said "session types should now use the same boxes we had in build plan",
+     which is the opposite instruction. The row is a box now.
+     WHAT IS STILL TRUE AND STILL CHECKED is the thing that rule was really
+     protecting: there is no SECOND box around them. A bordered list holding
+     bordered tiles is the box-inside-a-box this sheet gave up. */
   assert.match(rule('.ef-type-list'), /border:0/, 'the type list is a box again');
-  assert.match(rule('.ev-card.ef-type-row'), /background:none/,
-    'the type rows are raised tiles again');
   assert.match(rule('.es-body fieldset'), /border:0/,
     'Completed is a fieldset box again');
 });
 
-test('a chosen session type is GOLD, and lit rather than outlined', () => {
-  assert.doesNotMatch(rule('.ef-type-row.is-picked'), /--cherry/,
-    'the selection went back to cherry -- cherry is progress, gold is choice');
-  assert.match(rule('.ef-type-row.is-picked'), /box-shadow:none/,
-    'the selection is outlined again instead of lit');
-  assert.match(rule('.ef-type-row.is-picked::before'), /opacity:1/,
-    'the selected row lost its light');
-  assert.match(rule('.ef-type-row::before'), /rgba\(227,177,90/,
-    'the pool behind a selected row is no longer gold');
-  assert.match(rule('.ef-type-row.is-picked .swap-tick'), /var\(--gold\)/,
-    'the tick is no longer gold');
+test('a chosen session type is CHERRY, in the builder\u2019s own language', () => {
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
+     It required gold and argued the law: "cherry is progress, gold is
+     choice". That stopped describing the product some time ago. The founder
+     took the builder's chosen option to a cherry line, then its fields, then
+     its titles, and has now said of this list: "cherry ticks ... no gold
+     glow, the same option section as build."
+     So what is pinned here is no longer WHICH colour wins an argument, but
+     that this list wears the SAME chosen state as the builder's option grid
+     -- rim and the product's cherry glow -- rather than a third one invented
+     for this sheet. The gold pool is asserted OFF: left on under a box it
+     would be two selected states at once. */
+  const on = rule('.ef-type-row.is-picked');
+  assert.match(on, /border-color:var\(--cherry\)/, 'the chosen type lost its cherry line');
+  assert.match(on, /box-shadow:0 0 16px var\(--cherry-dim\)/,
+    'the chosen type is not wearing the product\u2019s cherry glow');
+  assert.doesNotMatch(on, /--gold/, 'gold is back on the chosen type');
+  assert.match(rule('.ef-type-row.is-picked::before'), /opacity:0/,
+    'the gold pool lights under the cherry again');
+  assert.match(rule('.ef-type-row.is-picked .swap-tick'), /var\(--cherry\)/,
+    'the tick is not cherry');
+  /* The rail is the reason this list exists and is not part of the swap. */
+  assert.match(rule('.ef-type-row.type-easy .ef-type-rail'), /var\(--c-easy\)/,
+    'a row stopped carrying its own type colour');
 });
 
 test('the sticky modal header keeps its edge', () => {
@@ -200,12 +218,24 @@ test('the sheet’s Save is a button in the app’s language', () => {
      rule is scoped to .builder-light on purpose and the sheet records why,
      and cherry also sits directly above a cherry-outlined Reset, where the
      control that saves would look like the one that destroys. */
+  /* ---- AND THE CHERRY HALF CHANGED SIDES ----
+     Founder: "save needs changing to the cherry glow boarder and white
+     text." The paragraph above gave two reasons against it. The first --
+     that .btn-primary keeps the bronze gradient everywhere outside
+     .builder-light -- still holds, and is why this is still a scoped rule
+     and why the gradient is still asserted against. The second, that cherry
+     would make Save look like the Reset above it, no longer does: Reset was
+     moved to --z-threshold on the same instruction, so the two no longer
+     share a colour. */
   const save = rule('.es-actions .btn-primary');
   assert.match(save, /background:var\(--t-card\)/, 'Save is not on the card ground');
-  assert.match(save, /border:1px solid var\(--t-tile-rim\)/);
-  assert.match(save, /color:var\(--gold\)/);
+  assert.match(save, /border:1px solid var\(--cherry\)/, 'Save lost its cherry edge');
+  assert.match(save, /box-shadow:0 0 16px var\(--cherry-dim\)/, 'Save lost its glow');
+  assert.match(save, /color:var\(--ink\)/, 'Save\u2019s words are not white');
   assert.ok(!/linear-gradient/.test(save), 'the bronze gradient is back on Save');
-  assert.ok(!/--cherry/.test(save), 'Save has taken the builder’s cherry');
+  /* The separation the old argument demanded, now kept by Reset instead. */
+  assert.match(rule('.es-reset .btn-danger'), /var\(--z-threshold\)/,
+    'Reset is back on the muted threshold colour, where it shares an edge with Save');
 });
 
 /* ---------------------------------------------------------------------------
@@ -266,19 +296,21 @@ test('Edit Session does its work on the app’s 16, not a panel’s 32', () => {
   assert.match(sec[1], /background:none/, '.es-sec has grown a background back');
   assert.match(sec[1], /border-radius:0/, '.es-sec has grown a radius back');
 
-  const head = /\.es-sec-head\{([^}]*)\}/.exec(CSS);
-  assert.ok(head, '.es-sec-head rule is gone');
-  const hpad = /padding:([^;]*);/.exec(head[1]);
-  assert.ok(hpad, '.es-sec-head no longer declares its padding');
-  assert.match(hpad[1].trim(), /^\d+(\.\d+)?px 0$/,
-    '.es-sec-head has taken horizontal padding again, which pushes its title off the ' +
-    'gutter every other surface in the app sits on. Found: ' + hpad[1].trim());
-
-  const bodyRule = /\.es-sec-body\{([^}]*)\}/.exec(CSS);
-  assert.ok(bodyRule, '.es-sec-body rule is gone');
-  assert.match(bodyRule[1], /padding:\d+(\.\d+)?px 0 \d+(\.\d+)?px/,
-    '.es-sec-body has taken horizontal padding again, which is what put the fields at 32. ' +
-    'Found: ' + bodyRule[1].trim());
+  /* ---- THE PROBE MOVED WHEN THE MARKUP DID ----
+     This used to read the padding off .es-sec-head and .es-sec-body -- the
+     <summary> and the disclosure body -- because those were the two boxes
+     between a field and the gutter. Both are gone with the <details> the
+     founder asked to be removed, and the section is now a plain wrapper, so
+     the question is simply whether ANYTHING in this chain insets its
+     children. Asked of the wrapper itself it covers the same ground and
+     cannot be satisfied by a rule that no longer renders. */
+  assert.doesNotMatch(sec[1], /padding/,
+    '.es-sec has taken padding again, which is what put the fields at 32 rather than ' +
+    'the app\u2019s 16. Found: ' + sec[1].trim());
+  const flatTitle = /\.es-sec \.setup-section-title\{([^}]*)\}/.exec(CSS);
+  assert.ok(flatTitle, 'the flat section\u2019s title rule is gone');
+  assert.doesNotMatch(flatTitle[1], /padding|margin-left|margin-right/,
+    'the section title has been pushed off the gutter its fields sit on');
 
   /* Space, not a line: the hairline law above forbids a plain 1px separator,
      so the two sections are held apart by 26 -- .es-body's 14 gap plus 12 --
@@ -295,8 +327,16 @@ test('no section head in the sheet leads with a glyph', () => {
     'product, and with the panel flat it would be the only thing between the title and the gutter.');
   const helper = /var section = function\(([^)]*)\)/.exec(SRC);
   assert.ok(helper, 'the section() helper is gone');
-  assert.equal(helper[1].replace(/\s/g, ''), 'id,title,sub,body,open',
+  /* `open` is gone from the signature and that is the point: the sections
+     do not open any more. Founder: "remove them all please." The positional
+     hazard this guards is unchanged -- two call sites still pass these by
+     position, so a parameter added or dropped still shifts a title into a
+     subtitle silently. */
+  assert.equal(helper[1].replace(/\s/g, ''), 'id,title,sub,body',
     'section() signature changed. Its arguments are positional and two call sites pass ' +
     'them, so a parameter added or dropped here silently shifts a title into a subtitle. ' +
     'Found: (' + helper[1] + ')');
+  assert.ok(!/<details class="es-sec"/.test(SRC),
+    'the sheet is behind disclosures again -- Reschedule was shut by default, ' +
+    'which is the thing most athletes open this sheet to do');
 });

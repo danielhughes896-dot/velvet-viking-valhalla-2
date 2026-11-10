@@ -204,8 +204,18 @@ test('done, now and ahead are one colour language on the plan', () => {
      with :has(.week-today-flag) -- the "Now" pill WAS the hook. The founder
      took the pill off ("the gold text makes that point"), so the row
      carries the class itself and the pairing is asserted below. */
-  assert.match(weeks.slice(0, 1600), /\.week\.is-now \.week-phase\{color:var\(--gold-bright\);?\}/,
-    'the current week row is not gold');
+  /* ---- CHANGED SIDES WITH THE VELVET CHERRY HIERARCHY ----
+     This required --gold-bright. The founder has since set the rule the
+     whole app is being brought under: "Gold = brand/destination/milestone.
+     Cherry = active/training/interaction", and named this row in the list
+     that moves ("Full Plan current week on week rail -> cherry").
+     WHAT THIS TEST IS ABOUT IS UNCHANGED: done, now and ahead are still
+     three distinguishable states stated in tokens, and the assertion above
+     still holds green for done. Only the token for NOW moved, and the
+     phase slide's own line two assertions up deliberately did NOT -- a
+     phase is a destination and keeps its gold. */
+  assert.match(weeks.slice(0, 1600), /\.week\.is-now \.week-phase\{color:var\(--cherry-text\);?\}/,
+    'the current week row is not cherry');
 });
 
 test('the current week is lit again after the de-boxing took its ring', () => {
@@ -217,7 +227,11 @@ test('the current week is lit again after the de-boxing took its ring', () => {
   const i = BARE.indexOf('.view-plan .pp-body .week.is-now{');
   assert.ok(i > -1, 'the current week has no treatment at all');
   const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
-  assert.match(body, /box-shadow:0 0 \d+px(?: \d+px)? color-mix\(in srgb, var\(--gold\)/,
+  /* The TOKEN changed with the Velvet Cherry hierarchy -- this row is
+     training, not a destination -- and the thing this test exists for did
+     not: the current week is marked by LIGHT rather than by the ring the
+     de-boxing took, and is still marked by something. */
+  assert.match(body, /box-shadow:0 0 \d+px(?: \d+px)? color-mix\(in srgb, var\(--cherry\)/,
     'the current week is no longer lit');
   /* ---------- AND THE LIGHT IS ROUNDED, OR IT IS A PANEL ----------
      Founder: "The black box over the week is there a chance to smooth the
@@ -321,8 +335,21 @@ test('every gold glow that marks selection or state names its token', () => {
      the gold that survived on that screen, and it follows the same rule. */
   assert.match(BARE, /\.pp-dot\.is-on::before\{[^}]*color-mix\(in srgb, var\(--gold-bright\)/,
     'the current phase dot hand-sets its gold again');
-  assert.match(BARE, /\.wk-day\.is-sel\{[^}]*color-mix\(in srgb, var\(--gold\)/,
-    'the selected day circle hand-sets its gold again');
+  /* The selected circle is cherry now ("This Week selected/current day
+     circle -> cherry"), so it is counted against the cherry token instead.
+     The POINT of this test is unmoved: a glow that marks selection names
+     its token rather than hand-setting the hex, whichever token that is. */
+  assert.match(BARE, /\.wk-day\.is-sel\{[^}]*color-mix\(in srgb, var\(--cherry\)/,
+    'the selected day circle hand-sets its cherry again');
+  /* AND THE SAME COUNT, FOR CHERRY. Without this, moving a glow from gold
+     to cherry would move it out of the only rule that watches for
+     hand-set hexes -- the palette change this test was written about would
+     simply reappear in the new colour. */
+  const cherryHalos = (BARE.match(/box-shadow:[^;]*rgba\(154,84,108[^;]*;/g) || [])
+    .filter(h => !/0 0 0 \d+px|0 \d+px \d+px/.test(h));
+  assert.equal(cherryHalos.length, 0,
+    'hand-set cherry glows: ' + cherryHalos.length + ' -- name --cherry/--cherry-dim\n  ' +
+    cherryHalos.join('\n  '));
 });
 
 /* THE ROW SAYS WHAT HAPPENED, IN THE SPACE IT WAS ALREADY LEAVING EMPTY.
@@ -498,22 +525,60 @@ test('a rail card\u2019s title is the hero title, in one declaration', () => {
      reason EASY / SETTLE / CARB INTAKE were joined to it in the first place.
      ASSERTED AS MEMBERSHIP, not as 21.85px. A copy with identical values
      would pass a value check and still be a second definition. */
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
+     It required MEMBERSHIP: the phase slide title had to be the fourth arm
+     of the session rail card's title declaration, so a second copy of the
+     hero title could not be made by accident.
+     Founder, on the Full Plan rail: "I need a magnifying glass to read it
+     ... I want the title to be bigger than the rest." Growing the shared
+     declaration would have taken EASY, SETTLE and CARB INTAKE on every
+     session card with it; the founder was given that choice against the
+     alternative and chose to split this one off.
+     SO THE CHECK MOVES FROM MEMBERSHIP TO CHARACTER. Everything the
+     founder's original rule was about -- white, uppercase, the label face,
+     and the glow that lifts a title off a photograph -- is still asserted,
+     on a rule of its own. The SIZE deliberately is not, because being
+     bigger than the session card titles is now the point. */
   const i = BARE.indexOf('.view-plan .pp-slide-k');
   assert.ok(i > -1, 'the phase slide title has no rule at all');
   const open = BARE.indexOf('{', i);
   const decl = BARE.slice(open + 1, BARE.indexOf('}', open));
-  const head = BARE.lastIndexOf('.ws-rail .ws-h-presc:not(.font-mono)', i);
-  assert.ok(head > -1 && head < i,
-    'the phase slide title is no longer joined to the session rail card title — ' +
-    'it has a declaration of its own, which is a second definition of the hero title');
-  /* Nothing may sit between them but other arms of the same selector list. */
-  const between = BARE.slice(head, i);
-  assert.ok(between.indexOf('}') === -1,
-    'a rule closed between the session card title and the phase slide title, so they ' +
-    'are two declarations that merely look alike');
-  ['font-size:21.85px', 'color:#FFFFFF', 'text-transform:uppercase', 'var(--label-face)']
+  ['color:#FFFFFF', 'text-transform:uppercase', 'var(--label-face)', 'text-shadow:']
     .forEach(d => assert.ok(decl.indexOf(d) > -1,
-      'the shared hero-title declaration stopped setting ' + d));
+      'the phase slide title stopped setting ' + d + ', which is the hero character ' +
+      'the founder asked a rail title to keep'));
+  /* AND IT MUST STILL BE THE BIGGEST THING ON THE SLIDE, which is the whole
+     reason it was split off. Read against the two lines under it. */
+  const sizeOf = sel => {
+    const j = BARE.indexOf(sel);
+    assert.ok(j > -1, sel + ' has no rule');
+    const b = BARE.slice(BARE.indexOf('{', j) + 1, BARE.indexOf('}', BARE.indexOf('{', j)));
+    const px = /font-size:([\d.]+)px/.exec(b);
+    if (px) return parseFloat(px[1]);
+    /* A TIER TOKEN IS A SIZE TOO. typographyConsistency requires every line
+       of prose to take --fs-body or --fs-support rather than a hand-set px,
+       so the sentence on this slide legitimately has no literal. Resolve it
+       off :root instead of failing -- the hierarchy is what is under test,
+       not how the number is spelt. */
+    const tok = /font-size:var\((--fs-[a-z]+)\)/.exec(b);
+    assert.ok(tok, sel + ' states neither a pixel size nor a size token, so the hierarchy ' +
+      'cannot be checked');
+    const decl = new RegExp(tok[1] + ':\\s*([\\d.]+)rem').exec(BARE);
+    assert.ok(decl, tok[1] + ' is not declared in rem on :root');
+    return parseFloat(decl[1]) * 16;
+  };
+  const tSize = sizeOf('.view-plan .pp-slide-k');
+  const mSize = sizeOf('.pp-slide-msg');
+  const wSize = sizeOf('.pp-slide-w');
+  assert.ok(tSize > mSize && mSize > wSize,
+    'the slide no longer reads title > sentence > weeks line, which is the hierarchy ' +
+    'the founder asked for: title ' + tSize + ', sentence ' + mSize + ', weeks ' + wSize);
+  /* The band is fixed at --rail-pic and the phase photographs are cut to it,
+     so a title that outgrows the band is a crop change nobody asked for.
+     Measured: 119px of content at 31px, against 274px less 38px of padding. */
+  assert.ok(tSize <= 36,
+    'the slide title is ' + tSize + 'px; past about 36 the three lines stop fitting ' +
+    'the photograph band, whose height the phase crops are cut to');
 });
 
 test('a one-phase block gets the headed section, not a carousel of one', () => {

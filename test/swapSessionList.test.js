@@ -86,10 +86,21 @@ test('each row is a .day with its own type rail and badge', () => {
   const { a, html } = athlete();
   const rows = [...html.matchAll(/<button type="button" class="swap-day day type-([a-z]+)"[\s\S]*?<\/button>/g)];
   assert.equal(rows.length, rowIds(html).length, 'a row was rendered without the plan card shell');
+  /* ---- TWO OF THESE THREE CHANGED SIDES ----
+     The row was the plan card's two-line shell: a mono date and a type pill
+     on one line, the session name under it. Founder: "within the box it
+     should be easy aerobic Friday 13 Nov on one line."
+     THE BADGE IS GONE RATHER THAN MOVED. It said EASY next to a title
+     reading "Easy Aerobic", on a row whose rail is already painted the easy
+     colour -- the same fact three times, and the one that had to go when the
+     line had to hold a name and a date.
+     WHAT THIS TEST PROTECTS IS UNCHANGED and still below: every row still
+     carries its own TYPE RAIL, read from TYPE_META rather than invented.
+     That is what the OS picker threw away and why this list was built. */
   rows.forEach(m => {
-    assert.match(m[0], /class="day-date font-mono"/, 'the mono date is missing');
-    assert.match(m[0], /class="day-badge type-/, 'the type badge is missing');
-    assert.match(m[0], /class="day-title"/, 'the session name is missing');
+    assert.match(m[0], /class="swap-name">/, 'the session name is missing');
+    assert.match(m[0], /class="swap-when font-mono">/, 'the mono date is missing');
+    assert.match(m[0], /class="swap-line"/, 'the row is not one line any more');
   });
   // the rails are the real type classes, read from TYPE_META rather than invented
   const rails = new Set(rows.map(m => m[1]));
@@ -98,13 +109,16 @@ test('each row is a .day with its own type rail and badge', () => {
   assert.ok(rails.size > 2, 'every row came out the same colour — the rail is not following the type');
 });
 
-test('the badge text is the plan’s own, not a second vocabulary', () => {
+test('the row text is the plan’s own, not a second vocabulary', () => {
+  /* The badge this used to read is gone (see above), so the check moves to
+     the words that replaced it: the session's own title, which is what the
+     plan prints on the day card. Same question -- does this list speak the
+     plan's vocabulary, or invent one. */
   const { a, html } = athlete();
   rowIds(html).forEach(id => {
     const day = a.findDay(id);
-    const label = a.dayTypeLabel(day);
-    assert.ok(html.indexOf('>' + label + '</span>') !== -1 || html.indexOf(label) !== -1,
-      'row ' + id + ' does not carry dayTypeLabel()’s own words');
+    assert.ok(html.indexOf('class="swap-name">' + day.title + '</span>') !== -1,
+      'row ' + id + ' does not carry the day’s own title');
   });
 });
 

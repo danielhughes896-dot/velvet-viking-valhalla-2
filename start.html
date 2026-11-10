@@ -211,6 +211,70 @@
     filter:invert(41%) sepia(38%) saturate(720%) hue-rotate(6deg) brightness(92%);
   }
 
+  /* ---------- THE MONTH GRID, THE SAME ONE THE APP DRAWS ----------
+     The rules above dressed an <input type="date"> and the overlay it opened
+     belonged to Android or iOS. Founder: "I think any calendars should be
+     the one you've built."
+     NOT SHARED CODE, and that is a property of this file rather than a
+     choice: /start is served before an athlete has an account and carries
+     its own copy of the builder, its own stylesheet and none of the app's
+     helpers. What IS shared is BUILDER_SPEC, which decides what the stage
+     asks -- the picker is presentation, and presentation has always been
+     duplicated here. Token names differ where the shared shell does not
+     carry the app's (--label-face, --tap-min, --t-card have no definition
+     on this page), so the literal behind each is used rather than a
+     var() that resolves to nothing. */
+  .vvcal-field{position:relative;}
+  .vvcal-native{position:absolute; inset:0; width:100%; height:100%;
+    opacity:0; pointer-events:none; margin:0; padding:0; border:0;}
+  .vvcal-open{
+    position:relative; width:100%; display:flex; align-items:center;
+    justify-content:space-between; gap:10px; text-align:left;
+    min-height:52px; padding:14px 13px;
+    font-family:var(--num-face); font-size:var(--fs-data); letter-spacing:.4px;
+    color:var(--ctl-text); background:var(--t-tile);
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);}
+  .vvcal-open svg{width:17px; height:17px; flex:none; color:var(--cherry-text);}
+  .vvcal-shown.is-empty{color:var(--ctl-placeholder);}
+  .vvcal-field:focus-within .vvcal-open{
+    border-color:var(--ctl-accent); box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);}
+  .vvcal-scrim{position:fixed; inset:0; z-index:150; display:flex;
+    align-items:center; justify-content:center; padding:16px;
+    background:rgba(8,8,10,.62);}
+  .vvcal{width:100%; max-width:344px; border:1px solid var(--t-tile-rim);
+    border-radius:var(--tile-radius); background:var(--bg-3);
+    box-shadow:0 18px 48px rgba(0,0,0,.55); overflow:hidden;}
+  .vvcal-head{padding:15px 17px 13px;}
+  .vvcal-kick{font-family:var(--text-face); font-size:var(--fs-label);
+    letter-spacing:.06em; text-transform:uppercase; font-weight:700;
+    color:var(--ink-faint); margin-bottom:5px;}
+  .vvcal-date{font-family:var(--num-face); font-size:23px; font-weight:700;
+    letter-spacing:.4px; color:var(--ink); line-height:1.1;}
+  .vvcal-nav{display:flex; align-items:center; justify-content:space-between; padding:2px 11px 4px;}
+  .vvcal-month{font-family:var(--text-face); font-size:13px; font-weight:700;
+    letter-spacing:2.2px; text-transform:uppercase; color:var(--ink);}
+  .vvcal-arrow{width:44px; height:44px; display:flex; align-items:center;
+    justify-content:center; border-radius:50%; border:1px solid var(--line);
+    background:var(--bg-2); color:var(--ink-dim); font-size:17px; line-height:1;}
+  .vvcal-dow{display:grid; grid-template-columns:repeat(7,1fr); padding:4px 11px 2px;}
+  .vvcal-dow span{text-align:center; font-family:var(--text-face);
+    font-size:var(--fs-label); letter-spacing:1.1px; color:var(--ink-faint);
+    text-transform:uppercase;}
+  .vvcal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:4px 11px 12px;}
+  .vvcal-cell{position:relative; aspect-ratio:1; min-height:38px; padding:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--num-face); font-size:15px; font-weight:600;
+    color:var(--ink); border-radius:50%; border:1px solid transparent;
+    background:none;}
+  .vvcal-cell.is-empty{visibility:hidden;}
+  .vvcal-cell[disabled]{color:var(--ink-faint); opacity:.32;}
+  .vvcal-cell.is-today{border-color:var(--bronze); color:var(--gold-text);}
+  .vvcal-cell.is-picked{background:var(--cherry-fill); color:#FFFFFF;
+    border-color:transparent;
+    box-shadow:inset 0 0 0 1px var(--cherry), 0 0 16px var(--cherry-dim);}
+  .vvcal-foot{display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:9px 13px 14px;}
+  .vvcal-foot .btn{min-height:48px;}
+
   /* ---------- the objective cards ---------- */
   .bld-purpose{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
   .bld-purpose button{
@@ -950,7 +1014,7 @@
       '<div id="bld-event-body">' +
         (isRace && Ans.eventMode === 'event'
           ? '<div class="field bld-date" id="f-racedate"><label>Event date</label>' +
-            '<input id="bld-racedate" type="date" value="'+Ans.raceDate+'">' +
+            vvCalFieldHtml('bld-racedate', Ans.raceDate, todayStrLocal()) +
             '<div class="field-hint">Progression and taper anchor to this day.</div></div>'
           : '<div class="field" id="f-weeks"><label>Training block length (weeks)</label>' +
             '<input id="bld-weeks" type="number" min="'+weeksRange[0]+'" max="'+weeksRange[1]+'" step="1" inputmode="numeric" value="'+Ans.weeks+'">' +
@@ -1008,7 +1072,7 @@
       '<div class="field-hint">'+EVF.longestRunKm.hint+'</div></div>' +
       '<div class="field" id="f-entry-long-date"'+
         (parseFloat(Ans.entryLong) > 0 ? '' : ' hidden')+'><label>'+EVF.longestRunDate.label+'</label>' +
-      '<input id="bld-entry-long-date" type="date" value="'+(Ans.entryLongDate||'')+'">' +
+      vvCalFieldHtml('bld-entry-long-date', Ans.entryLongDate||'', '') +
       '<div class="field-hint">'+EVF.longestRunDate.hint+'</div></div>';
     wireOptGrid('bld-entry-days', function(v){ Ans.entryDays = v; });
     $('bld-volume').addEventListener('input', function(){ Ans.volume = $('bld-volume').value; });
@@ -1234,6 +1298,156 @@
   }
 
   /* ---------- navigation ---------- */
+
+  /* ---------- THE MONTH GRID ----------
+     The app's, rebuilt for this page: same behaviour, same markup, same
+     cherry chosen-day, and the same contract -- the real <input type="date">
+     stays in the DOM with the same id and value, so readAnswers() and the
+     preview request read exactly what they read before. It is invisible and
+     cannot be tapped, but stays focusable, so a keyboard or screen reader
+     still gets the native control.
+     ONE DELEGATED LISTENER, because the two fields are re-rendered by
+     bldGoToStage() and a bound handler would be lost each time. */
+  var VVCAL = null;
+  var VVCAL_MONTHS = ['January','February','March','April','May','June','July',
+                      'August','September','October','November','December'];
+  var VVCAL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+
+    '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/>'+
+    '<path d="M8 3v4"/><path d="M16 3v4"/></svg>';
+  function vvPad2(n){ return (n < 10 ? '0' : '') + n; }
+  function vvCalIsIso(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v); }
+  function vvEsc(v){ return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function vvCalShown(v){
+    if (!vvCalIsIso(v)) return 'Choose a date';
+    var d = new Date(v + 'T00:00:00');
+    if (isNaN(d.getTime())) return 'Choose a date';
+    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  }
+  function vvCalHero(v){
+    if (!vvCalIsIso(v)) return 'No date yet';
+    var d = new Date(v + 'T00:00:00');
+    if (isNaN(d.getTime())) return 'No date yet';
+    return d.toLocaleDateString('en-GB',
+      { weekday:'short', day:'numeric', month:'short', year:'numeric' })
+      .replace(/,/g, '').toUpperCase();
+  }
+  function vvCalFieldHtml(id, value, minAttr){
+    var v = vvCalIsIso(value) ? value : '';
+    return '<div class="vvcal-field">'+
+      '<input type="date" class="vvcal-native" id="'+id+'" value="'+vvEsc(v)+'"'+
+        (minAttr ? ' min="'+vvEsc(minAttr)+'"' : '')+'>'+
+      '<button type="button" class="vvcal-open" tabindex="-1" aria-hidden="true" '+
+        'data-cal="open" data-cal-for="'+id+'">'+
+        '<span class="vvcal-shown'+(v ? '' : ' is-empty')+'">'+vvEsc(vvCalShown(v))+'</span>'+
+        VVCAL_ICON+
+      '</button>'+
+    '</div>';
+  }
+  function vvCalSyncTrigger(input){
+    if (!input || !input.parentElement) return;
+    var span = input.parentElement.querySelector('.vvcal-shown');
+    if (!span) return;
+    span.textContent = vvCalShown(input.value);
+    span.classList.toggle('is-empty', !input.value);
+  }
+  function vvCalClose(){
+    var sc = document.querySelector('.vvcal-scrim');
+    if (sc && sc.parentElement) sc.parentElement.removeChild(sc);
+    VVCAL = null;
+  }
+  function vvCalOpen(id){
+    var input = id ? document.getElementById(id) : null;
+    if (!input) return;
+    vvCalClose();
+    var picked = vvCalIsIso(input.value) ? input.value : '';
+    var min = input.getAttribute('min') || '';
+    var anchor = picked || (vvCalIsIso(min) ? min : '') || todayStrLocal();
+    VVCAL = { id:id, picked:picked, view:anchor.slice(0,7) };
+    var sc = document.createElement('div');
+    sc.className = 'vvcal-scrim';
+    sc.setAttribute('data-cal','dismiss');
+    document.body.appendChild(sc);
+    vvCalRender();
+  }
+  function vvCalShiftMonth(step){
+    if (!VVCAL || !step) return;
+    var y = parseInt(VVCAL.view.slice(0,4), 10);
+    var m = parseInt(VVCAL.view.slice(5,7), 10) - 1 + step;
+    y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+    VVCAL.view = y + '-' + vvPad2(m + 1);
+    vvCalRender();
+  }
+  function vvCalCommit(){
+    if (!VVCAL) return;
+    var id = VVCAL.id, v = VVCAL.picked;
+    vvCalClose();
+    if (!vvCalIsIso(v)) return;
+    var input = document.getElementById(id);
+    if (!input) return;
+    input.value = v;
+    vvCalSyncTrigger(input);
+    input.dispatchEvent(new Event('input',  { bubbles:true }));
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+  }
+  function vvCalRender(){
+    var sc = document.querySelector('.vvcal-scrim');
+    if (!VVCAL || !sc) return;
+    var input = document.getElementById(VVCAL.id);
+    var min = (input && input.getAttribute('min')) || '';
+    var y = parseInt(VVCAL.view.slice(0,4), 10);
+    var m = parseInt(VVCAL.view.slice(5,7), 10) - 1;
+    if (isNaN(y) || isNaN(m)) return;
+    var lead = (new Date(Date.UTC(y, m, 1)).getUTCDay() + 6) % 7;
+    var days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    var today = todayStrLocal();
+    var cells = '', i, iso, cls;
+    for (i = 0; i < lead; i++) cells += '<div class="vvcal-cell is-empty" aria-hidden="true"></div>';
+    for (i = 1; i <= days; i++){
+      iso = y + '-' + vvPad2(m + 1) + '-' + vvPad2(i);
+      cls = 'vvcal-cell';
+      if (iso === today) cls += ' is-today';
+      if (iso === VVCAL.picked) cls += ' is-picked';
+      cells += '<button type="button" class="'+cls+'" data-cal="day" data-date="'+iso+'"'+
+        ((min && iso < min) ? ' disabled' : '')+'>'+i+'</button>';
+    }
+    var field = input && input.closest ? input.closest('.field') : null;
+    var labelEl = field ? field.querySelector('label') : null;
+    var kick = (labelEl && labelEl.textContent) ? labelEl.textContent.trim() : 'Date';
+    sc.innerHTML =
+      '<div class="vvcal" role="dialog" aria-modal="true" data-cal="stay" '+
+        'aria-label="'+vvEsc(kick)+'">'+
+        '<div class="vvcal-head"><div class="vvcal-kick">'+vvEsc(kick)+'</div>'+
+          '<div class="vvcal-date">'+vvEsc(vvCalHero(VVCAL.picked))+'</div></div>'+
+        '<div class="vvcal-nav">'+
+          '<button type="button" class="vvcal-arrow" data-cal="month" data-step="-1" '+
+            'aria-label="Previous month">&#8249;</button>'+
+          '<div class="vvcal-month">'+VVCAL_MONTHS[m]+' '+y+'</div>'+
+          '<button type="button" class="vvcal-arrow" data-cal="month" data-step="1" '+
+            'aria-label="Next month">&#8250;</button>'+
+        '</div>'+
+        '<div class="vvcal-dow"><span>M</span><span>T</span><span>W</span><span>T</span>'+
+          '<span>F</span><span>S</span><span>S</span></div>'+
+        '<div class="vvcal-grid">'+cells+'</div>'+
+        '<div class="vvcal-foot">'+
+          '<button type="button" class="btn btn-ghost" data-cal="dismiss">Cancel</button>'+
+          '<button type="button" class="btn btn-primary" data-cal="set"'+
+            (vvCalIsIso(VVCAL.picked) ? '' : ' disabled')+'>Set date</button>'+
+        '</div>'+
+      '</div>';
+  }
+  document.addEventListener('click', function(e){
+    var t = e.target.closest ? e.target.closest('[data-cal]') : null;
+    if (!t) return;
+    var what = t.getAttribute('data-cal');
+    if (what === 'open')        vvCalOpen(t.getAttribute('data-cal-for'));
+    else if (what === 'month')  vvCalShiftMonth(parseInt(t.getAttribute('data-step'), 10));
+    else if (what === 'day')    { if (VVCAL){ VVCAL.picked = t.getAttribute('data-date'); vvCalRender(); } }
+    else if (what === 'set')    vvCalCommit();
+    else if (what === 'dismiss') vvCalClose();
+  });
+
   function bldGoToStage(n){
     bldCurrentStage = Math.max(0, Math.min(BLD_STAGES.length - 1, n));
     var rail = $('bld-rail');

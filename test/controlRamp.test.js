@@ -73,14 +73,31 @@ test('the navigation is lit, not drawn', () => {
   assert.ok(!/opacity:\s*0?\.\d/.test(rest), 'a resting tab is dimmed rather than full strength');
   assert.match(rest, /text-shadow:[^;]*rgba\(255,255,255/, 'a resting tab lost its backlight');
 
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE BAR ----
+     It required --gold-bright. Founder, setting the hierarchy for the whole
+     app: "Gold = brand/destination/milestone. Cherry =
+     active/training/interaction", with "active bottom navigation tab ->
+     cherry icon, text and glow" named in the list. The tab you are standing
+     on is where you ARE, which is interaction; gold stays on the wordmark,
+     the phase slides and the carousel dots, which are the brand and the
+     destination.
+     WHAT THIS TEST IS FOR IS UNCHANGED, and it is the paragraph above the
+     test rather than the token: --cherry-text sits below white in luminance
+     exactly as the gold it replaces did, so the chosen tab still cannot
+     carry its state on colour alone. The three cues are still pinned --
+     no slab, a heavier weight, and four light layers rather than the
+     resting two. Only the hue they are mixed from moved. */
   const act = /\.bn-item\.active\{([\s\S]*?)\n  \}/.exec(APP)[1];
   assert.ok(!/background:(?!none)/.test(act), 'the slab is back on the selected tab');
-  assert.match(act, /color:var\(--gold-bright\)/, 'the selected tab is not the brighter gold');
+  assert.match(act, /color:var\(--cherry-text\)/, 'the selected tab is not cherry');
   assert.match(act, /font-weight:700/, 'weight is one of the three cues and it has gone');
-  const layers = (act.match(/rgba\((?:227,177,90|245,208,97)/g) || []).length;
+  const layers = (act.match(/rgba\((?:154,84,108|196,106,137)/g) || []).length;
   assert.ok(layers >= 4,
-    'the selected tab carries ' + layers + ' gold light layers; it needs to out-shout ' +
+    'the selected tab carries ' + layers + ' cherry light layers; it needs to out-shout ' +
     'four bold white ones, and that is what illumination is for');
+  assert.ok(!/--gold/.test(act),
+    'gold is back on the selected tab -- gold is the brand and the destination now, ' +
+    'not the tab you are standing on');
 });
 
 // ---------------------------------------------------------------------------

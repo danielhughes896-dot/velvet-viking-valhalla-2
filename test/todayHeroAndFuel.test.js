@@ -236,10 +236,23 @@ test('a fuel card and a stage card share one title declaration', () => {
      THE ARMS MUST BE CONTIGUOUS. This walks from one to the next, so a
      comment wedged between them reads as four declarations that merely look
      alike; the explanation lives above the rule for exactly that reason. */
+  /*
+     THE FOURTH ARM HAS LEFT, ON INSTRUCTION. Full Plan's phase slide was
+     joined here under the founder's rule "in the rails the titles should be
+     white and big like they are in the heroes, same rules". They have since
+     said of that rail: "I need a magnifying glass to read it ... I want the
+     title to be bigger than the rest", and chose, when given the two
+     options, to split the slide off rather than grow this declaration and
+     take EASY, SETTLE and CARB INTAKE with it. The slide's own rule and its
+     character are pinned in test/planSurface; THREE kinds of card share
+     this one, and that is still the thing being asserted here. */
   assert.match(CSS, new RegExp(esc(F) + ' \\.ws-rail \\.ws-h-presc:not\\(\\.font-mono\\),[\\s\\S]{0,300}?' +
-    esc(F) + ' \\.how-mod \\.fuel-row \\.k,[\\s\\S]{0,200}?\\.strat-phase-label,\\s*\\n\\s*\\.view-plan \\.pp-slide-k\\{'),
-    'the four kinds of card no longer share one title declaration, so they can print ' +
-    'four different headings a swipe apart');
+    esc(F) + ' \\.how-mod \\.fuel-row \\.k,[\\s\\S]{0,200}?\\.strat-phase-label\\{'),
+    'the three kinds of card no longer share one title declaration, so they can print ' +
+    'three different headings a swipe apart');
+  assert.ok(!/\\.strat-phase-label,\\s*\\n\\s*\\.view-plan \\.pp-slide-k\\{/.test(CSS),
+    'the phase slide has been joined back onto the shared declaration, which would take ' +
+    'the session card titles with it the next time the rail is resized');
 });
 
 test('two rails in one card do not share a set of dots', () => {
