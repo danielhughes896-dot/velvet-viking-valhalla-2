@@ -94,7 +94,7 @@ test('a strained recovery says so on the circle itself', () => {
      recovery was strained. The instrument must still not do that -- it
      simply says it in words rather than in hue. */
   const a = withRecovery(planHQ(), 'strained');
-  const html = a.renderValhallaReadingPreview();
+  const html = a.renderValhallaInstruments();
   assert.equal(faceOf(html, 'recovery'), 'Strained',
     'the recovery circle does not state the engine\'s own verdict');
   assert.doesNotMatch(faceOf(html, 'recovery'), /fresh/i);
@@ -105,7 +105,7 @@ test('the face follows the engine through every recovery state', () => {
   const seen = {};
   Object.keys(words).forEach((state) => {
     const a = withRecovery(planHQ(), state);
-    const html = a.renderValhallaReadingPreview();
+    const html = a.renderValhallaInstruments();
     assert.equal(faceOf(html, 'recovery'), words[state],
       'recovery "' + state + '" is not stated as "' + words[state] + '"');
     seen[state] = accentOf(html, 'recovery');

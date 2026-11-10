@@ -102,7 +102,11 @@ test('READING: every interpretation the engine produces is reachable', () => {
   const keys = cards.map(c => (c.match(/data-reading="([^"]+)"/) || [])[1]);
   // Laid out from the arc's outside in, which is the reading order the
   // graduation is for -- not the order readingSections() happens to build in.
-  assert.equal(keys.join(','), 'recovery,evolution,patterns,adaptation');
+  /* THE ORDER IS THE FOUNDER'S PAIRS, not the arc's outside-in graduation:
+     "plan evolution - adaption, fitness - progress, recovery - patterns".
+     Fitness and Progress sit between these four in the grid and are Record
+     facts, so they are checked in test/planHqRecord rather than here. */
+  assert.equal(keys.join(','), 'evolution,adaptation,recovery,patterns');
   // Readiness is still one of the engine's sections and still has to be
   // openable. Its door is the gauge that was already showing it.
   const gaugeTag = (html.match(/<button[^>]*class="gauge-wrap"[^>]*>/) || [])[0] || '';
@@ -158,8 +162,15 @@ test('READING: the ring says which reading, the face says what it says', () => {
   const accent = s => (s.match(/--rd-base:([^;]+);/) || [])[1];
   const face = s => (s.match(/<b style="[^"]*">([^<]*)<\/b>/) || [])[1];
 
-  const before = recDial(a.renderValhallaReadingPreview());
-  const statusBefore = a.renderValhallaRecordPreview();
+  const before = recDial(a.renderValhallaInstruments());
+  /* THE RECORD FACTS ONLY. This took a snapshot of the whole Record preview
+     and compared it after the verdict moved. The two previews are one
+     renderer now, so a whole-block compare would include the reading
+     circles -- which are SUPPOSED to move -- and the check would fail on the
+     thing it is meant to allow. Narrowed to the facts themselves, which is
+     what "a fact took a tone" was ever about. */
+  const statusOnly = s => (s.match(/<button type="button" class="b-(?:dial b-stat|plate)"[\s\S]*?<\/button>/g) || []).join('');
+  const statusBefore = statusOnly(a.renderValhallaInstruments());
   assert.ok(before, 'no recovery circle at all');
 
   // Drive the engine to the opposite verdict.
@@ -168,13 +179,13 @@ test('READING: the ring says which reading, the face says what it says', () => {
     return function(){ const r = orig.apply(this, arguments); r.recovery.state = other; return r; };
   })(a.coachAnalyse);
 
-  const after = recDial(a.renderValhallaReadingPreview());
+  const after = recDial(a.renderValhallaInstruments());
   assert.notEqual(face(after), face(before),
     'the recovery circle says the same word for the opposite verdict — the reading is not live');
   assert.equal(accent(after), accent(before),
     'the recovery circle changed colour with the engine — the ring is meant to be its identity');
-  assert.equal(a.renderValhallaRecordPreview(), statusBefore,
-    'an Athlete Status circle moved when the coaching verdict moved — a fact took a tone');
+  assert.equal(statusOnly(a.renderValhallaInstruments()), statusBefore,
+    'an Athlete Status fact moved when the coaching verdict moved — a fact took a tone');
 
   // The panel is still where tone is carried, so the verdict is not colourless.
   assert.match(a.readingPanel('recovery'), /class="read-val (good|watch|bad)"/,
@@ -645,12 +656,28 @@ test('HQ: Valhalla opens on the right question, in the right order down one page
      coaching that has no depth behind it. */
   const html = a.renderPlanHQView();
   const at = s => html.indexOf(s);
-  assert.ok(at('class="v-hero"') < at('class="v-call'), 'the call is above the hero');
-  assert.ok(at('class="v-call') < at('>The Reading<'), 'the Reading arc is above the call');
-  assert.ok(at('>The Reading<') < at('>The Athlete Status<'),
-    'The Athlete Status is above the Reading arc');
-  assert.ok(at('>The Athlete Status<') < at(a.renderCoachPanel()),
-    'the coach cards are above the Athlete Status');
+  /* THE ORDER SURVIVED THE RESTRUCTURE AND THE TWO HEADINGS DID NOT.
+     Founder: "hero stays exactly the same!! Then 6 circles ... then 2 even
+     sized rectangular boxes ... the reading and the athlete status and gold
+     decor lines can be removed." So the same four questions are asked in the
+     same sequence; they are simply no longer announced by a headed row. */
+  /*
+     ---- CHANGED SIDES: VALHALLA'S CALL IS GONE ----
+     Founder: "I don't like Valhalla's call - proceed / Recovery fresh,
+     trend still building. We know the user should proceed."
+     The engine returns PROCEED on most days, so a band under the hero
+     announcing it told the athlete what opening the app already assumed,
+     and both readings in its sub-line are circles in the grid beneath it
+     with panels of their own. It had already given up its dot and then its
+     wash for the same reason; this is that argument reaching the block. */
+  assert.doesNotMatch(html, /class="v-call/, 'Valhalla\u2019s Call is back under the hero');
+  assert.ok(at('class="v-hero"') < at('class="b-grid"'), 'the circles are above the hero');
+  assert.ok(at('class="b-grid"') < at('class="b-plates"'),
+    'the plates are above the circles');
+  assert.ok(at('class="b-plates"') < at(a.renderCoachPanel()),
+    'the coach cards are above the plates');
+  assert.doesNotMatch(html, />The Reading</, 'the retired Reading heading is back');
+  assert.doesNotMatch(html, />The Athlete Status</, 'the retired Athlete Status heading is back');
   assert.doesNotMatch(html, /class="act-trio/,
     'a management action tile is still on the daily Valhalla page');
 });
@@ -664,9 +691,16 @@ test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a d
   // Four since readiness left the arc for the gauge, which is itself a
   // destination and is checked for one below.
   assert.equal(readingCardsHtml.length, 4, 'expected four Reading circles');
-  // Four now -- Goal joined Measured fitness, Benchmark and Progress when it
-  // lost the Record tab it had been living on.
-  assert.equal(recordCardsHtml.length, 4, 'expected four Athlete Status circles');
+  /* TWO CIRCLES AND TWO PLATES. Goal and Benchmark took plates of their own
+     when the founder split the row; the claim here is unchanged -- all four
+     facts are destinations and none of them expands in place. */
+  const plates = (html.match(/<button type="button" class="b-plate"[\s\S]*?<\/button>/g) || []);
+  assert.equal(recordCardsHtml.length, 2, 'expected two Athlete Status circles');
+  assert.equal(plates.length, 2, 'expected two Athlete Status plates');
+  plates.forEach(p => {
+    assert.match(p, /data-action="open-record"/, 'a plate that goes nowhere');
+    assert.doesNotMatch(p, /aria-expanded/, 'a plate that expands rather than opens');
+  });
   const gaugeTag = (html.match(/<button[^>]*class="gauge-wrap"[^>]*>/) || [])[0] || '';
   assert.match(gaugeTag, /data-action="open-reading"/, 'the gauge goes nowhere');
   assert.doesNotMatch(gaugeTag, /aria-expanded/, 'the gauge expands rather than opens');
@@ -688,19 +722,29 @@ test('HQ: the coaching that has no depth behind it stays on the page', () => {
      the cards with no depth behind them and so nothing to tap into -- is
      what this test has always been about, and it stays on the page. */
   assert.equal(typeof a.renderAthleteStatusCard, 'undefined');
-  assert.match(html, /class="v-call /, 'the status sentence lost its surface too');
+  /* The status sentence and its surface are both gone, on instruction --
+     see the order law above. What this test is about is the REST of the
+     coach's voice, which is unchanged and asserted below. */
+  assert.doesNotMatch(html, /class="v-call /, 'Valhalla\u2019s Call is back');
   assert.ok(html.indexOf(a.renderCoachPanel()) !== -1);
   assert.ok(a.renderCoachPanel().indexOf(a.renderBreakthroughCard(report)) !== -1,
     'Breakthrough Sessions left the coach panel');
-  assert.ok(a.renderCoachPanel().indexOf(a.renderCoachWatchCard(report)) !== -1,
-    'Coach Watch left the coach panel');
+  /* COACH WATCH LEFT ON INSTRUCTION -- founder: "is coaches watch there?
+     Because I don't want that!" The renderer is deleted rather than left
+     unreferenced, so this asserts its absence instead of its presence.
+     WHAT IT CARRIED IS ON THE RECORD in the comment on renderCoachPanel():
+     report.watch holds the coach's standing cautions, the unlogged-session
+     notice among them, and that warning now has no surface on Valhalla. */
+  assert.equal(typeof a.renderCoachWatchCard, 'undefined',
+    'the Coach Watch renderer is back');
+  assert.doesNotMatch(html, />Coach Watch</, 'the Coach Watch card is back on Valhalla');
 });
 
 test('HQ: an athlete with no plan is never asked to render any of this', () => {
   const a = loadApp({ pinnedDate: PINNED });
   a.state = a.makeDefaultState();
-  assert.equal(a.renderValhallaReadingPreview(), '');
-  assert.equal(a.renderValhallaRecordPreview(), '');
+  assert.equal(a.renderValhallaInstruments(), '');
+  assert.equal(a.renderValhallaInstruments(), '');
   assert.equal(a.renderRaceOutlook(), '');
   assert.equal(a.raceOutlook(), null);
   a.openHQPanel('recovery');

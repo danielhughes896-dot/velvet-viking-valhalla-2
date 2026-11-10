@@ -57,8 +57,15 @@ function planHQ(opts) {
    are. The Reading's circles share the .b-dial shell deliberately -- one
    component doing the other job -- so a Record circle is still identified by
    the action it fires, not by its class. */
+/* TWO SHAPES NOW, ONE HELPER. The founder split the Athlete Status row:
+   "then 2 even sized rectangular boxes. Goal - benchmark." A goal time and a
+   benchmark time are NUMBERS, and this file's own comment has always said
+   "plates and headlines are for numbers, circles are for state" -- so they
+   left the circles for plates while fitness and progress stayed circles in
+   the six-circle grid. One alternation, in DOCUMENT ORDER, so the subject
+   assertion below still reads the screen top to bottom. */
 function cards(html) {
-  return (html.match(/<button type="button" class="b-dial[^"]*"[\s\S]*?<\/button>/g) || [])
+  return (html.match(/<button type="button" class="b-(?:dial[^"]*|plate)"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
 }
 const isEmptyCard = c => /class="rec-none"/.test(c);
@@ -79,15 +86,18 @@ test('RECORD: Valhalla carries exactly four Record facts, each its own tappable 
   /* FOUR NOW. Training paces left for Settings' Training & Zones card (it is
      plan configuration, not a historical record), and Goal arrived when the
      Record tab that had been carrying the A/B/C chooser was retired. */
-  assert.equal(found.length, 4, 'expected four Record circles, found ' + found.length);
+  assert.equal(found.length, 4, 'expected four Record facts, found ' + found.length);
 
+  /* THE ORDER CHANGED WITH THE LAYOUT, AND THE SET DID NOT. Fitness and
+     Progress are circles three and four of the grid; Goal and Benchmark are
+     the two plates under it. Still four facts, still each its own control. */
   const subjects = found.map(c => (c.match(/aria-label="([^\u2014]+) \u2014/) || [])[1].trim());
-  assert.equal(subjects.join(' | '), 'Goal | Measured fitness | Benchmark | Progress');
+  assert.equal(subjects.join(' | '), 'Measured fitness | Progress | Goal | Benchmark');
 
   found.forEach(c => {
     assert.match(c, /data-action="open-record"/, 'a Record circle does not open anything');
     assert.match(c, /data-record="(goal|fitness|benchmark|progress)"/);
-    assert.match(c, /class="rd-val"/, 'a Record circle states no value at all');
+    assert.match(c, /class="(rd-val|b-plate-v)"/, 'a Record fact states no value at all');
     // and the sentence that used to sit under the card opens with the panel
     const key = (c.match(/data-record="([a-z]+)"/) || [])[1];
     const fact = a.recordFactByKey(key);
@@ -545,7 +555,13 @@ test('HQ: the coach panel, the checkpoint banner and Active Goal are all still r
   const view = a.renderPlanHQView();
   assert.ok(view.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Valhalla');
   assert.ok(view.indexOf(a.renderCheckpointBanner()) !== -1, 'the checkpoint banner left Valhalla');
-  assert.match(view, /<div class="setup-section-title">The Athlete Status<\/div>/);
+  /* THE HEADING IS GONE AND THE CONTENT IS NOT, which is all this line was
+     ever checking. Founder: "the reading and the athlete status and gold
+     decor lines can be removed." Asserted as the two plates, which is where
+     the Athlete Status facts that are numbers now live. */
+  assert.doesNotMatch(view, /The Athlete Status/,
+    'the retired heading is back on Valhalla');
+  assert.match(view, /class="b-plates"/, 'the Athlete Status plates left Valhalla');
 
   assert.ok(a.recordPanelGoal().indexOf(a.renderGoalToggle()) !== -1,
     'Active Goal is in no panel either — the decision is unreachable');

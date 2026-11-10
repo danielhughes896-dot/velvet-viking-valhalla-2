@@ -1943,7 +1943,13 @@ test('every wide glow carries a dither, and it is not inside the blur', () => {
        fine dither      widest  9px   steps>=6px  5   >=10px  0
      More stops cannot help: the banding is 8-bit quantisation, and the
      browser rounds to the same 255 levels between any two stops. */
-  const i = BARE.indexOf('.view-planhq .v-call::after');
+  /* RE-ANCHORED, NOT RELAXED. This read the group through
+     `.view-planhq .v-call::after`, which left it when the founder had the
+     call's wash removed -- "a noise layer over bare background is visible
+     for nothing", in this rule's own words. The last arm is the anchor now
+     and the membership check below is unchanged, so the dither still has to
+     reach every glow that was measured. */
+  const i = BARE.indexOf('.view-plan .yr-next::after');
   assert.ok(i > -1, 'the dither layer is gone — the wide glows band again');
   const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
   assert.match(body, /feTurbulence/, 'the dither is no longer a noise texture');
@@ -1959,7 +1965,7 @@ test('every wide glow carries a dither, and it is not inside the blur', () => {
 
   /* AND IT REACHES THE GLOWS THAT WERE MEASURED. */
   const sel = BARE.slice(i - 400, BARE.indexOf('{', i));
-  ['.how-note::after', '.exec-review-card::after', '.wk-taper::after', '.yr-next::after']
+  ['.how-note::after', '.exec-review-card::after', '.wk-taper::after']
     .forEach(s2 => assert.ok(sel.indexOf(s2) > -1, 'the dither no longer reaches ' + s2));
 });
 
@@ -1981,7 +1987,7 @@ test('the dither feathers out before the box edge, so there is no rectangle', ()
        glow-shaped 46x43 tail 70%  EDGE 0.64    8px /  7 / 0   <- shipped
        glow-shaped 44x41 tail 70%  EDGE 0.27   17px / 12 / 2
      (No dither at all bands 20px / 49 / 9, for scale.) */
-  const i = BARE.indexOf('.view-planhq .v-call::after');
+  const i = BARE.indexOf('.view-plan .yr-next::after');
   const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
 
   assert.match(body, /-webkit-mask-image:radial-gradient/,

@@ -90,7 +90,7 @@ test('SUBNAV: there is no subnav, on Valhalla or anywhere else', () => {
 test('SUBNAV: every Reading is opened by the face that states it', () => {
   const a = planHQ();
   const view = a.renderPlanHQView();
-  const preview = a.renderValhallaReadingPreview();
+  const preview = a.renderValhallaInstruments();
   const report = a.coachAnalyse();
   const keys = a.readingSections(report).map(s => s.key);
   assert.equal(keys.length, 5);
@@ -111,7 +111,7 @@ test('SUBNAV: every Reading is opened by the face that states it', () => {
 
 test('SUBNAV: every Record fact is opened by the circle that states it', () => {
   const a = planHQ();
-  const preview = a.renderValhallaRecordPreview();
+  const preview = a.renderValhallaInstruments();
   a.recordFacts().forEach(f => {
     assert.match(preview, new RegExp('data-action="open-record" data-record="' + f.key + '"'),
       f.key + ' has no way in from Valhalla');
@@ -133,7 +133,7 @@ test('SUBNAV: Active Goal survives the tabs, in the panel the Goal circle opens'
   assert.ok(panel.indexOf(a.renderGoalToggle()) !== -1,
     'the panel builds its own chooser instead of using renderGoalToggle()');
   // reachable, not merely defined
-  assert.match(a.renderValhallaRecordPreview(), /data-record="goal"/);
+  assert.match(a.renderValhallaInstruments(), /data-record="goal"/);
   assert.ok(a.RECORD_PANELS.goal);
 });
 
@@ -177,12 +177,14 @@ test('SUBNAV: nothing the tabs carried is missing from the one screen', () => {
   const a = planHQ();
   const view = a.renderPlanHQView();
   assert.ok(view.indexOf(a.renderProgrammeStatus()) !== -1, 'Programme Status missing');
-  assert.ok(view.indexOf(a.renderValhallaReadingPreview()) !== -1, 'The Reading missing');
-  assert.ok(view.indexOf(a.renderValhallaRecordPreview()) !== -1, 'The Athlete Status missing');
+  /* ONE RENDERER NOW. The two headed previews were deleted with their
+     headings; renderValhallaInstruments() emits the six circles and the two
+     plates between them, which is every destination the two previews had. */
+  assert.ok(view.indexOf(a.renderValhallaInstruments()) !== -1, 'the instruments are missing');
   assert.ok(view.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel missing');
   assert.ok(view.indexOf(a.renderCheckpointBanner()) !== -1, 'the checkpoint banner missing');
   // and none of it twice
-  [a.renderValhallaReadingPreview(), a.renderValhallaRecordPreview()].forEach(frag => {
+  [a.renderValhallaInstruments()].forEach(frag => {
     if (!frag) return;
     assert.equal(view.indexOf(frag), view.lastIndexOf(frag), 'a section renders twice');
   });
@@ -494,8 +496,8 @@ test('SAFETY: computeConfidenceScore, coachAnalyse and raceOutlook are untouched
   // Goal panel renders raceOutlook() and the goal chooser on the same
   // surface, which is exactly where a render could start deciding things.
   a.renderPlanHQView();
-  a.renderValhallaReadingPreview();
-  a.renderValhallaRecordPreview();
+  a.renderValhallaInstruments();
+  a.renderValhallaInstruments();
   Object.keys(a.RECORD_PANELS).forEach(k => a.hqPanelHtml(k));
   a.readingSections(a.coachAnalyse()).forEach(sec => a.hqPanelHtml(sec.key));
   a.renderPlanHQView();

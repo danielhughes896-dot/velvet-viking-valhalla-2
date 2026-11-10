@@ -844,25 +844,25 @@
      its own case: it carries :first-child{border-top:none}, which is only
      ever written for a separator BETWEEN things. */
   .view-planhq .v-hero{padding:4px 0 20px;}
-  /* THE CALL'S SEVERITY WAS IN FOUR PLACES AND I TOOK ALL FOUR. The tinted
-     gradient, the border, the 3px left bar and the glow were every one of
-     them --call-tone, so de-boxing left the single most important signal on
-     this screen carried by a 6px dot. It returns as the ambient wash the
-     Coach's Note uses -- blurred, overspilling, dissolving, built from the
-     same variable -- because the call is a region that is READ, and that is
-     what the wash family is for. Change the state and the light changes
-     with it, exactly as the rim used to. */
+  /* ---- AND THEN THE WASH WENT TOO ----
+     THE PARAGRAPH THAT STOOD HERE argued the opposite and is worth keeping
+     in summary, because it was right about the mechanism and wrong about
+     the need: de-boxing the call took its tinted gradient, its border, its
+     3px left bar and its glow -- all four of them --call-tone -- so the
+     severity came back as a full-bleed blurred radial, the same ambient
+     wash the Coach's Note uses, changing colour with the state.
+     Founder: "Valhalla's call - proceed. Does it offer anything? Really?
+     The green glow behind can deffo go."
+     IT GOES, AND THE SIGNAL DOES NOT, because the signal was never only the
+     colour: the title reads "VALHALLA'S CALL -- PROCEED", and PROCEED /
+     WATCH / EASE OFF is the state in the athlete's own language, a word
+     they can read rather than a hue they have to learn. A green field the
+     width of the phone, directly under the hero, on the state the engine
+     returns most of the time, was the loudest thing on the screen saying
+     the least new. The wash family is unchanged everywhere else it is used.
+     The ::after grain layer goes with it -- see the comment on that group:
+     "a noise layer over bare background is visible for nothing". */
   .view-planhq .v-call{position:relative; padding:18px 0 20px;}
-  .view-planhq .v-call::before{
-    content:''; position:absolute; z-index:0; pointer-events:none;
-    left:calc(50% - 50vw); width:100vw; right:auto; top:-2px; bottom:-2px;
-    border-radius:999px;
-    background:radial-gradient(46% 44% at 50% 50%,
-      color-mix(in srgb, var(--call-tone) 30%, transparent) 0%,
-      color-mix(in srgb, var(--call-tone) 16%, transparent) 48%,
-      color-mix(in srgb, var(--call-tone) 5%, transparent) 76%,
-      transparent 100%);
-    filter:blur(16px);}
   .view-planhq .v-call > *{position:relative; z-index:1;}
   /* .tile-card is the additive modifier the Valhalla consistency pass put
      ON TOP of .hub-card rather than editing it, which is why it has to be
@@ -6574,10 +6574,19 @@
      with the gutter everything else is measured from. They share an edge now
      -- the chip reads as the heading of the number under it rather than as a
      badge floating near the corner. */
+  /* ---- NOT A PILL ----
+     Founder: "I am bored of finding pills everywhere! This week card top
+     right. Recovery normal."
+     The reading is kept and the capsule is not. A rounded, bordered, filled
+     container is a control's shape, and this is not a control -- it states
+     one thing and cannot be pressed. The dot already carries the tone and
+     the words already carry the reading, so the box around them was adding
+     a third thing that said nothing. Position, size and colour are
+     unchanged, so nothing moves on the screen except the capsule leaving. */
   .wk-chip{position:absolute; top:var(--wk-hero-top); right:0;
     display:inline-flex; align-items:center; gap:6px;
-    padding:4px 10px 4px 8px; border-radius:99px;
-    background:rgba(255,255,255,.04); border:1px solid var(--t-tile-rim);
+    padding:4px 0; border-radius:0;
+    background:none; border:0;
     font-size:10.5px; letter-spacing:.02em; color:var(--ink-dim); max-width:48%;}
   .wk-chip span:last-child{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .wk-notes{margin-top:10px; color:var(--ink-faint);}
@@ -6691,7 +6700,6 @@
      .how-mod.is-active's gold panel glow is NOT here -- .how-mod's ::after
      is already the divider between panels, and that glow is small enough
      that its steps measured 3px, which is under the eye's threshold. */
-  .view-planhq .v-call::after,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note::after,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card::after,
   .wk-taper::after,
@@ -8612,6 +8620,61 @@
      and rank 2 takes (76-66)/2 = 5. Every column is then the same height,
      the circles still share one centre line, and the labels share one
      baseline because they all begin where the slot ends. */
+  /* ---------- THE GRID ----------
+     Two abreast and three deep, on instruction. justify-items centres each
+     circle in its own half rather than letting a long label drag it off
+     axis, and the row gap is larger than the column gap because the label
+     under a circle has to read as belonging to IT and not to the one below. */
+  /* ---------- AS BIG AS TWO ABREAST ALLOWS ----------
+     Founder: "I want them the biggest they can be ... make them big big
+     big." So the circle is no longer a fixed diameter at all: the column IS
+     the diameter, and aspect-ratio keeps it round. At 412px that is a 176px
+     face against the 90px it replaced; at 320px it is 135px and still
+     round, because the width it tracks is the grid's, not a number.
+     THE FACE TYPE SCALES WITH IT. Every inline font-size the dial renderers
+     emit is calc(Npx * var(--dv, 1)) -- the hook the narrow-phone shrink
+     already used -- so one custom property grows the words with the circle
+     instead of leaving a 13.5px verdict adrift in a 176px ring.
+     max-width is the ceiling a tablet would otherwise blow through. */
+  .b-grid{display:grid; grid-template-columns:1fr 1fr; gap:22px 12px;
+    justify-items:stretch; align-items:start; margin:6px 0 0; --dv:1.55;}
+  .b-grid .b-dial-col{width:100%;}
+  .b-grid .b-dial[data-rank]{width:100%; height:auto; aspect-ratio:1/1;
+    max-width:210px; margin-left:auto; margin-right:auto;}
+  .b-grid .b-medal{inset:6px;}
+  /* OUT-SPECIFIES THE RANK LADDER, DELIBERATELY. .b-dial[data-rank="0"]
+     .rd-val b caps the face at 74px -- right for a 90px circle, and the
+     reason "Learning" came back as "Learn / ing" inside a 176px one. The
+     cap is a percentage of the circle now, and the break rules go with it:
+     .rd-val b sets overflow-wrap:break-word for the narrow faces, which at
+     this size splits words that have room to fit. The grid has the width,
+     so it breaks between words or not at all, and the two-line faces that
+     SHOULD wrap ("On track") still do. */
+  .b-grid .b-dial[data-rank] .rd-val b{max-width:86%;
+    overflow-wrap:normal; word-break:normal; hyphens:none;}
+  .b-grid .rd-cat{font-size:12px;}
+  /* ---------- AND THE TWO PLATES ----------
+     Even, because neither of these two facts outranks the other. The rim is
+     the fact's own identity colour, exactly as its circle wore it, so the
+     shape changed and the vocabulary did not. */
+  .b-plates{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:16px 0 10px;}
+  /* Centred on instruction: "GOAL / A" and "BENCHMARK / 45:00" read down
+     the middle of their own box rather than off its left edge. */
+  .b-plate{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px; min-height:84px; padding:13px 15px; text-align:center;
+    border:1px solid color-mix(in srgb, var(--rd-base) 55%, transparent);
+    border-radius:var(--tile-radius);
+    background:var(--tile-sheen), var(--bg-2);
+    box-shadow:0 0 16px color-mix(in srgb, var(--rd-base) 14%, transparent);
+    -webkit-appearance:none; appearance:none; cursor:pointer;}
+  .b-plate-k{font-family:var(--label-face); font-size:var(--fs-label);
+    letter-spacing:var(--label-track); text-transform:uppercase;
+    font-weight:var(--label-weight); color:var(--ink);}
+  .b-plate-v{font-family:var(--num-face); font-size:26px; font-weight:700;
+    line-height:1.05; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .b-plate-s{font-family:var(--num-face); font-size:11px; color:var(--ink-dim);}
+  .b-plate:focus-visible{outline:2px solid var(--cherry); outline-offset:3px;}
   .b-dials-arc{display:flex; align-items:flex-start; justify-content:center; gap:5px;}
   .b-dials-arc .b-dial[data-rank="2"]{margin:5px 0;}
   /* The one hint voice: centred, faint, support size, a chevron each side so
@@ -8839,6 +8902,12 @@
     .b-dial[data-rank="1"] .rd-val b{max-width:54px;}
     .b-dial[data-rank="2"] .rd-val b{max-width:47px;}
     .b-dial[data-rank="s"] .rd-val b{max-width:64px;}
+    /* The grid is still a percentage of its own column at 360pt -- the
+       circle shrank with the column, so a px cap would clip it twice. The
+       type scale comes down with it. */
+    .b-grid{--dv:1.3;}
+    .b-grid .b-dial[data-rank]{width:100%; height:auto;}
+    .b-grid .b-dial[data-rank] .rd-val b{max-width:86%;}
     .rd-sub-data{max-width:68px;}
   }
 
@@ -9381,6 +9450,10 @@
   .goal-input-row input::placeholder{font-size:15px; font-weight:400;}
 
   .setup-section-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  /* The opt-in white, for the surfaces the founder has taken the gold off
+     one at a time. .bld-panel below does it by scope; this is for the ones
+     that are a single heading rather than a whole screen. */
+  .setup-section-title.is-white{color:var(--ink);}
   /* INSIDE THE BUILDER THEY ARE WHITE. Bronze is the eyebrow colour the
      other 54 uses of this class wear and keep; a build stage already has a
      gold-free palette (cherry chooses, white states) and a bronze eyebrow
@@ -48630,7 +48703,15 @@ function renderBreakthroughCard(report){
        left edge, and the heading takes the decoration instead -- one cherry
        hairline running from the words to the far edge, which is the rule
        component the rest of the product already uses, in the other accent. */
-    sectionRule('Breakthrough Sessions', true, 'is-cherry')+
+    /* Founder: "if they do happen it should be a white title consistent
+       with the other app titles. Then a box -- I'm easy, either coaches
+       note cherry box or the tab that share session and the new build is
+       on." Taking the second: the Coach's Note's cherry bloom is what marks
+       the one module where the coach speaks directly, and a breakthrough is
+       EVIDENCE the athlete produced, not the coach talking. So it keeps the
+       card it is already in and loses the cherry rule for the app's plain
+       white section title. */
+    '<div class="setup-section-title is-white">Breakthrough Sessions</div>'+
     recent.map(function(dd){
       var ap = actualPaceSecPerKm(dd);
       return '<div class="coach-bt">'+
@@ -48657,22 +48738,11 @@ function renderCoachNoticedCard(report){
   '</div>';
 }
 
-function renderCoachWatchCard(report){
-  if (!report || !report.watch.length) return '';
-  return '<div class="hub-card tile-card">'+
-    '<div class="setup-section-title">Coach Watch</div>'+
-    report.watch.map(function(w){
-      return '<div class="coach-signal">'+
-        '<span class="coach-dot watch"></span>'+
-        '<div class="coach-signal-body">'+
-          '<div class="coach-signal-label">'+escapeHtml(w.label)+'</div>'+
-          '<div class="coach-signal-detail">'+escapeHtml(w.detail)+'</div>'+
-        '</div>'+
-      '</div>';
-    }).join('')+
-  '</div>';
-}
-
+/* renderCoachWatchCard() stood here and is deleted, not merely
+   unreferenced -- founder: "is coaches watch there? Because I don't
+   want that!" report.watch is still computed by coachAnalyse() and
+   still read by the engine; it simply has no card on Valhalla. The
+   cost is written out on renderCoachPanel(). */
 // Next Move, with KEEP ORIGINAL / ACCEPT ADJUSTMENT. The buttons only appear
 // when the coach actually proposes a change and the athlete has not already
 // answered for that session -- so it asks once, not every launch.
@@ -50723,10 +50793,17 @@ function renderCoachPanel(){
      one thing a single-scroll Valhalla could not carry. The card itself is
      untouched and still builds correctly from a report -- it simply has no
      caller while the overview says all of it already. */
+  /* COACH WATCH IS NOT IN THIS LIST ANY MORE. Founder, on seeing it:
+     "is coaches watch there? Because I don't want that!"
+     WHAT IT CARRIED, SO THE COST IS ON THE RECORD: report.watch holds the
+     coach's standing cautions, and the one an athlete sees most is the
+     unlogged-session notice ("6 sessions in the last fortnight went
+     unlogged. The plan assumes they happened."). That warning now has no
+     surface on Valhalla. It is a founder call rather than a tidy-up, and if
+     it should reappear anywhere, Today is the screen that would carry it. */
   return renderCoachSignalsCard(report)+
     renderCoachNoticedCard(report)+
-    renderBreakthroughCard(report)+
-    renderCoachWatchCard(report);
+    renderBreakthroughCard(report);
 }
 /* ---------- a reminder, not a history screen ----------
    evolutionHistory is already persisted and, until now, never read back by
@@ -62764,17 +62841,21 @@ function renderProgrammeStatus(){
   var trendWord = report && report.trend.enough
     ? { rising:'improving', falling:'slipping', flat:'steady' }[report.trend.direction]
     : 'still building';
-  var statusLine = decMeta
-    ? '<div class="v-call '+statusTone+'">'+
-        /* The dot went the way the phase disc did: the title it sat in
-           front of ENDS with the state it was signalling ("... -- PROCEED"),
-           so it was the second telling, and it held that title 16px off the
-           panel edge every other line on this screen starts at. */
-        '<div class="v-call-head">'+
-          '<span class="v-call-title font-head">Valhalla’s Call — '+escapeHtml(decMeta.label)+'</span></div>'+
-        (recWord ? '<div class="v-call-sub">Recovery '+escapeHtml(recWord)+', trend '+escapeHtml(trendWord)+'.</div>' : '')+
-      '</div>'
-    : '';
+  /* ---- VALHALLA'S CALL IS GONE ----
+     Founder: "I don't like Valhalla's call - proceed / Recovery fresh,
+     trend still building. We know the user should proceed."
+     And that is the argument. The engine returns PROCEED on the great
+     majority of days, so a band under the hero announcing it said nothing
+     the athlete did not already assume by opening the app -- and the two
+     readings in its sub-line are both circles in the grid directly beneath
+     it, with panels of their own carrying the evidence. It had already lost
+     its dot (the title ended with the state) and then its wash (a green
+     field saying what the word said); this is the same argument reaching
+     the block itself.
+     NOTHING IS COMPUTED AND THROWN AWAY: coachAnalyse() is read below for
+     the load figure, and decision/recovery/trend keep every other surface
+     they had -- the day card's coaching, the Reading panels, Next Move. */
+  var statusLine = '';
   /* ---- ONE BAND, READ ACROSS ----
      The hero carried four instruments stacked: the gauge, two figures under
      it, Current Fitness, and Race Outlook -- 640px of screen before The
@@ -63052,20 +63133,64 @@ function statusValueFontSize(text){
   return dialValueFontSize(text, 's');
 }
 
-function renderValhallaRecordPreview(){
-  if (!state.setup) return '';
-  return sectionRule('The Athlete Status')+
-    /* NOT .map(statusDialHtml). Array.map hands the callback the INDEX as its
-       second argument, and this function's second argument is now "render me
-       inert" -- so the first circle stayed a button and the other three
-       silently became spans an athlete could not press. A one-argument
-       closure is the fix, and it is why a renderer that gains an optional
-       flag should never be passed to map by reference. */
-    '<div class="b-status">'+recordFacts().map(function(f){
-      return statusDialHtml(f);
-    }).join('')+'</div>';
+/* ---------- SIX CIRCLES, THEN TWO PLATES ----------
+   Founder: "Then 6 circles. 2 abreast. Vertical. Plan evolution - adaption,
+   fitness - progress, recovery - patterns. Then 2 even sized rectangular
+   boxes. Goal - benchmark. The reading and the athlete status and gold
+   decor lines can be removed."
+   THE SCREEN HAD TWO INSTRUMENT ROWS AND A HEADING OVER EACH: four Reading
+   circles in a staggered arc under "The Reading", then four Athlete Status
+   circles in a row under "The Athlete Status", both headings wearing a gold
+   rule either side. Eight instruments, two rows, two names for one idea.
+   They are one grid now, and the two facts that are NUMBERS rather than
+   states -- a goal time and a benchmark time -- leave the circles for
+   plates of their own, which is the distinction the Athlete Status comment
+   has always drawn: "plates and headlines are for numbers, circles are for
+   state".
+   NOTHING IS RECOMPUTED. The same readingSections() and recordFacts() feed
+   the same two renderers; only the order they are laid out in, and the
+   shape two of them take, is new. Every circle opens the panel it always
+   opened. */
+var VALHALLA_CIRCLES = ['evolution','adaptation','fitness','progress','recovery','patterns'];
+var VALHALLA_PLATES  = ['goal','benchmark'];
+function renderValhallaInstruments(){
+  var report = coachAnalyse();
+  if (!report || !state.setup) return '';
+  var reading = {}, facts = {};
+  readingSections(report).forEach(function(sec){ reading[sec.key] = sec; });
+  recordFacts().forEach(function(f){ facts[f.key] = f; });
+  /* RANK 0 FOR ALL SIX. The arc sized its circles against each other
+     because one reading mattered more than another; in a grid of equal
+     cells a size ladder reads as a mistake, so they take the largest rank
+     -- which is also the 90px the status faces already use, so a reading
+     and a fact are literally the same instrument in the same grid. */
+  var circles = VALHALLA_CIRCLES.map(function(k){
+    if (reading[k]) return readingDialHtml(reading[k], 0);
+    return facts[k] ? statusDialHtml(facts[k]) : '';
+  }).join('');
+  var plates = VALHALLA_PLATES.map(function(k){
+    return facts[k] ? statusPlateHtml(facts[k]) : '';
+  }).join('');
+  if (!circles && !plates) return '';
+  return (circles ? '<div class="b-dials"><div class="b-grid">'+circles+'</div>'+
+            readingHintHtml()+'</div>' : '')+
+         (plates ? '<div class="b-plates">'+plates+'</div>' : '');
 }
-
+/* A FACT THAT IS A NUMBER GETS A PLATE. Same key, same data-action, same
+   panel, same identity colour as its circle carried -- only the shape and
+   the room for a long value differ. Two per row and even, because a goal
+   time and a benchmark time do not rank against each other. */
+function statusPlateHtml(f){
+  var big = f.big != null ? f.big : f.value;
+  return '<button type="button" class="b-plate" '+
+      'data-action="open-record" data-record="'+f.key+'" '+
+      'aria-label="'+escapeHtml(f.subject+' \u2014 '+f.value)+'" '+
+      'style="--rd-base:'+(STATUS_ACCENT[f.key]||'var(--c-rest)')+';">'+
+      '<span class="b-plate-k">'+escapeHtml(f.chip || f.subject)+'</span>'+
+      '<span class="b-plate-v'+(f.none?' rec-none':'')+'">'+escapeHtml(big)+'</span>'+
+      (f.small ? '<span class="b-plate-s">'+escapeHtml(f.small)+'</span>' : '')+
+    '</button>';
+}
 /* ---------- the panels ----------
    Same interaction model as Build Your Training Block: a modal-themed surface
    over a dimmed Plan HQ, an uppercase heading and a circular close top-left/
@@ -63808,38 +63933,14 @@ function sectionRule(title, leftAligned, modifier){
       '<span class="sec-rule-line" aria-hidden="true"></span>'+
     '</div>';
 }
-/* READINESS IS NOT HERE, AND THE GAUGE IS WHY. Its value is
-   conf+'% confidence' and the gauge above renders the same report.confidence
-   -- the same number from the same source, twice on one screen, with the
-   larger of the two circles spending itself restating the headline.
-   THE PANEL IS NOT A DUPLICATE AND IS NOT DROPPED. It carries the execution
-   trend, the sessions logged, the race date, the phase, and the one line
-   that says what confidence IS: execution fidelity, not probability. An
-   athlete reading a bare 84% could fairly take it as "84% likely to run
-   3:29", which it explicitly is not, so that explanation has to stay
-   reachable. The gauge itself opens it now -- the door moved onto the thing
-   showing the number, which is where it is actually looked for.
-   Four readings left, each a different one, and the ranks stay symmetric. */
-var READING_ARC = [
-  { key:'recovery',   rank:2 },
-  { key:'evolution',  rank:1 },
-  { key:'patterns',   rank:1 },
-  { key:'adaptation', rank:2 }
-];
-function renderValhallaReadingPreview(){
-  var report = coachAnalyse();
-  if (!report) return '';
-  var byKey = {};
-  readingSections(report).forEach(function(s){ byKey[s.key] = s; });
-  var dials = READING_ARC.map(function(d){
-    return byKey[d.key] ? readingDialHtml(byKey[d.key], d.rank) : '';
-  }).join('');
-  return sectionRule('The Reading')+
-    '<div class="b-dials">'+
-      '<div class="b-dials-arc">'+dials+'</div>'+
-      readingHintHtml()+
-    '</div>';
-}
+/* renderValhallaReadingPreview() and renderValhallaRecordPreview() stood
+   here and are deleted rather than left unreferenced. They emitted the two
+   headed rows the founder removed -- "the reading and the athlete status and
+   gold decor lines can be removed" -- and renderValhallaInstruments() is
+   what Valhalla draws now. A renderer with no caller is, in this file's own
+   words, "what the next person edits by mistake". READING_ARC went with
+   them: its only job was the staggered rank ladder the arc needed, and a
+   grid of equal cells has no ranks. */
 function readingPanel(key){
   var report = coachAnalyse();
   if (!report) return '';
@@ -64401,8 +64502,7 @@ function renderPlanHQView(){
   return '<div class="view-planhq">'+
     '<div class="view-heading font-head">Valhalla</div>'+
     renderProgrammeStatus()+
-    renderValhallaReadingPreview()+
-    renderValhallaRecordPreview()+
+    renderValhallaInstruments()+
     renderCheckpointBanner()+
     renderCoachPanel()+
     renderBlockTransitionCard()+

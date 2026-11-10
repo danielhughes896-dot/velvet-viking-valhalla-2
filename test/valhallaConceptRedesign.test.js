@@ -99,8 +99,23 @@ test('HERO: centred block/week, a full-circle gauge, two figures, a contained ou
      every other line starts at 16.
      Both surviving signals are asserted immediately below, so a card that
      lost its tone or its decision word still fails here. */
-  assert.match(hero, /class="v-call (good|watch|bad)"/);
-  assert.match(hero, /Valhalla\u2019s Call \u2014 /);
+  /*
+     ---- CHANGED SIDES: VALHALLA'S CALL IS GONE ----
+     Founder: "I don't like Valhalla's call - proceed / Recovery fresh,
+     trend still building. We know the user should proceed."
+     The engine returns PROCEED on most days, so a band under the hero
+     announcing it told the athlete what opening the app already assumed,
+     and both readings in its sub-line are circles in the grid beneath it
+     with panels of their own. It had already given up its dot and then its
+     wash for the same reason; this is that argument reaching the block. */
+  assert.doesNotMatch(hero, /class="v-call/, 'Valhalla\u2019s Call is back in the hero');
+  assert.doesNotMatch(hero, /Valhalla\u2019s Call/, 'the call\u2019s title is back');
+  /* AND THE HERO ITSELF IS UNTOUCHED -- founder: "hero stays exactly the
+     same!!" The block, the week, the gauge and the two figures either
+     side are asserted above; this pins that removing the call took
+     nothing else with it. */
+  assert.equal((hero.match(/class="v-hero-fig"/g) || []).length, 2,
+    'a hero figure went with the call');
   assert.doesNotMatch(hero, /class="v-status-dot/,
     'the dot is back in front of the call title');
   assert.doesNotMatch(hero, /class="v-status-line"/,
@@ -189,8 +204,10 @@ test('HERO: load is coachAnalyse().load.ratio, not a second computation', () => 
    the old one could pass with every circle inert. */
 test('PREVIEW: the Reading arc shows every section it owns, each one a destination', () => {
   const a = planHQ();
-  const preview = a.renderValhallaReadingPreview();
-  assert.match(preview, /<div class="setup-section-title">The Reading<\/div>/);
+  const preview = a.renderValhallaInstruments();
+  /* The heading went with the founder's "the reading and the athlete status
+     and gold decor lines can be removed"; what it headed did not. */
+  assert.doesNotMatch(preview, /The Reading</, 'the retired heading is back');
   // The category label is the circle's own .rd-cat. It sits UNDER the face
   // now rather than inside it -- inside, it had about 46px of a 66px circle
   // to live in, which is what pinned it at 6.4px.
@@ -224,17 +241,29 @@ test('PREVIEW: the Reading arc shows every section it owns, each one a destinati
    ranked outward from a centre the gauge occupies: 2-1-1-2. The ranks are
    asserted rather than the pixel sizes: the CSS owns the diameters, this
    owns the order and which faces are largest. */
-test('PREVIEW: the arc is one row, graduated outward from its centre', () => {
+test('PREVIEW: the circles are a two-column grid, all one size', () => {
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
+     It required a single staggered row -- ranks 2,1,1,2 outward from the
+     centre -- because the arc sized its circles against each other: one
+     reading mattered more than another.
+     Founder: "then 6 circles. 2 abreast. Vertical. Plan evolution -
+     adaption, fitness - progress, recovery - patterns."
+     In a grid of equal cells a size ladder reads as a mistake, so all six
+     take the largest rank, and two of them are Record facts sitting between
+     the readings. What is still pinned is that the ORDER is the founder's
+     and that the ladder has not crept back in. */
   const a = planHQ();
-  const preview = a.renderValhallaReadingPreview();
-  assert.match(preview, /class="b-dials-arc"/);
-  assert.doesNotMatch(preview, /class="b-dials-row"/, 'the old 3+2 grid survived');
+  const preview = a.renderValhallaInstruments();
+  assert.match(preview, /class="b-grid"/);
+  assert.doesNotMatch(preview, /class="b-dials-(arc|row)"/, 'the staggered arc is back');
   const order = (preview.match(/data-reading="([a-z]+)"/g) || [])
     .map(m => m.replace(/.*"([a-z]+)"$/, '$1'));
-  assert.deepEqual(order, ['recovery', 'evolution', 'patterns', 'adaptation']);
-  const ranks = (preview.match(/data-rank="(\d)"/g) || []).map(m => m.slice(-2, -1));
-  assert.deepEqual(ranks, ['2', '1', '1', '2'],
-    'the arc is no longer graduated outward from its centre');
+  assert.deepEqual(order, ['evolution', 'adaptation', 'recovery', 'patterns']);
+  const ranks = (preview.match(/data-rank="([0-9s])"/g) || []).map(m => m.slice(-2, -1));
+  assert.equal(new Set(ranks).size <= 2, true,
+    'the circles are graduated again: ' + ranks.join(','));
+  assert.ok(ranks.indexOf('1') === -1 && ranks.indexOf('2') === -1,
+    'a smaller rank is back in the grid: ' + ranks.join(','));
   // and the CSS actually makes rank 0 the largest. Every rule for that rank
   // is considered, not just the first one in the file: the arc also carries
   // margin-only rules per rank (they hold the circles on one centre line now
@@ -246,18 +275,19 @@ test('PREVIEW: the arc is one row, graduated outward from its centre', () => {
     assert.ok(withWidth.length, 'no rule gives rank ' + r + ' a diameter');
     return Number(withWidth[0][1]);
   };
-  assert.ok(d(1) > d(2), 'rank does not map to diameter');
-  /* THE ARC renders no rank-0 circle -- that is the claim, and it is asserted
-     on the arc's markup. An earlier version of this test asserted instead
-     that rank 0 was gone from the STYLESHEET, which is a different and wrong
-     claim: readingDialHtml(sec, 0) still draws the hero circle at the top of
-     every Reading panel. Deleting the rule on the strength of that assertion
-     dropped the panel hero to .b-dial's base 68px while it kept a font scaled
-     for a larger face, which is what put "Wat/ch" inside it. A guard that
-     names the wrong thing is worse than no guard: it passed, and it was the
-     reason the rule was removed. The companion check that every rendered rank
-     HAS a diameter lives in the arc-geometry test below. */
-  assert.doesNotMatch(preview, /data-rank="0"/,
+  assert.equal(d(0), d('s'),
+    'a reading circle and a status circle are different sizes in the same grid');
+  /* ---- AND THIS HALF CHANGED SIDES TOO ----
+     It required the arc to render NO rank-0 circle, because rank 0 was the
+     panel hero's size and the arc's largest was rank 1. The grid has no
+     ladder, so every reading circle is rank 0 now -- the same diameter the
+     status circles beside them already had, which is the assertion directly
+     above. The warning the old comment carried is still worth keeping: rank
+     0 must never be deleted from the STYLESHEET on the strength of a markup
+     check, because readingDialHtml(sec, 0, true) also draws the hero at the
+     top of every Reading panel. That is why the rule is read for a diameter
+     above rather than asserted absent here. */
+  assert.doesNotMatch(preview, /data-rank="1"/,
     'the removed centre circle is back in the arc');
   // The label under each circle is the one label voice, at one size for all
   // four -- the graduation is the CIRCLE's job. Labels at a size each was
@@ -270,9 +300,12 @@ test('PREVIEW: the arc is one row, graduated outward from its centre', () => {
 
 test('PREVIEW: The Athlete Status shows all four facts, each one a destination', () => {
   const a = planHQ();
-  const preview = a.renderValhallaRecordPreview();
-  assert.match(preview, /<div class="setup-section-title">The Athlete Status<\/div>/);
-  assert.match(preview, /class="b-status"/);
+  const preview = a.renderValhallaInstruments();
+  /* The heading is retired and the row split in two: fitness and progress
+     stayed circles in the grid, goal and benchmark took plates, on the
+     founder's "then 2 even sized rectangular boxes. Goal - benchmark." */
+  assert.doesNotMatch(preview, /The Athlete Status</, 'the retired heading is back');
+  assert.match(preview, /class="b-plates"/);
   /* FOUR NOW, NOT THREE. Goal joins Measured fitness, Benchmark and
      Progress -- it was always a fact of the record and had simply never had
      a surface, living only on the Record tab as a chooser. */
@@ -281,11 +314,18 @@ test('PREVIEW: The Athlete Status shows all four facts, each one a destination',
      a cross-realm Array that is otherwise identical. */
   const facts = a.recordFacts();
   assert.equal(facts.map(f => f.key).join(','), 'goal,fitness,benchmark,progress');
-  assert.equal((preview.match(/class="b-dial b-stat"/g) || []).length, 4);
+  assert.equal((preview.match(/class="b-dial b-stat"/g) || []).length, 2,
+    'expected fitness and progress as circles');
+  assert.equal((preview.match(/class="b-plate"/g) || []).length, 2,
+    'expected goal and benchmark as plates');
   facts.forEach(f => {
     assert.match(preview, new RegExp('data-action="open-record" data-record="' + f.key + '"'),
       f.key + ' is drawn but cannot be opened');
-    assert.match(preview, new RegExp('<span class="rd-cat">' + f.chip + '</span>'));
+    /* Two shapes, two label slots: a circle names itself in .rd-cat under
+       the face, a plate in .b-plate-k inside it. Either is the fact naming
+       itself, which is what this line checks. */
+    assert.match(preview, new RegExp('<span class="(rd-cat|b-plate-k)">' + f.chip + '</span>'),
+      f.chip + ' is drawn without naming itself');
   });
   /* The circle's label is short where the panel's title is full: "Fitness"
      on a 90px face, "Measured fitness" everywhere a sentence has room. */
@@ -312,15 +352,15 @@ test('HERO: the gauge carries the live confidence percentage, and nothing in the
   // Anchored on the value face, not on the bare digits: the arc legitimately
   // carries percentages elsewhere (a tick, a width), and it is a second
   // READING of confidence that must not come back, not the character '%'.
-  assert.ok(a.renderValhallaReadingPreview().indexOf('>' + pct + '%</b>') === -1,
+  assert.ok(a.renderValhallaInstruments().indexOf('>' + pct + '%</b>') === -1,
     'a circle in the arc is showing the confidence number again');
 });
 
 test('PREVIEW: an athlete with no plan gets empty previews, not a crash', () => {
   const a = loadApp({ pinnedDate: TODAY });
   a.state = a.makeDefaultState();
-  assert.equal(a.renderValhallaReadingPreview(), '');
-  assert.equal(a.renderValhallaRecordPreview(), '');
+  assert.equal(a.renderValhallaInstruments(), '');
+  assert.equal(a.renderValhallaInstruments(), '');
 });
 
 // ===========================================================================
@@ -330,10 +370,13 @@ test('TAB: Valhalla renders the hero, then the Reading preview, then the Record 
   const a = planHQ();
   const html = a.renderPlanHQView();
   const at = s => html.indexOf(s);
-  assert.ok(at('class="v-hero"') < at('class="v-call'), 'the call is not below the hero');
-  assert.ok(at('class="v-call') < at('The Reading'), 'the Reading arc is not below the call');
-  assert.ok(at('The Reading') < at('The Athlete Status'),
-    'The Athlete Status is not below the Reading arc');
+  assert.doesNotMatch(html, /class="v-call/, 'Valhalla\u2019s Call is back');
+  /* The two headed rows became one grid and two plates on instruction --
+     see the order law in test/planHqReading, which carries the reasoning.
+     The sequence this test is about is unchanged. */
+  assert.ok(at('class="v-hero"') < at('class="b-grid"'), 'the circles are not below the hero');
+  assert.ok(at('class="b-grid"') < at('class="b-plates"'),
+    'the plates are not below the circles');
   // New Block and Plan Settings no longer render on the daily Valhalla page
   // at all (requirement 5 relocated both to Settings).
   assert.doesNotMatch(html, /class="act-trio/, 'a management action tile is still below the Record preview');
@@ -448,8 +491,8 @@ test('SAFETY: the redesigned shell renders every real value from the same real f
     load: JSON.stringify(a.coachAnalyse().load),
   };
   a.renderPlanHQView();
-  a.renderValhallaReadingPreview();
-  a.renderValhallaRecordPreview();
+  a.renderValhallaInstruments();
+  a.renderValhallaInstruments();
   Object.keys(a.RECORD_PANELS).forEach(k => a.hqPanelHtml(k));
   a.readingSections(a.coachAnalyse()).forEach(sec => a.hqPanelHtml(sec.key));
   a.renderPlanHQView();
@@ -474,7 +517,7 @@ test('ARC: every rank the renderers draw has a diameter rule behind it', () => {
   const a = planHQ();
   const drawn = new Set();
   // Every circle the product can actually put on screen, from its own output.
-  [a.renderPlanHQView(), a.renderValhallaReadingPreview(), a.renderValhallaRecordPreview()]
+  [a.renderPlanHQView(), a.renderValhallaInstruments(), a.renderValhallaInstruments()]
     .forEach(html => {
       (html.match(/data-rank="([^"]+)"/g) || [])
         .forEach(m => drawn.add(m.replace(/.*"([^"]+)"$/, '$1')));
@@ -489,7 +532,13 @@ test('ARC: every rank the renderers draw has a diameter rule behind it', () => {
     (a.statusDialHtml(f, true).match(/data-rank="([^"]+)"/g) || [])
       .forEach(m => drawn.add(m.replace(/.*"([^"]+)"$/, '$1')));
   });
-  assert.ok(drawn.size >= 4, 'expected several ranks, found ' + [...drawn].join(','));
+  /* TWO NOW, NOT FOUR. The arc's ladder (ranks 1 and 2) went with the arc
+     when the founder asked for an even two-column grid; what is left is the
+     one circle size the grid draws and the status rank beside it. The claim
+     is unchanged and is the next line: whatever ranks the renderers DO draw
+     must each have a diameter rule behind them, or a circle falls back to
+     .b-dial's base 68px carrying a font scaled for a larger face. */
+  assert.ok(drawn.size >= 2, 'expected at least two ranks, found ' + [...drawn].join(','));
 
   /* THE BASE RULE, NOT ANY RULE. A first version of this matched the whole
      stylesheet, and it passed with the base diameter deleted -- because the

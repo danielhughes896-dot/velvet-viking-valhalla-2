@@ -182,7 +182,7 @@ test('the Active Goal machinery survives, and still lives in Plan HQ', () => {
   const panel = a.recordPanelGoal();
   assert.ok(panel.indexOf(a.renderGoalToggle()) !== -1,
     'the goal panel no longer composes the chooser — the decision surface is gone');
-  assert.match(a.renderValhallaRecordPreview(), /data-record="goal"/,
+  assert.match(a.renderValhallaInstruments(), /data-record="goal"/,
     'nothing on Valhalla opens the goal panel');
   assert.ok(a.renderPlanHQView().indexOf(a.renderCheckpointBanner()) !== -1,
     'the checkpoint banner lost its surface with the Record tab');

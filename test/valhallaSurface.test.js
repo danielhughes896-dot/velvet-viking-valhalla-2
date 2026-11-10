@@ -57,22 +57,40 @@ test('the containers go and the instruments stay', () => {
     'the instrument faces were stripped along with the containers');
 });
 
-test("the call's severity survives the de-boxing, as light", () => {
-  /* A REGRESSION THIS PASS INTRODUCED AND THIS GUARD EXISTS FOR. .v-call
-     carried its state in FOUR places -- a tinted gradient, a border, a 3px
-     left bar and a glow -- and every one of them was --call-tone. Removing
-     the box removed all four, leaving the most important signal on the
-     screen carried by a 6px dot. It returns as the ambient wash, from the
-     same variable, so good/watch/bad still change the light. */
-  const r = rule('.view-planhq .v-call::before');
-  assert.match(r, /var\(--call-tone\)/,
-    'the call wash no longer reads the state variable, so severity is invisible');
-  assert.match(r, /filter:blur\(/, 'the call wash is a hard gradient again');
-  const shape = /radial-gradient\((\d+)% (\d+)%/.exec(r);
-  assert.ok(shape && Number(shape[1]) < 50 && Number(shape[2]) < 50,
-    'the call wash reaches its own box edge and will be cut square');
-  ['.v-call.good', '.v-call.watch', '.v-call.bad'].forEach(sel =>
-    assert.match(rule(sel), /--call-tone:/, sel + ' no longer sets a tone for the wash to take'));
+test("the call's severity is carried by the word, not by a wash", () => {
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
+     It required .view-planhq .v-call::before to be a blurred radial reading
+     --call-tone. That wash was itself a repair: de-boxing the call had taken
+     its tinted gradient, its border, its 3px left bar and its glow, all four
+     of them --call-tone, and the severity came back as ambient light.
+     Founder: "Valhalla's call - proceed. Does it offer anything? Really?
+     The green glow behind can deffo go."
+     IT GOES, AND THE SIGNAL DOES NOT. The call's title reads "Valhalla's
+     Call - Proceed", and Proceed / Watch / Ease off is the state written in
+     the athlete's own language. On the state the engine returns most of the
+     time the wash was a green field the width of the phone, directly under
+     the hero, saying what the word beside it already said. So what is
+     asserted now is that the WORD is still there and still comes from the
+     engine's own state class, and that the wash has not crept back. */
+  assert.ok(!/\.view-planhq \.v-call::before\{/.test(BARE),
+    'the call wash is back -- the state is the word in the title, not a field of colour');
+  assert.ok(!/\.view-planhq \.v-call::after\{/.test(BARE),
+    'the dither layer that mirrored the wash is back, over a glow that no longer exists');
+  /* ---- AND THEN THE BLOCK ITSELF WENT ----
+     The paragraph above argued the word was doing the work and the colour
+     was not. The founder has since read the word: "I don't like Valhalla's
+     call - proceed / Recovery fresh, trend still building. We know the user
+     should proceed." PROCEED is what the engine returns on most days, so
+     the band announced an assumption; its two readings are circles in the
+     grid directly beneath it, each with a panel carrying the evidence.
+     The DECISION IS NOT GONE from the product -- coachAnalyse().decision
+     still drives the day card's coaching and Next Move, which is where a
+     call the athlete has to act on belongs. */
+  const a = planHQ();
+  const view = a.renderPlanHQView();
+  assert.doesNotMatch(view, /class="v-call/, 'Valhalla\u2019s Call is back on the screen');
+  assert.ok(a.coachAnalyse().decision,
+    'the coaching decision itself has been lost, not just its band');
 });
 
 test('the confidence gauge is lit by the same rules as the session ring', () => {
@@ -326,17 +344,30 @@ test('no glyph leads a breakthrough row', () => {
     'the row glyph has a rule again, so something is drawing one');
 });
 
-test('the breakthrough heading is the shared rule component, in cherry', () => {
-  assert.match(SRC, /sectionRule\('Breakthrough Sessions', true, 'is-cherry'\)/,
-    'the heading is no longer built from the shared section-rule component, ' +
-    'so its hairline can drift from every other one on this screen');
-  assert.match(BARE, /\.sec-rule\.is-cherry\{[^}]*--rp-accent:\s*var\(--cherry-text\)/,
-    'the cherry modifier sets anything but the accent, or is gone');
-  /* Only the accent may differ. Geometry, fade and opacity come from the
-     component, which is the whole reason for using it. */
-  const mod = BARE.match(/\.sec-rule\.is-cherry\{([^}]*)\}/)[1];
-  assert.ok(!/height|margin|opacity|flex/.test(mod),
-    'the cherry section is redefining the rule rather than re-colouring it');
+test('the breakthrough heading is a plain white title', () => {
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
+     It required sectionRule('Breakthrough Sessions', true, 'is-cherry') --
+     the shared rule component with a cherry hairline running from the words
+     to the far edge.
+     Founder: "if they do happen it should be a white title consistent with
+     the other app titles. Then a box -- I'm easy, either coaches note cherry
+     box or the tab that share session and the new build is on."
+     So the hairline goes with the gold and cherry decoration coming off this
+     screen, and the heading becomes the app's own section title in white.
+     THE BOX IS THE SECOND OPTION, DELIBERATELY: the Coach's Note's cherry
+     bloom marks the one module where the coach speaks directly, and a
+     breakthrough is evidence the athlete produced. The card it already sits
+     in is the one the build and Share Session use. */
+  assert.match(SRC, /<div class="setup-section-title is-white">Breakthrough Sessions<\/div>/,
+    'the breakthrough heading is not the app\u2019s plain white section title');
+  assert.ok(!/sectionRule\('Breakthrough Sessions'/.test(SRC),
+    'the decorated rule component is back on the breakthrough heading');
+  assert.match(BARE, /\.setup-section-title\.is-white\{[^}]*color:var\(--ink\)/,
+    'the white modifier no longer makes the title white');
+  /* It keeps the card it was already in -- the founder chose the box, not no
+     box at all. */
+  assert.match(SRC, /function renderBreakthroughCard[\s\S]{0,400}?class="hub-card tile-card"/,
+    'the breakthrough rows lost the card they sit in');
 });
 
 test('a left-aligned section rule fades away from its words', () => {
