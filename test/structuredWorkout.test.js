@@ -2019,8 +2019,16 @@ test('why, feel and watch for left the screen — Why for its own section, the r
   /* AND THE FULL-BLEED LIGHT EVERY OTHER NOTE HAS IS NOT BEHIND THIS ONE. */
   assert.match(RAILCSS, /\.how-note\[data-solo\]::before, \.how-note\[data-solo\]::after\{[^}]*content:none/,
     'the note glow is no longer suppressed behind the box');
-  assert.match(RAILCSS, /\.how-note:not\(\[data-solo\]\)::before\{/,
-    'the note glow rule no longer excludes the box, so it will light it again');
+  /* THERE IS NO NOTE GLOW LEFT TO EXCLUDE THE BOX FROM. This asserted that
+     the glow rule named :not([data-solo]), so it could never reach this box.
+     The Coach's Note has since become a bordered box itself and the glow was
+     deleted with its borderlessness, so the exclusion protects nothing --
+     and an assertion that a deleted rule still exists would fail forever.
+     What matters now is the thing the exclusion was FOR: no full-bleed light
+     behind this box, whoever would have cast it. */
+  assert.equal(RAILCSS.indexOf('.how-note:not([data-solo])::before'), -1,
+    'the note glow rule is back, and a full-bleed light behind a bordered ' +
+    'box spills past its edges');
   /* AS WIDE AS POSSIBLE: the full content column, not an inset box. */
   assert.ok(solo.indexOf('align-items:stretch') > -1,
     'the one-card note is centring its box again instead of filling the column');

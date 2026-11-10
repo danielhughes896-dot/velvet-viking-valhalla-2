@@ -215,59 +215,62 @@ test('the active module is lit, and nothing in the rail is boxed', () => {
   assert.ok(/opacity:\.[0-9]+/.test(focusRule('.how-mod')), 'inactive modules are no longer dimmed');
 });
 
-test("the Coach's Note is cherry, borderless, and dissolves inside its own box", () => {
-  /* ---- THE MULTI-ROW NOTE, WHICH IS THE ONE THIS LAW IS ABOUT ----
-     The solo box excluded itself from these rules by name:
-     .how-note:not([data-solo]). Founder: "Remove the glow from behind as
-     well" -- that box is flat, has a cherry border, and is the session
-     rather than a note under it. Everything below still governs the Coach's
-     Note that appears beneath a session with a rail. */
-  const before = focusRule('.how-note:not([data-solo])::before');
-  /* On the cherry ramp BY NAME. Asserting a particular rgb triple is how a
-     test ends up blessing an invented in-between colour -- this one did,
-     for one revision -- so it asks for the token instead. */
-  assert.match(before, /var\(--cherry(-text)?\)/,
-    "the Coach's Note is lit in a colour that is not on the cherry ramp");
-  // The ending shape must finish INSIDE the ::before, or the light is cut
-  // off at the box edge and the cut is a rounded rectangle anyone can see.
-  /* THE ONE PROPERTY THAT MATTERS: it must reach alpha 0 before the box
-     does, on every axis it is drawn on. Otherwise the browser cuts it at
-     the edge and the cut is the rounded rectangle this whole treatment
-     exists to avoid.
-     Two crossed linear fades rather than a radial, because a radial that
-     has to die before all four edges cannot be wider than half the box --
-     across a full-width note that is a circle of light behind left-aligned
-     text, with the first and last words in the dark. */
-  /* FALLOFF FROM THE WORDS, AND BLUR ON TOP OF IT -- the two together, for
-     two different reasons.
-     A radial centred on the text is brightest where the words are and dies
-     away from them, which is what light does. A flat shape, even heavily
-     blurred, is an even field: as lit at its middle as at its three-quarter
-     mark, so it reads as an AREA, and an area that size dominates whatever
-     brightness it is given. That was the note's real problem, not its
-     intensity -- measured, its bloom peaked at 45 against the ring's 244
-     and still looked like the loudest thing on the screen.
-     UNDER 50% ON BOTH AXES is arithmetic: the ending-shape percentages are
-     of the BOX, not the half-box, so anything above 50 still carries colour
-     when it meets the edge and is cut there. Two earlier versions of this
-     glow were cut at 78% and at 130%.
-     THE BLUR STAYS because a radial's stops have corners in their first
-     derivative too, and the eye finds those as faint rings. */
-  const shape = before.match(/radial-gradient\((\d+)% (\d+)%/);
-  assert.ok(shape, 'the note glow is no longer a radial -- an even field cannot fall off from the words');
-  assert.ok(Number(shape[1]) < 50 && Number(shape[2]) < 50,
-    'the glow is ' + shape[1] + '% x ' + shape[2] + '% of its box, so it is cut at the edge');
-  assert.match(before, /transparent 100%/, 'the falloff no longer reaches nothing');
-  const blur = before.match(/filter:blur\((\d+)px\)/);
-  assert.ok(blur && Number(blur[1]) >= 10,
-    'the blur that hides the gradient stops is gone or too tight');
-  /* And the clip that defeated the last version: a focused card never
-     collapses, so .day-detail's animation clip only cuts the light off. */
-  assert.match(focusRule('.day-detail'), /overflow:visible/,
-    "the focused card clips again -- the note's light will stop at the card edge");
+test("the Coach's Note is the same cherry-lined box the solo note is", () => {
+  /* ---- THIS REVERSES AN EARLIER DECISION, ON INSTRUCTION ----
+     Founder, shown a rest day beside an easy day: "Did we not decide the
+     coaches note should be in the nice simple cherry lines box?"
+     WHAT THIS LAW USED TO SAY, and why it is not simply deleted. The
+     Coach's Note was deliberately borderless and lit by a full-bleed radial
+     that had to die before every edge of its own box -- a treatment with
+     real reasoning behind it, and two earlier versions were cut at 78% and
+     130% before it worked. The solo-note box excluded itself from all of it
+     BY NAME, so the product carried two notes with two treatments, and the
+     only thing separating them was that one sat under a session.
+     The founder has asked for one treatment. So the exclusion goes, not the
+     law: what is pinned now is that the two notes AGREE. */
   const note = focusRule('.how-note:not([data-solo])');
-  assert.match(note, /border:0/, "the Coach's Note has a border again");
-  assert.match(note, /background:none/, 'the tinted rectangle came back');
+  const solo = /\.how-note\[data-solo\]\{([^}]*)\}/.exec(CSS);
+  assert.ok(solo, 'the solo note box is gone -- it is the reference this law compares against');
+
+  /* THE CHERRY LINE, BY TOKEN. Asserting an rgb triple is how a test ends
+     up blessing an invented in-between colour -- this one did, for one
+     revision -- so it asks for the token. */
+  assert.match(note, /border:[^;]*var\(--cherry\)/,
+    "the Coach's Note lost its cherry line");
+  assert.match(note, /border-radius:var\(--tile-radius\)/,
+    "the Coach's Note is a square-cornered box; the solo note is not");
+  assert.match(note, /background:var\(--t-tile\)/,
+    "the Coach's Note is not on the tile fill the solo note sits on");
+  assert.doesNotMatch(note, /border:0/, 'the note went borderless again');
+
+  /* AND THE TWO BOXES MATCH ON THE THREE PROPERTIES THAT MAKE THEM ONE
+     THING. Not a byte comparison -- their padding and alignment differ by
+     separate instruction (the Coach\'s Note is centred, the solo note is
+     the session and is left-aligned) -- but the surface itself must agree,
+     or the founder is looking at two boxes again. */
+  ['border:1.5px solid var(--cherry)', 'border-radius:var(--tile-radius)',
+   'background:var(--t-tile)'].forEach(decl => {
+    assert.ok(note.indexOf(decl) > -1 && solo[1].indexOf(decl) > -1,
+      'the two notes disagree about "' + decl + '", so they are two boxes again');
+  });
+
+  /* THE GLOW IS GONE WITH THE BORDERLESSNESS, and gone means absent rather
+     than neutralised. It was full-bleed -- 100vw, pulled outside the box top
+     and bottom -- precisely so no edge could be found; inside a box that HAS
+     an edge it spills past it.
+     ASSERTED AS ABSENCE, not as content:none, because the first attempt at
+     this change suppressed the glow in a rule written ABOVE it and the
+     original won on source order -- the glow went on painting and only this
+     law noticed. A rule that still exists is a rule that can win. */
+  assert.equal(CSS.indexOf('.how-note:not([data-solo])::before'), -1,
+    "the Coach's Note has a ::before rule again -- if it paints, it spills " +
+    'past the border this box now has');
+
+  /* The overflow this depended on is left alone rather than reverted: a
+     focused card that clips is a defect in its own right, whatever is or is
+     not lit inside it. */
+  assert.match(focusRule('.day-detail'), /overflow:visible/,
+    'the focused card clips again');
 });
 
 test('the hero is a metric and a ring on the ground, not three nested rectangles', () => {

@@ -2984,7 +2984,29 @@
        the note's box rises from y=614 to 582 and its first line from 648 to
        616, while the rail below the hero grows 51px. */
     width:100%; box-sizing:border-box; margin:0 0 2px;
-    padding:34px 26px 36px; border:0; background:none; border-radius:0;}
+    /* ---------- AND IT IS THE CHERRY-LINED BOX NOW ----------
+       Founder: "Did we not decide the coaches note should be in the nice
+       simple cherry lines box?" -- shown beside a solo-note day, whose note
+       already wears exactly that box.
+       THIS REVERSES A DELIBERATE EARLIER CHOICE and the law that held it is
+       re-pointed rather than deleted: this note used to be borderless with a
+       full-bleed radial behind it, and the solo box excluded itself from
+       those rules BY NAME. Two notes, two treatments, and the only reason
+       the Coach's Note had the glow was that it was the one under a session.
+       The founder has now asked for one treatment, so the exclusion is what
+       goes: both notes are the same flat cherry-lined tile.
+       THE GLOW GOES WITH THE BORDERLESSNESS, not separately. It was a
+       full-bleed 100vw light that deliberately reached past the box on every
+       axis so no edge could be found; inside a box with an edge it would
+       simply spill out of it. Same reasoning the solo box already records
+       for suppressing its own ::before.
+       CENTRING IS KEPT. "CENTRED, HEADING AND SENTENCE TOGETHER, by
+       instruction" is a separate founder decision from the box, and nothing
+       here asks to undo it -- so the heading and sentence stay centred, and
+       only the surface they sit on changes. */
+    padding:26px 22px 28px;
+    border:1.5px solid var(--cherry); border-radius:var(--tile-radius);
+    background:var(--t-tile); box-shadow:none;}
   /* ---------- WHY THIS SESSION ----------
      Founder: "Below the rail, add a simple WHY THIS SESSION section
      containing the overall purpose/physiological reason for the workout."
@@ -3090,45 +3112,20 @@
   .how-note[data-solo] .hn-sub{
     font-family:var(--text-face); font-size:25px; font-weight:400; line-height:1.2;
     color:var(--ink-dim);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note:not([data-solo])::before{
-    content:''; position:absolute; z-index:0; pointer-events:none;
-    /* FULL-BLEED LIGHT, COLUMN-ALIGNED WORDS. The note sits inside the page
-       gutter and the day card's padding, so a glow confined to its own box
-       stops short of the screen on both sides and reads as a panel again.
-       This spans the viewport whatever the ancestors are padded by --
-       50% of the element back, then 100vw wide -- while the text above it
-       stays exactly where every other line on the screen starts. */
-    /* The light spans the whole screen now, not 92% of it, and the pool
-       inside it is wider -- 46% of a 100vw box reaches 46vw from centre
-       against the 36.8vw it reached before, a quarter more overspill past
-       the words. The INTENSITY is untouched; this is reach, not volume. */
-    left:calc(50% - 50vw); width:100vw; right:auto;
-    /* Pulled OUTSIDE the box top and bottom, which .day-detail's overflow
-       now permits, so the falloff has somewhere to happen. */
-    top:-14px; bottom:-18px; border-radius:999px;
-    /* FALLOFF WITH DISTANCE FROM THE WORDS, which is both halves of the
-       problem at once. A flat stadium -- even blurred to 30px -- is an even
-       field: every part of it is as lit as every other until the very edge,
-       so it reads as an area rather than as light, and an area that size
-       dominates whatever brightness it is given. A radial centred on the
-       text is brightest where the words are and falls away from them, which
-       is what light does and why it stops competing with the session.
-       THE RADIAL IS UNDER 50% ON BOTH AXES -- 40% x 42% -- because the
-       ending-shape percentages are of the BOX, not the half-box, so
-       anything above 50 is still carrying colour when it meets the edge and
-       gets cut there. Earlier versions of this glow were cut at 78% and at
-       130%, both times showing the rounded rectangle this is meant to avoid.
-       THE BLUR STAYS, SMALLER. A radial's stops still have corners in their
-       first derivative and the eye finds them as faint rings; 18px of blur
-       removes those without flattening the falloff the radial exists for.
-       The colour is the token thinned with color-mix, never an invented
-       in-between. */
-    background:radial-gradient(46% 42% at 50% 50%,
-      color-mix(in srgb, var(--cherry-text) 62%, transparent) 0%,
-      color-mix(in srgb, var(--cherry) 40%, transparent) 46%,
-      color-mix(in srgb, var(--cherry) 12%, transparent) 76%,
-      transparent 100%);
-    filter:blur(18px);}
+  /* ---------- THE COACH'S NOTE'S GLOW IS GONE WITH ITS BORDERLESSNESS ----------
+     Founder: "Did we not decide the coaches note should be in the nice
+     simple cherry lines box?"
+     A ~40-line full-bleed radial lived here. It was 100vw wide and pulled
+     outside the box top and bottom ON PURPOSE, so the light reached zero
+     before any edge did and there was no rectangle to find -- the whole
+     treatment existed because the note had no border. The note has a border
+     now, so the glow would simply spill past it, and the reasoning that
+     justified its every number no longer applies to anything. Removed
+     rather than neutralised in place: a rule kept alive by content:none is
+     a rule somebody re-enables.
+     The grain ::after is deliberately NOT touched here. It is shared with
+     the exec review card, the taper note and the year-round panel, and both
+     notes take it identically -- which is the point of this change. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note > *{position:relative; z-index:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k{font-size:15px; letter-spacing:.055em; gap:7px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k svg{width:16px; height:16px;}

@@ -1483,23 +1483,31 @@ test('the taper line is coaching, lit like coaching', () => {
   assert.match(next[1], /text-align:center/, "What's Next is no longer centred like the coaching it is");
   assert.match(next[1], /position:relative/,
     'without a positioning context its glow escapes to the nearest ancestor');
-  /* :not([data-solo]) -- the solo box excluded itself from the note's glow
-     by name ("Remove the glow from behind as well"), which changed this
-     selector's spelling and not the declaration What's Next copies. */
-  const note = /\.how-note:not\(\[data-solo\]\)::before\{([^}]*)\}/.exec(CSS);
-  assert.ok(note, "the Coach's Note glow this was copied from is gone");
+  /* THE NOTE'S GLOW IS GONE, SO THIS COMPARES AGAINST ITSELF NOW.
+     Founder: "Did we not decide the coaches note should be in the nice
+     simple cherry lines box?" -- the Coach's Note became a bordered box and
+     its full-bleed radial went with its borderlessness, so the reference
+     this law copied no longer exists. The taper line and What's Next are
+     still lit, still unchanged, and still must not drift from each other;
+     what is lost is only the third party they were both measured against.
+     So the properties are asserted DIRECTLY rather than by comparison. A
+     law that can only say "same as that one" stops saying anything the
+     moment that one is deleted. */
 
   const radial = body => {
     const m = /radial-gradient\(([\s\S]*?)\);/.exec(body);
     return m ? m[1].replace(/\s+/g, ' ').trim() : null;
   };
   assert.ok(radial(mine[1]), 'the taper glow is no longer a radial');
-  assert.equal(radial(mine[1]), radial(note[1]),
-    "the taper glow has drifted from the Coach's Note it copies. Same stops, same " +
-    'colours, or they are two different cherries on one product.');
-  assert.equal((/filter:blur\(([^)]*)\)/.exec(mine[1]) || [])[1],
-               (/filter:blur\(([^)]*)\)/.exec(note[1]) || [])[1],
-    'the two cherry glows disagree on blur');
+  assert.match(mine[1], /var\(--cherry(-text)?\)/,
+    'the taper glow is lit in a colour that is not on the cherry ramp');
+  const shape = mine[1].match(/radial-gradient\((\d+)% (\d+)%/);
+  assert.ok(shape && Number(shape[1]) < 50 && Number(shape[2]) < 50,
+    'the taper glow is wider than half its box on an axis, so it is cut at the edge');
+  assert.match(mine[1], /transparent 100%/, 'the taper falloff no longer reaches nothing');
+  const blur = (/filter:blur\((\d+)px\)/.exec(mine[1]) || [])[1];
+  assert.ok(blur && Number(blur) >= 10,
+    'the blur that hides the radial\'s gradient stops is gone or too tight');
   assert.match(mine[1], /left:calc\(50% - 50vw\); width:100vw/,
     'the taper glow stopped spanning the screen, so it reads as a panel behind the words ' +
     'rather than as light');
