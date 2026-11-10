@@ -163,7 +163,15 @@ test('COPY: the in-app builder\'s Benchmark Time field shows the format hint and
   const tag = html.slice(html.lastIndexOf('<input', inputStart), html.indexOf('>', inputStart) + 1);
   assert.match(tag, /inputmode="decimal"/, 'still forces the awkward default keyboard');
   assert.match(tag, /placeholder="23:25 or 23\.25"/);
-  assert.match(html, /Enter your time as minutes and seconds, e\.g\. 23\.25 or 23:25\./);
+  /* SHORTENED, AND THE ASSERTION WITH IT. Founder, on the Benchmark
+     stage: "there's also a lot of small text." What this law protects is
+     unchanged and still checked: the athlete is told BOTH formats work,
+     which is the thing that stops a dot being read as a rejection. Both
+     surfaces moved together -- the hint is the same sentence in the
+     builder and in Re-calibrate, which is what the second test below is
+     for. The toast after a REJECTED entry keeps the long wording: an
+     error message is the one place worth spelling it out. */
+  assert.match(html, /Minutes and seconds, like 23:25 or 23\.25\./);
 });
 
 test('COPY: the Re-calibrate modal\'s benchmark field carries the same hint and keyboard', () => {
@@ -178,7 +186,15 @@ test('COPY: the Re-calibrate modal\'s benchmark field carries the same hint and 
   const tag = html.slice(html.lastIndexOf('<input', inputStart), html.indexOf('>', inputStart) + 1);
   assert.match(tag, /inputmode="decimal"/);
   assert.match(tag, /placeholder="23:25 or 23\.25"/);
-  assert.match(html, /Enter your time as minutes and seconds, e\.g\. 23\.25 or 23:25\./);
+  /* SHORTENED, AND THE ASSERTION WITH IT. Founder, on the Benchmark
+     stage: "there's also a lot of small text." What this law protects is
+     unchanged and still checked: the athlete is told BOTH formats work,
+     which is the thing that stops a dot being read as a rejection. Both
+     surfaces moved together -- the hint is the same sentence in the
+     builder and in Re-calibrate, which is what the second test below is
+     for. The toast after a REJECTED entry keeps the long wording: an
+     error message is the one place worth spelling it out. */
+  assert.match(html, /Minutes and seconds, like 23:25 or 23\.25\./);
 });
 
 // ===========================================================================

@@ -710,8 +710,42 @@ test('every choice in the build is made the same way', () => {
     'the stacked option lost its trailing-edge tick');
   assert.match(css, /\.opt-grid\.cols-3 button\.active::after[^{]*\{[^}]*bottom:6px/,
     'a token grid is not keeping the mark under its label, so the tick can reach the digits');
-  assert.match(css, /\.opt-grid\.cols-3 button, \.opt-grid\.cols-4 button\{[^}]*padding:14px 10px 26px/,
-    'a token grid stopped reserving the room its tick sits in');
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
+     It required `padding:14px 10px 26px`: the mark's room came from 26px of
+     bottom padding, which bought it by pushing the label UP. Founder, on a
+     screenshot of the 0-7 grid: "check the numbers are centre of the
+     squares." They were not, and that padding is why -- a digit centred in
+     its own 20px content box sat in the top half of a 60px cell.
+     Padding that has to stay symmetric to centre cannot also reserve room
+     at one end, so the reserve moved into the cell's HEIGHT and the label
+     is centred by flex. The thing the old assertion was really protecting
+     -- the mark never reaching the digits -- is now checked by arithmetic
+     rather than by a literal, so shrinking the box or growing the tick
+     fails here instead of rendering a tick through a numeral. */
+  const cell = css.match(/\.opt-grid\.cols-3 button, \.opt-grid\.cols-4 button\{([^}]*)\}/);
+  assert.ok(cell, 'the token grids no longer have a rule of their own');
+  assert.match(cell[1], /align-items:center/,
+    'a token grid stopped centring its label, so the digit floats in the box again');
+  assert.doesNotMatch(cell[1], /padding:\s*\d+px\s+\d+px\s+\d+px/,
+    'a token grid is reserving the tick\u2019s room with asymmetric padding again, ' +
+    'which is the thing that knocked the digit off centre');
+  const tickRule = css.match(/\.opt-grid\.cols-3 button\.active::after[^{]*\{([^}]*)\}/)[1];
+  const px = (body, prop) => {
+    const m = body.match(new RegExp(prop + ':(\\d+)px'));
+    assert.ok(m, 'cannot read ' + prop + ' -- the clearance can no longer be checked');
+    return parseInt(m[1], 10);
+  };
+  const minH = px(cell[1], 'min-height');
+  /* 20px is the measured line box of a single --fs-data mono digit, which is
+     the tallest thing these cells hold on one line. Centred, its foot sits
+     half a label below the middle. */
+  const LABEL_BOX = 20;
+  const tickTop   = minH - px(tickRule, 'bottom') - px(tickRule, 'height');
+  const labelFoot = minH / 2 + LABEL_BOX / 2;
+  assert.ok(tickTop - labelFoot >= 6,
+    'the mark now clears a centred label by ' + (tickTop - labelFoot) + 'px; ' +
+    'the measurement this grid was settled on is 6px, and below that the tick ' +
+    'starts touching the digits');
   /* One polyline for both marks, so the CSS-drawn tick and the markup one
      cannot become two ticks that merely look alike. */
   assert.match(SRC, /--tick-mask:url\("data:image\/svg\+xml[^"]*polyline points='5,13 10,18 19,7'/,

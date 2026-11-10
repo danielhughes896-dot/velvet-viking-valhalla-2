@@ -4651,6 +4651,13 @@
     --ctl-accent:var(--cherry); --ctl-accent-rgb:154,84,108;
   }
   .modal-card.builder-light .modal-head{background:transparent; border-bottom-color:var(--t-tile-rim);}
+  /* NO RULE UNDER THE BUILDER'S TITLE. The hairline sweep's ruling kept the
+     line on forms -- a restriction sheet, a Settings panel -- and .bld-modal
+     is why this does not reach them: they share .builder-light, and scoping
+     the removal there would have taken the line off all of them at once.
+     Width, not colour, because .builder-light above only recolours and the
+     base .modal-head is what actually draws it. */
+  .modal-card.bld-modal .modal-head{border-bottom:0;}
   /* ---- GEOMETRY IS NOT THE BUILDER'S FACE ----
      This centring was authored for .builder-light and then borrowed, surface
      by surface, by everything that needed a card which scrolls inside itself
@@ -5208,8 +5215,21 @@
      top 20px above the box floor against a label sitting 26px above it,
      so 6px of clearance. The arrangement that shipped left 3px, which
      rendered but had nothing in hand -- and the 26px reserve was already
-     being paid for, so the margin was free. */
-  .opt-grid.cols-3 button, .opt-grid.cols-4 button{padding:14px 10px 26px;}
+     being paid for, so the margin was free.
+
+     AND THEN THE NUMBER HAD TO SIT IN THE MIDDLE OF ITS SQUARE. Founder:
+     "check the numbers are centre of the squares." The 26px reserve above
+     bought the mark its room by pushing the label UP, which is why a 0-7
+     cell read as a digit floating in the top half of a box. Centring it
+     inside the same 60px box costs the whole 6px -- the label's foot lands
+     exactly on the mark's top -- so the box grows instead: at 72px, a
+     20px label centred at y 26-46 clears a mark occupying y 52-66 by the
+     same 6px the measurement above settled on. Centred by flex rather than
+     by padding, because padding that has to stay symmetric to centre
+     cannot also reserve room at one end. */
+  .opt-grid.cols-3 button, .opt-grid.cols-4 button{
+    display:flex; align-items:center; justify-content:center;
+    min-height:72px; padding:14px 10px;}
   .opt-grid.cols-3 button.active::after, .opt-grid.cols-4 button.active::after{
     right:auto; top:auto; margin-top:0;
     width:14px; height:14px;
@@ -5389,6 +5409,20 @@
     background:var(--t-tile); border-color:var(--t-tile-rim); border-radius:var(--tile-radius);
   }
 
+  /* ---------- EVERY NUMBER THE ATHLETE TYPES IS A NUMBER ----------
+     Audited at 412px across all eleven stages: the option tiles, the event
+     date and the three goal times were already --num-face, and the six
+     fields the athlete actually types into -- weekly volume, block length,
+     longest run, benchmark time, LTHR, Max HR -- were --text-face at 14px.
+     So "45:33" was set in Oswald on Benchmark and "3:19:47" in JetBrains
+     Mono two screens later, which is the same figure in two voices.
+     DIRECT CHILD, deliberately: .goal-input-row input is a descendant of
+     .field too, and this rule outranks the 21px hero size it sets. `>`
+     reaches the six and leaves the three alone. */
+  .bld-panel .field > input{
+    font-family:var(--num-face); font-size:var(--fs-data); letter-spacing:.4px;
+  }
+
   /* The select each grid mirrors stays in the DOM, and stays the value the
      generator reads. Hidden from sight, never from the code. */
   .bld-mirror{position:absolute; left:0; top:0; width:1px; height:1px; padding:0;
@@ -5471,7 +5505,7 @@
      column of boxes reads as a different kind of content. */
   #bld-review{ padding:6px 0; }
   .bld-review-hero{text-align:center; padding:16px 0 8px; margin-bottom:2px;}
-  .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--gold-text); line-height:1.1; font-weight:var(--label-weight);}
+  .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--ink); line-height:1.1; font-weight:var(--label-weight);}
   .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
   /* ---------- WHAT VALHALLA UNDERSTANDS, IN THE BUILD'S OWN BOX ----------
      Founder: "Page 11. Put them in the blocks."
@@ -5505,8 +5539,11 @@
      the option grid, the objective cards and the experience cards draw.
      Written once on purpose -- three copies of the same four declarations
      is how two of them end up 1px apart a year from now.
-     NO LIFT AND NO CHERRY AT REST. These hold content and fields, not a
-     pick-one choice, so they do not borrow the selected language. What they
+     NO LIFT, AND NO GLOW AT REST. These hold content and fields, not a
+     pick-one choice, so they do not borrow the selected language. Your
+     targets has since taken a cherry RIM on founder instruction (see the
+     .goal-input-row rule further down, which overrides the border-color
+     below on source order); the lift and the glow stay off all three. What they
      DO take is :focus-within, because flattening the input inside a box
      (below) would otherwise leave a typed field with no focus state at
      all. */
@@ -5520,7 +5557,7 @@
      it overrides, several hundred lines down -- same specificity, so it
      only wins on source order, and a rule that depends on order belongs
      next to the one it is arguing with. */
-  .bld-review-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
+  .bld-review-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink); font-weight:var(--label-weight); flex:none;}
   /* Words in this column take the words face, the same rule the Reading
      panels' evidence column follows -- "Established", "Sat", "Off" and
      "Mon, Tue, Wed, Fri, Sat, Sun" are language, not measurements. */
@@ -9102,8 +9139,26 @@
      what the screen is for without claiming a choice nobody has made.
      The input is still the input: same id, same type, same inputmode, same
      h:mm:ss placeholder. Only its size changed. */
-  .goal-input-row{display:grid; grid-template-columns:1fr; gap:2px; align-items:start; margin-bottom:9px;}
-  .goal-input-row .gl-row{display:flex; align-items:center; gap:9px;}
+  /* ---------- ONE LINE PER TARGET ----------
+     Founder: "can it all be on one line? A DREAM TARGET: 3:19:47 ... then the
+     boxes can be reduced to look more premium."
+     It WAS a two-line hero: caption above, 30px figure below, 109px of box
+     per target and 673px of screen for three. The caption and the figure
+     answer the same question, so they now share a row -- letter and name
+     left, time right against the box's own edge -- and the box is the height
+     of one tap target plus its padding. The grid is auto + minmax(0,1fr) so
+     a long name ("Safety Net") takes the width it needs and the figure keeps
+     the remainder rather than wrapping. */
+  .goal-input-row{display:grid; grid-template-columns:auto minmax(0,1fr); gap:10px;
+    align-items:center; margin-bottom:9px;
+    /* CHERRY AT REST, HERE AND NOWHERE ELSE IN THE FOUR. Founder: "Cherry
+       around the box." Overview and Training data keep --t-tile-rim; these
+       three are the screen's whole content rather than one field among
+       several, and the rim is what makes them read as plates. No glow: the
+       glow is what a CHOSEN option wears, and nobody has chosen anything
+       here. */
+    border-color:var(--cherry);}
+  .goal-input-row .gl-row{display:flex; align-items:center; gap:9px; min-width:0;}
   /* A soft rounded badge, not bare bold text. This USED to be described as
      the same chip language .goal-opt wore for A/B/C elsewhere; .goal-opt is
      no longer a chip -- it took the bottom nav's lit law -- so the two are
@@ -9111,31 +9166,41 @@
      LABEL beside an input, not a control. It never gets an active state of
      its own, which is the whole reason it did not follow .goal-opt. */
   .goal-input-row .gl{
-    font-family:var(--num-face); font-weight:700; color:var(--bronze-text); text-align:center;
-    width:30px; height:30px; display:flex; align-items:center; justify-content:center;
-    border-radius:50%; background:var(--tile-sheen), var(--bg-2); border:1px solid var(--tile-border);
+    font-family:var(--num-face); font-weight:700; color:var(--cherry-text); text-align:center;
+    width:30px; height:30px; display:flex; align-items:center; justify-content:center; flex:none;
+    border-radius:50%; background:var(--tile-sheen), var(--bg-2); border:1px solid var(--cherry);
     box-shadow:0 1px 2px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.08);
   }
   /* The name sits beside its letter now rather than opposite the input, so
      the eye reads "A / Dream Target" as one caption and then drops to the
      number. Left, because a hero's label does not float away from it. */
-  .goal-input-row .gp{font-family:var(--text-face); font-size:var(--fs-support);
-    color:var(--ink-faint); text-align:left; letter-spacing:0;}
+  /* The name is a LABEL now, not a caption: same face, size, tracking and
+     weight as .bld-review-k, so "DREAM TARGET" on this screen and "BLOCK
+     LENGTH" on Review are one kind of word. */
+  .goal-input-row .gp{font-family:var(--label-face); font-size:var(--fs-label);
+    text-transform:uppercase; letter-spacing:var(--label-track);
+    font-weight:var(--label-weight); color:var(--ink); text-align:left;}
   /* THE HERO ITSELF. --num-face at the hero size the day card uses for a
      distance, so a goal time and a session distance are the same kind of
      figure in the same product. */
   .goal-input-row input{
-    font-family:var(--num-face); font-size:30px; font-weight:700;
-    letter-spacing:-0.01em; line-height:1.1; color:var(--ink);
+    font-family:var(--num-face); font-size:21px; font-weight:700;
+    letter-spacing:.2px; line-height:1.1; color:var(--ink); text-align:right;
     /* The flattening rule below strips this field's own box, which also
        strips the min-height that kept it a thumb target. At 30px type it
        measured 35px, so the floor is restored explicitly: a hero number is
        still something you tap to edit. */
     min-height:var(--tap-min); height:auto; padding-top:4px; padding-bottom:4px;
   }
-  .goal-input-row input::placeholder{font-size:22px; font-weight:400;}
+  .goal-input-row input::placeholder{font-size:15px; font-weight:400;}
 
   .setup-section-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  /* INSIDE THE BUILDER THEY ARE WHITE. Bronze is the eyebrow colour the
+     other 54 uses of this class wear and keep; a build stage already has a
+     gold-free palette (cherry chooses, white states) and a bronze eyebrow
+     in it read as a third accent with no job. Scoped to .bld-panel rather
+     than .builder-light so Settings and Re-calibrate are untouched. */
+  .bld-panel .setup-section-title{color:var(--ink);}
   /* ---------- A SECTION TITLE WITH A RULE EITHER SIDE ----------
      The heading is .setup-section-title exactly as it is everywhere else --
      same Oswald, same 11px, same 1.5px tracking, same uppercase, same bronze
@@ -10008,7 +10073,6 @@ function readBuilderEntryEvidence(){
            longestRunKm: longKm, longestRunDate: longDate,
            recordedAt: new Date().toISOString() };
 }
-var EV_FIELDS_HEADING = BUILDER_SPEC.entryEvidence.heading;
 var EV_F = BUILDER_SPEC.entryEvidence.fields;
 var EV_DAY_CHOICES = (function(){
   var r = EV_F.runDaysPerWeek.range, out = [];
@@ -52567,7 +52631,7 @@ function openSetupModal(){
           '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
           '<button type="button" data-units="mi" class="'+(state.units==='mi'?'active':'')+'">MI</button>'+
         '</div>'+
-        '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
+        '<div class="field-hint">Applies everywhere once you generate. To switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
       '</div>'+
       navBtns(2)+
     '</section>'+
@@ -52583,7 +52647,7 @@ function openSetupModal(){
        a non-race block still needs a length, so there is nothing to skip. */
     '<section class="bld-panel" data-stage="3" hidden>'+
       stageHead(3)+
-      '<div class="field bld-race-only" id="f-event-toggle"><label>Do you have a target event?</label>'+
+      '<div class="field bld-race-only" id="f-event-toggle">'+
         '<div class="opt-grid" role="group" aria-label="Target event" id="su-event-toggle">'+
           '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">YES</button>'+
           '<button type="button" data-action="set-event-mode" data-event-mode="none" class="'+(eventMode==='none'?'active':'')+'">NOT YET</button>'+
@@ -52652,7 +52716,6 @@ function openSetupModal(){
          ASKED ON EVERY PURPOSE NOW, Race Goal included -- see
          builderAsksWeeklyVolume(). The class stays so the units handler and the
          review renderer keep one set of ids across all four purposes. */
-      '<div class="setup-section-title">'+escapeHtml(EV_FIELDS_HEADING)+'</div>'+
       '<div class="field bld-volume-question" id="f-volume"><label id="su-volume-label">'+
         escapeHtml(EV_F.weeklyKm.label)+' ('+(state.units==='mi'?'mi':'km')+')</label>'+
         '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
@@ -52706,7 +52769,7 @@ function openSetupModal(){
        methodology moves: same two ids, same values, same recalibration path. */
     '<section class="bld-panel" data-stage="6" hidden>'+
       stageHead(6)+
-      '<div class="field"><label>Benchmark distance</label>'+
+      '<div class="field"><label>Distance</label>'+
         '<div class="opt-grid" data-mirror="su-bench-dist" role="group" aria-label="Benchmark distance">'+
           '<button type="button" data-v="5k" class="'+(benchDist==='5k'?'active':'')+'">5K</button>'+
           '<button type="button" data-v="10k" class="'+(benchDist==='10k'?'active':'')+'">10K</button>'+
@@ -52715,10 +52778,10 @@ function openSetupModal(){
           '<option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option>'+
           '<option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select>'+
       '</div>'+
-      '<div class="field"><label>Benchmark time</label>'+
+      '<div class="field"><label>Time</label>'+
         '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
-      '<div class="field-hint">Enter your time as minutes and seconds, e.g. 23.25 or 23:25.</div>'+
-      '<div class="field-hint">This is a reference you give Valhalla, not a measurement of your current fitness — Plan HQ measures that separately, from races and Fitness Checkpoints you actually run. You can update it any time from Re-calibrate.</div>'+
+      '<div class="field-hint">Minutes and seconds, like 23:25 or 23.25.</div>'+
+      '<div class="field-hint">A reference you give Valhalla, not a measurement of your fitness. Plan HQ measures that from the races and checkpoints you actually run, and you can change this any time in Re-calibrate.</div>'+
       navBtns(6)+
     '</section>'+
 
@@ -52768,8 +52831,8 @@ function openSetupModal(){
         '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
         '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
       '</div>'+
-      '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip — I don’t know these</button>'+
-      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine — Valhalla works without it.</div>'+
+      '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip, I don’t know these</button>'+
+      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. Valhalla works without it.</div>'+
       navBtns(8)+
     '</section>'+
 
@@ -52783,7 +52846,7 @@ function openSetupModal(){
        it is untouched. */
     '<section class="bld-panel" data-stage="9" hidden>'+
       stageHead(9)+
-      '<div class="setup-section-title">Goal A / B / C — for the distance you picked</div>'+
+      '<div class="setup-section-title">Goal A / B / C for the distance you picked</div>'+
       '<p class="bld-lede">Every training pace is built from whichever goal is active. Toggle the Active Goal any time afterwards and every workout pace updates instantly.</p>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
       '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
@@ -52820,14 +52883,14 @@ function openSetupModal(){
         '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Build My Training Block')+'</button>'+
       '</div>'+
       (state.setup
-        ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history — only untouched future days are replaced.</div>'
+        ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history. Only untouched future days are replaced.</div>'
         : '<div class="field-hint" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
           '<a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and '+
           '<a href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(legalTermsLabel())+'</a>. '+
           'Both are always in Settings.</div>')+
     '</section>'+
   '</div>';
-  openModal(html, 'modal-themed builder-light');
+  openModal(html, 'modal-themed builder-light bld-modal');
 
   /* Grid -> mirrored select. Delegated on the card so the three grids share one
      listener, and a grid rebuilt later (the long-run day) needs no rebinding. */
@@ -53482,7 +53545,7 @@ function openRecalibrateModal(){
       '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="rc-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
       '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="rc-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
     '</div>'+
-    '<div class="field-hint">Enter your time as minutes and seconds, e.g. 23.25 or 23:25.</div>'+
+    '<div class="field-hint">Minutes and seconds, like 23:25 or 23.25.</div>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
     '<div class="setup-section-title">Goal A / B / C \u2014 for '+escapeHtml(profile.label)+'</div>'+
     goalRows+

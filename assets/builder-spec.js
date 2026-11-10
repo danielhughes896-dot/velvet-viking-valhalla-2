@@ -69,7 +69,7 @@ var BUILDER_SPEC = {
     { key: 'EXPERIENCE', name: 'Experience',      heading: 'Athlete experience',
       lede: 'Choose the level that best matches your running background.' },
     { key: 'YOU',        name: 'You',             heading: 'Your recent running',
-      lede: 'Where your running is right now — not where you want it to be.' },
+      lede: 'Where your running is right now, not where you want it to be.' },
     { key: 'BENCHMARK',  name: 'Benchmark',       heading: 'Benchmark',
       lede: 'A recent honest-effort 5K or 10K. Your training paces are built from it.' },
     { key: 'WEEK',       name: 'Week',            heading: 'Your week',
@@ -110,7 +110,7 @@ var BUILDER_SPEC = {
         blurb: 'Hold the fitness you have built, at a lower cost.',
         distanceLabel: 'Fitness to protect',
         distanceHint: 'The shape of running to hold on to. Volume sits below what you have been absorbing; the quality stays.',
-        weeksHint: 'Eight weeks is a review point, not a limit — Valhalla asks what is next rather than simply stopping.',
+        weeksHint: 'Eight weeks is a review point, not a limit. Valhalla asks what is next rather than simply stopping.',
         stageTitle: 'What you are protecting',
         stageLede: 'The fitness you have already built. This block holds it rather than chasing more.',
         lockDistance: null,
@@ -121,7 +121,7 @@ var BUILDER_SPEC = {
         blurb: 'Build sustainable running capacity.',
         distanceLabel: 'Building towards',
         distanceHint: 'The distance this capacity is for. Base work starts at what you already absorb, and builds from there.',
-        weeksHint: 'Long enough for the aerobic work to count. There is no weekly percentage rule — progression follows what you actually absorb.',
+        weeksHint: 'Long enough for the aerobic work to count. There is no weekly percentage rule, because progression follows what you actually absorb.',
         stageTitle: 'What you are building',
         stageLede: 'Sustainable capacity, built from what you already absorb. No event needed.',
         lockDistance: null,
@@ -131,7 +131,7 @@ var BUILDER_SPEC = {
         label: 'Speed & Threshold',
         blurb: 'Sharpen speed and threshold without a race to aim at.',
         distanceLabel: 'Sharpening at',
-        distanceHint: 'Speed work uses the 5K block’s existing methodology — no new intensity system, and nothing invented for this purpose.',
+        distanceHint: 'Speed work uses the 5K block’s existing methodology. There is no new intensity system and nothing invented for this purpose.',
         weeksHint: 'Short and sharp. Sharpening is a phase, not a season.',
         stageTitle: 'What you are sharpening',
         stageLede: 'Speed and threshold work, using the 5K block’s existing sessions. No event needed.',
@@ -182,11 +182,11 @@ var BUILDER_SPEC = {
     default: 'experienced',
     meta: {
       novice: { label: 'Developing', short: 'Developing',
-        hint: 'Building experience with structured training — tell me what to do, how to do it and what it should feel like.' },
+        hint: 'Building experience with structured training. Tell me what to do, how to do it and what it should feel like.' },
       experienced: { label: 'Established', short: 'Established',
-        hint: 'Comfortable with regular structured training — give me the session, targets and the important coaching cues.' },
+        hint: 'Comfortable with regular structured training. Give me the session, targets and the important coaching cues.' },
       advanced: { label: 'Advanced', short: 'Advanced',
-        hint: 'Highly experienced with structured training and higher training demands — keep it concise and let me run.' }
+        hint: 'Highly experienced with structured training and higher training demands. Keep it concise and let me run.' }
     }
   },
 
