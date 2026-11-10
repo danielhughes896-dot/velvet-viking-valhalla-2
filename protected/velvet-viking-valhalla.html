@@ -60367,22 +60367,29 @@ function renderWeekDaySelector(weekNum){
    the prescription shown here and the prescription shown on Today are one
    string from one authority, not two renderings that can disagree. */
 function weekSlideHtml(dd, i){
-  var tm = TYPE_META[dd.type];
-  var isToday = dd.date === todayStr();
-  /* ---------- NO SYMBOLS ON A SOLO-NOTE DAY ----------
-     Founder: "No symbols what so ever like the mock up", with the rule
-     extended to This Week and Full Plan. These are this screen's own chips
-     -- .wk-badge, not the day card's .day-badge -- which is why hiding the
-     day card's chips did not touch them. The hero directly beneath reads
-     EASY AEROBIC or LONG RUN, so each of these says the day a second time.
-     DONE IN THE BUILDER, not in CSS, because this renderer is not shared
-     with renderDayCard(): there is no one-string-for-three-views law to
-     keep here, and the chips are built right at this line. A day with a
-     rail keeps all three. */
-  var badges = soloNoteSession(dd) ? ''
-    : (isToday ? '<span class="wk-badge is-today font-head">Today</span>' : '')+
-      (tm ? '<span class="wk-badge type-'+dd.type+' font-head">'+escapeHtml(tm.label)+'</span>' : '')+
-      (dd.completed ? '<span class="wk-badge is-done font-head">Done</span>' : '');
+  /* ---------- NO CHIPS ON A WEEK SLIDE AT ALL ----------
+     Founder, three times and about three different days: "No symbols what
+     so ever like the mock up", then "Rest days has the pills at the top",
+     then "Long run tempo interval still there also."
+     THE RULE USED TO BE CONDITIONAL -- a solo-note day lost its chips and a
+     day with a rail kept them -- and the exception never had a reason of its
+     own. Every one of the three chips says something the screen is already
+     saying, whatever kind of day it is:
+       TYPE   the hero directly beneath reads LONG RUN + GOAL PACE, TEMPO:
+              26MIN (SPLIT), HILL REPEATS 6X40S, FULL REST. The chip is the
+              same fact one line higher.
+       TODAY  the day selector above carries .is-today, and renderWeekDaySelector
+              is explicit that it exists to say "done / today / ahead ...
+              because the session itself is the box directly below and saying
+              it twice is how the two drift apart".
+       DONE   the same selector carries .is-done, for the same reason.
+     So the chip row is a third statement of facts two surfaces already make,
+     and it goes for every day rather than for some of them. tm and isToday
+     went with it: they had no other reader in this function.
+     THE DAY SELECTOR IS NOW LOAD-BEARING. It is the only thing left saying
+     which day is today and which are done, so the law below asserts it
+     carries those states -- removing them would not move the information,
+     it would delete it. */
   /* ---------- ONE REST DAY, NOT TWO ----------
      This branched away from the hero because a rest day had no hero to
      show -- renderDayHeroBlock() returned '' for any day with no ring and
@@ -60447,7 +60454,7 @@ function weekSlideHtml(dd, i){
   return '<div class="wk-slide" data-date="'+escapeHtml(dd.date)+'">'+
     '<div class="wk-overview">'+
       (act ? '<div class="day-rail wk-rail-act"><div class="day-actions">'+act+'</div></div>' : '')+
-      (badges ? '<div class="wk-session-badges">'+badges+'</div>' : '')+
+
       body+
       /* ---------- THE WORKOUT IS THERE WHEN YOU SWIPE TO IT ----------
          Founder: "I think the work out now should be open like full plan.
@@ -60556,11 +60563,13 @@ function renderWeekDayTrack(weekNum){
 function renderWeekSessionBox(weekNum){
   var dd = weekSelectedDay(weekNum);
   if (!dd) return '';
-  var tm = TYPE_META[dd.type];
-  var isToday = dd.date === todayStr();
-  var badges = (isToday ? '<span class="wk-badge is-today font-head">Today</span>' : '')+
-    (tm ? '<span class="wk-badge type-'+dd.type+' font-head">'+escapeHtml(tm.label)+'</span>' : '')+
-    (dd.completed ? '<span class="wk-badge is-done font-head">Done</span>' : '');
+  /* THE CHIPS WERE BUILT HERE AND READ NOWHERE. This function stopped
+     emitting its own summary header a while ago -- the summary is
+     weekSlideHtml's, and the open card is renderDayCard's -- but the three
+     chips went on being assembled into a variable nothing referenced.
+     Removed rather than left: a string that looks like output is how a
+     surface quietly grows a second opinion about a day, and this one would
+     have come back wearing the Rest pill the slide has just dropped. */
   /* ---------- ONE REST DAY, NOT TWO ----------
      This branched away from the hero because a rest day had no hero to
      show -- renderDayHeroBlock() returned '' for any day with no ring and

@@ -860,7 +860,7 @@ test('every other archetype keeps its description — on the face or in the note
    the box was missing from those two screens in the first place. */
 test('a solo-note day looks the same on Today, This Week and Full Plan', () => {
   const a = railApp();
-  let solo = 0, railed = 0;
+  let solo = 0, railed = 0, rested = 0;
   a.state.days.forEach((d, i) => {
     const slide = a.weekSlideHtml(d, i);
     if (a.soloNoteSession(d)){
@@ -882,16 +882,64 @@ test('a solo-note day looks the same on Today, This Week and Full Plan', () => {
         d.date + ': the two screens are saying different things');
     } else if (a.hasWorkoutBlueprint(d)){
       railed++;
-      /* A DAY WITH A RAIL IS UNTOUCHED: it keeps its chips, and it does not
-         grow a box it has no business having. */
-      assert.ok(slide.indexOf('wk-badge') > -1,
-        d.date + ': a session with a rail lost the chips that identify it');
+      /* A DAY WITH A RAIL NO LONGER KEEPS ITS CHIPS EITHER. Founder: "Long
+         run tempo interval still there also." The exception had no reason of
+         its own -- the hero one line below reads LONG RUN + GOAL PACE,
+         TEMPO: 26MIN (SPLIT), HILL REPEATS 6X40S, so the type chip was the
+         same fact twice on a railed day exactly as on a solo-note one.
+         It still does not grow a box it has no business having. */
+      assert.equal(slide.indexOf('wk-badge'), -1,
+        d.date + ': a session with a rail still carries a type chip, and the ' +
+        'hero directly beneath it already names the session');
       assert.equal(slide.indexOf('data-solo'), -1,
         d.date + ': a session with a rail grew a solo box');
+    } else if (d.type === 'rest'){
+      /* ---------- AND A REST DAY IS THE SOLO-NOTE CASE ----------
+         Founder: "Rest days has the pills at the top."
+         It fell between the two branches above -- not solo-note, because
+         soloNoteSession() needs a workout blueprint a rest day has not got,
+         and not railed for the same reason -- so it was the one kind of day
+         this sweep walked straight past. It printed Today and Rest over a
+         hero reading FULL REST.
+         ALL THREE, not just the type chip: the rule here is that a day with
+         a rail keeps its chips and a day without one keeps none, and a rest
+         day is the least railed day there is. */
+      rested++;
+      assert.equal(slide.indexOf('wk-badge'), -1,
+        d.date + ': a rest day still carries a chip, and the hero directly ' +
+        'beneath it already says FULL REST');
+      assert.equal(slide, slide.replace(/<div class="wk-session-badges">/, '___'),
+        d.date + ': the slide still draws a chip row on a rest day');
     }
   });
-  assert.ok(solo >= 20 && railed >= 5,
-    'the block built ' + solo + ' solo-note days and ' + railed + ' railed ones — this proves little');
+  assert.ok(solo >= 20 && railed >= 5 && rested >= 5,
+    'the block built ' + solo + ' solo-note days, ' + railed + ' railed ones and ' +
+    rested + ' rest days — this proves little');
+
+  /* NO DAY OF ANY KIND CARRIES ONE, including the types the three branches
+     above do not classify (race, checkpoint, calibration). The rule is now
+     unconditional, so it is asserted unconditionally rather than as three
+     coincidences. */
+  a.state.days.forEach((d, i) => {
+    assert.equal(a.weekSlideHtml(d, i).indexOf('wk-badge'), -1,
+      d.date + ' (' + d.type + '): a week slide grew a chip back');
+  });
+
+  /* AND THE DAY SELECTOR STILL SAYS WHICH DAY IS TODAY AND WHICH ARE DONE.
+     This is the half that makes the removal safe rather than lossy: the
+     Today and Done chips went because renderWeekDaySelector() already
+     carries those states -- "done / today / ahead" is the job it says it
+     exists for. If it stops carrying them the information is not moved
+     somewhere else, it is gone from the screen. */
+  const wkNum = a.currentWeekNum();
+  const sel = a.renderWeekDaySelector(wkNum);
+  assert.match(sel, /class="wk-day[^"]*\bis-today\b/,
+    'the day selector stopped marking today, and the Today chip that used to ' +
+    'say it has been removed — nothing on the screen says it now');
+  a.state.days.filter(d => d.week === wkNum).forEach(d => { d.completed = true; });
+  assert.match(a.renderWeekDaySelector(wkNum), /class="wk-day[^"]*\bis-done\b/,
+    'the day selector stopped marking completed days, and the Done chip that ' +
+    'used to say it has been removed');
 
   /* ---- AND THE SHEET LETS IT SHOW THERE ----
      .how-note is display:none at large and lit only inside a focused card.
