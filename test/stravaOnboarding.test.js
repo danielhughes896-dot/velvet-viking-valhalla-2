@@ -82,7 +82,13 @@ test('the offer sits on the orientation screen, not in the question flow', () =>
      so it must not become one -- and the stage count is asserted by three
      other suites that would all have to be told a different number. */
   const a = app({ available: true });
-  assert.equal(a.BLD_STAGE_NAMES.length, 10, 'the builder still asks ten questions');
+  /* Eleven since Athlete experience was lifted off the YOU screen. The
+     point of this line is that the Strava offer did NOT become a stage --
+     it sits on the orientation screen -- so it is read from the spec rather
+     than restating a number that a later split invalidates. */
+  const SPEC_STAGES = require('../assets/builder-spec.js').stages;
+  assert.equal(a.BLD_STAGE_NAMES.length, SPEC_STAGES.length,
+    'the builder asks ' + a.BLD_STAGE_NAMES.length + ' questions, not ' + SPEC_STAGES.length);
   assert.equal(a.BLD_STAGE_NAMES[0], 'Overview');
 
   const panel = SRC.slice(SRC.indexOf('data-stage="0"'), SRC.indexOf('data-stage="1"'));

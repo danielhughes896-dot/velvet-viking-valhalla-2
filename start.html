@@ -154,12 +154,30 @@
 
   /* ---------- option grids -- the selected state is GOLD, everywhere, not Cherry Lacquer.
      Cherry Lacquer is reserved for forward motion (Continue/Build) and progress. ---------- */
-  .opt-grid{display:grid; gap:8px; grid-template-columns:1fr 1fr;}
+  /* A CHOICE IS A COLUMN, NOT A GRID -- the default is one column and a
+     grid has to ask for columns. Same inversion as the app, same
+     reason: side by side, a worded label was fighting a fraction of a
+     phone, and an unbreakable word widened its track rather than
+     wrapping. The two token grids keep their columns. */
+  .opt-grid{display:grid; gap:8px; grid-template-columns:1fr;}
   .opt-grid.cols-3{grid-template-columns:repeat(3,1fr);}
-  .opt-grid.opt-grid-32{grid-template-columns:repeat(6,1fr);}
-  .opt-grid-32 > button:nth-child(-n+3){grid-column:span 2;}
-  .opt-grid-32 > button:nth-child(n+4){grid-column:span 3;}
+  /* .cols-4 is written on the day-count grid here exactly as it is in the
+     app, and was declared in neither, so eight buttons fell back to the
+     two-column default and ran 0..7 down four rows. */
+  .opt-grid.cols-4{grid-template-columns:repeat(4,1fr);}
+  /* .opt-grid-32 was the 3 + 2 distance track. Stacked, there is no row to
+     share and nothing to strand, so it is not redeclared -- the default
+     governs, and a rule restating the default is the one a future change
+     forgets. The experience grid simply dropped .cols-3 from its markup:
+     .cols-3 and .cols-4 outrank this default, so they are claims about
+     options being short enough to share a row, and words are not. */
+  /* overflow:hidden is load-bearing, not cosmetic: on a grid item it drops
+     the automatic minimum size from min-content to 0, which is what stops a
+     long unbreakable label widening its track and pushing the grid past the
+     card. The rules above make every label fit its cell, so nothing is ever
+     actually clipped -- this only holds the tracks equal. */
   .opt-grid button{
+    position:relative; overflow:hidden;
     font-family:var(--num-face); font-size:var(--fs-data); font-weight:700;
     letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
     border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
@@ -168,13 +186,19 @@
   }
   .opt-grid button:disabled{opacity:.5;}
   .opt-grid button:active{transform:scale(.98);}
-  /* The same selected treatment the app uses -- see its note: this is the
-     bottom nav's selected tab, which is now gold with illumination rather
-     than a slab. /start and the in-app builder must not diverge. */
+  /* CHOSEN IS A LIT CHERRY LINE -- the 1px --cherry rim the app's
+     Coach's Note actually renders, over the same dark surface, lit by the
+     product's own cherry glow (0 0 16px --cherry-dim, as worn by the race
+     event card). No fill: the glow is outside the box and the surface
+     inside it does not change. The app's Coach's Note is the box
+     this copies, and /start moves with the app because the selected state
+     is the one thing the two surfaces are required to agree on (see
+     test/builderVisualParity.test.js). A filled cherry box was tried and
+     rejected: it gave the chosen option Continue's own weight. */
   .opt-grid button.active{
-    color:var(--gold-bright); background:var(--t-tile);
-    border-color:var(--gold); font-weight:700;
-    box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(227,177,90,.26), var(--t-lift);
+    color:var(--ink); background:var(--t-tile);
+    border-color:var(--cherry); font-weight:700;
+    box-shadow:0 0 16px var(--cherry-dim);
   }
   .bld-locked .opt-grid{opacity:.6;}
   .bld-date input[type="date"]{
@@ -942,12 +966,31 @@
   }
 
   /* ---------- stage 04 YOU ---------- */
-  function renderYouStage(){
+  /* ---------- EXPERIENCE IS ITS OWN STAGE, AS IT IS IN THE APP ----------
+     It led the YOU stage here too. The app split it because experience
+     chooses the PATHWAY while the rest of that screen is evidence about the
+     last few weeks -- two questions, not four answers -- and /start renders
+     from the same BUILDER_SPEC.stages, so it splits with it or the two
+     surfaces stop asking the same questions in the same order.
+     NO FIGURE STRIP HERE. The app shows what each pathway prescribes for the
+     chosen distance; that reads RACE_GOAL_PATHWAY, which is generator data
+     this page does not carry. The levels and their sentences are the same
+     spec copy either way, so nothing an athlete is asked to judge differs --
+     only the extra detail the app can source. */
+  function renderExperienceStage(){
     var items = BS.experience.order.map(function(k){ return { value:k, label:BS.experience.meta[k].short.toUpperCase() }; });
     $('bld-stage-body').innerHTML =
-      '<div class="field"><label>Athlete experience</label>' +
-      '<div class="opt-grid cols-3" id="bld-experience" role="group" aria-label="Athlete experience">' + optGrid(items, Ans.experience) + '</div>' +
-      '<div class="field-hint" id="bld-experience-hint">'+BS.experience.meta[Ans.experience].hint+'</div></div>' +
+      '<div class="field" id="f-experience">' +
+      '<div class="opt-grid" id="bld-experience" role="radiogroup" aria-label="Athlete experience">' + optGrid(items, Ans.experience) + '</div>' +
+      '<div class="field-hint" id="bld-experience-hint">'+BS.experience.meta[Ans.experience].hint+'</div></div>';
+    wireOptGrid('bld-experience', function(v){
+      Ans.experience = v;
+      $('bld-experience-hint').textContent = BS.experience.meta[v].hint;
+    });
+  }
+
+  function renderYouStage(){
+    $('bld-stage-body').innerHTML =
       /* THE SAME FOUR ANSWERS THE APP ASKS, FROM THE SAME DEFINITION.
          Labels, hints and bounds come from BUILDER_SPEC.entryEvidence, so this
          screen and the app's stage 05 cannot drift -- which they already had,
@@ -968,10 +1011,6 @@
         (parseFloat(Ans.entryLong) > 0 ? '' : ' hidden')+'><label>'+EVF.longestRunDate.label+'</label>' +
       '<input id="bld-entry-long-date" type="date" value="'+(Ans.entryLongDate||'')+'">' +
       '<div class="field-hint">'+EVF.longestRunDate.hint+'</div></div>';
-    wireOptGrid('bld-experience', function(v){
-      Ans.experience = v;
-      $('bld-experience-hint').textContent = BS.experience.meta[v].hint;
-    });
     wireOptGrid('bld-entry-days', function(v){ Ans.entryDays = v; });
     $('bld-volume').addEventListener('input', function(){ Ans.volume = $('bld-volume').value; });
     /* dependsOnPositive, honoured here as in the app: no run, no date to ask
@@ -1095,7 +1134,11 @@
   function renderTargetsStage(){
     $('bld-stage-body').innerHTML =
       '<div class="field" id="f-ambition"><label>How ambitious should this block be</label>' +
-      '<div class="opt-grid cols-3" id="bld-ambition" role="group" aria-label="Ambition">' +
+      /* No .cols-3: MATCH MY FITNESS is three words and PLAY IT SAFE is
+         three more, and .cols-3 outranks the single-column default. Found
+         by the law that says a worded grid does not ask for columns, not
+         by looking -- this one was never in a screenshot. */
+      '<div class="opt-grid" id="bld-ambition" role="group" aria-label="Ambition">' +
         '<button type="button" data-v="A" class="'+(Ans.goalAmbition==='A'?'active':'')+'">PUSH IT</button>' +
         '<button type="button" data-v="B" class="'+(Ans.goalAmbition==='B'?'active':'')+'">MATCH MY FITNESS</button>' +
         '<button type="button" data-v="C" class="'+(Ans.goalAmbition==='C'?'active':'')+'">PLAY IT SAFE</button>' +
@@ -1132,7 +1175,10 @@
       '<a href="https://velvetviking.co.uk/beta-terms" target="_blank" rel="noopener noreferrer">Terms</a>. Both are always available from Settings once you have an account.</p>';
   }
 
-  var BLD_RENDERERS = [renderOverviewStage, renderGoalStage, renderDistanceStage, renderEventStage, renderYouStage,
+  /* Positional, so it must stay the same length and the same order as
+     BUILDER_SPEC.stages. test/builderSpecParity.test.js is what holds that. */
+  var BLD_RENDERERS = [renderOverviewStage, renderGoalStage, renderDistanceStage, renderEventStage,
+                        renderExperienceStage, renderYouStage,
                         renderBenchmarkStage, renderWeekStage, renderTrainingStage, renderTargetsStage, renderReviewStage];
 
   /* ---------- validation, one rule per guarded stage --------

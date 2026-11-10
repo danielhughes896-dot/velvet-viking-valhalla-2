@@ -46,6 +46,23 @@ function buildJourney(mutate) {
 }
 
 // The <section data-stage="N"> blocks, in order.
+/* ---------- FIND A PANEL BY WHAT IT ASKS, NOT BY WHERE IT SITS ----------
+   These lookups were hard-coded indices -- stage === 7 for heart rate,
+   stage === 9 for Review -- and inserting Athlete experience at 04 silently
+   repointed every one of them at its neighbour. The failures were not
+   "there are eleven stages now"; they were "the acronym is still
+   unexplained" and "the permission is not on Review", which read like real
+   regressions in screens nothing had touched.
+   STAGE(key) resolves through the canonical spec, so the next insert moves
+   these with it. */
+const SPEC_STAGES = require(path.join(__dirname, '..', 'assets', 'builder-spec.js')).stages
+  || require(path.join(__dirname, '..', 'assets', 'builder-spec.js')).BUILDER_SPEC.stages;
+function STAGE(key) {
+  const i = SPEC_STAGES.findIndex((s) => s.key === key);
+  assert.notEqual(i, -1, 'no stage keyed ' + key + ' in the canonical spec');
+  return i;
+}
+
 function panels(html) {
   const out = [];
   const re = /<section class="bld-panel" data-stage="(\d+)"([^>]*)>/g;
@@ -59,22 +76,27 @@ function panels(html) {
 }
 
 // ---------------------------------------------------------------- 1. structure
-test('the builder is ten stages, and the rail and numeral agree', () => {
+test('the builder is eleven stages, and the rail and numeral agree', () => {
   const { a, html } = buildJourney();
 
-  assert.equal(a.BLD_STAGE_NAMES.length, 10,
-    'BLD_STAGE_NAMES declares ' + a.BLD_STAGE_NAMES.length + ' stages, not ten');
+  assert.equal(a.BLD_STAGE_NAMES.length, SPEC_STAGES.length,
+    'BLD_STAGE_NAMES declares ' + a.BLD_STAGE_NAMES.length + ' stages, not ' + SPEC_STAGES.length);
 
   const p = panels(html);
-  assert.equal(p.length, 10, 'the journey rendered ' + p.length + ' panels');
-  assert.deepEqual(p.map(x => x.stage), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-    'the panels are not a contiguous 0..9 run');
+  assert.equal(p.length, SPEC_STAGES.length, 'the journey rendered ' + p.length + ' panels');
+  assert.deepEqual(p.map(x => x.stage), SPEC_STAGES.map((_, i) => i),
+    'the panels are not a contiguous 0..' + (SPEC_STAGES.length - 1) + ' run');
 
   // one rail segment per stage -- the rail is built from the same array
   const rail = html.match(/<div class="bld-step[^"]*"><\/div>/g) || [];
-  assert.equal(rail.length, 10, 'the rail drew ' + rail.length + ' segments for ten stages');
-  assert.match(html, /id="bld-no">01 \/ 10</,
-    'the stage numeral does not open on 01 / 10');
+  assert.equal(rail.length, SPEC_STAGES.length,
+    'the rail drew ' + rail.length + ' segments for ' + SPEC_STAGES.length + ' stages');
+  /* The numeral is the athlete's only sense of how long this is, so it is
+     read from the same array rather than spelled out -- a rail of eleven
+     over a numeral saying 10 is the kind of thing nobody notices in review. */
+  const total = String(SPEC_STAGES.length).padStart(2, '0');
+  assert.ok(html.includes('id="bld-no">01 / ' + total + '<'),
+    'the stage numeral does not open on 01 / ' + total);
 
   // exactly one panel visible at rest, and it is the first (Overview)
   const shown = p.filter(x => !/hidden/.test(x.attrs));
@@ -82,10 +104,32 @@ test('the builder is ten stages, and the rail and numeral agree', () => {
     'more than one panel (or the wrong one) is visible when the builder opens');
 });
 
-test('the ten stages are the approved sequence', () => {
+/* ELEVEN SINCE ATHLETE EXPERIENCE WAS LIFTED OFF THE YOU SCREEN. It led
+   that stage, above weekly volume, running days and the longest recent run
+   -- four answers and two different questions, with the one that picks the
+   programme's pathway buried on top of three pieces of evidence. 'You' is
+   renamed in the spec to 'Your recent running', which is what it asks now;
+   the KEY stays YOU, because that key is what BLD_STAGE, the validator and
+   /start's renderer order are all bound to. */
+test('the eleven stages are the approved sequence', () => {
   const { a } = buildJourney();
   assert.deepEqual([...a.BLD_STAGE_NAMES],
-    ['Overview', 'Goal', 'Distance', 'Event', 'You', 'Benchmark', 'Week', 'Training data', 'Targets', 'Review']);
+    ['Overview', 'Goal', 'Distance', 'Event', 'Experience', 'You', 'Benchmark',
+     'Week', 'Training data', 'Targets', 'Review']);
+});
+
+test('BLD_STAGE is derived from the canonical spec, not a second copy of it', () => {
+  /* It was a hand-written literal, and inserting a stage left YOU pointing
+     at its neighbour -- so the volume rule would have run on the experience
+     screen and the screen that asks for a volume would have gone
+     unvalidated, with nothing on screen looking wrong. */
+  const { a } = buildJourney();
+  SPEC_STAGES.forEach((s, i) => {
+    assert.equal(a.BLD_STAGE[s.key], i,
+      'BLD_STAGE.' + s.key + ' is ' + a.BLD_STAGE[s.key] + ' but the spec puts it at ' + i);
+  });
+  assert.equal(Object.keys(a.BLD_STAGE).length, SPEC_STAGES.length,
+    'BLD_STAGE carries keys the spec does not');
 });
 
 // ------------------------------------------------- 2. every generator input
@@ -114,15 +158,19 @@ test('each input sits on the stage that asks for it', () => {
     const hit = p.find(x => x.body.includes('id="' + id + '"'));
     return hit ? hit.stage : -1;
   };
+  /* Keyed by stage NAME, not by position: this map is the thing an insert
+     silently invalidates, and it is also the thing that proves the insert
+     did not drag a field along with it. */
   const EXPECTED = {
-    'su-purpose': 1,
-    'su-distance': 2, 'su-units': 2,
-    'su-event-box': 3, 'su-racedate': 3, 'su-weeks': 3,
-    'su-experience': 4, 'su-volume': 4,
-    'su-bench-dist': 5, 'su-bench-time': 5,
-    'su-weekdays': 6, 'su-longday': 6,
-    'su-lthr': 7, 'su-maxhr': 7,
-    'su-goal-A': 8, 'su-goal-B': 8, 'su-goal-C': 8,
+    'su-purpose': STAGE('GOAL'),
+    'su-distance': STAGE('DISTANCE'), 'su-units': STAGE('DISTANCE'),
+    'su-event-box': STAGE('EVENT'), 'su-racedate': STAGE('EVENT'), 'su-weeks': STAGE('EVENT'),
+    'su-experience': STAGE('EXPERIENCE'),
+    'su-volume': STAGE('YOU'),
+    'su-bench-dist': STAGE('BENCHMARK'), 'su-bench-time': STAGE('BENCHMARK'),
+    'su-weekdays': STAGE('WEEK'), 'su-longday': STAGE('WEEK'),
+    'su-lthr': STAGE('TRAINING'), 'su-maxhr': STAGE('TRAINING'),
+    'su-goal-A': STAGE('TARGETS'), 'su-goal-B': STAGE('TARGETS'), 'su-goal-C': STAGE('TARGETS'),
   };
   Object.keys(EXPECTED).forEach(id =>
     assert.equal(where(id), EXPECTED[id],
@@ -243,7 +291,7 @@ test('skipping heart rate clears the fields rather than inventing a value', () =
 
 test('the reassurance and the explanation are on the heart-rate screen', () => {
   const { html } = buildJourney();
-  const hr = panels(html).find(p => p.stage === 7).body;
+  const hr = panels(html).find(p => p.stage === STAGE('TRAINING')).body;
   assert.ok(hr.includes('Lactate Threshold Heart Rate'),
     'the acronym is still unexplained');
   assert.ok(/Don.t know it\? That.s completely fine/.test(hr),
@@ -260,8 +308,8 @@ test('the reassurance and the explanation are on the heart-rate screen', () => {
 test('the health permission is a separate decision from the heart-rate numbers', () => {
   const { html } = buildJourney();
   const p = panels(html);
-  const hr = p.find(x => x.stage === 7).body;
-  const review = p.find(x => x.stage === 9).body;
+  const hr = p.find(x => x.stage === STAGE('TRAINING')).body;
+  const review = p.find(x => x.stage === STAGE('REVIEW')).body;
 
   assert.doesNotMatch(hr, /su-health-consent/,
     'the permission is back on the heart-rate screen, which is two decisions on one screen');
@@ -327,7 +375,7 @@ test('goals are asked for every block purpose, because every pace descends from 
     const { html } = buildJourney(a => {
       a.state.setup = Object.assign({}, a.state.setup, { purpose: purpose });
     });
-    const targets = panels(html).find(p => p.stage === 8).body;
+    const targets = panels(html).find(p => p.stage === STAGE('TARGETS')).body;
     ['A', 'B', 'C'].forEach(k =>
       assert.ok(targets.includes('id="su-goal-' + k + '"'),
         purpose + ' lost goal ' + k + ' — that block would have no pace source'));
@@ -365,7 +413,7 @@ test('the goal requirement is not conditional on the purpose', () => {
    the selected one GOLD, and never the cherry action colour. */
 test('the four objectives are rows in one column, wearing the gold selected state', () => {
   const { html } = buildJourney();
-  const goal = panels(html).find(p => p.stage === 1).body;
+  const goal = panels(html).find(p => p.stage === STAGE('GOAL')).body;
   assert.equal((goal.match(/class="bld-purpose-card/g) || []).length, 4,
     'the goal screen does not show four objectives');
 
@@ -428,23 +476,55 @@ test('the four objectives are rows in one column, wearing the gold selected stat
     'a selected objective is wearing the primary-action colour');
 });
 
-test('the five distances are laid out three then two, with nothing stranded', () => {
+/* ---- THIS TEST HAS CHANGED SIDES ----
+   It required the five distances to sit 3 + 2 on a six-column track, so
+   the fifth was not stranded on a line of its own. On instruction the
+   options now STACK: one column, full width, every label with the whole
+   modal to sit in. There is no row to share, so there is nothing left to
+   strand and the six-column track is gone.
+   What replaces it is the law one level up -- .opt-grid defaults to a
+   single column, and only a grid of short TOKENS asks for columns. That
+   is where the real defect lived: .cols-3 on a grid of words is what put
+   ESTABLISHED in 93px of track and hung it off the edge of the card. */
+test('a choice stacks by default, and only token grids ask for columns', () => {
   const { html } = buildJourney();
-  const dist = panels(html).find(p => p.stage === 2).body;
-  assert.match(dist, /class="opt-grid opt-grid-32"/, 'the distance grid is not the 3+2 composition');
+  const dist = panels(html).find(p => p.stage === STAGE('DISTANCE')).body;
+  assert.match(dist, /class="opt-grid opt-grid-32"/, 'the distance grid lost its hook');
 
-  const css = SRC.slice(SRC.indexOf('.opt-grid.opt-grid-32'));
-  const block = css.slice(0, 400);
-  assert.match(block, /grid-template-columns:repeat\(6,1fr\)/, 'the 3+2 track is not six columns');
-  assert.match(block, /nth-child\(-n\+3\)\{grid-column:span 2\}/.source ? /nth-child\(-n\+3\)[^}]*span 2/ : /(?!)/,
-    'the first three tiles do not span two columns each');
-  assert.match(block, /nth-child\(n\+4\)[^}]*span 3/,
-    'the last two tiles do not share the row evenly');
+  /* The DEFAULT is one column. Read the base rule, not a later override. */
+  const base = /\n  \.opt-grid\{([^}]*)\}/.exec(SRC);
+  assert.ok(base, 'the .opt-grid base rule is gone');
+  assert.match(base[1], /grid-template-columns:1fr;/,
+    'a choice is laid out in columns by default again');
+
+  /* .opt-grid-32 must NOT be redeclared: a rule restating the default is
+     the one a future three-across change forgets to remove. */
+  assert.doesNotMatch(SRC, /\.opt-grid\.opt-grid-32\{/,
+    'the distance grid has a track of its own again');
+  assert.doesNotMatch(SRC, /\.opt-grid-32 > button:nth-child/,
+    'the distance tiles are spanning columns again');
+
+  /* ONLY THE TOKEN GRIDS CARRY cols-N, AND THIS IS THE WHOLE LIST.
+     A worded grid that gains one gets narrow cells and an unbreakable
+     label that widens its own track rather than wrapping -- which is the
+     bug this replaced, and the one the experience grid shipped with. */
+  const withCols = [];
+  const re = /<div class="opt-grid[^"]*\bcols-\d+[^"]*"([^>]*)>/g;
+  let m;
+  while ((m = re.exec(SRC))) {
+    const id = /id="([^"]+)"/.exec(m[1]);
+    const al = /aria-label="([^"]+)"/.exec(m[1]);
+    const dm = /data-mirror="([^"]+)"/.exec(m[1]);
+    withCols.push((id && id[1]) || (dm && dm[1]) || (al && al[1]) || '?');
+  }
+  assert.deepEqual(withCols.sort(), ['bld-longday-grid', 'su-entry-days'].sort(),
+    'a grid that is not short tokens (single digits, three-letter weekdays) ' +
+    'is asking for columns: ' + withCols.join(', '));
 });
 
 test('units are on the distance screen, and set back from it', () => {
   const { html } = buildJourney();
-  const dist = panels(html).find(p => p.stage === 2).body;
+  const dist = panels(html).find(p => p.stage === STAGE('DISTANCE')).body;
   assert.ok(dist.includes('id="su-units"'), 'units are not on the distance screen');
   assert.match(dist, /class="field bld-secondary"/,
     'units are given the same weight as the distance question');
@@ -457,7 +537,7 @@ test('units are on the distance screen, and set back from it', () => {
    nowhere to go back to. */
 test('Overview is stage zero, has no field and no validation rule, and Continue always passes', () => {
   const { a, html } = buildJourney();
-  const overview = panels(html).find(p => p.stage === 0).body;
+  const overview = panels(html).find(p => p.stage === STAGE('OVERVIEW')).body;
 
   assert.match(overview, /class="bld-overview"/, 'the overview info box is missing');
   assert.equal((overview.match(/class="bld-overview-row"/g) || []).length, 3,
@@ -479,13 +559,14 @@ test('Overview carries the approved heading and lede, and the rail starts on it'
      Valhalla understands" -- the stage naming itself twice. What the test
      is about is that the flow OPENS ON STAGE ONE, so it asks the two things
      that still say so: the counter, and which rail segment is current. */
-  assert.match(html, /id="bld-no">01 \/ 10</,
-    'the builder does not open on the first of ten');
+  const totalStr = String(SPEC_STAGES.length).padStart(2, '0');
+  assert.ok(html.includes('id="bld-no">01 / ' + totalStr + '<'),
+    'the builder does not open on the first of ' + SPEC_STAGES.length);
   assert.match(html, /<div class="bld-progress" id="bld-rail">/, 'the progress rail is gone');
   /* Matched on the segments themselves rather than on the rail's innerHTML:
      a non-greedy span to the first </div> captures only segment one. */
   const segs = html.match(/class="bld-step[^"]*"/g) || [];
-  assert.equal(segs.length, 10, 'the rail no longer has one segment per stage');
+  assert.equal(segs.length, SPEC_STAGES.length, 'the rail no longer has one segment per stage');
   assert.match(segs[0], /\bnow\b/, 'the rail does not open on the first stage');
   assert.ok(!segs.slice(1).some(s => /\b(now|done)\b/.test(s)),
     'a later rail segment is already lit on arrival');
@@ -508,28 +589,81 @@ test('Overview carries the approved heading and lede, and the rail starts on it'
     (html.match(/Build Your Training Block/g) || []).length +
     ' times; the approved heading belongs on it exactly once');
 
-  const overview = panels(html).find(p => p.stage === 0).body;
+  const overview = panels(html).find(p => p.stage === STAGE('OVERVIEW')).body;
   assert.match(overview, /A plan, built around you\./, 'the approved lede is missing');
 });
 
+/* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
+   It required the chips to have NO rim, NO ground and NO lift -- bare
+   crisp-white words on a gold pool -- on the argument that every
+   comparable control in the product answers "which of these" with light
+   rather than a box, and that the objectives one screen earlier had just
+   stopped being boxes.
+   The founder has reversed that for the chips, against a screenshot of
+   the Goal Distance stage: five distances floating on a dark modal give
+   the eye no edge, and the instruction was to use the boxes Today draws
+   for Share / Session Details / Your Log / Valhalla Analysis. So the box
+   is back, and it is .sess-tab's, not a new one.
+   WHAT THIS TEST WAS REALLY PROTECTING IS UNTOUCHED and still below: the
+   chosen chip is GOLD and never the cherry action colour, the pool still
+   marks it, and the tick still sits under the label in room the chip
+   reserves whether it is chosen or not.
+   THE OBJECTIVES WERE NOT SWEPT WITH IT. Reversing their own pass was not
+   asked for, and the test above still holds them as rows. The build does
+   now answer a choice two ways one Continue apart; that is the founder's
+   call, recorded here so the next reader does not take it for drift. */
 test('every choice in the build is made the same way', () => {
-  /* The objectives stopped being boxes; the chips they lead into were still
-     raised, rimmed tiles lighting a gold ring. A build that answers "which
-     of these" with a box on one screen and with light on the next is two
-     products. This is .goal-opt's recipe, which is .bn-item's. */
   const css = SRC.slice(SRC.indexOf('.opt-grid{'), SRC.indexOf('.bld-date input'));
-  assert.match(css, /\.opt-grid button\{[^}]*border:0/, 'the chips grew a rim again');
-  assert.match(css, /\.opt-grid button\{[^}]*background:none/, 'the chips grew a ground again');
-  assert.match(css, /\.opt-grid button\{[^}]*box-shadow:none/, 'the chips are raised again');
-  assert.match(css, /\.opt-grid button\{[^}]*color:#FFFFFF/, 'the resting chip is not crisp white');
+  /* A BOX, AND THE PRODUCT'S OWN. .sess-tab's three declarations, so a
+     chip cannot quietly become a fourth kind of surface. */
+  assert.match(css, /\.opt-grid button\{[^}]*border:1px solid var\(--tile-border\)/,
+    'the chips lost the rim the founder asked for');
+  assert.match(css, /\.opt-grid button\{[^}]*background:var\(--tile-sheen\), var\(--bg-2\)/,
+    'the chips are not drawing Today\u2019s surface any more');
+  assert.match(css, /\.opt-grid button\{[^}]*border-radius:var\(--tile-radius\)/,
+    'the chips left the product radius');
   assert.match(css, /\.opt-grid button::before\{[^}]*radial-gradient/,
     'the chips lost the gold pool that marks the chosen one');
+  /* ---- THE SELECTED STATE IS A CHERRY LINE, AND THAT IS THE THIRD GO ----
+     Gold rim and halo, then a filled --cherry-fill box, now a 1.5px
+     --cherry rim over the unchanged surface. The middle one is worth
+     recording because it is the one that looked right in isolation and
+     wrong on the screen: a filled cherry option sat a few hundred pixels
+     above a filled cherry Continue, same radius, same height, and read as
+     a second button. Founder: "Not fully cherry. Like the coaches note."
+     A LINE IS NOT A FILL, which is why cherry can mark a choice here
+     without taking the action's weight -- and the surface staying put is
+     half of that. If a future change fills this box, the collision comes
+     straight back, so the fill is asserted against. */
   const on = css.match(/\.opt-grid button\.active\{([^}]*)\}/)[1];
-  assert.match(on, /color:var\(--gold-bright\)/);
-  assert.match(on, /text-shadow:/, 'the chosen chip is coloured but not lit -- gold alone ' +
-    'sits below white in luminance, so it would be the quietest chip in the grid');
-  assert.match(on, /box-shadow:none/, 'the gold ring is back around a chip with no box to ring');
-  assert.ok(!/background:var\(--t-tile\)/.test(on), 'the chosen chip is filled again');
+  assert.match(on, /border-color:var\(--cherry\)/,
+    'the chosen option lost its cherry line');
+  /* NO border-width HERE, and that is the assertion. The Coach's Note
+     renders a 1px cherry edge; its rule says 1.5px and does not win.
+     Copying the declaration instead of the rendered value gave this box a
+     heavier edge than the one it quotes, so the chosen option keeps the
+     1px it already has at rest and changes colour only. */
+  assert.doesNotMatch(on, /border-width/,
+    'the chosen option is thickening its edge -- the Coach\u2019s Note renders 1px');
+  assert.doesNotMatch(on, /background:var\(--cherry/,
+    'the chosen option is filled cherry again -- that is Continue\u2019s weight, ' +
+    'and it put a choice and a button side by side on one screen');
+  /* ---- AND THE GLOW HAS COME BACK, ON INSTRUCTION ----
+     This asserted box-shadow:none one change ago, because the founder had
+     said "without a glow". They have since said "add a glow to the
+     cherry", so the line is lit. What is pinned is WHICH glow: the
+     product's own cherry glow, which the workout blueprint's work step
+     and the race event card already wear. A number invented for this one
+     screen is the thing to catch, not the glow itself. */
+  assert.match(on, /box-shadow:0 0 16px var\(--cherry-dim\)/,
+    'the chosen option is not wearing the product\u2019s cherry glow');
+  assert.doesNotMatch(on, /inset/,
+    'the glow is washing the inside of the box -- the chosen box has no tint, ' +
+    'and an inner wash is how a line starts becoming a fill');
+  /* The pool was what marked the chosen one while there was no fill. It is
+     the hover cue now, and must not come up underneath the cherry. */
+  assert.match(css, /\.opt-grid button\.active::before\{[^}]*opacity:0/,
+    'the gold pool still lights under the cherry fill');
 
   /* ---------- AND A CHOSEN CHIP CARRIES ONE TOO ----------
      Drawn in CSS rather than markup on purpose: the chips are written out
@@ -543,11 +677,20 @@ test('every choice in the build is made the same way', () => {
      chip chosen or not, so picking one moves nothing. */
   assert.match(css, /\.opt-grid button\.active::after\{[^}]*var\(--tick-mask\)/,
     'a chosen chip no longer carries the tick');
-  assert.match(css, /\.opt-grid button\.active::after\{[^}]*bottom:/,
-    'the chip tick is not under its label, so a wrapped label can reach it');
-  assert.match(css, /\.opt-grid button\{[^}]*padding:12px 8px 24px/,
-    'the chip stopped reserving the room its tick sits in, so picking one ' +
-    'now changes the chip\u2019s height');
+  /* THE MARK MOVED WHEN THE SHAPE DID. Stacked, an option is a full-width
+     row with empty space either side of a centred label, so the tick takes
+     the trailing edge -- where the objective rows and the Today tabs put
+     theirs. A grid that still asks for COLUMNS has narrow cells and keeps
+     the mark under the label with the bottom padding that holds its room:
+     measured with every option lit, the trailing edge lands 3px inside a
+     day-count digit and 1px inside MON. Both placements are held here so
+     neither can be dropped onto the other's layout. */
+  assert.match(css, /\.opt-grid button\.active::after\{[^}]*right:13px/,
+    'the stacked option lost its trailing-edge tick');
+  assert.match(css, /\.opt-grid\.cols-3 button\.active::after[^{]*\{[^}]*bottom:6px/,
+    'a token grid is not keeping the mark under its label, so the tick can reach the digits');
+  assert.match(css, /\.opt-grid\.cols-3 button, \.opt-grid\.cols-4 button\{[^}]*padding:14px 10px 26px/,
+    'a token grid stopped reserving the room its tick sits in');
   /* One polyline for both marks, so the CSS-drawn tick and the markup one
      cannot become two ticks that merely look alike. */
   assert.match(SRC, /--tick-mask:url\("data:image\/svg\+xml[^"]*polyline points='5,13 10,18 19,7'/,

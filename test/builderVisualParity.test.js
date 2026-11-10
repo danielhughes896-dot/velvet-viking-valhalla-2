@@ -76,21 +76,45 @@ test('the app\'s primary builder action is Cherry Lacquer, scoped to .builder-li
     '/start\'s builder container no longer carries .builder-light');
 });
 
-test('the selected-choice state is gold (--modal-active), not Cherry Lacquer, on both surfaces', () => {
+/* ---- THIS TEST HAS CHANGED SIDES ----
+   It required a selection to be GOLD and explicitly NOT Cherry Lacquer,
+   on the rule that cherry is the ACTION colour -- Continue, Build My
+   Plan -- and gold is how the product says "this one is picked". The
+   founder has reversed that: a chosen option is LINED in cherry -- the
+   Coach's Note box -- with no fill and no glow.
+   A FILLED cherry box was the first attempt and is why the distinction
+   matters: Continue carries --cherry-fill at the foot of the same screen,
+   so a filled option read as a second button. A line does not.
+   WHAT THIS TEST STILL PROTECTS IS THE PART THAT MATTERED: the two
+   surfaces agree. /start and the in-app builder cannot share a
+   stylesheet, and a selection that means cherry in one and gold in the
+   other is the same screen in two colours depending on how the athlete
+   arrived. They move together or not at all. */
+test('the selected-choice state is the same on both surfaces: a cherry line, not a fill', () => {
   const appRule = /\.opt-grid button\.active\{([^}]*)\}/.exec(APP_SRC);
   const startRule = /\.opt-grid button\.active\{([^}]*)\}/.exec(START_SRC);
   assert.ok(appRule && startRule, 'the .opt-grid button.active rule is missing on one surface');
-  /* GOLD, and which gold is the design system's business. The selection
-     language follows the bottom nav's selected tab, which moved from
-     --modal-active to the brighter --gold-bright when the nav stopped being
-     a slab; what this test exists to stop is a selection turning up in
-     Cherry Lacquer, which is the ACTION colour (Continue), and that
-     assertion is directly below and unchanged. */
-  const GOLD = /var\(--(modal-active|gold|gold-bright)\)/;
-  assert.match(appRule[1], GOLD);
-  assert.match(startRule[1], GOLD);
-  assert.doesNotMatch(appRule[1], /cherry/i, 'the app now colours a selection cherry, not gold -- this test is stale');
-  assert.doesNotMatch(startRule[1], /cherry/i, '/start colours a selection cherry -- selection state must stay gold');
+  const LINE = /border-color:var\(--cherry\)/;
+  assert.match(appRule[1], LINE, 'the app no longer lines a chosen option in cherry');
+  assert.match(startRule[1], LINE, '/start no longer lines a chosen option in cherry');
+  /* A LINE, NOT A FILL, on both. A filled cherry option was tried and
+     gives a choice the same weight as Continue, which carries
+     --cherry-fill at the foot of the same screen. */
+  assert.doesNotMatch(appRule[1], /background:var\(--cherry/, 'the app fills a chosen option cherry');
+  assert.doesNotMatch(startRule[1], /background:var\(--cherry/, '/start fills a chosen option cherry');
+  assert.doesNotMatch(appRule[1], /gold/i, 'the app selection is drifting back to gold while /start is cherry');
+  assert.doesNotMatch(startRule[1], /gold/i, '/start selection is drifting back to gold while the app is cherry');
+  /* AND THE GLOW IS PART OF THE SELECTED STATE, SO IT IS PART OF THE
+     PARITY. This was found by a mutation, not by reading: stripping the
+     glow from /start alone passed every assertion above, because they
+     compared the rim and the fill and nothing compared the light. A
+     selection that glows in the app and sits flat on /start is the same
+     screen in two treatments, which is the whole thing this file is for. */
+  const glow = (r) => (/box-shadow:([^;]*)/.exec(r) || [, 'none'])[1].trim();
+  assert.equal(glow(appRule[1]), glow(startRule[1]),
+    'the chosen option glows differently on the two surfaces');
+  assert.match(glow(appRule[1]), /var\(--cherry-dim\)/,
+    'the chosen option is not wearing the product\u2019s own cherry glow on both surfaces');
 });
 
 test('the weekday picker is the same real-checkbox control, same fill, on both surfaces', () => {

@@ -4985,8 +4985,35 @@
      button treatment is lifted from .unit-toggle button/.active unchanged --
      bronze fill and page-ink when selected, transparent with a hairline border
      when not -- so no new colour enters the system. */
-  .opt-grid{display:grid; gap:8px; grid-template-columns:1fr 1fr;}
+  /* ---------- A CHOICE IS A COLUMN, NOT A GRID ----------
+     On instruction: the options stack. The default is ONE column, and a
+     grid now has to ask for columns rather than being given them.
+     That inverts which way the mistake falls. Side by side, a cell is a
+     fraction of a phone and every worded label was fighting it --
+     ESTABLISHED at 103px against 93px, MARATHON at 75px against 62px --
+     and because `1fr` is minmax(auto,1fr) an unbreakable word did not
+     wrap, it widened its track until the grid burst the card. Stacked,
+     every label has the full width of the modal and none of that is
+     reachable: the narrow-phone special case and the 3+2 distance track
+     are both gone with it, because there is nothing left for them to
+     fix.
+     THE GRIDS THAT STAY IN COLUMNS ARE THE TOKEN ONES -- the eight day
+     counts (.cols-4) and the five weekday codes (.cols-3). A single digit
+     does not need the width of a phone, and stacking 0..7 would spend
+     500px of modal asking how many days a week somebody runs.
+     WHICH MEANS .cols-3 AND .cols-4 ARE NOW CLAIMS, NOT DECORATION: they
+     outrank this default, so writing one on a grid of WORDS is how the
+     experience options ended up in 93px of track with ESTABLISHED hanging
+     off the card. The experience grid no longer claims one. */
+  .opt-grid{display:grid; gap:8px; grid-template-columns:1fr;}
   .opt-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  /* .cols-4 is written on the day-count grid and was declared nowhere, so
+     eight buttons fell back to the two-column default and ran 0..7 down
+     four rows. Boxless that read as odd spacing; as boxes it is 500px of
+     modal asking how many days a week somebody runs. Four across is what
+     the markup always said, and a single digit needs 41px of the 61px a
+     320px phone gives it. */
+  .opt-grid.cols-4{grid-template-columns:repeat(4,1fr);}
   /* ---- BUILD A PLAN TAKES THE PRODUCT'S SURFACE ----
      These were drawn from the modal ramp (--ctl-bg resolves to the warm
      #24201c inside a modal) while every other surface in the app moved to
@@ -5009,16 +5036,38 @@
      illumination on its word. No tick here, unlike the objective rows: a
      tick wants a row with somewhere to the right to sit, and these are
      52px centred chips three and four across. The pool IS the mark. */
+  /* ---------- AND THEN THE FOUNDER ASKED FOR THE BOX BACK ----------
+     The note above is the history and it is accurate: these were raised,
+     rimmed tiles, and they were deliberately stripped to bare words on a
+     gold pool so that the build answered "which of these" the way the
+     bottom nav and the session-type picker do. That decision is being
+     reversed here, for the chips only, on the founder's instruction and
+     against a screenshot: five distances floating on a dark modal gave the
+     eye no edge to say where one option stopped and the next began.
+     THE BOX IS .sess-tab's, DECLARATION FOR DECLARATION -- the soft sheen
+     over --bg-2, the --tile-border hairline, --tile-radius -- which is what
+     Today draws for Share, Session Details, Your Log and Valhalla Analysis,
+     and which is the surface the founder pointed at. No new value enters
+     the system.
+     THE OBJECTIVES ON THE SCREEN BEFORE ARE NOT CHANGED. They were moved
+     from a 2x2 of tiles to rows in their own deliberate pass, and reversing
+     that was not asked for; test/builderNineStages.test.js still holds them
+     as rows. The build does now answer a choice two ways one Continue
+     apart, which is a real cost and the founder's call to pay or not.
+     overflow:hidden is load-bearing, not cosmetic: on a grid item it drops
+     the automatic minimum size from min-content to 0, which is what stops
+     an unbreakable label widening its own track and bursting the card. */
   .opt-grid button{
-    position:relative;
+    position:relative; overflow:hidden;
     font-family:var(--num-face); font-size:var(--fs-data); font-weight:700;
-    letter-spacing:.4px; min-height:52px; padding:12px 8px 24px; text-align:center;
-    border:0; border-radius:var(--tile-radius);
-    background:none; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
+    letter-spacing:.4px; min-height:60px; padding:14px 15px; text-align:center;
+    border:1px solid var(--tile-border); border-radius:var(--tile-radius);
+    background:var(--tile-sheen), var(--bg-2); color:var(--ink);
+    text-shadow:none;
     box-shadow:none;
-    transition:color .2s, text-shadow .2s;
+    transition:color .2s, border-color .2s, box-shadow .2s;
   }
+  .opt-grid button:hover:not(.active):not(:disabled){border-color:var(--bronze);}
   .opt-grid button::before{
     content:''; position:absolute; inset:0; border-radius:inherit;
     pointer-events:none; z-index:0;
@@ -5026,7 +5075,6 @@
       rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
     opacity:0; transition:opacity .34s ease;}
   .opt-grid button > *{position:relative; z-index:1;}
-  .opt-grid button.active::before{opacity:1;}
   .opt-grid button:hover:not(.active):not(:disabled)::before{opacity:.38;}
   .opt-grid button .sub{display:block; font-family:var(--text-face); font-weight:400;
     font-size:var(--fs-support); letter-spacing:0; color:var(--ink-faint); margin-top:3px;}
@@ -5048,15 +5096,49 @@
      treatment: same gold, same glow, same rim the week's day selector uses. */
   /* No ring and no fill: the chip has no box left to ring, and gold is the
      light on the choice rather than a slab behind it. */
+  /* ---------- CHOSEN IS A LIT CHERRY LINE ----------
+     Founder: "Not fully cherry. Like the coaches note." then "Add a glow
+     to the cherry."
+     A filled --cherry-fill box was tried first and is what the first of
+     those corrects: it put the chosen option and Continue in the same
+     fill, the same radius and roughly the same height on one screen, so
+     the choice read as a second button. The line does the same job
+     without borrowing the action's weight -- which is also why the old
+     "cherry is reserved for the action" rule can relax rather than simply
+     invert. A LIT LINE IS STILL NOT A FILL: the glow sits outside the
+     box and the surface inside it does not change, so Continue keeps the
+     only cherry mass on the screen.
+     THE RECIPE IS THE COACH'S NOTE'S, and that box is the one the founder
+     named -- read off the rendered note, not off its stylesheet: 1px
+     solid --cherry over a dark surface, no shadow. The rule in source
+     says 1.5px and the note does not render at 1.5px, so copying the
+     declaration would have made this edge heavier than the box it is
+     quoting. Nothing new is introduced here; an existing box is reused,
+     at the weight it actually has.
+     THE SURFACE DOES NOT CHANGE WHEN YOU PICK ONE. Only the rim, its
+     glow and the mark do, so choosing does not re-light the row -- which
+     is what "not fully cherry" asks for, and what stops five dark boxes
+     becoming one bright one. The rim keeps the 1px it has at rest and
+     changes only colour, so nothing reflows and nothing thickens.
+     THE GLOW IS THE PRODUCT'S OWN CHERRY GLOW, not a number picked to
+     look right here: 0 0 16px --cherry-dim is what the workout
+     blueprint's work step and the race event card already wear. Both pair
+     it with an inset --cherry-tint wash; that half is deliberately left
+     off, because the wash lights the inside of the box and the box the
+     founder chose has no tint. A box-shadow also costs no layout, so the
+     glow cannot push a neighbouring option. */
   .opt-grid button.active{
-    color:var(--gold-bright); background:none; border-color:transparent;
-    font-weight:700; box-shadow:none;
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);
+    color:var(--ink); background:var(--tile-sheen), var(--bg-2);
+    border-color:var(--cherry); font-weight:700;
+    box-shadow:0 0 16px var(--cherry-dim); text-shadow:none;
   }
-  /* The sub is still a description, not the choice -- same rule the
-     objective rows follow, where only the NAME goes gold. */
-  .opt-grid button.active .sub{color:var(--gold); opacity:.85; text-shadow:none;}
+  /* The gold pool is the HOVER cue and nothing else now. It used to be what
+     marked the chosen one; against a cherry fill it would be a gold wash
+     sitting on top of it. */
+  .opt-grid button.active::before{opacity:0;}
+  /* The sub sits on the same dark surface it always did, so it keeps the
+     colour it always had. Only the rim moved. */
+  .opt-grid button.active .sub{color:var(--ink-faint); text-shadow:none;}
   /* ---------- EVERY CHOSEN OPTION IN THE BUILD CARRIES A TICK ----------
      Drawn here rather than in markup because these chips are written out
      at seven separate call sites and one of them is populated by script --
@@ -5066,23 +5148,108 @@
      same shape the objective rows draw and takes its gold from
      background-color rather than a second hard-coded value. Masked, not a
      text glyph: "\2713" is a different tick in every font the app loads.
-     UNDER THE LABEL, CENTRED, and the corner was tried first. A chip's
-     label is centred and several of them fill their cell -- measured at
-     360px, the mark overlapped HALF MARATHON, FULL MARATHON, DEVELOPING,
-     ESTABLISHED and ADVANCED, because a label that wraps to two lines has
-     a box the full width and height of the cell and there is no corner
-     left to put anything in. Centred underneath, no label can reach it at
-     any width or any wrap.
-     Its room is held by the chip's own bottom padding rather than by an
-     always-drawn element: the padding is on every chip whether chosen or
-     not, so nothing moves when one is picked, and nothing invisible is in
-     the markup waiting to be wondered about. */
+     AT THE TRAILING EDGE, AND IT USED TO BE UNDER THE LABEL. The corner
+     was tried and rejected once, correctly: while these were 84px cells
+     three across, a label that wrapped to two lines filled its cell
+     completely and the mark overlapped HALF MARATHON, FULL MARATHON,
+     DEVELOPING, ESTABLISHED and ADVANCED at 360px. There was no corner
+     left to put anything in, so it went underneath and the chip reserved
+     26px of bottom padding to hold it.
+     Stacking removed that constraint rather than working around it. A
+     full-width row is mostly empty either side of a centred label -- the
+     widest of them, HALF MARATHON, leaves 97px clear to the right at
+     320px -- so the trailing edge is free at every width, which is where
+     the objective rows and the Today tabs already put theirs. Taking the
+     26px reserve back is what pays for most of the height stacking cost:
+     Goal Distance measured 916px against the 885px a 915px-tall phone
+     allows, and measures 886px now -- 1px over at 320 and 360, and an
+     exact fit at 412. It is not quite a free stage; it is one pixel of
+     scroll instead of thirty-one, and the remaining pixel is not worth
+     shrinking a tap target for.
+     The mark is absolutely positioned, so picking an option still moves
+     nothing; what had to be proved was that it never lands on the words,
+     and that is measured, not assumed. */
   .opt-grid button.active::after{
-    content:''; position:absolute; bottom:7px; left:50%; margin-left:-7px; z-index:1;
-    width:14px; height:14px; pointer-events:none;
-    background-color:var(--gold-bright);
+    content:''; position:absolute; right:13px; top:50%; margin-top:-8px; z-index:1;
+    width:16px; height:16px; pointer-events:none;
+    background-color:var(--cherry-text);
     -webkit-mask:var(--tick-mask) center/contain no-repeat;
     mask:var(--tick-mask) center/contain no-repeat;}
+  /* ---------- A GRID THAT ASKS FOR COLUMNS KEEPS THE OLD MARK ----------
+     The trailing edge is only free because a stacked row is mostly empty
+     either side of its label. In a token grid it is not: measured with
+     every option lit, a 61px day-count cell at 320px put the mark 3px
+     INTO the digit and a weekday cell 1px into MON, and at 360px the day
+     counts still only cleared by 2px. So .cols-3 and .cols-4 keep the
+     mark under the label and the 26px of bottom padding that holds its
+     room -- the arrangement the narrow-cell argument was written for, now
+     scoped to the only grids still narrow.
+     This was arithmetic that looked right and was wrong by 3px; it is
+     here because the browser said so, and tickclash is what asked it.
+     14px at bottom:6px, not the row's 16px at 7px: that puts the mark's
+     top 20px above the box floor against a label sitting 26px above it,
+     so 6px of clearance. The arrangement that shipped left 3px, which
+     rendered but had nothing in hand -- and the 26px reserve was already
+     being paid for, so the margin was free. */
+  .opt-grid.cols-3 button, .opt-grid.cols-4 button{padding:14px 10px 26px;}
+  .opt-grid.cols-3 button.active::after, .opt-grid.cols-4 button.active::after{
+    right:auto; top:auto; margin-top:0;
+    width:14px; height:14px;
+    bottom:6px; left:50%; margin-left:-7px;}
+
+  /* ---------- THE EXPERIENCE CARD ----------
+     The option grid's own box, with a name, the sentence that already
+     described the level, and the three figures that pathway actually runs.
+     LEFT ALIGNED, alone among the option grids, because it carries prose:
+     a centred sentence over a centred figure strip gives the eye no column
+     to come back to. The name keeps the grid's mono label voice; the
+     sentence takes the prose face, same pairing the objective cards use.
+     The strip is three equal columns with hairline dividers, so the three
+     levels can be read DOWN the screen as well as across a card -- which is
+     the comparison somebody choosing between them is actually making. */
+  #su-experience button{text-align:left; padding:15px 15px 14px;}
+  .exp-name{display:block; font-family:var(--num-face); font-size:var(--fs-data);
+    font-weight:700; letter-spacing:.4px; line-height:1.2;}
+  .exp-why{display:block; font-family:var(--text-face); font-weight:400;
+    font-size:var(--fs-support); line-height:var(--lh-support);
+    letter-spacing:0; color:var(--ink-faint); margin-top:6px;}
+  /* THE TICK'S COLUMN IS RESERVED ON THE WORDS ONLY. The mark sits 13px
+     from the right edge and is 16px wide, so it owns the rightmost 29px.
+     Measured with every card lit, the sentence ran to within 3px of it at
+     320 and 360 -- not overlapping, but with nothing in hand and no reason
+     to be that close. The reserve is on .exp-name and .exp-why rather than
+     the button, so the figure strip below still divides the card's whole
+     width and its three columns stay even. It applies whether a card is
+     chosen or not, so picking one moves no text. */
+  .exp-name, .exp-why{padding-right:34px;}
+  /* The chosen card lights its NAME and nothing else. The sentence and the
+     figures are description, not the choice -- same rule the objective rows
+     follow, and what stops a picked card becoming the loudest block of text
+     on the screen. */
+  #su-experience button.active .exp-name{color:var(--cherry-text);}
+  /* NO RULE ABOVE THE STRIP, and the mock had one. test/editSessionSurface
+     holds a hairline pass -- every plain 1px separator outside Settings was
+     removed, and its note is blunt about why: "anything else is a hairline
+     creeping back, which is exactly how 46 of them accumulated in the first
+     place." Space separates the figures from the sentence instead, which is
+     what the rest of the product does. The dividers BETWEEN the three
+     columns stay: they are not separating one detail from the next down the
+     card, they are the thing that makes three columns read as three. */
+  .exp-figs{display:grid; grid-template-columns:repeat(3,1fr); gap:0;
+    margin-top:16px;}
+  .exp-fig{display:block; padding:0 9px; text-align:center;}
+  .exp-fig + .exp-fig{border-left:1px solid var(--tile-border);}
+  .exp-fig:first-child{padding-left:0;}
+  .exp-fig:last-child{padding-right:0;}
+  .exp-fig-k{display:block; font-family:var(--text-face); font-weight:400;
+    font-size:var(--fs-meta); line-height:1.25; letter-spacing:0;
+    color:var(--ink-faint);}
+  .exp-fig-v{display:block; font-family:var(--num-face); font-size:var(--fs-data);
+    font-weight:700; letter-spacing:.2px; color:var(--ink); margin-top:4px;}
+  /* THE TICK RIDES WITH THE NAME, NOT THE CARD. Centred vertically it would
+     land beside the figure strip on a card this tall, which reads as a mark
+     on the numbers rather than on the choice. */
+  #su-experience button.active::after{top:19px; margin-top:0;}
 
   /* ---------- WHAT IS THIS BLOCK FOR ----------
      Cards, not toggles: four objectives that are not variations of one
@@ -5202,14 +5369,25 @@
      rows therefore divide the SAME width exactly, so the fifth option shares
      the bottom row with the fourth instead of being stranded on a line of its
      own -- which is what plain auto-flow does with an odd count. */
-  .opt-grid.opt-grid-32{grid-template-columns:repeat(6,1fr);}
-  .opt-grid-32 > button:nth-child(-n+3){grid-column:span 2;}
-  .opt-grid-32 > button:nth-child(n+4){grid-column:span 3;}
+  /* .opt-grid-32 WAS the distance track: six columns with the first three
+     spanning two and the last two spanning three, which is how five
+     options were made to sit 3 + 2 instead of leaving the fifth stranded.
+     Stacked, there is no row to share and nothing to strand, so the class
+     survives only as a hook the markup still writes and the default
+     single column now governs. It is NOT redeclared here: a rule that
+     restated the default would be the one a future three-across change
+     forgot to remove. The experience grid got there differently -- it
+     dropped .cols-3 from its markup rather than gaining an id rule to
+     fight it, because an override that argues with a class leaves the
+     class still saying something untrue. */
 
   /* The screen's secondary decision, set back below a rule rather than given
      the same weight as the question the screen is actually asking. */
   .bld-secondary{margin-top:20px; padding-top:16px;}
-  .bld-secondary .opt-grid button{min-height:44px;}
+  /* The secondary row keeps a smaller box, but not smaller than the tick
+     it has to hold: 44px less the 26px that reserves the mark leaves
+     18px for a 15px line, so the box would set its own content. */
+  .bld-secondary .opt-grid button{min-height:52px;}
 
   /* A follow-up that appeared BECAUSE of the answer above it, rather than a
      second independent question. */
@@ -52013,7 +52191,14 @@ function openSetupModal(){
   '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="bld-progress" id="bld-rail">'+railHtml+'</div>'+
-    '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / 10</span>'+
+    /* The total is DERIVED, not typed. It was "01 / 10" in the markup while
+       bldStage() computed it everywhere else, so a stage added to the spec
+       left the builder opening on "01 / 10" and correcting itself to 11 the
+       moment anything advanced it. The padding is inlined rather than
+       calling padStage(), which is a local inside bldStage() and not in
+       scope here. */
+    '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / '+
+      (BUILDER_SPEC.stages.length < 10 ? '0' : '')+BUILDER_SPEC.stages.length+'</span>'+
       '</div>'+
 
     /* ---------- 01 OVERVIEW ----------
@@ -52124,24 +52309,43 @@ function openSetupModal(){
        today rather than what they are training for. Experience leads because
        it is the comparison the athlete has to make; volume follows because its
        label depends on the units chosen on stage 02. */
+    /* ---------- 05 ATHLETE EXPERIENCE ----------
+       One question, and the one that picks the pathway everything else is
+       built on. The three cards carry what that pathway actually prescribes
+       for the distance chosen on stage 03 -- see experienceCardHtml() --
+       which is the comparison somebody choosing between three levels is
+       trying to make, and which there was no room for while this sat on top
+       of three evidence fields.
+       NO .cols-3 ANYWHERE NEAR THIS GRID: these are words, not tokens, and
+       .cols-3 outranks the single-column default. That class, not a missing
+       rule, is what used to put ESTABLISHED in 93px of track and hang it off
+       the edge of the card.
+       role=radio, not aria-pressed: the three are ONE choice, and
+       aria-pressed announces three independent toggles each "pressed" or
+       not, with nothing saying only one may be. */
     '<section class="bld-panel" data-stage="4" hidden>'+
       stageHead(4)+
-      '<div class="field"><label>Athlete experience</label>'+
-        '<div class="opt-grid cols-3" role="group" aria-label="Athlete experience" id="su-experience">'+
+      '<div class="field" id="f-experience">'+
+        '<div class="opt-grid" role="radiogroup" aria-label="Athlete experience" id="su-experience">'+
           EXPERIENCE_LEVELS.map(function(k){
-            return '<button type="button" data-action="set-experience" data-experience="'+k+'" '+
-              'aria-pressed="'+(experience===k?'true':'false')+'" class="'+(experience===k?'active':'')+'">'+
-              EXPERIENCE_META[k].short.toUpperCase()+'</button>';
+            return experienceCardHtml(k, experience, (su.distanceKey||'full'),
+                                      (state.units==='mi'?'mi':'km'));
           }).join('')+
         '</div>'+
-        '<div class="field-hint" id="su-experience-hint">'+escapeHtml(EXPERIENCE_META[experience].hint)+'</div>'+
       '</div>'+
+      navBtns(4)+
+    '</section>'+
+
+    /* ---------- 06 YOUR RECENT RUNNING ---------- */
+    '<section class="bld-panel" data-stage="5" hidden>'+
+      stageHead(5)+
       /* HIDDEN FOR A RACE GOAL, PRESENT FOR THE OTHER THREE PRODUCTS. The
          input itself stays in the DOM so the units handler, the review
          renderer and the generator keep one set of ids across all four
          purposes -- bldApplyPurpose() decides whether it is a question.
-         Stage 05 still asks experience, so nothing here can leave an empty
-         screen. */
+         Experience is stage 05 of its own now, so this screen is evidence
+         only -- volume, running days and the longest recent run -- and none
+         of those is purpose-gated. */
       /* ---------- WHAT THE ATHLETE IS ACTUALLY DOING NOW ----------
          Four answers, one section, every label and hint read from
          BUILDER_SPEC.entryEvidence so /start asks the identical question. They
@@ -52194,7 +52398,7 @@ function openSetupModal(){
            athlete is told which answer did the work. */
         '<div class="field-hint" id="su-entry-long-stale" hidden></div>'+
       '</div>'+
-      navBtns(4)+
+      navBtns(5)+
     '</section>'+
 
     /* ---------- 06 BENCHMARK ----------
@@ -52202,8 +52406,8 @@ function openSetupModal(){
        hint keeps the builder honest with Plan HQ, which deliberately separates
        a benchmark the athlete supplies from fitness Valhalla has measured. No
        methodology moves: same two ids, same values, same recalibration path. */
-    '<section class="bld-panel" data-stage="5" hidden>'+
-      stageHead(5)+
+    '<section class="bld-panel" data-stage="6" hidden>'+
+      stageHead(6)+
       '<div class="field"><label>Benchmark distance</label>'+
         '<div class="opt-grid" data-mirror="su-bench-dist" role="group" aria-label="Benchmark distance">'+
           '<button type="button" data-v="5k" class="'+(benchDist==='5k'?'active':'')+'">5K</button>'+
@@ -52217,12 +52421,12 @@ function openSetupModal(){
         '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
       '<div class="field-hint">Enter your time as minutes and seconds, e.g. 23.25 or 23:25.</div>'+
       '<div class="field-hint">This is a reference you give Valhalla, not a measurement of your current fitness — Plan HQ measures that separately, from races and Fitness Checkpoints you actually run. You can update it any time from Re-calibrate.</div>'+
-      navBtns(5)+
+      navBtns(6)+
     '</section>'+
 
     /* ---------- 07 WEEK ---------- */
-    '<section class="bld-panel" data-stage="6" hidden>'+
-      stageHead(6)+
+    '<section class="bld-panel" data-stage="7" hidden>'+
+      stageHead(7)+
       '<div class="field" id="f-weekdays"><label>Training days</label>'+
         '<div class="weekday-grid" id="su-weekdays">'+wdCheckboxes+'</div>'+
       '</div>'+
@@ -52243,7 +52447,7 @@ function openSetupModal(){
          unchanged and the health permission stays exactly where it was, on the
          screen with the two heart-rate numbers it governs. */
       renderSupportWorkStep()+
-      navBtns(6)+
+      navBtns(7)+
     '</section>'+
 
     /* ---------- 08 TRAINING DATA ----------
@@ -52259,8 +52463,8 @@ function openSetupModal(){
        Consent stays here, immediately under the two fields it governs, because
        handleGeneratePlan() reads this box before it reads them and stores
        neither number without it. */
-    '<section class="bld-panel" data-stage="7" hidden>'+
-      stageHead(7)+
+    '<section class="bld-panel" data-stage="8" hidden>'+
+      stageHead(8)+
       '<p class="bld-lede">Lactate Threshold Heart Rate (LTHR) is roughly the highest heart rate you can hold for a hard, controlled effort of about an hour. Give it and Valhalla adds target heart-rate ranges alongside your paces.</p>'+
       '<div class="benchmark-row">'+
         '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
@@ -52268,7 +52472,7 @@ function openSetupModal(){
       '</div>'+
       '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip — I don’t know these</button>'+
       '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine — Valhalla works without it.</div>'+
-      navBtns(7)+
+      navBtns(8)+
     '</section>'+
 
     /* ---------- 09 TARGETS ----------
@@ -52279,13 +52483,13 @@ function openSetupModal(){
        with no goal would have no pace source at all. The heading is the
        purpose-neutral "Your targets" for that reason; the methodology behind
        it is untouched. */
-    '<section class="bld-panel" data-stage="8" hidden>'+
-      stageHead(8)+
+    '<section class="bld-panel" data-stage="9" hidden>'+
+      stageHead(9)+
       '<div class="setup-section-title">Goal A / B / C — for the distance you picked</div>'+
       '<p class="bld-lede">Every training pace is built from whichever goal is active. Toggle the Active Goal any time afterwards and every workout pace updates instantly.</p>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
       '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
-      navBtns(8)+
+      navBtns(9)+
     '</section>'+
 
     /* ---------- 10 REVIEW ---------- */
@@ -52304,8 +52508,8 @@ function openSetupModal(){
        is still read by id from a mounted panel, still rendered unticked, and
        still the only affirmative act. Reaching this screen is not consent,
        and neither is having typed a heart rate on stage 07. */
-    '<section class="bld-panel" data-stage="9" hidden>'+
-      stageHead(9)+
+    '<section class="bld-panel" data-stage="10" hidden>'+
+      stageHead(10)+
       '<div id="bld-review"></div>'+
       (consentStep
         ? '<div class="bld-permission">'+
@@ -52340,6 +52544,12 @@ function openSetupModal(){
         bldApplyPurpose();
         bldSyncRaceEntryNote();
       }
+      /* THE EXPERIENCE FIGURES ARE THIS DISTANCE'S, so changing the
+         distance has to rebuild them. Every panel stays mounted for the
+         whole build, so without this an athlete who stepped back from
+         Experience to Distance and picked Ultra would walk forward onto
+         three marathon pathways presented as theirs. */
+      if (grid.getAttribute('data-mirror') === 'su-distance') renderExperienceCards();
       // Purpose, distance and benchmark all feed raceGoalAdmission()'s
       // calculation, so any of the three re-syncs the short-runway note.
       bldSyncRunwayNote();
@@ -52367,6 +52577,8 @@ function openSetupModal(){
         }
       }
       if (label) label.textContent = 'Current Weekly Volume ('+newUnits+')';
+      /* The experience figures carry a unit, so they move with this too. */
+      renderExperienceCards();
       bldSyncRaceEntryNote();
     });
   }
@@ -52545,7 +52757,17 @@ var BLD_STAGE_NAMES = BUILDER_SPEC.stages.map(function(s){ return s.name; });
    number -- reordering the stages then cannot silently point a rule at the
    wrong panel, which is the one way this restructuring could have changed
    behaviour without anybody noticing. */
-var BLD_STAGE = { OVERVIEW:0, GOAL:1, DISTANCE:2, EVENT:3, YOU:4, BENCHMARK:5, WEEK:6, TRAINING:7, TARGETS:8, REVIEW:9 };
+/* ---------- DERIVED, BECAUSE A HAND-WRITTEN COPY GOES STALE SILENTLY ----
+   This was a literal: { OVERVIEW:0, GOAL:1, ... YOU:4, ... }. Inserting
+   Athlete experience at 04 left YOU pointing at 4, which is now the
+   experience screen -- so bldValidateStage() would have demanded a weekly
+   volume on the screen that asks for neither, and let the screen that does
+   ask for one through unchecked. Nothing in the builder would have looked
+   wrong; it would just have stopped validating.
+   BUILDER_SPEC.stages is the one definition of the order, and the rail, the
+   numerals and /start's renderer list already read it. This reads it too,
+   so the next insert cannot separate a validation rule from its screen. */
+var BLD_STAGE = BUILDER_SPEC.stages.reduce(function(m, s, i){ m[s.key] = i; return m; }, {});
 /* ---------- THE OPTIONAL STRAVA OFFER, ON THE FIRST SCREEN ----------
  *
  * WHY HERE AND NOT AS AN ELEVENTH STAGE. A stage is a question the builder
@@ -52751,10 +52973,16 @@ function bldValidateStage(i){
     return true;
   }
   if (i === BLD_STAGE.YOU){
-    /* THE RULE FOLLOWS THE QUESTION. A Race Goal build is not asked for a
-       weekly volume, and a validator that still demanded one would make the
-       stage impossible to pass with nothing on screen to fix. The stage keeps
-       its other question -- experience -- so no screen is left empty. */
+    /* THE RULE FOLLOWS THE QUESTION. A Race Goal build was once not asked for
+       a weekly volume, and a validator that still demanded one would have
+       made the stage impossible to pass with nothing on screen to fix.
+       THE OLD REASON THIS WAS SAFE HAS MOVED OUT. It used to read "the stage
+       keeps its other question -- experience -- so no screen is left empty",
+       and experience is its own stage now. What keeps this screen from ever
+       being empty is that builderAsksWeeklyVolume() is true for all four
+       purposes, and running days and the longest recent run are asked
+       unconditionally besides. The guard stays: it is the thing that would
+       catch a future purpose that stops asking. */
     if (!builderAsksWeeklyVolume(bldPurposeNow())) return true;
     var volume = parseDistInput(document.getElementById('su-volume').value);
     if (!volume || volume <= BUILDER_SPEC.validation.volumeMustExceed){
@@ -53053,18 +53281,106 @@ function handleSetEventMode(mode){
 // preference, so nobody has to regenerate (and lose logged actuals) just to
 // change how much explanation they get. Generating a block later snapshots
 // whatever is selected here into state.setup.
+/* ---------- WHAT EACH EXPERIENCE LEVEL ACTUALLY COMMITS YOU TO ----------
+   Three figures under each level, read from RACE_GOAL_PATHWAY -- the same
+   table the generator builds the programme from. Not illustrative numbers
+   and not a claim about the athlete: "the pathway's entry state is what an
+   athlete of this experience typically arrives with", which is exactly the
+   thing somebody choosing between three levels is trying to judge.
+
+   THEY ARE PER DISTANCE, and that is why this can exist at all. Goal
+   distance is answered three stages earlier, so by the time these cards are
+   read the table has a row. It also means they go STALE if the athlete
+   steps back and changes distance, which is what renderExperienceCards()
+   below is wired to the distance grid for.
+
+   WHAT IS DELIBERATELY NOT SHOWN:
+     ULTRA HAS NO PATHWAY AT ALL. RACE_GOAL_PATHWAY has no `ultra` key, so
+     raceGoalPathway() returns null for all three levels. The strip is not
+     rendered rather than drawn with blanks or filled from a neighbouring
+     distance, because a 50K is not a marathon with a bigger number.
+     5K AND 10K HAVE NO peakVolumeKm -- it is null for all three levels, so
+     the top of the weekly range is buildVolumeKm there. Stated here because
+     it is a methodology choice, not a formatting one: the build figure is
+     the highest weekly load those pathways actually prescribe.
+
+   THE UNITS ARE THE ONES BEING CHOSEN, NOT THE ONES SAVED. state.units is
+   still whatever the last plan used -- the builder's own KM/MI control says
+   "applies everywhere once you generate" -- so reading state here would
+   print miles to somebody who has just switched to km. */
+function experienceFigures(distKey, expKey, units){
+  var p = null;
+  try { p = raceGoalPathway(distKey, expKey); } catch(e) { p = null; }
+  if (!p) return null;
+  var top = p.peakVolumeKm != null ? p.peakVolumeKm : p.buildVolumeKm;
+  if (p.entryVolumeKm == null || top == null) return null;
+  var mi = units === 'mi';
+  var cv = function(km){ return mi ? Math.round(km * 0.621371) : Math.round(km); };
+  var u  = mi ? 'mi' : 'km';
+  return {
+    weekly: cv(p.entryVolumeKm) + '\u2013' + cv(top) + (p.openEnded ? '+' : '') + ' ' + u,
+    long:   cv(p.entryLongKm) + '\u2013' + cv(p.peakLongKm) + ' ' + u,
+    days:   String(p.entryDays)
+  };
+}
+/* The units the builder is currently offering, read off its own control so a
+   pending switch is honoured. Falls back to the saved units when the control
+   is not mounted (the Review renderer calls through the same path). */
+function builderUnits(){
+  var box = document.getElementById('su-units');
+  var on = box && box.querySelector('button.active');
+  if (on) return on.getAttribute('data-units') === 'mi' ? 'mi' : 'km';
+  return state.units === 'mi' ? 'mi' : 'km';
+}
+function experienceCardHtml(k, chosen, distKey, units){
+  /* EXPERIENCE_META[k] is read inline rather than through a local, because
+     test/raceGoalAppCleanup asserts that exact access path on every
+     athlete-facing surface -- "a hardcoded 'Experienced' anywhere
+     athlete-facing is how half the product renames and the other half does
+     not". Aliasing it to a local passed review and failed the law, which is
+     the law working. */
+  var f = experienceFigures(distKey, k, units);
+  var on = chosen === k;
+  return '<button type="button" data-action="set-experience" data-experience="'+k+'" '+
+    'role="radio" aria-checked="'+(on?'true':'false')+'" class="'+(on?'active':'')+'">'+
+      '<span class="exp-name">'+escapeHtml(EXPERIENCE_META[k].short.toUpperCase())+'</span>'+
+      '<span class="exp-why">'+escapeHtml(EXPERIENCE_META[k].hint)+'</span>'+
+      (f ? '<span class="exp-figs">'+
+             '<span class="exp-fig"><span class="exp-fig-k">Typical weekly range</span>'+
+               '<span class="exp-fig-v">'+escapeHtml(f.weekly)+'</span></span>'+
+             '<span class="exp-fig"><span class="exp-fig-k">Longest run</span>'+
+               '<span class="exp-fig-v">'+escapeHtml(f.long)+'</span></span>'+
+             '<span class="exp-fig"><span class="exp-fig-k">Running days</span>'+
+               '<span class="exp-fig-v">'+escapeHtml(f.days)+'</span></span>'+
+           '</span>'
+         : '')+
+    '</button>';
+}
+/* Rebuilt in place rather than patched: the figures, the chosen state and the
+   tick all change together, and three separate DOM edits is how one of them
+   gets forgotten. */
+function renderExperienceCards(){
+  var box = document.getElementById('su-experience');
+  if (!box) return;
+  var distSel = document.getElementById('su-distance');
+  var distKey = distSel ? distSel.value : (state.setup && state.setup.distanceKey) || 'full';
+  var chosen = athleteExperience();
+  var units = builderUnits();
+  box.innerHTML = EXPERIENCE_LEVELS.map(function(k){
+    return experienceCardHtml(k, chosen, distKey, units);
+  }).join('');
+}
 function handleSetExperience(level){
   var lv = normaliseExperience(level);
   if (!lv || athleteExperience()===lv) return;
   state.experience = lv;
   if (state.setup) state.setup.experience = lv;
   persistState();
-  var btns = document.querySelectorAll('#su-experience button');
-  Array.prototype.forEach.call(btns, function(b){
-    var on = b.getAttribute('data-experience')===lv;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-pressed', on?'true':'false');
-  });
+  /* One rebuild, so the chosen rim, the tick and the aria state cannot
+     disagree. The shared hint line below the grid is gone -- every card now
+     carries its own sentence -- but the lookup stays null-safe for the
+     /start markup, which still has one. */
+  renderExperienceCards();
   var hintEl = document.getElementById('su-experience-hint');
   if (hintEl) hintEl.textContent = EXPERIENCE_META[lv].hint;
   if (state.setup) renderApp(); // modal lives on document.body, so this is safe

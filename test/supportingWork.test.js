@@ -823,12 +823,23 @@ function panelBodies(html){
   return out;
 }
 
-test('the permission is presented on stage 07, with the week it belongs to', () => {
+/* ---------- FIND THE WEEK STAGE BY NAME, NOT BY NUMBER ----------
+   These read `x.stage === 6`. Athlete experience became its own stage at
+   04, Your week moved to 07, and every one of these started asserting
+   against Training data instead -- failing as "the permission is not on the
+   week stage" in a screen nothing had touched. The spec is the one
+   definition of the order, so they resolve through it now. */
+const SPEC_STAGES = require('../assets/builder-spec.js').stages;
+const WEEK_STAGE = SPEC_STAGES.findIndex((s) => s.key === 'WEEK');
+const REVIEW_STAGE = SPEC_STAGES.findIndex((s) => s.key === 'REVIEW');
+
+test('the permission is presented with the week it belongs to', () => {
   const { html } = journey();
   const p = panelBodies(html);
-  assert.equal(p.length, 10, 'the builder no longer renders ten panels');
-  const week = p.filter(x => x.stage === 6)[0];
-  assert.ok(week, 'stage 07 (Your week) was not found');
+  assert.equal(p.length, SPEC_STAGES.length,
+    'the builder rendered ' + p.length + ' panels, not ' + SPEC_STAGES.length);
+  const week = p.filter(x => x.stage === WEEK_STAGE)[0];
+  assert.ok(week, 'the Your week stage was not found');
   assert.ok(week.body.indexOf('id="su-support-work"') !== -1,
     'the permission is not on the week stage');
   /* And exactly once in the whole journey -- two copies would mean two ids and
@@ -837,8 +848,8 @@ test('the permission is presented on stage 07, with the week it belongs to', () 
 });
 
 test('it sits below the long run day and above the stage actions', () => {
-  const week = panelBodies(journey().html).filter(x => x.stage === 6)[0];
-  assert.ok(week, 'stage 07 was not found');
+  const week = panelBodies(journey().html).filter(x => x.stage === WEEK_STAGE)[0];
+  assert.ok(week, 'the Your week stage was not found');
   const html = week.body;
   const longAt = html.indexOf('id="f-longday"');
   const supportAt = html.indexOf('id="su-support-work"');
@@ -850,7 +861,7 @@ test('it sits below the long run day and above the stage actions', () => {
 });
 
 test('the concise copy is the week stage’s, and it still says a tick is not a quota', () => {
-  const week = panelBodies(journey().html).filter(x => x.stage === 6)[0].body;
+  const week = panelBodies(journey().html).filter(x => x.stage === WEEK_STAGE)[0].body;
   assert.ok(week.indexOf('Supporting work') !== -1, 'the section is unnamed');
   assert.ok(week.indexOf('Include strength &amp; mobility work') !== -1, 'the question changed');
   assert.match(week, /Valhalla may add strength, conditioning or mobility where it helps your running/);
@@ -860,7 +871,7 @@ test('the concise copy is the week stage’s, and it still says a tick is not a 
 
 test('Review no longer offers the decision — it states it back', () => {
   const { html } = journey();
-  const review = panelBodies(html).filter(x => x.stage === 9)[0].body;
+  const review = panelBodies(html).filter(x => x.stage === REVIEW_STAGE)[0].body;
   assert.ok(review.indexOf('id="su-support-work"') === -1,
     'Review still carries an interactive permission control');
   assert.ok(review.indexOf('bld-review') !== -1, 'Review lost its summary container');
@@ -887,15 +898,15 @@ test('the health permission has not moved', () => {
      other with it. Consent still lives on Review, where it is recorded. */
   const { html } = journey(a => { a.state.healthConsent = null; });
   const p = panelBodies(html);
-  const review = p.filter(x => x.stage === 9)[0].body;
-  const week = p.filter(x => x.stage === 6)[0].body;
+  const review = p.filter(x => x.stage === REVIEW_STAGE)[0].body;
+  const week = p.filter(x => x.stage === WEEK_STAGE)[0].body;
   assert.ok(review.indexOf('id="su-health-consent"') !== -1,
     'the health permission left the Review stage');
   assert.ok(week.indexOf('id="su-health-consent"') === -1,
     'the health permission followed supporting work onto the week stage');
 });
 
-test('stage 07 still validates on its own questions, not on the permission', () => {
+test('the week stage still validates on its own questions, not on the permission', () => {
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   const src = require('fs').readFileSync(
     require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
@@ -906,7 +917,13 @@ test('stage 07 still validates on its own questions, not on the permission', () 
   assert.match(body, /BLD_STAGE\.WEEK/, 'the week stage lost its validation');
   assert.ok(body.indexOf('su-support-work') === -1,
     'the permission became a validation gate — a tick can now block the builder');
-  assert.equal(a.BLD_STAGE.WEEK, 6, 'the week stage moved');
+  /* Where the week stage SITS is the spec's business, not this test's --
+     it was pinned at 6 and moved to 7 when Athlete experience became its
+     own stage. What matters here is that the validator and the spec agree,
+     so a rule can never be left pointing at a neighbouring screen. That is
+     exactly what went wrong when BLD_STAGE was a hand-written literal. */
+  assert.equal(a.BLD_STAGE.WEEK, WEEK_STAGE,
+    'the validator and the spec disagree about where the week stage is');
 });
 
 test('the tick still writes the same stored value, and off is still off', () => {
@@ -950,10 +967,14 @@ test('the plan itself is unchanged by where the question is asked', () => {
   assert.equal(off.state.setup.supportWork, undefined);
 });
 
-test('the builder stays at ten stages and /start is untouched', () => {
+/* The count moved from ten to eleven when Athlete experience was lifted off
+   the YOU screen. What this test is actually for is that the permission did
+   not wander off the week stage or leak into /start, so it asserts WEEK is
+   present and where the spec puts it rather than restating a total. */
+test('the permission stays on the week stage and /start is untouched', () => {
   const spec = require('../assets/builder-spec.js');
-  assert.equal(spec.stages.length, 10, 'the canonical builder gained or lost a stage');
-  assert.equal(spec.stages[6].key, 'WEEK');
+  assert.notEqual(WEEK_STAGE, -1, 'the canonical builder lost its week stage');
+  assert.equal(spec.stages[WEEK_STAGE].key, 'WEEK');
   const start = require('fs').readFileSync(
     require('path').join(__dirname, '..', 'start.html'), 'utf8');
   assert.ok(start.indexOf('su-support-work') === -1,

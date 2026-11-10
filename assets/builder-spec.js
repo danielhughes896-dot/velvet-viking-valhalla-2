@@ -56,7 +56,19 @@ var BUILDER_SPEC = {
       lede: 'The distance this block prepares you for.' },
     { key: 'EVENT',      name: 'Event',           heading: 'Your event',
       lede: 'Do you have a target event? Either answer builds a full block.' },
-    { key: 'YOU',        name: 'You',             heading: 'You',
+    /* ---------- EXPERIENCE IS ITS OWN SCREEN ----------
+       It used to lead the YOU stage, above weekly volume, running days and
+       the longest recent run. Those are four answers and two different
+       questions: experience chooses the PATHWAY the programme is built on,
+       and the rest is evidence about the last few weeks. Asking them
+       together made the screen the longest in the builder and buried the
+       one choice that changes the architecture.
+       It also could not carry its own figures there. Each level now shows
+       what that pathway actually prescribes for the chosen distance, which
+       needs the room a dedicated screen has. */
+    { key: 'EXPERIENCE', name: 'Experience',      heading: 'Athlete experience',
+      lede: 'Choose the level that best matches your running background.' },
+    { key: 'YOU',        name: 'You',             heading: 'Your recent running',
       lede: 'Where your running is right now — not where you want it to be.' },
     { key: 'BENCHMARK',  name: 'Benchmark',       heading: 'Benchmark',
       lede: 'A recent honest-effort 5K or 10K. Your training paces are built from it.' },

@@ -31,8 +31,8 @@ const TODAY = '2026-08-20T09:00:00Z';
 // ---------------------------------------------------------------------------
 // 1. EXACTLY NINE STAGES, ONE CANONICAL LIST
 // ---------------------------------------------------------------------------
-test('the canonical spec defines exactly ten stages', () => {
-  assert.equal(BUILDER_SPEC.stages.length, 10);
+test('the canonical spec defines exactly eleven stages', () => {
+  assert.equal(BUILDER_SPEC.stages.length, 11);
   BUILDER_SPEC.stages.forEach((s) => {
     assert.equal(typeof s.key, 'string');
     assert.equal(typeof s.name, 'string');
@@ -43,7 +43,7 @@ test('the canonical spec defines exactly ten stages', () => {
 
 test('the app builder exposes exactly the canonical spec\'s ten stage names, in order', () => {
   const app = loadApp({ pinnedDate: TODAY });
-  assert.equal(app.BLD_STAGE_NAMES.length, 10);
+  assert.equal(app.BLD_STAGE_NAMES.length, BUILDER_SPEC.stages.length);
   assert.equal(JSON.stringify(Array.from(app.BLD_STAGE_NAMES)),
     JSON.stringify(BUILDER_SPEC.stages.map((s) => s.name)),
     'the app\'s stage names/order no longer match the canonical spec');
@@ -60,7 +60,8 @@ test('/start\'s wizard reads the same ten stages from the same object, not a sec
   const arr = /var BLD_RENDERERS = \[([^\]]*)\];/s.exec(START_SRC);
   assert.ok(arr, 'BLD_RENDERERS was not found');
   const names = arr[1].split(',').map((s) => s.trim()).filter(Boolean);
-  assert.equal(names.length, 10, '/start does not render exactly ten stages');
+  assert.equal(names.length, BUILDER_SPEC.stages.length,
+    '/start renders ' + names.length + ' stages, not ' + BUILDER_SPEC.stages.length);
 });
 
 test('the old condensed all-fields-on-one-page builder no longer exists', () => {
