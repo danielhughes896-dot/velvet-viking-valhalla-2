@@ -9089,7 +9089,21 @@
   .pace-table .goal-col-a{font-weight:700; background:var(--tile-sheen), rgba(var(--modal-active-rgb),0.06);}
 
   .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .goal-input-row{display:grid; grid-template-columns:34px 1fr 74px; gap:8px; align-items:center; margin-bottom:9px;}
+  /* ---------- PROPOSAL: THE TARGET IS THE HERO ----------
+     Founder: "Your targets page I want to feel like it's a hero?"
+     The row was a 34px badge, a small input and a right-aligned caption --
+     three columns of equal quietness, so the page read as a form with the
+     finish times hidden inside it. Your targets IS the finish times.
+     SO THE TIME IS THE BIG NUMBER and the letter and its name become the
+     line above it, the same shape Today uses: a label, then the figure.
+     Not a hero ELEMENT at the top of the page -- there is no active goal
+     yet at build time, only three being typed, so a single hero would have
+     had to invent which one mattered. Three heroes, one per target, says
+     what the screen is for without claiming a choice nobody has made.
+     The input is still the input: same id, same type, same inputmode, same
+     h:mm:ss placeholder. Only its size changed. */
+  .goal-input-row{display:grid; grid-template-columns:1fr; gap:2px; align-items:start; margin-bottom:9px;}
+  .goal-input-row .gl-row{display:flex; align-items:center; gap:9px;}
   /* A soft rounded badge, not bare bold text. This USED to be described as
      the same chip language .goal-opt wore for A/B/C elsewhere; .goal-opt is
      no longer a chip -- it took the bottom nav's lit law -- so the two are
@@ -9102,7 +9116,24 @@
     border-radius:50%; background:var(--tile-sheen), var(--bg-2); border:1px solid var(--tile-border);
     box-shadow:0 1px 2px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.08);
   }
-  .goal-input-row .gp{font-family:var(--num-face); font-size:11px; color:var(--ink-faint); text-align:right;}
+  /* The name sits beside its letter now rather than opposite the input, so
+     the eye reads "A / Dream Target" as one caption and then drops to the
+     number. Left, because a hero's label does not float away from it. */
+  .goal-input-row .gp{font-family:var(--text-face); font-size:var(--fs-support);
+    color:var(--ink-faint); text-align:left; letter-spacing:0;}
+  /* THE HERO ITSELF. --num-face at the hero size the day card uses for a
+     distance, so a goal time and a session distance are the same kind of
+     figure in the same product. */
+  .goal-input-row input{
+    font-family:var(--num-face); font-size:30px; font-weight:700;
+    letter-spacing:-0.01em; line-height:1.1; color:var(--ink);
+    /* The flattening rule below strips this field's own box, which also
+       strips the min-height that kept it a thumb target. At 30px type it
+       measured 35px, so the floor is restored explicitly: a hero number is
+       still something you tap to edit. */
+    min-height:var(--tap-min); height:auto; padding-top:4px; padding-bottom:4px;
+  }
+  .goal-input-row input::placeholder{font-size:22px; font-weight:400;}
 
   .setup-section-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
   /* ---------- A SECTION TITLE WITH A RULE EITHER SIDE ----------
@@ -52309,10 +52340,11 @@ function openSetupModal(){
   var goalLabels = BUILDER_SPEC.goals.labels;
   var goalRows = GOAL_KEYS.map(function(k){
     var val = (goals[k] && goals[k].timeSec) ? secToClock(goals[k].timeSec) : '';
+    /* Letter and name on one line, the time underneath at hero size. */
     return '<div class="goal-input-row">'+
-      '<div class="gl">'+k+'</div>'+
+      '<div class="gl-row"><div class="gl">'+k+'</div>'+
+        '<div class="gp">'+goalLabels[k]+'</div></div>'+
       '<input type="text" id="su-goal-'+k+'" placeholder="h:mm:ss" value="'+val+'">'+
-      '<div class="gp">'+goalLabels[k]+'</div>'+
     '</div>';
   }).join('');
 
