@@ -183,7 +183,14 @@ test('3. a protected rest day still renders Rest, and offers nothing', () => {
        Coach's Note under it says the same thing as coaching rather than as
        stage directions. The day still says what it is for; this checks the
        sentence that now says it. */
-    assert.match(html, /Rest is part of the plan/, d.date + ' keeps the rest instruction');
+  /* THE REST CUE IS CONTEXTUAL NOW, so this asks for the line this day
+     actually resolves to rather than one particular sentence. A rest day in
+     Base and a rest day in Taper are explaining different things on purpose
+     -- that is the repetition fix. What the law still protects is that the
+     rest day IS coached, in both positions, from the rest pool. */
+    const restLine = a.coachingEntryFor(d).cue;
+    assert.ok(restLine && html.indexOf(a.escapeHtml(restLine)) !== -1,
+      d.date + ' keeps the rest instruction');
     /* The stage directions were "Full rest. Legs up, hydrate, stay ahead of
        the block." Those two words have since MOVED to the ring, which is
        where this card states what a session is aimed at -- so the phrase to

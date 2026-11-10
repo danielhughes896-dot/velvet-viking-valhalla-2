@@ -389,16 +389,23 @@ test('a rest day is coached, and says it once', () => {
   const a = app();
   const dd = restDay(a);
   const card = a.renderDayCard(dd);
+  const restLine = a.coachingEntryFor(dd).cue;
+  assert.ok(restLine && restLine.length > 20, 'the rest day resolved no coaching at all');
 
   /* The cue was written for rest days and has been in the product all
      along; it was computed below the early return that sends rest days
      home, so nothing could reach it. */
-  assert.match(card, /class="how-note"[\s\S]{0,200}Rest is part of the plan/,
+  /* THE REST CUE IS CONTEXTUAL NOW, so this asks for the line this day
+     actually resolves to rather than one particular sentence. A rest day in
+     Base and a rest day in Taper are explaining different things on purpose
+     -- that is the repetition fix. What the law still protects is that the
+     rest day IS coached, in both positions, from the rest pool. */
+  assert.ok(new RegExp('class="how-note"[\\s\\S]{0,200}' + a.escapeHtml(restLine).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(card),
     'the rest day has lost its Coach’s Note');
   /* BOTH POSITIONS, ONE STRING -- the pattern a run day already uses, and
      the reason this needed no new CSS: .how-note is hidden outside a
      focused session and .coach-cue-inline is hidden inside one. */
-  assert.match(card, /coach-cue-inline[\s\S]{0,400}Rest is part of the plan/,
+  assert.ok(new RegExp('coach-cue-inline[\\s\\S]{0,400}' + a.escapeHtml(restLine).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(card),
     'the rest day no longer carries the inline cue, so This Week and Full Plan show nothing');
 
   /* AND THE STAGE DIRECTIONS GO. "Full rest. Legs up, hydrate" said in
@@ -425,7 +432,8 @@ test('a rest day is coached, and says it once', () => {
      used; a guard that can pass by doing nothing is not a guard. */
   n.state.setup.experience = 'novice';
   assert.equal(n.athleteExperience(), 'novice', 'the fixture is not novice, so this guard proves nothing');
-  assert.match(n.renderCoachingDepth(restDay(n)), /class="how-note"[\s\S]{0,200}Rest is part of the plan/,
+  const nRest = restDay(n), nLine = n.coachingEntryFor(nRest).cue;
+  assert.ok(new RegExp('class="how-note"[\\s\\S]{0,200}' + n.escapeHtml(nLine).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(n.renderCoachingDepth(nRest)),
     'a novice\u2019s rest day has no Coach\u2019s Note — it reaches the coaching by a different path');
 
   /* An OPTIONAL RUN is type 'rest' too, and its headline is the one line on

@@ -548,7 +548,19 @@ test('the companion is closed by default and the running stays the primary objec
   assert.ok(collapsed.indexOf('Supporting work') !== -1, 'the athlete is not told it exists');
   assert.ok(collapsed.indexOf(k.label) !== -1, 'the kind is hidden behind the disclosure');
   assert.ok(collapsed.indexOf(k.minutes + ' min') !== -1, 'the duration is hidden');
-  assert.ok(collapsed.indexOf(a.escapeHtml(k.why)) !== -1, 'no purpose is given without opening it');
+  /* A PURPOSE, NOT THAT PARTICULAR PURPOSE. This pinned the KIND's own why,
+     which was the only purpose supporting work had. It now takes the same
+     contextual line a run does -- the reason this work is here differs
+     between Base and Taper -- so what the law protects is that the collapsed
+     card still ANSWERS "why is this here", from whichever source applies.
+     The kind's own why remains the fallback, so a kind with no contextual
+     line is unchanged. */
+  const purpose = /<div class="support-why">([^<]+)<\/div>/.exec(collapsed);
+  assert.ok(purpose && purpose[1].trim().length > 20,
+    'no purpose is given without opening it');
+  const ctx = a.supportContextualWhy(dd);
+  assert.ok(purpose[1] === a.escapeHtml(ctx || k.why),
+    'the purpose shown is neither the contextual line nor the kind\'s own');
 
   /* And the movements and remaining coaching really are inside it. THE
      PRESCRIBED routine, read from the item -- a kind now has more than one
@@ -563,8 +575,11 @@ test('the companion is closed by default and the running stays the primary objec
     assert.ok(inside.indexOf('>' + key + '<') !== -1, key + ' is not behind the disclosure'));
   /* Nothing was lost in the move: every movement is still there. */
   steps.forEach(st => assert.ok(html.indexOf(st.label) !== -1, 'lost a movement: ' + st.label));
-  /* And Why is said once, not twice. */
-  assert.equal(html.split(a.escapeHtml(k.why)).length - 1, 1, 'the purpose is stated twice');
+  /* And Why is said once, not twice -- whichever purpose was shown. The
+     kind's own why is no longer necessarily the one on the card (the
+     contextual line takes precedence), so this counts the purpose that was
+     actually rendered rather than a particular string. */
+  assert.equal(html.split(purpose[1]).length - 1, 1, 'the purpose is stated twice');
 });
 
 test('the companion is materially shorter than the running prescription it supports', () => {

@@ -168,6 +168,13 @@ test('the card shows the prescribed routine, in the unchanged card', () => {
     return a.renderDayCard(dd);
   };
   const h1 = html(first.dayId), h2 = html(second.dayId);
+  /* Each card's purpose is the one resolved for ITS day. */
+  [[h1, first], [h2, second]].forEach(pair => {
+    const dd = a.findDay(pair[1].dayId);
+    const want = a.supportContextualWhy(dd) || a.SUPPORT_KINDS[k].why;
+    assert.ok(pair[0].indexOf(a.escapeHtml(want)) !== -1,
+      'the card shows a purpose resolved for a different day');
+  });
   /* Same card, same category, same duration, same coaching voice. */
   const label = a.SUPPORT_KINDS[k].label;
   [h1, h2].forEach(h => {
@@ -175,7 +182,15 @@ test('the card shows the prescribed routine, in the unchanged card', () => {
     assert.match(h, /Supporting work/);
     assert.match(h, new RegExp(a.SUPPORT_KINDS[k].minutes + ' min'));
     assert.ok(h.indexOf(label) !== -1, 'the category is named identically');
-    assert.ok(h.indexOf(a.SUPPORT_KINDS[k].why) !== -1, 'and explained identically');
+    /* THE KIND IS PRESENTED IDENTICALLY; THE REASON NEED NOT BE. This
+       asserted the kind's own why appeared on both cards. Supporting work
+       now takes the same contextual line a run does, so two occurrences in
+       different phases are explained differently ON PURPOSE -- that is the
+       repetition fix, not a regression. What must still hold is that each
+       card states a real purpose, and states the one resolved for its own
+       day rather than some other day's. */
+    const shown = /<div class="support-why">([^<]+)<\/div>/.exec(h);
+    assert.ok(shown && shown[1].trim().length > 20, 'the card gives no purpose at all');
   });
   /* Only the movements differ. */
   /* .join(), not deepEqual: supportVariants() returns an array built in the

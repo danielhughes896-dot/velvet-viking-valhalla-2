@@ -29162,6 +29162,20 @@ function coachingEntryFor(dd){
     Object.keys(over).forEach(function(k){ merged[k] = over[k]; });
     base = merged;
   }
+  /* ---------- A REST DAY'S COACHING IS ITS CUE, NOT ITS WHY ----------
+     A rest day has no `how`, so coachingDisclosureFor() returns null for it
+     by design and the card reads g.cue directly. The contextual line is the
+     same line; it simply has to arrive through the field this family
+     actually renders, or a rest day would be the one family left repeating
+     itself. */
+  if (base && dd && dd.type === 'rest'){
+    var restWhy = null;
+    try { restWhy = contextualWhy(dd); } catch(e) { restWhy = null; }
+    if (restWhy){
+      var rm = {}; Object.keys(base).forEach(function(k){ rm[k] = base[k]; });
+      rm.cue = restWhy; base = rm;
+    }
+  }
   return resolveGuidance(base);
 }
 // The key coachingEntryFor resolved to, so the terse copy is looked up from
@@ -29179,8 +29193,542 @@ function coachingDisclosureFor(dd, level){
   var terse = (level !== 'novice') ? resolveGuidance(TERSE_GUIDANCE[coachingKeyFor(dd)]) : null;
   var src = terse || g;
   if (!src.how) return null;                 // nothing substantive to disclose
-  return { why:src.why||null, how:src.how, feel:src.feel||null, avoid:src.avoid||null,
-           terse:!!terse };
+  /* ---------- THE WHY IS CONTEXTUAL; THE EXECUTION IS NOT ----------
+     Founder: "Easy Runs repeatedly show essentially the same advice. If
+     athletes see identical coaching every Easy Run, they will stop reading
+     it." MEASURED on a 19-week marathon block: 95 coached days produced 17
+     distinct coaching texts, and easy_run accounted for 51 of those days
+     with exactly ONE text. That was not a shortage of writing. Selection
+     was a pure function of session identity, so a second easy-run variant
+     could never have been reached.
+     ONLY `why` IS OVERLAID. how/feel/avoid describe the correct way to run
+     this session and must not rotate for novelty -- an athlete who has read
+     the right instruction before still needs the right instruction. The WHY
+     is the part that genuinely differs by where the day sits. */
+  var ctxWhy = null;
+  try { ctxWhy = contextualWhy(dd); } catch(e) { ctxWhy = null; }
+  var teach = null;
+  try { teach = coachingTeachFor(dd); } catch(e) { teach = null; }
+  return { why:ctxWhy || src.why || null, how:src.how, feel:src.feel||null,
+           avoid:src.avoid||null, terse:!!terse,
+           /* HEAR TODAY'S half of the disclosure. Carried here so the spoken
+              brief and the card read one resolution of the day rather than
+              two, exactly as `why` and `how` already do. */
+           teach:teach };
+}
+
+/* =========================================================
+   CONTEXTUAL COACHING -- WHY THIS SESSION, TODAY
+   ---------------------------------------------------------
+   The prescription decides WHAT the athlete runs. This layer only explains
+   it, and it changes nothing about methodology, volume, progression, phase
+   structure, workout selection, intensity, distance, pace or HR.
+
+   THE CONTEXT IS ONLY WHAT VALHALLA ACTUALLY KNOWS: the canonical phase
+   (trainingPhase(), which defers to phaseForWeek()), the scheduled days
+   either side, whether a past session was actually completed, the quality
+   already banked in the week, the longest run so far, and the distance to
+   race day. It never infers recovery, soreness, sleep, HRV, an individual
+   adaptation rate, or the weather.
+   ========================================================= */
+/* ---------- THE POOL ----------
+   Every line states a training reason that is true of THAT context, in the
+   athlete's English. The science sits underneath: adaptation is attributed
+   to the PATTERN of training ("adds up over weeks"), never to one session,
+   because mitochondrial, capillary and plasma-volume changes are responses
+   to repeated exposure and Valhalla cannot observe an individual's. Nothing
+   here claims to know recovery, soreness, sleep or the weather. */
+var COACHING_WHY = {
+  easy: {
+    role: {
+      after_long_max: [
+        'Yesterday was the big session. Today’s easy run keeps the volume moving without adding another big load.',
+        'That was the longest run of the block so far. Stay in motion today and let the work settle.'
+      ],
+      after_long: [
+        'Yesterday was the long run. Today is about staying in rhythm rather than adding to it.',
+        'The long run is behind you. Keep today easy and the week still adds up.'
+      ],
+      after_quality: {
+        Base: [
+          'Yesterday was the hard session. Keep this genuinely easy so you bank the aerobic work without adding more intensity.',
+          'That was a demanding session yesterday. Today keeps the volume moving without asking anything more of your legs.'
+        ],
+        Build: [
+          'There is real quality in this week, and yesterday was part of it. Run today easily enough to absorb it.',
+          'Hard work yesterday, so today is deliberately not hard. That contrast is what makes the week work.'
+        ],
+        Peak: [
+          'Yesterday was one of the sessions that matter most now. Today protects it by staying easy.',
+          'The specific work is done for now. Run this easily so the next one is just as good.'
+        ],
+        Taper: [
+          'There was some intensity yesterday. Keep today easy so the fatigue keeps falling.',
+          'Easy today, so that what you did yesterday turns into freshness rather than tiredness.'
+        ]
+      },
+      before_quality: [
+        'There is a hard session tomorrow. Run this easily so you arrive able to hit the targets.',
+        'Tomorrow is the one that counts. Today exists to leave you ready for it.'
+      ]
+    },
+    phase: {
+      Base: [
+        'Easy running is what builds the engine. The work adds up over weeks, so run it easily enough that you can go again tomorrow.',
+        'Most of your running should feel like this. Consistency at an easy effort is what makes the harder sessions possible later.'
+      ],
+      Build: [
+        'There is real quality in this week now. Easy running is what lets you absorb it, so keep the effort genuinely low.',
+        'Easy days protect the hard days. Run this comfortably and the next quality session will be worth more.'
+      ],
+      Peak: [
+        'The race-specific sessions matter most now. Keep this easy so you arrive at them able to run them properly.',
+        'Nothing is gained by lifting the pace today. This run keeps you moving between the sessions that count.'
+      ],
+      Taper: [
+        'You are cutting fatigue, not fitness. Keep running easily and regularly while the tiredness comes down.',
+        'Short and easy is the point this week. The fitness is already made, so the job now is to arrive fresh.'
+      ]
+    }
+  },
+  long: {
+    milestone: { peak_long: [
+      'This is the longest run of the block. Start conservatively, because the last third is what makes it worth doing.',
+      'The biggest run of the whole block. Treat the first half as the setup and run the second half properly.'
+    ] },
+    phase: {
+      Base: [
+        'The long run is where endurance starts. Run it steadily and finish knowing you could have kept going.',
+        'Time on your feet is the point today. Steady effort, and no need to prove anything.',
+        'Build the habit of running long before you worry about running it fast.'
+      ],
+      Build: [
+        'The long run is the backbone of this block. Hold a steady effort and let the distance do the work.',
+        'This is the session that teaches your legs to keep going when they are tired. Patience early pays late.'
+      ],
+      Peak: [
+        'This is the closest rehearsal you get. Practise the pacing and the fuelling you intend to use on the day.',
+        'The distance is familiar by now. Today is about running it the way you mean to race it.'
+      ],
+      Taper: [
+        'Shorter than you are used to, and that is deliberate. Enough to keep the rhythm, not enough to cost you anything.',
+        'The long runs have done their job. Today keeps the pattern without the fatigue.'
+      ]
+    }
+  },
+  long_goal: {
+    milestone: { peak_long: [
+      'The longest run of the block, with goal pace inside it. Get the easy running genuinely easy so the fast part is worth having.',
+      'This is the biggest session of the programme. Everything before it was preparation for running it well.'
+    ] },
+    phase: {
+      Base: [ 'Goal pace inside a long run teaches your legs what the effort feels like. Keep the easy running easy.' ],
+      Build: [
+        'Running at goal pace on tired legs is the point. It teaches you what the pace feels like when it is no longer easy.',
+        'The easy kilometres set up the fast ones. Run them slowly enough that the goal-pace section is honest.',
+        'Goal pace late in a long run is the most specific work in the block. Save yourself for it.',
+        'Hold the easy part back. The value is in what you can still do at the end.'
+      ],
+      Peak: [
+        'This is race-day practice: pace, fuelling and concentration rehearsed together.',
+        'The most specific session in the block. Everything you do today is what you intend to do on the day.',
+        'Treat this as a dress rehearsal. Same kit, same fuelling, same pacing as you plan to use.',
+        'Goal pace late in a long run is the closest you get to the real thing. Run it the way you mean to.'
+      ],
+      Taper: [ 'A short reminder of goal pace, nothing more. Run it exactly and finish comfortably.' ]
+    }
+  },
+  threshold: {
+    phase: {
+      Base: [
+        'Threshold work raises the pace you can hold before fatigue starts building quickly. Controlled is the whole point.',
+        'This is hard but repeatable running. If you are gasping, it has become the wrong session.'
+      ],
+      Build: [
+        'This is the session that moves your sustainable pace. Finish feeling you could have held it a little longer.',
+        'Threshold running is where a lot of race fitness comes from. Hit the window and stay in it.'
+      ],
+      Peak: [
+        'Sharpening now rather than building. Hit the targets and come away still able to train tomorrow.',
+        'The work is nearly done. Today keeps the edge on it.'
+      ],
+      Taper: [
+        'Enough intensity to keep the edge, with far less of it than usual. Do not add reps.',
+        'A short, controlled dose. The purpose is to stay sharp while the fatigue falls.'
+      ]
+    }
+  },
+  tempo: {
+    phase: {
+      Base: [
+        'Tempo running teaches you to hold a strong effort economically. Rhythm matters more than speed.',
+        'A firm, steady effort held for a while. Settle into it rather than attacking it.'
+      ],
+      Build: [
+        'This is the session that makes race effort feel repeatable. Controlled and rhythmic, never a race.',
+        'Holding a firm pace for a long stretch is a skill. Today practises it.'
+      ],
+      Peak: [
+        'Race effort, rehearsed. The aim is to recognise the rhythm rather than to prove anything.',
+        'You know this effort by now. Today is about confirming it, not chasing it.'
+      ],
+      Taper: [
+        'A short reminder of the rhythm. Keep it brief and come away fresh.',
+        'Enough to feel race effort again, and no more than that.'
+      ]
+    }
+  },
+  goal_pace: {
+    phase: {
+      Base: [
+        'Goal pace needs to become familiar long before it becomes hard. Run it exactly, not faster.',
+        'The first job with goal pace is recognising it. Run it by feel as well as by the watch.'
+      ],
+      Build: [
+        'Every kilometre spent at goal pace makes it feel more normal. Run it exactly, not faster.',
+        'This is rehearsal, not a test. The pace should feel controlled today.'
+      ],
+      Peak: [
+        'This is the pace you intend to race. Every rep at it is a rehearsal.',
+        'Goal pace should feel controlled now. If it does not, that is useful to know today rather than on race day.'
+      ],
+      Taper: [
+        'Just enough goal pace to keep it familiar. Resist the urge to run it quicker.',
+        'A light touch of race pace. Finish it feeling you could have carried on.'
+      ]
+    }
+  },
+  interval: {
+    phase: {
+      Base: [
+        'Faster running sharpens your mechanics and economy. Quality of movement matters more than effort.',
+        'Short, fast running teaches your legs to move well at speed. Keep the form clean and the effort honest.',
+        'This is about turnover and mechanics more than fitness at this stage. Quick and relaxed.'
+      ],
+      Build: [
+        'This develops the top end of your aerobic fitness. Even reps are worth more than a fast first one.',
+        'Hard aerobic work, repeated. The session is the total, not the opener.',
+        'The aim is to spend time at a hard aerobic effort. Control the first rep and the rest will follow.',
+        'Reps like these are where speed is kept while the mileage climbs. Run them evenly.'
+      ],
+      Peak: [
+        'Sharpness rather than volume. Hit the targets and stop while the running still looks good.',
+        'Enough fast running to stay sharp, not enough to dig a hole this close to the race.',
+        'The fitness is built. Today keeps the top end awake.'
+      ],
+      Taper: [
+        'A touch of speed to stay sharp, well short of exhausting. Finish wanting more.',
+        'Brief and fast, with plenty left over. A reminder rather than a workout.'
+      ]
+    }
+  },
+  hills: {
+    phase: {
+      Base: [
+        'Hills build strength without the pounding of fast running on the flat. Drive from the hips and stay tall.',
+        'Running uphill asks more of your legs at a lower speed. Controlled effort, good posture.'
+      ],
+      Build: [
+        'Hill work adds strength to the aerobic base you have built. The descent is recovery, so take it easily.',
+        'Strength on the hills carries into holding your form when you are tired late in a race.'
+      ],
+      Peak: [
+        'Strength work, kept controlled. There is nothing to prove on a hill this close to race day.',
+        'Keep the reps honest and the descents gentle. This is maintenance, not a test.'
+      ],
+      Taper: [
+        'Brief and controlled if it is here at all. Do not turn it into a session.',
+        'Just enough to keep the legs used to the effort. Stop well before it bites.'
+      ]
+    }
+  },
+  /* ---------- A ONE-OFF SESSION HAS NO REPETITION TO SOLVE ----------
+     test and race occur once or twice in a whole block, and their written
+     why is already specific to them ("Resets your goal..."). Overriding it
+     with a general line would lose the specific one and gain nothing: the
+     athlete was never going to read it twice. They still join the system
+     through COACHING_TEACH below, which is new to them.
+     THIS IS WHY THE OVERLAY IS AN OVERLAY. No eligible variant means the
+     hand-written guidance stands, which is also what a legacy or
+     hand-edited day gets. */
+  rest: {
+    role: {
+      after_long_max: [
+        'Yesterday was the biggest session of the block so far. A full day off is exactly what should follow it.',
+        'That was your longest run yet. Today is for letting it settle.'
+      ],
+      after_long: [
+        'The long run was yesterday. Today is for letting it settle.',
+        'A day off after the long run is part of the design, not a day lost.'
+      ],
+      after_quality: [
+        'Yesterday was hard work. Taking today off is what turns it into fitness.',
+        'The session is done. Resting now is what lets it count.'
+      ]
+    },
+    phase: {
+      Base: [
+        'Rest is part of the plan. Your body adapts to the training when you recover.',
+        'A full day off keeps the weeks repeatable. Consistency over months beats any single session.'
+      ],
+      Build: [
+        'There is real work in this week. A full day off is what lets you absorb it.',
+        'The harder the week, the more a rest day earns its place.'
+      ],
+      Peak: [
+        'The hardest sessions of the block are around you now. Taking today off is what makes them possible.',
+        'Rest is what keeps the key sessions sharp. Nothing is gained by filling today in.'
+      ],
+      Taper: [
+        'Doing nothing today is the training. Fatigue comes down when you leave it alone.',
+        'Resist the urge to add something. Arriving fresh is the whole objective now.'
+      ]
+    }
+  },
+  support: {
+    phase: {
+      Base: [
+        'Supporting work builds the strength that keeps you running week after week. Movement quality over effort.',
+        'Stronger legs tolerate more running. Control each rep rather than chasing numbers.'
+      ],
+      Build: [
+        'This keeps you durable while the running load climbs. Keep it controlled, because it is not a hard session.',
+        'The running is the priority. This exists to keep you able to do it.'
+      ],
+      Peak: [
+        'Maintenance now rather than development. Enough to stay strong without taking anything from the running.',
+        'Do not turn this into another hard session. The key runs come first.'
+      ],
+      Taper: [
+        'Keep it light. The aim is to stay loose, not to train.',
+        'Movement rather than work. Finish feeling better than when you started.'
+      ]
+    }
+  }
+};
+/* ---------- HEAR TODAY ----------
+   The deeper half. It may name a concept where the athlete benefits from it,
+   explained in plain English and tied to today. It is not required to be
+   technical: often the most useful deeper answer is simply why this session
+   exists where it does. */
+var COACHING_TEACH = {
+  easy: {
+    Base: [ 'Easy running works through how often you do it rather than how hard. Repeated over weeks it improves the blood supply to your muscles and their ability to use oxygen, which is what lets you hold a pace for longer.' ],
+    Build: [ 'Easy days are not filler. The gains from a hard session are made while you recover from it, and easy running lets that happen without adding more stress.' ],
+    Peak: [ 'Running easily between the specific sessions is what keeps them high quality. The aerobic base is already built, so today is about protecting the work that matters.' ],
+    Taper: [ 'Tapering reduces how much you run while keeping the pattern of running. Fatigue falls away faster than fitness does, which is why you keep moving rather than stopping.' ]
+  },
+  long: {
+    Base: [ 'Long runs train your body to rely more on fat for fuel and to spare the limited carbohydrate you can store. That is a large part of why the distance stops feeling so hard.' ],
+    Build: [ 'The value of a long run is in the later kilometres, when you are running on tired legs. That is the part that teaches your body to keep going.' ],
+    Peak: [ 'Fuelling is a skill you practise. Taking carbohydrate on during long runs trains your gut to tolerate it, which is why nothing should be new on race day.' ],
+    Taper: [ 'The endurance from months of long runs does not disappear in two weeks. Shortening them now removes fatigue without removing what they built.' ]
+  },
+  threshold: {
+    Base: [ 'Threshold is roughly the hardest effort you could hold for about an hour. Train near it and that point shifts to a quicker pace.' ],
+    Build: [ 'Above a certain effort, lactate builds up faster than you can clear it. Threshold sessions train your ability to clear it, which raises the pace you can sustain.' ],
+    Peak: [ 'Threshold work is close to race effort for longer events, which is why it stays in the plan this late. It maintains the sustainable pace you have built.' ],
+    Taper: [ 'A small amount of threshold work keeps the feel of hard running without the fatigue cost of a full session.' ]
+  },
+  tempo:    { any: [ 'Tempo running sits just below threshold, which is why it can be held for a long stretch. It trains the economy and rhythm you want on race day.' ] },
+  goal_pace:{ any: [ 'Running at goal pace in training is specificity: the closer training is to the demands of the event, the more it transfers. It also teaches you to recognise the pace without looking at a watch.' ] },
+  interval: { any: [ 'Hard intervals push your heart and muscles to work near their aerobic ceiling, which improves the maximum rate at which you can use oxygen. Even pacing matters because the benefit comes from the total time spent there.' ] },
+  hills:    { any: [ 'Running uphill recruits more muscle at a lower speed, so you build strength with less impact than fast running on the flat. The descent is where most hill injuries happen, so it is taken easily.' ] },
+  test:     { any: [ 'The paces in your plan come from a measured performance rather than a guess. An honest effort today sets every target that follows.' ] },
+  race:     { any: [ 'Everything in the block has pointed here: the aerobic base, the threshold work, the long runs and the taper. Today is where it is spent.' ] },
+  rest:     { any: [ 'Training is the stimulus, not the improvement. The adaptations happen between sessions, which is why a full day off is a scheduled part of the plan rather than a gap in it.' ] },
+  support:  { any: [ 'Strength and mobility work supports running rather than replacing it. Stronger, better-moving legs tolerate more running, which is the point of keeping it light.' ] },
+  long_goal:{ any: [ 'Goal-pace running inside a long run is the most race-specific session in the block, because it asks for the right pace at the point where you are already tired.' ] }
+};
+var COACHING_FAMILY = {
+  easy_run:'easy', shakeout:'easy', easy_strides:'easy',
+  long_run:'long',
+  long_run_goal_finish:'long_goal', long_run_goal_insert:'long_goal',
+  long_run_goal_broken:'long_goal', long_run_progressive:'long_goal',
+  threshold_continuous:'threshold', over_under:'threshold',
+  steady_tempo:'tempo', progressive_tempo:'tempo', split_tempo:'tempo',
+  goal_pace_block:'goal_pace', goal_pace_reps:'goal_pace',
+  track_reps:'interval', short_reps:'interval', ladder:'interval',
+  deuce:'interval', fartlek:'interval',
+  hill_repeats:'hills',
+  time_trial:'test', threshold_calibration:'test',
+  race:'race'
+};
+/* A day with no prescription still has a type, and rest has only a type.
+   Same fallback order coachingEntryFor() uses, for the same reason. */
+var COACHING_FAMILY_BY_TYPE = {
+  easy:'easy', long:'long', tempo:'tempo', threshold:'threshold',
+  interval:'interval', repetition:'interval', checkpoint:'test',
+  calibration:'test', rest:'rest', race:'race'
+};
+function coachingFamilyOf(dd){
+  if (!dd) return null;
+  if (dd.type === 'rest') return 'rest';
+  var p = prescriptionOf(dd);
+  if (p && COACHING_FAMILY[p.archetype]) return COACHING_FAMILY[p.archetype];
+  if (!sessionIdentityTrusted(dd)) return null;
+  return COACHING_FAMILY_BY_TYPE[dd.type] || null;
+}
+/* A quality day for the purpose of "what sits either side of this": the same
+   question isRecoveryWorkoutType() already answers for the coach. */
+function coachingIsQuality(dd){
+  if (!dd || dd.type === 'rest') return false;
+  try { return !isRecoveryWorkoutType(dd.type); } catch(e) { return false; }
+}
+function coachingDayOffset(dd, delta){
+  if (!dd || !dd.date) return null;
+  var want = addDays(dd.date, delta);
+  var all = (state && state.days) || [];
+  for (var i=0;i<all.length;i++) if (all[i].date === want) return all[i];
+  return null;
+}
+/* The longest LONG RUN scheduled up to and including this date. Scheduled,
+   not completed: it is a fact about the programme, so it reads the same on a
+   day the athlete has not reached yet. */
+function coachingLongestLongKm(uptoDate){
+  var all = (state && state.days) || [];
+  var best = 0;
+  for (var i=0;i<all.length;i++){
+    var d = all[i];
+    if (d.date > uptoDate) continue;
+    if (coachingFamilyOf(d) !== 'long' && coachingFamilyOf(d) !== 'long_goal') continue;
+    if ((d.km||0) > best) best = d.km||0;
+  }
+  return best;
+}
+/* The biggest long run anywhere in the block, scheduled. A property of the
+   programme, so it reads the same before the athlete reaches it. */
+function coachingPeakLongKm(){
+  var all = (state && state.days) || [];
+  var best = 0;
+  for (var i=0;i<all.length;i++){
+    var f = coachingFamilyOf(all[i]);
+    if (f !== 'long' && f !== 'long_goal') continue;
+    if ((all[i].km||0) > best) best = all[i].km||0;
+  }
+  return best;
+}
+function coachingContextFor(dd){
+  var fam = coachingFamilyOf(dd);
+  if (!fam || !dd.date) return null;
+  var week = dd.week || null;
+  var phase = null;
+  try { phase = week ? trainingPhase(week) : null; } catch(e) { phase = null; }
+  /* trainingPhase() names a race week for the race (vGoalWeek()). For the
+     coaching pool that week is taper business, so it is read as Taper rather
+     than given a bucket of its own -- the race day itself has its own family. */
+  if (phase !== 'Base' && phase !== 'Build' && phase !== 'Peak') phase = 'Taper';
+
+  var prev = coachingDayOffset(dd, -1);
+  var next = coachingDayOffset(dd, 1);
+  var role = null;
+  if (fam === 'easy' || fam === 'rest'){
+    var prevFam = prev ? coachingFamilyOf(prev) : null;
+    var prevLong = prevFam === 'long' || prevFam === 'long_goal';
+    if (prevLong && (prev.km||0) >= coachingLongestLongKm(prev.date)) role = 'after_long_max';
+    else if (prevLong) role = 'after_long';
+    else if (prev && coachingIsQuality(prev)) role = 'after_quality';
+    else if (next && coachingIsQuality(next)) role = 'before_quality';
+  }
+  /* ---------- A MILESTONE HAS TO BE RARE TO BE ONE ----------
+     The first version marked every run that was the longest SO FAR, and the
+     measurement showed why that is wrong: long runs get longer by design, so
+     it fired on 5 of 7 and crowded out the phase coaching that should have
+     been teaching the block. The genuine milestone is the single biggest
+     long run of the whole block -- it happens once, and it is worth saying.
+     The "longest so far" signal is still used, but where it earns its keep:
+     on the EASY or REST day after one, where "yesterday was the big session"
+     is the reason today looks the way it does. */
+  var milestone = null;
+  if ((fam === 'long' || fam === 'long_goal') && (dd.km||0) > 0 &&
+      (dd.km||0) >= coachingPeakLongKm()) milestone = 'peak_long';
+
+  return { family:fam, phase:phase, role:role, milestone:milestone, week:week, date:dd.date };
+}
+/* ---------- DETERMINISTIC ROTATION, NEVER RANDOM ----------
+   Founder: "The same session on the same day should resolve to the same
+   coaching after reload." So the index is the day's own ordinal among the
+   days that resolve to the SAME bucket, read from the plan. It depends on
+   nothing but the plan, which means it survives a reload, agrees across
+   devices without syncing, and can be asserted in a test. Math.random()
+   would fail every one of those. */
+function coachingRotationIndex(dd, ctx, n){
+  if (!(n > 1)) return 0;
+  var all = (state && state.days) || [];
+  var seen = 0;
+  var mine = [];
+  for (var i=0;i<all.length;i++) mine.push(all[i]);
+  mine.sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+  for (var j=0;j<mine.length;j++){
+    var d = mine[j];
+    if (d.date > dd.date) break;
+    var c = null;
+    try { c = coachingContextFor(d); } catch(e) { c = null; }
+    if (!c) continue;
+    if (c.family !== ctx.family) continue;
+    if (coachingBucketKey(c) !== coachingBucketKey(ctx)) continue;
+    if (d.date === dd.date) break;
+    seen++;
+  }
+  return seen % n;
+}
+function coachingBucketKey(ctx){
+  if (!ctx) return '';
+  if (ctx.role) return 'role:'+ctx.role;
+  if (ctx.milestone) return 'ms:'+ctx.milestone;
+  return 'phase:'+ctx.phase;
+}
+/* The eligible pool for this day, most specific first. A variant is only
+   reachable when its context is true of the day, so novelty can never beat
+   relevance: rotation chooses BETWEEN equally valid messages, never between
+   a relevant one and an irrelevant one. */
+function coachingVariantsFor(ctx){
+  var fam = ctx && COACHING_WHY[ctx.family];
+  if (!fam) return [];
+  /* ---------- PHASE IS AN AXIS, NOT AN ALTERNATIVE ----------
+     The first version let a role REPLACE the phase, and the measurement
+     showed what that costs: "after_quality" claimed most easy days, so an
+     easy run in Base, in Build and in Peak all read the same sentence and
+     the athlete never saw the block progress at all. A role and a phase are
+     both true of the day, so they compose -- "the day after a hard session,
+     in Peak" is its own bucket. The phase-agnostic role list stays as the
+     fallback for roles that genuinely do not vary by phase. */
+  var pick = function(o){
+    if (!o) return null;
+    var byPhase = o[ctx.phase];
+    if (byPhase && byPhase.length) return byPhase;
+    if (o.any && o.any.length) return o.any;
+    return (o.length ? o : null);
+  };
+  var r = ctx.role && fam.role ? pick(fam.role[ctx.role]) : null;
+  if (r) return r;
+  var m = ctx.milestone && fam.milestone ? pick(fam.milestone[ctx.milestone]) : null;
+  if (m) return m;
+  if (fam.phase && fam.phase[ctx.phase] && fam.phase[ctx.phase].length)
+    return fam.phase[ctx.phase];
+  return fam.any || [];
+}
+function contextualWhy(dd){
+  var ctx = null;
+  try { ctx = coachingContextFor(dd); } catch(e) { ctx = null; }
+  if (!ctx) return null;
+  var list = coachingVariantsFor(ctx);
+  if (!list || !list.length) return null;
+  return list[coachingRotationIndex(dd, ctx, list.length)] || null;
+}
+/* HEAR TODAY. One concept, tied to today, in simple English -- not a
+   physiology lecture, and not every day a technical one. Deliberately a
+   separate pool from the card: the card says what matters now, this answers
+   "help me understand it". */
+function coachingTeachFor(dd){
+  var ctx = null;
+  try { ctx = coachingContextFor(dd); } catch(e) { ctx = null; }
+  if (!ctx) return null;
+  var fam = COACHING_TEACH[ctx.family];
+  if (!fam) return null;
+  var list = fam[ctx.phase] || fam.any || [];
+  if (!list.length) return null;
+  return list[coachingRotationIndex(dd, ctx, list.length)] || null;
 }
 /* =========================================================
    STRUCTURED WORKOUT — the WHAT, above the coach's HOW and WHY
@@ -54486,6 +55034,21 @@ function handleOptionalRunRemove(dayId){
   patchDerivedStats();
   scheduleSave();
 }
+/* The support family's contextual line. A companion is not a day of its own,
+   so it borrows the day it sits on for phase and asks the same pool. */
+function supportContextualWhy(dd){
+  if (!dd || !dd.date) return null;
+  var week = dd.week || null;
+  var phase = null;
+  try { phase = week ? trainingPhase(week) : null; } catch(e) { phase = null; }
+  if (phase !== 'Base' && phase !== 'Build' && phase !== 'Peak') phase = 'Taper';
+  var ctx = { family:'support', phase:phase, role:null, milestone:null, date:dd.date };
+  var list = coachingVariantsFor(ctx);
+  if (!list || !list.length) return null;
+  /* Rotated on the WEEK, which is what a weekly companion actually varies
+     by -- and deterministic for the same reason the run pool is. */
+  return list[((week || 0)) % list.length] || null;
+}
 function renderSupportCompanion(dd){
   if (!dd) return '';
   /* DECLINED IS AN ANSWER, and the card honours it immediately. Without this
@@ -54538,7 +55101,16 @@ function renderSupportCompanion(dd){
       '<span class="support-dur font-mono">'+k.minutes+' min</span>'+
     '</div>'+
     '<div class="support-title font-head">'+escapeHtml(k.label)+'</div>'+
-    '<div class="support-why">'+escapeHtml(k.why)+'</div>'+
+    /* ---------- SUPPORTING WORK JOINS THE SAME SYSTEM ----------
+       Founder: "Bring supporting and strength sessions into the same
+       contextual coaching system. They should not remain as a separate
+       repetitive coaching layer."
+       Same pool, same resolver, same deterministic rotation as a run: the
+       reason this work is here changes between Base and Taper exactly as a
+       run's does. The KIND's own why is the fallback, so a kind with no
+       contextual line still reads as it always has. It never infers
+       soreness, readiness or recovery -- only the phase and the day. */
+    '<div class="support-why">'+escapeHtml(supportContextualWhy(dd) || k.why)+'</div>'+
     '<details class="fuel-card how-card support-detail">'+
       '<summary>'+ICONS.info+'The session<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'+
       '<div class="fuel-body">'+

@@ -196,11 +196,17 @@ test('a rest day explains itself, and explains nothing it does not have', () => 
     assert.ok(!/How to run this|Session Details/.test(html), 'a rest day has no execution to explain, at ' + level);
     assert.ok(!/fuel-body|how-mod|exec-rail|how-table/.test(html),
       'a rest day has grown a coaching rail at ' + level + ' — it has one sentence, not a session');
-    assert.match(html, /Rest is part of the plan/,
+  /* THE REST CUE IS CONTEXTUAL NOW, so this asks for the line this day
+     actually resolves to rather than one particular sentence. A rest day in
+     Base and a rest day in Taper are explaining different things on purpose
+     -- that is the repetition fix. What the law still protects is that the
+     rest day IS coached, in both positions, from the rest pool. */
+    const restLine = a.coachingEntryFor(dd).cue;
+    assert.ok(html.indexOf(a.escapeHtml(restLine)) !== -1,
       'the rest day is silent again at ' + level);
     /* One sentence means one sentence: the note for a focused session and
        the inline cue for a list, which are two POSITIONS of it, not two. */
-    assert.equal((html.match(/Rest is part of the plan/g) || []).length, 2,
+    assert.equal(html.split(a.escapeHtml(restLine)).length - 1, 2,
       'the rest cue is not in exactly its two positions (note + inline cue) at ' + level);
   });
 });
