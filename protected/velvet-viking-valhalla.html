@@ -3975,6 +3975,11 @@
   .day.open .day-drawer{max-height:4000px;}
   /* the drawer's own children carry the top spacing, so a shut card has none */
   .day-actions{display:flex; gap:6px; flex:none;}
+  /* The empty row still reserves the button's height, so a rest day's hero
+     lands exactly where a run day's does. var(--tap-min) rather than 44px
+     because that IS the button's height -- tying the reservation to the
+     control it reserves for means the two cannot drift apart. */
+  .wk-rail-act{min-height:var(--tap-min);}
   .day-actions button{background:none; border:none; color:var(--ink-faint); padding:4px; border-radius:6px; display:flex;}
   .day-actions button:hover{color:var(--bronze); background:var(--bg-4);}
   .day-actions svg{width:16px; height:16px;}
@@ -60523,7 +60528,19 @@ function weekSlideHtml(dd, i){
   var act = dayActionButton(dd);
   return '<div class="wk-slide" data-date="'+escapeHtml(dd.date)+'">'+
     '<div class="wk-overview">'+
-      (act ? '<div class="day-rail wk-rail-act"><div class="day-actions">'+act+'</div></div>' : '')+
+      /* ---------- THE ROW IS ALWAYS THERE, THE BUTTON IS NOT ----------
+         Founder: "The edit session button on run days lowers the hero. Good.
+         Can the hero on rest days sit at the same height?"
+         MEASURED across a week at 390px: a run day's action row is 44px tall
+         and its hero starts 46px down; a rest day emitted no row at all and
+         its hero started at 0. dayActionButton() returns '' for a rest day --
+         neither canEditPrescription() nor canEditCompletion() is true -- so
+         the row collapsed and every rest day in the carousel sat 46px higher
+         than its neighbours. Swiping the week stepped the hero up and down.
+         SO THE ROW IS EMITTED EITHER WAY and reserves its own height; only
+         the button inside it is conditional. A rest day still offers no
+         control, which is the existing rule and not what was asked about. */
+      '<div class="day-rail wk-rail-act">'+(act ? '<div class="day-actions">'+act+'</div>' : '')+'</div>'+
 
       body+
       /* ---------- THE WORKOUT IS THERE WHEN YOU SWIPE TO IT ----------

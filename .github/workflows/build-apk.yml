@@ -62,8 +62,23 @@ jobs:
           java-version: '21'
           cache: 'gradle'
 
+      # PACKAGES NAMED EXPLICITLY, AND THAT IS THE WHOLE FIX. The action's
+      # default list is "tools platform-tools", and Google has REMOVED the
+      # legacy `tools` package from the SDK repository -- so sdkmanager
+      # answers "Failed to find package 'tools'" and exits 1, six seconds in,
+      # taking the Capacitor sync and both gradle builds down with it as
+      # skipped steps. Nothing in this repository changed to cause it; the
+      # remote package list did.
+      # NOT FIXED BY BUMPING THE MAJOR: the same failure is reported against
+      # v4, so the version is left alone and the input that actually controls
+      # the request is set instead. platform-tools is what this build needs;
+      # the runner image already carries the SDK, and gradle fetches any
+      # missing platform or build-tools itself once the action has accepted
+      # the licences.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Sync Capacitor native project
         run: npx cap sync android

@@ -858,6 +858,42 @@ test('every other archetype keeps its description — on the face or in the note
    screen do not use it: they build their own slide through weekSlideHtml(),
    whose .wk-overview contains no .day element at all. That is exactly why
    the box was missing from those two screens in the first place. */
+test('every day in the week carousel starts its hero at the same height', () => {
+  /* Founder: "The edit session button on run days lowers the hero. Good. Can
+     the hero on rest days sit at the same height?"
+     MEASURED at 390px across a seven-day week: a run day's action row is
+     44px tall and its hero began 46px below the top of .wk-overview; a rest
+     day emitted no row at all and began at 0. dayActionButton() returns ''
+     for a rest day -- neither canEditPrescription() nor canEditCompletion()
+     is true of one -- and the slide only emitted the row when there was a
+     button to put in it. So every rest day in the carousel sat 46px higher
+     than its neighbours and swiping the week stepped the hero up and down.
+     ASSERTED STRUCTURALLY, because these tests read strings rather than
+     laying anything out: the row must be present on EVERY day, and the rule
+     that gives it height when empty must exist. The pixel equality those two
+     produce was measured in a browser and is recorded above. */
+  const a = railApp();
+  const kinds = {};
+  a.state.days.forEach((d, i) => {
+    const slide = a.weekSlideHtml(d, i);
+    kinds[d.type] = (kinds[d.type] || 0) + 1;
+    assert.ok(slide.indexOf('class="day-rail wk-rail-act"') > -1,
+      d.date + ' (' + d.type + '): the slide drops the action row, so its hero ' +
+      'rides 46px higher than the days either side of it');
+  });
+  assert.ok(kinds.rest >= 3 && Object.keys(kinds).length >= 3,
+    'the block built ' + JSON.stringify(kinds) + ' — too few kinds of day to prove this');
+
+  /* AND THE EMPTY ROW STILL RESERVES THE BUTTON'S HEIGHT. Without this the
+     row is present but zero-high, which looks identical in the markup and
+     identical in this test, and puts the hero straight back where it was. */
+  const rule = /\.wk-rail-act\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(rule, 'the row has no rule of its own, so an empty one collapses');
+  assert.match(rule[1], /min-height:var\(--tap-min\)/,
+    'the empty action row no longer reserves the button height from the same ' +
+    'token the button uses, so the two can drift apart: ' + rule[1]);
+});
+
 test('a solo-note day looks the same on Today, This Week and Full Plan', () => {
   const a = railApp();
   let solo = 0, railed = 0, rested = 0;
