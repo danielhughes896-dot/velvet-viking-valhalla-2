@@ -172,6 +172,30 @@ test('a worded grid never asks for columns, on either surface', () => {
   });
 });
 
+test('every field in the builder is cherry, not the modal\u2019s warm ramp', () => {
+  /* Founder: "the selection data input fields should be cherry not gold."
+     Every text field in the builder sat on the modal's warm control ramp --
+     #24201c on a #3d352b edge, lighting #c5a059 when focused -- which is the
+     olive-brown the screenshots showed. The date field had been lifted onto
+     the product's cool tile surface BY HAND, one rule at a time, which is
+     how the other seven were missed.
+     So this pins the mechanism rather than the fields: .builder-light
+     re-declares the --ctl-* family once, and every field inherits it. A
+     future field added to the builder is covered without anyone
+     remembering to cover it. Scoped to the builder, so no other modal
+     moves. */
+  const body = winning(APP, '.modal-card.builder-light');
+  assert.ok(body, 'the builder card rule is gone');
+  assert.equal(decl(body, '--ctl-bg'), 'var(--t-tile)',
+    'builder fields are back on the modal\u2019s warm input ground');
+  assert.equal(decl(body, '--ctl-border'), 'var(--t-tile-rim)',
+    'builder fields are back on the modal\u2019s warm edge');
+  assert.equal(decl(body, '--ctl-accent'), 'var(--cherry)',
+    'a focused builder field is not cherry');
+  assert.equal(decl(body, '--ctl-accent-rgb'), '154,84,108',
+    'the focus ring alpha is keyed to a colour other than cherry');
+});
+
 test('an option chip never lets a long label widen its own track', () => {
   /* overflow:hidden on a grid item is load-bearing here, not cosmetic: it
      drops the item automatic minimum size from min-content to 0, which is

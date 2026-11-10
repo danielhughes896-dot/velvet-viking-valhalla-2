@@ -1938,6 +1938,7 @@ test('why, feel and watch for left the screen — Why for its own section, the r
      rather than sampled: an easy run is 25 of the 73 days in this block, so
      a note that quietly grew back would show up here and nowhere else. */
   let solos = 0, easies = 0;
+  const easySubsSeen = new Set();
   a.state.days.forEach(d => {
     if (!a.soloNoteSession(d)) return;
     solos++;
@@ -2003,8 +2004,40 @@ test('why, feel and watch for left the screen — Why for its own section, the r
     if (p.archetype === 'easy_run'){
       assert.ok(note.indexOf('Keep it easy') > -1,
         d.date + ': an easy day no longer leads with "Keep it easy"');
-      assert.ok(note.indexOf('Finish wanting more') > -1,
-        d.date + ': an easy day has lost "Finish wanting more"');
+      /* ---- THE SECOND LINE MOVES NOW; THE LIST OF LINES DOES NOT ----
+         This pinned "Finish wanting more" on EVERY easy day, which was
+         right while that was the only line there was. Founder, looking at
+         four easy runs across two phases: "The easy runs still all say the
+         same still." So the sub rotates by where the day sits in the block.
+         STILL LITERAL, FOR THE REASON WRITTEN ABOVE. Asking whether the
+         rendered line is "in COACHING_SOLO_SUB" would compare the line to
+         the table it came from -- the exact circularity that let
+         "Something else entirely." pass before. These are the approved
+         lines, written out here, and a line not on this list fails even if
+         somebody adds it to the table. */
+      const APPROVED_EASY_SUBS = [
+        'Finish wanting more',
+        'Let yesterday\u2019s session settle',
+        'Nothing to prove the day after a hard one',
+        'Save the effort for tomorrow',
+        'Tomorrow is the hard one',
+        'Let the long run settle',
+        'Loosen the legs, nothing more',
+        'That was the biggest one, so go gently',
+        'Recover from it, do not add to it',
+        'This is the running that builds the engine',
+        'Most of your running should feel like this',
+        'Easy days are what let the hard ones land',
+        'Protect the quality session',
+        'The volume is high, so keep this genuinely light',
+        'The hard work is elsewhere this week',
+        'Keep the legs moving, nothing more',
+        'Freshness is the point now'
+      ];
+      const hit = APPROVED_EASY_SUBS.filter(t => note.indexOf(t) > -1);
+      assert.ok(hit.length > 0,
+        d.date + ': an easy day\u2019s second line is not one of the approved lines');
+      easySubsSeen.add(hit[0]);
       easies++;
     } else {
       /* Every other one-card archetype falls back, in this order, and the
@@ -2022,6 +2055,18 @@ test('why, feel and watch for left the screen — Why for its own section, the r
   });
   assert.ok(easies >= 20,
     'only ' + easies + ' easy days carried the founder\u2019s line');
+  /* AND THE VARIETY IS REQUIRED, NOT MERELY PERMITTED. The list above would
+     be satisfied by every easy day printing the same approved line, which
+     is the state the founder reported. Counted over a whole block, where
+     the phases and the day-before roles actually differ. */
+  /* MEASURED AT 11 over this block's 51 easy days. The floor was 4 and a
+     mutation collapsing a whole bucket onto another bucket's line still
+     passed -- 4 is satisfied while most of the context quietly stops
+     speaking. 9 leaves room for the plan shape to change without leaving
+     room for the defect. */
+  assert.ok(easySubsSeen.size >= 9,
+    'all ' + easies + ' easy days drew from only ' + easySubsSeen.size +
+    ' line(s): ' + [...easySubsSeen].join(' / '));
 
   /* ---- "THE SAME AS RACE DAY RULE" ----
      Founder: "the cherry boarder should be the same as race day rule. As

@@ -37,6 +37,119 @@ function block(){
 }
 const sorted = a => a.state.days.slice().sort((x,y)=> x.date < y.date ? -1 : 1);
 
+/* =====================================================================
+ * THE SOLO NOTE IS WHERE THE COACHING ACTUALLY ARRIVES
+ * =====================================================================
+ * Founder, looking at four easy runs across two different phases: "The
+ * easy runs still all say the same still."
+ * They did. An easy or long run draws a SOLO NOTE, and that came from
+ * SINGLE_CARD_NOTE -- one fixed entry per archetype. Measured on a
+ * 105-day plan: 47 days draw one, and they produced FIVE distinct texts,
+ * 39 of them "Keep it easy / Finish wanting more". The contextual layer
+ * was already holding 55 distinct lines for those same days; nothing on
+ * this screen ever asked it.
+ * THE LESSON THESE TESTS NOW CARRY: the earlier work was verified by
+ * measuring contextualWhy() -- the generator -- and never by measuring
+ * what a screen renders. A coaching system that varies perfectly and is
+ * not read is indistinguishable from one that does not vary. So these
+ * assert the RENDERED note, through renderSoloNote(), not the pool. */
+test('an easy run does not say the same thing every time', () => {
+  const a = block();
+  const notes = sorted(a).map(d => {
+    let h = '';
+    try { h = a.renderSoloNote(d); } catch (e) { h = ''; }
+    return h ? { date: d.date, type: d.type, t: h.replace(/<[^>]+>/g, '|') } : null;
+  }).filter(Boolean);
+  assert.ok(notes.length >= 20, 'expected a plan with plenty of solo-note days, got ' + notes.length);
+
+  /* NO TWO IN A ROW, which is the thing the founder actually saw: the
+     screenshots were consecutive days reading identically. */
+  let consecutive = 0;
+  for (let i = 1; i < notes.length; i++) if (notes[i].t === notes[i - 1].t) consecutive++;
+  assert.equal(consecutive, 0,
+    consecutive + ' solo notes repeat the one before them');
+
+  /* AND NOT A HANDFUL OF TEXTS SPREAD THIN. Five was the broken state. */
+  const distinct = new Set(notes.map(n => n.t)).size;
+  assert.ok(distinct >= 12,
+    'only ' + distinct + ' distinct solo notes across ' + notes.length + ' days');
+});
+
+test('the solo note is deterministic: the same plan renders the same words', () => {
+  /* Same property the why pool holds, asserted where it is now read. A
+     rotation keyed on anything but the plan would fail here. */
+  const render = (app) => sorted(app).map((d) => {
+    try { return app.renderSoloNote(d); } catch (e) { return ''; }
+  });
+  const first = render(block());
+  const second = render(block());
+  assert.ok(first.filter(Boolean).length >= 20, 'no solo notes were rendered to compare');
+  assert.equal(first.length, second.length,
+    'the two loads produced different numbers of days: ' + first.length + ' vs ' + second.length);
+  let mism = 0, firstAt = -1;
+  for (let i = 0; i < first.length; i++) {
+    if (first[i] !== second[i]) { mism++; if (firstAt < 0) firstAt = i; }
+  }
+  assert.equal(mism + '|' + Object.keys(first).length + '|' + Object.keys(second).length,
+    0 + '|' + first.length + '|' + second.length,
+    'mismatches=' + mism + ' firstAt=' + firstAt +
+    ' ownKeys=' + Object.keys(first).length + '/' + Object.keys(second).length +
+    ' len=' + first.length + '/' + second.length +
+    (firstAt >= 0 ? '\n  A: ' + String(first[firstAt]).replace(/<[^>]+>/g, '|') +
+                    '\n  B: ' + String(second[firstAt]).replace(/<[^>]+>/g, '|') : ''));
+  const at = firstAt;
+  assert.equal(at, -1,
+    'two independent loads rendered different notes at index ' + at +
+    '\n  A: ' + String(first[at]).replace(/<[^>]+>/g, '|') +
+    '\n  B: ' + String(second[at]).replace(/<[^>]+>/g, '|'));
+});
+
+test('the lead is the instruction and never rotates; only the second line moves', () => {
+  /* "Keep it easy" is the same instruction every time, so varying it would
+     make a day look different when it is not. The context belongs in the
+     line underneath. */
+  const a = block();
+  const leads = new Map();
+  sorted(a).forEach(d => {
+    let parts = null;
+    try { parts = a.singleCardNoteParts(d); } catch (e) { parts = null; }
+    if (!parts || !parts.lead) return;
+    const p = a.prescriptionOf(d) || {};
+    if (!a.SINGLE_CARD_NOTE[p.archetype]) return;
+    if (!leads.has(p.archetype)) leads.set(p.archetype, new Set());
+    leads.get(p.archetype).add(parts.lead);
+  });
+  assert.ok(leads.size > 0, 'no written-archetype solo notes were produced at all');
+  leads.forEach((set, arch) => {
+    assert.equal(set.size, 1,
+      arch + ' varies its lead (' + [...set].join(' / ') + ') -- the instruction must not rotate');
+  });
+});
+
+test('the short lines stay short, and carry no em dash', () => {
+  /* The box is deliberately terse -- "that is the cleanest it can ever be"
+     -- which is why these exist instead of reusing a why, and the founder's
+     copy standard removes em dashes. Both are easy to lose by adding one
+     good long line later. */
+  const a = block();
+  const lines = [];
+  const walk = (o) => {
+    if (typeof o === 'string') { lines.push(o); return; }
+    if (Array.isArray(o)) { o.forEach(walk); return; }
+    if (o && typeof o === 'object') Object.keys(o).forEach(k => walk(o[k]));
+  };
+  walk(a.COACHING_SOLO_SUB);
+  /* Easy runs only: a long run's line is dictated copy and does not
+     rotate, so the pool is the eight easy buckets at two or three lines
+     each. A floor, not the exact count, so adding a line is not a failure. */
+  assert.ok(lines.length >= 15, 'the short-line pool is suspiciously small: ' + lines.length);
+  lines.forEach((t) => {
+    assert.ok(t.length <= 60, 'a solo-note line is ' + t.length + ' characters: ' + t);
+    assert.ok(t.indexOf('\u2014') === -1, 'an em dash is back in the coaching copy: ' + t);
+    assert.ok(!/\.$/.test(t), 'a solo-note line ends in a full stop: ' + t);
+  });
+});
+
 test('the execution guidance never rotates, whatever the context', () => {
   /* THE SAFETY PROPERTY. Only `why` is contextual. If how/feel/avoid ever
      varied by day, Valhalla would be inventing alternative instructions for

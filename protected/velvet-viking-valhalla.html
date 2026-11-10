@@ -4634,7 +4634,22 @@
      the #1C1E24 that Settings panels, Reading panels and the week's open
      session all sit on, so the builder read as a different product opening
      over the top of this one. Flat, and the same value. */
-  .modal-card.builder-light{background:var(--t-card); border-color:var(--t-tile-rim);}
+  /* ---------- THE BUILDER'S FIELDS ARE CHERRY, NOT GOLD ----------
+     Founder: "the selection data input fields should be cherry not gold."
+     Every text field in here was on the modal's warm ramp -- #24201c on a
+     #3d352b edge, lighting #c5a059 when focused -- which is the olive-brown
+     the screenshots show. The date field had already been lifted onto the
+     product's cool tile surface by hand; this does the same for all of them
+     at once by re-pinning the --ctl-* family, which is the mechanism the
+     modal ramp itself uses. ONE SCOPE: .builder-light, so no other modal
+     moves, and nothing about which element is a field changes.
+     The accent is --cherry at the same 0.25 alpha the gold ring used, so a
+     focused field reads like a chosen option rather than a second accent. */
+  .modal-card.builder-light{
+    background:var(--t-card); border-color:var(--t-tile-rim);
+    --ctl-bg:var(--t-tile); --ctl-border:var(--t-tile-rim);
+    --ctl-accent:var(--cherry); --ctl-accent-rgb:154,84,108;
+  }
   .modal-card.builder-light .modal-head{background:transparent; border-bottom-color:var(--t-tile-rim);}
   /* ---- GEOMETRY IS NOT THE BUILDER'S FACE ----
      This centring was authored for .builder-light and then borrowed, surface
@@ -5278,14 +5293,26 @@
      13px of padding did not -- the step's heading sat at the gutter and
      the choices under it sat 13px further in.
      The recipe is .ef-type-row's, pool for pool and shadow for shadow. */
-  .bld-purpose{display:grid; gap:0; grid-template-columns:1fr;}
+  /* ---------- AND YOUR GOAL FOLLOWS GOAL DISTANCE ----------
+     Founder: "Your goal page needs to follow the goal distance layout."
+     These were rows -- no box, no rim, a gold pool behind the chosen one --
+     from a deliberate pass that stripped the boxes. Goal distance has since
+     become stacked boxes with a cherry-lined chosen state, and this screen
+     asks the same question one Continue earlier, so it was the builder
+     contradicting itself. It is the same box the option grid draws and the
+     same box the experience cards draw; nothing new enters.
+     It keeps its flex row, because these carry a name AND a sentence with a
+     tick at the trailing edge -- the experience card's shape, which is what
+     a boxed version of this always was. */
+  .bld-purpose{display:grid; gap:8px; grid-template-columns:1fr;}
   .bld-purpose button{
-    position:relative; display:flex; align-items:center; gap:11px;
-    width:100%; text-align:left; padding:13px 0; min-height:60px;
-    border:0; border-radius:var(--tile-radius);
-    background:none; color:var(--ink-dim);
-    transition:color .18s;
+    position:relative; overflow:hidden; display:flex; align-items:center; gap:11px;
+    width:100%; text-align:left; padding:15px 15px 14px; min-height:60px;
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile); color:var(--ink-dim); box-shadow:var(--t-lift);
+    transition:color .18s, border-color .18s, box-shadow .18s;
   }
+  .bld-purpose button:hover:not(.active){border-color:var(--bronze);}
   /* The coaching rail's radial pool, which is what "chosen" looks like in
      this product. It reaches the full width of the row, so the light runs
      to both edges of the card rather than stopping at a tile's rim. */
@@ -5296,12 +5323,11 @@
       rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
     opacity:0; transition:opacity .34s ease;}
   .bld-purpose button > *{position:relative; z-index:1;}
-  .bld-purpose button.active::before{opacity:1;}
   .bld-purpose button:hover:not(.active)::before{opacity:.38;}
   .bld-purpose button:active{transform:scale(.995);}
   .bpc-text{flex:1 1 auto; min-width:0;}
   .bpc-tick{flex:none; display:inline-flex; align-items:center; justify-content:center;
-    width:20px; height:20px; color:var(--gold-bright);}
+    width:20px; height:20px; color:var(--cherry-text);}
   .bpc-tick svg{width:18px; height:18px;}
   .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700;}
   .bpc-name{line-height:1.2;}
@@ -5317,14 +5343,16 @@
      takes the gold and the illumination the nav's selected tab wears, and
      the tick comes up on the right -- where the tab chevrons live, so it
      costs the words nothing. */
+  /* The chosen objective is the chosen option: cherry line, the product's
+     cherry glow, no fill. Identical to .opt-grid button.active, because a
+     choice is a choice. */
   .bld-purpose button.active{
-    color:var(--gold-bright); background:none; border-color:transparent;
-    box-shadow:none;
+    color:var(--ink); background:var(--t-tile);
+    border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);
   }
-  .bld-purpose button.active .bpc-name{
-    color:var(--gold-bright);
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42);}
+  .bld-purpose button.active .bpc-name{color:var(--cherry-text); text-shadow:none;}
+  /* The gold pool was what marked the chosen row while there was no box. */
+  .bld-purpose button.active::before{opacity:0;}
 
   /* A locked choice still shows what was chosen and why it cannot move -- the
      grid is dimmed, not removed, so "Speed uses the 5K block" is visible
@@ -9128,13 +9156,59 @@
      source order, collapsing the column layout to inline block text. The
      extra .field ancestor clause beats it outright rather than relying on
      position in the file. */
+  /* ---------- THE WEEK PICKER IS THE APP'S DAY CIRCLE ----------
+     Founder: "Your week page could have the same circles as the app."
+     .wk-day is that circle -- the one the week view already draws, with a
+     date above a number inside a 1:1 disc on --t-tile over --t-tile-rim --
+     and this takes its recipe rather than approximating it: same shape,
+     same surface, same rim, an initial above a name instead of a date above
+     a number. The app lights its selected day gold; here it is cherry,
+     because every choice in this build is.
+     THE REAL CHECKBOX IS STILL THE CONTROL. It used to BE the visible
+     circle; it now covers the circle at zero opacity, so the focus ring,
+     the screen-reader checked state and Space-to-toggle all still come from
+     a real <input type=checkbox>. What that costs is the visible focus
+     ring, which is why :focus-within draws one on the label -- a keyboard
+     user is no worse off than before. */
   .field .wd-check{
-    display:flex; flex-direction:column; align-items:center; gap:6px; padding:2px 0; min-height:52px;
+    position:relative; aspect-ratio:1/1; min-height:0; padding:0; margin-bottom:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+    border-radius:50%; border:1px solid var(--t-tile-rim); background:var(--t-tile);
     cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
-    text-transform:none; letter-spacing:normal; opacity:1; margin-bottom:0;
+    text-transform:none; letter-spacing:normal; opacity:1;
+    transition:border-color .18s, box-shadow .18s, color .18s;
   }
-  .wd-name{font-family:var(--text-face); /* a weekday name is a word */ font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; transition:color .15s;}
+  .field .wd-check input{
+    position:absolute; inset:0; width:100%; height:100%; margin:0;
+    opacity:0; cursor:pointer; border:0; background:none; box-shadow:none;
+  }
+  .field .wd-check input:checked{background:none; border:0;}
+  .field .wd-check input:checked::after{content:none;}
+  .field .wd-check:focus-within{
+    outline:2px solid var(--cherry); outline-offset:2px;}
+  .wd-initial{font-family:var(--text-face); font-size:15px; font-weight:600;
+    line-height:1; color:var(--ink-faint); transition:color .15s;}
+  .wd-name{font-family:var(--text-face); font-size:9.5px; color:var(--ink-faint);
+    text-transform:uppercase; letter-spacing:.04em; transition:color .15s;}
+  .wd-check.checked{
+    border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
+  .wd-check.checked .wd-initial{color:var(--cherry-text);}
   .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
+  /* ---------- A NARROW PHONE KEEPS THE TARGET, NOT THE PERFECT CIRCLE ----
+     Seven circles cannot be 44px wide in the 268px a 320px phone leaves:
+     7 x 44 is 308 before any gap. Measured, 1:1 gives 33px there, and the
+     control this replaced was 33 x 52 -- so holding the aspect ratio at
+     every width would have HALVED the tap area of a seven-times-repeated
+     control to buy a shape nobody can see is imperfect at 33px.
+     The week stays one row, because Mon..Sun read across is what makes it
+     a week; 4 + 3 over two rows keeps the circle and loses the thing the
+     circle is for. So below 375px the disc gives up its aspect ratio and
+     keeps 44px of height. It is a 33 x 44 ellipse at 320 and 39 x 44 at
+     360 -- still round-cornered, still the same component, and still a
+     thumb target. */
+  @media (max-width:374px){
+    .field .wd-check{aspect-ratio:auto; min-height:44px;}
+  }
 
   /* ===================================================================
      THE ONE LABEL VOICE, APPLIED
@@ -31696,6 +31770,90 @@ function singleCardSession(dd){
    says on a day that gets one line. An archetype with no entry falls back
    to its moved description and then to gd.feel, so a one-card session
    nobody has written a line for is never a blank note. */
+/* ---------- THE SECOND LINE IS THE ONE THAT KNOWS WHERE IT IS ----------
+   Founder: "The easy runs still all say the same still."
+   And they did. SINGLE_CARD_NOTE below is one fixed entry per archetype, so
+   every easy run in a block read "Keep it easy / Finish wanting more".
+   Measured on a 105-day marathon plan: 47 days draw a solo note, and those
+   47 produced FIVE distinct texts, 39 of them that one. The contextual
+   layer added earlier was already holding 55 distinct lines for the same
+   days -- it just was not reachable from this screen, which is the screen
+   an athlete actually reads. The defect was never the coaching; it was that
+   the coaching never arrived.
+
+   WHY A SEPARATE POOL RATHER THAN REUSING COACHING_WHY. This box is
+   deliberately terse -- "Move the keep it easy up, drop the full stops from
+   both lines. That is the cleanest it can ever be." A why is a two-clause
+   sentence of about 150 characters and would turn a two-line note into a
+   paragraph. These are one line each, longest 48 characters, which is
+   shorter than the long-run line already in the box.
+
+   THE LEAD DOES NOT ROTATE. "Keep it easy" is the instruction and it is the
+   same instruction every time; varying it would make the day look different
+   when it is not. The second line is what changes, because where the day
+   sits in the block IS what changes.
+
+   SAME CONTEXT MODEL, SAME ROTATION, NO NEW MACHINERY: coachingContextFor()
+   decides the bucket and coachingRotationIndex() picks within it, so this
+   is deterministic for a given plan and survives a reload, exactly as the
+   why pool does. */
+var COACHING_SOLO_SUB = {
+  easy: {
+    role: {
+      after_quality:   ['Let yesterday\u2019s session settle',
+                        'Nothing to prove the day after a hard one'],
+      before_quality:  ['Save the effort for tomorrow',
+                        'Tomorrow is the hard one'],
+      after_long:      ['Let the long run settle',
+                        'Loosen the legs, nothing more'],
+      after_long_max:  ['That was the biggest one, so go gently',
+                        'Recover from it, do not add to it']
+    },
+    phase: {
+      /* 'Finish wanting more' is the approved line and is kept IN the
+         rotation rather than replaced by it: the founder asked for easy
+         runs to stop reading identically, not for that sentence to go. */
+      Base:  ['This is the running that builds the engine',
+              'Most of your running should feel like this',
+              'Finish wanting more'],
+      Build: ['Easy days are what let the hard ones land',
+              'Protect the quality session'],
+      Peak:  ['The volume is high, so keep this genuinely light',
+              'The hard work is elsewhere this week'],
+      Taper: ['Keep the legs moving, nothing more',
+              'Freshness is the point now']
+    }
+  }
+  /* ---------- NO `long` POOL, AND THAT IS THE POINT ----------
+     There was one, and writing it was an overreach. The founder's report
+     was specific -- "The easy runs still all say the same still" -- and a
+     long run's line is not a line anybody drifted into. It is dictated,
+     verbatim, in SINGLE_CARD_NOTE below: 'Instead of "Run by effort, not
+     pace" / "Start at the pace you'll finish at", use "Run by effort, not
+     pace, and start at the pace you intend to finish at."'
+     Rotating that away replaced an instruction the founder wrote with one
+     I did. test/structuredWorkout caught it, which is exactly what a law
+     pinning approved copy is for. A long run says the same thing every
+     time because it IS the same thing every time. */
+};
+/* Resolution order mirrors coachingVariantsFor(): a role is more specific
+   than a milestone, which is more specific than a phase. Returns null for
+   any family with no pool, so an archetype nobody has written short lines
+   for keeps the written sub it already had. */
+function coachingSoloSub(dd){
+  var ctx = null;
+  try { ctx = coachingContextFor(dd); } catch(e) { return null; }
+  if (!ctx) return null;
+  var fam = COACHING_SOLO_SUB[ctx.family];
+  if (!fam) return null;
+  var pool = (ctx.role && fam.role && fam.role[ctx.role]) ||
+             (ctx.milestone && fam.milestone && fam.milestone[ctx.milestone]) ||
+             (fam.phase && fam.phase[ctx.phase]) || null;
+  if (!pool || !pool.length) return null;
+  var i = 0;
+  try { i = coachingRotationIndex(dd, ctx, pool.length); } catch(e) { i = 0; }
+  return pool[i % pool.length] || null;
+}
 var SINGLE_CARD_NOTE = {
   easy_run: { lead:'Keep it easy.', subs:['Finish wanting more.'] },
   /* ---------- ONE COACHING POINT, ONE LINE ----------
@@ -31800,7 +31958,15 @@ function renderSoloNote(dd){
 function singleCardNoteParts(dd){
   var p = prescriptionOf(dd) || {};
   var written = SINGLE_CARD_NOTE[p.archetype];
-  if (written) return written;
+  if (written){
+    /* The lead is the instruction and does not move; the sub is where the
+       day sits in the block. Falls back to the written sub when this day
+       has no context -- so a note is never emptier than it was. */
+    var ctxSub = null;
+    try { ctxSub = coachingSoloSub(dd); } catch(e) { ctxSub = null; }
+    if (!ctxSub) return written;
+    return { lead: written.lead, subs: [ctxSub] };
+  }
   /* ---------- A SHORT LEAD, THEN WHAT THE SESSION IS ----------
      The first version of this split the day's own sentence at its first
      full stop and made the opening half the lead. On a long run that put
@@ -52065,9 +52231,14 @@ function openSetupModal(){
   var WEEKDAY_FULL_NAMES = ISO_WEEKDAY_FULL;
   var wdCheckboxes = ISO_WEEKDAY_NAMES.map(function(name, iso){
     var checked = schedule.activeDays.indexOf(iso)!==-1;
+    /* INITIAL ABOVE NAME, the way .wk-day draws a date above its number.
+       aria-hidden on both, because the input already carries the full
+       weekday as its accessible name ("Monday") -- without it a screen
+       reader reads "M MON Monday". */
     return '<label class="wd-check'+(checked?' checked':'')+'">'+
       '<input type="checkbox" data-wd="'+iso+'" '+(checked?'checked':'')+' aria-label="'+WEEKDAY_FULL_NAMES[iso]+'">'+
-      '<span class="wd-name">'+name+'</span>'+
+      '<span class="wd-initial" aria-hidden="true">'+name.charAt(0)+'</span>'+
+      '<span class="wd-name" aria-hidden="true">'+name+'</span>'+
     '</label>';
   }).join('');
   var longDayOptions = schedule.activeDays.slice().sort(function(a,b){return a-b;}).map(function(iso){

@@ -147,16 +147,28 @@ test('there is no separate .wd-circle component anywhere -- the checkbox itself 
 // ---------------------------------------------------------------------------
 // 4. NO BACKGROUND/WASH BEHIND THE SELECTED COLUMN
 // ---------------------------------------------------------------------------
-test('.wd-check.checked carries no background, box-shadow or fill of its own -- selection is the circle alone', () => {
-  // Every rule keyed off .wd-check.checked (with nothing more specific
-  // after it, i.e. not .wd-check.checked .wd-name) must declare only text
-  // colour/weight -- never a background, border-radius-as-card, box-shadow
-  // or tint. A future regression re-adding a column wash would fail here.
+/* ---- WHAT THIS LAW WAS FOR SURVIVES; THE SPELLING OF IT DOES NOT ----
+   It forbade .wd-check.checked having ANY bare rule, on the reasoning that
+   the checkbox was the circle and the label was just a column of text --
+   so anything drawn on the label could only be a rectangular wash behind a
+   selected day.
+   The label IS the circle now (founder: "the same circles as the app" --
+   .wk-day's disc, with an initial above a name inside it), so a rule on it
+   is how the circle says it is chosen. The thing to prevent is unchanged
+   and is still prevented: no FILL and no wash. A cherry rim and the
+   product's cherry glow are the circle speaking; a background would be the
+   column coming back. */
+test('a selected weekday is a lit rim, never a fill or a column wash', () => {
   const rules = [...SRC.matchAll(/\.wd-check\.checked(?:,\s*\.wd-check\.checked)?\s*\{([^}]*)\}/g)];
-  assert.ok(rules.length === 0,
-    '.wd-check.checked must not have its own bare rule at all -- only .wd-check.checked .wd-name may exist: found ' +
-    rules.map((m) => m[0]).join(' | '));
-  assert.doesNotMatch(SRC, /\.wd-check\.checked\{[^}]*background/, 'no background/wash may be declared on the selected label');
+  assert.equal(rules.length, 1,
+    'expected exactly one bare .wd-check.checked rule, found ' + rules.length);
+  const body = rules[0][1];
+  assert.doesNotMatch(body, /background/,
+    'the selected weekday is filled or washed -- selection is the rim, not a ground');
+  assert.match(body, /border-color:var\(--cherry\)/,
+    'the selected weekday lost its cherry rim');
+  assert.doesNotMatch(body, /gold|bronze/i,
+    'the selected weekday is wearing the gold accent, not the selection colour');
 });
 
 test('no square, rectangular or column-shaped highlight class is generated for a selected weekday', () => {
@@ -173,10 +185,26 @@ test('no square, rectangular or column-shaped highlight class is generated for a
 // ---------------------------------------------------------------------------
 // 5. STRUCTURE: circle then name, nothing inside the circle
 // ---------------------------------------------------------------------------
-test('the day label sits outside the circle (a sibling .wd-name span), with no wrapper span for the circle itself', () => {
+/* ---- THE STRUCTURE CHANGED SIDES WITH THE COMPONENT ----
+   This required the name to sit OUTSIDE the circle, because the input was
+   the circle and anything inside it would have been drawn over a 22px
+   disc. The label is the circle now and carries an initial above the name,
+   the way .wk-day carries a date above a number.
+   STILL NO .wd-circle WRAPPER -- that law is separate, still above, and
+   still passing: the label itself is the disc, so there is no second
+   element drawing a parallel ring. And the input is still the FIRST child,
+   which the change handler depends on (cb.parentElement is the label); the
+   test for that is below and untouched. */
+test('the circle carries an initial above the day name, and the input still opens the label', () => {
   const { html } = buildJourney();
-  const label = /<label class="wd-check[^"]*"><input type="checkbox" data-wd="0"[^>]*><span class="wd-name">Mon<\/span><\/label>/.exec(html);
-  assert.ok(label, 'Monday\'s label did not match the expected input-then-name structure (no .wd-circle span)');
+  const label = /<label class="wd-check[^"]*"><input type="checkbox" data-wd="0"[^>]*><span class="wd-initial" aria-hidden="true">M<\/span><span class="wd-name" aria-hidden="true">Mon<\/span><\/label>/.exec(html);
+  assert.ok(label, 'Monday did not match the expected input-then-initial-then-name structure');
+  /* aria-hidden on both, because the input already carries "Monday" as its
+     accessible name -- without it a screen reader announces "M Mon Monday". */
+  const names = [...html.matchAll(/<span class="wd-(initial|name)"([^>]*)>/g)];
+  assert.equal(names.length, 14, 'expected an initial and a name on each of the seven days');
+  names.forEach((m) => assert.match(m[2], /aria-hidden="true"/,
+    'a glyph inside the circle is being read out alongside the input\'s own label'));
 });
 
 // ---------------------------------------------------------------------------

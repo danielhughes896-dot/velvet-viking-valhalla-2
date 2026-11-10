@@ -411,21 +411,40 @@ test('the goal requirement is not conditional on the purpose', () => {
    gutter, which the tiles' 13px of padding did not.
    What the test was protecting is untouched and still below: four of them,
    the selected one GOLD, and never the cherry action colour. */
-test('the four objectives are rows in one column, wearing the gold selected state', () => {
+test('the four objectives are boxes in one column, wearing the cherry selected state', () => {
   const { html } = buildJourney();
   const goal = panels(html).find(p => p.stage === STAGE('GOAL')).body;
   assert.equal((goal.match(/class="bld-purpose-card/g) || []).length, 4,
     'the goal screen does not show four objectives');
 
+  /* ---- AND THIS HAS CHANGED SIDES AGAIN ----
+     It required NO ground, NO rim and the modal's own gutter, from a pass
+     that stripped the boxes off every choice in the build. Goal distance
+     has since gone back to stacked boxes with a cherry-lined chosen state,
+     and the founder has asked for this screen to follow it: "Your goal page
+     needs to follow the goal distance layout."
+     So the assertion is now the opposite, and it is the SAME box -- the one
+     .opt-grid button and the experience cards draw -- rather than a third
+     thing that merely looks similar. What the test has always really been
+     for is directly below and unchanged: four objectives, exactly one
+     chosen, announced as one radio group, and the chosen one marked in the
+     selection colour rather than the action colour. */
   const css = SRC.slice(SRC.indexOf('.bld-purpose{'), SRC.indexOf('.bld-date input'));
   assert.match(css, /\.bld-purpose\{[^}]*grid-template-columns:1fr;/,
     'the objectives are back in a grid of more than one column');
-  assert.match(css, /\.bld-purpose button\{[^}]*background:none/,
-    'the objectives are drawing a ground again');
-  assert.match(css, /\.bld-purpose button\{[^}]*border:0/,
-    'the objectives are drawing a rim again');
-  assert.match(css, /\.bld-purpose button\{[^}]*padding:13px 0/,
-    'the objectives are indented from the gutter their own heading runs to');
+  assert.match(css, /\.bld-purpose button\{[^}]*background:var\(--t-tile\)/,
+    'the objectives lost the box the founder asked for');
+  assert.match(css, /\.bld-purpose button\{[^}]*border:1px solid var\(--t-tile-rim\)/,
+    'the objectives lost their rim');
+  assert.match(css, /\.bld-purpose button\{[^}]*border-radius:var\(--tile-radius\)/,
+    'the objectives left the product radius');
+  /* Chosen is the cherry line, same as every other choice in the build, and
+     explicitly NOT a cherry fill -- Continue carries that at the foot of
+     the same screen. */
+  const on = css.match(/\.bld-purpose button\.active\{([^}]*)\}/)[1];
+  assert.match(on, /border-color:var\(--cherry\)/, 'the chosen objective lost its cherry line');
+  assert.doesNotMatch(on, /background:var\(--cherry/, 'the chosen objective is filled cherry');
+  assert.doesNotMatch(on, /gold/i, 'the chosen objective is still gold');
 
   /* ONE CHOICE, NOT FOUR TOGGLES. aria-pressed announces four independent
      buttons, each "pressed" or not, with nothing saying only one may be.
@@ -462,18 +481,20 @@ test('the four objectives are rows in one column, wearing the gold selected stat
   const pcss = SRC.slice(SRC.indexOf('.bld-purpose{'), SRC.indexOf('.bld-date input'));
   assert.match(pcss, /\.bld-purpose button::before\{[^}]*radial-gradient/,
     'the objective rows lost the gold pool that marks the chosen one');
-  assert.match(pcss, /\.bld-purpose button\.active::before\{[^}]*opacity:1/,
-    'the pool never comes up on the chosen row');
-  assert.match(pcss, /\.bld-purpose button\.active \.bpc-name\{[^}]*text-shadow:/,
-    'the chosen name is coloured but not lit');
-  // selected state is GOLD, never the Cherry Lacquer action colour. Which
-  // gold follows the bottom nav's selected tab -- now --gold-bright, since
-  // that tab stopped being a slab. The never-cherry rule below is the one
-  // that matters and is unchanged.
-  assert.match(css, /\.bld-purpose button\.active\{[^}]*--(modal-active|gold|gold-bright)/,
-    'the selected objective no longer uses the gold selection language');
-  assert.doesNotMatch(css, /\.bld-purpose button\.active\{[^}]*--cherry/,
-    'a selected objective is wearing the primary-action colour');
+  assert.match(pcss, /\.bld-purpose button\.active::before\{[^}]*opacity:0/,
+    'the gold pool still lights under the cherry line');
+  assert.match(pcss, /\.bld-purpose button\.active \.bpc-name\{[^}]*color:var\(--cherry-text\)/,
+    'the chosen name is not in the selection colour');
+  /* THIS PAIR HAS SWAPPED. It read "selected is GOLD, never the Cherry
+     Lacquer action colour" -- and the never-cherry half was called the one
+     that mattered. The founder has reversed the rule across the whole
+     build, so cherry marks a choice here now. What stops that colliding
+     with Continue is the LINE/FILL distinction, not the hue: Continue
+     carries --cherry-fill as a solid, a chosen objective carries --cherry
+     as a 1px edge over the unchanged surface. A fill here is the defect to
+     catch, and it is caught above. */
+  assert.doesNotMatch(css, /\.bld-purpose button\.active\{[^}]*gold/,
+    'the selected objective is back on the gold selection language');
 });
 
 /* ---- THIS TEST HAS CHANGED SIDES ----
