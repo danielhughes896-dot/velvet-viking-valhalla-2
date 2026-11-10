@@ -1594,8 +1594,15 @@ test('a description that leaves the face arrives under the rail', () => {
      phrase is not. Asserted as the replacement it is. */
   /* PRINTED WITHOUT THEIR FINAL STOP -- founder: "drop the . From both
      lines" -- so the needles are the words as they reach the screen. */
+  /* ---- THE TWO LINES ARE NOW ONE, BY INSTRUCTION ----
+     Founder: 'Instead of "Run by effort, not pace" / "Start at the pace
+     you'll finish at", use "Run by effort, not pace, and start at the pace
+     you intend to finish at."' One coaching point about how to pace a long
+     run, previously split into two fragments. The instruction is what this
+     list protects, and it survives in the founder's own wording, so the
+     needles move with it rather than the claim being dropped. */
   survives('long_run', 'Run by effort, not pace');
-  survives('long_run', 'Start at the pace you\u2019ll finish at');
+  survives('long_run', 'start at the pace you intend to finish at');
   /* ---- 'Short and sharp' IS THE ONE CLAUSE THE FOUNDER REMOVED ----
      It was the tail of the sentence between the hero and the rail --
      "4.2km @ Easy pace, then 6x100m relaxed strides w/ full recovery.

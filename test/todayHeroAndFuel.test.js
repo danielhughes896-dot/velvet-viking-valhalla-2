@@ -392,7 +392,13 @@ test('the guidance under the figures is one line, and the carb caveat survives w
   const shortHints = a.fuelFacts(shortOne).railHints;
   assert.equal(shortHints.length, 1,
     'an ordinary session is showing more than the one standing line of guidance');
-  assert.match(shortHints[0], /Adjust fluid for heat and thirst/,
+  /* THE STANDING LINE, RE-WORDED BY INSTRUCTION. Founder: use "Adjust your
+     fluids for the heat and your thirst. Practise your fuelling in training
+     so there's nothing new on race day." The claim this law makes is that
+     the standing guidance is present and is ONE line; the wording moved
+     with the copy pass, and "goal day" stays a vGoalDay() call rather than
+     a hard-coded "race day". */
+  assert.match(shortHints[0], /Adjust your fluids for the heat and your thirst/,
     'the standing line of guidance changed wording');
   assert.match(shortHints[0], /nothing new on/,
     'the "nothing new on race day" half of the standing line is gone');
