@@ -4723,8 +4723,11 @@
   .bld-overview{margin-top:4px; padding:2px 0;}
   /* No rules between them. Three statements of what the next nine screens
      do is a short list, and the gap says what a hairline was saying. */
-  .bld-overview-row{padding:13px 0;}
-  .bld-overview-row:last-child{border-bottom:none;}
+  /* Boxed by the shared rule further down -- see "THE LAST FOUR SCREENS
+     TAKE THE BOX TOO". The dead :last-child{border-bottom:none} went with
+     the flat padding: there has been no border-bottom on this row since the
+     hairline pass removed it, so that rule switched off nothing. */
+  .bld-overview-row + .bld-overview-row{margin-top:8px;}
   .bor-t{display:block; font-family:var(--text-face); font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
   .bor-d{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);}
 
@@ -5461,12 +5464,62 @@
      wearing it. Inside a modal card it is the same mistake weekShellElevation
      names for .week: a tile as loud as the surface holding it, and the
      hierarchy between them flattened. The padding stays. */
-  #bld-review{ padding:6px 16px; }
+  /* NO SIDE PADDING: the panel already sets the gutter every other screen
+     in the build runs to. Measured at 412, the rows sat 42-370 against a
+     heading and a Continue row at 26-386 -- a second 16px inset on top of
+     the panel's own. Flat rows hid it; boxes do not, because a narrower
+     column of boxes reads as a different kind of content. */
+  #bld-review{ padding:6px 0; }
   .bld-review-hero{text-align:center; padding:16px 0 8px; margin-bottom:2px;}
   .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--gold-text); line-height:1.1; font-weight:var(--label-weight);}
   .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
-  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0;}
-  .bld-review-row:last-child{border-bottom:none;}
+  /* ---------- WHAT VALHALLA UNDERSTANDS, IN THE BUILD'S OWN BOX ----------
+     Founder: "Page 11. Put them in the blocks."
+     These were flat rows on the card -- a label, a value, and a lot of
+     space between them -- which read as a list on the last screen of a
+     build where every other answer had been made in a box. Same recipe as
+     the option grid, the objective cards and the experience cards:
+     --t-tile on a --t-tile-rim hairline at --tile-radius. Nothing new.
+     THE BOX IS NOT A CONTROL HERE. Review states back what was chosen and
+     nothing on it is pickable, so there is no hover, no rim-lighting and
+     no cherry: the box is there to group a label with its value, not to
+     invite a tap. A row that looked selectable on the one screen whose job
+     is to be read would be the wrong kind of familiar.
+     The dead :last-child{border-bottom:none} went with it. There has been
+     no border-bottom on this row since the hairline pass removed it, so
+     that rule had been switching off something that was not there. */
+  .bld-review-row{
+    display:flex; align-items:baseline; justify-content:space-between; gap:14px;
+    padding:13px 15px;
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile);
+  }
+  .bld-review-row + .bld-review-row{margin-top:8px;}
+
+  /* ---------- THE LAST FOUR SCREENS TAKE THE BOX TOO ----------
+     Founder: "I think these 4 pages should now follow the same rules."
+     Overview, Training data, Your targets and Review were the four screens
+     still drawing flat rows on the card while every answer in between was
+     made in a box. ONE RULE, THREE SELECTORS (Review has its own above, for
+     its gutter note): the same --t-tile on --t-tile-rim at --tile-radius
+     the option grid, the objective cards and the experience cards draw.
+     Written once on purpose -- three copies of the same four declarations
+     is how two of them end up 1px apart a year from now.
+     NO LIFT AND NO CHERRY AT REST. These hold content and fields, not a
+     pick-one choice, so they do not borrow the selected language. What they
+     DO take is :focus-within, because flattening the input inside a box
+     (below) would otherwise leave a typed field with no focus state at
+     all. */
+  .bld-overview-row,
+  .goal-input-row,
+  .benchmark-row > .field{
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile); padding:13px 15px;
+  }
+  /* The input-flattening half of this lives beside the .field input rules
+     it overrides, several hundred lines down -- same specificity, so it
+     only wins on source order, and a rule that depends on order belongs
+     next to the one it is arguing with. */
   .bld-review-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
   /* Words in this column take the words face, the same rule the Reading
      panels' evidence column follows -- "Established", "Sat", "Off" and
@@ -5944,6 +5997,32 @@
   .field input:focus, .field select:focus, .field textarea:focus,
   .goal-input-row input:focus{
     outline:none; border-color:var(--ctl-accent); box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);
+  }
+  /* ---------- NO BOX INSIDE A BOX ----------
+     Your targets and Training data put each row in the build's box (see
+     "THE LAST FOUR SCREENS TAKE THE BOX TOO"), and the input inside was
+     still drawing its own rim and ground -- a control sitting on a card,
+     which is the box-on-a-box this product gave up everywhere else.
+     PLACED HERE, NOT BESIDE THE BOX RULE. `.goal-input-row input` is the
+     same specificity as the grouped rule above, so it wins only on source
+     order; written next to the box it would have lost silently, which is
+     exactly what it did the first time.
+     The field keeps its type, inputmode, id and focus behaviour -- only
+     its rim and ground go. */
+  .goal-input-row input,
+  .benchmark-row > .field input{
+    background:none; border:0; box-shadow:none; min-height:0;
+    padding-left:0; padding-right:0;
+  }
+  .goal-input-row input:focus,
+  .benchmark-row > .field input:focus{ box-shadow:none; border-color:transparent; }
+  /* THE ROW LIGHTS INSTEAD. Flattening the input would otherwise leave a
+     typed field with no focus state at all; :focus-within moves it to the
+     box, in the same cherry every other focused field in the builder now
+     uses. */
+  .goal-input-row:focus-within,
+  .benchmark-row > .field:focus-within{
+    border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);
   }
   /* A disabled control has to be legible AND obviously inert. Opacity alone
      does both jobs badly: it dims the label past readable while leaving the
@@ -8902,6 +8981,22 @@
   .hq-panel .icon-btn{border:1.5px solid color-mix(in srgb, var(--rp-accent) 70%, transparent);
     color:var(--rp-accent); border-radius:50%; width:var(--tap-min); height:var(--tap-min);
     display:flex; align-items:center; justify-content:center;}
+  /* ---------- A SETTINGS SHEET CLOSES THE WAY THE BUILDER CLOSES ----------
+     Founder: "I want the X in the top corner to be the same as we have just
+     done in the build."
+     A READING panel is the athlete pressing a coloured circle and the panel
+     answering in that colour, so its X carrying the accent is the panel
+     agreeing with itself. A SETTINGS sheet was never opened from a colour;
+     it inherited the treatment by sharing .hq-panel, and the result was a
+     gold ring round the most-pressed control in the app sitting next to a
+     build where the same control is neutral.
+     So it drops back to the plain .icon-btn -- the one every modal in the
+     product uses, the builder's included -- rather than gaining a third
+     variant. Compound, not descendant: .hq-panel.stg-panel is (0,3,0)
+     against the (0,2,0) above, so it wins on specificity and not on where
+     it happens to sit. */
+  .hq-panel.stg-panel .icon-btn{
+    border:1px solid var(--line); background:var(--bg-2); color:var(--ink-dim);}
 
   /* ---------- THE VERDICT, ENLARGED, AND THE REASON BESIDE IT ----------
      The circle the athlete pressed, at the arc's own largest size, with the
@@ -63772,8 +63867,15 @@ function openSettingsPanel(key){
   var html = hqPanelHtml(key);
   if (!html) return;
   rememberPlanHQScroll();
+  /* ---- THE FALLBACK IS CHERRY, AS IT ALREADY IS FOR A READING PANEL ----
+     Founder: "less gold more cherry". openHQPanel() a few lines up falls
+     back to rp-cherry and this fell back to rp-gold, so the same unlisted
+     panel was gold from Settings and cherry from Plan HQ. The panels that
+     NAME an accent in PANEL_ACCENT_CLASS keep it -- recovery, goal and
+     progress are still gold on purpose -- this only changes the ones that
+     never chose. */
   openModal(html, 'modal-themed builder-light hq-panel stg-panel '+
-    (PANEL_ACCENT_CLASS[key] || 'rp-gold'));
+    (PANEL_ACCENT_CLASS[key] || 'rp-cherry'));
   openRecordPanelKey = key;
 }
 /* Take the athlete to the checkpoint session itself: Full Plan, its week open,
