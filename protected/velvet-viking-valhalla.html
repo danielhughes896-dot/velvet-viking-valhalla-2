@@ -3685,6 +3685,23 @@
      reserved the space the sky sits in and .pe-foot's auto pushed the claim
      down; the middle row now reserves that space by being a third, and the
      bottom row holds the claim by being one. */
+  /* ---------- THE SPLASH THE DOCUMENT PAINTS BY ITSELF ----------
+     Founder: "I want the flash screen to appear almost instantly like no
+     reason why that shouldn't open up like 30ms after it opens."
+     There is a reason, and it was measurable. Nothing could paint until the
+     browser had parsed the whole 3.7 MB document, because the whole screen
+     was built by a script at the bottom of it. Measured on a throttled
+     mid-range phone, a repeat open showed its first pixel at 1.6 seconds.
+     #boot-splash is the same screen as .pe, written into <body> ABOVE the
+     application script, so the browser paints it from the first few per cent
+     of the document and keeps downloading the rest behind it. Same measure,
+     same phone: 0.36 seconds. See the markup in <body> and clearBootSplash().
+     FIXED RATHER THAN IN FLOW, so that in the one frame where it and a
+     rendered #app could both exist, it cannot move anything. Above the app's
+     chrome (50, 55) and below its modals and toasts (100, 150, 200) -- it is
+     gone before any of those can be built, and if it somehow were not, an
+     error message must still be reachable over it. */
+  #boot-splash{position:fixed; inset:0; z-index:90; overflow:hidden;}
   .pe{position:relative; min-height:100vh; display:grid;
     grid-template-rows:1fr 1fr 1fr; justify-items:center; text-align:center;
     padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 36px;}
@@ -10485,6 +10502,31 @@
 </head>
 <body>
 <div id="app" class="app-root"></div>
+<!-- THE ARRIVAL, BEFORE A LINE OF JAVASCRIPT RUNS.
+     This is renderProgrammeEntry()'s own first and last thirds, verbatim, so
+     the handover is invisible: the lockup and the claim are already in their
+     final places and the middle third fills in with the greeting when the
+     app paints. The middle row is present but empty on purpose -- .pe is a
+     three-equal-rows grid, and without it the other two would re-centre and
+     the brand would visibly jump at the handover.
+     IT IS NOT ANNOUNCED. aria-hidden, because the real screen that replaces
+     it carries the same words and a reader would otherwise read the arrival
+     twice. Nothing here is interactive and nothing here is the only copy of
+     anything. -->
+<div id="boot-splash" class="pe" aria-hidden="true">
+  <div class="pe-mountains" role="presentation" aria-hidden="true"></div>
+  <div class="pe-brand">
+    <img class="pe-mark" src="/assets/valhalla-v-256.png" width="256" height="217" alt="" aria-hidden="true" fetchpriority="high">
+    <div class="pe-name">Sacoro</div>
+    <div class="pe-by">By Velvet Viking</div>
+  </div>
+  <div class="pe-athlete"></div>
+  <div class="pe-foot">
+    <div class="pe-rule" aria-hidden="true"></div>
+    <div class="pe-claim">Earn your place</div>
+    <div class="pe-sub">Built around the climb</div>
+  </div>
+</div>
 <div id="toast-mount"></div>
 <script>
 'use strict';
@@ -66201,7 +66243,35 @@ function handleProgrammeEntryContinue(){
    after three seconds has been skipped rather than answered -- so the clock
    does not start until there is nothing left to ask. */
 var programmeEntryTimer = null;
-var PROGRAMME_ENTRY_HOLD_MS = 2100;
+/* ---- HOW LONG THE ARRIVAL STANDS, AND WHAT IT IS MEASURED FROM ----
+   Founder: "I want the flash screen to appear almost instantly ... Then stay
+   open for 1.5 seconds - 2 seconds?"
+   Those are not two numbers, they are one, and it is measured FROM THE LAUNCH
+   rather than from this render. The screen is painted by the document itself
+   now (see #boot-splash), so by the time renderApp() gets here the athlete has
+   already been looking at the arrival -- 90ms on a warm wifi open, most of a
+   second on a cold mobile one. A fixed hold counted from HERE added that wait
+   on top of itself: measured, a repeat open on a mid-range phone painted at
+   1.6s and cleared at 3.7s, which is the "set period of time" that prompted
+   this. Counting from launch spends the budget once.
+     TOTAL  the whole arrival, launch to app, whenever the app is quick enough.
+     FLOOR  and never less than this once the real screen is up, so a slow open
+            does not show the greeting and snatch it away -- an athlete who has
+            already waited is owed the screen, not punished with a flicker. */
+var PROGRAMME_ENTRY_TOTAL_MS = 1800;
+var PROGRAMME_ENTRY_FLOOR_MS = 650;
+function programmeEntryHoldMs(){
+  var since = 0;
+  try{
+    if (typeof performance !== 'undefined' && performance &&
+        typeof performance.now === 'function') since = performance.now();
+  }catch(e){ since = 0; }
+  /* performance.now() is milliseconds since this document started loading.
+     Anything else -- absent, negative, not a number -- is treated as a launch
+     that has only just happened, which errs towards the longer hold. */
+  if (!(since > 0)) since = 0;
+  return Math.max(PROGRAMME_ENTRY_FLOOR_MS, PROGRAMME_ENTRY_TOTAL_MS - since);
+}
 function programmeEntryAutoAdvance(){
   if (typeof window === 'undefined' || !window.setTimeout) return;
   if (!programmeEntryPending){
@@ -66214,7 +66284,7 @@ function programmeEntryAutoAdvance(){
     programmeEntryTimer = null;
     if (!programmeEntryPending) return;
     handleProgrammeEntryContinue();
-  }, PROGRAMME_ENTRY_HOLD_MS);
+  }, programmeEntryHoldMs());
 }
 /* The one-time capture. A name that will not sanitise to anything leaves the
    athlete on the screen rather than silently continuing with no greeting --
@@ -66306,7 +66376,7 @@ function renderProgrammeEntry(){
      field has to be asked somewhere -- so it is asked here, the first time,
      and the answer is stored. Every launch after that, including after a
      force quit, has the name and this screen is purely a splash: greeting,
-     programme, progress, and gone in 2.6 seconds without a press.
+     programme, progress, and gone inside two seconds without a press.
      The question and the timer therefore never coexist. While there is
      something to answer the screen waits; once answered it stops asking
      forever. See programmeEntryAutoAdvance(), which arms only when there is
@@ -66424,6 +66494,22 @@ function viewMountClass(){
   pagerSuppressFade = false;
   return cls;
 }
+/* THE PRE-SCRIPT SPLASH STANDS DOWN THE MOMENT THERE IS A REAL SCREEN.
+   Called from renderApp() immediately after #app is written, so the two never
+   share a frame, and from init()'s own catch, so a startup that fails outright
+   leaves the error message reachable rather than a splash that never lifts.
+   Latched: after the first render there is nothing to look for, and asking the
+   document for a node that will never exist again on every render is a cost
+   for nothing. */
+var bootSplashCleared = false;
+function clearBootSplash(){
+  if (bootSplashCleared) return;
+  bootSplashCleared = true;
+  try{
+    var el = document.getElementById('boot-splash');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }catch(e){}
+}
 function renderApp(){
   applyThemeToDocument();
   forgetLogPins();
@@ -66473,6 +66559,7 @@ function renderApp(){
     (arriving ? '' : renderTopbar())+
     '<div class="view-pager" id="view-pager"><div class="wrap"><div id="view-mount" class="'+viewMountClass()+'">'+renderMainContent()+'</div></div></div>'+
     (navAllowed ? renderBottomNavStack() : '');
+  clearBootSplash();
   programmeEntryBindName();
   programmeEntryAutoAdvance();
   openWeekFullSession();
@@ -67840,6 +67927,9 @@ function init(){
 try{ init(); }
 catch(err){
   console.error('Velvet Viking init failed', err);
+  /* Before the message is written, not after: the arrival is fixed and above
+     the app, so a message written underneath it would never be seen. */
+  try{ clearBootSplash(); }catch(e2){}
   var app = document.getElementById('app');
   if (app) app.innerHTML = '<div class="wrap" style="padding-top:50px; text-align:center; color:var(--ink-dim);">Something went wrong loading the plan \u2014 please refresh the page.</div>';
 }

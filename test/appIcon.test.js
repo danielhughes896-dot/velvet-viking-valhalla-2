@@ -6,12 +6,13 @@ const path = require('path');
 const zlib = require('zlib');
 const { RUNTIME_RELATIVE } = require('./harness.js');
 
-/* THE MARK ON THE HOME SCREEN
+/* WHAT THE OPERATING SYSTEM DRAWS BEFORE THE APP DOES
  * ===========================================================================
- * The app icon is the one piece of this product an athlete sees every day
- * without opening it, and it is the piece with no screen to check it on. A
- * broken icon does not throw, does not render blank, and does not appear in
- * any screenshot the suite takes -- it just sits on a phone being wrong.
+ * The icon and the launch screen. Between them they are everything an athlete
+ * sees of this product before a line of it has run, and they are the pieces
+ * with no screen to check them on. A broken icon does not throw, does not
+ * render blank, and does not appear in any screenshot the suite takes -- it
+ * just sits on a phone being wrong.
  *
  * Three ways it goes wrong quietly, and a law each:
  *
@@ -317,4 +318,129 @@ test('the legacy launcher icon is full bleed, unlike the adaptive foreground', (
     'the two is wrong: the legacy icon is never inset, the adaptive one always is');
   assert.ok(legacy.fraction >= 0.90,
     'ic_launcher.png fills only ' + (legacy.fraction * 100).toFixed(1) + '% of its tile');
+});
+
+// ---------------------------------------------------------------------------
+// 5. THE LAUNCH SCREEN ANDROID DRAWS BEFORE THE WEBVIEW EXISTS
+// ---------------------------------------------------------------------------
+/* The web app paints its own arrival now, from the document, before any script
+   runs -- see #boot-splash and test/programmeEntry. But even that cannot paint
+   until there is a WebView, and before there is a WebView there is this: a flat
+   PNG the window is drawn with. It is the only thing that can honour "appear
+   almost instantly", because it costs no network and no parsing at all.
+   The two have to be the same picture. These are cut from #boot-splash itself
+   with javascript disabled (tools: see the session's native-splash render), so
+   the handover is a photograph turning into the same photograph rather than a
+   launch screen giving way to a different one.
+   WHY THE SIZES ARE PINNED: Android picks a drawable by density bucket and
+   stretches whatever it finds. A half-regenerated set does not fail to build;
+   it ships a stretched or letterboxed launch screen on the densities nobody
+   on the project happens to own. */
+const SPLASH = [
+  { dir:'drawable',              w: 480, h: 320 },   /* the fallback any bucket can fall to */
+  { dir:'drawable-port-mdpi',    w: 320, h: 480 },
+  { dir:'drawable-port-hdpi',    w: 480, h: 800 },
+  { dir:'drawable-port-xhdpi',   w: 720, h:1280 },
+  { dir:'drawable-port-xxhdpi',  w: 960, h:1600 },
+  { dir:'drawable-port-xxxhdpi', w:1280, h:1920 },
+  { dir:'drawable-land-mdpi',    w: 480, h: 320 },
+  { dir:'drawable-land-hdpi',    w: 800, h: 480 },
+  { dir:'drawable-land-xhdpi',   w:1280, h: 720 },
+  { dir:'drawable-land-xxhdpi',  w:1600, h: 960 },
+  { dir:'drawable-land-xxxhdpi', w:1920, h:1280 }
+];
+
+test('every density carries a launch screen at the right pixel size', () => {
+  SPLASH.forEach(s => {
+    const file = path.join(RES, s.dir, 'splash.png');
+    assert.ok(fs.existsSync(file), s.dir + '/splash.png is missing; that density ' +
+      'falls back to a drawable of the wrong shape and launches stretched');
+    const p = pngHead(file);
+    assert.equal(p.w, s.w, s.dir + '/splash.png is ' + p.w + 'px wide, expected ' + s.w);
+    assert.equal(p.h, s.h, s.dir + '/splash.png is ' + p.h + 'px tall, expected ' + s.h);
+  });
+});
+
+test('the generic launch screen is the landscape frame, and nothing else repeats', () => {
+  /* drawable/ is the bucket Android falls to when it finds nothing better, and
+     in this project it has always been a byte-for-byte copy of the landscape
+     mdpi frame -- same 480x320, same picture. That is deliberate and is pinned
+     here so a regeneration that updates one and not the other is caught: a
+     stale fallback is a launch screen with the old badge on it, on exactly the
+     devices nobody tests. Every other pair must differ, because every other
+     pair is a different size and a copy would be the wrong shape. */
+  const sha = f => require('crypto').createHash('sha1')
+    .update(fs.readFileSync(path.join(RES, f, 'splash.png'))).digest('hex');
+  assert.equal(sha('drawable'), sha('drawable-land-mdpi'),
+    'the generic launch screen has drifted from the landscape mdpi frame it is a copy of');
+  const seen = new Map();
+  SPLASH.filter(s => s.dir !== 'drawable').forEach(s => {
+    const k = sha(s.dir);
+    assert.ok(!seen.has(k), s.dir + '/splash.png is a byte-for-byte copy of ' +
+      seen.get(k) + '/splash.png; one of the two is the wrong shape for its bucket');
+    seen.set(k, s.dir);
+  });
+});
+
+/* A 32x32 greyscale thumbnail, which is all that is needed to answer "are
+   these two the same picture?" -- and the only question a composition check
+   can answer honestly from pixels. An earlier version of this law measured
+   where the bright pixels sat and failed on the real landscape frame, because
+   a lit cloud in the photograph is as bright as the wordmark. */
+function thumb(file, n){
+  const img = pngPixels(file);
+  const sum = new Float64Array(n * n), count = new Float64Array(n * n);
+  for (let y = 0; y < img.h; y++){
+    const ty = Math.min(n - 1, Math.floor(y * n / img.h));
+    for (let x = 0; x < img.w; x++){
+      const tx = Math.min(n - 1, Math.floor(x * n / img.w));
+      const i = y * img.w * img.ch + x * img.ch;
+      sum[ty * n + tx] += (img.px[i] + img.px[i + 1] + img.px[i + 2]) / 3;
+      count[ty * n + tx]++;
+    }
+  }
+  for (let i = 0; i < sum.length; i++) sum[i] /= (count[i] || 1);
+  return sum;
+}
+function meanDiff(a, b){
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+  return s / a.length;
+}
+
+test('the landscape launch screen is composed, not the portrait one stretched', () => {
+  /* THE FAILURE THE SIZE LAW CANNOT SEE. Stretching the portrait frame to
+     1280x720 produces a file of exactly the right dimensions and entirely the
+     wrong picture: the lockup squashed, the photograph distorted. It is the
+     obvious shortcut when regenerating, and it builds and installs cleanly.
+     Measured on this repo's own frames, on a 0-255 scale:
+         the real portrait against the real landscape      19.7
+         a stretched portrait against the portrait          0.6
+         the same picture at two densities                  1.7
+     So anything under 8 is the same picture wearing another size. */
+  const STRETCH_FLOOR = 8;
+  [['drawable-port-xhdpi', 'drawable-land-xhdpi'],
+   ['drawable-port-xxhdpi', 'drawable-land-xxhdpi']].forEach(([p, l]) => {
+    const d = meanDiff(thumb(path.join(RES, p, 'splash.png'), 32),
+                       thumb(path.join(RES, l, 'splash.png'), 32));
+    assert.ok(d >= STRETCH_FLOOR,
+      l + '/splash.png differs from ' + p + '/splash.png by only ' + d.toFixed(1) +
+      ' -- it is the portrait frame stretched, not a landscape composition. ' +
+      'Render it at a landscape viewport rather than resizing');
+  });
+});
+
+test('the launch screen is a photograph, not the retired badge', () => {
+  /* The old one was the crest on near-black, and the crest artwork reads
+     VALHALLA AWAITS in pixels -- which is why the rename never touched it and
+     why no grep could have found it. A flat ground with one centred badge
+     compresses to a fraction of what a full-bleed photograph does, so the file
+     size is the cheap tell that the badge has come back: measured, the real
+     960x1600 frame is 775 KB and the same frame rebuilt as a badge on #151417
+     is 123 KB. */
+  const p = pngHead(path.join(RES, 'drawable-port-xxhdpi', 'splash.png'));
+  assert.ok(p.bytes > 300 * 1024,
+    'the 960x1600 launch screen is only ' + Math.round(p.bytes / 1024) + ' KB. ' +
+    'The arrival photograph does not compress that small; a flat ground with a ' +
+    'badge on it does, and the badge still says Valhalla');
 });

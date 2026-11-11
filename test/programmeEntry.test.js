@@ -772,14 +772,128 @@ test('ARRIVAL: it stands itself down, once, and only when there is a name', () =
 
   a.programmeEntryAutoAdvance();
   assert.equal(fired.length, 1, 'the arrival never armed its own exit');
-  assert.ok(armedDelay >= 2000 && armedDelay <= 3500,
-    'the hold is ' + armedDelay + 'ms, outside the 2-3s this screen is for');
+  /* THIS LAW CHANGED SIDES, and the instruction that moved it:
+     Founder: "I want the flash screen to appear almost instantly like no
+     reason why that shouldn't open up like 30ms after it opens. Then stay
+     open for 1.5 seconds - 2 seconds?"
+     It used to demand 2 to 3.5 seconds counted from this render, which was
+     the right shape when this render WAS the first thing an athlete saw. The
+     document paints the arrival itself now, before any of this script runs,
+     so counting from here spends the budget twice -- measured, a repeat open
+     on a mid-range phone painted at 1.6s and cleared at 3.7s. The budget is
+     the whole arrival, launch to app, and this is what is left of it. */
+  assert.ok(armedDelay >= 1500 && armedDelay <= 2000,
+    'with the launch only just behind it the hold is ' + armedDelay + 'ms, ' +
+    'outside the 1.5 to 2 seconds this screen is for');
 
   /* A redraw must not stack a second timer: two would fire two renders, and
      the second would land after the athlete was already somewhere else. */
   a.programmeEntryAutoAdvance();
   a.programmeEntryAutoAdvance();
   assert.equal(fired.length, 1, 'a redraw armed another exit on top of the first');
+});
+
+test('ARRIVAL: the hold is the rest of a launch budget, not a fresh one', () => {
+  /* performance.now() is milliseconds since the document began loading, so it
+     is how long the athlete has ALREADY been looking at the arrival by the
+     time this code runs. The hold is what remains of the budget, which is the
+     only way "appear instantly, stand for under two seconds" can be true of
+     the same screen on a fast open and a slow one. */
+  const a = arrived();
+  const total = a.PROGRAMME_ENTRY_TOTAL_MS;
+  const floor = a.PROGRAMME_ENTRY_FLOOR_MS;
+  assert.ok(total >= 1500 && total <= 2000,
+    'the whole arrival is ' + total + 'ms, outside the 1.5 to 2 seconds asked for');
+  assert.ok(floor > 0 && floor < total, 'the floor is not a floor');
+
+  const at = (ms) => { a.performance = { now: () => ms }; return a.programmeEntryHoldMs(); };
+
+  /* A fast open has spent almost nothing, so it holds almost the lot. */
+  assert.equal(at(100), total - 100, 'a fast open is not given the rest of the budget');
+  /* A slower one holds less, and launch-to-app still comes to the budget. */
+  assert.equal(at(600) + 600, total, 'the hold stopped being the remainder');
+  /* AND IT NEVER REACHES ZERO. An open that was slow enough to overrun the
+     whole budget must still show the greeting long enough to be read; the
+     alternative is a screen that flashes and vanishes, which reads as a
+     glitch rather than as an arrival. */
+  assert.equal(at(total + 500), floor, 'an overrunning launch flashed the greeting away');
+  assert.equal(at(60000), floor, 'a very slow launch skipped the arrival entirely');
+  /* A browser with no performance.now() at all is treated as a launch that
+     has only just happened, which errs towards showing the screen. */
+  a.performance = undefined;
+  assert.equal(a.programmeEntryHoldMs(), total,
+    'without a clock the arrival should hold its full length, not its shortest');
+});
+
+test('ARRIVAL: the document paints it before a line of script runs', () => {
+  /* The reason the hold above could be shortened. #boot-splash is the same
+     screen, in the markup, ABOVE the application script -- so the browser
+     paints it from the first few per cent of a 3.7 MB document instead of
+     after all of it. Measured on a throttled mid-range phone: first pixel on
+     a repeat open went from 1.6s to 0.36s. */
+  /* Anchored on the mount point and the script that fills it rather than on
+     <body>, because "<body>" and ".pe-sub" both occur inside 10,000 lines of
+     stylesheet above it and an earlier version of this test measured those. */
+  const appAt = RUNTIME_SRC.indexOf('<div id="app" class="app-root">');
+  const scriptAt = RUNTIME_SRC.indexOf('\n<script>\n', appAt);
+  assert.ok(appAt > -1, 'the mount point is not where this test thinks it is');
+  assert.ok(scriptAt > appAt, 'the application script is not where this test thinks it is');
+  /* Everything the browser can paint before it has to stop for the script. */
+  const preScript = RUNTIME_SRC.slice(appAt, scriptAt);
+  const splashAt = preScript.indexOf('id="boot-splash"');
+  assert.ok(splashAt > -1,
+    'the arrival is no longer in the markup above the application script, so the ' +
+    'browser cannot paint anything until the whole 3.7 MB document is parsed -- ' +
+    'which is the entire point of it');
+
+  /* IT IS THE SAME SCREEN, NOT A SECOND ONE. Every element the rendered
+     arrival opens and closes with has to be here too, or the handover is a
+     jump rather than the middle third filling in. */
+  const splash = preScript.slice(splashAt);
+  const live = arrived().renderProgrammeEntry();
+  ['pe-mountains', 'pe-mark', 'pe-name', 'pe-by', 'pe-athlete',
+   'pe-rule', 'pe-claim', 'pe-sub'].forEach(cls => {
+    assert.ok(splash.indexOf(cls) > -1,
+      'the pre-script arrival has no .' + cls + ', so the handover moves things');
+    assert.ok(live.indexOf(cls) > -1,
+      'the rendered arrival has no .' + cls + ' any more, so the two have drifted apart');
+  });
+  ['Sacoro', 'By Velvet Viking', 'Earn your place', 'Built around the climb'].forEach(w => {
+    assert.ok(splash.indexOf(w) > -1, 'the pre-script arrival stopped saying "' + w + '"');
+    assert.ok(live.indexOf(w) > -1, 'the rendered arrival stopped saying "' + w + '"');
+  });
+  /* The empty middle row is load-bearing: .pe is three equal rows, and
+     without it the brand and the claim re-centre and visibly jump. */
+  assert.match(splash, /<div class="pe-athlete"><\/div>/,
+    'the empty middle third went; the lockup will jump when the app paints');
+  /* And it is not announced, because the screen that replaces it says the
+     same words. */
+  assert.match(splash, /id="boot-splash" class="pe" aria-hidden="true"/,
+    'the pre-script arrival is read out as well as the real one');
+});
+
+test('ARRIVAL: the pre-script screen is taken down, and cannot strand anyone', () => {
+  /* It is position:fixed and above the app's own chrome, so a copy left in
+     the document would cover the application. Two things take it down: every
+     render, and init()'s own catch -- because a startup that fails outright
+     must leave its error message reachable rather than behind a splash. */
+  assert.match(RUNTIME_SRC, /#boot-splash\{position:fixed;[^}]*z-index:90;/,
+    'the pre-script arrival is no longer fixed above the app');
+  const render = RUNTIME_SRC.indexOf('function renderApp(){');
+  const bind = RUNTIME_SRC.indexOf('programmeEntryBindName();', render);
+  const clear = RUNTIME_SRC.indexOf('clearBootSplash();', render);
+  assert.ok(clear > -1 && clear < bind,
+    'renderApp() no longer clears the pre-script arrival after writing #app');
+  const failed = RUNTIME_SRC.indexOf("console.error('Velvet Viking init failed'");
+  assert.ok(failed > -1, 'the startup catch moved; this law cannot see it');
+  assert.ok(RUNTIME_SRC.indexOf('clearBootSplash();', failed) > -1 &&
+            RUNTIME_SRC.indexOf('clearBootSplash();', failed) <
+            RUNTIME_SRC.indexOf('Something went wrong loading the plan', failed),
+    'a failed startup writes its message underneath a splash that never lifts');
+  /* Latched, so every later render is not asking the document for a node
+     that can never exist again. */
+  assert.match(RUNTIME_SRC, /if \(bootSplashCleared\) return;/,
+    'clearBootSplash() searches the document on every render for ever');
 });
 
 test('ARRIVAL: the first open asks, and only a screen with nothing to ask holds', () => {
