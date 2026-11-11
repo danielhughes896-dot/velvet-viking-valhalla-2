@@ -189,16 +189,29 @@ test('the composer runs the width its sibling tab bodies run', () => {
     'squaring the tab\'s corners only made sense against a panel below it');
 });
 
-test('the share segments are the same control as KM / MI', () => {
+/* ---- THIS LAW HAS CHANGED SIDES ----
+   It required the chosen half to be lit in gold, as KM / MI is. Founder:
+   "The share pages need changing. Low R for example when selected needs to
+   be the cherry. And the SACORO / my photos. Small same size but cherry
+   select like the other parts of the app. Same as story / post. Share and
+   save to photos again."
+   Gold is the brand and the destination; cherry is what the athlete has
+   touched. What the law still protects is unchanged: the same small control,
+   lit by LIGHT on the word and never by a slab behind it. */
+test('the share segments are the same small control, and the chosen half is lit in cherry', () => {
   const b = rule('.share-seg button');
   const on = rule('.share-seg button.active');
   assert.match(b, /color:\s*#FFFFFF/, 'the resting label is crisp white');
   assert.match(b, /text-shadow:[^;]*rgba\(255, ?255, ?255/, 'with the tight halo');
-  assert.match(on, /color:\s*var\(--gold-bright\)/);
+  assert.match(b, /min-height:\s*34px/, '"small same size": the control did not grow');
+  assert.match(b, /font-size:\s*10\.5px/);
+  assert.match(on, /color:\s*var\(--cherry-text\)/);
+  assert.doesNotMatch(on, /gold|227, ?177, ?90|245, ?208, ?97/i, 'no gold is left on the choice');
+  assert.match(on, /text-shadow:[^;]*rgba\(154, ?84, ?108/, 'the light the nav puts on the tab you are on');
   assert.match(on, /background:\s*none/,
-    'gold is the LIGHT on the choice in this product, never a slab behind it');
-  assert.ok(!/\.share-seg button\.active\s*\{[^}]*background:\s*var\(--gold\)\s*;/.test(CSS),
-    'the filled gold lozenge is back');
+    'the choice is LIGHT on the word in this product, never a slab behind it');
+  assert.ok(!/\.share-seg button\.active\s*\{[^}]*background:\s*var\(--(gold|cherry)[a-z-]*\)\s*;/.test(CSS),
+    'a filled lozenge is back');
   assert.match(rule('.share-seg'), /align-self:\s*flex-start/,
     'stretched to the full track, two labels sit at the left end of an ' +
     'empty 380px rim -- which the fill used to hide');
@@ -222,8 +235,13 @@ test('neither share action is a slab', () => {
      same image out, and the athlete picks one by pressing it. Both read in
      plain gold now, and Share leads by sitting first. What the test still
      protects, and the whole reason it exists, is that neither is a slab. */
+  /* ---- AND THE WORDS HAVE CHANGED COLOUR ----
+     Founder, in the same ruling as the toggles: "Share and save to photos
+     again." Pressing either is something the athlete does, so the words are
+     cherry. Everything else this test protects stands. */
   const p = rule('.share-actions .btn-primary,\n  .share-actions .btn-ghost');
-  assert.match(p, /color:\s*var\(--gold\)/);
+  assert.match(p, /color:\s*var\(--cherry-text\)/);
+  assert.doesNotMatch(p, /gold/);
   assert.match(p, /text-shadow:\s*none/, 'the actions are lit as though one were chosen');
   assert.ok(!/background/.test(p),
     'a ground on the actions is the bronze gradient coming back');
@@ -516,4 +534,24 @@ test('the analysis spaces its blocks on one rhythm', () => {
   assert.match(card, /padding:\s*0 0 22px/,
     'top padding here is ADDED to the margin above it -- that is how the ' +
     'gap to EXECUTION REVIEW reached 52px while everything near it ran at 9');
+});
+
+test('the chosen overlay and the chosen picture are lit like a chosen builder tile', () => {
+  const tile = rule('.opt-grid button.active');
+  ['.share-ov.active .share-ov-thumb', '.share-bd.active'].forEach((sel) => {
+    const r = rule(sel);
+    assert.match(r, /border-color:\s*var\(--cherry\)/, sel + ' takes the cherry rim');
+    assert.match(r, /box-shadow:\s*0 0 16px var\(--cherry-dim\)/, sel + ' takes the tile glow');
+    assert.doesNotMatch(r, /gold|227, ?177, ?90/i, sel + ' must not be lit in gold');
+  });
+  assert.match(tile, /border-color:\s*var\(--cherry\)/, 'and that is the builder tile\'s own rim');
+  assert.match(tile, /box-shadow:\s*0 0 16px var\(--cherry-dim\)/);
+  const name = rule('.share-ov.active span');
+  assert.match(name, /color:\s*var\(--cherry-text\)/, 'the chosen overlay\'s name is cherry');
+  assert.doesNotMatch(name, /gold/);
+});
+
+test('the share page\'s hint line is not dimmed to a grey', () => {
+  assert.doesNotMatch(rule('.share-hint'), /opacity/,
+    'founder: "The grey text I\'m not keen on" -- and an opacity on white is a grey');
 });

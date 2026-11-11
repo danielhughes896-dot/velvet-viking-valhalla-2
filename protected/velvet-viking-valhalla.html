@@ -6377,7 +6377,9 @@
   .share-controls{display:flex; flex-direction:column; gap:12px;}
   .share-pick{display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;}
   .share-pick svg{width:15px; height:15px;}
-  .share-hint{ opacity:.6; text-align:center;}
+  /* opacity:.6 made this line a grey, on the one page the white sweep never
+     reached because it only opens from a tab. No grey text. */
+  .share-hint{ text-align:center;}
   /* The completion popup is retired -- it fired at the tick, before any
      figure had been logged, so it scored a session it knew nothing about.
      Its card styling goes with it; .wc itself is untouched and still renders
@@ -6393,15 +6395,27 @@
   .share-ov-thumb{width:100%; height:auto; aspect-ratio:var(--share-thumb-ar, 9/16);
     border-radius:7px;
     display:block; background:#0b0907; border:1.5px solid transparent;}
-  .share-ov.active .share-ov-thumb{border-color:var(--gold); box-shadow:0 0 0 2px rgba(227,177,90,.22);}
+  /* ---------- A CHOICE ON THIS PAGE IS CHERRY, LIKE EVERY OTHER CHOICE ----------
+     Founder: "The share pages need changing. Low R for example when selected
+     needs to be the cherry. And the SACORO / my photos. Small same size but
+     cherry select like the other parts of the app. Same as story / post.
+     Share and save to photos again."
+     This was the last page still lighting a selection in gold. Gold is the
+     brand and the destination in this product; cherry is what the athlete
+     has touched. So the chosen overlay and the chosen picture take the
+     builder tile's rim and glow, the two toggles take the light the nav puts
+     on the tab you are on, and the two actions say their words in cherry.
+     Nothing changes size or shape, and the gold INSIDE the thumbnails is the
+     share image itself, which is not this page's to recolour. */
+  .share-ov.active .share-ov-thumb{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
   .share-ov span{font-size:9.5px; letter-spacing:.6px; text-transform:uppercase;
     color:var(--ink);}
-  .share-ov.active span{color:var(--gold-text); font-weight:700;}
+  .share-ov.active span{color:var(--cherry-text); font-weight:700;}
   .share-bds{display:grid; grid-template-columns:repeat(3,1fr); gap:7px;}
   .share-bd{position:relative; aspect-ratio:1; border-radius:9px; cursor:pointer;
     background-size:cover; background-position:center; border:1.5px solid var(--line);
     display:flex; align-items:flex-end; padding:6px;}
-  .share-bd.active{border-color:var(--gold); box-shadow:0 0 0 2px rgba(227,177,90,.22);}
+  .share-bd.active{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
   .share-bd span{font-size:9.5px; letter-spacing:.5px; text-transform:uppercase;
     color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9);}
   .share-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
@@ -6437,10 +6451,12 @@
     color:#FFFFFF; background:none; border:0; border-radius:0; cursor:pointer;
     text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
     transition:color .2s, text-shadow .2s, font-weight .2s;}
+  /* .bn-item.active's light, layer for layer: the chosen half of a toggle
+     here is lit exactly as the tab you are on is lit. */
   .share-seg button.active{
-    color:var(--gold-bright); font-weight:700; background:none; box-shadow:none;
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
+    color:var(--cherry-text); font-weight:700; background:none; box-shadow:none;
+    text-shadow:0 0 1.1px rgba(196,106,137,.85), 0 0 6.6px rgba(154,84,108,.78),
+                0 0 16.5px rgba(154,84,108,.42), 0 0 30.8px rgba(154,84,108,.15);}
   /* Withholding an imported measurement is a decision the athlete is told
      about in words. It is never a silent omission. */
   /* OUT OF THE BOX, ACROSS THE TAB. This is the one place the product
@@ -6466,9 +6482,9 @@
      neutral recipe is these rules' own and the reference would now point
      at the wrong thing. Nothing about these two buttons changed. They are the same shape because they are
      the same rank of thing -- two ways to get the image out.
-     Share leads by illumination, not by fill: the layered gold glow the nav
-     puts on the tab you are on and the hero puts on the unit you chose. One
-     light, three places, no new colour introduced to this tab. */
+     The words carried gold until the founder's ruling above ("Share and
+     save to photos again"): pressing one of these is something the athlete
+     does, and what the athlete does is cherry. */
   .share-actions .btn{
     display:flex; width:100%; align-items:center; justify-content:center; gap:8px;
     background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
@@ -6479,10 +6495,10 @@
      are ON and the hero puts on the unit you CHOSE. That light means
      selected in this product, and neither of these buttons is selected --
      they are two ways to get the same image out, and the athlete picks one
-     by pressing it. Both read in plain gold; Share leads by sitting first,
+     by pressing it. Both read in plain cherry; Share leads by sitting first,
      which is the only ordering a pair of actions needs. */
   .share-actions .btn-primary,
-  .share-actions .btn-ghost{color:var(--gold); text-shadow:none;}
+  .share-actions .btn-ghost{color:var(--cherry-text); text-shadow:none;}
   /* opacity:.65 stood on every form label in the product, which made each
      one a grey. Founder: "The grey text I'm not keen on. I think white text
      is best ... Space needs to do the talking." -- and the builder page in
