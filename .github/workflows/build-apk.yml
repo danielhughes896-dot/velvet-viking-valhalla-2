@@ -1,10 +1,25 @@
 name: Build Android APK
 
-# Runs on every push to the repository. This only builds the native Capacitor
-# app shell -- it never touches the Vercel deployment, which deploys straight
-# from the repo root independently of this workflow.
+# NOT ON EVERY PUSH ANY MORE. Founder: "I don't want a app being built taking
+# 20 mins every time we push haha as long as the app gets updates then normal
+# way."
+#
+# It does, and that is what makes this safe. capacitor.config.json sets
+# server.url to https://app.velvetviking.co.uk, so the Android app is a SHELL
+# that loads the live site -- it does not bundle protected/. A content change
+# reaches a phone through the Vercel deploy, which happens on push and is
+# untouched by this file. Nothing about the app going stale was ever fixed by
+# building an APK.
+#
+# So this now builds only when the artifact itself is the point:
+#   - a v* tag, which is also what makes the release job below fire;
+#   - a manual run from the Actions tab, for a one-off device build.
+# A native change -- a Capacitor or plugin bump, an icon, a permission, a
+# versionCode for Play -- needs one of those two. Ordinary pushes do not.
 on:
   push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       ref:
