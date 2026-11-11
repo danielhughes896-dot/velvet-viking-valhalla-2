@@ -374,9 +374,16 @@ test('the step table sits above the rail until the session is run, then inside i
      execution rail inside the disclosure and keeps a step table above it:
      the original two-element ordering, held on the session that still has
      both elements. */
-  const staged = day(a, 'long_run_goal_finish');
+  /* IT WAS A GOAL-FINISH LONG RUN. A fuelled long run with stages draws
+     those stages as its rail now (founder: "Long run first rail. The rail
+     repeats." ... "Do both"), so it is a blueprint session and has no
+     disclosure left to be ordered against. The race is the session that
+     still has both: its step list above, its execution rail inside the
+     disclosure. */
+  const staged = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(staged, 'the block builds no race day');
   assert.equal(a.hasWorkoutBlueprint(staged), false,
-    'fixture assumption: a goal-finish long run has no blueprint, so it keeps its disclosure');
+    'fixture assumption: a race has no blueprint, so it keeps its disclosure');
   const aheadS = a.renderDayCard(staged);
   const wsA = aheadS.indexOf('ws-block'), howA = aheadS.indexOf('how-card');
   assert.ok(wsA > -1 && howA > -1, 'the unrun card lost its steps or its rail');
@@ -1330,16 +1337,29 @@ test('a week slide carries its rail and its solo note, and never the Coach\u2019
        the goal-pace long runs." Its rail is built inside renderCoachingDepth
        rather than by renderStructuredWorkout, which is why adding the
        blueprint rail alone did not reach it. */
+    assert.equal(slide.indexOf('how-note-fuel'), -1,
+      d.date + ': the caveat-only Coach\u2019s Note is on a preview');
     if (a.longRunIsFuelRail(d) && !a.soloNoteSession(d)){
       fuelRailed++;
+      /* AND THE RAIL IS THE SESSION'S STAGES NOW, WITH THE FUEL LAST.
+         Founder: "Long run first rail. The rail repeats. Give me a
+         solution?" -- the first card was "LONG RUN 16km / TIME ON FEET",
+         the hero said again. Agreed as "Do both": the stages, then one
+         fuel card, and no card headed by the session's own name. */
+      assert.ok((slide.match(/ws-step-body/g) || []).length >= 2,
+        d.date + ': a goal-pace long run\u2019s slide does not show its stages');
+      assert.equal((slide.match(/class="pair-rate/g) || []).length, 1,
+        d.date + ': the slide\u2019s rail does not end on exactly one fuel card');
+      assert.equal(slide.indexOf('class="pair-head"'), -1,
+        d.date + ': a card headed by the session\u2019s name is back on the rail');
       /* TWO, NOT THREE, SINCE FUELLING BECAME ONE CARD. Founder: "Were it
          says take 8-12 gels? Can that be on the same page as total carbs?"
          A goal-pace long run's rail was the session, then FUEL/TOTAL CARBS,
          then TAKE GELS/FLUID; the last two are one subject and are now one
          card carrying all four facts. The claim is that the rail is THERE,
          not how many swipes it takes -- and the fuel figures themselves are
-         asserted one by one in "a long run draws no rail, and its fuel
-         figures leave the screen with it", which is where that belongs. */
+         asserted one by one in "a plain long run draws no rail and keeps
+         its fuel figures in its box", which is where that belongs. */
       assert.ok((slide.match(/ws-card-body/g) || []).length >= 2,
         d.date + ': a goal-pace long run shows no rail on the slide');
     }
@@ -1386,9 +1406,24 @@ test('a week slide carries its rail and its solo note, and never the Coach\u2019
     })[0];
     if (!d) return;
     g.todayStr = function(){ return d.date; };
-    assert.ok(g.renderDayCard(d).indexOf('<div class="how-note">') > -1,
-      d.date + ' (' + arch + '): the Coach\u2019s Note has gone from the Today card too, ' +
-      'which is the one place the founder asked for it');
+    /* THE CARRIER CHANGED, THE CLAIM DID NOT. These two were asked for a
+       <div class="how-note"> because the fuel rail left their coaching in
+       the note. They draw their stages now, so the coaching is on the
+       stage cards and the purpose under the rail -- and what is left for
+       the note is the fuelling caveats, which must not have gone with the
+       rest. Asked for the sentences, as the blueprint sessions below are. */
+    const today = g.renderDayCard(d);
+    const gdT = g.coachingDisclosureFor(d, g.athleteExperience()) || {};
+    assert.ok(gdT.why && today.indexOf('class="why-session"') > -1 && today.indexOf(gdT.why) > -1,
+      d.date + ' (' + arch + '): the purpose is not under the rail on Today');
+    assert.ok((today.match(/ws-step-body/g) || []).length >= 2,
+      d.date + ' (' + arch + '): the stage cards are not on Today');
+    assert.ok(g.needsFueling(d), d.date + ': the fixture\u2019s ' + arch + ' is not fuelled, so the caveats are untested');
+    const noteAt = today.indexOf('<div class="how-note how-note-fuel">');
+    assert.ok(noteAt > -1,
+      d.date + ' (' + arch + '): the fuelling caveats left Today with the fuel rail');
+    g.fuelFacts(d).railHints.forEach(h => assert.ok(today.indexOf(h, noteAt) > -1,
+      d.date + ' (' + arch + '): the note dropped ' + JSON.stringify(h.slice(0, 40))));
     onToday++;
   });
   assert.equal(onToday, 2, 'neither archetype was found, so the Today half proves nothing');
@@ -1593,8 +1628,13 @@ test('a description that leaves the face arrives under the rail', () => {
      have the rails." Only long_run has a single stage, and the block builds
      four of them; the time trial and the shakeout make six. The three
      goal-pace long runs keep their rails and their descriptions. */
-  assert.equal(n, 6,
-    n + ' days moved a description to the note, not the 6 this block builds');
+  /* AND NOW EIGHT, FOR A DIFFERENT REASON THAN LAST TIME. The goal-pace
+     long runs keep their rails -- they draw their STAGES on them now, which
+     makes them card-rail sessions, and a card-rail session's description
+     goes under the rail like every other one's. Two of this block's three
+     do; the goal-finish one's description is covered by its cards. */
+  assert.equal(n, 8,
+    n + ' days moved a description to the note, not the 8 this block builds');
   /* Named instructions that must still be on the card. The point is not that
      the DESCRIPTION survives -- for the timed four it deliberately does not --
      but that the instruction does, wherever it now lives: a step, the gold
@@ -2045,7 +2085,17 @@ test('why, feel and watch for left the screen — Why for its own section, the r
        and it appears only on a fuelled session -- so it is counted
        separately rather than being allowed to push the founder's own
        lines' ceiling up and hide a note growing back. */
-    const rows = (note.match(/class="v hn-/g) || []).length;
+    /* THE FUEL FIGURES ARE A THIRD KIND OF LINE, counted on their own for
+       the reason the caveat is: they were taken off the screen with the
+       long run's rail, and the founder asked for them back in this box
+       ("Do both"). At most three, only on a fuelled day. */
+    const fuelLines = (note.match(/class="v hn-fuel"/g) || []).length;
+    let fuelledDay = false;
+    try { fuelledDay = !!a.needsFueling(d); } catch (e) { fuelledDay = false; }
+    assert.ok(fuelledDay ? (fuelLines >= 2 && fuelLines <= 3) : fuelLines === 0,
+      d.date + ' (' + d.type + '): ' + fuelLines + ' fuel lines in the box on a ' +
+      (fuelledDay ? 'fuelled' : 'unfuelled') + ' day');
+    const rows = (note.match(/class="v hn-(lead|sub)"/g) || []).length;
     assert.ok(rows >= 1 && rows <= 3,
       d.date + ' (' + d.type + '): a solo note runs to ' + rows +
       ' lines — the founder drew a lead and at most two lines under it');
@@ -3146,8 +3196,13 @@ test('execution is never a column, and its sentence is never lost', () => {
      long_run_goal_insert and long_run_progressive rescue the sentence into
      their notes again, which is what this law was written for. A plain
      long_run is a solo-note day and does not. */
-  assert.equal(rescued, 2,
-    rescued + ' sessions rescue the execution sentence, not the 2 this block builds');
+  /* AND ZERO AGAIN, WHICH IS WHERE THE FIRST NOTE ABOVE SAID IT BELONGED.
+     Those two long runs draw their stages now ("Long run first rail. The
+     rail repeats." ... "Do both"), and a blueprint of more than one stage
+     IS the execution written out -- so the sentence is not rescued, for the
+     same reason it never was on a threshold session. */
+  assert.equal(rescued, 0,
+    rescued + ' sessions rescue the execution sentence, not the 0 this block builds');
   assert.ok(toldByStages >= 5,
     'only ' + toldByStages + ' sessions tell their execution by stages');
 });
@@ -3420,7 +3475,7 @@ test('every stage the engine builds has something to say', () => {
     'a work stage reads the session’s intensity rather than its own');
 });
 
-test('a long run draws no rail, and its fuel figures leave the screen with it', () => {
+test('a plain long run draws no rail and keeps its fuel figures in its box', () => {
   /* THIS TEST USED TO HOLD THE PAIRED FUEL RAIL -- three slides, two facts
      to a card, the session heading card one. Founder: "Long run should
      follow the same rules as easy run", with a mock-up showing a long run
@@ -3455,8 +3510,8 @@ test('a long run draws no rail, and its fuel figures leave the screen with it', 
          count in "a week slide carries its rail". The figures themselves
          are asserted immediately below, one by one, which is the part of
          this that is about not losing anything. */
-      assert.ok(cards >= 2,
-        d.date + ' (' + d.km + 'km) has marathon-pace work and lost its rail anyway');
+      assert.ok(cards >= 3,
+        d.date + ' (' + d.km + 'km) has marathon-pace work and its rail is not stages and fuel');
       const facts = a.fuelFacts(d).rows;
       facts.forEach(r => assert.ok(html.indexOf(r.v) > -1,
         d.date + ': a goal-pace long run lost the fuel figure ' + JSON.stringify(r.short)));
@@ -3467,12 +3522,21 @@ test('a long run draws no rail, and its fuel figures leave the screen with it', 
       d.date + ' (' + d.km + 'km) still draws ' + cards + ' slides — a long run draws no rail');
     assert.ok(html.indexOf('data-solo') > -1,
       d.date + ': a long run has lost the cherry note that replaced its rail');
-    /* THE FIGURES ARE GONE FROM THE SCREEN, AND THE DATA IS NOT. */
+    /* ---- CHANGED SIDES: THE FIGURES ARE BACK, IN THE BOX ----
+       This asserted every fuel figure was OFF the card: taking the rail
+       took the numbers, and that was recorded as a cost and flagged. The
+       founder has now asked for them ("Do both"): time on feet, the carb
+       total and rate, the gels and the fluid, as plain lines in the cherry
+       box. Every one of them, and inside the box rather than loose. */
     const facts = a.fuelFacts(d).rows;
     assert.ok(facts.length >= 3, d.date + ': fuelFacts stopped computing — that IS a data loss');
-    facts.forEach(r => assert.equal(html.indexOf(r.v), -1,
+    const boxAt = html.indexOf('data-solo');
+    const box = html.slice(boxAt, html.indexOf('</div>', boxAt));
+    facts.forEach(r => assert.ok(box.indexOf(r.v) > -1,
       d.date + ': the fuel figure ' + JSON.stringify(r.short) + ' (' + r.v +
-      ') is still on the card, so this removal is half-done'));
+      ') is not in the long run\u2019s box'));
+    assert.deepEqual((box.match(/class="v hn-fuel">([^<]*)</g) || []).map(x => x.replace(/^[^>]*>|<$/g, '')),
+      Array.from(a.soloFuelLines(d)), d.date + ': the box does not print the lines soloFuelLines() builds');
     /* NO STAGE AND NO PHASE CARDS EITHER: there is no rail of any kind. */
     assert.ok(html.indexOf('ws-h-step') === -1, d.date + ' still shows stage cards');
     /* THE PANEL, NOT THE WORD. A bare "strat-phase" also matches the
@@ -3713,7 +3777,7 @@ test('every phase states its own sentence on its own card', () => {
 /* ---- EXCEPT WHERE THERE IS NO RAIL AT ALL ----
    A long run draws none now, so its fuel facts ride nothing. That is
    asserted directly, with the cost named, in "a long run draws no rail,
-   and its fuel figures leave the screen with it". This law covers every
+   and keeps its fuel figures in its box" (as that law is now named). This law covers every
    session that still HAS a rail -- race day, in this block. */
 test('wherever fuel rides a rail, it rides it paired', () => {
   /* The pairing was asserted on the long run and on the race, which are
@@ -3813,6 +3877,24 @@ test('the head line sits above the card’s title, and the shape reaches the not
     if (hasDesc || steps.length < 2) {
       assert.ok(!line, d.date + ': the shape is written to the note as well as the description');
       withheld++;
+      return;
+    }
+    /* ---- A LONG RUN WITH STAGES SAYS ITS SHAPE ON ITS CARDS NOW ----
+       "A long run's stages went to the Coach's Note" was the premise of
+       this law, and it is no longer true of the ones that have stages:
+       founder, "Long run first rail. The rail repeats. Give me a solution?"
+       ... "Do both". They are the rail. The law is the same one -- the
+       shape is said somewhere, exactly once -- so each stage is looked for
+       on a card, and the note must not ALSO carry a Session row. */
+    if (a.hasWorkoutBlueprint(d)) {
+      assert.ok(!line, d.date + ': the shape is on the stage cards AND in a Session row');
+      steps.forEach(st => {
+        assert.ok(html.indexOf('<span class="ws-h-presc">' + st.label + '</span>') > -1,
+          d.date + ': no card is headed ' + st.label);
+      });
+      assert.equal((html.match(/ws-step-body/g) || []).length, steps.length,
+        d.date + ': ' + steps.length + ' stages and a different number of stage cards');
+      written++;
       return;
     }
     assert.ok(line, d.date + ': ' + steps.length + ' stages, no description, and no shape in the note — ' +

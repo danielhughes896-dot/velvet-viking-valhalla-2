@@ -3299,6 +3299,13 @@
   .how-note[data-solo] .hn-sub{
     font-family:var(--text-face); font-size:25px; font-weight:400; line-height:1.2;
     color:var(--ink-dim);}
+  /* THE FUEL FIGURES, in the box's own voice and its own white -- set in
+     the numeral face they read as a printout pasted into a sentence. The
+     first stands a line clear of the sentence above it and the caveat a
+     line clear of the last. */
+  .how-note[data-solo] .hn-fuel{color:var(--ink);}
+  .how-note[data-solo] :not(.hn-fuel) + .hn-fuel{margin-top:14px;}
+  .how-note[data-solo] .hn-fuel + .how-note-aside{margin-top:14px;}
   /* ---------- THE COACH'S NOTE'S GLOW IS GONE WITH ITS BORDERLESSNESS ----------
      Founder: "Did we not decide the coaches note should be in the nice
      simple cherry lines box?"
@@ -3327,6 +3334,10 @@
      the top of the note's box were 10px apart -- close enough that the box
      read as part of the rail's furniture. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-table + .how-note:not([data-solo]){margin-top:26px;}
+  /* The caveat-only note under a stage rail follows WHY THIS SESSION, not
+     the rail, so the rule above never reaches it and it sat flush against
+     the sentence over it. Same 26px, for the same reason. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note.how-note-fuel:not([data-solo]){margin-top:26px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k svg{width:16px; height:16px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .v{font-size:var(--fs-body); line-height:var(--lh-body);}
 
@@ -32234,7 +32245,29 @@ function renderCoachingDepth(dd, pre, preview){
        THE INLINE CUE ABOVE IS KEPT, which is what `out` already holds: the
        week and plan previews read it, and .coach-cue-inline is display:none
        inside a focused session, so Today is unaffected either way. */
-    if (hasWorkoutBlueprint(dd) && !soloNoteSession(dd)) return out+preOnly();
+    /* ---------- EXCEPT THE FUEL CAVEATS, WHICH ARE NOT CHROME ----------
+       "Nothing left to disclose" was true while no blueprint session needed
+       fuel. A goal-pace long run is a blueprint session now, and it carries
+       "Adjust your fluids for the heat and your thirst. Practise your
+       fuelling in training so there is nothing new on goal day." Returning
+       here without them would have taken the safety copy off the screen as
+       a side effect of moving the rail -- the regression the guards in
+       coachCopyDiscipline exist for.
+       So they are the Coach's Note, alone, exactly as on the goal day:
+       the heading and the caveats, under the rail. Not once the session is
+       logged -- then the prescription is reference behind its tab, and
+       advice about what to carry is advice about a run already done. */
+    if (hasWorkoutBlueprint(dd) && !soloNoteSession(dd)){
+      var bpHints = [];
+      /* AND NOT ON A WEEK SLIDE, which never carries the Coach's Note --
+         the same `preview` rule the full note obeys further down. */
+      if (fuelOn && !asTab && !preview){ try { bpHints = fuelFacts(dd).railHints || []; } catch(e) { bpHints = []; } }
+      return out+preOnly()+(bpHints.length
+        ? '<div class="how-note how-note-fuel"><span class="k font-head">Coach\u2019s Note</span>'+
+            bpHints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
+          '</div>'
+        : '');
+    }
     out += '<details class="fuel-card how-card'+
         (asTab ? ' is-tab' : ' is-static')+'"'+
         ((!asTab && (focusedCard || preview || soloNoteSession(dd))) ? ' open' : '')+'>'+
@@ -32334,6 +32367,13 @@ function renderCoachingDepth(dd, pre, preview){
            so the facts pair off from the first one; on a long run the
            stages have gone to the note, so "LONG RUN 15km" heads card one
            and TIME ON FEET is its body -- which is the founder's drawing. */
+        /* NO SESSION THE ENGINE BUILDS REACHES THIS LEAD ANY MORE. A fuelled
+           long run with stages is a blueprint session (see
+           hasWorkoutBlueprint) and one with a single stage is a solo note,
+           so neither draws its rail from here. It is kept for a long run
+           whose stages cannot be laid out as cards -- more than three --
+           which would otherwise have a fuel rail with nothing saying what
+           the session is. */
         var lead = longRunIsFuelRail(dd)
           ? { k: dayTypeLabel(dd), v: fmtDist(dd.km), note: '' } : null;
         /* A SOLO-NOTE DAY DRAWS NO RAIL FROM HERE EITHER. Suppressing the
@@ -32786,6 +32826,13 @@ function fuelPairPanels(dd, leadHead){
      card is not fuelling and the pairing continues as drawn; what folds is
      the fuel pair that follows. The rule is therefore "once a fuel card has
      its two facts, the rest join it", not "a race is special". */
+  /* ---------- TIME ON FEET RIDES ON THE FUEL CARD ----------
+     It headed a card of its own under the session's name, which is the card
+     the founder called a repeat. Where no session heading leads the rail --
+     the stages are already on it -- time on feet is a fact about fuelling
+     the run (it is what the carb total is a rate over), so it goes last on
+     the fuel card with the gels and the fluid. */
+  if (!head && rows.length && rows[0].short === 'Time on feet') rows.push(rows.shift());
   while (rows.length || head){
     if (!head){
       var h = rows.shift();
@@ -33239,7 +33286,10 @@ var SINGLE_CARD_NOTE = {
    Taking the rail takes those numbers off the product. The fuel CAVEATS
    (caps and hints) are kept in the note, so what survives is the warnings
    rather than the amounts. This is flagged to the founder in the same
-   breath as it ships; it is one line to put back. */
+   breath as it ships; it is one line to put back.
+   PUT BACK, ON THE FOUNDER'S WORD ("Do both"): the amounts are lines in the
+   box now -- see soloFuelLines() -- so a plain long run has no rail and
+   still states how long, how much, and what to carry. */
 function soloNoteSession(dd){
   if (singleCardSession(dd)) return true;
   /* ---------- ONE CARD, WHATEVER KIND OF RAIL IT IS ----------
@@ -33306,8 +33356,36 @@ function renderSoloNote(dd){
     ((parts && parts.subs) || []).map(function(t){
       return '<span class="v hn-sub">'+escapeHtml(unpunct(t))+'</span>';
     }).join('')+
+    /* ---------- AND THE FUEL FIGURES, WHICH HAD NOWHERE TO BE ----------
+       Taking the rail off a plain long run took the numbers with it: the
+       caveats survived in this box and the amounts did not, on runs of two
+       hours and more. That was recorded above soloNoteSession as "one line
+       to put back", and the founder has now asked for it ("do both").
+       Plain lines in the box, between what the run is and the caveats about
+       fuelling it: how long, how much, and what that is in gels and fluid. */
+    soloFuelLines(dd).map(function(t){
+      return '<span class="v hn-fuel">'+escapeHtml(t)+'</span>'; }).join('')+
     hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
   '</div>';
+}
+/* The fuel facts as the two or three lines a box has room for. Read from
+   fuelFacts(), the same rows the fuel card prints, so the box and a rail
+   can never state two different plans for the same run. */
+function soloFuelLines(dd){
+  var rows = [];
+  try { if (needsFueling(dd)) rows = fuelFacts(dd).rows || []; } catch(e) { rows = []; }
+  if (!rows.length) return [];
+  var by = {};
+  rows.forEach(function(r){ by[r.short] = r.v; });
+  var out = [];
+  if (by['Time on feet']) out.push('Time on feet ' + by['Time on feet']);
+  if (by['Total carbs']) out.push('Total carbs ' + by['Total carbs'] +
+    (by['Carb intake'] ? ' \u00b7 ' + by['Carb intake'] : ''));
+  var take = [];
+  if (by['Gels']) take.push(by['Gels'] + ' gels');
+  if (by['Fluid']) take.push('Fluid ' + by['Fluid']);
+  if (take.length) out.push(take.join(' \u00b7 '));
+  return out;
 }
 function singleCardNoteParts(dd){
   var p = prescriptionOf(dd) || {};
@@ -33353,11 +33431,26 @@ function singleCardNoteParts(dd){
 }
 function hasWorkoutBlueprint(dd){
   if (!dd || dd.type === 'rest') return false;
-  if (longRunIsFuelRail(dd)) return false;
   var steps;
   try { steps = workoutSteps(dd); } catch(e){ return false; }
   if (!usesHorizontalWorkoutBlueprint(steps)) return false;
+  /* ---------- A FUELLED LONG RUN WITH STAGES SHOWS ITS STAGES ----------
+     `if (longRunIsFuelRail(dd)) return false` stood at the top of this, so
+     any long run long enough to need fuel gave up its stage cards for a
+     two-card fuel rail: "LONG RUN 16km / TIME ON FEET" and the carbs.
+     Founder, on a Long Run + Goal-Pace Insert: "Long run first rail. The
+     rail repeats. Give me a solution?" -- and it did: the first card was
+     the hero said again, on the one session whose rail had something else
+     to say. Where the goal-pace section sits was on no card at all, while
+     the same session in a shorter block, under the fuelling threshold, drew
+     Warm up / Goal pace / Cool down with a line of coaching on each.
+     So the stages are the rail, and the fuel is its last card -- which is
+     what renderStructuredWorkout already does for any blueprint session
+     that needs fuel. Agreed with the founder as "do both". */
   if (steps.length >= 2) return true;
+  /* ONE STAGE AND FUEL is the plain long run: no rail, the box, and the
+     fuel figures inside it -- see soloNoteSession and renderSoloNote. */
+  if (longRunIsFuelRail(dd)) return false;
   try {
     var s = executionStrategyForDisplay(dd);
     return !(s && !s.suppressed && s.phases && s.phases.length);

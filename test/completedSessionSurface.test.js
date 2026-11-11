@@ -717,7 +717,7 @@ test('every shape of finished session gets the same four tabs on the slide', () 
      counted to make sure the sweep contains the one that broke. */
   const a = slideApp();
   const want = ['Share', 'Session Details', 'Your Log', 'Sacoro Analysis'];
-  let solo = 0, blueprint = 0, other = 0;
+  let solo = 0, blueprint = 0, other = 0, fuelledStages = 0;
   a.state.days.forEach(d => {
     if (d.type === 'rest' || !(d.km > 0) || d.type === 'race') return;
     logAsPrescribed(a, d, { quality: 1 });
@@ -735,9 +735,18 @@ test('every shape of finished session gets the same four tabs on the slide', () 
     if (a.soloNoteSession(d)) solo++;
     else if (a.hasWorkoutBlueprint(d)) blueprint++;
     else other++;
+    if (a.longRunIsFuelRail(d) && a.hasWorkoutBlueprint(d)) fuelledStages++;
   });
-  assert.ok(solo >= 3 && blueprint >= 3 && other >= 1,
-    'the sweep saw ' + solo + ' solo, ' + blueprint + ' blueprint and ' + other +
+  /* THE THIRD SHAPE NO LONGER EXISTS, AND THAT IS THE CHANGE. `other` was
+     the fuelled goal-pace long run: not solo, not a blueprint, its rail
+     built by renderCoachingDepth. Founder: "Long run first rail. The rail
+     repeats. Give me a solution?" and then "Do both" -- those sessions draw
+     their stages now, so they are blueprint sessions and are swept as such.
+     The floor is on them being IN the sweep rather than on a category
+     nothing falls into. */
+  assert.ok(solo >= 3 && blueprint >= 3 && fuelledStages >= 1,
+    'the sweep saw ' + solo + ' solo, ' + blueprint + ' blueprint (' + fuelledStages +
+    ' of them fuelled long runs) and ' + other +
     ' other finished sessions \u2014 it no longer covers the shape that broke');
 });
 
