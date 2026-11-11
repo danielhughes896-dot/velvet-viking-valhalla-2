@@ -243,15 +243,28 @@ test('semantic colour is still semantic — the accent replaced none of it', () 
     [/--c-rest:#8C8272/,                                  'neutral / rest'],
     [/\.btn-danger\{[^}]*var\(--c-threshold\)[^}]*var\(--danger-text\)/, 'the destructive button'],
     [/\.sub-pill\.sub-grace\{[^}]*var\(--c-threshold\)/,   'the grace-period pill'],
-    [/\.read-val\.good\{color:var\(--c-easy\);?\}/,         'a positive Reading verdict'],
-    [/\.read-val\.watch\{color:var\(--gold\);?\}/,          'a watch verdict'],
-    [/\.read-val\.bad\{color:var\(--c-tempo\);?\}/,         'a negative verdict'],
+    /* THE TONE MOVED TO THE DOT, AND THAT IS THE WHOLE CHANGE. Founder: "I
+       don't want symbols or pills! If there is a pill that adds value.
+       Change it to just a title with a small coloured dot." .read-val was
+       the pill; the word in it now takes white like every other title on
+       the panel, and the engine's good/watch/bad is drawn as the six-pixel
+       dot beside it. What this law protects is unchanged -- the three
+       semantic tokens must still reach the verdict -- so it follows the
+       colour to where the colour now is rather than being deleted with the
+       rule it used to name. */
+    [/\.read-val\.good \.read-dot\{--read-tone:var\(--c-easy\);?\}/,  'a positive Reading verdict'],
+    [/\.read-val\.watch \.read-dot\{--read-tone:var\(--gold\);?\}/,   'a watch verdict'],
+    [/\.read-val\.bad \.read-dot\{--read-tone:var\(--c-tempo\);?\}/,  'a negative verdict'],
+    /* And the word it sits beside is white, or the dot is decorating a
+       second copy of the tone rather than carrying it. */
+    [/\.read-val\{[^}]*color:#FFFFFF/,                    'the verdict word itself'],
     [/\.coach-state\.proceed\{background:(?:[^;]*,\s*)?var\(--c-easy-soft\)/, 'the PROCEED chip'],
   ].forEach(([re, what]) => assert.match(CODE, re, what + ' was swallowed by the migration'));
 
   // And no semantic rule quietly started resolving through the accent.
-  ['.btn-danger', '.sub-pill.sub-grace', '.read-val.good', '.read-val.watch',
-   '.read-val.bad', '.coach-state.proceed'].forEach(sel =>
+  ['.btn-danger', '.sub-pill.sub-grace', '.read-val.good .read-dot',
+   '.read-val.watch .read-dot', '.read-val.bad .read-dot',
+   '.coach-state.proceed'].forEach(sel =>
     rulesFor(sel).forEach(body =>
       assert.doesNotMatch(body, /--cherry/, sel + ' took the brand accent; it is semantic')));
 });

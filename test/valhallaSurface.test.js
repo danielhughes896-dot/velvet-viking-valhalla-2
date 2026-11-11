@@ -803,21 +803,59 @@ test('PANEL: one colour per panel, and everything else in it is white', () => {
      wrong was between them: section headings bronze and row glyphs gold on
      every panel, so eight panels of five identities all wore a third accent
      belonging to none of them. */
-  assert.match(/\.hq-panel \.setup-section-title\{([^}]*)\}/.exec(BARE)[1], /color:#FFFFFF/i,
+  /* ASSERTED ON THE SHARED RULE, because the two headings now share one.
+     This read `.hq-panel .setup-section-title{` on its own and broke the
+     moment .evo-k was added to the same selector list -- which is the point
+     of the merge, so the law follows it rather than forcing the rule apart
+     again. Matching the list as a list is also what makes "the same
+     throughout" checkable: one body, so one answer for both. */
+  const headRule = /\.hq-panel \.setup-section-title,\s*\.hq-panel \.evo-k\{([^}]*)\}/.exec(BARE);
+  assert.ok(headRule,
+    'the two panel sub-headings no longer share one rule, so they can drift apart again');
+  assert.match(headRule[1], /color:#FFFFFF/i,
     'the panel section headings are back in bronze');
-  /* THE GLYPH AGREES WITH THE RULE BESIDE IT. .sec-rule-line has always
-     read var(--rp-accent, var(--gold-text)); the row icons now read the
-     same, so a panel states its colour once and in one voice. */
-  const icon = /\.hq-row-i\{([^}]*)\}/.exec(BARE)[1];
-  assert.match(icon, /color:var\(--rp-accent/,
-    'the row glyphs are back to one gold for every panel');
-  /* AND THE FALLBACK IS WHY THAT IS SAFE OFF A PANEL: --rp-accent is
-     declared only on .modal-card.hq-panel, so every other surface using
-     .hq-row-i still resolves to the gold it always had. */
-  assert.match(icon, /var\(--gold-text\)\)/,
-    'the glyph lost its fallback, so it is colourless outside a panel');
+  assert.match(headRule[1], /font-size:/,
+    'the shared rule sets no size, so the two headings fall back to their 9px and 11px bases');
+  /* THERE IS NO GLYPH ANY MORE, AND THAT IS THE LAW NOW. This used to
+     assert that the row icons resolved to var(--rp-accent, var(--gold-text))
+     so the glyph and the section rule beside it agreed. Founder: "I don't
+     want symbols or pills!" -- so the icons went, and with them the class
+     and the one function that emitted it. Asserting their absence is worth
+     a line because the markup was emitted by a SECOND hqRow() that shadowed
+     the first: the glyph can only come back by that duplicate coming back,
+     which is the thing to catch. */
+  assert.doesNotMatch(BARE, /\.hq-row-i\s*\{/,
+    'the row glyphs are back; the panels carry symbols again');
+  assert.doesNotMatch(SRC, /class="hq-row-i"/,
+    'something is emitting a row glyph again');
+  assert.equal((SRC.match(/^function hqRow\(/gm) || []).length, 1,
+    'hqRow is defined twice again -- the later one shadows the earlier, and it was the glyph that came in that way');
   assert.match(BARE, /\.modal-card\.hq-panel\{--rp-accent:/,
-    '--rp-accent is no longer scoped to the panel, so the fallback never applies');
+    '--rp-accent is no longer scoped to the panel');
+  /* ---------- AND EVERY LINE IN THE PANEL IS WHITE ----------
+     Founder, twice: "this page shouldn't have the off white text. All
+     white", then "every end user points on coach should now be checked for
+     the same consistency with titles text and colour". The first pass put
+     that white on .view-planhq -- the page BEHIND the circles -- and these
+     panels are modals that mount outside it, so every paragraph in all nine
+     was still a warm grey. The override has to be (0,2,0) to beat
+     .modal-card.modal-themed's `inherit`, which is why it is asserted at
+     that exact specificity rather than by its effect. */
+  const ink = /\.modal-card\.hq-panel\{--ink:([^}]*)\}/.exec(BARE);
+  assert.ok(ink, 'the panels no longer pin their own ink, so they inherit the warm greys again');
+  ['--ink:#FFFFFF', '--ink-dim:#FFFFFF', '--ink-faint:#FFFFFF'].forEach(tok =>
+    assert.ok(('--ink:' + ink[1]).indexOf(tok) > -1, 'the panel ink is not white: ' + tok));
+  /* ---------- ONE HEADING SHAPE, NOT TWO ----------
+     "Make sure the titles and text in the circles and boxes are the same
+     throughout the app." Inside a panel there were two sub-heading styles
+     doing one job: .setup-section-title (white, with a rule running right)
+     and .evo-k (9px bronze, bare). Adaptation History showed four of the
+     bronze kind under one of the white kind. .evo-k keeps its own look
+     everywhere else -- it is a compact label inside .evo-sec cards too --
+     so the match is made on the panel, not on the class. */
+  assert.match(BARE,
+    /\.hq-panel \.setup-section-title::after,\s*\.hq-panel \.evo-k::after\{[^}]*--rp-accent/,
+    'the .evo-k headings lost the accent rule that makes them the same object as the others');
 });
 
 // ===========================================================================

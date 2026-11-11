@@ -8474,8 +8474,10 @@
      open in a panel rather than pushing the page down. The row/pattern styles
      below stayed -- those bodies are the same markup, rendered somewhere
      else. */
-  /* Centre-aligned, not baseline -- .read-val became a padded pill (see
-     below) and a pill has no text baseline to align a plain label against. */
+  /* Centre-aligned, not baseline. It was centred when .read-val was a padded
+     pill with no text baseline to align a plain label against; the pill is
+     gone, but the row still carries a value in a different face and size
+     from its label, and centring is what keeps those two optically level. */
   .hq-row{display:flex; align-items:center; gap:10px; padding:3px 0;}
   .hq-row-l{font-size:11px; color:var(--ink-faint); flex:1 1 auto; min-width:0;}
   /* Values here are not all short: "usually normal again within about 34h" and
@@ -8579,8 +8581,11 @@
      one thing in this section that must outlive any particular markup. It is
      enforced today on .rd-val b inside .b-status (the Athlete Status
      circles, whose rim colour is a fixed identity and never the engine's
-     tone); .read-val, below, is the surface allowed to carry tone, and that
-     contrast is the rule.
+     tone); .read-val's dot, below, is the surface allowed to carry tone,
+     and that contrast is the rule. The dot rather than the word, since the
+     founder's pass on the panels: the tone is unchanged and still the
+     engine's, it is simply drawn as six pixels instead of as coloured
+     type.
 
      TWO SHELLS HAVE NOW BEEN REMOVED FROM HERE ON THE SAME GROUNDS. First
      .rec-card and its parts, a row of subject-left/value-right cards; then
@@ -8598,25 +8603,37 @@
      value is forbidden from doing (see THE RECORD above). One shell, two
      grammars, and the grammar is the difference between a fact and a
      verdict. */
-  /* COMPACT SEMANTIC STATUS PILL, not loose coloured text floating on the
-     right -- same restrained Level 2 recipe .coach-state/.tb-unit-toggle
-     already use (tile-sheen, tile-border, a hairline lift, never a full
-     raised object). The background stays the one neutral "rest" tint for
-     every tone: what changes with FRESH/WORTH WATCHING/LEARNING is the text
-     and dot colour, exactly as the semantic law below already fixes it --
-     this only wraps that same text in a pill shell. Right-aligned so it
-     still reads as the row's conclusion, not a fourth stray element. */
+  /* ---------- A TITLE AND A DOT, NOT A PILL ----------
+     Founder: "I don't want symbols or pills! If there is a pill that adds
+     value. Change it to just a title with a small coloured dot."
+     This was a pill -- tile-sheen fill, tile-border, a hairline lift -- and
+     it was the only one left in the product once the glyphs went. A pill is
+     a container, and a container says "this is a separate object": correct
+     when this lived on the right-hand end of a list row and had to read as
+     that row's conclusion, wrong now that it opens a panel and is the first
+     thing under the heading. There is nothing beside it to be separate
+     from, so the shell did no work and only made the panel's most important
+     word look like a badge.
+     THE VERDICT KEEPS ITS COLOUR, AND THAT IS NOT NEGOTIABLE. Audit finding
+     B1 -- never to recur -- is that the engine's good/watch/bad must stay
+     visible somewhere, and this header is the one surface still allowed to
+     carry it. So the colour moves off the word and onto the dot, which is
+     exactly what the founder asked for and what the dot was always there to
+     do. The word takes white, because a word naming the reading is
+     information, and information is white everywhere on this page.
+     THE DOT IS COLOURED EXPLICITLY, not by currentColor, for that reason:
+     the text is no longer the tone, so a dot inheriting from it would be
+     white and the tone would be gone. Each tone names its own fill. */
   .read-val{
     font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:var(--ink-dim); text-align:right;
-    min-width:0; overflow-wrap:anywhere; display:inline-flex; align-items:center; gap:5px;
-    flex:none; white-space:nowrap; padding:3px 9px; border-radius:99px;
-    background:var(--tile-sheen), var(--c-rest-soft); border:1px solid var(--tile-border);
-    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10); font-weight:var(--label-weight);}
-  .read-val .read-dot{width:5px; height:5px; border-radius:50%; background:currentColor; flex:none;}
-  .read-val.good{color:var(--c-easy);}
-  .read-val.watch{color:var(--gold);}
-  .read-val.bad{color:var(--c-tempo);}
+    text-transform:uppercase; color:#FFFFFF; text-align:left;
+    min-width:0; overflow-wrap:anywhere; display:inline-flex; align-items:center; gap:7px;
+    flex:none; white-space:nowrap; font-weight:var(--label-weight);}
+  .read-val .read-dot{width:6px; height:6px; border-radius:50%; flex:none;
+    background:var(--read-tone, var(--ink-dim));}
+  .read-val.good .read-dot{--read-tone:var(--c-easy);}
+  .read-val.watch .read-dot{--read-tone:var(--gold);}
+  .read-val.bad .read-dot{--read-tone:var(--c-tempo);}
 
   /* ---------- RACE OUTLOOK ----------
      Where the last measured effort sits against the goal, and nothing else.
@@ -9713,21 +9730,18 @@
      the close button and the hero ring already carry the identity, and a
      title naming the panel is information, which is white under the
      founder's own rule. What WAS wrong is everything between them: the
-     section headings were bronze and these glyphs were gold on every panel,
-     so eight panels of five different identities all wore the same third
-     accent that belonged to none of them.
+     section headings were bronze on every panel, so eight panels of five
+     different identities all wore the same third accent that belonged to
+     none of them.
      THE RULE WAS ALREADY HALF-WRITTEN HERE. .sec-rule-line -- the line
      beside each section heading -- has always read
-     var(--rp-accent, var(--gold-text)). The glyphs now read the same thing,
-     so the line and the icon beside it agree, and a panel says its colour
-     once: rim, close, hero ring, section rule, row glyph.
-     THE FALLBACK IS WHY THIS IS SAFE OUTSIDE A PANEL. --rp-accent is
-     declared only on .modal-card.hq-panel, so every other surface that uses
-     .hq-row-i resolves to --gold-text exactly as before. */
-  .hq-row-i{flex:none; display:inline-flex; width:17px; height:17px;
-    color:var(--rp-accent, var(--gold-text));}
-  .hq-row-i svg{width:17px; height:17px;}
-  .hq-row-i:empty{display:inline-block;}
+     var(--rp-accent, var(--gold-text)), and the heading's own trailing rule
+     below reads it too, so a panel says its colour in four places and never
+     in a fifth: rim, close, hero ring, section rule.
+     .hq-row-i WAS THE FIFTH AND IT IS GONE. It set a 17px gold glyph at the
+     head of every evidence row -- "I don't want symbols", founder -- and
+     both the class and the only function that emitted it have been removed
+     rather than left styling nothing. */
   /* CRISP WHITE, BOTH SIDES. A label and its figure are the two halves of
      one fact and were set in two different greys -- --ink-faint and
      --ink-dim -- which read as the label being switched off. They take the
@@ -9736,10 +9750,32 @@
      glyph and the section rule above them, not by fading the words out. */
   .rp-rows .hq-row-l{font-size:var(--fs-panel-row); color:#FFFFFF;}
   .rp-rows .hq-row-v{font-size:var(--fs-panel-row); color:#FFFFFF;}
+  /* ---------- ALL WHITE, EVERY PANEL, EVERY LINE ----------
+     Founder, twice: "this page shouldn't have the off white text. All
+     white", and then "every end user points on coach should now be checked
+     for the same consistency with titles text and colour."
+     The first pass put that white on .view-planhq, which is the page behind
+     the circles. These panels are modals -- they mount outside the view, so
+     they never inherited a character of it, and every paragraph in all nine
+     was still --ink-dim #BBB4A4 or --ink-faint #9D9787. Those are warm
+     greys, which on a black sheet read as the bronze the founder has had me
+     take out everywhere else.
+     THE SELECTOR HAS TO BE (0,2,0) OR IT LOSES. .modal-card.modal-themed
+     sets --ink/--ink-dim/--ink-faint to `inherit` at (0,2,0), and these
+     panels carry both classes, so a lone .hq-panel{} would be outranked and
+     fail silently -- the one failure mode that looks exactly like success
+     in a diff. .modal-card.hq-panel matches its specificity and sits later
+     in the file, so it wins on source order.
+     HIERARCHY IS NOT LOST, IT MOVES TO OPACITY. Three greys were carrying
+     three ranks of importance; one white plus one opacity carries the only
+     distinction that was ever real -- a line that states a fact, and a line
+     that explains the facts above it. Same device as .bld-panel, which the
+     builder's eleven pages already use for the same reason. */
+  .modal-card.hq-panel{--ink:#FFFFFF; --ink-dim:#FFFFFF; --ink-faint:#FFFFFF;}
   /* The closing sentence is the one thing on the panel that IS subordinate:
      it explains the figures rather than stating one. */
-  .hq-panel .field-hint{ color:var(--ink-dim);}
-  .hq-panel .rec-lede{ color:var(--ink-dim);}
+  .hq-panel .field-hint{ color:#FFFFFF; opacity:.62;}
+  .hq-panel .rec-lede{ color:#FFFFFF; opacity:.62;}
   /* ONE SUB-HEADING SHAPE ACROSS EVERY PANEL. The Reading panels label
      their evidence with a rule running off to the right; the Record panels
      had bare gold sub-headings doing the same job in a different shape.
@@ -9756,14 +9792,42 @@
      colour in a second rule further down, where a law looking for
      `.hq-panel .setup-section-title{` found the layout one and reported the
      heading still bronze. */
-  .hq-panel .setup-section-title{display:flex; align-items:center; gap:12px;
-    margin:20px 0 6px; color:#FFFFFF;}
-  .hq-panel .setup-section-title::after{
+  /* ONE RULE FOR BOTH, SO THEY CANNOT DRIFT. .evo-k is listed here rather
+     than given a matching rule of its own: two rules saying the same thing
+     is how the 0.5px gap between these two appeared in the first place
+     (9px and 11px bases, each adjusted separately over time). Sharing the
+     declaration makes "the same throughout" a property of the file, not of
+     whoever edits it next. */
+  .hq-panel .setup-section-title,
+  .hq-panel .evo-k{display:flex; align-items:center; gap:12px;
+    font-family:var(--label-face); font-size:11px;
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    text-transform:uppercase; margin:20px 0 6px; color:#FFFFFF;}
+  .hq-panel .evo-sec .evo-k{margin:0 0 3px;}
+  .hq-panel .setup-section-title::after,
+  .hq-panel .evo-k::after{
     content:''; flex:1 1 0; min-width:0; height:1px; opacity:.85;
     background:linear-gradient(to right,
       color-mix(in srgb, var(--rp-accent, var(--gold-text)) 70%, transparent) 0%,
       transparent 100%);}
   .hq-panel .sec-rule .setup-section-title::after{content:none;}
+  /* ---------- AND .evo-k IS THE SAME HEADING, SO IT LOOKS LIKE ONE ----------
+     "Make sure the titles and text in the circles and boxes are the same
+     throughout the app" -- founder. Inside these panels there were two
+     kinds of sub-heading doing one job: .setup-section-title, white with a
+     rule running off to the right, and .evo-k, 9px bronze with nothing.
+     Adaptation History alone showed four of the bronze kind (BLOCK
+     RESPONSE, COACH'S READ, EVIDENCE, BREAKTHROUGHS) under one of the white
+     kind (THE EVIDENCE), which made the panel look like two documents
+     stapled together.
+     MATCHED HERE RATHER THAN RENAMED AT THE CALL SITES, for two reasons.
+     .evo-k is emitted thirteen times, seven of them inside .evo-sec cards
+     that are NOT panel sub-headings and must keep the compact bronze label
+     they were designed with -- renaming would have had to pick them apart
+     by hand. And the bodies that emit these are written by functions that
+     know nothing about panels; attaching the shape to the panel means any
+     body rendered into one is correct by construction, which is the same
+     argument .hq-panel .setup-section-title above already makes. */
   /* And the inner card those rows sat in goes, for the same reason it went
      from the Reading panels: a bordered box inside a bordered box. */
   .hq-panel .hub-card.tile-card{
@@ -48787,25 +48851,31 @@ function renderBlockSection(b, bts){
   if (!changing.length) changing = b.dimensions.filter(function(d){ return d.direction==='flat'; });
   var streak = blockReviewStreak(b.state);
 
-  return '<div class="evo-k">Block response</div>'+
-    '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(BLOCK_META[b.state].label)+'</span>'+
-      '<span class="'+hqRowValueClass(b.windowDays+'-day window')+'">'+escapeHtml(b.windowDays+'-day window')+'</span></div>'+
-    (changing.length
-      ? '<div class="evo-k" style="margin-top:8px;">What’s changing</div>'+
+  /* BLOCK RESPONSE STOOD HERE AND SAID NOTHING NEW. It was a heading over
+     one row -- the state's label on the left, "28-day window" on the right
+     -- and the panel already carried both: readingPanel()'s hero states the
+     label (it is this section's `value`, via blockSectionSummary) and the
+     Evidence line four lines below opens with "28 days". So Adaptation
+     History began by repeating its own title and then repeating a figure it
+     was about to give properly, which is the same fault the founder caught
+     in Plan evolution. The window keeps its one honest mention, in
+     Evidence, beside the session count that makes it mean something. */
+  return (changing.length
+      ? '<div class="evo-k">What’s changing</div>'+
         '<ul class="evo-list">'+changing.slice(0,4).map(function(d){
             return '<li>'+escapeHtml(d.label+' — '+
               (d.direction==='positive'?'improving':d.direction==='negative'?'deteriorating':'steady'))+'</li>';
           }).join('')+'</ul>'
       : '')+
-    '<div class="evo-k" style="margin-top:8px;">Coach’s read</div>'+
+    '<div class="evo-k">Coach’s read</div>'+
     '<div class="hq-empty">'+escapeHtml(b.read)+'</div>'+
-    '<div class="evo-k" style="margin-top:8px;">Evidence</div>'+
+    '<div class="evo-k">Evidence</div>'+
     '<div class="hq-empty">'+escapeHtml(
        b.windowDays+' days · '+b.qualifyingSessions+' qualifying session'+(b.qualifyingSessions===1?'':'s')+
        (b.checkpointInvolved ? ' · checkpoint included' : '')+
        (streak > 1 ? ' · '+BLOCK_META[b.state].label.toLowerCase()+' on '+streak+' reviews' : ''))+
     '</div>'+
-    '<div class="evo-k" style="margin-top:10px;">Breakthroughs</div>'+
+    '<div class="evo-k">Breakthroughs</div>'+
     breakthroughs;
 }
 
@@ -51164,7 +51234,7 @@ function renderResponsePatternsSection(m){
   if (!lines.length)
     return '<div class="hq-empty">Still building your personal response history.</div>';
   // reuses the existing section-key style rather than introducing a new one
-  var body = '<div class="evo-k" style="margin-top:10px;">Your response</div>' + lines.map(function(l){
+  var body = '<div class="evo-k">Your response</div>' + lines.map(function(l){
     return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(l.k)+'</span>'+
            '<span class="'+hqRowValueClass(l.v)+'">'+escapeHtml(l.v)+'</span></div>';
   }).join('');
@@ -51311,15 +51381,39 @@ function recentlyEvolvedSummary(){
     lines.map(function(l){ return '<div class="evo-v">'+escapeHtml(l)+'</div>'; }).join('')+
   '</div>';
 }
+/* ---------- THE EVIDENCE IS NOT THE VERDICT SAID AGAIN ----------
+   Founder: "Worth watching still looks weird text wise?" It was, and the
+   oddness was not the phrase -- it was reading it three times in four lines.
+   The panel opened on the verdict ("WORTH WATCHING") and its sentence
+   ("Evidence is building but there is nothing to act on yet."), then a
+   heading saying THE EVIDENCE, and then, as the first and only evidence,
+   the same word again in a row captioned "established" and the same
+   sentence again underneath it. An athlete reading that learns nothing from
+   lines two, three and four, and the repetition makes the phrase itself
+   look like a bug.
+   SO THE HEAD GOES AND ONLY ITS ONE NEW FACT IS KEPT. The verdict word is
+   readingSections()'s `value` and the sentence is its `syn`; both are
+   rendered by readingPanel()'s hero, directly above, from the same
+   EVOLUTION_META entry this function was reading. Nothing is lost -- it is
+   the identical string, drawn once instead of twice.
+   WHAT WAS NOT A DUPLICATE IS THE CONFIDENCE. "established" / "emerging" /
+   "insufficient" is how much evidence stands behind the verdict, and the
+   hero does not state it: the ring's dash pattern encodes it (see
+   dialRingHtml) but no words do. It keeps a row, and the row is now
+   labelled with what it reports rather than with the verdict it qualifies
+   -- "Evidence: established", not "Worth watching: established", which read
+   as the verdict having a value. */
 function renderEvolutionSection(ev){
   if (!ev) return '<div class="hq-empty">No plan to evolve yet.</div>';
   var meta = EVOLUTION_META[ev.state];
-  var head = '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(meta.label)+'</span>'+
-             '<span class="'+hqRowValueClass(ev.confidence)+'">'+escapeHtml(ev.confidence)+'</span></div>'+
-             '<div class="hq-empty" style="margin:4px 0 8px;">'+escapeHtml(
-               ev.changes.length ? (ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
-                                    ' suggested across the next '+ev.horizonDays+' days.')
-                                 : meta.text)+'</div>'+
+  /* AND THE CHANGE COUNT IS THE HERO'S SENTENCE TOO. readingSections()'s
+     `syn` for this section is "N changes suggested across the next 7 days."
+     whenever there are any, and falls back to meta.text when there are not,
+     so BOTH branches of what stood here were already being printed directly
+     above by the hero. The proposal itself -- Why, Changes, Protected --
+     follows immediately and names every change with its date, so the count
+     was a summary of a list three lines long. */
+  var head = hqRow('Evidence behind this', ev.confidence)+
              recentlyEvolvedSummary();
   if (!ev.changes.length) return head;
   if (!evolutionProposalVisible(ev))
@@ -51365,24 +51459,24 @@ function readingSections(report){
   // `value`, so repeating the same word inside the panel adds nothing.
   // Everything else here is depth Athlete Status doesn't carry.
   var goalBody =
-    hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history', ICONS.pulse)+
-    hqRow('Sessions logged', String(recent.sessionsLogged), ICONS.layers)+
-    hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+nDays(days):'') : '—', ICONS.calendarWeek)+
+    hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history')+
+    hqRow('Sessions logged', String(recent.sessionsLogged))+
+    hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+nDays(days):'') : '—')+
     hqRow('Phase', (function(){
       var wk = currentWeekNum();
       return trainingPhase(wk) + (wk ? ' · week '+wk+' of '+totalWeeksInPlan() : '');
-    })(), ICONS.target);
+    })());
 
   var recoveryBody =
-    hqRow('Effort above band', report.recovery.overRPE+' this week', ICONS.gauge)+
-    hqRow('HR above zone', report.recovery.overHR+' this week', ICONS.heart)+
+    hqRow('Effort above band', report.recovery.overRPE+' this week')+
+    hqRow('HR above zone', report.recovery.overHR+' this week')+
     /* "1 days" is the kind of thing an athlete reads as the app not paying
        attention, and it is one character to get right. */
-    hqRow('Longest hard streak', nDays(report.recovery.hardStreak), ICONS.zap)+
-    hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged', ICONS.notes)+
+    hqRow('Longest hard streak', nDays(report.recovery.hardStreak))+
+    hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged')+
     hqRow('Easy HR vs baseline', (function(){
       var b=easyHRBaseline();
-      return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })(), ICONS.pulse);
+      return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })());
   // Load itself is Athlete Status's own metric tile, right above this card --
   // not repeated here.
 
@@ -51412,7 +51506,14 @@ function readingSections(report){
           '<div class="hq-pattern-detail">'+escapeHtml(t.detail)+'</div>'+
         '</div>';
       }).join('')
-    : '<div class="hq-empty">Still learning your baseline.</div>';
+    /* The hero's synopsis is already the words "Still learning your
+       baseline." for this exact case (see the patterns section's `syn`
+       below), so printing them again as the first line under THE EVIDENCE
+       said the same sentence twice with a heading between. The panel still
+       has something true to say here, and renderResponsePatternsSection()
+       -- which runs straight after this -- says it: "Still building your
+       personal response history." One empty state, not two. */
+    : '';
 
   var ev = report.evolution || { state:'HOLD', changes:[], horizonDays:7 };
   var evMeta = EVOLUTION_META[ev.state];
@@ -63867,16 +63968,16 @@ function recordPanelShell(title, body, key){
     '</div>'+
     '<div class="modal-body">'+lede+body+'</div>';
 }
-/* The glyph is optional and is never decoration: it names the KIND of thing
-   the row reports, so a panel of five figures can be scanned by shape before
-   it is read. A row with nothing meaningful to show keeps its indent, so the
-   labels in one panel still line up. */
-function hqRow(label, value, icon){
-  return '<div class="hq-row">'+
-    '<span class="hq-row-i" aria-hidden="true">'+(icon || '')+'</span>'+
-    '<div class="hq-row-l">'+escapeHtml(label)+'</div>'+
-    '<div class="'+hqRowValueClass(value)+'">'+escapeHtml(value)+'</div></div>';
-}
+/* THE GLYPH IS GONE, AND SO IS THE SECOND hqRow THAT CARRIED IT. There were
+   two functions of this name in this file; this was the later one, so it was
+   the only one that ever ran, and the earlier two-argument version below --
+   the one the evolution and block bodies are written against -- was dead
+   code that still read as live. Founder, on the panels behind the circles:
+   "I don't want symbols or pills!" The glyph was the panel's last decorative
+   element: it named the KIND of each row, which a row whose label already
+   says "Sessions logged" does not need naming twice. Removing it leaves one
+   hqRow, which is also the end of a shadowing bug that would have bitten
+   whoever next edited the wrong one. */
 
 function recordPanelFitness(){
   var chk = scheduledCheckpointDay();

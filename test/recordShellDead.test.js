@@ -131,6 +131,11 @@ test('no Record value carries a status hue', () => {
   });
   /* And the surface that IS allowed to carry tone still does, or the contrast
      this law depends on has quietly gone. */
-  assert.match(CSS, /\.read-val\.good\{color:var\(--c-easy\)/,
+  /* On the DOT since the founder's pass on the panels -- "just a title with
+     a small coloured dot" -- which moves where the tone is drawn and not
+     whether it is drawn. The contrast this law depends on is that a Reading
+     carries the engine's tone somewhere and a Record value never does, and
+     both halves are intact. */
+  assert.match(CSS, /\.read-val\.good \.read-dot\{--read-tone:var\(--c-easy\)/,
     '.read-val no longer carries the engine\'s tone, so the contrast is gone');
 });
