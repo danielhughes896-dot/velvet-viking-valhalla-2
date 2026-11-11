@@ -674,6 +674,61 @@ test('the hill repeats card says the founder’s four lines and nothing else', (
   assert.match(a.hillRepeatLines({ reps: null }, null)[1], /Keep every rep consistent\.$/);
 });
 
+test('a staged long run does not read its cards out again, and its Steady stage states its pace', () => {
+  /* Two things put to the founder after the long run's stages became its
+     rail, and answered "Go":
+       "The distances are still said twice on the insert" -- a line under
+       WHY THIS SESSION listing the three cards' distances.
+       "Per-stage paces aren't on the cards" -- right for every stage the
+       ring covers, and the Steady stage is the one it does not. */
+  let inserts = 0, progressives = 0, plains = 0, targets = 0;
+  [['half', 45], ['full', 55]].forEach(([dk, vol]) => {
+    const a = app();
+    a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+    const { days } = buildPlan(a, { distanceKey: dk, volume: vol, weeks: 16, lthr: 172, maxHR: 188 });
+    days.forEach(d => {
+      const arch = (a.prescriptionOf(d) || {}).archetype;
+      if (!arch || d.type === 'rest') return;
+      const html = a.renderDayCard(d);
+      const lines = (html.match(/<div class="ws-h-cue ws-h-target">([^<]*)<\/div>/g) || [])
+        .map(x => x.replace(/<[^>]*>/g, ''));
+      if (arch === 'long_run_goal_insert' || arch === 'long_run_progressive'){
+        assert.equal(html.indexOf('why-session-s'), -1,
+          d.date + ' (' + arch + ', ' + dk + '): the stage distances are listed again under WHY THIS SESSION');
+        assert.ok(!/<div class="day-desc">[^<]/.test(html),
+          d.date + ' (' + arch + '): the description is back between the hero and the rail');
+        /* the purpose is still there; it is the list that went */
+        assert.ok(html.indexOf('why-session-v') > -1, d.date + ' (' + arch + '): the Why went with it');
+        if (arch === 'long_run_goal_insert') inserts++; else progressives++;
+      }
+      if (arch === 'long_run'){
+        /* DID NOT GO BLANKET: a plain long run has no cards, so its own
+           sentence is still the only place its shape is said. */
+        assert.ok(html.indexOf('why-session-s') > -1 || html.indexOf('hn-sub') > -1,
+          d.date + ': a plain long run lost its description too');
+        plains++;
+      }
+      if (arch === 'long_run_progressive'){
+        const st = a.workoutSteps(d).filter(x => x.intensity === 'steady')[0];
+        assert.ok(st, d.date + ': the progressive long run has no steady stage, so the claim is untested');
+        assert.deepEqual(lines, ['Target: ' + a.stepPrescriptionParts(st).pace],
+          d.date + ': the Steady card does not state its own pace, once');
+        /* on the Steady card and no other */
+        const at = html.indexOf('ws-h-target');
+        const card = html.slice(html.lastIndexOf('<div class="how-mod"', at), at);
+        assert.ok(card.indexOf('<span class="ws-h-presc">Steady</span>') > -1,
+          d.date + ': the Target line is on a card that is not the Steady stage');
+        targets++;
+      } else {
+        assert.deepEqual(lines, [], d.date + ' (' + arch + ', ' + dk + '): a Target line where the ring already has the pace');
+      }
+    });
+  });
+  assert.ok(inserts >= 2 && progressives >= 1 && plains >= 2 && targets >= 1,
+    'the two blocks built ' + inserts + ' inserts, ' + progressives + ' progressive and ' + plains +
+    ' plain long runs — too few to prove this');
+});
+
 test('no card in any rail carries a pace or a heart rate', () => {
   const a = railApp();
   stridesDay(a);                       /* the two-work-stage shape as well */
@@ -711,7 +766,27 @@ test('no card in any rail carries a pace or a heart rate', () => {
         assert.equal(text.split('/km').length + text.split('/mi').length - 2, 1,
           d.date + ': the hill card states more than the one pace');
       }
-      (hillTarget ? ['BPM'] : ['/km', '/mi', 'BPM']).forEach(unit => {
+      /* ---- AND A SECOND, FOR THE ONE PACE THE RING CANNOT SHOW ----
+         The rule rests on the pace "remaining in the ring". On a progressive
+         long run the ring has the easy window and the goal pace; the STEADY
+         stage between them is a third pace, and once the stage cards
+         replaced the note that listed it, it was written nowhere. Put to
+         the founder with the recommendation that this stage states it as
+         the hill card does; the answer was "Go". Held as tightly as the
+         hill's: the stage's own band, one pace, never the ring's, no BPM. */
+      const steadyTarget = !hillTarget && c.indexOf('ws-h-target') > -1;
+      if (steadyTarget){
+        const ring = a.getDayTargets(d) || {};
+        const st = a.workoutSteps(d).filter(x => x.intensity === 'steady')[0];
+        assert.ok(st, d.date + ': a Target line on a card that is not a steady stage');
+        const own = a.stepPrescriptionParts(st).pace;
+        assert.ok(own && text.indexOf('Target: ' + own) > -1,
+          d.date + ': the steady card states a pace that is not its own stage\u2019s');
+        assert.notEqual(ring.pace, own, d.date + ': the steady card repeats the ring');
+        assert.equal(text.split('/km').length + text.split('/mi').length - 2, 1,
+          d.date + ': the steady card states more than the one pace');
+      }
+      ((hillTarget || steadyTarget) ? ['BPM'] : ['/km', '/mi', 'BPM']).forEach(unit => {
         assert.equal(text.indexOf(unit), -1,
           d.date + ' (' + d.type + ') card ' + i + ' carries ' + unit +
           ' — "it’s going to remain in the ring": ' + text.trim().slice(0, 90));
@@ -1633,8 +1708,15 @@ test('a description that leaves the face arrives under the rail', () => {
      makes them card-rail sessions, and a card-rail session's description
      goes under the rail like every other one's. Two of this block's three
      do; the goal-finish one's description is covered by its cards. */
-  assert.equal(n, 8,
-    n + ' days moved a description to the note, not the 8 this block builds');
+  /* AND BACK TO SIX, BECAUSE THE TWO WERE THE CARDS READ OUT AGAIN. Under
+     WHY THIS SESSION the insert printed "7.7km @ Easy pace, 5.7km @ Goal
+     Pace, 7.7km @ Easy pace to close" beneath a rail whose three cards are
+     those three distances. Put to the founder as "the distances are still
+     said twice on the insert"; the answer was "Go". Both staged long runs
+     joined WORKOUT_COVERS_DESCRIPTION, so their cards are their
+     description. */
+  assert.equal(n, 6,
+    n + ' days moved a description to the note, not the 6 this block builds');
   /* Named instructions that must still be on the card. The point is not that
      the DESCRIPTION survives -- for the timed four it deliberately does not --
      but that the instruction does, wherever it now lives: a step, the gold

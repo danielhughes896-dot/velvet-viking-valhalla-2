@@ -23430,7 +23430,22 @@ var WORKOUT_COVERS_DESCRIPTION = {
      written down with the reason. */
   easy_strides:true,
   long_run_goal_broken:true,
-  goal_pace_block:true
+  goal_pace_block:true,
+  /* ---------- AND THE TWO LONG RUNS WHOSE STAGES BECAME THE RAIL ----------
+     They draw Warm up / Goal pace / Cool down and Easy / Steady / Goal pace
+     as cards now, and their descriptions went under WHY THIS SESSION as a
+     second line -- which was the three cards read out again:
+       long_run_goal_insert  "7.7km @ Easy pace, 5.7km @ Goal Pace, 7.7km @
+                             Easy pace to close" is its three cards' titles
+                             and distances, in order, and nothing else.
+       long_run_progressive  "11.7km @ Easy pace, 3km building toward Goal
+                             Pace, then 13.3km @ Goal Pace to the finish" --
+                             the middle clause is the STEADY card, whose own
+                             line is "One gear below tempo, the whole way."
+     Put to the founder as "the distances are still said twice on the
+     insert"; the answer was "Go". */
+  long_run_goal_insert:true,
+  long_run_progressive:true
 };
 function workoutCoversDescription(dd){
   var p = prescriptionOf(dd);
@@ -31731,6 +31746,24 @@ function renderWorkoutStepHCell(st, i, ctx){
      founder's four lines and nothing drawn from anywhere else. */
   var hill = (ctx && ctx.hill && isWork) ? ctx.hill : null;
   if (hill){ avoid = ''; feel = ''; cue = ''; execCaps = hill; }
+  /* ---------- THE ONE PACE THE RING CANNOT SHOW ----------
+     "No card in any rail needs pace or Heart rate as it's going to remain in
+     the ring" rests on the ring having it. On a progressive long run the
+     ring carries the easy window and the goal pace, and the STEADY stage
+     between them is a third pace that is then written nowhere on the
+     screen -- the old Coach's Note listed it and the stage cards replaced
+     that note. Put to the founder with the recommendation that this one
+     stage states its pace the way the hill card states its target; the
+     answer was "Go".
+     NARROW ON PURPOSE: a steady stage, on a rail of stages, whose band is
+     not the ring's own. Where the ring already shows it -- a steady tempo's
+     ring IS the steady band -- the card stays silent, as every other card
+     does. */
+  var steadyTarget = '';
+  if (!hill && st.intensity === 'steady' && ctx && ctx.cues && p.pace &&
+      !(ctx.ring && ctx.ring.pace === p.pace)){
+    steadyTarget = 'Target: ' + p.pace;
+  }
   /* .ws-card-body: the one element whose height IS the text. See the scrim
      rule -- it hangs off this rather than off the card, so it covers the
      words whatever they come to. */
@@ -31786,6 +31819,7 @@ function renderWorkoutStepHCell(st, i, ctx){
          the one that goes. */
       var lines = []
         .concat(feel ? ['<div class="ws-h-cue ws-h-feel">'+escapeHtml(feel)+'</div>'] : [])
+        .concat(steadyTarget ? ['<div class="ws-h-cue ws-h-target">'+escapeHtml(steadyTarget)+'</div>'] : [])
         .concat(execCaps.map(function(t){
           return '<div class="ws-h-cue ws-h-exec">'+escapeHtml(t)+'</div>'; }))
         .concat(cue ? ['<div class="ws-h-cue">'+escapeHtml(cue)+'</div>'] : []);
