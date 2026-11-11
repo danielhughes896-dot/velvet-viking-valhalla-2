@@ -296,9 +296,13 @@ test('every overlay shows everything the session legitimately has', () => {
   for (const key of app.shareOverlayKeys()) {
     const ops = Array.prototype.slice.call(app.shareCardLayout(data, key, SIZE));
     const kinds = ops.map(o => o.kind);
-    for (const need of ['mark', 'wordmark', 'distance']) {
+    for (const need of ['wordmark', 'distance']) {
       assert.ok(kinds.includes(need), key + ' is missing ' + need);
     }
+    /* 'mark' WAS REQUIRED HERE. Founder, on a real export: "I don't like the
+       S square app on the share function. I think that's best as just the
+       app icon." No overlay carries an emblem now. */
+    assert.ok(!kinds.includes('mark'), key + ' draws an emblem above the name again');
     const said = JSON.stringify(ops);
     assert.ok(/28\.0/.test(said), key + ' drops the distance');
     assert.ok(/ABSORBED/i.test(said), key + ' drops the verdict');
@@ -830,61 +834,66 @@ test('every overlay signs the name: the byline sits under the wordmark and above
   }
 });
 
-test('the mark is the icon on the home screen, not the chevron', () => {
+/* ---- CHANGED SIDES: A SHARE IMAGE CARRIES NO EMBLEM ----
+   Two tests stood here: that the mark on a share image was the app icon, and
+   that the painter drew the whole rounded tile. Founder, seeing it exported:
+   "I don't like the S square app on the share function. I think that's best
+   as just the app icon." So the tile is the home-screen icon and nothing
+   else, and what signs a share image is the name between its dots and the
+   byline -- the laws either side of this one. */
+test('no share image carries an emblem: the S tile is the app icon and nothing else', () => {
   const app = loadApp({ pinnedDate: '2026-11-03' });
-  assert.equal(app.SHARE_MARK.src, '/assets/icon.png',
-    'the share image draws something other than the app icon');
-  assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'icon.png')));
-  assert.equal(app.SHARE_MARK.wide, 1,
-    'the mark is a circle; a layout reserving a wider box leaves a gap beside it');
-  assert.equal(typeof app.shareMarkSVG, 'undefined', 'the chevron SVG is back');
-  assert.equal(typeof app.shareMarkGeometry, 'undefined', 'the chevron geometry is back');
+  ['SHARE_MARK', 'shareDrawMark', 'shareLoadMark', 'shareMarkPath', 'shareMarkSVG', 'shareMarkGeometry']
+    .forEach(n => assert.equal(typeof app[n], 'undefined', n + ' is back'));
+  const data = app.shareCardData(completedDay({
+    actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
+    coachReview: { trainingSignal: 'positive_adaptation' },
+  }));
+  for (const size of [SIZE, { w: 1080, h: 1080, square: true }]) {
+    for (const key of app.shareOverlayKeys()) {
+      const where = key + (size.square ? ' (square)' : '');
+      const ops = Array.prototype.slice.call(app.shareCardLayout(data, key, size));
+      assert.ok(!ops.some(o => o.kind === 'mark'), where + ' lays out an emblem');
+      const asked = ops.find(o => o.kind === 'wordmark').size;
+      const ctx = recordingCtx();
+      app.shareCardPaint(ctx, ops, size.w);
+      /* The overlay painter draws no image at all: the photograph is laid
+         down before it, and the icon was the only picture it ever drew. */
+      assert.equal(ctx.calls.filter(c => c[0] === 'drawImage').length, 0,
+        where + ' paints an image into the overlay');
+      /* AND THE NAME DID NOT PAY FOR THE ROOM. With the tile gone the name
+         moved up, and on the wedge "up" is the point of a triangle: fitted
+         there it came out a third of its size. The wedge still fits the
+         name to its row, as it always has, which is why this is a floor
+         and not an equality -- but the row has to be one it can be read on. */
+      const painted = ops.find(o => o.kind === 'wordmark').size;
+      assert.ok(painted >= asked * 0.6,
+        where + ': the name was asked for at ' + asked + 'px and painted at ' + painted +
+        'px, squeezed into the room the emblem used to stand in');
+    }
+  }
 });
 
-test('the painter draws the whole icon when it has it, and its outline when it does not', () => {
-  /* ---- CHANGED SIDES: THE ICON IS NOT CUT TO A CIRCLE ----
-     This asserted the icon was drawn over-size and clipped to a disc, which
-     was right for the ringed mark it was written for. Founder, of the icon
-     that replaced it: "Keep the complete icon, including its dark
-     rounded-square background, white S, gold dots and cherry lettering.
-     Display it small and discreetly, maintaining the existing layout, spacing
-     and mountain imagery. No other design changes."
-     So the box is what it was and the picture inside it is the whole tile. */
+test('on the frame the name sits through the top rule, in a gap measured around it', () => {
   const app = loadApp({ pinnedDate: '2026-11-03' });
-  const theme = app.SHARE_THEME;
-
-  /* NOT LOADED. An export must never stall or fail on a decoration, and a
-     hole where the layout reserved a mark reads as a broken image. */
-  app.shareMarkImg = null;
-  let ctx = recordingCtx();
-  app.shareDrawMark(ctx, 540, 300, 120, theme);
-  assert.equal(ctx.calls.filter(c => c[0] === 'drawImage').length, 0);
-  assert.ok(ctx.calls.some(c => c[0] === 'stroke'), 'with no icon there is no outline either');
-
-  app.shareMarkImg = { marker: true };
-  ctx = recordingCtx();
-  app.shareDrawMark(ctx, 540, 300, 120, theme);
-  const names = ctx.calls.map(c => c[0]);
-  const clipAt = names.indexOf('clip'), drawAt = names.indexOf('drawImage');
-  assert.ok(drawAt > -1, 'the icon is loaded and was not drawn');
-  /* Clipped to the tile's own rounded corners, because the file is square
-     with a darker ground outside them and that ground must stay off the photo. */
-  assert.ok(clipAt > -1 && clipAt < drawAt, 'the icon is drawn without being clipped to its corners first');
-  /* A ROUNDED SQUARE, NOT A CIRCLE. Four corner arcs and no full-circle arc
-     anywhere in the mark -- a disc is what cut the lettering close before. */
-  assert.equal(ctx.calls.filter(c => c[0] === 'arc').length, 0, 'the mark is being cut to a circle again');
-  const corners = ctx.calls.slice(0, clipAt + 1).filter(c => c[0] === 'arcTo');
-  assert.ok(corners.length >= 4, 'the clip is not a rounded square');
-  assert.ok(Math.abs(corners[corners.length - 1][5] - 120 * app.SHARE_MARK.corner) < 0.01,
-    'the corner radius is not the tile\u2019s own');
-  /* THE COMPLETE ICON: drawn at exactly its box. Larger would crop the
-     lettering under the S; smaller would leave a rim of the fill showing. */
-  const d = ctx.calls[drawAt];
-  assert.equal(d[4], 120, 'the icon is drawn ' + d[4] + 'px wide in a 120px box');
-  assert.equal(d[5], 120);
-  assert.equal(d[2], 540 - 60, 'the icon is not centred on the mark');
-  assert.equal(d[3], 300 - 60);
-  app.shareMarkImg = null;
+  const data = app.shareCardData(completedDay({
+    actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
+  }));
+  for (const size of [SIZE, { w: 1080, h: 1080, square: true }]) {
+    const ops = Array.prototype.slice.call(app.shareCardLayout(data, 'frame', size));
+    const frame = ops.find(o => o.kind === 'frame'), name = ops.find(o => o.kind === 'wordmark');
+    assert.ok(Math.abs((name.y + name.size / 2) - frame.y) <= 1,
+      'the name is not centred on the frame’s top rule');
+    const ctx = recordingCtx();
+    app.shareCardPaint(ctx, ops, size.w);
+    const dots = ctx.calls.filter(c => c[0] === 'arc');
+    const left = dots[0][1] - dots[0][3], right = dots[1][1] + dots[1][3];
+    assert.ok(frame.gapFrom < left && frame.gapTo > right,
+      'the rule runs through the name: gap ' + frame.gapFrom + '-' + frame.gapTo +
+      ', name ' + left.toFixed(0) + '-' + right.toFixed(0));
+    assert.ok(left - frame.gapFrom < size.w * 0.06 && frame.gapTo - right < size.w * 0.06,
+      'the gap is far wider than the name it was cut for');
+  }
 });
 
 test('the name is painted between two gold dots, and fitted with them', () => {
@@ -914,8 +923,10 @@ test('the name is painted between two gold dots, and fitted with them', () => {
 test('the completion card in the app carries the same mark and the same byline', () => {
   const app = loadApp({ pinnedDate: '2026-11-03' });
   const SRC_ = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  assert.match(SRC_, /'<img class="wc-mark" src="'\+SHARE_MARK\.src\+'"[^']*alt="" aria-hidden="true">'/,
-    'the in-app card draws a different mark from the image it previews');
+  /* WAS: the card draws the icon tile above the name. It previews the share
+     image, and the share image has no tile now ("I don't like the S square
+     app on the share function"), so neither does this. */
+  assert.ok(SRC_.indexOf('wc-mark') === -1, 'the in-app card draws an emblem the share image does not');
   assert.match(SRC_, /<div class="wc-by">By Velvet Viking<\/div>/);
   assert.equal((SRC_.match(/class="wc-dot" aria-hidden="true"/g) || []).length, 2);
 });

@@ -80,16 +80,14 @@ test('gold still means what it means: headings, badges, status, the confidence f
      and the three below still prove it. The gauge's ring keeps the cherry
      accent, which was never the question. */
   [['.exec-pill', 'the execution score pill'],
-   ['.coach-cue', 'the coaching cue'],
-   /* ---- CHANGED SIDES: THE STATUS LABEL IS A TITLE AND A DOT ----
-      Founder: "No pills. Text white. Titles white." .day-status-label was
-      an outlined capsule whose word carried the state's colour; the outline
-      and the padding are gone, the word is white like every other title,
-      and the colour is on the dot beside it. Gold still means status here
-      -- it is simply drawn as six pixels rather than as coloured type, and
-      asserting it on the dot is asserting the same claim where the claim
-      now lives. */
-   ['.day-status-label.key .day-status-dot', 'the Key-session status dot']].forEach(([sel, what]) => {
+   ['.coach-cue', 'the coaching cue']
+   /* A THIRD ROW STOOD HERE: the gold dot beside a status word -- first
+      Key's, then Adjusted's. Founder: "Theres a bloody pill!!! Key! Remove."
+      and then "I also don't care about it say adjusted pill top right!
+      Remove." Neither word is printed now, so no status dot is gold and
+      there is nothing left to hold to it. The dots that remain (Missed,
+      Restricted, Recovery) were never gold. */
+  ].forEach(([sel, what]) => {
     const body = ruleBody(sel);
     assert.ok(body, sel + ': rule not found (' + what + ')');
     assert.match(body, /--(gold|bronze)[a-z0-9-]*\)/,

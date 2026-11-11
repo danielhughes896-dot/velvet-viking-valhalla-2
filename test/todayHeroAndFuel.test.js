@@ -478,10 +478,17 @@ test('the Coach\u2019s Note still appears when the only thing to say is the fuel
   const end = SRC.indexOf('})()+', i);
   assert.ok(end > i, 'the Coach\u2019s Note builder is no longer an IIFE — re-anchor this');
   const body = SRC.slice(i, end);
-  assert.match(body, /if \(!cueText && !hints\.length && !caps && !soloHow && !cols\.length && !shape\) return '';/,
+  /* cueText BECAME noteCue. Founder, on the goal day: "Then drop goal pace
+     from the gun!! Just remove it." The cue is not printed in a race's
+     note, so the note is gated on -- and prints -- the cue it will actually
+     show. The trap this test is for is unchanged: a day with no cue must
+     still render its caveats, and a race is now always such a day. */
+  assert.match(SRC, /var noteCue = onRace \? '' : cueText;/,
+    'the race-day note prints its cue again, or every other day lost theirs');
+  assert.match(body, /if \(!noteCue && !hints\.length && !caps && !soloHow && !cols\.length && !shape\) return '';/,
     'the Coach\u2019s Note is gated on the cue again, so a day with no cue drops the fuel ' +
     'caveats -- and now the execution sentences -- off the screen entirely');
-  assert.match(body, /cueText \? '<span class="v">/,
+  assert.match(body, /noteCue \? '<span class="v">/,
     'the cue is no longer optional inside the note, so a caveat-only day cannot render');
 });
 

@@ -196,7 +196,11 @@ test('one PROGRESS change rendered at all three experience levels: same decision
 // Adjusted vs Edited, and the Adjusted disclosure
 // ---------------------------------------------------------------------------
 
-test('dayStatusLabel: a Sacoro adjustment reads Adjusted, an athlete edit reads Edited, and Adjusted wins if both are present', () => {
+/* CHANGED SIDES ON THE WORD, NOT ON THE RULE. Founder: "I also don't care
+   about it say adjusted pill top right! Remove." An adjusted day prints no
+   status word now. What this test was really holding is unchanged and still
+   asserted: a Sacoro change is never described as the athlete's own edit. */
+test('dayStatusLabel: an athlete edit reads Edited, a Sacoro adjustment reads nothing, and never Edited if both are present', () => {
   const a = withPlan(app());
   const dd = a.state.days.find(d => d.type !== 'rest');
   dd.manualEdit = { at: new Date().toISOString(), fields: ['km'], from: { km: dd.km } };
@@ -206,7 +210,10 @@ test('dayStatusLabel: a Sacoro adjustment reads Adjusted, an athlete edit reads 
 
   dd.coachAdjust = { at: new Date().toISOString(), reason: 'test', from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc } };
   label = a.dayStatusLabel(dd).replace(/<[^>]+>/g, '');
-  assert.match(label, /Adjusted/);
+  /* Not "the label is empty": this fixture's day is in the past and unrun,
+     so it rightly reads Missed, which is a fact about the day and not about
+     who changed it. The words that must not appear are the two about that. */
+  assert.doesNotMatch(label, /Adjusted/, 'an adjusted session says Adjusted again');
   assert.doesNotMatch(label, /Edited/, 'a Sacoro change must never be described as the athlete’s own edit, or vice versa');
 });
 

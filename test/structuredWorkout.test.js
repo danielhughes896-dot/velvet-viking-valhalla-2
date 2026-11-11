@@ -617,6 +617,56 @@ function stridesDay(a){
    a new rail nobody thought to look at; and the two cell builders are read
    for a call to a pace or heart-rate formatter, which catches a figure in a
    shape this scan does not recognise. */
+test('the hill repeats card says the founder’s four lines and nothing else', () => {
+  /* Founder: "So I've got a change for hill repeats. Hopefully. The below
+     says the same;
+       Target: 4:12-4:19/km . Hard effort
+       Start controlled. Keep all five reps consistent.
+       Jog or walk downhill.
+       Start the next rep when sufficiently recovered." */
+  const a = app();
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  const { days } = buildPlan(a, { distanceKey: 'half', volume: 45, weeks: 12, lthr: 172, maxHR: 188 });
+  const hills = days.filter(d => a.isHillRepeats(d));
+  assert.ok(hills.length >= 1, 'this block builds no hill session, so the card is untested');
+  const words = ['', '', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+  hills.forEach(d => {
+    const html = a.renderDayCard(d);
+    const at = html.indexOf('ws-work');
+    const card = html.slice(html.lastIndexOf('<div class="how-mod"', at), html.indexOf('</div></div></div>', at) + 18);
+    const lines = (card.match(/<div class="ws-h-cue[^"]*">([^<]*)<\/div>/g) || [])
+      .map(l => l.replace(/<[^>]*>/g, '').replace(/&middot;|&#183;/g, '·'));
+    const n = d.prescription.params.reps, ring = a.getDayTargets(d);
+    assert.deepEqual(lines, [
+      'Target: ' + ring.pace + ' · Hard effort',
+      'Start controlled. Keep all ' + words[n] + ' reps consistent.',
+      'Jog or walk downhill.',
+      'Start the next rep when sufficiently recovered.'
+    ], d.date + ': the hill card does not read as written');
+    /* NOTHING ELSE: the five sentences these replaced are off the card, and
+       so is the recovery qualifier the third line now says. */
+    ['Racing the descent', 'genuinely recovered at the bottom', 'Every rep in the target window',
+     'Keep jogging', 'Recovery is part of the prescription', 'Recovery: '].forEach(old =>
+      assert.equal(card.indexOf(old), -1, d.date + ': "' + old + '" is still on the hill card'));
+    assert.equal(card.indexOf('ws-h-avoid'), -1, d.date + ': the cherry Watch line is back on the hill card');
+    /* ONLY the work card. The warm-up and cool-down keep their own words. */
+    assert.equal(html.split('Jog or walk downhill.').length - 1, 1, d.date + ': the lines are on more than one card');
+  });
+  /* AND IT DID NOT GO BLANKET. An interval on the flat still says what it
+     said -- the sentences were wrong for a hill, not wrong. */
+  const flat = days.filter(d => d.type === 'interval' && !a.isHillRepeats(d))[0];
+  assert.ok(flat, 'no flat interval session to compare against');
+  const fh = a.renderDayCard(flat);
+  assert.ok(fh.indexOf('Every rep in the target window') > -1 && fh.indexOf('Jog or walk downhill') === -1,
+    'the hill card’s copy has replaced an ordinary interval’s');
+  /* THE TWO THINGS THAT VARY. */
+  assert.equal(a.hillRepeatLines({ reps: 5 }, null)[0], 'Target: Hard effort',
+    'with no pace known the first line should be the effort alone');
+  assert.match(a.hillRepeatLines({ reps: 8 }, null)[1], /Keep all eight reps consistent\.$/);
+  assert.match(a.hillRepeatLines({ reps: 14 }, null)[1], /Keep all 14 reps consistent\.$/);
+  assert.match(a.hillRepeatLines({ reps: null }, null)[1], /Keep every rep consistent\.$/);
+});
+
 test('no card in any rail carries a pace or a heart rate', () => {
   const a = railApp();
   stridesDay(a);                       /* the two-work-stage shape as well */
@@ -641,7 +691,20 @@ test('no card in any rail carries a pace or a heart rate', () => {
          BPM, so these three strings are the figures themselves rather than
          a guess at what one looks like -- no bare "4:46" to confuse with a
          rep duration, and nothing a distance or a rep count can trip. */
-      ['/km', '/mi', 'BPM'].forEach(unit => {
+      /* ---- ONE CARD IS EXEMPT, AND THE FOUNDER WROTE IT ----
+         "So I've got a change for hill repeats ... Target: 4:12-4:19/km .
+         Hard effort". The hill session's work card opens with the ring's
+         own pace. Only that card, only the pace, and only as the ring
+         states it -- its heart rate is still not on any card. */
+      const hillTarget = a.isHillRepeats(d) && /Target:/.test(text);
+      if (hillTarget){
+        const ring = a.getDayTargets(d);
+        assert.ok(ring && ring.pace && text.indexOf('Target: ' + ring.pace) > -1,
+          d.date + ': the hill card states a pace that is not the ring\u2019s');
+        assert.equal(text.split('/km').length + text.split('/mi').length - 2, 1,
+          d.date + ': the hill card states more than the one pace');
+      }
+      (hillTarget ? ['BPM'] : ['/km', '/mi', 'BPM']).forEach(unit => {
         assert.equal(text.indexOf(unit), -1,
           d.date + ' (' + d.type + ') card ' + i + ' carries ' + unit +
           ' — "it’s going to remain in the ring": ' + text.trim().slice(0, 90));
@@ -842,6 +905,15 @@ test('every other archetype keeps its description — on the face or in the note
        only thing holding it up. WHY THIS SESSION is universal here: it is
        built from descMovesToNote() itself, the same predicate this set was
        filtered by. */
+    /* EXCEPT ON THE GOAL DAY, WHERE THE FOUNDER TOOK THE SECTION OFF.
+       "Why this session on goal day! It's not needed. Remove." A race's
+       description is not carried anywhere now, and that is the instruction
+       rather than a loss: the cards and the strategy picker say the day. */
+    if (day(a, n).type === 'race'){
+      assert.equal(html.indexOf('class="why-session"'), -1,
+        n + ': WHY THIS SESSION is back on the goal day');
+      return;
+    }
     assert.ok(html.indexOf('why-session-s') > -1,
       n + ': its description came off the face and there is no WHY THIS SESSION to have taken it');
   });
@@ -1598,7 +1670,10 @@ test('a description that leaves the face arrives under the rail', () => {
   survives('fartlek', 'complete');
   survives('progressive_tempo', 'complete');
   survives('progressive_tempo', 'Building from Steady to Tempo');
-  survives('hill_repeats', 'back down');       // the recovery rule
+  /* WAS 'back down', the qualifier "Recovery: jog/walk back down". The
+     founder rewrote the hill card and this is the line that now carries the
+     recovery rule: "Jog or walk downhill." */
+  survives('hill_repeats', 'Jog or walk downhill.');
   survives('ladder', 'scaled to the rep');
   survives('deuce', 'Between sets');
 });
@@ -1855,6 +1930,34 @@ test('why, feel and watch for left the screen — Why for its own section, the r
     let gd; try { gd = a.coachingDisclosureFor(d, level); } catch (e) { return; }
     if (!gd) return;
     const note = html.slice(html.indexOf('class="how-note"'));
+    /* ---- THE GOAL DAY HAS ITS OWN ARRANGEMENT, AND IT IS THE FOUNDER'S ----
+       "Feel (but not feeling, just the words after) can be added to the
+       settle page. Hold (1st) - add watch trying to bank time early. ...
+       Why this session on goal day! It's not needed. Remove."
+       So on a race: no Why anywhere; the Feel sentence on the opening card
+       and the Watch sentence on a card, once each and never in the note;
+       and the note carries neither label. The Watch line is reworded to
+       read as a sentence on a card, so it is tied to the disclosure by its
+       words rather than by string equality. */
+    if (d.type === 'race'){
+      const cards = html.slice(0, html.indexOf('class="how-note"'));
+      assert.equal(html.indexOf('class="why-session"'), -1,
+        d.date + ': WHY THIS SESSION is back on the goal day');
+      assert.equal(a.RACE_DAY_FEEL, gd.feel,
+        'the Feel sentence on the SETTLE card has drifted from the session\u2019s own Feel');
+      assert.ok(/bank(ing)? time early/i.test(gd.avoid) && /bank time early/i.test(a.RACE_DAY_WATCH),
+        'the Watch sentence on the card no longer says what the session\u2019s Watch For says');
+      [a.RACE_DAY_FEEL, a.RACE_DAY_WATCH].forEach(v => {
+        assert.equal(html.split(v).length - 1, 1,
+          d.date + ': ' + JSON.stringify(v) + ' should be on the goal day exactly once');
+        assert.ok(cards.indexOf(v) > -1,
+          d.date + ': ' + JSON.stringify(v) + ' is in the Coach\u2019s Note, not on a card');
+      });
+      ['Why', 'Feel', 'Watch For'].forEach(k => assert.equal(note.indexOf('<b>' + k + '</b>'), -1,
+        d.date + ': the goal day\u2019s note has its ' + k + ' row back'));
+      checked += 2;
+      return;
+    }
     /* ---- A ONE-CARD DAY IS THE ONE PLACE THEY ARE DROPPED ----
        Founder: "It also doesn't need a massive coaches note!" On a session
        whose rail came to a single card the note is one line now, so Why and
@@ -2712,11 +2815,74 @@ test('an Analysis with no score reads quieter, and says so from the same source'
      is the title alone. */
   assert.ok(quiet.indexOf('sess-tab-s') === -1 && !/Not scored yet/.test(quiet),
     'the second line is back under the tab name');
-  assert.match(RAILCSS, /\.sess-tab\.is-quiet \.sess-tab-k\{color:var\(--ink-faint\);\}/,
-    'the quiet tab no longer dims its title, so nothing distinguishes it');
-  /* Measured in Chromium against the row it sits on: 5.94:1 quiet against
-     17.31:1 lit. Clearly dimmer, and still over the 4.5 that even small
-     text owes -- quiet, not disabled. */
+  /* CHANGED SIDES: THE TITLE IS NOT DIMMED. This asserted the quiet tab's
+     title was --ink-faint. Founder, shown exactly that state: "SACORO
+     analysis! Needs to be updated. Same as coaches note please. White text.
+     Cherry box." So the title is white like the other three tabs, and what
+     still tells the two apart from outside is the chevron's quieter tone. */
+  assert.ok(!/\.sess-tab\.is-quiet \.sess-tab-k\{/.test(RAILCSS),
+    'the unscored Analysis tab dims its title again');
+  assert.match(RAILCSS, /\.sess-tab\.is-quiet \.sess-tab-c\{color:var\(--bronze-text\);\}/,
+    'the quiet tab has lost its chevron tone too, so nothing distinguishes it');
+});
+
+test('the open Analysis is one box, and it is the Coach\u2019s Note\u2019s box', () => {
+  /* Founder: "SACORO analysis! Needs to be updated. Same as coaches note
+     please. White text. Cherry box." */
+  const a = railApp();
+  const past = a.state.days.filter(d => d.type !== 'rest' && d.km > 0 && d.date < a.todayStr());
+  const scored = past[past.length - 2], plain = past[past.length - 3];
+  logAsPrescribed(a, scored);
+  plain.completed = true; plain.actual = { km: plain.km, pace: null, hr: null, rpe: null, notes: '' };
+  [scored, plain].forEach(d => {
+    a.analysisOpenFor[d.id] = true;
+    const html = a.renderExecutionReview(d);
+    const at = html.indexOf('<div class="an-box">');
+    assert.ok(at > -1, d.date + ': the open analysis is not boxed');
+    assert.equal(html.split('class="an-box"').length - 1, 1, d.date + ': the analysis is in more than one box');
+    /* everything the panel says is inside it -- the verdict and the review
+       are one box, not a box and a loose section */
+    ['class="wc-verdict', 'class="exec-review-card'].forEach(c => {
+      const i = html.indexOf(c);
+      if (i > -1) assert.ok(i > at, d.date + ': ' + c + ' sits outside the box');
+    });
+    delete a.analysisOpenFor[d.id];
+    assert.equal(a.renderExecutionReview(d).indexOf('an-box'), -1, d.date + ': a shut tab still draws the box');
+  });
+
+  const SCOPE = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview)';
+  const rule = sel => {
+    const i = RAILCSS.indexOf(SCOPE + ' ' + sel + '{');
+    assert.ok(i > -1, 'rule not found: ' + sel);
+    return RAILCSS.slice(i, RAILCSS.indexOf('}', i));
+  };
+  const box = rule('.an-box'), note = rule('.how-note:not([data-solo])');
+  /* THE SAME BOX, VALUE FOR VALUE, read off the note's own rule so the two
+     cannot drift: if the note's line, corner, ground or padding changes
+     this fails until the analysis follows. */
+  ['border', 'border-radius', 'background', 'padding', 'box-shadow'].forEach(prop => {
+    const get = r => (new RegExp('(?:^|[;{\\s])' + prop + ':([^;]+);').exec(r) || [])[1];
+    assert.ok(get(note), 'the Coach\u2019s Note no longer declares ' + prop);
+    assert.equal(get(box), get(note), 'the analysis box and the Coach\u2019s Note disagree on ' + prop);
+  });
+  assert.match(box, /border:1\.5px solid var\(--cherry\)/, 'the box is not cherry-lined');
+  assert.match(box, /text-align:center/, 'the analysis is not centred as the note is');
+  /* WHITE TEXT: the heading is the note heading's size and ink, and no rule
+     written for the box reaches for gold, bronze or a dimmed ink. */
+  const head = rule('.an-box .exec-review-head,\n  ' + SCOPE + ' .an-box .wc-verdict-k,\n  ' + SCOPE + ' .an-box .wc-verdict.is-plain .wc-verdict-k');
+  assert.match(head, /font-size:17px/); assert.match(head, /color:var\(--ink\)/);
+  assert.match(head, /margin-bottom:14px/, 'the heading sits on its first line');
+  /* Whole rules, selector and body: a line filter read the selector's first
+     line and missed a colour declared on its second, which is how a dimmed
+     ink got past this once. */
+  const mine = (RAILCSS.match(/[^{}]*\.an-box[^{}]*\{[^}]*\}/g) || []).join('\n');
+  assert.ok(mine.split('{').length - 1 >= 8, 'the analysis box\u2019s rules were not found to be read');
+  assert.doesNotMatch(mine, /--gold|--bronze|--ink-dim|--ink-faint|--wc-dim|--wc-faint/,
+    'something in the analysis box is not white');
+  /* no glow behind a box with an edge, and no pill in its heading */
+  assert.match(RAILCSS, /\.an-box \.exec-review-card::before,\s*[^{]*\.an-box \.exec-review-card::after\{content:none; display:none;\}/,
+    'the cherry glow is back behind the boxed analysis');
+  assert.match(rule('.an-box .exec-pill'), /display:none/, 'the score pill is back in the heading');
 });
 
 test('every session has exactly one rail, and the rail is above the coaching', () => {
@@ -2772,7 +2938,11 @@ test('every session has exactly one rail, and the rail is above the coaching', (
        is still rendered it is asked for too: a session may not put either
        above its rail. */
     const whyAt = html.indexOf('class="why-session"');
-    assert.ok(whyAt > -1, d.date + ': WHY THIS SESSION is gone');
+    /* THE GOAL DAY IS THE ONE SESSION WITHOUT IT. Founder: "Why this
+       session on goal day! It's not needed. Remove." Its note is still
+       held under its rail by the assertion below. */
+    if (d.type === 'race') assert.equal(whyAt, -1, d.date + ': WHY THIS SESSION is back on the goal day');
+    else assert.ok(whyAt > -1, d.date + ': WHY THIS SESSION is gone');
     /* MARKUP ORDER ONLY WHERE MARKUP ORDER IS THE ANSWER. A goal-pace long
        run's rail is built inside renderCoachingDepth, so it ships inside
        .how-card -- later in the string than the Why section, which rides
@@ -2780,7 +2950,7 @@ test('every session has exactly one rail, and the rail is above the coaching', (
        way the stylesheet orders the two, and it is asked once, below. */
     const howAt = html.indexOf('class="fuel-card how-card');
     const railInsideNote = howAt > -1 && railAt > howAt;
-    if (!railInsideNote) assert.ok(railAt < whyAt,
+    if (!railInsideNote && whyAt > -1) assert.ok(railAt < whyAt,
       d.date + ' (' + d.type + ') puts WHY THIS SESSION above its rail');
     const noteAt = html.indexOf('class="how-note"');
     if (noteAt > -1) assert.ok(railAt < noteAt,
@@ -2883,34 +3053,29 @@ test('a single stage is a card, and yields to the execution phases where there a
   assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*flex:0 0 100%/,
     'a one-card rail no longer fills its rail');
 
-  /* ---------- "EACH STEP BELOW" NEEDS MORE THAN ONE STEP ----------
-     One variable used to answer two questions -- whether the card has a
-     rail worth showing, and whether the session has more than one stage --
-     because a blueprint meant two or three stages. A one-stage easy run is
-     a rail now, and the shared variable put "Primary zone — each step below
-     carries its own target" over a card showing one step whose target is
-     the ring's. */
-  const hero = RAILCODE.slice(RAILCODE.indexOf('function renderDayHeroBlock('));
-  const heroBody = hero.slice(0, hero.indexOf('\n}'));
-  /* ---- AND NOW ALSO ON THE CARDS NOT BEING THERE TO READ ----
-     "Primary zone — each step below carries its own target" was explaining
-     that the ring and the cards show different numbers. The cards show a
-     band only where it differs from the ring, so the difference is the
-     thing on screen. The caption survives for the one case where there are
-     no cards under the ring to look at: a logged session, whose
-     prescription has moved behind Session Details. */
-  assert.match(heroBody, /var stepNote = \(ring && manySteps && prescriptionIsReference\(dd\)\)/,
-    'the step note is gated on having a rail again, not on the cards being unreachable');
-  assert.match(heroBody, /manySteps = workoutSteps\(dd\)\.length >= 2/,
-    'manySteps is no longer derived from the step count');
+  /* ---------- CHANGED SIDES: THE STEP CAPTION IS GONE ----------
+     This held "Primary zone \u2014 each step carries its own target, in
+     Session Details." to the one case it had been cut back to: a logged
+     session with two or more steps. Founder, on a completed hill session:
+     "Why does primary zone show up when session is complete? I don't rate
+     it. Remove it." So no day prints it, logged or not, and neither its
+     element nor its styles are left behind. */
+  assert.ok(RAILSRC.replace(/\/\*[\s\S]*?\*\//g, '').indexOf('th-steps-note') === -1,
+    'the step caption\u2019s element or its styles are back');
+  let logged = 0;
   a.state.days.forEach(d => {
     if (d.type === 'rest') return;
     let n; try { n = a.workoutSteps(d).length; } catch (e) { return; }
-    const html = a.renderDayHeroBlock(d, a.getDayTargets(d));
-    const note = /th-steps-note/.test(html);
-    if (n <= 1) assert.ok(!note,
-      d.date + ' (' + d.type + ') has one step and is told each step below carries its own target');
+    if (n >= 2 && logged < 6 && d.date <= a.todayStr()){
+      try { logAsPrescribed(a, d); logged++; } catch (e) { /* not loggable in this fixture */ }
+    }
+    const html = a.renderDayCard(d);
+    assert.ok(!/Primary zone/i.test(html) && html.indexOf('carries its own target') === -1,
+      d.date + ' (' + d.type + (d.completed ? ', logged' : '') + ') is captioned with the step note again');
   });
+  /* The caption only ever survived on a LOGGED multi-step session, so a
+     fixture that logs none proves nothing about the case that was asked. */
+  assert.ok(logged >= 1, 'no multi-step session was logged, so the completed case went unasked');
 });
 
 test('execution is never a column, and its sentence is never lost', () => {
@@ -3454,8 +3619,27 @@ test('the merged fuel card keeps every fact\u2019s noun, not just its number', (
   const race = a.state.days.filter(d => d.type === 'race')[0];
   assert.ok(race, 'the block builds no race day');
   const html = a.renderDayCard(race);
-  const foot = /<div class="pair-foot">([\s\S]*?)<\/div>/.exec(html);
+  const foot = /<div class="pair-foot[^"]*">([\s\S]*?)<\/div>/.exec(html);
   assert.ok(foot, 'the fuel card no longer carries a foot, so it is two cards again');
+  /* ---- THE CARD'S ORDER IS THE FOUNDER'S ----
+     "Fuel should be dropped but keep 60-90 HR under the 200-300g. Then put
+     fluid on another line." The card led with a FUEL label and the hourly
+     rate, above the total. Now: TOTAL CARBS, the total, the rate under it
+     with no label, then gels and fluid each on a line of their own. */
+  const cardAt = html.lastIndexOf('<div class="ws-card-body">', foot.index);
+  const fuelCard = html.slice(cardAt, foot.index + foot[0].length);
+  const rate = a.fuelFacts(race).rows.filter(r => r.short === 'Carb intake')[0];
+  assert.ok(rate, 'this block\u2019s race carries no hourly rate, so the claim is untested');
+  assert.ok(fuelCard.indexOf('pair-head') === -1 && !/>Fuel</i.test(fuelCard),
+    'the fuel card is labelled FUEL again');
+  const qtyAt = fuelCard.indexOf('class="ws-h-qty');
+  const rateAt = fuelCard.indexOf('<span class="pair-rate font-mono">' + rate.v + '</span>');
+  assert.ok(qtyAt > -1 && rateAt > qtyAt && rateAt < fuelCard.indexOf('class="pair-foot'),
+    'the hourly rate is not directly under the total');
+  assert.match(foot[0], /class="pair-foot is-stacked"/,
+    'gels and fluid are sharing one line again');
+  assert.match(RAILCSS.replace(/\/\*[\s\S]*?\*\//g, ''), /\.ws-rail \.pair-foot\.is-stacked\{[^}]*flex-direction:column/,
+    'the stacked foot is not stacked by the stylesheet');
   a.fuelFacts(race).rows.forEach(r => {
     assert.ok(html.indexOf(r.v) > -1,
       'the fuel fact ' + JSON.stringify(r.short) + ' is not on the card at all');

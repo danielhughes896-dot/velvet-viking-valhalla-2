@@ -57,8 +57,14 @@ test('the components that were under the minimum take the token, not a literal',
       'measured under the minimum once already.');
   });
 
-  assert.match(ruleFor('.rs-chip'), /min-height:var\(--tap-min\)/,
-    'the race-strategy chips went back under the minimum');
+  /* WAS min-height:var(--tap-min) on .rs-chip. The strategy picker is drawn
+     with the builder's tiles now ("Can race strategy tabs follow the build
+     programme tabs please"), which are 72px, and this one is taller still
+     to hold Recommended under the name. The law is the same -- not under
+     the minimum -- asked of the rule that now sizes it. */
+  const rsMin = /min-height:(\d+)px/.exec(ruleFor('.rs-chips.opt-grid .rs-chip'));
+  assert.ok(rsMin && +rsMin[1] >= 44,
+    'the race-strategy tiles went back under the minimum');
   assert.match(ruleFor('.btn-sm'), /min-height:var\(--tap-min\); min-width:var\(--tap-min\)/,
     '.btn-sm lost a dimension. It had the height and not the width, which is how a ' +
     '40x44 button survived the last sweep.');

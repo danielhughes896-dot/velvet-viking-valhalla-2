@@ -1107,29 +1107,25 @@
     font-family:inherit; font-size:8.5px; letter-spacing:.08em;
     color:var(--ink-faint);
   }
-  .rs-chips{display:flex; flex-wrap:wrap; gap:6px;}
-  .rs-chip{
-    display:inline-flex; align-items:center; gap:6px;
-    min-height:var(--tap-min); padding:6px 11px; font-family:inherit; font-size:11.5px;
-    line-height:1.15; border-radius:99px; cursor:pointer; text-align:left;
-    background:var(--bg-3); color:var(--ink-dim); border:1px solid var(--line);
-    transition:background .12s, color .12s, border-color .12s;
-  }
-  .rs-chip.on{background:var(--cherry-fill); color:var(--cherry-btn-ink); border-color:var(--cherry);}
-  .rs-chip:disabled{opacity:.5; cursor:default;}
-  /* The recommendation, said once and quietly. It is a label on a choice, not
-     a second selected state, so it never takes the accent -- and since the
-     founder's "No pills" it is not a capsule either. A pill INSIDE a pill
-     was the worst of them: a bordered capsule sitting within the rounded
-     chip it was labelling, which read as a second control on the same
-     button. The word alone, dimmed, says the same thing. */
-  .rs-rec{
-    font-family:var(--label-face); font-size:8px; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
-  .rs-chip.on .rs-rec{color:var(--cherry-btn-ink); opacity:.8;}
-  /* Custom: one number, two buttons. Progressive disclosure -- it exists only
-     while Custom is the selection, so the card does not carry a configuration
-     panel it almost never needs. */
+  /* .rs-chips, .rs-chip, .rs-chip.on and .rs-rec stood here: a wrapping row of
+     capsules, the chosen one filled cherry with RECOMMENDED inside it. The
+     picker is drawn with the builder's .opt-grid now -- see
+     renderRaceStrategyPicker() -- so every one of those rules would be
+     fighting the tiles it has become. .rs-chip survives as a name only: the
+     tap handler and the tests find the buttons by it. */
+  .rs-chip{cursor:pointer;}
+  /* A three-column builder tile is a flex ROW, because until now it only ever
+     held one thing. This one can hold two -- the strategy's name and
+     Recommended under it -- and in a row they sat side by side and ran into
+     each other. Stacked, and the box taller, so the pair centred in it still
+     clears the cherry tick the builder puts at the foot of a chosen tile. */
+  .rs-chips.opt-grid .rs-chip{flex-direction:column; min-height:96px; padding:14px 4px;}
+  .rs-chips.opt-grid .rs-chip .sub{margin-top:2px;}
+  /* Measured: "Even Pace" is 85px of mono and a tile on a 320px phone has 81
+     inside it, so the name broke onto two lines and Recommended landed 3px
+     into the tick. One line is what clears it, so the narrowest phones set
+     the name a pixel smaller rather than the tile a row taller. */
+  @media (max-width:350px){ .rs-chips.opt-grid .rs-name{font-size:14px; letter-spacing:0;} }
   .rs-custom{display:flex; align-items:center; gap:10px; margin-top:9px;}
   /* 38px was under the 44px floor every other control on these screens
      keeps, and these two are pressed repeatedly to tune a number. */
@@ -1404,7 +1400,9 @@
      height and breaks no heading. The reason is still inside the panel,
      where there is room for it: "Log actual KM and average pace to score
      this session." */
-  .sess-tab.is-quiet .sess-tab-k{color:var(--ink-faint);}
+  /* THE TITLE IS WHITE AGAIN. It was dimmed here to say "nothing scored
+     yet". Founder, on exactly that state: "SACORO analysis! ... White text."
+     The chevron below keeps the quieter tone, so the hint is still there. */
   .sess-tab.is-quiet .sess-tab-c{color:var(--bronze-text);}
   .sess-tab-c{flex:none; display:flex; align-items:center; justify-content:center;
     width:18px; color:var(--gold-text);
@@ -1862,7 +1860,6 @@
 
   .th-hero{display:none;}
   .th-hero-title{display:none;}
-  .th-steps-note{display:none;}
   .view-today .hero-mountains{display:none;}
   .view-today .hero .stat-row{display:none;}
   .view-today .hero{padding:0; min-height:0;}
@@ -2146,14 +2143,6 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-row{
     font-size:clamp(11px, 3vw, 13px); line-height:1.5; gap:5px; color:var(--ink);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-row .th-ic, :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-row .th-ic svg{width:12px; height:12px;}
-  /* The strip that hung off the bottom of the card has nothing to hang off
-     now. It keeps its words and its quiet colour and loses the half-card it
-     was drawn as -- a rounded-bottom box with no top is only legible as the
-     foot of something, and that something is gone. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-steps-note{
-    display:block; margin:0; padding:0 2px 10px;
-    color:var(--ink-faint);
-    border:0; background:none; border-radius:0; box-shadow:none;}
 
   /* The metric: unit nearly the weight of the number, ambient backlight. */
   .th-dist{display:flex; align-items:baseline; gap:3px;}
@@ -2790,6 +2779,11 @@
     font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase;
     color:rgba(255,255,255,.72);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-v{font-size:14px; color:#FFFFFF;}
+  /* The hourly rate, under the total it is the rate of. order:3 -- after the
+     figure (2) and before the foot (5). */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-rate{order:3; margin-top:6px; font-size:15px; color:#FFFFFF; letter-spacing:.02em;}
+  /* One fact a line: the gels, then the fluid. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot.is-stacked{flex-direction:column; align-items:center; gap:7px; margin-top:14px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono){order:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-qty{order:2;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-cue{order:3;}
@@ -3320,7 +3314,19 @@
      the exec review card, the taper note and the year-round panel, and both
      notes take it identically -- which is the point of this change. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note > *{position:relative; z-index:1;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k{font-size:17px; letter-spacing:.055em; gap:7px;}
+  /* ---------- A LINE OF AIR UNDER THE HEADING, ON EVERY SESSION ----------
+     Founder, once the goal day's note had been cleared out: "you should be
+     able to introduce a line gap from coaches note to the first line - if
+     you can do that across the rest of the sessions that would be class."
+     The heading sat 3px above its first sentence, the same gap that
+     separates one sentence from the next, so it read as the first line of
+     the note rather than its title. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k{font-size:17px; letter-spacing:.055em; gap:7px; margin-bottom:14px;}
+  /* ---------- AND THE NOTE STANDS CLEAR OF THE RAIL ----------
+     Founder: "Coaches note is very close to the rail." The rail's dots and
+     the top of the note's box were 10px apart -- close enough that the box
+     read as part of the rail's furniture. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-table + .how-note:not([data-solo]){margin-top:26px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k svg{width:16px; height:16px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .v{font-size:var(--fs-body); line-height:var(--lh-body);}
 
@@ -3477,6 +3483,43 @@
     letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold); margin-bottom:9px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-summary{color:var(--ink); font-weight:600;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-more{color:var(--ink-faint);}
+
+  /* ---------- SACORO ANALYSIS WEARS THE COACH'S NOTE'S BOX ----------
+     Founder: "SACORO analysis! Needs to be updated. Same as coaches note
+     please. White text. Cherry box."
+     So the declarations below are the Coach's Note's own, value for value:
+     the 1.5px cherry line, the tile radius and ground, 26/22/28 of padding,
+     heading and sentences centred together, a 17px white heading standing
+     14px clear of its first line, and every sentence in the note's ink.
+     THE GLOW GOES, for the reason it went from the note: it was a 100vw
+     light built so that no edge could be found, and inside a box with an
+     edge it simply spills out of it.
+     THE SCORE BADGE IS NOT DRAWN IN HERE. It was a gold capsule in the
+     corner of the heading -- the standing rule is no pills -- and the
+     figure it carried is the line directly above the box. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box{
+    position:relative; display:flex; flex-direction:column;
+    align-items:stretch; text-align:center;
+    width:100%; box-sizing:border-box; margin:16px 0 2px;
+    padding:26px 22px 28px;
+    border:1.5px solid var(--cherry); border-radius:var(--tile-radius);
+    background:var(--t-tile); box-shadow:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .exec-review-card{margin:0; padding:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .exec-review-card::before,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .exec-review-card::after{content:none; display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .wc-verdict{padding:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .wc-verdict + .exec-review-card{margin-top:26px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .exec-review-head,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .wc-verdict-k,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .wc-verdict.is-plain .wc-verdict-k{
+    justify-content:center; font-family:inherit; font-size:17px; font-weight:700;
+    letter-spacing:.055em; text-transform:uppercase; color:var(--ink); margin-bottom:14px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .exec-pill{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .cr-signal{justify-content:center;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .exec-review-summary{font-weight:400;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box :is(p, .cr-k, .cr-v, .cr-sig-label, .cr-cmp, .cr-adjust-line, .cr-adjust-why,
+    .exec-review-summary, .exec-review-more, .wc-verdict-v, .wc-verdict-why){color:var(--ink);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .wc-line{color:var(--ink); text-align:center;}
 
   /* Clearing a log is a recovery, not an action this screen is for. */
   /* NO MARGIN OF ITS OWN. Clear log is a child of the log panel's grid, and
@@ -6104,7 +6147,6 @@
   .wc-hero{position:relative; border:1px solid var(--wc-edge); border-radius:14px;
     overflow:hidden; background:#07080C;}
   .wc-hero-type{position:relative; z-index:2; padding:16px 14px 14px; text-align:center;}
-  .wc-mark{display:block; width:62px; height:62px; margin:0 auto 8px; border-radius:19%;}
   /* ---------- THE SAME MARK, AT SHARE SIZE ----------
      Founder: "We could put it on the socials share overlays and the splash
      screen but I'm not sure it's needed everywhere."
@@ -7275,8 +7317,9 @@
      ring, glow and spacing all live. Scoped to .wk-overview and NOT to
      .wk-session, because the full card nested in the same box carries its
      own copy of this markup and would otherwise be styled twice -- and that
-     copy is already covered by the .wk-full .day arm. */
-  .view-week .wk-overview .th-steps-note{display:none;}
+     copy is already covered by the .wk-full .day arm.
+     The one rule this note stood over hid the step caption in the overview;
+     the caption no longer exists anywhere, so the rule went with it. */
   .wk-rest{padding:6px 0 2px;}
   .wk-rest-k{font-size:21px; font-weight:600; color:var(--ink);}
   .wk-rest-v{font-size:13.5px; color:var(--ink-dim); margin-top:2px;}
@@ -8615,8 +8658,6 @@
     color:#FFFFFF; display:inline-flex; align-items:center; gap:5px;
   }
   .day-status-dot{width:6px; height:6px; border-radius:99px; background:var(--ink-faint); flex:none;}
-  .day-status-label.adjusted .day-status-dot{background:var(--gold);}
-  .day-status-label.key .day-status-dot{background:var(--bronze);}
   .day-status-label.missed .day-status-dot{background:var(--c-threshold);}
   /* RESTRICTED IS NOT A WARNING. It borrows the Recovery tone rather than
      the missed one on purpose: nothing went wrong, the athlete told us, and
@@ -10520,7 +10561,6 @@
   .cf-value-cap,
   .rs-pick-note,
   .th-row,
-  .th-steps-note,
   .rs-blurb,
   .ask-incomplete,
   .ask-source,
@@ -31435,6 +31475,39 @@ function renderWorkoutStepSecondary(st){
    renderWorkoutStepSecondary() never carried pace or heart rate (they were
    joined into the band), so dropping the band drops both, and the recovery
    and build lines underneath are unaffected. */
+/* ---------- THE HILL REPEATS CARD, IN THE FOUNDER'S WORDS ----------
+   Founder: "So I've got a change for hill repeats. Hopefully. The below says
+   the same;
+     Target: 4:12-4:19/km . Hard effort
+     Start controlled. Keep all five reps consistent.
+     Jog or walk downhill.
+     Start the next rep when sufficiently recovered."
+   The card said it in five sentences drawn from four places -- the session's
+   Watch For and Feel, the Press and Recover phases' captions, and the
+   recovery qualifier -- written for intervals on the flat and reading that
+   way: "Keep jogging. Standing still recovers you more than the session
+   intends" on a hill you walk back down.
+   THE PACE IS THE RING'S OWN STRING, not a second derivation, so the card
+   and the ring cannot disagree; with no pace known the line is the effort
+   alone. THE COUNT IS THE STEP'S, spelled out as the founder wrote it.
+   THIS IS THE ONE CARD THAT PRINTS A PACE. "No card in any rail needs pace
+   or Heart rate" still governs every other card; the founder wrote this
+   line for this one. */
+var HILL_REP_WORDS = ['', '', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
+                      'nine', 'ten', 'eleven', 'twelve'];
+function hillRepeatLines(work, ring){
+  var n = work && work.reps;
+  var reps = (n >= 2) ? 'all ' + (HILL_REP_WORDS[n] || n) + ' reps' : 'every rep';
+  return [
+    'Target: ' + (ring && ring.pace ? ring.pace + ' \u00b7 ' : '') + 'Hard effort',
+    'Start controlled. Keep ' + reps + ' consistent.',
+    'Jog or walk downhill.',
+    'Start the next rep when sufficiently recovered.'
+  ];
+}
+function isHillRepeats(dd){
+  return !!(dd && dd.prescription && dd.prescription.archetype === 'hill_repeats');
+}
 function renderWorkoutStepHCell(st, i, ctx){
   var qty = renderStepQty(st);
   /* ---------- THE HEADER ROW GOES, THE STAGE NAME STAYS SPOKEN ----------
@@ -31529,6 +31602,10 @@ function renderWorkoutStepHCell(st, i, ctx){
      instruction: "each part tells the athlete what to do and how to execute
      it when they are looking at that part." */
   var execCaps = stageCaps;
+  /* See hillRepeatLines(): on a hill session the work card says the
+     founder's four lines and nothing drawn from anywhere else. */
+  var hill = (ctx && ctx.hill && isWork) ? ctx.hill : null;
+  if (hill){ avoid = ''; feel = ''; cue = ''; execCaps = hill; }
   /* .ws-card-body: the one element whose height IS the text. See the scrim
      rule -- it hangs off this rather than off the card, so it covers the
      words whatever they come to. */
@@ -31589,7 +31666,9 @@ function renderWorkoutStepHCell(st, i, ctx){
         .concat(cue ? ['<div class="ws-h-cue">'+escapeHtml(cue)+'</div>'] : []);
       return lines.length ? '<div class="ws-h-body">'+lines.join('')+'</div>' : '';
     })()+
-    renderWorkoutStepSecondary(st)+
+    /* "Recovery: jog/walk back down" is the third of the founder's lines
+       on a hill card, so the qualifier is not printed under it as well. */
+    renderWorkoutStepSecondary(hill ? {build:st.build, note:st.note, setRecovery:st.setRecovery} : st)+
   '</div></div>';
 }
 /* ---------- THE BLUEPRINT IS THE RAIL NOW, AND THE RAIL IS THE RAIL ------
@@ -31719,6 +31798,10 @@ function workoutStepCaptions(dd, steps){
    it is about the session, so it sits under the session. Nothing new is
    written and nothing is derived a second way. */
 function renderWhySession(dd){
+  /* Founder: "Why this session on goal day! It's not needed. Remove." It
+     read "The day the block was built for." under a card titled with the
+     race's own name. Every other session still explains itself. */
+  if (dd && dd.type === 'race') return '';
   var gd = null;
   /* THE SAME LEVEL THE RAIL ASKS FOR, so the sentence under the rail and
      the sentences on it come from one reading of the athlete. */
@@ -31789,7 +31872,8 @@ function renderStructuredWorkoutSteps(steps, extra, dd){
                                   : ((ce && ce.cue) || '');
   } catch(e) { dayCue = ''; }
   var ctx = { work: workStep ? workStep.intensity : null, cues: steps.length >= 2,
-              ring: ring, gd: gd, workIdx: workIdx, caps: caps, dayCue: dayCue };
+              ring: ring, gd: gd, workIdx: workIdx, caps: caps, dayCue: dayCue,
+              hill: (isHillRepeats(dd) && workStep) ? hillRepeatLines(workStep, ring) : null };
   var panels = steps.map(function(st, i){
     return '<div class="how-mod" data-mod="ws-'+i+'">'+renderWorkoutStepHCell(st, i, ctx)+'</div>';
   }).concat(extra || []);
@@ -32385,6 +32469,22 @@ function renderCoachingDepth(dd, pre, preview){
         var cols = (railHasCoaching ? [['Feel', gd.feel]]
           : [['Feel', gd.feel], ['Watch For', gd.avoid]])
             .filter(function(r){ return !!r[1]; });
+        /* ---------- ON A GOAL DAY THE CARDS HAVE TAKEN ALL THREE ----------
+           Founder, going down the goal day's note line by line: Feel "can be
+           added to the settle page", Watch For goes on the first Hold, and of
+           the cue -- "Goal pace from the gun, held honestly. The opening is
+           a ceiling, not a target." -- "drop goal pace from the gun!! Just
+           remove it."
+           So on a race the note prints no Feel, no Watch For and no cue. The
+           first two are on the cards (strategyForRace); the third is what the
+           opening card and the strategy picker both already say.
+           WHAT IS LEFT IS THE FUELLING CAVEATS, and they stay: they are the
+           conditions on the figures the fuel card prints, not prose about how
+           the day feels. noteCue is a local so the inline cue the listings
+           read is untouched -- this is about the note, not the sentence. */
+        var onRace = dd.type === 'race';
+        if (onRace) cols = [];
+        var noteCue = onRace ? '' : cueText;
         /* The shape leads the note, where it is here at all: it is what the
            session IS, and everything below it is coaching about it. */
         /* A fuel-rail long run states its shape here because its stages
@@ -32495,13 +32595,13 @@ function renderCoachingDepth(dd, pre, preview){
              description) and they arrive punctuated. One rule, one place,
              every line in this box. */
         }
-        if (!cueText && !hints.length && !caps && !soloHow && !cols.length && !shape) return '';
+        if (!noteCue && !hints.length && !caps && !soloHow && !cols.length && !shape) return '';
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
           (shape ? '<span class="v how-note-row"><b>Session</b> '+escapeHtml(shape)+'</span>' : '')+
           cols.map(function(r){
             return '<span class="v how-note-row"><b>'+escapeHtml(r[0])+'</b> '+escapeHtml(r[1])+'</span>';
           }).join('')+
-          (cueText ? '<span class="v">'+escapeHtml(cueText)+'</span>' : '')+
+          (noteCue ? '<span class="v">'+escapeHtml(noteCue)+'</span>' : '')+
           (soloHow ? '<span class="v">'+escapeHtml(soloHow)+'</span>' : '')+
           caps+
           hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
@@ -32696,13 +32796,26 @@ function fuelPairPanels(dd, leadHead){
     /* Everything still unread joins this card, once this card is a fuel
        card rather than the session's own lead. */
     var foot = (head.k !== (leadHead && leadHead.k)) ? rows.splice(0, rows.length) : [];
+    /* ---------- THE RATE GOES UNDER THE TOTAL, AND LOSES ITS LABEL ----------
+       Founder, on the goal day's fuel card: "Fuel should be dropped but keep
+       60-90 HR under the 200-300g. Then put fluid on another line."
+       The card opened with FUEL 60-90g/hr above TOTAL CARBS, so the first
+       thing read was a label saying what the card was about and a rate with
+       nothing yet to be a rate of. The total leads; the rate sits under it
+       as the pace that total is taken at; the gels and the fluid each get a
+       line instead of sharing one.
+       ONLY WHERE THE CARD IS THE FUEL CARD. A long run's first card is headed
+       by the session itself ("LONG RUN 15km") and that heading is not a
+       label to drop, so the lead case keeps the shape it had. */
+    var rateUnder = (!leadHead && head.k === 'Fuel' && body) ? head.v : '';
     out.push(
       '<div class="how-mod" data-mod="pair-'+out.length+'">'+
         '<div class="ws-card-body">'+
+          (rateUnder ? '' :
           '<div class="pair-head">'+
             '<span class="pair-k">'+escapeHtml(head.k)+'</span>'+
             '<span class="pair-v font-mono">'+head.v+'</span>'+
-          '</div>'+
+          '</div>')+
           (head.note ? '<div class="pair-note">'+head.note+'</div>' : '')+
           /* The body takes the card's own title and figure classes, so a
              paired card and a stage card are the same card -- one title
@@ -32711,7 +32824,8 @@ function fuelPairPanels(dd, leadHead){
                   '<span class="ws-h-qty font-mono">'+body.v+
                     (body.note ? '<span class="fuel-v-note">'+body.note+'</span>' : '')+
                   '</span>' : '')+
-          (foot.length ? '<div class="pair-foot">'+foot.map(function(r){
+          (rateUnder ? '<span class="pair-rate font-mono">'+rateUnder+'</span>' : '')+
+          (foot.length ? '<div class="pair-foot'+(rateUnder ? ' is-stacked' : '')+'">'+foot.map(function(r){
              return '<span class="pair-foot-i"><span class="pair-foot-k">'+
                escapeHtml(HEAD_WORD[r.short] || r.short)+'</span>'+
                '<span class="pair-foot-v font-mono">'+rowValue(r)+'</span></span>';
@@ -33446,43 +33560,15 @@ function renderDayHeroBlock(dd, targets){
      says nothing -- the day's identity is the title above it. */
   if (isRest) dist = '<div class="th-dist th-dist-hold" aria-hidden="true">'+
     '<span>\u00a0</span><em>\u00a0</em></div>';
-  /* Said once, where the ring is, and only when the day genuinely has
-     step-specific targets -- the blueprint is the prescription for those
-     steps and stays the authority on them.
-     WHERE THE STEPS ARE DEPENDS ON WHETHER THE SESSION HAS BEEN RUN, so
-     the sentence has to as well. Before it is run the blueprint is the next
-     thing on the card and "below" is true. Once it is logged the table
-     moves inside Session Details and "below" points at a closed tab, so the
-     line names the tab. One fact, two true ways of saying it -- rather than
-     one sentence quietly describing a layout that is only sometimes there. */
-  /* TWO QUESTIONS, AND THEY STOPPED HAVING THE SAME ANSWER.
-     `multi` served both: whether the card has a blueprint rail worth
-     showing (which decides .th-hero-solo, the marker that lets Today drop
-     a WORKOUT block repeating the ring), and whether the session has more
-     than one STAGE (which is the only thing that makes "each step below
-     carries its own target" true).
-     While a blueprint meant two or three stages those were the same
-     question. A one-stage easy run is a rail now, and the shared variable
-     put "each step below carries its own target" over a card showing one
-     step whose target is the ring's. Split. */
+  /* ---- THE STEP CAPTION IS GONE ----
+     "Primary zone -- each step carries its own target, in Session Details."
+     sat under the ring of a logged session, the one case left after it came
+     off every unlogged one. Founder, on a completed hill session: "Why does
+     primary zone show up when session is complete? I don't rate it. Remove
+     it." It described the layout rather than the run, to somebody who had
+     already done the run. Nothing replaces it; Session Details is the tab
+     directly below and it opens on the steps. */
   var hasRail = hasWorkoutBlueprint(dd);
-  var manySteps = false;
-  if (hasRail){ try { manySteps = workoutSteps(dd).length >= 2; } catch(e) { manySteps = false; } }
-  /* ---------- THE CAPTION GOES WHERE THE CARDS ARE VISIBLE ----------
-     Founder: "Remove all the text between the hero and rail."
-     "Primary zone -- each step below carries its own target" was explaining
-     the layout: the ring shows one pair of numbers and the cards below show
-     others. The cards now show a band ONLY where it differs from the ring
-     (see renderWorkoutStepHCell), so the difference is the thing on screen
-     rather than a sentence about it.
-     IT STAYS WHERE THE CARDS ARE NOT. Once a session is logged its
-     prescription moves behind Session Details and there is no rail under
-     the ring to read; then the caption is the only thing saying the steps
-     have their own targets at all, and it keeps pointing at the tab. */
-  var stepNote = (ring && manySteps && prescriptionIsReference(dd))
-    ? '<div class="th-steps-note">Primary zone \u2014 each step '+
-        'carries its own target, in Session Details.</div>'
-    : '';
   /* A SINGLE-STEP SESSION SAYS ITS DISTANCE AND ZONE ONCE. The marker lets
      Today drop the one-row WORKOUT block, which on such a day repeats the
      ring and the headline exactly; a multi-step session keeps its blueprint,
@@ -33500,7 +33586,7 @@ function renderDayHeroBlock(dd, targets){
       dist+
     '</div>'+
     (ring ? '<div class="th-ring-wrap">'+ring+'</div>' : '')+
-  '</div>'+stepNote;
+  '</div>';
 }
 /* ---------- THE FINISHED SESSION IS A PANEL, AND IT IS ONE PANEL ------
    Founder: "A completed run on today should be moved on this week and full
@@ -33723,7 +33809,16 @@ function renderDayCard(dd){
        alone so no other day's words move. */
     /* .day-desc-race is gone: every focused description is centred now, so
        a modifier that means "centre this one" has nothing left to say. */
-    if (raceLine) return '<div class="day-desc">'+escapeHtml(raceLine)+'</div>';
+    /* ---- CHANGED SIDES: THE RACE SUMMARY IS NOT PRINTED HERE ----
+       Founder, on the goal day: "Remove the text between the rail and hero.
+       It's repeated." It was: "Even pace: one pace, held honestly, with the
+       opening as a ceiling rather than a target. 5 execution blocks..." sat
+       directly above five cards that each say their part of it, and above a
+       strategy picker whose own line says "One pace, honestly held. The
+       opening is a ceiling, not a target." raceSummarySentence() is kept and
+       still decides, below, that this is a race with a plan; nothing on
+       screen prints what it returns any more. */
+    if (raceLine) return '';
     /* ---------- A REST DAY SAYS IT ONCE ----------
        "Full rest. Legs up, hydrate, stay ahead of the block." sat between
        the title and the Coach's Note, and the note underneath it says the
@@ -34731,13 +34826,24 @@ function raceBlockPhaseCopy(b, i, plan, hr){
        slower is the right error. A Negative Split prints a slower pace as a
        TARGET, because that pace IS the plan; framing it as a limit the athlete
        may drift under would quietly turn it back into an even race. */
+    /* ---- THE DAY'S "FEEL" LIVES ON THIS CARD NOW ----
+       Founder: "Feel (but not feeling, just the words after) can be added to
+       the settle page." The Coach's Note carried a row reading FEEL /
+       Comfortable early, hard late. The label goes and the words come here,
+       where the comfortable half of that sentence is happening.
+       AND ON A RACE WITH NO MIDDLE BLOCK, THE WARNING COMES TOO. "Banking
+       time early" belongs on the first HOLD card (see below), but a 5K and a
+       10K have no HOLD at all -- three blocks, opening, press, close -- and
+       dropping the note's row there would have deleted the warning from the
+       two races where going out too fast is over soonest. */
+    var feel = ' ' + RACE_DAY_FEEL + (n - 3 < 1 ? ' ' + RACE_DAY_WATCH : '');
     return merge(neg ? {
       paceRole:'target',
-      cue:'Run the number, not the feeling. It should feel far too easy — that is the plan working.',
+      cue:'Run the number, not the feeling. It should feel far too easy — that is the plan working.' + feel,
       watch:'Everyone around you is going out too fast. Letting them go IS the strategy.'
     } : {
       paceRole:'ceiling',
-      cue:'No faster than goal pace. A few seconds slower here is the right mistake to make.',
+      cue:'No faster than goal pace. A few seconds slower here is the right mistake to make.' + feel,
       watch:'Feeling easy is what the opening is supposed to feel like, not a reason to go faster.'
     });
   }
@@ -34787,12 +34893,24 @@ function raceBlockPhaseCopy(b, i, plan, hr){
       watch: 'Fuel missed in this block is paid for after 30km, not in it.'
     });
   }
+  /* ---- AND "WATCH FOR" LIVES ON THE FIRST HOLD ----
+     Founder: "Hold (1st) - add watch trying to bank time early." The note's
+     row read WATCH FOR / Banking time early. It is the first middle block
+     where an athlete who feels good decides to get ahead of the plan, so
+     that is the card that says it. Only the FIRST: a marathon's second
+     middle block has its own sentence, about the pace starting to cost. */
   return merge({
-    cue: neg ? 'Still inside the plan, still patient. Take your fuel on schedule.'
-             : 'Goal pace, unremarkable, boring. Take your fuel on schedule.',
+    cue: (neg ? 'Still inside the plan, still patient. Take your fuel on schedule.'
+              : 'Goal pace, unremarkable, boring. Take your fuel on schedule.') +
+         (i === 1 ? ' ' + RACE_DAY_WATCH : ''),
     watch: i === 1 ? 'Nothing is won in the middle and a lot can be lost. Do not chase a group that has gone.' : null
   });
 }
+/* The two sentences the goal day's Coach's Note used to carry as labelled rows,
+   in the words the cards now say them in. One definition each, because the
+   opening card needs both on a short race and the note must print neither. */
+var RACE_DAY_FEEL  = 'Comfortable early, hard late.';
+var RACE_DAY_WATCH = 'Watch for trying to bank time early.';
 /* No VDOT, so no goal pace and no honest number to print. The staging survives,
    because WHERE restraint belongs does not depend on knowing a pace. */
 function strategyForRaceUnpaced(km, hr){
@@ -36368,15 +36486,18 @@ var SHARE_OVERLAYS = [
   var sideM = Math.round(W*0.072), frameW = W - sideM*2;
   var frameY = Math.round(H * (sq ? 0.085 : 0.075));
   var frameB = Math.round(H * (sq ? 0.800 : 0.780));
-  var markH = Math.round(W*0.115), markW = Math.round(markH * SHARE_MARK.wide);
   var inner = Math.round(frameW * 0.78);
+  var ws = Math.round(W*0.046);
+  /* THE NAME SITS THROUGH THE TOP RULE NOW, where the icon tile sat. The gap
+     is an estimate here and is measured against the real glyphs when it is
+     painted (gapFor), because only the canvas knows how wide Cinzel sets. */
+  var nameHalf = Math.round(ws * 3.8 + W*0.026);
   ops.push({ kind:'frame', x:sideM, y:frameY, w:frameW, bottom:frameB,
              r:Math.round(W*0.035),
-             gapFrom: Math.round(W/2 - markW/2 - W*0.022),
-             gapTo:   Math.round(W/2 + markW/2 + W*0.022) });
-  ops.push({ kind:'mark', cx:Math.round(W/2), cy:frameY, h:markH });
-  var y = frameY + Math.round(markH*0.50 + W*0.034);
-  var ws = Math.round(W*0.046);
+             gapFrom: Math.round(W/2 - nameHalf),
+             gapTo:   Math.round(W/2 + nameHalf),
+             gapFor: { text:'SACORO', size:ws, pad:Math.round(W*0.026) } });
+  var y = frameY - Math.round(ws*0.50);
   ops.push({ kind:'wordmark', cx:W/2, y:y, text:'SACORO', size:ws, maxW:inner });
   y = shareSignature(ops, W/2, y + ws, ws, inner, null, W) + Math.round(W*0.036);
   var hp = shareHeadParts(data), hs = Math.round(W*0.049);
@@ -36410,10 +36531,9 @@ var SHARE_OVERLAYS = [
   var W = size.w, H = size.h, ops = [];
   var pad = Math.round(W*0.055), inner = W - pad*2 - Math.round(W*0.09);
   var mi = shareMetricItems(data), strap = shareStrapText(data);
-  var markH = Math.round(W*0.105);
   /* Measured from the foot upward so the plinth is exactly as tall as the
      content it carries -- a session with no pace does not leave a gap. */
-  var h = Math.round(W*0.055) + markH + Math.round(W*0.028)
+  var h = Math.round(W*0.055) + Math.round(W*0.014)
         + Math.round(W*0.042) + Math.round(W*0.030)
         + shareSignatureH(Math.round(W*0.042), W)
         + Math.round(W*0.046) + Math.round(W*0.018)
@@ -36424,8 +36544,6 @@ var SHARE_OVERLAYS = [
   var top = H - h;
   ops.push({ kind:'plinth', x:0, y:top, w:W, h:h, r:Math.round(W*0.045) });
   var y = top + Math.round(W*0.055);
-  ops.push({ kind:'mark', cx:Math.round(W/2), cy:y + markH/2, h:markH });
-  y += markH + Math.round(W*0.014);
   var ws = Math.round(W*0.042);
   ops.push({ kind:'wordmark', cx:W/2, y:y, text:'SACORO', size:ws, maxW:inner });
   y = shareSignature(ops, W/2, y + ws, ws, inner, null, W) + Math.round(W*0.028);
@@ -36462,9 +36580,6 @@ var SHARE_OVERLAYS = [
   ops.push({ kind:'rail', x:0, y:0, w:railW, h:H });
   var cx = Math.round(railW/2);
   var y = Math.round(H*0.085);
-  var markH = Math.round(W*0.105);
-  ops.push({ kind:'mark', cx:cx, cy:y + markH/2, h:markH });
-  y += markH + Math.round(W*0.014);
   var ws = Math.round(W*0.034);
   ops.push({ kind:'wordmark', cx:cx, y:y, text:'SACORO', size:ws, maxW:inner });
   y = shareSignature(ops, cx, y + ws, ws, inner, null, W) + Math.round(W*0.034);
@@ -36530,10 +36645,13 @@ var SHARE_OVERLAYS = [
     return { cx: (left + right) / 2, maxW: Math.max(40, right - left) };
   };
   var y = topY + Math.round(H * (size.square ? 0.040 : 0.028));
-  var markH = Math.round(W*0.082);
-  var r0 = rowCx(y);
-  ops.push({ kind:'mark', cx:Math.round(r0.cx), cy:y + markH/2, h:markH });
-  y += markH + Math.round(W*0.012);
+  /* THE ROOM THE ICON TILE STOOD IN IS KEPT, EMPTY. The wedge comes to a
+     point up here: measured without this, the name was fitted to a row
+     barely wider than its own dots and came out a third of its size. The
+     tile was square and small enough for the point; the name is a line and
+     needs the wedge to have opened first. So the name sits exactly where
+     it sat under the tile, at exactly the size it was there. */
+  y += Math.round(W*0.094);
   var ws = Math.round(W*0.034), r1 = rowCx(y);
   ops.push({ kind:'wordmark', cx:r1.cx, y:y, text:'SACORO', size:ws, maxW:r1.maxW });
   y = shareSignature(ops, r1.cx, y + ws, ws, r1.maxW, null, W) + Math.round(W*0.026);
@@ -36584,19 +36702,16 @@ var SHARE_OVERLAYS = [
     return Math.round(2 * Math.sqrt(r*r - dy*dy) * 0.86);
   };
   var mi = shareMetricItems(data), strap = shareStrapText(data);
-  var markH = Math.round(W*0.078);
   var ws = Math.round(W*0.030), hs = Math.round(W*0.036);
   var ds = data.distanceKm != null ? Math.round(W*0.088) : 0;
   var ms = mi.length ? Math.round(W*0.028) : 0;
   var ss = strap ? Math.round(W*0.026) : 0;
-  var total = markH + Math.round(W*0.008) + ws + shareSignatureH(ws, W) + Math.round(W*0.022)
+  var total = ws + shareSignatureH(ws, W) + Math.round(W*0.022)
             + hs + Math.round(W*0.010)
             + (ds ? Math.round(ds*1.06) : 0)
             + (ms ? ms + Math.round(W*0.020) : 0)
             + (ss ? Math.round(W*0.024) + ss : 0);
   var y = cy - Math.round(total/2);
-  ops.push({ kind:'mark', cx:cx, cy:y + markH/2, h:markH });
-  y += markH + Math.round(W*0.008);
   ops.push({ kind:'wordmark', cx:cx, y:y, text:'SACORO', size:ws,
              maxW:chord(y, y+ws) });
   y = shareSignature(ops, cx, y + ws, ws, chord(y + ws, y + ws + shareSignatureH(ws, W)), null, W)
@@ -36677,15 +36792,14 @@ function shareWatermarkStack(data, size, o){
   var pad = Math.round(W * 0.072);
   var inner = Math.round(W * (o.align === 'center' ? 0.84 : 0.76));
   var mi = shareMetricItems(data), strap = shareStrapText(data);
-  var markH = Math.round(W * 0.082);
   var ws = Math.round(W * 0.036), hs = Math.round(W * 0.044);
   var ds = data.distanceKm != null ? Math.round(W * 0.112) : 0;
   var ms = mi.length ? Math.round(W * 0.034) : 0;
   var ss = strap ? Math.round(W * 0.030) : 0;
-  var gapMark = Math.round(W*0.010), gapWord = Math.round(W*0.022),
+  var gapWord = Math.round(W*0.022),
       gapHead = Math.round(W*0.012), gapDist = Math.round(W*0.022),
       gapRule = Math.round(W*0.024);
-  var total = markH + gapMark + ws + shareSignatureH(ws, W) + gapWord + hs + gapHead
+  var total = ws + shareSignatureH(ws, W) + gapWord + hs + gapHead
             + (ds ? Math.round(ds*1.04) : 0)
             + (ms ? ms + gapDist : 0)
             + (ss ? gapRule + ss : 0);
@@ -36697,11 +36811,6 @@ function shareWatermarkStack(data, size, o){
   ops.push({ kind:'fade', dir:o.anchor, extent:extent, peak:0.80, w:W, h:H });
 
   var cx = o.align === 'center' ? W/2 : (o.align === 'left' ? pad : W - pad);
-  var markCx = o.align === 'center' ? W/2
-             : (o.align === 'left' ? pad + Math.round(markH*SHARE_MARK.wide/2)
-                                   : W - pad - Math.round(markH*SHARE_MARK.wide/2));
-  ops.push({ kind:'mark', cx:markCx, cy:y + markH/2, h:markH });
-  y += markH + gapMark;
   ops.push({ kind:'wordmark', cx:cx, y:y, text:'SACORO', size:ws,
              maxW:inner, align:o.align });
   y = shareSignature(ops, cx, y + ws, ws, inner, o.align, W) + gapWord;
@@ -36746,12 +36855,7 @@ function shareWatermarkRail(data, size, side){
   ops.push({ kind:'seam', x:seamX, y1:Math.round(H*0.10), y2:Math.round(H*0.90) });
 
   var mi = shareMetricItems(data), strap = shareStrapText(data);
-  var markH = Math.round(W * 0.072);
   var y = Math.round(H * (size.square ? 0.20 : 0.255));
-  var markCx = side === 'left' ? pad + Math.round(markH*SHARE_MARK.wide/2)
-                               : W - pad - Math.round(markH*SHARE_MARK.wide/2);
-  ops.push({ kind:'mark', cx:markCx, cy:y + markH/2, h:markH });
-  y += markH + Math.round(W*0.008);
   var ws = Math.round(W * 0.028);
   ops.push({ kind:'wordmark', cx:cx, y:y, text:'SACORO', size:ws, maxW:inner, align:align });
   y = shareSignature(ops, cx, y + ws, ws, inner, align, W) + Math.round(W*0.028);
@@ -36851,128 +36955,15 @@ function shareFontsReady(){
     document.fonts.load("500 40px 'Inter'"),  document.fonts.load("600 56px 'Cinzel'")
   ]).catch(function(){ /* a fallback face is better than no card */ });
 }
-/* ---- THE VV MARK ----
-   Drawn rather than loaded. The crest is a detailed medallion built to be
-   read at a centimetre across on a phone; at the size the reference puts it
-   -- straddling the frame line at the head of the card -- it reduces to mud.
-   The chevron is the same identity at poster scale, and being geometry it is
-   crisp at any export size and needs no second network request before an
-   image the athlete is waiting on can be painted.
-
-   ONE DEFINITION, TWO RENDERERS. The canvas card and the completion screen's
-   DOM both describe the mark from these proportions, so the thing on screen
-   and the thing in the exported PNG cannot drift apart. */
-/* ---- THE VELVET VIKING MARK ----
-   THREE NESTED CHEVRONS, ALL HANGING FROM THE SAME TOP LINE. The earlier
-   version was one chevron with a solid V dropped under it, which read as a
-   Y and was simply the wrong mark. The real one is a double V: a large open
-   chevron, a second chevron nested inside it, and a small solid wedge
-   between their shoulders. What makes it read as one mark rather than three
-   shapes is that every element starts at the same top edge and points at the
-   same centre line; what makes it read as VV is that the two bands are
-   outlines with daylight between them, never filled.
-
-   Drawn rather than loaded. The crest is a detailed medallion built to be
-   read at a centimetre across; at the size this sits -- straddling a frame
-   line at the head of a card -- it reduces to mud. Geometry is crisp at any
-   export size and needs no network request before an image the athlete is
-   waiting on can be painted. One definition serves the canvas card and the
-   DOM both, so the screen and the exported PNG cannot drift apart.
-
-   Proportions are fractions of the mark's own box, measured off the supplied
-   artwork: x as a fraction of half-width, y as a fraction of half-height. */
-var SHARE_MARK = {
-  /* ---- CHANGED SIDES: THE V CHEVRON BECAME THE APP ICON ----
-     This held the proportions of the Velvet Viking V, drawn as geometry so it
-     needed no image. Founder: "remove the V and swap the mountain icon that's
-     on the home screen." The icon itself has changed since -- it is the S
-     between two gold dots now, at the founder's choosing -- and nothing here
-     had to: this draws whatever /assets/icon.png is, which is the point.
-     The reason is recognition rather than taste. A shared image lands in
-     front of someone who has never seen this product, and the only thing they
-     can go and look for is what sits on a home screen. The V was the
-     company's mark; nothing a stranger could find is shaped like it.
-     ---- AND IT IS THE WHOLE ICON, NOT A DISC CUT FROM IT ----
-     The first version clipped the icon to a circle, which suited a ring and
-     was wrong for a tile. Founder: "Keep the complete icon, including its
-     dark rounded-square background, white S, gold dots and cherry lettering.
-     Display it small and discreetly, maintaining the existing layout, spacing
-     and mountain imagery. No other design changes."
-     So the box, its size and its position in every layout are exactly what
-     they were; only what is painted inside the box changed.
-     wide    the icon is square, so its box is. Every layout that reserves
-             room beside or around it reads this.
-     corner  the tile's own corner radius as a fraction of its width, measured
-             off the artwork (about 150px on a 798px tile). The image is
-             clipped to that, because the file is delivered square with a
-             darker ground outside the tile's corners and that ground must not
-             reach the photograph. */
-  wide:1.0,
-  corner:0.19,
-  src:'/assets/icon.png'
-};
-/* THE ONE IMAGE THE CARD WAITS FOR. The V needed no network; this does, once,
-   and the app already holds it -- it is the notification icon, and the service
-   worker keeps /assets/ for offline. Loaded when the share sheet opens, kept
-   for the life of the page, and guarded exactly as the backdrop loader is:
-   the suite runs this file where there is no Image constructor at all. */
-var shareMarkImg = null, shareMarkLoading = null;
-function shareLoadMark(){
-  if (shareMarkImg) return Promise.resolve();
-  if (shareMarkLoading) return shareMarkLoading;
-  shareMarkLoading = new Promise(function(res){
-    var im = null;
-    try { im = new Image(); } catch(e){ res(); return; }
-    if (!im){ res(); return; }
-    im.onload = function(){ shareMarkImg = im; res(); };
-    /* A failure is forgotten rather than remembered, so the next time the
-       sheet opens it is tried again instead of staying broken all session. */
-    im.onerror = function(){ shareMarkLoading = null; res(); };
-    im.src = SHARE_MARK.src;
-  });
-  return shareMarkLoading;
-}
-/* A rounded square, once, for the icon and for the outline that stands in for
-   it. arcTo rather than roundRect(): the latter is newer than some of the
-   WebViews this runs in. */
-function shareMarkPath(ctx, cx, cy, h){
-  var x = cx - h/2, y = cy - h/2, r = h * SHARE_MARK.corner;
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + h, y,     x + h, y + h, r);
-  ctx.arcTo(x + h, y + h, x,     y + h, r);
-  ctx.arcTo(x,     y + h, x,     y,     r);
-  ctx.arcTo(x,     y,     x + h, y,     r);
-  ctx.closePath();
-}
-function shareDrawMark(ctx, cx, cy, h, theme){
-  /* The tile's shape first, so the shadow the caller set falls from a rounded
-     square rather than from the hard square the file is delivered as. */
-  shareMarkPath(ctx, cx, cy, h);
-  ctx.fillStyle = '#0B0C10'; ctx.fill();
-  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
-  if (shareMarkImg){
-    ctx.save();
-    shareMarkPath(ctx, cx, cy, h); ctx.clip();
-    /* At exactly the box, not over-size: the whole icon is the instruction,
-       and anything larger than the box would crop the lettering under the S. */
-    ctx.drawImage(shareMarkImg, cx - h/2, cy - h/2, h, h);
-    ctx.restore();
-    return;
-  }
-  /* NOT LOADED: THE OUTLINE ALONE. An export must never fail or stall on a
-     decoration, and an empty hole where the layout reserved a mark reads as a
-     broken image. The tile's own outline, in the product's gold. */
-  var grad = ctx.createLinearGradient(cx - h/2, cy - h/2, cx + h/2, cy + h/2);
-  grad.addColorStop(0, theme.goldDeep);
-  grad.addColorStop(0.40, theme.goldBright);
-  grad.addColorStop(0.72, theme.gold);
-  grad.addColorStop(1, theme.goldDeep);
-  ctx.lineWidth = Math.max(2, h * 0.05);
-  ctx.strokeStyle = grad;
-  shareMarkPath(ctx, cx, cy, h - ctx.lineWidth);
-  ctx.stroke();
-}
+/* ---- NO EMBLEM ON A SHARE IMAGE ----
+   This held a mark above the name on every overlay: first the crest, then a
+   drawn V, then the app icon, then the S tile. Founder, seeing the S tile on
+   a real export: "I don't like the S square app on the share function. I
+   think that's best as just the app icon."
+   So the tile is the app icon and nothing else, and a share image is signed
+   the way the rest of the product is: the name between its two gold dots,
+   and BY VELVET VIKING under it. SHARE_MARK, its loader and its painter are
+   gone rather than left unused; no layout reserves room for a mark. */
 /* ---- THE NAME BETWEEN ITS DOTS, MEASURED ONCE ----
    The mark is the name and two gold dots, and on a canvas nothing lays that
    out for you. Proportions are the top bar's own: 7px dots and a 15px gap
@@ -37104,7 +37095,7 @@ function shareCardPaint(ctx, ops, W){
     /* THE FRAME IS OPEN AT THE FOOT, which is the whole point of it: three
        sides that lead the eye down the photograph and then let it go, rather
        than a box that shuts the athlete inside. The top rule is drawn as two
-       segments so the mark sits THROUGH it rather than above it. */
+       segments so the name sits THROUGH it rather than above it. */
     /* THE SURFACES THE FIVE OVERLAYS SIT ON. Each is a shape plus a gold
        edge; none of them knows anything about sessions. A scrim is painted
        into the shape rather than over the whole canvas so the photograph is
@@ -37216,6 +37207,11 @@ function shareCardPaint(ctx, ops, W){
       ctx.strokeStyle = T.gold; ctx.lineWidth = lw; ctx.lineCap = 'round';
       ctx.globalAlpha = 1;
       var x0 = op.x, x1 = op.x + op.w, r = op.r;
+      if (op.gapFor){
+        var gm = shareMarkMetrics(ctx, op.gapFor.text, op.gapFor.size, T.head);
+        var gc = (x0 + x1) / 2, gh = gm.full / 2 + op.gapFor.pad;
+        op.gapFrom = Math.round(gc - gh); op.gapTo = Math.round(gc + gh);
+      }
       ctx.beginPath();                                   // left segment of the top rule
       ctx.moveTo(op.gapFrom, op.y);
       ctx.lineTo(x0 + r, op.y);
@@ -37229,9 +37225,6 @@ function shareCardPaint(ctx, ops, W){
       ctx.lineTo(x1, op.bottom);
       ctx.stroke();
       ctx.globalAlpha = 1;
-    } else if (op.kind === 'mark'){
-      ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = op.h * 0.28;
-      shareDrawMark(ctx, op.cx, op.cy, op.h, T);
     } else if (op.kind === 'wordmark'){
       ctx.fillStyle = T.ink; ctx.textBaseline = 'top';
       /* THE WORDMARK IS THE ONE PIECE OF TYPE THAT IS WIDER THAN IT MEASURES.
@@ -37456,10 +37449,9 @@ function openShareModal(dd){
    finished-looking card rather than an empty black frame the athlete has to
    fix before they can judge any of the other choices. */
 function shareLoadBackdrop(){
-  /* The mark rides with the backdrop: every caller of this already repaints
-     when it settles, so the icon appears on the same repaint the photograph
-     does and no call site had to learn there are two images now. */
-  return Promise.all([shareLoadMark(), shareLoadBackdropPhoto()]).then(function(){});
+  /* One image again. The icon tile rode in with it while a share image
+     carried one; it does not now, so there is nothing else to wait for. */
+  return shareLoadBackdropPhoto();
 }
 function shareLoadBackdropPhoto(){
   var st = shareState; if (!st) return Promise.resolve();
@@ -37784,7 +37776,15 @@ function analysisTab(dd, body, vLine){
       'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
       sessionTabHtml('Sacoro Analysis')+
     '</button>'+
-    (open ? ((vLine ? '<div class="wc-line">'+escapeHtml(vLine)+'</div>' : '')+body) : '')+
+    /* ---- THE ANALYSIS IS ONE BOX, AND IT IS THE COACH'S NOTE'S BOX ----
+       Founder: "SACORO analysis! Needs to be updated. Same as coaches note
+       please. White text. Cherry box." The verdict and the review were two
+       unboxed sections over a cherry glow, headed in gold. .an-box is the
+       one element round both, so there is a single edge to draw the line
+       on; what it looks like is decided in the stylesheet, beside the
+       Coach's Note rule it copies. */
+    (open ? ((vLine ? '<div class="wc-line">'+escapeHtml(vLine)+'</div>' : '')+
+             (body ? '<div class="an-box">'+body+'</div>' : '')) : '')+
   '</div>';
 }
 function renderExecutionReview(dd){
@@ -38135,7 +38135,6 @@ function renderCompletionHero(dd){
                 .filter(function(x){ return !!x; }).join('  ·  ');
   return '<div class="wc-hero">'+
     '<div class="wc-hero-type">'+
-      '<img class="wc-mark" src="'+SHARE_MARK.src+'" width="62" height="62" alt="" aria-hidden="true">'+
       '<div class="wc-lockup">'+
         '<span class="wc-dot" aria-hidden="true"></span>'+
         '<div class="wc-wordmark">SACORO</div>'+
@@ -52154,10 +52153,32 @@ function dayStatusLabel(dd){
      gets its own word. No new tone/colour is introduced: like Kept, an edit
      the athlete made needs no explanation from Sacoro, so it renders in the
      same quiet default styling Kept already uses. */
-  if (dd.coachAdjust){ word = 'Adjusted'; tone = 'adjusted'; }
-  else if (dd.manualEdit){ word = 'Edited'; tone = 'edited'; }
-  else if (dd.coachKeptAt){ word = 'Kept'; tone = 'kept'; }
-  else if (dd.type==='checkpoint' || dd.type==='race'){ word = 'Key'; tone = 'key'; }
+  /* ---- CHANGED SIDES: AN ADJUSTED DAY NO LONGER SAYS SO ----
+     This printed Adjusted, with a gold dot, above any session Sacoro had
+     changed. Founder, on a completed hill session: "I also don't care about
+     it say adjusted pill top right! Remove." The athlete accepted the
+     change before it was made, so the card was telling them something they
+     had already agreed to.
+     WHAT ADJUSTED USED TO OUTRANK IT STILL OUTRANKS. It stood above Edited
+     and Kept, so a session Sacoro changed was never called the athlete's
+     own edit and an accepted proposal was never called a declined one.
+     Taking the word away must not hand the day to either of those, so both
+     stand down on an adjusted day. Restricted, Missed and Recovery are
+     facts about the day rather than about who changed it, and still show. */
+  var adjusted = !!dd.coachAdjust;
+  if (!adjusted && dd.manualEdit){ word = 'Edited'; tone = 'edited'; }
+  else if (!adjusted && dd.coachKeptAt){ word = 'Kept'; tone = 'kept'; }
+  /* ---- CHANGED SIDES: A GOAL DAY NO LONGER SAYS "KEY" ----
+     This put the word Key, with a gold dot, above a race and above a Fitness
+     Checkpoint. Founder, on the goal day: "Theres a bloody pill!!! Key!
+     Remove." It had already been taken from a capsule to a dot and a word,
+     and it was still a label telling the athlete that the day their whole
+     block is named after is important.
+     THE BRANCH STAYS, EMPTY, and that is deliberate. It still sits above
+     Restricted and Missed, so a race inside a restriction is not relabelled
+     and a goal day in the past is not called Missed -- the order below was
+     argued for on exactly that ground. It simply has nothing to print. */
+  else if (dd.type==='checkpoint' || dd.type==='race'){ word = null; tone = null; }
   /* ABOVE 'Missed', AND THE ORDER IS THE WHOLE POINT. A day the athlete told
      Sacoro they could not train on has its own word, and it is never the
      one they read as a reproach. Below 'Key', deliberately: a race or a
@@ -52767,12 +52788,21 @@ function renderRaceStrategyPicker(race){
   var chips = RACE_STRATEGY_ORDER.map(function(k){
     var meta = RACE_STRATEGIES[k];
     var on = k === key;
-    return '<button type="button" class="rs-chip'+(on?' on':'')+'"'+
+    /* ---------- THE BUILDER'S TILES, NOT CHIPS OF ITS OWN ----------
+       Founder: "Can race strategy tabs follow the build programme tabs
+       please." These were capsules -- the chosen one filled cherry, with
+       RECOMMENDED set inside it in small caps, which is a pill in a pill.
+       They are .opt-grid buttons now: the same ground, rim, radius, cherry
+       line and cherry tick the builder's own options carry, because the
+       markup is the builder's and there is no second rule to keep in step.
+       'active' is the builder's word for chosen; 'on' was this picker's and
+       had nothing else reading it. Recommended is the tile's sub-line. */
+    return '<button type="button" class="rs-chip'+(on?' active':'')+'"'+
       (editable ? '' : ' disabled')+
       ' aria-pressed="'+(on?'true':'false')+'"'+
       ' data-action="set-race-strategy" data-strategy="'+k+'">'+
-      escapeHtml(meta.label)+
-      (k === rec ? '<span class="rs-rec">Recommended</span>' : '')+
+      '<span class="rs-name">'+escapeHtml(meta.label)+'</span>'+
+      (k === rec ? '<span class="sub">Recommended</span>' : '')+
     '</button>';
   }).join('');
 
@@ -52794,7 +52824,7 @@ function renderRaceStrategyPicker(race){
   return '<div class="race-strategy">'+
     '<div class="rs-head font-head">Race strategy'+
       (editable ? '' : '<span class="rs-locked">Locked</span>')+'</div>'+
-    '<div class="rs-chips">'+chips+'</div>'+
+    '<div class="rs-chips opt-grid cols-3">'+chips+'</div>'+
     custom+
     '<div class="rs-foot">'+
       '<div class="rs-blurb">'+escapeHtml(st.blurb)+'</div>'+
