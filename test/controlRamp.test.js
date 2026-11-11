@@ -126,20 +126,45 @@ test('every token a shell page uses is one the shell defines', () => {
   });
 });
 
-test('the shell carries the brand marks and the app does not repeat them everywhere', () => {
-  ['.vvv-wordmark', '.vvv-crest', '.vvv-tagline'].forEach(c =>
+test('the shell carries the mark, and the mark is the name between two dots', () => {
+  /* ---- CHANGED SIDES: THE CREST LEFT THESE PAGES ----
+     This asserted the shell defined .vvv-crest and .vvv-tagline and that the
+     account page served the crest's 540px encoding with EARN YOUR PLACE under
+     it. Founder: "We don't need an emblem everywhere for the app. It's simply
+     the name with the dots. That's it. Clean & sleek." -- and of these pages:
+     "They should both change to the dot SACORO dot."
+     The crest also could not be renamed: its lettering is artwork, and the
+     artwork reads VALHALLA AWAITS. */
+  ['.vvv-lockup', '.vvv-dot', '.vvv-wordmark', '.vvv-by'].forEach(c =>
     assert.ok(SHELL.includes(c), 'the shell needs ' + c));
-  const account = fs.readFileSync(path.join(ROOT, 'account.html'), 'utf8');
-  /* THE INTENT IS UNCHANGED -- this page shows the real Velvet Viking crest and
-     not a substitute or a page-local copy. What moved is only which file that
-     shared crest lives in: the master is 1223px of artwork rendered here at
-     132 CSS px, so the pages serve a derived 540px encoding of it and the
-     master is served to nobody. test/crestAsset.test.js owns the per-page
-     sizing rule. */
-  assert.match(account, /velvet-viking-crest-540\.png/,
-    'the shared crest delivery asset, not a substitute and not the master');
-  assert.match(account, /Earn Your Place/i);
-  assert.match(account, /vvv-wordmark/);
+  ['.vvv-crest', '.vvv-tagline'].forEach(c =>
+    assert.ok(!new RegExp('\\' + c + '[\\s.{,]').test(SHELL.replace(/\/\*[\s\S]*?\*\//g, '')),
+      'the shell still styles ' + c + ', which no page draws'));
+  /* THE SELECTORS CARRY .vvv-brand, AND THE PAGE BREAKS WITHOUT IT. Two of the
+     five pages set the lockup inside .vvv-shell, whose rule for every <p>
+     (13.5px, 18px beneath) outranks a bare class by one element. Measured in
+     Chromium with the bare class: the name rendered at 13.5px on /start and
+     /account and 33px on /get, from identical markup. No test that reads the
+     HTML could have seen that, so the specificity itself is the assertion. */
+  assert.ok(SHELL.includes('.vvv-brand .vvv-wordmark{'),
+    'the name lost the selector that lets it outrank .vvv-shell p; it renders at 13.5px on /start and /account');
+  assert.ok(SHELL.includes('.vvv-brand .vvv-by{'),
+    'the byline lost the selector that lets it outrank .vvv-shell p');
+  assert.match(SHELL, /\.vvv-wordmark\{[^}]*font-family:'Cinzel',serif; font-weight:600/,
+    'the pages set the name in something other than the mark\u2019s own face and weight');
+
+  ['account.html', 'start.html', 'get.html', 'privacy.html', 'terms.html'].forEach(f => {
+    const html = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.equal(html.indexOf('velvet-viking-crest'), -1, f + ' is serving the crest again');
+    assert.match(html,
+      /<div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"><\/span><(p|h1) class="vvv-wordmark">Sacoro<\/\1><span class="vvv-dot" aria-hidden="true"><\/span><\/div>/,
+      f + ' does not carry the name between two dots that a reader is not told about');
+    assert.match(html, /<p class="vvv-by">By Velvet Viking<\/p>/,
+      f + ' is where someone first meets the product, and the company is not signing it');
+    /* The mark is weight 600 and these pages used to load 700 and 800 only,
+       which silently substitutes a heavier cut. */
+    assert.match(html, /family=Cinzel:wght@600;700;800/, f + ' does not load the weight the mark is set in');
+  });
 });
 
 test('inputs are 16px or iOS zooms the page the moment you tap one', () => {

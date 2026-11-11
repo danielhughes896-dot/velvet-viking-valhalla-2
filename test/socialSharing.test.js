@@ -766,3 +766,141 @@ test('a session with no verdict is still a session the athlete can share', () =>
   const ops = app.shareCardLayout(data, 'frame', { w: 1080, h: 1920, square: false });
   assert.ok(ops.length > 0, 'with a card to draw');
 });
+
+// ---------------------------------------------------------------------------
+// THE MARK ON THE IMAGE THAT LEAVES THE APP
+// ---------------------------------------------------------------------------
+/* Founder, on the share image: "remove the V and swap the mountain icon
+   that's on the home screen." And earlier, on where the company signs its
+   work: "We could put it on the socials share overlays and the splash screen
+   but I'm not sure it's needed everywhere."
+   This is the one picture of the product that reaches people who have never
+   seen it. So it carries the thing they could go and find -- the icon on a
+   home screen -- the name between its two dots, and the company's byline. */
+
+/* A canvas that records what was asked of it. The painter is the only part of
+   sharing that needs a browser; this is enough of one to see what it draws. */
+function recordingCtx() {
+  const calls = [];
+  const rec = name => function () { calls.push([name].concat(Array.prototype.slice.call(arguments))); };
+  const ctx = {
+    calls,
+    measureText: t => ({ width: String(t).length * 10 }),
+    createLinearGradient: () => ({ addColorStop() {} }),
+    createRadialGradient: () => ({ addColorStop() {} }),
+  };
+  ['save', 'restore', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'arc', 'arcTo', 'rect',
+   'quadraticCurveTo', 'bezierCurveTo', 'clip', 'fill', 'stroke', 'fillRect', 'strokeRect',
+   'fillText', 'drawImage', 'translate', 'rotate', 'scale', 'setLineDash', 'roundRect']
+    .forEach(n => { ctx[n] = rec(n); });
+  return ctx;
+}
+
+test('every overlay signs the name: the byline sits under the wordmark and above what follows', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const data = app.shareCardData(completedDay({
+    actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
+    coachReview: { trainingSignal: 'positive_adaptation' },
+  }));
+  for (const size of [SIZE, { w: 1080, h: 1080, square: true }]) {
+    for (const key of app.shareOverlayKeys()) {
+      const ops = Array.prototype.slice.call(app.shareCardLayout(data, key, size));
+      const wi = ops.findIndex(o => o.kind === 'wordmark');
+      const by = ops[wi + 1];
+      const where = key + (size.square ? ' (square)' : '');
+      assert.ok(by && by.kind === 'byline', where + ' does not follow the name with the byline');
+      assert.equal(by.text, 'BY VELVET VIKING', where + ' signs it as something else');
+      const name = ops[wi];
+      assert.ok(by.y >= name.y + name.size, where + ': the byline overlaps the name above it');
+      assert.equal(by.align, name.align, where + ': the byline is aligned differently from the name');
+      /* AND NOTHING WAS LEFT WHERE IT USED TO BE. The byline takes real height,
+         so every row after it has to have moved down by at least that much --
+         the first text row below must start under the byline, not through it. */
+      const next = ops.slice(wi + 2).find(o => typeof o.y === 'number' &&
+        ['headline', 'rule', 'distance', 'stack'].indexOf(o.kind) > -1);
+      if (next) {
+        assert.ok(next.y >= by.y + by.size,
+          where + ': the ' + next.kind + ' starts at ' + next.y + ', inside the byline that ends at ' +
+          (by.y + by.size));
+      }
+      /* Readable on the smallest export: the byline never drops under 1.5% of
+         the width, which is 16px on a 1080 image. */
+      assert.ok(by.size >= Math.round(size.w * 0.015), where + ': the byline is ' + by.size + 'px');
+    }
+  }
+});
+
+test('the mark is the icon on the home screen, not the chevron', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  assert.equal(app.SHARE_MARK.src, '/assets/icon.png',
+    'the share image draws something other than the app icon');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'icon.png')));
+  assert.equal(app.SHARE_MARK.wide, 1,
+    'the mark is a circle; a layout reserving a wider box leaves a gap beside it');
+  assert.equal(typeof app.shareMarkSVG, 'undefined', 'the chevron SVG is back');
+  assert.equal(typeof app.shareMarkGeometry, 'undefined', 'the chevron geometry is back');
+});
+
+test('the painter draws the icon when it has it, and a ring when it does not', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const theme = app.SHARE_THEME;
+
+  /* NOT LOADED. An export must never stall or fail on a decoration, and a
+     hole where the layout reserved a mark reads as a broken image. */
+  app.shareMarkImg = null;
+  let ctx = recordingCtx();
+  app.shareDrawMark(ctx, 540, 300, 120, theme);
+  assert.equal(ctx.calls.filter(c => c[0] === 'drawImage').length, 0);
+  assert.ok(ctx.calls.some(c => c[0] === 'stroke'), 'with no icon there is no ring either');
+
+  /* LOADED. Clipped to a circle before it is drawn, because the icon is
+     delivered on a black square and that square must not reach the photograph. */
+  app.shareMarkImg = { marker: true };
+  ctx = recordingCtx();
+  app.shareDrawMark(ctx, 540, 300, 120, theme);
+  const names = ctx.calls.map(c => c[0]);
+  const clipAt = names.indexOf('clip'), drawAt = names.indexOf('drawImage');
+  assert.ok(drawAt > -1, 'the icon is loaded and was not drawn');
+  assert.ok(clipAt > -1 && clipAt < drawAt, 'the icon is drawn without being clipped to its ring first');
+  const d = ctx.calls[drawAt];
+  /* Over-size by exactly the ring's inset, so the ring's outer edge lands on
+     the clip and the black corners fall outside it. */
+  assert.ok(d[4] > 120 && Math.abs(d[4] - 120 / app.SHARE_MARK.ring) < 0.01,
+    'the icon is drawn at ' + d[4] + 'px for a 120px mark');
+  assert.ok(Math.abs((d[2] + d[4] / 2) - 540) < 0.01 && Math.abs((d[3] + d[5] / 2) - 300) < 0.01,
+    'the icon is not centred on the mark');
+  app.shareMarkImg = null;
+});
+
+test('the name is painted between two gold dots, and fitted with them', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const ctx = recordingCtx();
+  /* A budget far too narrow for the size asked, so the fit has work to do. */
+  const op = { kind: 'wordmark', cx: 540, y: 400, text: 'SACORO', size: 60, maxW: 150 };
+  app.shareCardPaint(ctx, [op], 1080);
+  const dots = ctx.calls.filter(c => c[0] === 'arc');
+  assert.equal(dots.length, 2, 'the name is painted with ' + dots.length + ' dots, not one each side');
+  const letters = ctx.calls.filter(c => c[0] === 'fillText');
+  assert.equal(letters.map(c => c[1]).join(''), 'SACORO');
+  const left = dots[0][1], right = dots[1][1];
+  const first = letters[0][2], last = letters[letters.length - 1][2];
+  assert.ok(left < first && right > last, 'a dot is inside the name rather than either side of it');
+  /* THE DOTS ARE PART OF THE WIDTH. Fitted without them the name alone fills
+     the budget and the dots hang outside it, which on a narrow rail is off
+     the edge of the column. */
+  const r = dots[0][3];
+  assert.ok((right + r) - (left - r) <= op.maxW + 0.5,
+    'the mark is ' + ((right + r) - (left - r)).toFixed(1) + 'px wide in a ' + op.maxW + 'px budget');
+  assert.ok(op.size < 60, 'the name was not stepped down to make room');
+  /* And centred as a whole -- dots included -- on the anchor it was given. */
+  assert.ok(Math.abs(((left - r) + (right + r)) / 2 - op.cx) < 0.5, 'the mark is off its centre line');
+});
+
+test('the completion card in the app carries the same mark and the same byline', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const SRC_ = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  assert.match(SRC_, /'<img class="wc-mark" src="'\+SHARE_MARK\.src\+'"[^']*alt="" aria-hidden="true">'/,
+    'the in-app card draws a different mark from the image it previews');
+  assert.match(SRC_, /<div class="wc-by">By Velvet Viking<\/div>/);
+  assert.equal((SRC_.match(/class="wc-dot" aria-hidden="true"/g) || []).length, 2);
+});

@@ -55,22 +55,15 @@ test('get.html: Android download uses the "latest release" mechanism, not a pinn
 });
 
 test('get.html: the shared crest DELIVERY asset is used and exists on disk', () => {
-  /* THIS TEST USED TO PIN THE MASTER, and pinning it was right at the time --
-     the point was that this page must not carry its own copy of the crest that
-     could drift from the app's. That intent is unchanged; only the shared file
-     moved. The master is 1223px of artwork rendered here at 208 CSS px, so it
-     was shipping roughly two megabytes to the page that ASKS PEOPLE TO SIGN UP.
-     get.html draws the crest larger than any other page (up to 208px, so 624
-     device pixels on a 3x phone), which is why it takes the 640px encoding
-     rather than the 540px one the app and the other pages share. */
-  const m = /class="medallion" src="([^"]+)"/.exec(HTML);
-  assert.ok(m, 'no crest <img> found');
-  assert.equal(m[1], '/assets/velvet-viking-crest-640.png',
-    'must be the shared crest delivery asset, not a copy and not the master');
-  const assetPath = path.join(__dirname, '..', m[1].replace(/^\//, ''));
-  assert.ok(fs.existsSync(assetPath), m[1] + ' does not exist on disk');
-  assert.ok(fs.statSync(assetPath).size < 300 * 1024,
-    'the crest on the sign-up page is over its size budget');
+  /* ---- CHANGED SIDES: THERE IS NO CREST ON THIS PAGE ----
+     This pinned the crest's 640px encoding as the image at the head of the
+     sign-up page. Founder: "They should both change to the dot SACORO dot."
+     The page is headed by the name now, which is text, costs nothing to
+     download and can be renamed. */
+  assert.equal(HTML.indexOf('velvet-viking-crest'), -1, 'the sign-up page is serving the crest again');
+  assert.equal(HTML.indexOf('class="medallion"'), -1);
+  assert.match(HTML, /<h1 class="vvv-wordmark">Sacoro<\/h1>/,
+    'the page lost its one heading, or the heading stopped being the name');
 });
 
 test('get.html: shares the app\'s declared theme and token stylesheet rather than its own palette', () => {

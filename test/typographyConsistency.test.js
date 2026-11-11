@@ -176,8 +176,22 @@ test('Cinzel sets the wordmark and nothing else', () => {
      The top bar is deliberately NOT in this list. Its mark is the app's own
      sans, which is how the founder's two mock-ups draw them -- the splash is
      a brand moment and the bar is chrome. */
-  assert.deepEqual(rules.sort(), ['.pe-name', '.wc-wordmark'],
+  /* ---- CHANGED SIDES AGAIN: THE TOP BAR CAME BACK TO CINZEL ----
+     The note above records the bar leaving it, on the reasoning that the
+     splash is a brand moment and the bar is chrome. That left one mark set in
+     two typefaces. Founder, shown the name five ways and asked whether the
+     current style was the best one: "Type face. Option 2." -- Cinzel.
+     The claim this law makes has not moved in any of its three versions:
+     Cinzel sets the MARK and never a heading. There are three places the
+     mark is drawn in the app, and it is the same face in all of them. */
+  assert.deepEqual(rules.sort(), ['.bm-word', '.pe-name', '.wc-wordmark'],
     'Cinzel is setting something other than a wordmark -- it is a mark, not a heading face');
+  /* And the same weight, or it is three marks again. */
+  ['.bm-word', '.pe-name', '.wc-wordmark'].forEach(sel => {
+    const rule = new RegExp(sel.replace('.', '\\.') + "\\{[^}]*font-family:'Cinzel',serif; font-weight:(\\d+)").exec(css);
+    assert.ok(rule, sel + ' no longer states its face and weight together');
+    assert.equal(rule[1], '600', sel + ' sets the mark at weight ' + rule[1] + ', not the 600 the others use');
+  });
 });
 test('the one label voice is the label Today actually renders, not the base rule under it', () => {
   // The standard was taken from the WHY/EXECUTION/FEEL/WATCH FOR label as

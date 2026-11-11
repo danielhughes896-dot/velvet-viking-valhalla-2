@@ -677,10 +677,21 @@
      trusting this note. */
   .bm-name{display:flex; align-items:center; justify-content:center; gap:15px;
     min-width:0;}
+  /* ---- CHANGED SIDES: THE BAR'S NAME IS IN THE MARK'S FACE ----
+     It was the app's own sans, heavy and tracked wide, on the reasoning that
+     "the splash is a brand moment and the bar is chrome". That left the one
+     mark set in two typefaces -- Oswald here, Cinzel on the splash and the
+     share image -- which is two marks. Founder, shown the name five ways:
+     "Type face. Option 2." Cinzel, everywhere the name is the mark.
+     The size is unchanged. The track drops from .3em to .17em because that
+     is what the splash sets it at, and Cinzel's capitals are already wide:
+     SACORO is five round letters and an A. line-height is pinned so the bar
+     stays the 73px it was measured at -- Cinzel's natural line box is shorter
+     than Oswald's and would otherwise take three pixels off the bar. */
   .bm-word{
-    font-family:var(--label-face); font-weight:800;
-    font-size:clamp(1.22rem, 6.2vw, 1.62rem); letter-spacing:.3em;
-    margin-right:-.3em;
+    font-family:'Cinzel',serif; font-weight:600;
+    font-size:clamp(1.22rem, 6.2vw, 1.62rem); letter-spacing:.17em;
+    margin-right:-.17em; line-height:36px;
     text-transform:uppercase; white-space:nowrap; color:#FFFFFF;
     /* The same soft white lift the hero titles carry, so the mark belongs to
        the same screen as REST DAY and EASY AEROBIC rather than sitting on it. */
@@ -1855,7 +1866,6 @@
   .view-today .hero-mountains{display:none;}
   .view-today .hero .stat-row{display:none;}
   .view-today .hero{padding:0; min-height:0;}
-  .view-today .hero .medallion-img, .view-today .hero .medallion{display:none;}
   /* The heading moved onto the brand row above; the in-view copy stays in
      the markup so test/freshLaunchDefaultView still sees the Today view
      actually render, and is simply not drawn here. */
@@ -3907,7 +3917,6 @@
     .hero-mountains{ background-image:url('/assets/valhalla-mountains-420.jpg'); }
   }
   /* The crest sits on top of it, and keeps every other property it had. */
-  .hero-today .medallion-img{ position:relative; z-index:1; }
   /* An athlete who prefers less motion/imagery is not shown a photograph
      behind their training. */
   @media (prefers-reduced-motion:reduce){
@@ -3937,9 +3946,6 @@
      leftover from the old solid-canvas artwork, where they read as a soft
      plaque edge -- are dropped: on transparent art they paint a visible
      rounded-rectangle halo instead. */
-  .medallion-img{
-    width:180px; max-width:60%; height:auto; display:block; margin:0 auto;
-  }
 
 
   .stat-row{display:flex; justify-content:center; gap:22px; margin-top:16px; flex-wrap:wrap;}
@@ -6098,7 +6104,7 @@
   .wc-hero{position:relative; border:1px solid var(--wc-edge); border-radius:14px;
     overflow:hidden; background:#07080C;}
   .wc-hero-type{position:relative; z-index:2; padding:16px 14px 14px; text-align:center;}
-  .wc-mark{display:block; width:62px; height:62px; margin:0 auto 2px;}
+  .wc-mark{display:block; width:62px; height:62px; margin:0 auto 8px; border-radius:50%;}
   /* ---------- THE SAME MARK, AT SHARE SIZE ----------
      Founder: "We could put it on the socials share overlays and the splash
      screen but I'm not sure it's needed everywhere."
@@ -29859,30 +29865,15 @@ function renderGoalToggle(){
 }
 
 function renderMedallion(){
-  /* "Earn Your Place" is part of the master artwork, so it is no longer rendered
-     as separate text -- one tagline, not two. The artwork carries its own
-     breathing room beneath the strapline, so the gap the eye actually sees
-     between the branding and TODAY is unchanged without any margin of its own.
-     Canonical crest: assets/velvet-viking-crest.png (see README "Brand assets"
-     for the master/derivative map) -- width/height match its real 1223x1286
-     portrait artwork so .medallion-img's height:auto never has to guess. */
-  /* THE DELIVERY ASSET, NOT THE MASTER. assets/velvet-viking-crest.png is the
-     canonical 1223x1286 artwork and stays exactly as it is; this is a 540px
-     palette encoding of it, and 540 is not arbitrary -- .medallion-img renders
-     at width:180px, so a 3x phone draws exactly 540 device pixels and every
-     pixel beyond that was being downloaded and discarded on the first screen
-     of the app, over mobile data, eagerly.
-
-     2051 KB -> 137 KB, a 93.3% reduction, measured at 42.6 dB PSNR composited
-     over both themes -- the highest quality of any lossy option tested,
-     including AVIF q90. Indistinguishable from the master at 3x zoom on the
-     lettering, and the rendered size is unchanged at 180x189 CSS px in both
-     themes, so nothing moves. See CREST-ASSET-REPORT.md for the full
-     comparison and test/crestAsset.test.js for the budget that keeps it small.
-
-     width/height describe THIS file, which is what gives the browser the
-     correct aspect ratio before it loads. */
-  return '<img class="medallion-img" src="/assets/velvet-viking-crest-540.png" width="540" height="568" alt="Velvet Viking crest" loading="eager">';
+  /* THE CREST IS NOT DRAWN ANY MORE, HERE OR ANYWHERE. This returned an
+     <img> of the full Velvet Viking crest, loaded eagerly -- and the only
+     screen that mounted it, Today, has hidden it with display:none since the
+     hero was rebuilt. So every open of Today downloaded 137 KB of artwork to
+     paint nothing, and the artwork still reads VALHALLA AWAITS.
+     Founder: "We don't need an emblem everywhere for the app. It's simply
+     the name with the dots." The name with the dots is the top bar, which is
+     already above this on every screen. */
+  return '';
 }
 function renderHero(){
   // Entry/build page (no plan yet): text-led, matching the rest of the app's
@@ -33800,7 +33791,20 @@ function renderDayCard(dd){
   var detailHtml = '<div class="day-detail">'+
           (asReference ? '' : ownWords)+
           renderCoachingDepth(dd, asReference ? ownWords : '')+
-          renderAdjustedDetail(dd)+
+          /* renderAdjustedDetail(dd) was mounted here: a bordered panel under
+             the session saying WHAT CHANGED, WHY and ACCEPTED, with Restore
+             the original session beneath it. Founder, seeing it on Today
+             after changing a session, and again on the same day once it was
+             run: "In fact delete that whole box. I don't want it. To accept
+             that change the user has already seen this info!!!"
+             It was the proposal read back to the athlete who had just agreed
+             to it -- on Today, This Week and the Full Plan session screen,
+             and it stayed after the run with a line explaining why it could
+             no longer be undone. The session itself is the record: its title
+             and its Adjusted status say it changed.
+             NOTHING ON SCREEN NOW SAYS WHEN IT WAS ACCEPTED. That date is
+             still stamped on the day (coachAdjust.at) by every accept handler
+             and still persisted; it is simply not drawn anywhere. */
           /* BELOW THE RUNNING, ALWAYS -- AND THE RUNNING IS WHATEVER THE DAY
              IS ABOUT. On an ordinary day the session the block was built
              around is the card and supporting work sits under it. On an
@@ -36374,7 +36378,7 @@ var SHARE_OVERLAYS = [
   var y = frameY + Math.round(markH*0.50 + W*0.034);
   var ws = Math.round(W*0.046);
   ops.push({ kind:'wordmark', cx:W/2, y:y, text:'SACORO', size:ws, maxW:inner });
-  y += ws + Math.round(W*0.036);
+  y = shareSignature(ops, W/2, y + ws, ws, inner, null, W) + Math.round(W*0.036);
   var hp = shareHeadParts(data), hs = Math.round(W*0.049);
   ops.push({ kind:'headline', cx:W/2, y:y, text:hp.text, accentFrom:hp.accentFrom,
              size:hs, maxW:inner });
@@ -36411,6 +36415,7 @@ var SHARE_OVERLAYS = [
      content it carries -- a session with no pace does not leave a gap. */
   var h = Math.round(W*0.055) + markH + Math.round(W*0.028)
         + Math.round(W*0.042) + Math.round(W*0.030)
+        + shareSignatureH(Math.round(W*0.042), W)
         + Math.round(W*0.046) + Math.round(W*0.018)
         + (data.distanceKm != null ? Math.round(W*0.128*1.06) : 0)
         + (mi.length ? Math.round(W*0.042) + Math.round(W*0.026) : 0)
@@ -36423,7 +36428,7 @@ var SHARE_OVERLAYS = [
   y += markH + Math.round(W*0.014);
   var ws = Math.round(W*0.042);
   ops.push({ kind:'wordmark', cx:W/2, y:y, text:'SACORO', size:ws, maxW:inner });
-  y += ws + Math.round(W*0.028);
+  y = shareSignature(ops, W/2, y + ws, ws, inner, null, W) + Math.round(W*0.028);
   var hp = shareHeadParts(data), hs = Math.round(W*0.046);
   ops.push({ kind:'headline', cx:W/2, y:y, text:hp.text, accentFrom:hp.accentFrom,
              size:hs, maxW:inner });
@@ -36462,7 +36467,7 @@ var SHARE_OVERLAYS = [
   y += markH + Math.round(W*0.014);
   var ws = Math.round(W*0.034);
   ops.push({ kind:'wordmark', cx:cx, y:y, text:'SACORO', size:ws, maxW:inner });
-  y += ws + Math.round(W*0.034);
+  y = shareSignature(ops, cx, y + ws, ws, inner, null, W) + Math.round(W*0.034);
   ops.push({ kind:'rule', cx:cx, y:y, w:inner });
   y += Math.round(W*0.030);
   /* The rail is narrow, so the headline is stacked rather than set on one
@@ -36531,7 +36536,7 @@ var SHARE_OVERLAYS = [
   y += markH + Math.round(W*0.012);
   var ws = Math.round(W*0.034), r1 = rowCx(y);
   ops.push({ kind:'wordmark', cx:r1.cx, y:y, text:'SACORO', size:ws, maxW:r1.maxW });
-  y += ws + Math.round(W*0.026);
+  y = shareSignature(ops, r1.cx, y + ws, ws, r1.maxW, null, W) + Math.round(W*0.026);
   var hp = shareHeadParts(data), hs = Math.round(W*0.038), r2 = rowCx(y);
   ops.push({ kind:'headline', cx:r2.cx, y:y, text:hp.text,
              accentFrom:hp.accentFrom, size:hs, maxW:r2.maxW });
@@ -36584,7 +36589,7 @@ var SHARE_OVERLAYS = [
   var ds = data.distanceKm != null ? Math.round(W*0.088) : 0;
   var ms = mi.length ? Math.round(W*0.028) : 0;
   var ss = strap ? Math.round(W*0.026) : 0;
-  var total = markH + Math.round(W*0.008) + ws + Math.round(W*0.022)
+  var total = markH + Math.round(W*0.008) + ws + shareSignatureH(ws, W) + Math.round(W*0.022)
             + hs + Math.round(W*0.010)
             + (ds ? Math.round(ds*1.06) : 0)
             + (ms ? ms + Math.round(W*0.020) : 0)
@@ -36594,7 +36599,8 @@ var SHARE_OVERLAYS = [
   y += markH + Math.round(W*0.008);
   ops.push({ kind:'wordmark', cx:cx, y:y, text:'SACORO', size:ws,
              maxW:chord(y, y+ws) });
-  y += ws + Math.round(W*0.022);
+  y = shareSignature(ops, cx, y + ws, ws, chord(y + ws, y + ws + shareSignatureH(ws, W)), null, W)
+    + Math.round(W*0.022);
   var hp = shareHeadParts(data);
   ops.push({ kind:'headline', cx:cx, y:y, text:hp.text, accentFrom:hp.accentFrom,
              size:hs, maxW:chord(y, y+hs) });
@@ -36679,7 +36685,7 @@ function shareWatermarkStack(data, size, o){
   var gapMark = Math.round(W*0.010), gapWord = Math.round(W*0.022),
       gapHead = Math.round(W*0.012), gapDist = Math.round(W*0.022),
       gapRule = Math.round(W*0.024);
-  var total = markH + gapMark + ws + gapWord + hs + gapHead
+  var total = markH + gapMark + ws + shareSignatureH(ws, W) + gapWord + hs + gapHead
             + (ds ? Math.round(ds*1.04) : 0)
             + (ms ? ms + gapDist : 0)
             + (ss ? gapRule + ss : 0);
@@ -36698,7 +36704,7 @@ function shareWatermarkStack(data, size, o){
   y += markH + gapMark;
   ops.push({ kind:'wordmark', cx:cx, y:y, text:'SACORO', size:ws,
              maxW:inner, align:o.align });
-  y += ws + gapWord;
+  y = shareSignature(ops, cx, y + ws, ws, inner, o.align, W) + gapWord;
   var hp = shareHeadParts(data);
   ops.push({ kind:'headline', cx:cx, y:y, text:hp.text, accentFrom:hp.accentFrom,
              size:hs, maxW:inner, align:o.align });
@@ -36748,7 +36754,7 @@ function shareWatermarkRail(data, size, side){
   y += markH + Math.round(W*0.008);
   var ws = Math.round(W * 0.028);
   ops.push({ kind:'wordmark', cx:cx, y:y, text:'SACORO', size:ws, maxW:inner, align:align });
-  y += ws + Math.round(W*0.028);
+  y = shareSignature(ops, cx, y + ws, ws, inner, align, W) + Math.round(W*0.028);
   ops.push({ kind:'rule', cx:side === 'left' ? pad + inner/2 : W - pad - inner/2,
              y:y, w:inner });
   y += Math.round(W*0.026);
@@ -36876,71 +36882,99 @@ function shareFontsReady(){
    Proportions are fractions of the mark's own box, measured off the supplied
    artwork: x as a fraction of half-width, y as a fraction of half-height. */
 var SHARE_MARK = {
-  wide:1.12,        // width as a multiple of height, from the artwork
-  band:0.134,       // chevron thickness, as a fraction of the FULL width
-  outer:{ half:1.00, tip: 1.00 },   // the large chevron: full box, deepest point
-  mid:  { half:0.60, tip: 0.53 },   // nested inside it, apex higher
-  core: { half:0.18, tip:-0.29 }    // the solid wedge between the shoulders
+  /* ---- CHANGED SIDES: THE V CHEVRON BECAME THE MOUNTAIN ----
+     This held the proportions of the Velvet Viking V, drawn as geometry so it
+     needed no image. Founder: "remove the V and swap the mountain icon that's
+     on the home screen."
+     The reason is recognition rather than taste. A shared image lands in
+     front of someone who has never seen this product, and the only thing they
+     can go and look for is what sits on a home screen. The V was the
+     company's mark; nothing a stranger could find is shaped like it.
+     wide   the mark is a circle now, so its box is square. Every layout that
+            reserves room beside or around it reads this.
+     ring   where the gold ring's outer edge sits in /assets/icon.png, as a
+            fraction of the half-width: (452 + 21) / 512. The image is drawn
+            slightly over-size and clipped to a circle on that edge, so the
+            black square the icon is delivered on never reaches the photograph. */
+  wide:1.0,
+  ring:0.93,
+  src:'/assets/icon.png'
 };
-function shareMarkGeometry(cx, cy, h){
-  var M = SHARE_MARK, w = h * M.wide, W2 = w/2, H2 = h/2;
-  var yTop = cy - H2, t = w * M.band;
-  /* A chevron band: down the outside of each arm to the vertex and back up
-     the inside. The inner vertex is where the two offset edges actually
-     meet, solved rather than nudged -- a guessed offset makes the band
-     thicken or pinch at the point, which is the first thing the eye sees. */
-  var band = function(halfFrac, tipFrac){
-    var hw = W2 * halfFrac, yTip = cy + H2 * tipFrac;
-    var inner = yTip - (yTip - yTop) * (t / hw);
-    return [[cx-hw,yTop],[cx,yTip],[cx+hw,yTop],
-            [cx+hw-t,yTop],[cx,inner],[cx-hw+t,yTop]];
-  };
-  var solid = function(halfFrac, tipFrac){
-    var hw = W2 * halfFrac;
-    return [[cx-hw,yTop],[cx,cy + H2*tipFrac],[cx+hw,yTop]];
-  };
-  return {
-    shapes: [band(M.outer.half, M.outer.tip),
-             band(M.mid.half,   M.mid.tip),
-             solid(M.core.half, M.core.tip)],
-    left:cx - W2, right:cx + W2, top:yTop, bottom:cy + H2 * M.outer.tip
-  };
+/* THE ONE IMAGE THE CARD WAITS FOR. The V needed no network; this does, once,
+   and the app already holds it -- it is the notification icon, and the service
+   worker keeps /assets/ for offline. Loaded when the share sheet opens, kept
+   for the life of the page, and guarded exactly as the backdrop loader is:
+   the suite runs this file where there is no Image constructor at all. */
+var shareMarkImg = null, shareMarkLoading = null;
+function shareLoadMark(){
+  if (shareMarkImg) return Promise.resolve();
+  if (shareMarkLoading) return shareMarkLoading;
+  shareMarkLoading = new Promise(function(res){
+    var im = null;
+    try { im = new Image(); } catch(e){ res(); return; }
+    if (!im){ res(); return; }
+    im.onload = function(){ shareMarkImg = im; res(); };
+    /* A failure is forgotten rather than remembered, so the next time the
+       sheet opens it is tried again instead of staying broken all session. */
+    im.onerror = function(){ shareMarkLoading = null; res(); };
+    im.src = SHARE_MARK.src;
+  });
+  return shareMarkLoading;
 }
 function shareDrawMark(ctx, cx, cy, h, theme){
-  var g = shareMarkGeometry(cx, cy, h);
-  var grad = ctx.createLinearGradient(g.left, g.top, g.right, g.bottom);
+  var r = h / 2;
+  /* The disc first, so the shadow the caller set falls from a circle rather
+     than from the square the image is delivered on. */
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.closePath();
+  ctx.fillStyle = '#000000'; ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+  if (shareMarkImg){
+    var side = h / SHARE_MARK.ring;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+    ctx.drawImage(shareMarkImg, cx - side/2, cy - side/2, side, side);
+    ctx.restore();
+    return;
+  }
+  /* NOT LOADED: THE RING ALONE. An export must never fail or stall on a
+     decoration, and an empty hole where the layout reserved a mark reads as a
+     broken image. The ring is the icon's own outline in the product's gold. */
+  var grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
   grad.addColorStop(0, theme.goldDeep);
   grad.addColorStop(0.40, theme.goldBright);
   grad.addColorStop(0.72, theme.gold);
   grad.addColorStop(1, theme.goldDeep);
-  ctx.fillStyle = grad;
-  g.shapes.forEach(function(pts){
-    ctx.beginPath();
-    pts.forEach(function(pt, i){ i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]); });
-    ctx.closePath(); ctx.fill();
-  });
+  ctx.lineWidth = Math.max(2, h * 0.085);
+  ctx.strokeStyle = grad;
+  ctx.beginPath(); ctx.arc(cx, cy, r - ctx.lineWidth/2, 0, Math.PI * 2); ctx.closePath();
+  ctx.stroke();
 }
-/* The same mark as inline SVG, for the completion screen and anywhere else in
-   the DOM that needs it. Built from shareMarkGeometry() on a 100-unit box so
-   there is exactly one set of proportions in the product. */
-function shareMarkSVG(cls){
-  /* THE BOX HAS TO HOLD THE WHOLE MARK. At h=72 the chevron is 105 units wide
-     against a 100-unit viewBox, so both arms were clipped flat -- the mark
-     lost the very shape that identifies it. Sized from the width instead:
-     h * SHARE_MARK.wide must fit inside 100 with a margin to spare. */
-  var h = Math.floor(94 / SHARE_MARK.wide);
-  var g = shareMarkGeometry(50, 50, h), pt = function(a){
-    return a.map(function(p){ return p[0].toFixed(2)+','+p[1].toFixed(2); }).join(' ');
-  };
-  return '<svg class="'+(cls||'vv-mark')+'" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
-    '<defs><linearGradient id="vvg" x1="0" y1="0" x2="1" y2="1">'+
-      '<stop offset="0" stop-color="#8A6D2B"/><stop offset="0.40" stop-color="#F5D061"/>'+
-      '<stop offset="0.72" stop-color="#E3B15A"/><stop offset="1" stop-color="#8A6D2B"/>'+
-    '</linearGradient></defs>'+
-    g.shapes.map(function(pts){
-      return '<polygon fill="url(#vvg)" points="'+pt(pts)+'"/>';
-    }).join('')+
-  '</svg>';
+/* ---- THE NAME BETWEEN ITS DOTS, MEASURED ONCE ----
+   The mark is the name and two gold dots, and on a canvas nothing lays that
+   out for you. Proportions are the top bar's own: 7px dots and a 15px gap
+   beside a 26px name. */
+function shareMarkMetrics(ctx, text, size, family){
+  ctx.font = '600 ' + size + 'px ' + family;
+  var track = size * 0.30, name = 0;
+  for (var i=0;i<text.length;i++) name += ctx.measureText(text[i]).width + track;
+  name -= track;
+  var dot = size * 0.27, gap = size * 0.58;
+  return { name:name, dot:dot, gap:gap, track:track, full: name + 2 * (dot + gap) };
+}
+/* ---- AND THE COMPANY SIGNS IT ----
+   Founder: "We could put it on the socials share overlays and the splash
+   screen." One helper so the seven layouts cannot disagree about how far the
+   byline sits under the name or how big it is. Returns the y beneath it. */
+function shareSignatureH(ws, W){
+  return Math.round(ws * 0.36) + Math.max(Math.round(ws * 0.40), Math.round(W * 0.015));
+}
+function shareSignature(ops, cx, y, ws, maxW, align, W){
+  var size = Math.max(Math.round(ws * 0.40), Math.round(W * 0.015));
+  var op = { kind:'byline', cx:cx, y:y + Math.round(ws * 0.36),
+             text:'BY VELVET VIKING', size:size, maxW:maxW };
+  if (align) op.align = align;
+  ops.push(op);
+  return y + shareSignatureH(ws, W);
 }
 /* ---- THE METRIC GLYPHS, ONCE ----
    Stroked on canvas for the export and emitted as SVG for the completion
@@ -37181,9 +37215,33 @@ function shareCardPaint(ctx, ops, W){
          understates it by roughly a third -- and it was the only text op
          never width-fitted at all. On a narrow column SACORO simply ran off
          the edge. It is fitted here against its TRACKED width. */
-      op.size = shareFitTracked(ctx, op.text, '600', T.head, op.size, op.maxW, 0.30);
+      /* AND IT IS FITTED WITH ITS DOTS, which are part of the mark's width
+         just as the tracking is. */
+      var mk = shareMarkMetrics(ctx, op.text, op.size, T.head);
+      while (op.maxW && mk.full > op.maxW && op.size > 8){
+        op.size -= 1; mk = shareMarkMetrics(ctx, op.text, op.size, T.head);
+      }
       ctx.font = '600 ' + op.size + "px " + T.head;
-      shareTracked(ctx, op.text, op.cx, op.y, op.size * 0.30, op.align);
+      var mx = shareRunX(op, mk.full);
+      shareTracked(ctx, op.text, mx + mk.dot + mk.gap, op.y, mk.track, 'left');
+      /* The dots sit on the optical middle of the capitals, which is not the
+         middle of the line box. Measured where the browser will say; half the
+         size where it will not, which is close enough to be a dot. */
+      var mo = ctx.measureText('O'), midY = op.y + op.size * 0.5;
+      if (mo && typeof mo.actualBoundingBoxDescent === 'number' &&
+          typeof mo.actualBoundingBoxAscent === 'number'){
+        midY = op.y + (mo.actualBoundingBoxDescent - mo.actualBoundingBoxAscent) / 2;
+      }
+      ctx.fillStyle = T.goldBright;
+      ctx.beginPath(); ctx.arc(mx + mk.dot/2, midY, mk.dot/2, 0, Math.PI * 2);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx + mk.full - mk.dot/2, midY, mk.dot/2, 0, Math.PI * 2);
+      ctx.closePath(); ctx.fill();
+    } else if (op.kind === 'byline'){
+      ctx.fillStyle = T.gold; ctx.textBaseline = 'top';
+      op.size = shareFitTracked(ctx, op.text, '600', T.numeral, op.size, op.maxW, 0.24);
+      ctx.font = '600 ' + op.size + 'px ' + T.numeral;
+      shareTracked(ctx, op.text, op.cx, op.y, op.size * 0.24, op.align);
     } else if (op.kind === 'headline'){
       ctx.textBaseline = 'top';
       op.size = shareFitSize(ctx, op.text, '700', T.body, op.size, op.maxW);
@@ -37374,6 +37432,12 @@ function openShareModal(dd){
    finished-looking card rather than an empty black frame the athlete has to
    fix before they can judge any of the other choices. */
 function shareLoadBackdrop(){
+  /* The mark rides with the backdrop: every caller of this already repaints
+     when it settles, so the icon appears on the same repaint the photograph
+     does and no call site had to learn there are two images now. */
+  return Promise.all([shareLoadMark(), shareLoadBackdropPhoto()]).then(function(){});
+}
+function shareLoadBackdropPhoto(){
   var st = shareState; if (!st) return Promise.resolve();
   var b = null;
   for (var i=0;i<SHARE_BACKDROPS.length;i++)
@@ -38047,7 +38111,7 @@ function renderCompletionHero(dd){
                 .filter(function(x){ return !!x; }).join('  ·  ');
   return '<div class="wc-hero">'+
     '<div class="wc-hero-type">'+
-      shareMarkSVG('wc-mark')+
+      '<img class="wc-mark" src="'+SHARE_MARK.src+'" width="62" height="62" alt="" aria-hidden="true">'+
       '<div class="wc-lockup">'+
         '<span class="wc-dot" aria-hidden="true"></span>'+
         '<div class="wc-wordmark">SACORO</div>'+
@@ -46064,52 +46128,16 @@ function handleCoachRestore(dayId){
   showToast(partner ? 'Original sessions restored' : 'Original session restored');
 }
 
-/* ---------- the Adjusted disclosure ----------
-   Lives inside the day's own existing expand (This Week / Full Plan already
-   open a day on tap; this is content revealed there, not a second tap
-   target), so the Adjusted pill becomes meaningful without a new interaction
-   pattern or a second badge. coachRestoreState() is the sole authority for
-   whether Restore may be offered -- this never re-derives session_ran,
-   athlete_edited or the paired-move rules itself. */
-function renderAdjustedDetail(dd){
-  if (!dd || !dd.coachAdjust) return '';
-  var adj = dd.coachAdjust;
-  var st = coachRestoreState(dd);
-  var rows = '';
-  if (adj.from){
-    var fromName = escapeHtml(adj.from.title || (TYPE_META[adj.from.type]||{}).label || 'Session');
-    var toName = escapeHtml(dd.title || (TYPE_META[dd.type]||{}).label || 'Session');
-    rows += '<div class="evo-sec"><div class="evo-k">What changed</div><div class="evo-v">'+
-      fromName+(adj.from.km!=null?' '+fmtDist(adj.from.km):'')+' → '+toName+(dd.km?' '+fmtDist(dd.km):'')+
-    '</div></div>';
-  }
-  if (adj.reason)
-    rows += '<div class="evo-sec"><div class="evo-k">Why</div><div class="evo-v">'+escapeHtml(adj.reason)+'</div></div>';
-  /* CONSENT PROVENANCE, not merely a date. `adj.at` is stamped at the moment
-     an accept handler runs and at no other time -- every writer of coachAdjust
-     (handleAcceptEvolution, handleAcceptPlaybook, handleCoachAccept) is
-     reached only by an explicit Accept tap -- so this timestamp IS the record
-     of the athlete's decision. It used to be labelled "When", which reads as
-     "when the plan changed" and leaves the athlete to wonder whether anyone
-     asked them. Naming it for what it actually is costs one line and closes
-     the gap between a correctly-consented mutation and an athlete who cannot
-     tell that they consented, days later on a different screen. */
-  rows += '<div class="evo-sec"><div class="evo-k">Accepted</div><div class="evo-v">You accepted this change on '+
-    dShort(adj.at.slice(0,10))+'.</div></div>';
-  var restore;
-  if (st.ok){
-    // System's own definition of "original": the workout immediately before
-    // the most recent coaching decision on this day, not necessarily the
-    // first one the block ever generated -- "can be undone at any time"
-    // would overstate that, so this says only what stays true.
-    var label = st.pairedWith ? 'Restore both sessions' : 'Restore the original session';
-    restore = '<button type="button" class="btn btn-ghost btn-sm" data-action="coach-restore" data-day="'+dd.id+'">'+
-      label+'</button><div class="field-hint">Can be restored until you run or edit it.</div>';
-  } else {
-    restore = '<div class="field-hint">'+escapeHtml(restoreRefusalCopy(st.reason))+'</div>';
-  }
-  return '<div class="evo-panel adjusted-detail">'+rows+'<div class="evo-sec">'+restore+'</div></div>';
-}
+/* ---------- the Adjusted disclosure, retired ----------
+   renderAdjustedDetail() stood here and drew the What changed / Why /
+   Accepted panel on every adjusted day card. It is deleted with its one call
+   site -- see the note in renderDayCard()'s detail.
+   WHAT IS DELIBERATELY STILL HERE: coachRestoreState(), restoreOneDay() and
+   handleCoachRestore() above, and the 'coach-restore' action. The panel was
+   the only thing that drew a Restore button, so nothing reaches them from the
+   interface today. They are kept, and still tested, because undoing an
+   accepted change is engine behaviour that took care to get right and a
+   button is cheap to put back -- a rewrite of the rules it obeys is not. */
 
 
 

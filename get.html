@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/vvv-shell.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* palette lifted verbatim from the app so the two read as one product */
   /* Palette and controls come from /assets/vvv-shell.css -- this page used to
@@ -34,20 +34,10 @@
     padding:calc(28px + env(safe-area-inset-top,0px)) 20px calc(32px + env(safe-area-inset-bottom,0px));
   }
   .wrap{width:100%; max-width:440px; text-align:center;}
-  .medallion{width:min(56vw,208px); height:auto; margin:0 auto 18px; display:block;}
-  h1{
-    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(1.05rem,5.2vw,1.5rem);
-    letter-spacing:0.05em; text-transform:uppercase; margin:0; white-space:nowrap;
-    background:linear-gradient(180deg,var(--gold-bright) 0%,var(--modal-active) 100%);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent; color:transparent;
-    text-shadow:0 1px 0 var(--gold-shadow-1),0 2px 0 var(--gold-shadow-2),0 3px 6px rgba(0,0,0,.8);
-  }
-  /* The metallic gradient is built for a near-black header; on cream it loses
-     its contrast and keeps a heavy black drop shadow that has nothing to sit
-     against. Same treatment the app already gives its own wordmark in light:
-     drop the gradient, use ink, keep a soft gold lift. */
-  .rule{width:64%; height:1px; margin:7px auto 0; background:rgba(197,160,89,.35);}
+  /* The crest and the metallic gold <h1> that stood under it are gone: the
+     mark is the name between two dots, set by /assets/vvv-shell.css exactly
+     as the other four pages set it. This page keeps the <h1> element, because
+     it is the page's only heading, and gives up its own styling of it. */
   .blurb{font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:20px 0 26px;}
   .card{
     background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);
@@ -84,10 +74,11 @@
 </head>
 <body>
 <div class="wrap">
-  <img class="medallion" src="/assets/velvet-viking-crest-640.png" width="640" height="673"
-       alt="Velvet Viking crest">
-  <h1>Sacoro</h1>
-  <div class="rule"></div>
+  <div class="vvv-brand">
+    <div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"></span><h1 class="vvv-wordmark">Sacoro</h1><span class="vvv-dot" aria-hidden="true"></span></div>
+    <p class="vvv-by">By Velvet Viking</p>
+    <div class="vvv-rule"></div>
+  </div>
 
   <p class="blurb">
     Endurance coaching built around your goal, your training and what you actually do.

@@ -174,31 +174,59 @@ test('the adjusted session the athlete taps Accept on still renders its structur
   assert.ok(a.prescriptionOf(dd), 'the prescription survived the cut');
   const card = a.renderDayCard(dd);
   assert.ok(structured(a, dd), 'the structured workout must survive the adjustment');
-  assert.match(card, ADJUSTED_PANEL, 'and the adjustment panel must still be there');
+  /* ---- CHANGED SIDES: THE ADJUSTMENT PANEL IS GONE ----
+     This asserted the What changed / Why / Accepted panel was on the card.
+     Founder, seeing it on Today after changing a session, and again on the
+     same day once it had been run: "In fact delete that whole box. I don't
+     want it. To accept that change the user has already seen this info!!!"
+     It was the proposal read back to the athlete who had just agreed to it. */
+  assert.doesNotMatch(card, ADJUSTED_PANEL, 'the adjustment panel is back under the session');
 });
 
-test('the structured workout comes first, then the adjustment record', () => {
+test('an accepted adjustment leaves the session and nothing read back under it', () => {
+  /* ---- CHANGED SIDES: THE ADJUSTMENT PANEL IS GONE ----
+     This asserted the What changed / Why / Accepted panel was on the card.
+     Founder, seeing it on Today after changing a session, and again on the
+     same day once it had been run: "In fact delete that whole box. I don't
+     want it. To accept that change the user has already seen this info!!!"
+     It was the proposal read back to the athlete who had just agreed to it. */
   const a = fresh();
   const target = strainedReduce(a);
   a.handleCoachAccept(target.id);
   const card = a.renderDayCard(a.findDay(target.id));
-
-  const workout = card.indexOf('class="ws-block"');
-  const panel = card.indexOf('class="evo-panel adjusted-detail"');
-  assert.ok(workout !== -1 && panel !== -1, 'both blocks must render');
-  assert.ok(workout < panel,
-    'canonical workout presentation -> adjustment annotation -> history and restore controls');
-});
-
-test('accepting an adjustment removes none of the adjustment UI', () => {
-  const a = fresh();
-  const target = strainedReduce(a);
-  a.handleCoachAccept(target.id);
-  const card = a.renderDayCard(a.findDay(target.id));
-  ['What changed', 'Why', 'Accepted', 'Restore the original session'].forEach(copy => {
-    assert.ok(card.indexOf(copy) !== -1, copy + ' must still be offered');
+  assert.ok(card.indexOf('class="ws-block"') !== -1, 'the structured workout must still render');
+  assert.equal(card.indexOf('adjusted-detail'), -1, 'the adjustment panel is back on the card');
+  ['What changed', 'You accepted this change', 'Restore the original session',
+   'Can be restored until'].forEach(copy => {
+    assert.equal(card.indexOf(copy), -1, '"' + copy + '" is being read back to the athlete again');
   });
-  assert.match(card, /data-action="coach-restore"/, 'restore stays reachable');
+});
+
+test('the same is true once the session has been run', () => {
+  /* The second screenshot: the day was complete, the panel was still there,
+     and its last line explained why the change could no longer be undone. */
+  const a = fresh();
+  const target = strainedReduce(a);
+  a.handleCoachAccept(target.id);
+  const dd = a.findDay(target.id);
+  dd.completed = true;
+  const card = a.renderDayCard(dd);
+  assert.equal(card.indexOf('adjusted-detail'), -1);
+  assert.equal(card.indexOf('has already been run, so its plan stays'), -1,
+    'a finished session is explaining its own history again');
+});
+
+test('undoing an accepted change is still something the engine can do', () => {
+  /* THE PANEL WAS THE ONLY THING THAT DREW A RESTORE BUTTON, so with it gone
+     nothing in the interface reaches this. The rules are kept and kept
+     tested: a button is cheap to put back and these are not. */
+  const a = fresh();
+  const target = strainedReduce(a);
+  a.handleCoachAccept(target.id);
+  const st = a.coachRestoreState(a.findDay(target.id));
+  assert.equal(st.ok, true, 'a freshly accepted, unrun, unedited change must be restorable');
+  a.handleCoachRestore(target.id);
+  assert.equal(a.findDay(target.id).coachAdjust, undefined, 'restore did not clear the adjustment');
 });
 
 // ---------------------------------------------------------------------------
@@ -564,8 +592,10 @@ test('Today, This Week and Full Plan show one adjusted session identically', () 
   Object.keys(surfaces).forEach(name => {
     assert.ok(surfaces[name].indexOf(workout) !== -1,
       name + ' must show the identical structured workout');
-    assert.ok(surfaces[name].indexOf('class="evo-panel adjusted-detail"') !== -1,
-      name + ' must show the adjustment record too');
+    /* Changed sides with the panel itself -- see the note at the top of
+       this file's adjustment tests. No surface draws it. */
+    assert.equal(surfaces[name].indexOf('adjusted-detail'), -1,
+      name + ' is drawing the adjustment panel again');
   });
 });
 

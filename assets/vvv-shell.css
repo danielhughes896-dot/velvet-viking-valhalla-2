@@ -86,32 +86,49 @@ a{color:var(--bronze-text);}
    sign-in field rather than a landing page. */
 .vvv-shell{width:100%; max-width:420px; margin:0 auto;}
 .vvv-brand{text-align:center; margin-bottom:24px;}
-/* The canonical crest already CARRIES the wordmark and EARN YOUR PLACE, cast
-   into the artwork. Setting both again above and below it is the repetitive
-   decoration we were told to avoid -- the athlete reads the same two phrases
-   three times before reaching the sign-in field.
-   So: at full size the crest speaks for itself and the type is suppressed. At
-   `compact`, where the crest is 86px and its cast lettering is unreadable, the
-   type carries the identity instead. One shell, two legitimate sizes. */
-.vvv-brand:not(.compact) .vvv-wordmark,
-.vvv-brand:not(.compact) .vvv-tagline{display:none;}
-.vvv-wordmark{
-  font-family:'Cinzel',serif; font-weight:800;
-  /* clamped, because VELVET VIKING at a fixed size is the first thing to
+/* ---- CHANGED SIDES: THE CREST WENT, THE MARK IS THE NAME AND TWO DOTS ----
+   This block drew the full Velvet Viking crest on every page, with the type
+   suppressed at full size because the artwork carried it. Founder: "We don't
+   need an emblem everywhere for the app. It's simply the name with the dots.
+   That's it. Clean & sleek." -- and, of these five pages: "They should both
+   change to the dot SACORO dot."
+   There was a second reason it had to go. The crest's lettering is part of
+   the artwork, and the artwork reads VALHALLA AWAITS: a rename that could
+   reach every string in the product could never have reached that.
+   So this is the app's own lockup, in the app's own proportions -- Cinzel
+   600 tracked .17em, 7px dots and a 15px gap beside a 26px name -- scaled to
+   the size each page sets it at. The byline stays under it here: these are
+   the pages where someone meets the product for the first time. */
+.vvv-lockup{display:flex; align-items:center; justify-content:center; gap:18px;}
+.vvv-dot{flex:none; width:9px; height:9px; border-radius:50%;
+  background:var(--gold-bright, #F5D061);
+  box-shadow:0 0 10px rgba(245,208,97,.42);}
+/* .vvv-brand IN FRONT OF BOTH, AND IT IS NOT DECORATION. Two of the five pages
+   set the lockup inside .vvv-shell, whose own rule for every <p> -- 13.5px,
+   18px beneath -- is one element more specific than a bare class. Measured in
+   Chromium before this was added: the name rendered at 13.5px on /start and
+   /account and at 33px on /get, from the same markup. */
+.vvv-brand .vvv-wordmark{
+  font-family:'Cinzel',serif; font-weight:600;
+  /* clamped, because a tracked name at a fixed size is the first thing to
      overflow a narrow phone and the last thing anyone tests */
-  font-size:clamp(0.72rem, 3.6vw, 0.94rem);
-  letter-spacing:.2em; text-transform:uppercase; color:var(--gold-text);
-  margin:0; white-space:nowrap;
+  font-size:clamp(26px, 8.4vw, 34px); line-height:1.15;
+  letter-spacing:.17em; text-transform:uppercase; color:var(--ink);
+  /* the trailing track is cancelled, or the right dot sits further from the
+     O than the left dot does from the S */
+  margin:0 -.17em 0 0; white-space:nowrap;
 }
-.vvv-crest{
-  display:block; margin:0 auto 14px;
-  width:min(34vw,132px); height:auto;
+.vvv-brand .vvv-by{
+  font-family:var(--text-face); font-weight:600; font-size:10.5px; line-height:1.3;
+  letter-spacing:.3em; text-transform:uppercase; color:var(--gold-text);
+  margin:9px -.3em 0 0; white-space:nowrap;
 }
-.vvv-crest.sm{width:min(24vw,86px); margin:10px auto 8px;}
-.vvv-tagline{
-  font-family:var(--text-face); font-size:10px; letter-spacing:.34em;
-  text-transform:uppercase; color:var(--ink-faint); margin:0;
-}
+/* `compact` is the legal pages, where the mark heads a document rather than
+   opening a screen. Same lockup, two thirds the size. */
+.vvv-brand.compact .vvv-lockup{gap:12px;}
+.vvv-brand.compact .vvv-dot{width:6px; height:6px;}
+.vvv-brand.compact .vvv-wordmark{font-size:clamp(18px, 5.6vw, 22px);}
+.vvv-brand.compact .vvv-by{font-size:9px; margin-top:6px;}
 .vvv-rule{width:58%; height:1px; margin:14px auto 0;
   background:linear-gradient(90deg,transparent,rgba(197,160,89,.45),transparent);}
 
