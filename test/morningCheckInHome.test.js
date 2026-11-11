@@ -55,7 +55,12 @@ const cssRule = (selector) => {
 
 /* ---------- it is on a screen ---------- */
 
-test('Today asks the morning check-in when the coach has a concern before quality work', () => {
+/* ---- WHEN IT IS ASKED HAS CHANGED ----
+   It first came back under its old rule: only where the coach had a concern
+   and quality work was next. Founder, to "Should the check-in ask every
+   morning? Three taps would give Recovery real evidence from day one":
+   "yes". The laws below ask it of an ordinary morning and a rest day too. */
+test('Today asks the morning check-in on a morning the coach has a concern', () => {
   const app = concernedMorning();
   const dec = app.coachAnalyse().decision;
   assert.equal(dec.readinessEarned, true, 'the fixture must be a morning the check-in is earned on');
@@ -76,15 +81,41 @@ test('it is asked before the session is read, not after it', () => {
 test('a screen draws it: the function that mounts it is called from Today', () => {
   const start = CODE.indexOf('function renderTodayView(){');
   const end = CODE.indexOf('\nfunction ', start + 10);
-  assert.match(CODE.slice(start, end), /renderTodayCheckIn\(report\)/,
+  assert.match(CODE.slice(start, end), /renderTodayCheckIn\(\)/,
     'the check-in was unreachable for as long as no view called it');
 });
 
-test('a morning with nothing to ask about shows no check-in', () => {
+test('and on an ordinary morning with nothing wrong: it is asked every day', () => {
   const app = concernedMorning();
   app.state.days.forEach((d) => { if (d.actual) d.actual.notes = ''; });
-  assert.equal(app.coachAnalyse().decision.readinessEarned, false);
-  assert.doesNotMatch(app.renderTodayView(), /today-checkin|How are you today/);
+  assert.equal(app.coachAnalyse().decision.readinessEarned, false,
+    'the coach has no concern -- which used to mean the athlete was not asked');
+  const html = app.renderTodayView();
+  assert.match(html, /class="today-checkin"/);
+  assert.match(html, /How are you today\?/);
+});
+
+test('it is asked on a rest day as well', () => {
+  const app = concernedMorning();
+  const today = app.state.days.filter((d) => d.date === app.todayStr())[0];
+  today.type = 'rest'; today.km = 0; today.title = 'Rest';
+  delete today.prescription;
+  app.state.days.forEach((d) => { if (d.actual) d.actual.notes = ''; });
+  assert.match(app.renderTodayView(), /How are you today\?/);
+});
+
+test('heavy legs reported on an ordinary morning reach the coach', () => {
+  const app = concernedMorning();
+  app.state.days.forEach((d) => { if (d.actual) d.actual.notes = ''; });
+  assert.doesNotMatch(app.coachDecision().reasons.join(' | '), /heavy legs/i);
+  app.handleSetReadiness('legs', 'heavy');
+  assert.match(app.coachDecision().reasons.join(' | '), /heavy legs/i);
+});
+
+test('with no plan there is nothing to ask against', () => {
+  const app = concernedMorning();
+  app.state.setup = null; app.state.days = [];
+  assert.equal(app.renderTodayCheckIn(), '');
 });
 
 test('it is not put to an athlete who has not agreed to health questions', () => {

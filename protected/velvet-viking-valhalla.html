@@ -8609,8 +8609,8 @@
      matches the new colour and structure."
      It could not be seen because nothing drew it: the check-in lived inside
      the Next Move card, and Next Move came off Today by an earlier ruling
-     with the question still inside it. It is mounted on Today again -- see
-     renderTodayCheckIn() -- and this is what it looks like now.
+     with the question still inside it. It is mounted on Today again, every
+     morning -- see renderTodayCheckIn() -- and this is what it looks like now.
      What it was: a dashed raised box, a 9.5px bronze heading, 10px grey
      labels and a row of pills. Every one of those has since been ruled out
      elsewhere -- no raised boxes, no grey text, no pills, white titles --
@@ -51985,11 +51985,11 @@ function renderResponsePatternsSection(m){
   return body;
 }
 
-/* The morning check. Not a permanent questionnaire: it appears only when the
-   engine already has a concern and a quality session is next, and it
-   disappears the moment it is answered. Answers inform the decision only --
-   they can never touch an Execution Score, which measures a completed
-   workout against its prescription and nothing else. */
+/* The morning check. Three questions, asked on Today each morning -- see
+   renderTodayCheckIn() -- and folded to one line the moment they are
+   answered. Answers inform the decision only -- they can never touch an
+   Execution Score, which measures a completed workout against its
+   prescription and nothing else. */
 var READINESS_QUESTIONS = [
   { key:'legs',   label:'Legs',   options:[['fresh','Fresh'],['normal','Normal'],['heavy','Heavy']] },
   { key:'sleep',  label:'Sleep',  options:[['good','Good'],['ok','OK'],['poor','Poor']] },
@@ -52065,22 +52065,31 @@ function renderReadinessCheck(dec){
   '</div>';
 }
 
-/* THE MORNING CHECK-IN ON TODAY.
+/* THE MORNING CHECK-IN ON TODAY, EVERY MORNING.
    The question used to be drawn by renderCoachNextMoveCard(), and that card
    came off Today by ruling. Nothing else drew the check-in, so from that day
    it could not be answered at all -- and its three answers are evidence
    coachDecision() still reads: heavy legs, poor sleep, under the weather.
    It is drawn here on its own, without the card.
-   WHEN it is asked is unchanged and still decided in one place
-   (readinessEarned): only where the coach already has a concern and quality
-   work is next, and never without health consent. ABOVE the session, for the
-   reason the cards above it give: an answer can change what is advised for
-   the session, so it is asked before the session is read. Answered, it folds
-   to its one confirming line in the same place. */
-function renderTodayCheckIn(report){
-  var dec = report && report.decision;
-  if (!dec || !dec.readinessEarned) return '';
-  var body = renderReadinessCheck(dec);
+
+   IT IS ASKED EVERY DAY THERE IS A PLAN. Founder, to "Should the check-in
+   ask every morning? Three taps would give Recovery real evidence from day
+   one": "yes". It used to appear only where the coach already had a concern
+   and quality work was next (readinessEarned), which meant the athlete was
+   asked how they were only after something had gone wrong, and an ordinary
+   morning of heavy legs was never recorded. readinessEarned is untouched
+   and still means what it says -- the coach has a concern -- it is simply no
+   longer the gate on being asked.
+   Three taps, each stored on the day it was given (dd.readiness), so the
+   answers are there for every reader that wants them and nothing is asked
+   twice. Never without health consent: renderReadinessCheck() still refuses.
+   ABOVE the session, for the reason the cards above it give: an answer can
+   change what is advised for the session, so it is asked before the session
+   is read. Answered, it folds to its one confirming line in the same place. */
+function renderTodayCheckIn(){
+  if (!state.setup || !state.days || !state.days.length) return '';
+  var body = renderReadinessCheck({ readinessEarned:true,
+    readinessComplete: readinessIsComplete(coachReadinessToday()) });
   return body ? '<div class="today-checkin">'+body+'</div>' : '';
 }
 
@@ -63222,7 +63231,7 @@ function renderTodayView(){
      verdict and the consent ask each change what everything downstream is
      allowed to claim, so they are still established before anything reasons
      from them. Next Move reasons ABOUT the session, so it reads after it. */
-  html += renderTodayCheckIn(report);
+  html += renderTodayCheckIn();
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
   /* NEXT MOVE IS NOT ON TODAY, BY RULING. Today answers three questions --
      what am I running, how do I run it, and what does Sacoro want me to
