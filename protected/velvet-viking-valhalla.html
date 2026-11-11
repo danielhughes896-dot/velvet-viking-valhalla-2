@@ -8720,6 +8720,12 @@
      enough air under it that the hero still reads as the start of the day. */
   .today-checkin{margin:6px 0 34px;}
   .today-checkin .readiness, .today-checkin .readiness-done{margin-top:0;}
+  /* Answered, it is the last line on Today, centred under the signpost it
+     follows, and in pure white by the founder's word for it. */
+  .today-checkin.is-done{margin:8px 0 0;}
+  .today-checkin.is-done .readiness-done-btn{justify-content:center; text-align:center;}
+  .today-checkin.is-done .readiness-done-head,
+  .today-checkin.is-done .readiness-done-line{color:#FFFFFF;}
   /* The heading and the confirming line take their face, weight and case
      from the label standard further down this sheet, like every other
      heading. On Today the question stands alone as a section of the page,
@@ -52134,14 +52140,22 @@ function renderReadinessCheck(dec){
    Three taps, each stored on the day it was given (dd.readiness), so the
    answers are there for every reader that wants them and nothing is asked
    twice. Never without health consent: renderReadinessCheck() still refuses.
-   ABOVE the session, for the reason the cards above it give: an answer can
-   change what is advised for the session, so it is asked before the session
-   is read. Answered, it folds to its one confirming line in the same place. */
-function renderTodayCheckIn(){
+   ABOVE the session while it is a question, for the reason the cards above
+   it give: an answer can change what is advised for the session, so it is
+   asked before the session is read.
+   AT THE FOOT ONCE IT IS ANSWERED. Founder: "Once daily check in is done.
+   Can it move to under ill or injured. Pure white text." A question belongs
+   where the day starts; a receipt does not, and it was holding the top of
+   Today all day after three taps. So the one confirming line sits under the
+   Injured or ill? signpost, and reopening it to change an answer opens it
+   there, under the thumb that tapped it. `where` is which of the two places
+   is asking: exactly one of them ever draws it. */
+function renderTodayCheckIn(where){
   if (!state.setup || !state.days || !state.days.length) return '';
-  var body = renderReadinessCheck({ readinessEarned:true,
-    readinessComplete: readinessIsComplete(coachReadinessToday()) });
-  return body ? '<div class="today-checkin">'+body+'</div>' : '';
+  var done = readinessIsComplete(coachReadinessToday());
+  if ((where === 'foot') !== done) return '';
+  var body = renderReadinessCheck({ readinessEarned:true, readinessComplete: done });
+  return body ? '<div class="today-checkin'+(done ? ' is-done' : '')+'">'+body+'</div>' : '';
 }
 
 // Plan HQ gets the full picture; Today gets the one thing to act on.
@@ -63402,7 +63416,7 @@ function renderTodayView(){
      verdict and the consent ask each change what everything downstream is
      allowed to claim, so they are still established before anything reasons
      from them. Next Move reasons ABOUT the session, so it reads after it. */
-  html += renderTodayCheckIn();
+  html += renderTodayCheckIn('top');
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
   /* NEXT MOVE IS NOT ON TODAY, BY RULING. Today answers three questions --
      what am I running, how do I run it, and what does Sacoro want me to
@@ -63432,6 +63446,10 @@ function renderTodayView(){
   /* LAST, AND DELIBERATELY. A signpost to Settings has no business above the
      session the athlete opened the app for -- see renderInjuryPointer(). */
   html += renderInjuryPointer();
+  /* ...AND ONE LINE UNDER IT, by the founder's ruling: the answered check-in.
+     See renderTodayCheckIn(). It is not a pointer to anywhere and not a
+     second route into anything; it is the day's own receipt. */
+  html += renderTodayCheckIn('foot');
   return html+'</div>';
 }
 // This Week: just the active week's accordion (force-expanded), its zone

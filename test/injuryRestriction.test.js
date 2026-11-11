@@ -1089,8 +1089,19 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
   assert.ok(html.indexOf('Injured or ill?') > html.indexOf('class="day '),
     'the signpost is competing with the session the athlete opened the app for');
   // and it is genuinely the last thing on the screen, not merely low down
+  /* ---- ONE THING MAY FOLLOW IT NOW, AND ONLY ONE ----
+     Founder: "Once daily check in is done. Can it move to under ill or
+     injured." The answered check-in's single line sits beneath the signpost;
+     it is the day's receipt, not a second pointer and not a second route to
+     anything. Unanswered -- as here -- nothing follows at all. */
   assert.match(html.slice(html.indexOf('Injured or ill?')), /^Injured or ill\?(?:<\/[a-z]+>)*$/,
-    'nothing follows the signpost');
+    'nothing follows the signpost while the check-in is unanswered');
+  ['legs:fresh', 'sleep:good', 'health:good'].forEach((p) => a.handleSetReadiness.apply(a, p.split(':')));
+  const after = a.renderTodayView();
+  const tail = after.slice(after.indexOf('Injured or ill?'));
+  assert.match(tail, /^Injured or ill\?(?:<\/[a-z]+>)*<div class="today-checkin is-done">/,
+    'only the answered check-in may follow the signpost');
+  assert.equal((tail.match(/<div class="today-checkin/g) || []).length, 1);
   // the two surfaces this screen no longer carries, held so they cannot creep back
   assert.equal(html.indexOf('pace-ref-card'), -1, 'the Pace Reference belongs to Sacoro -> Coach');
   assert.equal(html.indexOf('coach-next-title'), -1, 'Next Move is not on Today');

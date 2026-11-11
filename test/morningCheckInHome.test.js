@@ -123,16 +123,43 @@ test('it is not put to an athlete who has not agreed to health questions', () =>
   assert.doesNotMatch(app.renderTodayView(), /today-checkin|How are you today/);
 });
 
-test('answered in full, it folds to one confirming line in the same place', () => {
+/* ---- THIS LAW HAS CHANGED SIDES ----
+   It required the confirming line to stay where the question was, above the
+   session. Founder: "Once daily check in is done. Can it move to under ill
+   or injured. Pure white text." A question belongs where the day starts; a
+   receipt was holding the top of Today all day. */
+test('answered in full, its one confirming line moves under the Injured or ill signpost', () => {
   const app = concernedMorning();
   app.handleSetReadiness('legs', 'heavy');
   app.handleSetReadiness('sleep', 'ok');
   app.handleSetReadiness('health', 'good');
   const html = app.renderTodayView();
-  assert.match(html, /class="today-checkin"><div class="readiness-done">/);
+  assert.equal((html.match(/class="today-checkin/g) || []).length, 1, 'drawn in one place, never two');
+  assert.match(html, /class="today-checkin is-done"><div class="readiness-done">/);
   assert.match(html, /Heavy legs · Sleep OK · Health good/);
   assert.doesNotMatch(html, /How are you today\?/);
-  assert.ok(html.indexOf('class="today-checkin"') < html.indexOf('class="day-top"'));
+  const receipt = html.indexOf('class="today-checkin');
+  assert.ok(receipt > html.indexOf('class="day-top"'), 'no longer above the session');
+  assert.ok(receipt > html.indexOf('Injured or ill?'), 'under the signpost');
+  assert.match(html.slice(receipt), /Health good<\/span><\/button><\/div><\/div><\/div>$/,
+    'and it is the last thing on Today');
+});
+
+test('reopened to change an answer, it opens where it was tapped, at the foot', () => {
+  const app = concernedMorning();
+  ['legs:heavy', 'sleep:ok', 'health:good'].forEach((p) => app.handleSetReadiness.apply(app, p.split(':')));
+  app.handleReadinessEdit();
+  const html = app.renderTodayView();
+  const panel = html.indexOf('class="today-checkin');
+  assert.ok(panel > html.indexOf('Injured or ill?'));
+  assert.equal((html.slice(panel).match(/data-action="set-readiness"/g) || []).length, 8);
+});
+
+test('the confirming line is pure white', () => {
+  const i = CODE.indexOf('  .today-checkin.is-done .readiness-done-head,');
+  assert.ok(i > 0);
+  const body = CODE.slice(i, CODE.indexOf('}', i));
+  assert.match(body, /\.today-checkin\.is-done \.readiness-done-line\{color:#FFFFFF;/);
 });
 
 test('the answers given on Today reach the coach', () => {
