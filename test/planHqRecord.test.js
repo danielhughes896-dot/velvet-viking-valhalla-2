@@ -79,7 +79,7 @@ function cardFor(html, subject, app) {
 // ===========================================================================
 // 1. THE FOUR CARDS
 // ===========================================================================
-test('RECORD: Valhalla carries exactly four Record facts, each its own tappable circle', () => {
+test('RECORD: Valhalla carries exactly four Record facts, each its own tappable plate', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   const found = cards(html);
@@ -88,16 +88,27 @@ test('RECORD: Valhalla carries exactly four Record facts, each its own tappable 
      Record tab that had been carrying the A/B/C chooser was retired. */
   assert.equal(found.length, 4, 'expected four Record facts, found ' + found.length);
 
-  /* THE ORDER CHANGED WITH THE LAYOUT, AND THE SET DID NOT. Fitness and
-     Progress are circles three and four of the grid; Goal and Benchmark are
-     the two plates under it. Still four facts, still each its own control. */
+  /* THE SHAPE CHANGED WITH THE LAYOUT, AND NEITHER THE SET NOR THE ORDER
+     DID. Founder: "make the fitness and progress circles the same as goal
+     and benchmark. And then put them under the circles." Fitness and
+     Progress were circles three and four of the grid and are now the first
+     row of plates, directly above Goal and Benchmark -- so the sequence
+     below is the same string it was when two of these were circles, which
+     is the point: the athlete reads the same four facts in the same order
+     and only the shape two of them arrive in has moved. */
   const subjects = found.map(c => (c.match(/aria-label="([^\u2014]+) \u2014/) || [])[1].trim());
   assert.equal(subjects.join(' | '), 'Measured fitness | Progress | Goal | Benchmark');
 
   found.forEach(c => {
     assert.match(c, /data-action="open-record"/, 'a Record circle does not open anything');
     assert.match(c, /data-record="(goal|fitness|benchmark|progress)"/);
-    assert.match(c, /class="(rd-val|b-plate-v)"/, 'a Record fact states no value at all');
+    /* THE MODIFIER IS ALLOWED, AND HAS TO BE. This demanded the class
+       attribute be exactly one of the two, which held only while every
+       empty fact was a circle -- a circle hangs rec-none on the <b> inside
+       the value, a plate hangs it on the value itself. The first unmeasured
+       fitness to reach a plate rendered class="b-plate-v rec-none" and this
+       line called it a fact with no value at all. */
+    assert.match(c, /class="(rd-val|b-plate-v)[" ]/, 'a Record fact states no value at all');
     // and the sentence that used to sit under the card opens with the panel
     const key = (c.match(/data-record="([a-z]+)"/) || [])[1];
     const fact = a.recordFactByKey(key);

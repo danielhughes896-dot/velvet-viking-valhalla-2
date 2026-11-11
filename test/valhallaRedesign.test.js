@@ -40,17 +40,36 @@ function planHQ() {
 // ===========================================================================
 // 1. THE ATHLETE-FACING RENAME
 // ===========================================================================
-test('NAV: the bottom nav says Valhalla, never Plan HQ', () => {
+test('NAV: the bottom nav says Coach, never Plan HQ and never Valhalla', () => {
+  /* ---- CHANGED SIDES: THE APP TOOK THE NAME ----
+     Founder: "Nav at the bottom - coach or my coach?"
+     This held the tab to "Valhalla", which was right while the top bar read
+     VELVET VIKING. The bar is the VALHALLA mark now, so that label made one
+     word mean the product and one of its five screens at the same time, on
+     the same screen. Coach, not My Coach: the other four tabs are plain
+     nouns and the app already says Ask Coach and Coach's Note.
+     THE HALF THAT DOES NOT CHANGE is the one this law existed for -- the
+     internal key stays 'planhq', so no route, swipe order or saved view
+     moves when the word above it does. */
   const a = planHQ();
   const nav = a.renderBottomNav();
-  assert.match(nav, />Valhalla</);
+  assert.match(nav, />Coach</);
   assert.doesNotMatch(nav, /Plan HQ/, 'the athlete-facing label was not retired');
+  assert.doesNotMatch(nav, />Valhalla</,
+    'the tab carries the app\u2019s own name again, which the top bar already states');
   assert.match(nav, /data-view="planhq"/, 'the internal route key is unchanged on purpose');
 });
 
-test('NAV: the Valhalla screen heading says Valhalla', () => {
+test('NAV: the screen heading follows the tab', () => {
+  /* It is rendered -- only .view-today hides its heading row -- so a heading
+     reading VALHALLA would have sat directly under the VALHALLA mark in the
+     bar above it. The two must say the same word as the tab, or the screen
+     names itself twice and differently. */
   const a = planHQ();
-  assert.match(a.renderPlanHQView(), /<div class="view-heading font-head">Valhalla<\/div>/);
+  const view = a.renderPlanHQView();
+  assert.match(view, /<div class="view-heading font-head">Coach<\/div>/);
+  assert.doesNotMatch(view, /<div class="view-heading font-head">Valhalla<\/div>/,
+    'the heading still names the app rather than the screen');
 });
 
 test('NAV: the five-tab shell is otherwise unchanged', () => {

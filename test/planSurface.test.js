@@ -1448,15 +1448,52 @@ test('the day the block is for is a panel, not another row', () => {
    cover" above: there is one hero and one title rule, so there is no longer
    a This-Week branch and a Full-Plan branch to assert separately. */
 
-test('the week status chip shares an edge with the figure under it', () => {
-  const chip = /\n  \.wk-chip\{([^}]*)\}/.exec(CSS);
-  assert.ok(chip, '.wk-chip rule is gone');
-  assert.match(chip[1], /right:0/,
-    'the chip is inset from the gutter again. The percentage below it sits flush on the ' +
-    "hero's right edge, so an inset chip is the one thing on this hero not lining up " +
-    'with the edge everything else is measured from.');
-  assert.match(chip[1], /position:absolute/,
-    'the chip left the hero’s own coordinate space, so right:0 no longer means the gutter');
+/* "the week status chip shares an edge with the figure under it" stood here,
+   and so did a second law holding the chip's top to --wk-hero-top so it sat
+   on the title's line. Both were about where the chip went, and there is no
+   chip -- founder: "remove the bloody pill from this week." A law whose only
+   subject has been deleted is not relaxed, it is finished; what replaces
+   them is the law below, that the corner stays empty on both screens. */
+
+test('neither week hero carries a recovery reading, on either screen', () => {
+  /* ---- CHANGED SIDES, AND IT SHOULD NOT HAVE TAKEN TWO ----
+     Founder, first: "Recovery normal top right doesn't need to be there
+     neither - that's all ok Valhalla tab." That was applied to Full Plan
+     only, and the law here asserted This Week KEPT the chip -- its failure
+     message read "This Week lost its recovery chip as well, which was not
+     the instruction." It was the instruction.
+     Founder, again: "remove the bloody pill from this week."
+     One element, one place it belongs, and that place is Valhalla. */
+  const a = app();
+  const cur = a.currentWeekNum();
+  [true, false].forEach(asBlock => {
+    const html = a.renderWeekHeroBlock(cur, asBlock);
+    assert.equal(html.indexOf('wk-chip'), -1,
+      'the recovery chip is back on ' + (asBlock ? 'Full Plan' : 'This Week'));
+    assert.doesNotMatch(html, /Recovery (normal|to watch|strained)/,
+      'the recovery reading is back in the week hero on ' +
+      (asBlock ? 'Full Plan' : 'This Week'));
+    assert.doesNotMatch(html, /On target|Load (climbing|spiking|dropping)/,
+      'the load reading the chip used to share its corner with is back on ' +
+      (asBlock ? 'Full Plan' : 'This Week'));
+  });
+  /* THE MACHINERY WENT WITH IT, rather than being left with no caller. */
+  ['renderWeekStatusChip', 'WEEK_CHIP_LOAD', 'WEEK_CHIP_REC', 'WEEK_CHIP_RANK'].forEach(id =>
+    assert.doesNotMatch(SRC, new RegExp('(function|var)\\s+' + id + '\\b'),
+      id + ' is declared again with nothing to call it'));
+  assert.doesNotMatch(CSS, /\.wk-chip\{/, 'the chip rule is back in the sheet');
+
+  /* AND THE TITLE KEEPS THE ROOM IT GOT BACK. padding-right:46% existed only
+     to stop the week's name running under the chip; with the corner empty it
+     would be a 46% indent on a heading for no reason at all. */
+  assert.doesNotMatch(CSS, /\.wk-hero-title\{padding-right/,
+    'the week title is indented again for a chip that is not there');
+
+  /* NOTHING STOPPED BEING COMPUTED. The chip was a surface, not a source:
+     the readings behind it are still produced and still have a home. */
+  const rep = a.coachAnalyse();
+  assert.ok(rep.recovery && rep.recovery.state, 'recovery stopped being computed');
+  assert.ok(rep.load && rep.load.band, 'load stopped being computed');
 });
 
 test('a missed day says so in the circle, the same way a done day does', () => {
@@ -1917,7 +1954,7 @@ test('the week list runs in columns, not wherever each row’s figures end', () 
   assert.ok(html.indexOf('week-meta') > -1, 'the week row no longer has a meta column');
 });
 
-test('the status chip sits on the hero title’s line', () => {
+test('the week hero states its own top offset as a token', () => {
   /* MEASURED AT 412px: the title's cap centre was 112.2 and the chip's 121
      -- 8.8px low on This Week and Full Plan alike, which reads as two
      things on two lines. The cause is that the hero's padding-top moves the
@@ -1926,11 +1963,13 @@ test('the status chip sits on the hero title’s line', () => {
      title shifts the chip by the same amount. */
   const hero = rule('.wk-hero');
   assert.match(hero, /--wk-hero-top:\s*\d+px/,
-    'the hero no longer states its content offset as a token the chip can read');
+    'the hero no longer states its content offset as a token');
   assert.match(hero, /padding:var\(--wk-hero-top\)/,
-    'the hero padding stopped using the token, so the chip can drift from the title again');
-  assert.match(rule('.wk-chip'), /top:var\(--wk-hero-top\)/,
-    'the chip is positioned by a number of its own again — it was 8.8px below the title');
+    'the hero padding stopped using its own token');
+  /* The third assertion here held the chip's top to the same token, so the
+     two could not drift apart. The chip is gone (see the empty-corner law
+     above) and the token stays because the hero's own padding still reads
+     it -- inlining 4px to tidy up would be a change nobody asked for. */
 });
 
 test('every wide glow carries a dither, and it is not inside the blur', () => {
@@ -2393,18 +2432,8 @@ test('the Now pill is gone, and the row it used to light is still lit', () => {
     'the day row lost its Today flag along with the week pill');
 });
 
-test('Full Plan does not carry the recovery chip; This Week does', () => {
-  /* Founder: "Recovery normal top right doesn't need to be there neither -
-     that's all ok Valhalla tab."
-     Full Plan is the shape of the block; how recovery is going is a reading
-     about the athlete and Valhalla is the screen that makes those. This
-     Week keeps it on purpose -- the instruction and the screenshot are both
-     Full Plan, and This Week is the screen about the week the athlete is
-     actually in. One hero function, so the two are asserted together. */
-  const a = app();
-  const cur = a.currentWeekNum();
-  assert.equal(a.renderWeekHeroBlock(cur, true).indexOf('wk-chip'), -1,
-    'the recovery chip is back on Full Plan');
-  assert.ok(a.renderWeekHeroBlock(cur, false).indexOf('wk-chip') > -1,
-    'This Week lost its recovery chip as well, which was not the instruction');
-});
+/* "Full Plan does not carry the recovery chip; This Week does" stood here.
+   It asserted the half-applied reading of the founder's instruction, and is
+   replaced by "neither week hero carries a recovery reading, on either
+   screen" earlier in this file -- which holds both screens to the same rule
+   and quotes both instructions at the assertion. */

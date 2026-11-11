@@ -51,6 +51,114 @@ function athleteInProgramme(opts) {
 }
 
 // ---------------------------------------------------------------------------
+// WHAT IT LOOKS LIKE
+// ---------------------------------------------------------------------------
+// Founder, with a mock-up: "Photo 3 is what I want the splash screen to look
+// like", and the content in order -- the V mark, VALHALLA, BY VELVET VIKING,
+// the greeting, the programme line, the bar, the percentage, then EARN YOUR
+// PLACE / BUILT AROUND THE CLIMB.
+// ---------------------------------------------------------------------------
+
+test('S1. the lockup is a mark, a name and a byline, in that order', () => {
+  const a = athleteInProgramme({ name: 'Daniel' });
+  const html = a.renderProgrammeEntry();
+  const at = frag => html.indexOf(frag);
+  assert.ok(at('pe-mark') > -1, 'the V mark is gone from the splash');
+  assert.ok(at('>Valhalla<') > -1, 'the splash no longer says the app\u2019s name');
+  assert.ok(at('>By Velvet Viking<') > -1, 'the company no longer signs the splash');
+  assert.ok(at('pe-mark') < at('>Valhalla<'), 'the mark is below the name');
+  assert.ok(at('>Valhalla<') < at('>By Velvet Viking<'), 'the byline is above the name');
+  /* THE MARK IS DECORATION, AND THE WORDS ARE REAL TEXT. The crest it
+     replaced spelled "Valhalla Awaits, Earn Your Place" into its alt
+     attribute because the artwork was the only place those words existed.
+     Both are rendered text now, so an alt that repeated them would read the
+     screen twice to anyone who hears it. */
+  const tag = /<img class="pe-mark"[^>]*>/.exec(html)[0];
+  assert.match(tag, /alt=""/, 'the decorative mark describes itself again');
+  assert.match(tag, /aria-hidden="true"/, 'the decorative mark is announced');
+  assert.doesNotMatch(html, /Valhalla Awaits/,
+    'the retired crest\u2019s wording is back on the screen');
+});
+
+test('S2. the claim closes the screen, under everything the athlete came for', () => {
+  const a = athleteInProgramme({ name: 'Daniel' });
+  const html = a.renderProgrammeEntry();
+  const at = frag => html.indexOf(frag);
+  assert.ok(at('>Earn your place<') > -1, 'the claim is gone');
+  assert.ok(at('>Built around the climb<') > -1, 'the strapline is gone');
+  /* IT IS THE LAST THING, NOT THE FIRST. Inside the crest it sat in the
+     lockup at the top; the founder's mock-up puts it at the foot, so the
+     screen opens with who you are and closes with what it is for. */
+  assert.ok(at('pe-pct') < at('>Earn your place<'),
+    'the claim has climbed back above the progress figure');
+  assert.ok(at('>Earn your place<') < at('>Built around the climb<'),
+    'the strapline leads the claim');
+});
+
+test('S3. the greeting is white, and gold is kept for the brand and the figure', () => {
+  /* The founder's mock-up sets the greeting in white and keeps gold for the
+     byline, the percentage and the strapline -- the app's own hierarchy
+     arriving on this screen: a name is information, gold is brand and
+     milestone. */
+  const CSS = RUNTIME_SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = sel => {
+    const m = new RegExp('\\' + sel + '\\{([^}]*)\\}').exec(CSS);
+    assert.ok(m, 'rule not found: ' + sel);
+    return m[1];
+  };
+  assert.match(rule('.pe-hello'), /color:var\(--modal-text\)/,
+    'the greeting went back to gold');
+  assert.match(rule('.pe-by'), /color:var\(--gold\)/, 'the byline lost its gold');
+  assert.match(rule('.pe-pct'), /color:var\(--gold\)/, 'the progress figure lost its gold');
+  assert.match(rule('.pe-sub'), /color:var\(--gold\)/, 'the strapline lost its gold');
+});
+
+test('S4. the splash has its own photograph, and the decision modal keeps hers', () => {
+  /* valhalla-mountains-* is the race decision modal's hero and Today's, both
+     pinned elsewhere. The sunrise was ADDED rather than swapped in, so this
+     change could not reach two screens nobody asked about. */
+  /* Read from the comment-stripped sheet: the rules below carry long notes,
+     and a window measured in characters over raw source is a law that fails
+     the next time someone explains themselves. */
+  const BARE = RUNTIME_SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(/\.pe-mountains\{([^}]*)\}/.exec(BARE)[1], /valhalla-sunrise-820\.jpg/,
+    'the splash is not on the sunrise');
+  assert.match(/\.modal-decision-hero\{([^}]*)\}/.exec(BARE)[1], /valhalla-mountains-820\.jpg/,
+    'the decision modal\u2019s photograph was changed too, which was not asked for');
+  ['valhalla-sunrise-420.jpg', 'valhalla-sunrise-820.jpg', 'valhalla-v-256.png'].forEach(f => {
+    const fp = path.join(__dirname, '..', 'assets', f);
+    assert.ok(fs.existsSync(fp), f + ' is referenced but not in assets/');
+    assert.ok(fs.statSync(fp).size > 2048, f + ' is a stub');
+  });
+});
+
+test('S5. the photograph is sized, not covered, so the lit sky can be placed', () => {
+  /* MEASURED, AND THIS IS THE WHOLE REASON THE RULE LOOKS ODD.
+     background-size:cover on a box this shape scales the image by HEIGHT,
+     which leaves no vertical overflow -- background-position-y then does
+     nothing at all and the lit sky falls where it falls. It fell on the
+     percentage: gold on sunrise measured 1.47:1 in Chromium against a 4.5
+     floor, the same failure the previous photograph produced at 1.67:1.
+     An explicit height larger than the box restores the vertical crop, and
+     the sky moves into the gap between the lockup and the greeting, where
+     there are no words. With that done every line measures 6.73:1 or
+     better. Restoring cover silently undoes all of it, so it is named. */
+  const CSS = RUNTIME_SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const pe = /\.pe-mountains\{([^}]*)\}/.exec(CSS)[1];
+  assert.match(pe, /background-size:auto \d+px/,
+    'the splash photograph is back on cover, so its vertical position does nothing');
+  assert.doesNotMatch(pe, /background-size:cover/, 'cover is back');
+  assert.match(pe, /background-position:50% \d+%/,
+    'the photograph no longer states where it sits');
+  /* AND THE GAP THE SKY SITS IN. If the greeting climbs back up under the
+     lockup there is nowhere for the photograph to speak, and the sky is
+     behind words again. */
+  const hello = /\.pe-hello\{([^}]*)\}/.exec(CSS)[1];
+  assert.match(hello, /margin:clamp\(\d+px, \d+vh, \d+px\) 0 0/,
+    'the gap between the lockup and the greeting is no longer reserved');
+});
+
+// ---------------------------------------------------------------------------
 // WHO IT GREETS
 // ---------------------------------------------------------------------------
 

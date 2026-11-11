@@ -691,12 +691,16 @@ test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a d
   // Four since readiness left the arc for the gauge, which is itself a
   // destination and is checked for one below.
   assert.equal(readingCardsHtml.length, 4, 'expected four Reading circles');
-  /* TWO CIRCLES AND TWO PLATES. Goal and Benchmark took plates of their own
-     when the founder split the row; the claim here is unchanged -- all four
-     facts are destinations and none of them expands in place. */
+  /* ---- CHANGED SIDES: FOUR PLATES, NO CIRCLES ----
+     Founder: "I think we make the fitness and progress circles the same as
+     goal and benchmark. And then put them under the circles."
+     This read "two circles and two plates" while Fitness and Progress were
+     still in the grid. The claim underneath is the one that matters and it
+     is unchanged -- all four facts are destinations and none of them
+     expands in place -- so only the shape they are counted in moves. */
   const plates = (html.match(/<button type="button" class="b-plate"[\s\S]*?<\/button>/g) || []);
-  assert.equal(recordCardsHtml.length, 2, 'expected two Athlete Status circles');
-  assert.equal(plates.length, 2, 'expected two Athlete Status plates');
+  assert.equal(recordCardsHtml.length, 0, 'a Record fact is a circle again');
+  assert.equal(plates.length, 4, 'expected four Athlete Status plates');
   plates.forEach(p => {
     assert.match(p, /data-action="open-record"/, 'a plate that goes nowhere');
     assert.doesNotMatch(p, /aria-expanded/, 'a plate that expands rather than opens');

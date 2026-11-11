@@ -231,10 +231,12 @@ test('pace is still offered as optional on the completed surface', () => {
 });
 
 test('the header is one height on every view, so the page under it cannot shift', () => {
-  /* Today renders .topbar-inner-today and the other four render
-     .topbar-inner-brand-only. Both are as tall as the brandmark plus their
-     own padding, so a difference here moves the whole page by that much on
-     every swipe to or from Today -- measured at 4px before this was fixed. */
+  /* Today used to render .topbar-inner-today while the other four rendered
+     .topbar-inner-brand-only, and a difference between the two moved the
+     whole page on every swipe to or from Today -- measured at 4px before it
+     was fixed. There is one header now (see the law below), so the pair
+     cannot disagree; the padding is still asserted because the cheapest way
+     to bring that bug back is to give one view a bar of its own again. */
   const base = /padding:calc\((\d+)px \+ env\(safe-area-inset-top, 0px\)\) 16px (\d+)px/.exec(rule('.topbar-inner'));
   const brand = /padding-top:calc\((\d+)px \+ env\(safe-area-inset-top, 0px\)\); padding-bottom:(\d+)px/
     .exec(rule('.topbar-inner-brand-only'));
@@ -245,39 +247,79 @@ test('the header is one height on every view, so the page under it cannot shift'
     'the redundant rule under the header is back');
 });
 
-test('the Today header does not say Today', () => {
-  /* Founder: "On the today card. The very top left has today. We know that
-     because we're on the today card. Remove it." It was the third time the
-     screen said so -- the bottom nav's tab is lit, the date on the right is
-     today's, and the view's own heading row is hidden here for exactly this
-     reason (.view-today .view-heading-row{display:none}).
-     THE DATE STAYS. It is the one thing in that bar the athlete cannot read
-     off anything else on the screen.
-     AND THE SLOT STAYS, EMPTY, which is the half of this that is easy to
-     undo by accident. .tb-slot-left is flex:0 0 28% and the wordmark is
-     centred by the slots either side of it, not by the bar -- so deleting
-     the element slides VELVET VIKING 28% to the left. Measured after this
-     change: the wordmark's centre and the bar's centre are both 215px on a
-     430px screen. */
+test('one header, the same one, on every view', () => {
+  /* ---- CHANGED SIDES: THE DATE WENT TOO ----
+     Founder: "No date. Stuck on every page."
+     This held that Today rendered a header of its own, carrying the date on
+     the right and an empty left slot to keep the wordmark centred, and its
+     own comment defended the date as "the one thing in that bar the athlete
+     cannot read off anything else on the screen". That was true and it is
+     not what was asked: a date on one screen of five is precisely what made
+     the header change as you moved between tabs.
+     THE STRONGEST FORM OF "STUCK ON EVERY PAGE" is that the five views
+     return the SAME STRING, so this compares them rather than checking each
+     for the absence of a date. */
+  const a = app();
+  const views = ['today', 'week', 'full', 'planhq', 'settings'];
+  const bars = views.map(v => { a.state.view = v; return a.renderTopbar(); });
+  assert.equal(new Set(bars).size, 1,
+    'the header is not identical across the five tabs: ' +
+    views.filter((v, i) => bars[i] !== bars[0]).join(', ') + ' differ from today');
+  const bar = bars[0];
+  assert.match(bar, /topbar-inner-brand-only/, 'the one header is not the brand-only bar');
+  assert.equal(bar.indexOf('tb-date'), -1, 'the date is back in the header');
+  assert.equal(bar.indexOf('tb-today'), -1, 'the header says "Today" again');
+  assert.equal(bar.indexOf('topbar-inner-today'), -1,
+    'Today has its own header again, which is how the heights came to differ');
+  /* And no date by any other route: the bar must not carry today's day or
+     date in any spelling. */
+  const t = a.todayStr();
+  [a.dow(t), a.dShort(t), t].forEach(frag =>
+    assert.equal(bar.indexOf(frag), -1, 'the header still prints ' + frag));
+  a.state.view = 'today';
+});
+
+test('the mark is VALHALLA, signed by the company, with one gold dot each side', () => {
+  /* Founder, with a mock-up: "I want the title at the top changing to that.
+     No date. Stuck on every page. No hairline. Just 1 gold dot either side.
+     Valhalla is the apps name so should be big. Velvet viking is the
+     company so small accent under it." */
   const a = app();
   a.state.view = 'today';
   const bar = a.renderTopbar();
-  assert.match(bar, /topbar-inner-today/, 'Today no longer renders its own header');
-  assert.equal(bar.indexOf('tb-today'), -1,
-    'the Today header says "Today" again, which the lit tab and the date already say');
-  assert.match(bar, /<div class="tb-slot-left"><\/div>/,
-    'the left slot was deleted rather than emptied, so the wordmark is no longer centred');
-  assert.match(bar, /class="tb-date font-head"/,
-    'the date went with the label — it is the one thing in that bar nothing else says');
+  assert.match(bar, />Valhalla</, 'the app name is not in the mark');
+  assert.match(bar, />By Velvet Viking</, 'the company no longer signs the mark');
+  assert.equal((bar.match(/class="bm-dot"/g) || []).length, 2,
+    'the mark does not carry exactly one dot either side');
+  /* THE DOTS ARE DECORATION AND MUST NOT BE READ ALOUD. Two bullets
+     announced between the name and the byline is the mark made worse for
+     the athletes most likely to need it plain. */
+  assert.equal((bar.match(/class="bm-dot" aria-hidden="true"/g) || []).length, 2,
+    'a decorative dot is exposed to a screen reader');
 
-  /* The other views are untouched: brand only, no date, no label. */
-  ['week', 'full'].forEach(v => {
-    a.state.view = v;
-    const other = a.renderTopbar();
-    assert.match(other, /topbar-inner-brand-only/, v + ' no longer renders the brand-only header');
-    assert.equal(other.indexOf('tb-today'), -1, v + ' grew a Today label');
-  });
-  a.state.view = 'today';
+  const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  /* GOLD, AND ONLY HERE. The wordmark used to BE gold; the founder's
+     hierarchy keeps gold for the brand and the mock-up spends it on two
+     points instead of eight letters. */
+  assert.match(/\.bm-dot\{([^}]*)\}/.exec(CSS)[1], /background:var\(--gold-bright\)/,
+    'the dots are not the brand gold');
+  const word = /\.bm-word\{([^}]*)\}/.exec(CSS)[1];
+  assert.match(word, /color:#FFFFFF/i, 'the app name is not white');
+  /* THE TRAILING TRACK IS CANCELLED, and this is the whole reason the mark
+     sits centred. letter-spacing adds a full track AFTER the last letter, so
+     without the negative margin the right dot sits one track further from
+     the A than the left dot does from the V -- measured in Chromium at 412,
+     360 and 320: 15px against 15px with it, 15px against 22.7px without.
+     The two must move together, so the law reads one off the other. */
+  const track = /letter-spacing:\.(\d+)em/.exec(word);
+  const pull  = /margin-right:-\.(\d+)em/.exec(word);
+  assert.ok(track && pull, 'the name no longer states both its track and the pull that cancels it');
+  assert.equal(pull[1], track[1],
+    'the negative margin stopped matching the letter-spacing, so the mark is off-centre by ' +
+    'the difference');
+  /* THE HAIRLINE IS GONE. Founder: "No hairline." */
+  assert.doesNotMatch(CSS, /\.brandmark::after/,
+    'the decorative rule under the mark is back');
 });
 
 test('the breakdown disclosure is not the one tile left on the page', () => {

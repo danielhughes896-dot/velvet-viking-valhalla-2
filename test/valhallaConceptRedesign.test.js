@@ -301,9 +301,14 @@ test('PREVIEW: the circles are a two-column grid, all one size', () => {
 test('PREVIEW: The Athlete Status shows all four facts, each one a destination', () => {
   const a = planHQ();
   const preview = a.renderValhallaInstruments();
-  /* The heading is retired and the row split in two: fitness and progress
-     stayed circles in the grid, goal and benchmark took plates, on the
-     founder's "then 2 even sized rectangular boxes. Goal - benchmark." */
+  /* ---- CHANGED SIDES: ALL FOUR ARE PLATES NOW ----
+     Founder: "I think we make the fitness and progress circles the same as
+     goal and benchmark. And then put them under the circles."
+     The heading is still retired and the row is no longer split: goal and
+     benchmark took plates first, on "then 2 even sized rectangular boxes",
+     and fitness and progress have followed them. The claim this test makes
+     -- all four facts are shown and every one is a destination -- is
+     untouched; only the shape two of them arrive in has changed. */
   assert.doesNotMatch(preview, /The Athlete Status</, 'the retired heading is back');
   assert.match(preview, /class="b-plates"/);
   /* FOUR NOW, NOT THREE. Goal joins Measured fitness, Benchmark and
@@ -314,10 +319,10 @@ test('PREVIEW: The Athlete Status shows all four facts, each one a destination',
      a cross-realm Array that is otherwise identical. */
   const facts = a.recordFacts();
   assert.equal(facts.map(f => f.key).join(','), 'goal,fitness,benchmark,progress');
-  assert.equal((preview.match(/class="b-dial b-stat"/g) || []).length, 2,
-    'expected fitness and progress as circles');
-  assert.equal((preview.match(/class="b-plate"/g) || []).length, 2,
-    'expected goal and benchmark as plates');
+  assert.equal((preview.match(/class="b-dial b-stat"/g) || []).length, 0,
+    'a Record fact is drawn as a circle again');
+  assert.equal((preview.match(/class="b-plate"/g) || []).length, 4,
+    'expected all four facts as plates');
   facts.forEach(f => {
     assert.match(preview, new RegExp('data-action="open-record" data-record="' + f.key + '"'),
       f.key + ' is drawn but cannot be opened');
@@ -327,8 +332,11 @@ test('PREVIEW: The Athlete Status shows all four facts, each one a destination',
     assert.match(preview, new RegExp('<span class="(rd-cat|b-plate-k)">' + f.chip + '</span>'),
       f.chip + ' is drawn without naming itself');
   });
-  /* The circle's label is short where the panel's title is full: "Fitness"
-     on a 90px face, "Measured fitness" everywhere a sentence has room. */
+  /* The plate's label is short where the panel's title is full: "Fitness"
+     in a 139px box, "Measured fitness" everywhere a sentence has room. The
+     short form was chosen for a 90px circle face and is kept, because the
+     plate is not much wider and the panel behind it still says it in
+     full. */
   assert.equal(facts[1].chip, 'Fitness');
   assert.equal(facts[1].subject, 'Measured fitness');
 });

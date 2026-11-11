@@ -266,6 +266,74 @@ test('Guidance Level itself is unchanged', () => {
 });
 
 /* ===========================================================================
+ * THE COACH BUTTONS SAY THEIR WORDS IN WHITE
+ * ---------------------------------------------------------------------------
+ * Founder: "The words hear today and ask coach. Bright white bold. Keep
+ * everything else the boarder the same."
+ * The cherry pass gave these two the accent whole -- rim, glow and label. The
+ * label is the part that has to be read rather than recognised, so it comes
+ * back to white; everything the founder named as staying stays.
+ * ===========================================================================
+ */
+test('the coach buttons read white, and only the words moved', () => {
+  const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const m = /\.voice-row \.voice-btn\{([^}]*)\}/.exec(CSS);
+  assert.ok(m, 'the coach button rule is gone');
+  const r = m[1];
+  /* THE WORDS. --cherry-btn-ink is the token that already means white ink on
+     a cherry control; a raw #FFFFFF here would be a second white with no
+     name, which is how two controls come to disagree about one colour. */
+  assert.match(r, /color:var\(--cherry-btn-ink\)/,
+    'the coach button labels are not white');
+  assert.doesNotMatch(r, /color:var\(--cherry-text\)/,
+    'the labels are still the accent-as-text');
+  assert.match(r, /font-weight:700/, 'the labels are no longer bold');
+  /* AND EVERYTHING THE FOUNDER SAID TO KEEP. Asserted here because "keep
+     everything else the same" is the half of the instruction a colour change
+     is most likely to break in passing. */
+  assert.match(r, /border:1\.5px solid var\(--cherry\)/, 'the cherry rim moved');
+  assert.match(r, /box-shadow:0 0 16px var\(--cherry-dim\)/, 'the glow moved');
+  assert.match(r, /background:#121316/, 'the fill moved');
+  /* The token itself is white, so the rule above means what it says. */
+  assert.match(CSS, /--cherry-btn-ink:#FFFFFF/i,
+    '--cherry-btn-ink is no longer white, so the labels are not either');
+});
+
+/* ===========================================================================
+ * A REST DAY'S COACH'S NOTE CLEARS THE RING
+ * ---------------------------------------------------------------------------
+ * Founder: "Rest day coaches note appears very close to the hero? Easy
+ * aerobic is good for reference."
+ * Measured at 412: the easy aerobic's note is the [data-solo] kind and opens
+ * 24px below the hero's bottom edge. A rest day's note is the plain .how-note
+ * with no top margin at all, and .day-detail starts at that same edge -- so
+ * the note's border sat 10px under the ring. Hero bottom 211, note top 211.
+ * ===========================================================================
+ */
+test('a rest day note takes the same clearance the reference surface has', () => {
+  const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  /* THE REFERENCE FIRST, so the number below is anchored to the thing the
+     founder pointed at rather than typed from memory. If the solo note ever
+     moves, this fails and the two are reconciled deliberately. */
+  const solo = /\.how-note\[data-solo\]\{([^}]*)\}/.exec(CSS);
+  assert.ok(solo, 'the solo note rule is gone, so there is no reference left');
+  const top = /margin:(\d+)px/.exec(solo[1]);
+  assert.ok(top, 'the solo note no longer declares a top margin');
+  assert.equal(top[1], '24', 'the reference clearance moved and the rest day did not follow');
+
+  const rest = /\.th-hero-rest \+ \.day-detail > \.how-note:not\(\[data-solo\]\)\{([^}]*)\}/.exec(CSS);
+  assert.ok(rest, 'the rest day note has gone back to sitting on the hero');
+  assert.equal((/margin-top:(\d+)px/.exec(rest[1]) || [])[1], top[1],
+    'the rest day clears the hero by a different amount than the reference');
+
+  /* AND IT IS A REST DAY THAT GETS IT. .th-hero-rest is written by the hero
+     renderer for exactly that case, so the selector cannot quietly widen to
+     every day with a hero. */
+  assert.match(SRC, /isRest\s*\?\s*' th-hero-rest'\s*:\s*''/,
+    'the rest hero no longer marks itself, so the rule above matches nothing');
+});
+
+/* ===========================================================================
  * A REST DAY IS A DAY IN THE PLAN, SO IT LOOKS AND READS LIKE ONE
  * ---------------------------------------------------------------------------
  * Today opened on a rest day with two chips and a line of stage directions.

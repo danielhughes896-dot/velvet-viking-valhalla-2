@@ -162,8 +162,22 @@ test('Cinzel sets the wordmark and nothing else', () => {
   const css = appCss();
   const rules = [...css.matchAll(/([^{}]+)\{[^}]*font-family:'Cinzel',serif/g)]
     .map(m => m[1].trim().split('\n').pop().trim());
-  assert.deepEqual(rules.sort(), ['.wc-wordmark', '.word-metallic'],
-    'Cinzel is setting something other than the wordmark -- it is a mark, not a heading face');
+  /* ---- CHANGED SIDES: THE TOP BAR'S MARK LEFT CINZEL ----
+     Founder, with a mock-up: "Valhalla is the apps name so should be big.
+     Velvet viking is the company so small accent under it."
+     .word-metallic set "Velvet Viking" in Cinzel across every screen and is
+     deleted with the name it painted -- the mock-up sets VALHALLA in the
+     app's own sans, tracked wide. The claim here does not change: Cinzel is
+     a mark's face and never a heading's. There is one mark left in it. */
+  /* THREE MARKS, NOT THREE HEADINGS, and the claim is unchanged: Cinzel is
+     a mark's face and never a heading's.
+       .wc-wordmark   VALHALLA on the welcome card and in the share image
+       .pe-name       VALHALLA on the splash lockup
+     The top bar is deliberately NOT in this list. Its mark is the app's own
+     sans, which is how the founder's two mock-ups draw them -- the splash is
+     a brand moment and the bar is chrome. */
+  assert.deepEqual(rules.sort(), ['.pe-name', '.wc-wordmark'],
+    'Cinzel is setting something other than a wordmark -- it is a mark, not a heading face');
 });
 test('the one label voice is the label Today actually renders, not the base rule under it', () => {
   // The standard was taken from the WHY/EXECUTION/FEEL/WATCH FOR label as

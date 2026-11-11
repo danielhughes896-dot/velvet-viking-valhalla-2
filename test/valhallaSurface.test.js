@@ -27,6 +27,24 @@ function planHQ(opts) {
   a.state.view = 'planhq';
   return a;
 }
+/* A REAL MEASUREMENT, so Fitness states its range rather than an em-dash.
+   The fixture schedules no checkpoint before the pinned date, so the first
+   one in the plan is completed and recorded exactly as logging it would --
+   nothing is written into the fact by hand. Without this, every law about
+   the widest plate value runs against "\u2014" and proves nothing. */
+function withMeasuredFitness(a) {
+  let target = null;
+  a.state.days.forEach(dd => {
+    if (!target && (dd.type === 'checkpoint' || dd.type === 'race')) target = dd;
+  });
+  assert.ok(target, 'the fixture plan schedules no checkpoint, so fitness cannot be measured');
+  target.completed = true;
+  target.actual = { km: target.km, pace: a.secToPace(300), hr: 150, rpe: 7, feel: 'good', notes: '' };
+  a.recordMeasuredPerformance(target);
+  const f = a.recordFacts().filter(x => x.key === 'fitness')[0];
+  assert.ok(!f.none, 'the measurement did not take, so this fixture is still empty');
+  return a;
+}
 const rule = sel => {
   const i = BARE.indexOf(sel + '{');
   assert.ok(i > -1, 'rule not found: ' + sel);
@@ -457,43 +475,67 @@ test('RING: the words and the ring count the same evidence', () => {
   });
 });
 
-test('RING: Progress is the only arc, and it draws to its own percentage', () => {
+test('RING: no circle in the grid is drawn to a proportion, because none has one', () => {
+  /* ---- CHANGED SIDES: PROGRESS LEFT THE GRID ----
+     Founder: "I think we make the fitness and progress circles the same as
+     goal and benchmark. And then put them under the circles."
+     This asked the opposite -- that Progress be the ONE arc, drawn to its
+     own percentage -- and it was right while Progress was a circle. It is a
+     plate now, and a plate has no ring, so the claim inverts: every reading
+     left in the grid is a word with a tone, so NOTHING in it may be drawn
+     to a proportion. An arc here would be a figure invented to fill a
+     shape, which is the rule that put Progress on the arc in the first
+     place and the same rule that now takes the arc away. */
   const a = planHQ();
-  /* THE FIXTURE'S PROGRESS IS 0%, AND AN ARC AT ZERO PROVES NOTHING -- a
-     mutation halving every fraction passed this test untouched. Log enough
-     of the block to move the number first, and assert it really did move. */
+  /* Still driven to a discriminating state: a half-logged block is the
+     condition under which an arc WOULD have been emitted, so a restored arc
+     mode is caught rather than passing on an empty fixture. */
   (a.state.days || []).forEach((d, i) => {
     if (d.type !== 'rest' && i % 2 === 0) { d.completed = true; d.actual = { km: d.km }; }
   });
   const moved = parseFloat(String(a.recordFacts().filter(f => f.key === 'progress')[0].big));
   assert.ok(moved > 5 && moved < 95,
-    'progress is ' + moved + '% -- the arc has to be partial for this to discriminate');
+    'progress is ' + moved + '% -- it has to be partial for this to discriminate');
   const html = a.renderValhallaInstruments();
-  const arcs = html.match(/stroke-dashoffset="[\d.]+"/g) || [];
-  assert.equal(arcs.length, 1,
-    'expected exactly one drawn arc -- Progress is the only reading in the grid ' +
-    'with a real proportion behind it, and an arc over a word is an invented figure');
-
-  /* THE ARC AND THE NUMBER COME FROM ONE PLACE. statusFactFraction() reads
-     the fact's own value, so they cannot disagree; this proves it by doing
-     the arithmetic back from the markup. */
-  const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
-  const pct = parseFloat(String(facts.progress.big).replace('%', ''));
-  const R = 46, C = 2 * Math.PI * R;
-  const off = parseFloat(/stroke-dashoffset="([\d.]+)"/.exec(arcs[0])[1]);
-  assert.ok(Math.abs((1 - off / C) * 100 - pct) < 0.5,
-    'the Progress arc is drawn at ' + ((1 - off / C) * 100).toFixed(1) +
-    '% while the face reads ' + pct + '%');
+  const grid = /<div class="b-grid">([\s\S]*?)<\/div>/.exec(html)[1];
+  assert.equal((grid.match(/stroke-dashoffset/g) || []).length, 0,
+    'a circle in the grid is drawn to a proportion again');
+  assert.equal((grid.match(/--rd-to:/g) || []).length, 0,
+    'a circle in the grid has grown an entrance to draw to');
+  /* AND THE HELPERS THAT DID IT ARE GONE, not merely unreferenced -- a
+     deletion the runtime records at dialRingHtml. */
+  assert.doesNotMatch(SRC, /function statusFactFraction\(/,
+    'the fraction helper is back with nothing to feed');
+  assert.doesNotMatch(SRC, /function animateProgressRing\(/,
+    'the Progress entrance driver is back with no arc to play on');
+  assert.doesNotMatch(BARE, /@keyframes rd-draw/,
+    'the ring-draw keyframe is back with nothing to animate');
 });
 
-test('RING: nothing measured is drawn as gathering, not as a complete reading', () => {
+test('RING: nothing measured still reads as an absence, now on the plate', () => {
+  /* ---- CHANGED SIDES: FITNESS LEFT THE GRID ----
+     Founder: "make the fitness and progress circles the same as goal and
+     benchmark." This asked that an unmeasured fitness wear the dashed
+     gathering ring. It has no ring now, and the claim underneath it does
+     not change: an absence must still be drawn as an absence rather than as
+     a settled figure. The plate carries that in the typography the empty
+     state already owns, which is the channel Goal and Benchmark have used
+     for their own absences since they became plates. */
   const a = planHQ();
   const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
   assert.ok(facts.fitness.none, 'the fixture has a measured fitness, so this proves nothing');
   const html = a.renderValhallaInstruments();
   const fitness = /<button[^>]*data-record="fitness"[\s\S]*?<\/button>/.exec(html)[0];
-  assert.match(fitness, /is-learning/,
-    '"Nothing measured" is drawn as a closed ring, which says the reading is settled');
+  assert.match(fitness, /class="b-plate"/, 'Fitness is a circle again');
+  assert.match(fitness, /class="b-plate-v rec-none"/,
+    'an unmeasured fitness is stated in the same type as a real figure');
+  /* AND THE SAME ABSENCE, THE SAME WAY, AS THE FACTS IT NOW SITS BESIDE. */
+  const a2 = planHQ();
+  a2.state.setup.benchmark = null;
+  const bench = /<button[^>]*data-record="benchmark"[\s\S]*?<\/button>/
+    .exec(a2.renderValhallaInstruments())[0];
+  assert.match(bench, /class="b-plate-v rec-none"/,
+    'two absences on one row are drawn two different ways');
 });
 
 test('RING: no metric Valhalla does not compute has been invented for it', () => {
@@ -522,6 +564,112 @@ test('RING: the painted rim comes off only where the ring replaces it', () => {
   const sec = a.readingSections(a.coachAnalyse()).filter(s => s.key === 'recovery')[0];
   assert.doesNotMatch(a.readingDialHtml(sec, 0, true), /rd-ring/,
     'a panel hero has grown an evidence ring, which reports on a verdict rather than stating it');
+});
+
+// ===========================================================================
+// FOUR CIRCLES, FOUR PLATES
+// ---------------------------------------------------------------------------
+// Founder: "I think we make the fitness and progress circles the same as goal
+// and benchmark. And then put them under the circles."
+// The shape now carries the distinction the two deleted headings carried in
+// words: a reading is a state and takes a circle, a Record fact is a number
+// and takes a plate. Goal and Benchmark went first; this is the same rule
+// reaching the two that were left behind in the grid.
+// ===========================================================================
+test('SHAPE: the grid is readings only, and every Record fact is a plate', () => {
+  const a = withMeasuredFitness(planHQ());
+  const html = a.renderValhallaInstruments();
+  const grid = /<div class="b-grid">([\s\S]*?)<\/div>/.exec(html)[1];
+
+  /* NOT A COUNT OF BUTTONS -- the two sets are told apart by the action they
+     carry, so a fact rendered as a circle is caught wherever it sits. */
+  assert.equal((grid.match(/data-action="open-record"/g) || []).length, 0,
+    'a Record fact is drawn as a circle in the grid again');
+  assert.equal((grid.match(/data-action="open-reading"/g) || []).length, 4,
+    'the grid no longer holds exactly the four readings');
+
+  const plateKeys = [...html.matchAll(/class="b-plate"[^>]*data-record="([a-z]+)"/g)].map(m => m[1]);
+  assert.equal(plateKeys.join(','), 'fitness,progress,goal,benchmark',
+    'the plates are not the four Record facts in the founder\u2019s order');
+
+  /* AND THE TWO ARRAYS THAT DECIDE IT, so a renderer that happened to agree
+     by accident is not mistaken for the rule. Joined rather than deep-equal
+     because the app runs in its own realm: a structurally identical array
+     there has a different Array prototype, and assert/strict rejects it. */
+  assert.equal([...a.VALHALLA_CIRCLES].join(','), 'evolution,adaptation,recovery,patterns');
+  assert.equal([...a.VALHALLA_PLATES].join(','), 'fitness,progress,goal,benchmark');
+
+  /* THE PAIRS THE FOUNDER NAMED SURVIVE. "evolution - adaption" and
+     "recovery - patterns" were two of the three rows of the old grid; the
+     pair between them left, and the other two stayed whole rather than
+     being re-paired around the gap. */
+  assert.equal([...a.VALHALLA_CIRCLES].slice(0, 2).join(','), 'evolution,adaptation');
+  assert.equal([...a.VALHALLA_CIRCLES].slice(2).join(','), 'recovery,patterns');
+});
+
+test('SHAPE: every fact that took a plate is a number, which is why it took one', () => {
+  /* THE TEST THE SHAPE IS CHOSEN BY, applied rather than asserted. "Plates
+     and headlines are for numbers, circles are for state" is the rule Goal
+     and Benchmark moved under; Fitness and Progress pass the same test --
+     a pace or finish range and a percentage -- which is why this is the
+     existing rule applied consistently and not a new one. */
+  const a = withMeasuredFitness(planHQ());
+  const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
+  a.VALHALLA_PLATES.forEach(k => {
+    const big = String(facts[k].big);
+    assert.ok(/\d/.test(big) || facts[k].none || big === 'A' || /^[A-C]$/.test(big),
+      k + ' is on a plate but states a word rather than a figure: ' + big);
+  });
+  /* AND EVERY CIRCLE IS A WORD. The inverse half of the same rule -- if a
+     reading ever starts reporting a figure, it belongs on a plate, and this
+     is where that is noticed. */
+  const sections = {}; a.readingSections(a.coachAnalyse()).forEach(x => { sections[x.key] = x; });
+  a.VALHALLA_CIRCLES.forEach(k => {
+    assert.ok(/[A-Za-z]/.test(String(sections[k].value)),
+      k + ' is a circle but states a bare figure: ' + sections[k].value);
+  });
+});
+
+test('SHAPE: a plate value cannot wrap, whatever the string it is given', () => {
+  /* MEASURED, NOT GUESSED, AND THE MEASUREMENT IS WHY THIS LAW EXISTS. At
+     320px the plate is 139px wide and a fitness range broke at the dash, so
+     Fitness and Progress stood 102px tall against Goal and Benchmark's
+     84px -- four plates the founder asked to be even, in two sizes. The
+     widest value the app can produce is eleven characters ("24:10-25:24",
+     a 5K range), found by sweeping every distance rather than by reading
+     the marathon fixture, which shows nine.
+     A BROWSER IS WHERE WIDTH LIVES, so what is held here is the mechanism:
+     the count the sizing divides by, the ceiling it may never exceed, and
+     the nowrap that turns a too-long run into a visible overflow instead of
+     a silent second line. */
+  const a = withMeasuredFitness(planHQ());
+  const html = a.renderValhallaInstruments();
+  const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
+
+  /* THE COUNT IS THE LONGEST RUN, not the string length -- a value with a
+     space in it must not be sized as though it were one unbreakable word. */
+  assert.equal(a.plateValueChars('24:10\u201325:24'), 11);
+  assert.equal(a.plateValueChars('Goal A'), 4, 'a space is not being treated as a break');
+  assert.equal(a.plateValueChars(''), 1, 'an empty value divides by zero');
+
+  a.VALHALLA_PLATES.forEach(k => {
+    const plate = new RegExp('<button[^>]*data-record="' + k + '"[\\s\\S]*?</button>').exec(html)[0];
+    const ch = parseInt(/--pv-ch:(\d+)/.exec(plate)[1], 10);
+    assert.equal(ch, a.plateValueChars(String(facts[k].big)),
+      k + ' is sized against a character count that is not its own value\u2019s');
+  });
+
+  const rule = /\.b-plate-v\{([^}]*)\}/.exec(BARE)[1];
+  assert.match(rule, /white-space:nowrap/,
+    'a long plate value wraps again, which is what made the rows uneven');
+  assert.match(rule, /var\(--pv-ch/,
+    'the value size ignores the string it has to fit');
+  assert.match(rule, /min\(26px/,
+    'the 26px ceiling is gone, so short values grow to fill their box');
+  assert.match(rule, /100cqw/,
+    'the size is no longer measured against the plate it has to fit inside');
+  assert.match(BARE, /\.b-plate\{[^}]*container-type:inline-size/,
+    'the plate is not a query container, so 100cqw measures the wrong box');
 });
 
 // ===========================================================================
@@ -596,12 +744,29 @@ test('MOTION: the ring has one behaviour per state the engine actually returns',
     assert.equal(a.readingSections(r).filter(s => s.key === 'recovery')[0].state, st,
       'the recovery section does not carry the engine state ' + st);
   });
-  /* THE RENDERER EMITS ONE PER STATE... */
+  /* THE RENDERER EMITS ONE PER STATE -- AND THE GRID ACTUALLY CARRIES IT.
+     This asked dialRingHtml() directly, which proves the helper can take a
+     variant and nothing about whether the screen passes it one. A mutation
+     that slipped an extra argument into the call site -- the shape of a
+     real signature mistake, since that call lost its middle parameter when
+     the arc mode went -- left recovery with no is-rec- class at all and
+     this test green. The circulation is a property of the rendered grid,
+     so the grid is what gets read. */
   STATES.forEach(st => {
     const r = a.coachAnalyse(); r.recovery.state = st;
     const sec = a.readingSections(r).filter(s => s.key === 'recovery')[0];
-    assert.match(a.dialRingHtml('solid', null, 'is-rec-' + sec.state), /is-rec-/ ,
+    assert.match(a.dialRingHtml('solid', 'is-rec-' + sec.state), /is-rec-/ ,
       'the ring takes no variant for ' + st);
+  });
+  STATES.forEach(st => {
+    const b = planHQ();
+    const real = b.coachAnalyse;
+    b.coachAnalyse = function(){ const r = real.apply(this, arguments); r.recovery.state = st; return r; };
+    const grid = /<div class="b-grid">([\s\S]*?)<\/div>/.exec(b.renderValhallaInstruments())[1];
+    const rec = /<span class="b-dial-col">(?:(?!<span class="b-dial-col">)[\s\S])*?data-reading="recovery"[\s\S]*?<\/span><\/span>/.exec(grid);
+    assert.ok(rec, 'recovery is not in the grid at all when the engine says ' + st);
+    assert.match(rec[0], new RegExp('is-rec-' + st),
+      'the grid draws recovery with no state variant when the engine says ' + st);
   });
   /* ...AND THE SHEET STYLES NO OTHER. strained deliberately has no rule of
      its own -- it falls through to the plain closed ring, which IS its
@@ -657,79 +822,57 @@ test('MOTION: the break is the 320-340 degrees that was asked for', () => {
 });
 
 // ===========================================================================
-// PROGRESS LAYS ITSELF DOWN
+// PROGRESS NO LONGER LAYS ITSELF DOWN
 // ---------------------------------------------------------------------------
-// The one instrument in the grid with a real proportion is the one worth
-// drawing to it. This is the confidence gauge's entrance reused, not a second
-// one -- and gated the same way, for the reason the gauge's own comment
-// records measuring: declared on the element it replays on every renderApp().
+// It did, for one commit: the single instrument in the grid with a real
+// proportion, drawn to it with the confidence gauge's own entrance. Then
+// Progress became a plate and the arc, the keyframe, the driver and the
+// fraction helper all lost their only caller at once. What is left here is
+// the law that they went TOGETHER.
 // ===========================================================================
-test('DRAW: the Progress arc states both its ends, so it is right without the animation', () => {
+test('DRAW: the entrance is gone with the arc, and nothing is left half-deleted', () => {
+  /* ---- CHANGED SIDES: THE WHOLE ENTRANCE ----
+     Founder: "I think we make the fitness and progress circles the same as
+     goal and benchmark. And then put them under the circles."
+     Three laws stood here and all three are now wrong in the same way.
+     They held that the Progress arc stated both its ends so it survived a
+     browser with no animation; that the entrance was gated behind a class
+     rather than declared on the element; and that it reused the confidence
+     gauge's duration and easing rather than inventing a second. Every one
+     was true of a ring, and Progress has no ring: it is a plate, and a
+     plate has nothing to lay down.
+     WHAT SURVIVES THEM is the reason they existed -- that a deletion is
+     complete. Half a deleted feature is worse than either keeping it or
+     removing it, because the next person finds machinery with no caller and
+     cannot tell whether it is load-bearing. The pieces went together, and
+     this is what says so. */
+  /* THE DECLARATION AND THE CALL, NOT THE NAME. A first cut asked that the
+     identifiers appear nowhere in the file at all, and it failed on the
+     runtime's own tombstone comments -- which are exactly what a deletion
+     this size should leave behind. What may not exist is machinery. */
+  assert.doesNotMatch(SRC, /function statusFactFraction\s*\(/,
+    'the fraction helper is declared again, with nothing to feed');
+  assert.doesNotMatch(SRC, /function animateProgressRing\s*\(/,
+    'the entrance driver is declared again, with no arc to play on');
+  assert.doesNotMatch(SRC, /\n\s*animateProgressRing\(\)/,
+    'something still calls the entrance driver');
+  assert.doesNotMatch(SRC, /var progressRingLastKey/,
+    'the entrance still keeps a key for a figure it no longer draws');
+  assert.doesNotMatch(BARE, /@keyframes rd-draw/, 'the keyframe outlived its only user');
+  assert.doesNotMatch(BARE, /\.b-grid \.b-dial\.is-drawing/,
+    'the grid still styles an entrance class nothing can add');
+  assert.doesNotMatch(BARE, /--rd-len|--rd-to/,
+    'the sheet still reads the two ends of an arc nothing emits');
+  /* AND THE ARC MODE ITSELF: dialRingHtml answers learning or solid, and
+     asking it for an arc may not quietly produce one. */
   const a = planHQ();
-  (a.state.days || []).forEach((d, i) => {
-    if (d.type !== 'rest' && i % 2 === 0) { d.completed = true; d.actual = { km: d.km }; }
-  });
-  const html = a.renderValhallaInstruments();
-  const arc = /<circle class="rd-arc"[^>]*>/.exec(html)[0];
-  const attr = parseFloat(/stroke-dashoffset="([\d.]+)"/.exec(arc)[1]);
-  const to   = parseFloat(/--rd-to:([\d.]+)/.exec(arc)[1]);
-  const len  = parseFloat(/--rd-len:([\d.]+)/.exec(arc)[1]);
-  /* THE RESTING VALUE AND THE ANIMATION'S DESTINATION ARE THE SAME NUMBER.
-     Stated twice on purpose: one of them has to survive a browser that
-     never runs the keyframe, and if they ever disagree the arc would snap
-     to a different figure the moment the entrance finished. */
-  assert.equal(attr, to, 'the arc rests at ' + attr + ' and animates to ' + to);
-  assert.ok(Math.abs(len - 2 * Math.PI * 46) < 0.5,
-    '--rd-len is not the circumference, so the entrance starts part-drawn');
-});
-
-test('DRAW: the entrance is gated, not declared on the element', () => {
-  /* THE BUG THIS PREVENTS IS RECORDED, MEASURED, in the confidence gauge's
-     own comment: declared straight on the element, the gauge re-filled from
-     zero whenever anything on the page redrew -- 33ms into a 1140ms draw
-     after an ordinary renderApp() with nothing changed. */
-  assert.doesNotMatch(BARE, /\.b-grid \.rd-arc\{[^}]*animation:rd-draw/,
-    'the entrance is declared on the arc itself, so it replays on every render');
-  assert.match(BARE, /\.b-grid \.b-dial\.is-drawing \.rd-arc\{[^}]*animation:rd-draw/,
-    'the entrance is no longer behind a class');
-  assert.match(SRC, /function animateProgressRing\(/, 'nothing adds the class after render');
-  assert.match(SRC, /\n  animateProgressRing\(\);/,
-    'animateProgressRing is never called, so the entrance never plays');
-  /* KEYED, so switching tabs and back does not re-lay a figure that has not
-     moved -- the same guard the other three instruments carry. */
-  const fn = SRC.slice(SRC.indexOf('function animateProgressRing('),
-                       SRC.indexOf('function animateConfidenceGauge('));
-  /* THE GUARD, NOT THE NAME. This asked only that progressRingLastKey be
-     mentioned, and the identifier also appears in the two early returns
-     that clear it -- so deleting the comparison entirely left the test
-     passing, which a mutation run showed. What has to exist is the
-     early-out itself and the assignment that arms it. */
-  assert.match(fn, /if \(key === progressRingLastKey\) return;/,
-    'the entrance no longer bails when the figure has not moved, so it replays on every render');
-  assert.match(fn, /progressRingLastKey = key;/,
-    'the key is never stored, so the guard above can never match');
-  assert.match(fn, /void dial\.offsetWidth/,
-    'the class is re-added without a reflow, so the animation will not restart');
-});
-
-test('DRAW: it is the gauge’s entrance, and nothing else in the grid has one', () => {
-  /* ONE ENTRANCE, NOT A SECOND THAT RESEMBLES IT. Same duration token, same
-     easing as the confidence gauge and the session ring. */
-  const rule = /\.b-grid \.b-dial\.is-drawing \.rd-arc\{([^}]*)\}/.exec(BARE)[1];
-  assert.match(rule, /var\(--ring-draw\)/,
-    'the Progress entrance has invented a duration of its own');
-  const gauge = /\.gauge-wrap\.is-drawing \.gauge-fill\{([^}]*)\}/.exec(BARE)[1];
-  const ease = /cubic-bezier\([^)]*\)/.exec(gauge)[0];
-  assert.ok(rule.indexOf(ease) > -1,
-    'the Progress entrance eases differently from the gauge it borrows');
-
-  /* AND ONLY PROGRESS. A dashed ring has no proportion to lay down, and six
-     entrances at once is a screen with no focal point. */
-  const a = planHQ();
-  const html = a.renderValhallaInstruments();
-  const drawn = (html.match(/--rd-to:/g) || []).length;
-  assert.equal(drawn, 1,
-    'expected exactly one ring with an entrance; found ' + drawn);
-  assert.match(/<button[^>]*data-record="progress"[\s\S]*?<\/button>/.exec(html)[0],
-    /--rd-to:/, 'the ring that draws in is not Progress');
+  assert.doesNotMatch(a.dialRingHtml('arc', null), /stroke-dashoffset/,
+    'the arc mode is still reachable by name');
+  /* THE ENTRANCES THAT WERE NOT THIS ONE ARE UNTOUCHED. The gauge and the
+     session ring keep theirs; only the instrument that lost its shape lost
+     its entrance. */
+  assert.match(BARE, /\.gauge-wrap\.is-drawing \.gauge-fill\{[^}]*animation:gauge-draw/,
+    'the confidence gauge lost its entrance too, which this change never touched');
+  assert.match(SRC, /function animateConfidenceGauge\(/,
+    'the gauge driver was deleted along with the Progress one');
 });
