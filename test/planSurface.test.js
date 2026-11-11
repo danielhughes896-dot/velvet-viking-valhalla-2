@@ -1523,7 +1523,12 @@ test('a missed day says so in the circle, the same way a done day does', () => {
   assert.equal(d.border.split('@')[0], '--ok', 'the done circle left the done token');
   assert.equal(m.border.split('@')[0], '--c-threshold',
     'the missed circle is not using the red the MISSED label uses');
-  assert.match(CSS, /\.day-status-label\.missed\{[^}]*color:var\(--c-threshold\)/,
+  /* ON THE DOT SINCE THE PILLS WENT. The MISSED label lost its outline and
+     its coloured type -- founder, "No pills. Text white." -- and its red
+     moved to the dot beside the word. The pairing this law protects is
+     unchanged: the circle in the week strip and the label on the card must
+     draw the same red from the same token, and both still do. */
+  assert.match(CSS, /\.day-status-label\.missed \.day-status-dot\{background:var\(--c-threshold\)/,
     'the MISSED label changed colour, so the circle now matches nothing');
 });
 

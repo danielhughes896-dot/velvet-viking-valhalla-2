@@ -533,11 +533,90 @@ test('a race block is one scannable line of instruction, not two of prose', () =
      cue produces exactly one prose line -- which is what "not two of prose"
      has always meant. The class it lands in changed; the count did not, and
      the data assertion above still pins purpose to null at the source. */
+  /* ---- THE CLASS MOVED WITH THE SENTENCE ----
+     Founder: "Can any of the current coaches notes be added to the rails?"
+     The block's one instruction used to render as .strat-phase-purpose in
+     a caption under the rail; it renders as .strat-phase-say on the block's
+     own card. The count is what this law is about and the count is
+     unchanged -- one prose line per block, never two. */
   const card = a.renderDayCard(race);
-  assert.equal((card.match(/strat-phase-purpose/g) || []).length, 5,
+  assert.equal((card.match(/strat-phase-say/g) || []).length, 5,
     'one instruction per block');
+  assert.doesNotMatch(card, /strat-phase-purpose/,
+    'the retired caption class is being emitted again alongside the card line');
   assert.doesNotMatch(card, /strat-phase-cue/,
     'the separate italic cue line is retired, not re-emitted alongside');
+});
+
+/* ===========================================================================
+ * NO TWO BLOCKS OF A RACE SAY THE SAME THING
+ * ---------------------------------------------------------------------------
+ * Founder, looking at the rail: "I don't think it needs a commit page?
+ * Commit and push us the same message? ... Same with hold?"
+ * MEASURED BEFORE ANSWERING, on a real marathon: HOLD 10-20km and HOLD
+ * 20-30km carried a byte-identical sentence -- "Goal pace, unremarkable,
+ * boring. Take your fuel on schedule." -- so two pages of the plan said one
+ * thing and the athlete swiped past the second having just read it.
+ * PRESS AND COMMIT DID NOT. "Where the race starts. Effort rises for the
+ * same pace now" against "The last stretch. If you are still in control,
+ * press. If you are not, hold on and finish." Two different pieces of
+ * coaching that only LOOKED alike, because the Coach's Note repeated
+ * verbatim on all five pages and buried the one line that differed. So the
+ * blocks were not merged -- RACE_BLOCKS_KM feeds the per-block paces and
+ * the implied finish, and dropping one changes the race plan's arithmetic
+ * rather than its screen. The middle was given the two different jobs it
+ * actually has, and the repetition under it was removed.
+ * CAUGHT BY MUTATION: forcing the middle branch off left every other guard
+ * in this file green. */
+test('no two blocks of a race carry the same instruction', () => {
+  ['5k', '10k', 'half', 'full', 'ultra'].forEach(key => {
+    const { a, race } = athlete(key);
+    ['even', 'negative'].forEach(k => {
+      a.handleSetRaceStrategy(k);
+      const phases = a.executionStrategy(race).phases;
+      const cues = phases.map(p => a.resolveDesc(p.cue || ''));
+      /* Built with indexOf rather than a seen-map: a map keyed on the cue
+         stores index 0 as a falsy value, so a block repeating the FIRST
+         one's words slips through -- and the failure message dereferenced
+         that undefined index, which node evaluates even when the assertion
+         passes. Found by running it. */
+      cues.forEach((c, i) => {
+        if (!c) return;
+        const first = cues.indexOf(c);
+        if (first === i) return;
+        assert.fail(
+          key + '/' + k + ': blocks ' + first + ' and ' + i + ' (' +
+          phases[first].label + ' ' + phases[first].spanLabel + ' and ' +
+          phases[i].label + ' ' + phases[i].spanLabel +
+          ') carry the identical instruction: "' + c + '"');
+      });
+    });
+  });
+});
+
+/* AND THE MARATHON'S MIDDLE IS TWO DIFFERENT JOBS, NAMED.
+   The rule is counted from the number of blocks rather than keyed to a
+   distance, so it follows RACE_BLOCKS_KM instead of a second list that
+   could drift from it: a half has exactly one middle block and keeps the
+   patient line it already had, a 5K and a 10K have none at all. */
+test('only a race with more than one middle block gets a second middle voice', () => {
+  const widths = { '5k': 0, '10k': 0, 'half': 1, 'full': 2, 'ultra': 2 };
+  Object.keys(widths).forEach(key => {
+    const { a, race } = athlete(key);
+    const phases = a.executionStrategy(race).phases;
+    const middles = Math.max(0, phases.length - 3);
+    assert.equal(middles, widths[key],
+      key + ' has ' + middles + ' middle blocks, not ' + widths[key] +
+      ' — the middle rule is counted from the block table and has drifted from it');
+    if (middles < 2) return;
+    const mid = phases.slice(1, 1 + middles).map(p => a.resolveDesc(p.cue || ''));
+    assert.notEqual(mid[0], mid[mid.length - 1],
+      key + ': the first and last middle blocks say the same thing again');
+    /* The later one is where holding the pace starts to cost something, and
+       it is the block whose fuelling is paid for after 30km. */
+    assert.match(mid[mid.length - 1], /stops being free|steps down/,
+      key + ': the last middle block lost the line that tells it apart');
+  });
 });
 
 test('suppressing the purpose line is scoped to races and nothing else', () => {
@@ -578,8 +657,15 @@ test('the ceiling keeps the fast edge and loses the words', () => {
 
   /* AND THE CEILING IS STILL SAID, in the Coach's Note, which is where the
      founder asked for it. This is the fact the rail stopped repeating. */
-  const cap = a.renderStrategyPhaseCaption(settle, 0);
-  assert.match(cap, /No faster than goal pace/,
+  /* AND THE CEILING IS STILL SAID -- on the SETTLE card itself now, which
+     is where the founder asked the coaching to go. This read the caption
+     renderer, and that function is deleted rather than left building a
+     second copy of a sentence the card already carries. Asserted on the
+     rendered card, which is stricter: a string in a renderer nobody calls
+     would have satisfied the old line. */
+  const settleCard = (a.renderDayCard(race)
+    .match(/<div class="how-mod strat-phase">[\s\S]*?<\/div><\/div>/g) || [])[0] || '';
+  assert.match(settleCard, /No faster than goal pace/,
     'the ceiling is now said NOWHERE — it came off the rail on the grounds the note carries it');
 
   /* The split that rendered the qualifier above the figure goes with it. */
@@ -623,7 +709,11 @@ test('the race lede is centred, and only the race lede', () => {
   assert.match(card, /class="day-desc"/, 'the race lede has lost its description element');
   const CSS = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8')
     .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(CSS, /\.view-week \.wk-overview\) \.day-desc\{text-align:center;\}/,
+  /* The rule carries an ink now as well as the alignment -- founder, on
+     the race card: "Text white." It was the last warm grey left on a
+     focused card once the labels went white. This matched the whole
+     declaration body, so it is anchored on the property it is about. */
+  assert.match(CSS, /\.view-week \.wk-overview\) \.day-desc\{[^}]*text-align:center/,
     'the focused session description is no longer centred');
   assert.ok(!/\n  \.day-desc\{[^}]*text-align:center/.test(CSS),
     'every description is centred now, in lists too — it was scoped to the focused session on purpose');

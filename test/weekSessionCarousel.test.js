@@ -159,7 +159,7 @@ test('the card and the day circles cannot disagree', () => {
  * The slot is now held by the button itself, hidden. Asserting the markup is
  * what this file can do; the pixel claim is the reason it matters.
  */
-test('a rest day holds the session button\'s slot instead of collapsing it', () => {
+test('no week reserves a slot for a button that can no longer appear', () => {
   const a = app();
   const w = a.currentWeekNum();
   const days = a.weekSessionDays(w);
@@ -232,7 +232,7 @@ test('a rest day holds the session button\'s slot instead of collapsing it', () 
   let bare = 0;
   for (let w = 1; w <= a.totalWeeksInPlan(); w++){
     const ds = a.weekCarouselDays(w);
-    if (!ds.length || ds.some(d => d.type === 'race')) continue;
+    if (!ds.length) continue;
     ds.forEach(d => {
       a.weekSelectedDate = d.date;
       assert.equal(hasClass(a.renderWeekSessionBox(w), 'wk-open'), false,
@@ -241,44 +241,51 @@ test('a rest day holds the session button\'s slot instead of collapsing it', () 
     });
     bare++;
   }
-  assert.ok(bare >= 10, 'only ' + bare + ' week(s) without a race were checked');
-  /* AND THE WEEK THAT KEEPS IT KEEPS IT GHOSTED on every day but race --
-     held, never offered, because the slide already shows the session. */
+  assert.ok(bare >= 10, 'only ' + bare + ' week(s) were checked');
+
+  /* ---- AND RACE WEEK IS NO LONGER THE EXCEPTION ----
+     This used to end by requiring race week to KEEP the reserved box, and
+     to keep it ghosted on every day but goal day: goal day was the one day
+     that could still show a real button, because its five execution phases
+     were deliberately held off the slide.
+     Founder, on Full Plan's last day: "The full plan last day just shows a
+     blank screen. And has a view full session tab like the old commit."
+     That exception was the blank screen. Goal day draws its coaching on the
+     slide like every other day now, no day in any carousel can reveal the
+     button, and the slot reserved against that swipe went with it -- the
+     loop above therefore runs on EVERY week rather than skipping the one
+     with a race in it, which is a wider claim than the one it replaces.
+     THE STABILITY CLAIM IS UNCHANGED AND IS WHAT MATTERED. "The BOX is
+     there on both, so the zone breakdown below it cannot move as the
+     athlete swipes the week" -- a week where no day has it satisfies that
+     exactly as a week where every day does, and the all-or-none assertion
+     above still catches a week that disagrees with itself. */
   const raceDay = a.state.days.filter(d => d.type === 'race')[0];
-  assert.ok(raceDay, 'the block builds no race day, so the exception is untested');
+  assert.ok(raceDay, 'the block builds no race day, so the claim is untested');
   const rw = raceDay.week;
-  a.weekCarouselDays(rw).filter(d => d.type !== 'race').forEach(d => {
+  a.weekCarouselDays(rw).forEach(d => {
     a.weekSelectedDate = d.date;
     const html = a.renderWeekSessionBox(rw);
-    assert.ok(hasClass(html, 'wk-open'),
-      d.date + ': race week stopped reserving the box, so swiping onto the race jumps the page');
-    assert.ok(hasClass(html, 'is-ghost'),
-      d.date + ': a day is offering to open a session the slide is already showing');
+    assert.equal(hasClass(html, 'wk-open'), false,
+      d.date + ': race week reserves a box for a button that can no longer appear');
+    assert.equal(html.indexOf('data-action="week-open-session"'), -1,
+      d.date + ': the full-session action is back on race week');
   });
-  a.weekSelectedDate = rest.date;
 
-  /* Held, not offered. A rest day has nothing to open, so the reserved box
-     must not be reachable by pointer, by tab, or by the delegated handler. */
-  /* READ THE HELD SLOT WHERE ONE IS STILL HELD. onRest comes from the
-     current week, which has no race in its carousel and therefore no box to
-     reserve; the slot's own properties are unchanged and are checked on the
-     week that still has one. */
-  a.weekSelectedDate = a.weekCarouselDays(rw).filter(d => d.type !== 'race')[0].date;
-  const onHeld = a.renderWeekSessionBox(rw);
-  const ghostM = /<button[^>]*class="[^"]*\bis-ghost\b[^"]*"[^>]*>/.exec(onHeld);
-  assert.ok(ghostM, 'no held slot in the markup at all');
-  const ghost = ghostM[0];
-  assert.doesNotMatch(ghost, /data-action=/, 'the held slot can still be fired');
-  assert.doesNotMatch(ghost, /data-date=/, 'the held slot names a day to open');
-  assert.match(ghost, /aria-hidden="true"/, 'the held slot is announced to a screen reader');
-  assert.match(ghost, /tabindex="-1"/, 'the held slot is still in the tab order');
-
-  /* visibility, never display: display:none would collapse the box and put
-     back the exact 54px jump this exists to remove. */
-  assert.match(rule('.wk-open.is-ghost'), /visibility:hidden/,
-    'the held slot is hidden by some rule other than visibility');
-  assert.doesNotMatch(rule('.wk-open.is-ghost'), /display:\s*none/,
-    'display:none collapses the slot, which is the bug');
+  /* AND THE GHOST IS GONE FROM THE SHEET TOO, not merely unemitted. A rule
+     styling a state nothing can reach is, in the runtime's own words about
+     .rec-card, what the next person edits by mistake. */
+  /* ASSERTED ON THE CODE, NOT ON THE WORD. The first version of these three
+     searched the whole file for the identifiers and failed on the comments
+     that explain why they were removed -- which would have had the law
+     telling the next person to delete its own reasoning. Each line names a
+     shape that only live code can have. */
+  assert.doesNotMatch(SRC, /\bvar ghostEarnsItsSpace\b/,
+    'the reserved-box decision is back, computing a boolean nothing reads');
+  assert.doesNotMatch(SRC, /'\s*is-ghost\s*'/,
+    'the ghost modifier is being concatenated onto the button again');
+  assert.doesNotMatch(SRC, /\.wk-open\.is-ghost\s*\{/,
+    'the ghost rule is back, styling a state nothing can reach');
 });
 
 test('an open session always keeps a way back out', () => {

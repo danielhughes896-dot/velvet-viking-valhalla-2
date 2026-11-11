@@ -775,30 +775,48 @@ test('the execution panels are figures and the sentence is a caption', () => {
      separation this test is about. */
   const rail = block;
   const caps = parts.caps;
-  assert.ok(caps, 'the execution captions are gone entirely');
-  assert.equal((rail.match(/class="how-mod strat-phase"/g) || []).length,
-               (caps.match(/class="how-cap-i/g) || []).length,
-    'the rail and its captions are different lengths, so a panel and the sentence under ' +
-    'it can be about different phases');
+  /* ---- THE SENTENCE IS ON THE PANEL NOW, SO caps IS EMPTY ----
+     Founder: "Can any of the current coaches notes be added to the rails?"
+     This law was written when the prose could not fit a 125px column and
+     read at full width under the rail instead. A race phase panel measures
+     398x274px -- swept across every distance -- so it fits, and the
+     pairing this law protects is now structural rather than positional:
+     panel n IS sentence n, because they are the same element.
+     caps KEEPS ITS KEY rather than being removed from the return, so every
+     caller destructuring {panels, caps} still works; it is asserted empty
+     so a future pass cannot quietly start building captions again and show
+     the athlete each sentence twice. */
+  assert.equal(caps, '', 'the captions are being built again as well as the cards');
   const phases = (block.match(/class="how-mod strat-phase"/g) || []).length;
   assert.ok(phases >= 3, 'the phases are no longer rail modules');
 
-  /* NOT A WORD LOST. One caption per phase, and the prose lives in them. */
-  assert.equal((caps.match(/class="how-cap-i/g) || []).length, phases,
-    'there is not exactly one caption per phase');
-  /* AND THE RAIL NAMES THEM, because the note is two blocks further down
-     and "the element after the dots" cannot reach it. */
-  const capId = /id="(exec-cap-[^"]+)"/.exec(caps);
-  assert.ok(capId, 'the caption wrapper has no id for the rail to point at');
-  /* ASKED OF THE RENDERED CARD, because the rail is built by the caller
-     now. Same law, one level up: the track that carries these panels names
-     this caption wrapper, or swiping cannot move the sentences. */
-  assert.ok(a.renderDayCard(race).indexOf('data-cap="' + capId[1] + '"') > -1,
-    'the rail does not point at its own captions, so swiping cannot move them');
+  /* ---- NOT A WORD LOST, ASSERTED AT THE PANEL ----
+     The three checks that stood here -- one caption per phase, the wrapper
+     carrying an id, the rail naming that id with data-cap so a swipe could
+     move the sentences -- were the machinery that kept a panel and the
+     sentence BELOW it in step. There is nothing left to keep in step: the
+     sentence is inside the panel, so panel n and sentence n are one
+     element and cannot drift by construction.
+     What replaces them is the claim they existed to protect. Every phase
+     that has something to say says it, on its own card, with its units
+     resolved -- checked against the engine's own phase list rather than
+     against a count, so a card that silently lost its prose is caught. */
+  const cards = block.match(/<div class="how-mod strat-phase">[\s\S]*?<\/div><\/div>/g) || [];
+  assert.equal(cards.length, phases, 'a phase card is not a closed element');
+  const engine = a.executionStrategyForDisplay(race).phases;
+  assert.equal(cards.length, engine.length,
+    'the rail draws ' + cards.length + ' cards for ' + engine.length + ' phases');
+  engine.forEach((ph, i) => {
+    const prose = [ph.purpose, ph.cue].filter(Boolean).map(t => a.resolveDesc(t)).join(' ');
+    if (!prose) return;
+    assert.ok(cards[i].indexOf(prose.slice(0, 40)) > -1,
+      'phase ' + i + ' (' + ph.label + ') does not carry its own sentence');
+  });
+  assert.equal(block.indexOf('data-cap='), -1,
+    'the rail still points at a caption wrapper that is no longer built');
   const card = a.renderDayCard(race);
-  const noteAt = card.indexOf('class="how-note"');
-  assert.ok(noteAt > -1 && card.indexOf('id="' + capId[1] + '"') > noteAt,
-    'the execution captions are not inside the Coach\'s Note');
+  assert.equal((card.match(/class="how-cap-i/g) || []).length, 0,
+    'the sentences are rendered twice — once on the card and once as a caption');
   /* NO "EXECUTION" HEADING. Every panel names itself now -- SETTLE, HOLD,
      PRESS, COMMIT -- and a word above a row of labels that already say what
      they are is a label on labels, which is why FUEL went too. */
@@ -809,15 +827,21 @@ test('the execution panels are figures and the sentence is a caption', () => {
     'the coaching sentence is back inside a 125px panel, which is what made the rail ' +
     'two and a half times the height of the other two');
   assert.ok(!block.includes('strat-phase-purpose'),
-    'a phase sentence is back in the rail instead of the note');
+    'the retired caption class is being emitted alongside the card line');
 
-  /* THE FIRST CAPTION IS LIT IN THE MARKUP. A rail whose script never ran
-     would otherwise show five panels and no sentence at all -- the same
-     reasoning that puts the dot count in the HTML. */
-  assert.match(caps, /class="how-cap-i is-on"/,
-    'no caption is lit in the markup, so a rail whose script never runs shows none of them');
-  assert.equal((caps.match(/is-on/g) || []).length, 1,
-    'more than one caption is lit at once');
+  /* ---- NOTHING TO LIGHT, WHICH IS THE POINT ----
+     The first caption used to be lit in the markup so a rail whose script
+     never ran still showed one sentence -- five panels and no words was the
+     failure that guarded against. A panel carries its own sentence now, so
+     a rail whose script never runs shows the first panel AND its sentence,
+     which is strictly better than what the lit class bought. Asserted as
+     the absence of the mechanism, because a half-removal -- captions gone
+     but the lighting still running, or the reverse -- is the state worth
+     catching. */
+  assert.equal((block.match(/is-on/g) || []).length, 0,
+    'the caption lighting is back on a rail with no captions to light');
+  assert.match(cards[0], /strat-phase-say/,
+    'the first panel carries no sentence, so a rail whose script never runs shows none');
 
   /* AND THE WIRING SWITCHES THEM, found by position like the dots -- never
      by reaching into a parent, which is what would hand a second rail in the

@@ -205,7 +205,15 @@ test('the one label voice is the label Today actually renders, not the base rule
   assert.ok(override, "Today's focused .how-row .k override not found");
   assert.doesNotMatch(override[1], /font-size/, 'the focused label is pinned out of the rem scale again');
   assert.doesNotMatch(override[1], /letter-spacing/);
-  assert.match(override[1], /color:var\(--gold-text\)/, 'the gold ink the override is for was lost');
+  /* ---- CHANGED SIDES: THE INK IS WHITE NOW ----
+     Founder, on the race day card: "No pills. Text white. Titles white."
+     FEEL and WATCH FOR name what follows them, which is information, and
+     information is white under the founder's own colour rule. The override
+     still exists for exactly what this law protects -- it carries the
+     layout and the ink, and no px size -- only the hue changed, and it
+     changed to the one the builder, the Coach page and all nine panels
+     already took. */
+  assert.match(override[1], /color:#FFFFFF/i, 'the ink the override is for was lost');
 });
 
 test('the whole type scale is in rem, so a reader\'s text-size setting reaches it', () => {
@@ -485,16 +493,29 @@ test('no font-family declaration anywhere resolves to a name outside the two can
 });
 
 test('every line in the Coach\u2019s Note reads as one voice', () => {
-  /* The execution phase sentence moved into the note carrying
-     .strat-phase-purpose's own dim colour from the table it used to live
-     in, so it sat a tier below the lines either side of it -- three
-     sentences in one block, one of them quieter for no reason the athlete
-     can see. */
+  /* The execution phase sentence used to arrive in the note carrying
+     .strat-phase-purpose's own dim colour from the table it had lived in,
+     so it sat a tier below the lines either side of it. This law lifted it
+     back to --ink.
+     ---- CHANGED SIDES: THAT SENTENCE IS NOT IN THE NOTE ANY MORE ----
+     Founder: "Can any of the current coaches notes be added to the rails?"
+     The phase prose is on the phase's own card now, so the two
+     .how-cap arms came out of this rule rather than being left to lift a
+     colour onto something that never arrives. The claim survives in the
+     form that still means something: the note states ONE colour for its
+     own lines, and nothing inside it is quieter than its neighbours. */
   const css = appCss();
-  const m = /\n\s*\.how-note \.v,([\s\S]{0,240}?)\{([^}]*)\}/.exec(css);
+  const m = /\n\s*\.how-note \.v\{([^}]*)\}/.exec(css);
   assert.ok(m, 'the Coach\u2019s Note no longer states one colour for its lines');
-  assert.match(m[1], /\.strat-phase-purpose/,
-    'the execution sentence is not covered by the note\u2019s colour, so it reads dimmer ' +
-    'than the lines around it');
-  assert.match(m[2], /color:var\(--ink\)/, 'the note\u2019s lines are no longer --ink');
+  assert.match(m[1], /color:var\(--ink\)/, 'the note\u2019s lines are no longer --ink');
+  /* And the sentence that left is where it went, not nowhere. */
+  assert.match(css, /\.strat-phase-say,\s*\n?\s*\.strat-phase-watch\{/,
+    'the phase sentence has no rule on the card it moved to');
+  /* ASSERTED AS A RULE, NOT AS A MENTION. The first version of this line
+     searched the sheet for the class name and failed on the two comments
+     that explain why it was retired -- a law that makes the next person
+     delete its own reasoning. A selector followed by a brace is the shape
+     only a live rule has. */
+  assert.doesNotMatch(css, /\.strat-phase-purpose\s*[,{]/,
+    'the retired caption class is still styling something that is never emitted');
 });

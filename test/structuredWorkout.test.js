@@ -988,118 +988,87 @@ test('a solo-note day looks the same on Today, This Week and Full Plan', () => {
     'the box no longer shows itself outside a focused card, so This Week and Full Plan hide it');
 });
 
-/* ---------- NOTHING MORE TO OPEN ON A SOLO-NOTE DAY ----------
-   Founder: "On easy sessions the view full session isnt needed." The full
-   card on those days is the hero and the cherry box, and the overview above
-   the button already shows both, so the button was offering to reveal what
-   the athlete was looking at.
-   GHOSTED RATHER THAN DELETED, the way a rest day's already was: the slides
-   are one height for the week and this button sits below the rail, so
-   removing it outright drops everything beneath it and snaps it back on the
-   next swipe. Both halves are asserted -- it is not pressable, and its box
-   is still there -- because deleting it would also pass a test that only
-   checked for the words. */
-test('no day but race offers a full session to open', () => {
+/* ---------- NOTHING MORE TO OPEN, ON ANY DAY ----------
+   Founder: "On easy sessions the view full session isnt needed", and then
+   "I don't want view full session button." The slide carries the hero, the
+   rail and the Coach's Note, so the button offered to reveal what the
+   athlete was already reading.
+   IT WAS GHOSTED RATHER THAN DELETED while one day could still show it --
+   the slides are one height for the week and this button sits below the
+   rail, so removing its box dropped everything beneath it and snapped back
+   on the next swipe. Race day was that day, and it has joined the rest, so
+   the box was being reserved against a swipe that cannot happen. Both the
+   button and its ghost are asserted absent below, because deleting one and
+   leaving the other would pass a test that only looked for the words. */
+test('no day offers a full session to open, goal day included', () => {
+  /* ---- THE EXCEPTION WENT, AND WITH IT THE BUTTON ----
+     This law read "no day BUT RACE offers a full session to open": every
+     ordinary day ghosted the button (founder: "I want the full session
+     swapping. So I don't want view full session button") and goal day kept
+     a real one, because its five execution phases were deliberately held
+     off the slide by an earlier instruction -- "Leave race day separate for
+     the time being".
+     Founder, on Full Plan's last day: "The full plan last day just shows a
+     blank screen. And has a view full session tab like the old commit."
+     That is what the exception had become. weekSlideHtml set depth to ''
+     for a race, and hasWorkoutBlueprint() is false for one too, so goal
+     day's slide was a hero over nothing in a box sized by the tallest day
+     of the week. Race day draws its coaching like every other day now, the
+     button has nothing left to reveal on any day, and the ghost that
+     reserved its box went with it: no day in any carousel can show it, so
+     the box was 65px of nothing on every slide in the product.
+     WHAT IS ASSERTED NOW is the whole of what is left -- the button is not
+     offered while closed, on any day; "Hide full session" still renders
+     when a card is open, so a card opened before this rule can still be
+     closed; and goal day's slide carries the rail and the note that the
+     button used to be the only way to reach. */
   const a = railApp();
-  /* ---- READ IN THE WEEK THAT HAS A RACE IN IT ----
-     THIS USED TO READ THE CURRENT WEEK, and the reserved box has since
-     stopped being drawn in weeks whose carousel holds no race day -- there
-     the button can never appear, so the box was 65px of nothing on 15 weeks
-     of 16 (see renderWeekSessionBox). The claim here is about the exception
-     race day makes, so it is asserted where race day is. */
   const raceDay = a.state.days.filter(d => d.type === 'race')[0];
   assert.ok(raceDay, 'the block builds no race day, so the exception is untested');
   const wk = raceDay.week;
   const days = a.weekCarouselDays(wk);
   assert.ok(days.length >= 5, 'the fixture week is too small to prove anything');
   assert.ok(days.some(d => d.type === 'race'), 'the race is not in its own week\u2019s carousel');
-  let ghosted = 0, offered = 0;
+
+  let checked = 0;
   days.forEach(d => {
     a.handleWeekPickDay(d.date);
     const html = a.renderWeekSessionBox(wk);
-    const btn = /<button type="button" class="wk-open sess-nav([^"]*)"([^>]*)>/.exec(html);
-    assert.ok(btn, d.date + ': the week screen has no full-session button at all');
-    const ghost = btn[1].indexOf('is-ghost') > -1;
-    /* ---- THE RULE WIDENED FROM SOLO-NOTE DAYS TO EVERY DAY BUT RACE ----
-       Founder: "I want the full session swapping. So I don't want view full
-       session button. I want the rail and the coaches note being visible."
-       The slide carries the hero, the rail and the Coach's Note now, so the
-       button offered to reveal what was already on screen.
-       RACE IS THE EXCEPTION, by instruction -- "Leave race day separate for
-       the time being" -- and it is a real one, not a leftover: its five
-       execution phases are still deliberately off the slide, so the full
-       card is the only place they can be read. */
-    if (d.type !== 'race'){
-      ghosted++;
-      assert.ok(ghost, d.date + ' (' + d.type + '): still offers to open a session it is already showing');
-      assert.equal(btn[2].indexOf('data-action'), -1,
-        d.date + ': the ghosted button is still pressable');
-      /* THE BOX STAYS, or the page jumps under a finger mid-swipe. */
-      assert.ok(html.indexOf('wk-open sess-nav') > -1,
-        d.date + ': the button was deleted rather than ghosted, so the week will jump on a swipe');
-    } else {
-      offered++;
-      assert.ok(!ghost, d.date + ': goal day can no longer be opened, and its phases are only there');
-      assert.ok(btn[2].indexOf('data-action="week-open-session"') > -1,
-        d.date + ': the full-session button lost its action');
-    }
+    checked++;
+    assert.equal(html.indexOf('wk-open sess-nav'), -1,
+      d.date + ' (' + d.type + '): the week screen still offers to open a session it is showing');
+    assert.equal(html.indexOf('data-action="week-open-session"'), -1,
+      d.date + ' (' + d.type + '): the full-session action is back');
+    assert.equal(html.indexOf('is-ghost'), -1,
+      d.date + ' (' + d.type + '): the reserved box is back, on a day that can never fill it');
   });
-  /* The fixture week has no race day, so `offered` is 0 here; the race arm
-     is exercised by the race-day laws elsewhere in this file. What this
-     week proves is that every ordinary day ghosts it. */
-  assert.ok(ghosted >= 5,
-    'the fixture week exercised only ' + ghosted + ' ghosted days');
+  assert.ok(checked >= 5, 'the fixture week exercised only ' + checked + ' days');
 
-  /* ---- AND GOAL DAY, WHICH IS THE ONE DAY THAT STILL OPENS ----
-     The fixture week above has no race day, so without this the race arm of
-     the condition was never run -- removing it entirely passed every test
-     in this file. Goal day's five execution phases are deliberately still
-     off the slide, so the full card is the only place to read them. */
-  /* ---- GOAL DAY, ASSERTED AT THE UNIT RATHER THAN ON SCREEN ----
-     Checked before writing this: goal day is not in any week's carousel.
-     Week 11 runs to Nov 14 and the race is Nov 15, so weekSessionDays()
-     never returns it -- the race has its own card on Full Plan instead. The
-     exception is therefore DEFENSIVE: it is what stops goal day becoming a
-     hero and nothing if it ever does reach this rail. Asserted where it can
-     be: the slide withholds its coaching, and the button condition names
-     the exception rather than having quietly become unconditional. */
-  const race = a.state.days.filter(d => d.type === 'race')[0];
-  assert.ok(race, 'the block builds no goal day, so the exception is untested');
-  assert.equal(a.weekSlideHtml(race, 0).indexOf('class="how-note"'), -1,
-    'goal day\u2019s coaching reached the slide — it is meant to be held back for now');
-  /* ---- WITHHELD ON THE SLIDE, NOT TAKEN AWAY ----
-     Founder: "you have removed coaches note? Which is actually ok if it
-     shows up on today card for that session?" It does, and that is the
-     half of this that matters: the slide is the only place goal day's
-     coaching is held back. Asserted here because the exclusion lives in
-     weekSlideHtml() and nothing stopped it being copied into the day card
-     the next time someone made the two agree. Checked with goal day as
-     TODAY, which is the only day it is ever the Today card. */
-  const g = railApp();
-  const gRace = g.state.days.filter(d => d.type === 'race')[0];
-  g.todayStr = function(){ return gRace.date; };
-  const card = g.renderDayCard(gRace);
-  assert.ok(card.indexOf('class="how-note"') > -1,
-    'goal day has lost its Coach\u2019s Note on the day card as well, which was never the ask');
-  assert.ok((card.match(/ws-card-body/g) || []).length >= 5,
-    'goal day has lost its execution phases on the day card');
-  const box = /function renderWeekSessionBox\(weekNum\)\{[\s\S]*?\n\}/.exec(RAILCODE)[0];
-  assert.match(box, /dd\.type !== 'race' && !weekSessionOpen/,
-    'the full-session button no longer makes an exception of goal day');
+  /* ---- AND GOAL DAY IS NOT BLANK, WHICH IS WHY THE BUTTON COULD GO ----
+     Asserted on the slide itself rather than on the week box, because the
+     carousel may or may not hold the race depending on where the date
+     falls -- weekCarouselDays() is what the swipe steps through and
+     weekSlideHtml() is what it renders. */
+  const slide = a.weekSlideHtml(raceDay, 0);
+  assert.ok(slide.indexOf('class="how-mod strat-phase"') > -1,
+    'goal day\u2019s slide carries no execution rail -- this is the blank screen again');
+  /* AND NOT A NOTE, WHICH IS THE RULE FOR EVERY DAY ON A SLIDE. I asserted
+     one here first and was wrong: renderCoachingDepth returns early on a
+     preview -- "AND ON A PREVIEW, NOTHING BELOW THE RAIL" -- so the prose
+     note is off This Week and Full Plan on every non-solo day, by
+     instruction. Goal day is not an exception to that and must not become
+     one; what it was missing was the RAIL, and that is asserted above.
+     This line is here so a future pass that "fixes" the missing note would
+     have to change a law that says why there isn't one. */
+  assert.equal(slide.indexOf('<div class="how-note">'), -1,
+    'goal day\u2019s slide grew a prose note that no other day has');
+  assert.equal(slide.indexOf('wk-open sess-nav'), -1,
+    'goal day still carries the button it no longer needs');
 
-  /* ---- A SLIDE'S PICTURES STAY INSIDE THAT SLIDE ----
-     Founder: "There is a wrapping issue? So when you swipe the images
-     follow on?" Measured at 430px before the fix: slide 16->414, card
-     0->430, so each card overhung 16px into both neighbours and only the
-     rail clipped. Three rules move the breakout from the card to the rail;
-     all three are needed, and removing the clip alone passed every other
-     law in this file. */
-  assert.match(RAILCSS, /\.view-week \.wk-rail\{margin-left:-16px; margin-right:-16px; width:calc\(100% \+ 32px\);\}/,
-    'the week rail is no longer full-bleed, so the slide cannot hold the breakout');
-  assert.match(RAILCSS, /\.view-week \.wk-slide\{overflow:hidden;\}/,
-    'a slide no longer clips, so a neighbour\u2019s picture paints into it');
-  assert.match(RAILCSS, /\.view-week \.wk-overview\{padding-left:16px; padding-right:16px;\}/,
-    'the slide lost its gutter, so the hero now starts at the screen edge');
+  /* The one thing the button is still emitted for: a card the athlete
+     opened before the rule applied must have a way back out of itself. */
+  assert.match(RAILCODE, /weekSessionOpen \? 'Hide full session'|>Hide full session/,
+    'an already-open card has no way to close itself');
 });
 
 /* ---------- TICK AND EDIT ON TODAY; EDIT ON THE OTHER TWO ----------
@@ -1291,7 +1260,15 @@ test('a week slide carries its rail and its solo note, and never the Coach\u2019
        blueprint rail alone did not reach it. */
     if (a.longRunIsFuelRail(d) && !a.soloNoteSession(d)){
       fuelRailed++;
-      assert.ok((slide.match(/ws-card-body/g) || []).length >= 3,
+      /* TWO, NOT THREE, SINCE FUELLING BECAME ONE CARD. Founder: "Were it
+         says take 8-12 gels? Can that be on the same page as total carbs?"
+         A goal-pace long run's rail was the session, then FUEL/TOTAL CARBS,
+         then TAKE GELS/FLUID; the last two are one subject and are now one
+         card carrying all four facts. The claim is that the rail is THERE,
+         not how many swipes it takes -- and the fuel figures themselves are
+         asserted one by one in "a long run draws no rail, and its fuel
+         figures leave the screen with it", which is where that belongs. */
+      assert.ok((slide.match(/ws-card-body/g) || []).length >= 2,
         d.date + ': a goal-pace long run shows no rail on the slide');
     }
   });
@@ -2185,7 +2162,12 @@ test('why, feel and watch for left the screen — Why for its own section, the r
      only thing distinguishing "Why" from the sentence it introduces. */
   const lab = /\.how-note-row b\{([^}]*)\}/.exec(RAILCSS);
   assert.ok(lab, 'the word in front of a moved line has no rule, so it reads as plain bold prose');
-  assert.match(lab[1], /color:var\(--gold-text\)/, 'the moved lines’ labels are no longer gold');
+  /* WHITE NOW, WITH EVERY OTHER TITLE. Founder, on the race day card: "No
+     pills. Text white. Titles white." FEEL and WATCH FOR name what the
+     sentence after them is about; they are still told apart from it by the
+     label face, the tracking and the capitals, which is how every label in
+     the product distinguishes itself now that none of them is gold. */
+  assert.match(lab[1], /color:#FFFFFF/i, 'the moved lines’ labels lost their own ink');
   assert.match(lab[1], /font-family:var\(--label-face\)/, 'the labels left the product’s label voice');
   assert.match(lab[1], /text-transform:uppercase/, 'the labels are no longer set as labels');
 });
@@ -2536,8 +2518,35 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   /* (\d+) stopped matching when the title took the hero's 21.85px and
      read back as NaN, which compares false against everything -- so the
      assertion below it was passing on a number that did not exist. */
-  const fig = px(/\.ws-rail \.ws-h-qty,[\s\S]{0,400}?font-size:([\d.]+)px/);
-  const lab = px(/\.ws-rail \.ws-h-presc:not\(\.font-mono\),[\s\S]{0,700}?font-size:([\d.]+)px/);
+  /* ---- AND THEY ARE A calc() FROM ONE RATIO NOW ----
+     Founder: "The titles and distances can be larger and the coaching
+     underneath can also be larger but the same % increase you do to the
+     title and distance." Three literals would have been three edits that
+     agree today and drift tomorrow, so each is calc(<base>px * --rail-scale)
+     and the ratio is declared once on .ws-rail. The bases are what this law
+     compares -- the ratio multiplies both equally, so a claim about the
+     base is a claim about the rendered size. */
+  const fig = px(/\.ws-rail \.ws-h-qty,[\s\S]{0,400}?font-size:(?:calc\()?([\d.]+)px/);
+  const lab = px(/\.ws-rail \.ws-h-presc:not\(\.font-mono\),[\s\S]{0,700}?font-size:(?:calc\()?([\d.]+)px/);
+  /* THE RATIO IS ONE NUMBER, OR "the same %" IS THREE NUMBERS THAT AGREE. */
+  assert.match(RAILCSS, /\.ws-rail\{[^}]*--rail-scale:[\d.]+/,
+    'the rail no longer declares one ratio, so its three sizes can drift apart');
+  /* Counted rather than matched per selector: the three sizes live in three
+     multi-arm rules whose other arms are the fuel and phase cards, so a
+     selector-anchored regex is a claim about declaration ORDER inside those
+     lists and breaks the moment an arm is added. What matters is that every
+     size on this rail is derived from the ratio and none is left as a
+     literal -- so the scaled ones are counted, and the three bases the
+     founder named are each checked to be inside a calc. */
+  const scaled = (RAILCSS.match(/font-size:calc\([^;]*--rail-scale/g) || []).length;
+  assert.ok(scaled >= 4,
+    'only ' + scaled + ' rail sizes follow the ratio — the title, the figure and the ' +
+    'coaching were meant to move together');
+  [['21.85px', 'the title'], ['30px', 'the figure'],
+   ['var(--fs-support)', 'the coaching sentence']].forEach(([base, what]) => {
+    assert.ok(RAILCSS.indexOf('font-size:calc(' + base + ' * var(--rail-scale') > -1,
+      what + ' is a fixed size again, so "the same %" is no longer one number');
+  });
   assert.ok(Number.isFinite(fig) && Number.isFinite(lab),
     'the figure or the label size could not be read (' + fig + ' / ' + lab + ')');
   assert.ok(fig > lab, 'the figure (' + fig + 'px) is no longer bigger than the label (' + lab + 'px)');
@@ -2577,12 +2586,30 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   const heroM = /:is\([^)]*\) \.th-hero-title\{([^}]*)\}/.exec(RAILCSS);
   assert.ok(heroM && /font-size/.test(heroM[1]), 'the focused hero title rule is gone');
   const decl = (b, k) => (new RegExp('(?:^|;)\\s*' + k + ':\\s*([^;]+)').exec(b) || [])[1];
-  ['font-size', 'font-weight', 'letter-spacing', 'text-transform', 'color'].forEach(k => {
+  /* ---- CHANGED SIDES ON SIZE, AND ONLY ON SIZE ----
+     Founder: "The warm up and cool down rails. The titles and distances can
+     be larger and the coaching underneath can also be larger but the same %
+     increase you do to the title and distance."
+     A rail card's title is no longer the hero's size: it is the hero's size
+     TIMES the rail ratio, which is a stronger statement than the equality
+     it replaces. The hero's own number is still the base, so the two cannot
+     drift apart -- raise the hero and the card follows, change the ratio
+     and only the rail moves, which is exactly the control that was asked
+     for. Every other property is still required to match exactly, because
+     nothing was asked about weight, tracking, capitals or colour. */
+  ['font-weight', 'letter-spacing', 'text-transform', 'color'].forEach(k => {
     const h = decl(heroM[1], k), c = decl(labM[1], k);
     assert.ok(h && c, 'cannot read ' + k + ' from both the hero title and the card title');
     assert.equal(c.trim(), h.trim(),
       'a card title and a hero title disagree on ' + k + ' (' + c + ' vs ' + h + ')');
   });
+  const heroSize = decl(heroM[1], 'font-size').trim();
+  const cardSize = decl(labM[1], 'font-size').trim();
+  assert.match(heroSize, /^[\d.]+px$/,
+    'the hero title stopped being a plain size, so the card can no longer be derived from it');
+  assert.equal(cardSize, 'calc(' + heroSize + ' * var(--rail-scale, 1))',
+    'a card title is no longer the hero title scaled by the rail ratio (' +
+    cardSize + ' vs ' + heroSize + ')');
   assert.match(labM[1], /text-shadow:/,
     'the card title lost the hero glow, which on a photograph is what lifts it off the frame');
   /* The columns this used to be measured against are gone from the
@@ -2987,8 +3014,18 @@ test('the Commit card does not wear a Conditional badge', () => {
   const last = s.phases[s.phases.length - 1];
   assert.equal(last.paceRole, 'open',
     'the closing block is no longer an open pace — this test is about the phase that was tagged');
-  const note = html.slice(html.indexOf('class="how-note"'));
-  assert.ok(note.indexOf('still in control') > -1 && note.indexOf('hold on and finish') > -1,
+  /* ---- ON THE COMMIT CARD NOW, NOT IN THE NOTE ----
+     The sentence moved with every other phase sentence when the founder
+     asked whether the coaching could go on the rails. WHAT MUST NOT CHANGE
+     is that both halves of it survive somewhere an athlete reads -- the
+     permission to press and the permission to stop. Asserted on the phase
+     card itself, which is stricter than the old line: the note held every
+     phase's sentence at once, so "it is in the note" could have been true
+     of the wrong phase. */
+  const cards = html.match(/<div class="how-mod strat-phase">[\s\S]*?<\/div><\/div>/g) || [];
+  assert.ok(cards.length, 'goal day draws no phase cards, so the sentence has nowhere to be');
+  const commit = cards[cards.length - 1];
+  assert.ok(commit.indexOf('still in control') > -1 && commit.indexOf('hold on and finish') > -1,
     'the closing block’s permission to press AND its permission to stop are no longer on the ' +
     'card — that sentence is what the badge was shorthand for');
 });
@@ -3249,7 +3286,11 @@ test('a long run draws no rail, and its fuel figures leave the screen with it', 
        stages ARE the session, and their fuel figures ride the same rail.
        So those keep everything, and this law is about the plain one. */
     if (!a.soloNoteSession(d)){
-      assert.ok(cards >= 3,
+      /* TWO SINCE FUELLING BECAME ONE CARD -- see the note on the same
+         count in "a week slide carries its rail". The figures themselves
+         are asserted immediately below, one by one, which is the part of
+         this that is about not losing anything. */
+      assert.ok(cards >= 2,
         d.date + ' (' + d.km + 'km) has marathon-pace work and lost its rail anyway');
       const facts = a.fuelFacts(d).rows;
       facts.forEach(r => assert.ok(html.indexOf(r.v) > -1,
@@ -3304,8 +3345,13 @@ test('race day keeps its phases and pairs only its fuel', () => {
   const phases = (html.match(/class="how-mod strat-phase"/g) || []).length;
   const pairs = (html.match(/data-mod="pair-\d+"/g) || []).length;
   assert.equal(phases, 5, 'the race shows ' + phases + ' execution phases');
-  assert.equal(pairs, 2, 'the race’s four fuel facts came to ' + pairs + ' cards, not two');
-  assert.equal(cards, 7, 'goal day is ' + cards + ' slides, not seven');
+  /* ONE FUEL CARD, NOT TWO. Founder: "Were it says take 8-12 gels? Can
+     that be on the same page as total carbs?" FUEL/TOTAL CARBS and TAKE
+     GELS/FLUID were two swipes apart and are one subject; the gels are how
+     the athlete carries out the carb total above them. All four facts are
+     on one card, and every one of them is asserted present below. */
+  assert.equal(pairs, 1, 'the race’s four fuel facts came to ' + pairs + ' cards, not one');
+  assert.equal(cards, 6, 'goal day is ' + cards + ' slides, not six');
   assert.equal((html.match(/<span class="how-dot"><\/span>/g) || []).length, cards,
     'the dots disagree with the cards on goal day');
   assert.ok(html.indexOf('<span class="pair-k">' + a.dayTypeLabel(race) + '</span>') === -1,
@@ -3313,99 +3359,171 @@ test('race day keeps its phases and pairs only its fuel', () => {
   a.fuelFacts(race).rows.forEach(r => assert.ok(html.indexOf(r.v) > -1,
     'the fuel fact ' + JSON.stringify(r.short) + ' is not on goal day’s rail'));
 });
-
-test('the phase captions all show where no panel can light them', () => {
-  /* They are lit one at a time by the rail's focus. Where the phase panels
-     are NOT on the rail -- a blueprint session, or a long run after the
-     pairing -- nothing can move that focus, and this was already wrong
-     before the pairing existed: measured in Chromium, an interval showed
-     ONE of its four phase sentences and the other three were markup
-     nobody could reach, because setFocus can only ever reach panel n-1.
-     The guard that said "all four sentences are still carried" was reading
-     the markup, which had them, rather than the screen, which did not. */
+/* ===========================================================================
+ * THE FIGURE MUST FIT THE CARD — SWEPT, NOT SPOT-CHECKED
+ * ---------------------------------------------------------------------------
+ * Founder: "Is that checked against all race types not just hill repeats?"
+ * It was not. The type on this rail was raised on the strength of ONE
+ * session, and a real sweep -- every distinct session of a 5K, 10K, half,
+ * marathon and ultra block, at 320/390/430px, in km and miles -- found
+ * three separate faults:
+ *   1. A STANDING BUG, not caused by the type change. .ws-h-qty carried
+ *      white-space:nowrap, and a ladder puts its whole prescription in that
+ *      slot: "600m . 1200m . 1800m . 1200m . 600m" rendered 469px wide in a
+ *      288px card. Four sessions, on three distances, before anything moved.
+ *   2. THREE MORE caused by raising the type, which widened the same string.
+ *   3. SIX MORE caused by the first fix: making the figure breakable split
+ *      "5 x 35s" into "5 x" over "35s" on eighteen sessions, so the set's
+ *      spaces were made non-breaking -- which then left a doubled set
+ *      ("2 x 4 x 500m") unbreakable and 304px wide in a 288px card.
+ * This asserts the end state at the unit, where the browser sweep cannot
+ * run: a figure may break where a LIST does and never where a FIGURE does.
+ * The pixel claim is the reason it matters; the sweep output is in the
+ * commit message. */
+test('a figure breaks between a ladder\u2019s rungs and never inside a set', () => {
   const a = railApp();
-  assert.match(RAILCODE, /function renderExecutionStrategyBlock\(dd, panelsShown\)/,
-    'the captions no longer know whether their panels are on the rail');
-  assert.match(RAILCODE, /how-cap'\+\(panelsShown \? '' : ' how-cap-all'\)/,
-    'the caption wrapper no longer says whether anything can light it');
-  assert.match(RAILCSS, /\.how-cap-all \.how-cap-i\{display:block;\}/,
-    'the unlightable captions are hidden again, so only the first is ever read');
+  const NBSP = '\u00a0';
+  let ladders = 0, sets = 0;
+  a.state.days.forEach(d => {
+    let steps; try { steps = a.workoutSteps(d); } catch (e) { return; }
+    (steps || []).forEach(st => {
+      const raw = a.renderStepQty(st);
+      if (!raw) return;
+      const painted = a.qtyBreakable(raw);
+      if (st.kind === 'ladder'){
+        ladders++;
+        /* A LIST, AND IT MAY WRAP. Its separators keep ordinary spaces, so
+           a five-rung prescription breaks between rungs rather than running
+           off the card -- and never mid-number, because overflow-wrap stays
+           normal beside this. */
+        assert.ok(painted.indexOf(NBSP) === -1,
+          d.date + ': a ladder was made unbreakable, so it will run off the card again');
+        if (raw.indexOf(' \u00b7 ') > -1)
+          assert.ok(painted.indexOf(' \u00b7 ') > -1, d.date + ': a ladder lost its break points');
+      }
+      if (/\u00d7/.test(raw)){
+        sets++;
+        /* ONE FIGURE THAT HAPPENS TO CONTAIN SPACES. "5 x 35s" is not a
+           list and must not be treated as one. */
+        assert.ok(painted.indexOf(' \u00d7 ') === -1,
+          d.date + ': "' + raw + '" can still split at its multiplication sign');
+        assert.ok(painted.indexOf(NBSP + '\u00d7' + NBSP) > -1,
+          d.date + ': "' + raw + '" lost the non-breaking spaces that hold it together');
+      }
+    });
+  });
+  assert.ok(sets >= 5, 'only ' + sets + ' set figures were exercised');
+  /* AND renderStepQty ITSELF IS UNTOUCHED, which is why the substitution is
+     made at the one place the rail paints the string: that function's
+     return value is compared against the shape line by this file and spoken
+     by the offline voice path, and neither should acquire a U+00A0 because
+     a card needed to wrap. */
+  assert.ok(RAILCODE.indexOf('function renderStepQty') > -1, 'renderStepQty is gone');
+  const rsq = RAILCODE.slice(RAILCODE.indexOf('function renderStepQty'));
+  assert.ok(rsq.slice(0, rsq.indexOf('\n}')).indexOf(NBSP) === -1,
+    'renderStepQty emits a non-breaking space, which reaches the voice path and the shape line');
+  /* AND THE NARROW PHONE MAY STACK THE HEAD, which is what closes the last
+     three overflows: a doubled set is deliberately unbreakable, so where it
+     cannot share a line with the title it takes its own. Only under 400px —
+     at 430 nothing overflowed and four heads would have stacked for nothing. */
+  assert.match(RAILCSS, /@media \(max-width:400px\)\{[\s\S]*?\.ws-rail \.ws-h-head\{flex-wrap:wrap;\}/,
+    'the narrow phone can no longer stack a head that will not fit on one line');
+  /* ---- AND THE SHEET HAS TO ALLOW THE BREAK THE STRING ASKS FOR ----
+     Caught by mutation: putting white-space:nowrap back on .ws-h-qty left
+     every assertion above green, because they all read the STRING. The
+     string being breakable and the sheet permitting a break are two claims
+     and a ladder needs both -- without this one the 469px overflow comes
+     straight back with the law still passing. */
+  const qtyRule = /\.ws-rail \.ws-h-head \.ws-h-qty\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(qtyRule, 'the figure rule inside the head is gone');
+  assert.doesNotMatch(qtyRule[1], /white-space:\s*nowrap/,
+    'the figure cannot wrap, so a ladder runs off the card however its spaces are written');
+  assert.match(qtyRule[1], /overflow-wrap:\s*normal/,
+    'the figure may now break mid-number, which is what nowrap was guarding against');
+});
 
-  let withPanels = 0, without = 0;
+/* A FUEL CARD CARRIES FOUR FACTS AND ALL FOUR OF THEIR NOUNS.
+   Founder: "Were it says take 8-12 gels? Can that be on the same page as
+   total carbs?" The two fuel cards became one, and the two facts that do
+   not fit head-and-body read as a foot line under the figure they
+   implement. CAUGHT BY MUTATION: the foot printed the row's bare value, so
+   the gels read "TAKE 8-12" -- eight to twelve of what -- and every other
+   assertion stayed green because the figure itself was present. */
+test('the merged fuel card keeps every fact\u2019s noun, not just its number', () => {
+  const a = railApp();
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(race, 'the block builds no race day');
+  const html = a.renderDayCard(race);
+  const foot = /<div class="pair-foot">([\s\S]*?)<\/div>/.exec(html);
+  assert.ok(foot, 'the fuel card no longer carries a foot, so it is two cards again');
+  a.fuelFacts(race).rows.forEach(r => {
+    assert.ok(html.indexOf(r.v) > -1,
+      'the fuel fact ' + JSON.stringify(r.short) + ' is not on the card at all');
+  });
+  /* The gels are the one row whose figure is meaningless without its noun,
+     and renderStepQty's own rule for it is the rule the foot must follow. */
+  const gels = a.fuelFacts(race).rows.filter(r => r.short === 'Gels')[0];
+  assert.ok(gels, 'this block\u2019s race carries no gel row, so the claim is untested');
+  assert.ok(foot[1].indexOf(gels.v + ' GELS') > -1,
+    'the foot reads "' + gels.v + '" with no noun \u2014 eight to twelve of what');
+});
+
+test('every phase states its own sentence on its own card', () => {
+  /* ---- THE CAPTIONS ARE GONE, AND THAT IS THE LAW NOW ----
+     This read "the phase captions all show where no panel can light them".
+     The captions were rendered at full width under the rail, inside the
+     Coach's Note, and lit one at a time by the rail's focus -- so where the
+     phase panels were NOT on the rail nothing could move that focus, and
+     .how-cap-all existed to show them all in that case.
+     Founder: "Can any of the current coaches notes be added to the rails?"
+     The sentence is on the phase's own card now, which removes the question the
+     caption machinery existed to answer: there is nothing to light, because
+     each panel carries its own words and a panel the athlete cannot see is
+     a panel whose sentence they are not meant to be reading yet.
+     THE OLD OBJECTION WAS MEASURED AND SO WAS THIS. The law that moved the
+     prose off the panel said a sentence will not fit a 125px column; a race
+     phase panel measures 398x274px, and the swept figure for every distance
+     is in the commit message. What this asserts is that not a word was lost
+     in the move, and that it is lost nowhere else either. */
+  const a = railApp();
+  assert.ok(RAILCODE.indexOf('renderStrategyPhaseCaption') === -1,
+    'the caption renderer is back -- the sentence would then be built twice');
+  assert.ok(RAILCSS.indexOf('.how-cap-all') === -1,
+    'the unlightable-caption rule is back, styling a set nothing emits');
+
+  let checked = 0;
   a.state.days.forEach(d => {
     if (d.type === 'rest') return;
     let s; try { s = a.executionStrategyForDisplay(d); } catch (e) { return; }
     if (!s || s.suppressed || !s.phases || !s.phases.length) return;
-    /* A SOLO-NOTE DAY HAS NEITHER, AND THAT IS THE INSTRUCTION. Its note is
-       the founder's written lines and nothing else, so the phase captions
-       are not in it -- "It also doesn't need a massive coaches note!" was
-       exactly about the stack those captions sat in. There is no panel to
-       light and no caption to light, so the question this law asks does
-       not arise. */
     if (a.soloNoteSession(d)) return;
     const html = a.renderDayCard(d);
-    const onRail = html.indexOf('class="how-mod strat-phase"') > -1;
-    const all = html.indexOf('how-cap how-cap-all') > -1;
-    const caps = (html.match(/class="how-cap-i/g) || []).length;
-    /* ---------- THERE ARE THREE ARRANGEMENTS NOW, NOT TWO ----------
-       This law was written when a phase sentence had exactly two possible
-       homes: a caption beside a panel on the rail, lit one at a time, or a
-       caption in the Coach's Note with .how-cap-all forcing all of them
-       visible because nothing could light them. A blueprint session is a
-       third case: its sentences were distributed onto the stage cards --
-       founder, "the rail becomes the coach" -- so there is no caption
-       wrapper on that card at all, and `all === !onRail` read the absence
-       of one as "the captions are not all shown" and failed on 14 days.
-       MEASURED ACROSS THE BLOCK: 14 blueprint sessions with no wrapper and
-       every sentence on a stage card, 3 goal-pace long runs with the
-       wrapper and .how-cap-all, and one race with its panels on the rail.
-       WHAT EVERY BRANCH STILL HAS TO SHOW is every sentence -- which is
-       the thing this law is for, and the thing a markup-only guard got
-       wrong before it: an interval once showed one of four sentences and
-       called the other three carried. */
-    if (a.hasWorkoutBlueprint(d)){
-      assert.ok(!onRail,
-        d.date + ' (' + d.type + '): a blueprint session has the execution panels on its rail as well');
-      assert.equal(caps, 0,
-        d.date + ' (' + d.type + '): the phase sentences are on the stage cards AND in a caption wrapper');
-      s.phases.forEach(ph => {
-        ['purpose', 'cue'].forEach(k => {
-          if (!ph[k]) return;
-          const txt = a.resolveDesc(ph[k]);
-          assert.ok(html.indexOf(txt) > -1,
-            d.date + ' (' + d.type + '): the ' + ph.key + ' ' + k +
-            ' reaches no stage card: ' + JSON.stringify(txt.slice(0, 40)));
-        });
-      });
-      without++;
-      return;
-    }
-    assert.equal(all, !onRail,
-      d.date + ' (' + d.type + '): phase panels ' + (onRail ? 'ARE' : 'are NOT') +
-      ' on the rail but the captions are ' + (all ? '' : 'not ') + 'all shown');
-    /* And every sentence is in the note either way. */
-    assert.equal(caps, s.phases.length,
-      d.date + ': ' + s.phases.length + ' phases but a different number of sentences');
-    onRail ? withPanels++ : without++;
+    const panels = (html.match(/class="how-mod strat-phase"/g) || []).length;
+    if (!panels) return;
+    checked++;
+    assert.equal(panels, s.phases.length,
+      d.date + ': ' + panels + ' phase cards for ' + s.phases.length + ' phases');
+    assert.equal((html.match(/class="how-cap-i/g) || []).length, 0,
+      d.date + ': a phase caption is being rendered as well as the card');
+    /* NOT A WORD LOST: every phase that has something to say says it, on
+       the card, resolved into the athlete's own units. */
+    s.phases.forEach(ph => {
+      const prose = [ph.purpose, ph.cue].filter(Boolean)
+        .map(t => a.resolveDesc(t)).join(' ');
+      if (!prose) return;
+      assert.ok(html.indexOf(prose.slice(0, 40)) > -1,
+        d.date + ': the phase "' + ph.label + '" lost its sentence in the move to the card');
+    });
+    assert.equal(html.indexOf('@@'), -1, d.date + ': a raw unit token reached a phase card');
   });
-  assert.ok(withPanels >= 1 && without >= 3,
-    'the fixture no longer exercises both (' + withPanels + ' with panels, ' + without + ' without)');
-  /* AND IT STILL EXERCISES ALL THREE. `without` now counts the blueprint
-     days and the goal-pace long runs together, so the floor above would be
-     met by blueprint sessions alone -- and the .how-cap-all branch, which
-     is what this law was originally written for, would stop being reached
-     without anything saying so. */
-  let capAllDays = 0, bpDays = 0;
-  a.state.days.forEach(d => {
-    if (d.type === 'rest' || a.soloNoteSession(d)) return;
-    let s; try { s = a.executionStrategyForDisplay(d); } catch (e) { return; }
-    if (!s || s.suppressed || !s.phases || !s.phases.length) return;
-    if (a.hasWorkoutBlueprint(d)) bpDays++;
-    else if (a.renderDayCard(d).indexOf('how-cap how-cap-all') > -1) capAllDays++;
-  });
-  assert.ok(bpDays >= 5 && capAllDays >= 1,
-    'the fixture exercises ' + bpDays + ' blueprint sessions and ' + capAllDays +
-    ' unlightable-caption sessions \u2014 one of the three arrangements is no longer checked');
+  /* ONE IS THE HONEST FLOOR IN THIS BLOCK, and the count is asserted so it
+     cannot quietly become zero. Checked rather than assumed: of this
+     fixture's days, exactly one -- goal day -- renders execution phase
+     cards. Threshold and interval sessions earn a staged plan at the engine
+     but draw a blueprint rail instead, so their phases never become panels.
+     A higher floor here would be a claim about the fixture, not the law. */
+  assert.ok(checked >= 1,
+    'no staged session rendered a phase card, so this law checked nothing');
 });
 
 /* ---- EXCEPT WHERE THERE IS NO RAIL AT ALL ----

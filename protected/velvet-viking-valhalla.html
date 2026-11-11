@@ -1075,15 +1075,19 @@
     background:var(--surface-2); border:1px solid var(--line-soft);
     border-radius:var(--radius-sm);
   }
+  /* RACE STRATEGY IS A TITLE, SO IT IS WHITE -- founder, on this card:
+     "Titles white." */
   .rs-head{
     display:flex; align-items:center; gap:8px;
     font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase;
-    color:var(--bronze-text); margin-bottom:8px;
+    color:#FFFFFF; margin-bottom:8px;
   }
+  /* LOCKED LOSES ITS OUTLINE with every other pill on this card. It is a
+     state, not a control, and an outlined capsule beside a heading read as
+     something to press. */
   .rs-locked{
     font-family:inherit; font-size:8.5px; letter-spacing:.08em;
-    color:var(--ink-faint); border:1px solid var(--line); border-radius:99px;
-    padding:1px 6px;
+    color:var(--ink-faint);
   }
   .rs-chips{display:flex; flex-wrap:wrap; gap:6px;}
   .rs-chip{
@@ -1096,12 +1100,15 @@
   .rs-chip.on{background:var(--cherry-fill); color:var(--cherry-btn-ink); border-color:var(--cherry);}
   .rs-chip:disabled{opacity:.5; cursor:default;}
   /* The recommendation, said once and quietly. It is a label on a choice, not
-     a second selected state, so it never takes the accent. */
+     a second selected state, so it never takes the accent -- and since the
+     founder's "No pills" it is not a capsule either. A pill INSIDE a pill
+     was the worst of them: a bordered capsule sitting within the rounded
+     chip it was labelling, which read as a second control on the same
+     button. The word alone, dimmed, says the same thing. */
   .rs-rec{
     font-family:var(--label-face); font-size:8px; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:var(--ink-faint);
-    border:1px solid var(--line); border-radius:99px; padding:1px 5px; font-weight:var(--label-weight);}
-  .rs-chip.on .rs-rec{color:var(--cherry-btn-ink); border-color:rgba(255,255,255,.45);}
+    text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
+  .rs-chip.on .rs-rec{color:var(--cherry-btn-ink); opacity:.8;}
   /* Custom: one number, two buttons. Progressive disclosure -- it exists only
      while Custom is the selection, so the card does not carry a configuration
      panel it almost never needs. */
@@ -1462,13 +1469,12 @@
   .how-cap{margin-top:4px;}
   .how-cap-i{display:none;}
   .how-cap-i.is-on{display:block;}
-  /* ALL OF THEM, where no panel can light one. The rail lights a caption
-     by index, so with the phase panels off the rail the set has nothing
-     moving it: one sentence showed and the rest were unreachable markup.
-     They read as what they are instead -- the phase coaching, in order. */
-  .how-cap-all .how-cap-i{display:block;}
-  .how-cap-all .how-cap-i + .how-cap-i{margin-top:6px;}
-  .exec-rail ~ .how-cap .strat-phase-purpose{margin-top:0;}
+  /* .how-cap-all and .exec-rail ~ .how-cap are gone with the captions they
+     styled: the execution phases carry their own sentences on their own
+     cards now (see renderStrategyPhase), so there is no caption set under
+     this rail for a panel to light or to fail to light. .how-cap itself
+     stays -- it is the generic mechanism, and any future rail whose panels
+     are figures and whose sentences are long can still use it. */
   /* The numbers stack inside a panel: they are two different quantities and
      a middot between them is a full-width idea. */
   .exec-rail .sp-n{display:block;}
@@ -1509,9 +1515,26 @@
      mono span like "0km-2km" (--ink-faint, it is a label on the number).
      Consistent does not mean identical -- it means the same role always
      looks the same. .strat-phase-cue is gone entirely; nothing emits it. */
-  .strat-phase-purpose,
+  /* ---------- THE SENTENCE, ON THE CARD IT IS ABOUT ----------
+     .strat-phase-purpose was the caption's wrapper under the rail;
+     .strat-phase-say is the same prose inside the panel. Centred, because
+     everything else on these cards is -- the label, the range and the
+     effort line all centre, and a left-packed paragraph under three centred
+     lines reads as a different card.
+     WHITE, at the same size the rest of this rail's prose takes. It was
+     --ink-dim as a caption, which is a warm grey, and the founder has had
+     that taken out of the panels, the builder and the Coach page for the
+     same reason: it reads as bronze on black. The watch-out keeps a step of
+     separation through opacity rather than a second grey -- one colour, one
+     device for hierarchy, as everywhere else in this pass. */
+  .strat-phase-say,
   .strat-phase-watch{font-size:var(--fs-body); line-height:var(--lh-body);
-    color:var(--ink-dim); margin-top:3px;}
+    color:#FFFFFF; margin-top:10px; text-align:center;}
+  .strat-phase-watch{opacity:.74; margin-top:6px;}
+  /* .strat-phase-purpose is gone too. Nothing emits it: it was the caption
+     wrapper's prose class and the caption is retired. Left behind it would
+     be a rule describing a component the product no longer has, which this
+     file's own law on .rec-card calls worse than nothing. */
   /* STRUCTURED WORKOUT — what the athlete will actually run.
      A stacked rhythm rather than a stack of cards. Each step is a numbered
      row against a single hairline rail, so five steps read as one workout
@@ -2447,7 +2470,22 @@
      -- about 122px of it against 54px -- not less. */
   /* The picture is --rail-pic tall on every screen; this rail adds the 4px
      of padding-bottom it already carried under the card. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{min-height:calc(var(--rail-pic) + 4px);}
+  /* ---------- ONE RATIO, SO "THE SAME %" IS A FACT AND NOT A HABIT -----
+     Founder, on the warm-up and cool-down cards: "The titles and distances
+     can be larger and the coaching underneath can also be larger but the
+     same % increase you do to the title and distance."
+     The three sizes were three literals -- 21.85px, 30px and --fs-support
+     -- in three declarations, so "the same %" would have been three edits
+     that agree today and drift the first time one of them is touched. They
+     are all expressed from this one number now: change it and the card
+     scales as a unit, which is what the founder actually asked for.
+     THE VALUE WAS MEASURED, not chosen. On the Hill Repeats card the rail
+     is 274px and the three cards' content measured 85px (warm up), 219px
+     (the work card) and 101px (cool down) -- so the two short cards had
+     189px and 173px of spare picture and the work card had 55px. The work
+     card is the binding constraint and 1.18 is the largest ratio that
+     keeps it inside the box it already has, re-wrapping included. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{min-height:calc(var(--rail-pic) + 4px); --rail-scale:1.18;}
   /* NO TRAILING SPACE AND NO WIDE LAST MODULE. Both were ways of letting
      the last module reach the LEFT edge, because that is where the active
      one used to be decided. The rail no longer decides it there -- see
@@ -2604,11 +2642,18 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-head{
     order:1; display:flex; align-items:baseline; justify-content:space-between;
     gap:12px; width:100%;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-head .ws-h-qty{margin-top:0; white-space:nowrap;}
+  /* NOT nowrap any more -- see qtyBreakable(). The figure breaks only at the
+     ordinary spaces a ladder's " · " separators provide; a set's spaces are
+     non-breaking in the string itself, so "5 × 35s" still cannot split.
+     overflow-wrap stays normal so a long single token is never broken
+     mid-number, which is the failure the original nowrap was guarding. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-head .ws-h-qty{
+    margin-top:0; white-space:normal; overflow-wrap:normal;}
   /* THE ONE CHERRY LINE ON THE CARD. What ruins the stage, above the rule,
      in the voice the product already uses for a warning. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-avoid{
-    order:2; font-family:var(--text-face); font-size:var(--fs-support);
+    order:2; font-family:var(--text-face);
+    font-size:calc(var(--fs-support) * var(--rail-scale, 1));
     font-style:italic; line-height:1.4; color:var(--cherry-text);
     margin:6px 0 0;}
   /* THE COACHING, UNDER ONE RULE. A card with nothing to say draws none,
@@ -2689,10 +2734,18 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-head{
     order:0; display:flex; align-items:baseline; justify-content:center;
     gap:7px; margin:0 0 9px; flex-wrap:wrap;}
+  /* WHITE, NOT GOLD. Founder, on the race day card: "No pills. Text white.
+     Titles white." FUEL and TAKE name what the card reports, which is
+     information, and information is white under the founder's own colour
+     rule -- gold is for the brand, the destination and the milestone. This
+     is the fourth surface to take that change (the builder's titles, the
+     Coach page, the nine panels, and now the rails), so it is made on the
+     rail's own declaration rather than scoped to goal day: a label that
+     means the same thing cannot be two colours on two days. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-k{
     font-family:var(--label-face); font-weight:var(--label-weight);
     font-size:13px; letter-spacing:var(--label-track); text-transform:uppercase;
-    color:var(--gold-text);}
+    color:#FFFFFF;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-v{
     font-size:var(--fs-data); color:#FFFFFF;}
   /* The qualifier under a head value -- "or chews . ~25g each" -- which
@@ -2701,6 +2754,25 @@
     order:0; margin:-5px 0 9px; font-family:var(--text-face);
     font-size:var(--fs-micro, 11.5px); line-height:1.35; letter-spacing:0;
     color:rgba(255,255,255,.72);}
+  /* ---------- THE FOOT: THE REST OF ONE SUBJECT, ON ONE LINE ----------
+     Where a fuel card now carries all four facts (see fuelPairPanels), the
+     two that do not fit head-and-body read here as one line under the
+     figure they implement -- gels are how you take the carb total above,
+     and fluid is the other half of the same plan.
+     order:5 puts it after everything that carries an order and after the
+     supplementary detail below; without one it would take the initial 0
+     and sort to the top of the card, which is the exact bug the note under
+     the stage rules records. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot{
+    order:5; display:flex; justify-content:center; flex-wrap:wrap;
+    gap:6px 16px; margin-top:11px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-i{
+    display:inline-flex; align-items:baseline; gap:6px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-k{
+    font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase;
+    color:rgba(255,255,255,.72);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-v{font-size:14px; color:#FFFFFF;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono){order:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-qty{order:2;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-cue{order:3;}
@@ -2725,7 +2797,8 @@
      Brighter than the pace band under it: the band qualifies a figure, and
      this is the one thing on the card that is not a figure at all. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-cue{
-    display:block; font-family:var(--text-face); font-size:var(--fs-support);
+    display:block; font-family:var(--text-face);
+    font-size:calc(var(--fs-support) * var(--rail-scale, 1));
     line-height:1.45; letter-spacing:0; text-transform:none;
     color:rgba(255,255,255,.92); margin:7px 0 0;}
   /* THE MEASURE IS GONE, NOT WIDENED. 30ch was a centred measure; left
@@ -2759,15 +2832,15 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-qty,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .strat-phase-span,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod .fuel-row .v{
-    display:block; font-size:30px; font-weight:700; line-height:1.1;
-    color:#FFFFFF; margin:0;}
+    display:block; font-size:calc(30px * var(--rail-scale, 1)); font-weight:700;
+    line-height:1.1; color:#FFFFFF; margin:0;}
   /* THE DETAIL, quieter than the figure and smaller than the label: the
      pace band, the phase's target. It qualifies the figure, so it reads as
      a footnote to it rather than competing. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc.font-mono,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .strat-phase-target{
-    display:block; font-size:var(--fs-data); line-height:1.3;
-    color:rgba(255,255,255,.80); margin:5px 0 0;}
+    display:block; font-size:calc(var(--fs-data) * var(--rail-scale, 1));
+    line-height:1.3; color:rgba(255,255,255,.80); margin:5px 0 0;}
   /* The fuel figure's own qualifier is already a footnote under it; on a
      photograph it needs the same lift off --ink-faint that the pace band
      gets. */
@@ -2970,7 +3043,8 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono),
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label{
-    display:block; font-family:var(--label-face); font-size:21.85px; font-weight:600;
+    display:block; font-family:var(--label-face);
+    font-size:calc(21.85px * var(--rail-scale, 1)); font-weight:600;
     line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
     margin-bottom:4px; text-align:center; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
@@ -3019,13 +3093,18 @@
     font-size:var(--fs-micro, 11.5px); color:var(--ink-faint); letter-spacing:0;}
   /* The heading above the rail is the group's name, not a panel's, so it
      keeps the left edge every other section heading sits on. */
-  /* The word in front of a rescued column line: the same gold label voice
-     the heading had, at prose size and inline, so the sentence still reads
-     as a sentence rather than as a row in a table. */
+  /* The word in front of a rescued column line: the same label voice the
+     heading had, at prose size and inline, so the sentence still reads as a
+     sentence rather than as a row in a table.
+     WHITE, NOT GOLD. Founder, on the race day card: "Text white. Titles
+     white." FEEL and WATCH FOR name what the sentence after them is about,
+     which is information. They are still told apart from the sentence by
+     the label face, the tracking and the capitals -- the same devices every
+     other label in the product uses now that none of them is gold. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note-row b{
     font-family:var(--label-face); font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase;
-    color:var(--gold-text); margin-right:5px;}
+    color:#FFFFFF; margin-right:5px;}
   /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
      It was a bordered, tinted rectangle -- the one boxed thing left inside a
      rail built to have no boxes. The box goes; what marks it out is that its
@@ -3401,8 +3480,14 @@
      one label out of the rem scale while every other label followed it.
      What the focused card still owns is what it is for: the block layout
      and the gold ink. */
+  /* WHITE, NOT GOLD. Founder: "No pills. Text white. Titles white." FEEL,
+     WATCH FOR and the rail's own "How to run this" name what follows them,
+     which is information, and information is white under the founder's own
+     colour rule. The focused card keeps everything else it was for -- the
+     block layout and the brighter ink; only the hue changes, and it changes
+     to the one every other heading in the product now takes. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-row .k{display:block; margin-bottom:1px;
-    color:var(--gold-text);}
+    color:#FFFFFF;}
   /* The size and leading that stood here are gone, not moved: this line is
      the instruction, and the instruction is one size in the whole product.
      What the focused card still changes is what it was always for -- the
@@ -3443,14 +3528,12 @@
     font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--ink);}
   .how-note .k svg{width:13px; height:13px;}
-  /* EVERY LINE IN THE NOTE READS AS ONE VOICE. The phase sentence arrives
-     carrying .strat-phase-purpose's own dim colour from the table it used
-     to live in, so inside the note it sat a tier below the lines either
-     side of it -- three sentences in the same block, one of them quieter
-     for no reason the athlete can see. */
-  .how-note .v,
-  .how-note .how-cap .strat-phase-purpose,
-  .how-note .how-cap .strat-phase-watch{ color:var(--ink);}
+  /* The two .how-cap arms are gone from this rule with the captions they
+     lifted: the phase sentence used to arrive in the note carrying its own
+     dim colour and sat a tier below the lines either side of it. It does
+     not arrive here at all now -- it is on the phase's own card -- so the
+     rule says what is left, which is the note's own lines. */
+  .how-note .v{ color:var(--ink);}
   /* THE MODULE WRAPPER IS NOT A BOX ANYWHERE BY DEFAULT. display:contents
      removes it from layout entirely, so This Week, Full Plan's list and
      every other surface that renders this card see exactly the stack of
@@ -4184,7 +4267,12 @@
      centred ones. Scoped to the FOCUSED session, because in a list the
      description is one line among many and centring prose there makes a
      ragged column of it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-desc{text-align:center;}
+  /* AND IT IS WHITE ON A FOCUSED CARD. Founder: "Text white." This is the
+     session's own sentence -- on goal day, "Even pace: one pace, held
+     honestly..." -- and it was --ink-dim #BBB4A4, the one warm grey left on
+     the card once the labels went white. It is the sentence that says what
+     the session IS, so it has no business being the quietest thing there. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-desc{text-align:center; color:var(--ink);}
   /* card accordion -- same max-height technique as the week accordion above,
      so both behave identically. The header row stays put; the detail and the
      logging drawer collapse. */
@@ -7154,9 +7242,11 @@
   /* Inside This Week the card is already introduced by the summary above it,
      so it drops the shell it wears in a list and keeps only its content. */
   .wk-session.is-open .wk-open{margin-top:0; margin-bottom:12px;}
-  /* Holding the slot, showing nothing. visibility (not display) is the whole
-     point: the box is laid out and measured exactly as the live button is. */
-  .wk-open.is-ghost{visibility:hidden;}
+  /* .wk-open.is-ghost held the button's slot open while showing nothing, so
+     that swiping onto the one day that could still open a full card did not
+     drop everything below it. No day can now, so nothing emits the class and
+     the rule goes with it rather than styling a state that cannot occur --
+     which is, in this file's own words, what the next person edits. */
   .wk-open-caret{display:inline-block; transition:transform .18s;}
   .wk-open[aria-expanded="true"] .wk-open-caret{transform:rotate(90deg);}
 
@@ -8450,24 +8540,35 @@
      elsewhere (adjusted=gold, matching Next Move's own settled flag;
      recovery=the same tempo/threshold family Execution Review's signal dot
      already uses for fatigue vs a real gap). */
+  /* ---------- A TITLE AND A DOT, THE SECOND TIME ----------
+     Founder, on the race day card: "No pills. Text white. Titles white."
+     And, on the panels a moment earlier: "If there is a pill that adds
+     value. Change it to just a title with a small coloured dot."
+     This is the same object .read-val was and it takes the same treatment,
+     because the founder's instruction was about pills and not about one
+     screen: the outline, the radius and the padding go, the word takes
+     white, and the dot keeps the state's colour. KEY, ADJUSTED, MISSED,
+     RESTRICTED and RECOVERY are five different things and the dot is still
+     what tells them apart -- nothing is flattened, the border is simply not
+     the thing that was carrying the difference.
+     THE DOT IS NOW LOAD-BEARING, so it grows from 4px to 6px: it was a
+     detail beside a coloured outline and a coloured word, and it is now the
+     only coloured element in the group. Same size the panel verdict's dot
+     took, for the same reason. */
   .day-status-label{
-    font-size:8.5px; letter-spacing:1px; text-transform:uppercase; padding:1px 5px 1px 4px;
-    border-radius:99px; border:1px solid var(--line); color:var(--ink-faint);
-    display:inline-flex; align-items:center; gap:3px;
+    font-size:8.5px; letter-spacing:1px; text-transform:uppercase;
+    color:#FFFFFF; display:inline-flex; align-items:center; gap:5px;
   }
-  .day-status-dot{width:4px; height:4px; border-radius:99px; background:var(--ink-faint); flex:none;}
-  .day-status-label.adjusted{color:var(--gold-text); border-color:var(--gold-deep);}
+  .day-status-dot{width:6px; height:6px; border-radius:99px; background:var(--ink-faint); flex:none;}
   .day-status-label.adjusted .day-status-dot{background:var(--gold);}
-  .day-status-label.key{color:var(--bronze-text); border-color:var(--bronze-2);}
   .day-status-label.key .day-status-dot{background:var(--bronze);}
-  .day-status-label.missed{color:var(--c-threshold); border-color:var(--c-threshold);}
   .day-status-label.missed .day-status-dot{background:var(--c-threshold);}
   /* RESTRICTED IS NOT A WARNING. It borrows the Recovery tone rather than
      the missed one on purpose: nothing went wrong, the athlete told us, and
-     the label must not read as a red mark against them. */
-  .day-status-label.restricted{color:var(--c-tempo); border-color:var(--c-tempo);}
+     the label must not read as a red mark against them. Carried by the dot
+     now rather than by the dot and an outline, which changes where the tone
+     is drawn and not which tone it is. */
   .day-status-label.restricted .day-status-dot{background:var(--c-tempo);}
-  .day-status-label.recovery{color:var(--c-tempo); border-color:var(--c-tempo);}
   .day-status-label.recovery .day-status-dot{background:var(--c-tempo);}
   /* Plan HQ's five expandable sections are gone: they are THE READING's
      destination cards now (.read-val above, .ev-card shell), and their bodies
@@ -9286,6 +9387,27 @@
   :root[data-text-scale="large"] .b-status{justify-content:center;}
 
   @media (max-width:400px){
+    /* ---------- NAME LEFT AND FIGURE RIGHT, UNTIL THEY DO NOT FIT ----------
+       SWEPT, NOT SPOT-CHECKED, and the sweep is the only reason this is
+       here. Every distinct session of a real 5K, 10K, half, marathon and
+       ultra block was rendered at 320/390/430px in both unit systems and
+       measured against its own card. Three sessions still ran off the card
+       at 320px after the figure was made breakable: a doubled set writes
+       "2 x 4 x 500m", whose spaces are deliberately non-breaking (see
+       qtyBreakable -- "5 x 35s" must never split), so title plus figure
+       needed 304px of a 288px card.
+       THE HEAD MAY STACK WHEN IT MUST. flex-wrap only acts when the two
+       items cannot share a line, so the founder's mock-up -- "Could we put
+       THRESHOLD top left distance top right?" -- is exactly what renders
+       wherever there is room for it. Measured after: 320px went from three
+       overflows to none, and the tallest card in the whole sweep FELL from
+       444px to 413px, because a figure given the full width needs fewer
+       lines than one squeezed beside a title.
+       SCOPED TO THE NARROW PHONE DELIBERATELY. Applied at every width it
+       also stacked four heads at 430px that had been fitting perfectly
+       well; at 430 nothing overflowed in the first place. A fix for the
+       small screen belongs in the small-screen query. */
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-head{flex-wrap:wrap;}
     /* The gaps come in as well: once the circles are smaller than their own
        labels, the LABEL is what sets the column width -- "ADAPTATION" is
        63px against a 54px circle -- and the row went 2px over the gutter on
@@ -30994,6 +31116,29 @@ function renderStepQty(st){
     return st.reps + (st.each ? ' × ' + st.each : '');
   return st.qty || '';
 }
+/* ---------- THE FIGURE MAY BREAK, BUT ONLY WHERE IT READS AS A BREAK ----
+   MEASURED, ACROSS EVERY DISTANCE. .ws-h-qty carried white-space:nowrap, and
+   on a 320px phone a ladder put its whole prescription in that slot:
+   "600m · 1200m · 1800m · 1200m · 600m" rendered 469px wide inside a 288px
+   card. Four sessions overflowed their card on 5K, marathon and ultra blocks
+   before any of this pass's type changes -- a standing bug nobody had seen
+   because it needs a ladder session opened on a small screen.
+   NOWRAP WAS RIGHT ABOUT THE OTHER CASE AND WRONG AS A BLANKET RULE.
+   Letting the whole figure wrap fixes the ladder and breaks "5 × 35s" into
+   "5 ×" over "35s" -- measured on eighteen sessions, which is most of the
+   quality work in a block. The two cases differ in the content: a ladder is
+   a LIST, joined with " · " and meant to be read as several things; a set is
+   ONE figure that happens to contain spaces.
+   SO THE SPACES THEMSELVES CARRY IT. The set's spaces become non-breaking
+   and the list's stay ordinary, which is what each of them actually is. Done
+   here, at the one place the rail paints this string, rather than in
+   renderStepQty(): that function's return value is compared against the
+   shape line by test/structuredWorkout and spoken by the offline voice path,
+   and neither should acquire a U+00A0 because a card needed to wrap. */
+function qtyBreakable(qty){
+  return escapeHtml(String(qty == null ? '' : qty))
+    .split(' \u00d7 ').join('\u00a0\u00d7\u00a0');
+}
 function renderWorkoutStep(st, i){
   var qty = renderStepQty(st);
   var lines = [];
@@ -31337,7 +31482,7 @@ function renderWorkoutStepHCell(st, i, ctx){
        items of the card body, so two of them cannot form a row without one. */
     '<div class="ws-h-head">'+
       (word ? '<span class="ws-h-presc">'+escapeHtml(word)+'</span>' : '')+
-      (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
+      (qty ? '<span class="ws-h-qty font-mono">'+qtyBreakable(qty)+'</span>' : '')+
     '</div>'+
     /* ---------- THE SENTENCES, IN THE ORDER THE FOUNDER DREW THEM ----------
        Why the session exists on the first card, then that stage's own cue,
@@ -32440,15 +32585,45 @@ function fuelPairPanels(dd, leadHead){
      a head line in the founder's drawing, and "Gels" as TAKE, because a
      head line is an instruction and the body below it is the reading. */
   var HEAD_WORD = { 'Carb intake':'Fuel', 'Gels':'Take' };
+  /* ---------- "TAKE 8-12" IS NOT A FACT ----------
+     The head path appends the row's own noun to the figure for gels, so the
+     instruction reads "TAKE 8-12 GELS" rather than "TAKE 8-12" -- eight to
+     twelve of what. The foot was emitting the bare value and lost the noun
+     on the one row that needs it, which was visible the moment the four
+     facts first shared a card. One function so the two cannot disagree
+     about how a row is written. */
+  function rowValue(r){
+    return r.short === 'Gels' ? (r.v + ' ' + r.short.toUpperCase()) : r.v;
+  }
+  /* ---------- FUELLING IS ONE SUBJECT, SO IT IS ONE CARD ----------
+     Founder: "Were it says take 8-12 gels? Can that be on the same page as
+     total carbs?"
+     It could not, because this paired the facts two at a time and a race
+     has four of them: FUEL 60-90g/hr over TOTAL CARBS on one card, TAKE
+     8-12 GELS over FLUID on the next. Two swipes to read one plan, and the
+     gels -- which are how the athlete actually carries out the carb number
+     above -- were on the far side of a gesture from it.
+     THE FOURTH FACT GOES IN A FOOT RATHER THAN A THIRD SLOT. Head and body
+     are the card's two voices (an instruction, then a reading) and a third
+     of either would be a new voice. The foot is the same two facts read as
+     one line, at label size, under the figure they implement: "8-12 GELS ·
+     FLUID ~1.6-2.5 L". Measured first -- the panel is 398x274px on a race,
+     so the room is there.
+     IT ONLY FOLDS WHERE THE CARD IS ALREADY A FUEL CARD. A long run leads
+     with the session itself ("LONG RUN 15km" / TIME ON FEET), so its first
+     card is not fuelling and the pairing continues as drawn; what folds is
+     the fuel pair that follows. The rule is therefore "once a fuel card has
+     its two facts, the rest join it", not "a race is special". */
   while (rows.length || head){
     if (!head){
       var h = rows.shift();
       if (!h) break;
-      head = { k: HEAD_WORD[h.short] || h.short,
-               v: h.short === 'Gels' ? (h.v + ' ' + h.short.toUpperCase()) : h.v,
-               note: h.note || '' };
+      head = { k: HEAD_WORD[h.short] || h.short, v: rowValue(h), note: h.note || '' };
     }
     var body = rows.shift() || null;
+    /* Everything still unread joins this card, once this card is a fuel
+       card rather than the session's own lead. */
+    var foot = (head.k !== (leadHead && leadHead.k)) ? rows.splice(0, rows.length) : [];
     out.push(
       '<div class="how-mod" data-mod="pair-'+out.length+'">'+
         '<div class="ws-card-body">'+
@@ -32464,6 +32639,11 @@ function fuelPairPanels(dd, leadHead){
                   '<span class="ws-h-qty font-mono">'+body.v+
                     (body.note ? '<span class="fuel-v-note">'+body.note+'</span>' : '')+
                   '</span>' : '')+
+          (foot.length ? '<div class="pair-foot">'+foot.map(function(r){
+             return '<span class="pair-foot-i"><span class="pair-foot-k">'+
+               escapeHtml(HEAD_WORD[r.short] || r.short)+'</span>'+
+               '<span class="pair-foot-v font-mono">'+rowValue(r)+'</span></span>';
+           }).join('')+'</div>' : '')+
         '</div>'+
       '</div>');
     head = null;
@@ -34495,6 +34675,33 @@ function raceBlockPhaseCopy(b, i, plan, hr){
                : 'Where the race starts. Effort rises for the same pace now; that is normal.'
     });
   }
+  /* ---------- THE MIDDLE IS NOT ONE BLOCK ON A MARATHON ----------
+     Founder, looking at the rail: "Same with hold?" Measured on goal day:
+     HOLD 10-20km and HOLD 20-30km carried a byte-identical sentence --
+     "Goal pace, unremarkable, boring. Take your fuel on schedule." -- so
+     two pages of the plan said one thing, and the athlete swiped past the
+     second because they had just read it.
+     THE FIX IS WORDS, NOT ONE FEWER PAGE. The blocks are load-bearing:
+     RACE_BLOCKS_KM feeds the per-block paces and the implied finish, so
+     dropping one changes the race plan's arithmetic rather than its screen.
+     What was missing was that the two halves of a marathon's middle are
+     genuinely different jobs -- 10-20km is patience, 20-30km is the stretch
+     where holding the same pace starts to cost something and the fuelling
+     either happened or did not.
+     ONLY WHERE THERE IS MORE THAN ONE MIDDLE, which is the marathon and the
+     ultra. A half has exactly one middle block and it is an early one, so it
+     keeps the patient line it already had; a 5K and a 10K have none at all.
+     Counted from n rather than keyed to a distance, so the rule follows the
+     block table instead of a second list of race types that could drift
+     from it. */
+  var middles = n - 3;
+  if (middles > 1 && i === n-2-1){
+    return merge({
+      cue: neg ? 'The pace steps down from here. Stay patient one block longer — the work is next.'
+               : 'Same pace, and it stops being free around here. Hold the rhythm you set.',
+      watch: 'Fuel missed in this block is paid for after 30km, not in it.'
+    });
+  }
   return merge({
     cue: neg ? 'Still inside the plan, still patient. Take your fuel on schedule.'
              : 'Goal pace, unremarkable, boring. Take your fuel on schedule.',
@@ -34740,29 +34947,46 @@ function renderStrategyPhase(ph){
      fallback for a phase with no numbers; with the numbers gone it is
      simply what the card says, which is why it is no longer written as
      one. */
+  /* ---------- THE PHASE'S COACHING IS ON THE PHASE'S CARD ----------
+     Founder: "Can any of the current coaches notes be added to the rails?"
+     Yes, and this is the one that belongs there. The sentence was built
+     beside this panel and rendered two blocks away inside the Coach's Note,
+     lit in sync by wireCoachingRail() -- so the athlete read SETTLE 0-10km
+     at the top of the screen and what to do about it further down, with an
+     identical eight-line note between them on all five pages.
+     THE OLD OBJECTION WAS MEASURED, AND SO IS THIS. The law said the
+     sentence is "too long to live inside a 125px panel", which was true of
+     the coaching rail it was written about. This rail is not that one: a
+     race phase panel measures 398x274px. The sentence fits with room over.
+     WHY THIS IS WHAT THE FOUNDER WAS ACTUALLY ASKING. Their other question
+     was whether COMMIT and PRESS need separate pages, and whether the two
+     HOLDs do. The pages were never the problem -- the captions for PRESS
+     and COMMIT differ completely and the note buried the difference. Put
+     each phase's words on its own page and the pages tell themselves apart,
+     which is the thing that was missing rather than a page too many. */
   var lines = ph.effort ? '<span class="sp-n">'+escapeHtml(ph.effort)+'</span>' : '';
   var span = fmtStrategySpan(ph);
+  var prose = [ph.purpose, ph.cue].filter(function(t){ return t; })
+    .map(function(t){ return escapeHtml(resolveDesc(t)); }).join(' ');
   return '<div class="how-mod strat-phase"><div class="ws-card-body">'+
     '<div class="strat-phase-head"><span class="strat-phase-label">'+escapeHtml(ph.label)+'</span>'+
       (span?'<span class="strat-phase-span font-mono">'+escapeHtml(span)+'</span>':'')+
     '</div>'+
     (lines?'<div class="strat-phase-target font-mono">'+lines+'</div>':'')+
+    (prose?'<div class="strat-phase-say">'+prose+'</div>':'')+
+    (ph.watch?'<div class="strat-phase-watch">'+escapeHtml(resolveDesc(ph.watch))+'</div>':'')+
   '</div></div>';
 }
 /* The sentence that belonged to the panel, at the width a sentence wants.
    Both strings are unchanged and each still resolves its own @@U@@ unit
    token before being joined -- the prescription must not vary with a
    display preference, only the sentence the athlete reads. */
-function renderStrategyPhaseCaption(ph, i){
-  var prose = [ph.purpose, ph.cue].filter(function(t){ return t; })
-    .map(function(t){ return escapeHtml(resolveDesc(t)); }).join(' ');
-  var body = (prose ? '<div class="strat-phase-purpose">'+prose+'</div>' : '')+
-    (ph.watch ? '<div class="strat-phase-watch">'+escapeHtml(resolveDesc(ph.watch))+'</div>' : '');
-  /* THE FIRST ONE IS LIT IN THE MARKUP, not by the script. A rail whose
-     script never runs still shows the phase it is sitting on -- the same
-     reasoning that puts the dot count in the HTML rather than injecting it. */
-  return '<div class="how-cap-i'+(i===0?' is-on':'')+'">'+body+'</div>';
-}
+/* renderStrategyPhaseCaption() stood here and is deleted rather than left
+   unreferenced. Its whole job was to render, at full width under the rail,
+   the sentence that would not fit inside a 125px panel; renderStrategyPhase
+   carries that sentence on the panel itself now, so this built a second
+   copy of it for nobody. A renderer with no caller is, in this file's own
+   words, what the next person edits by mistake. */
 // The EXECUTION section's content when the session earns one. Suppressed
 // (recover state) and ineligible sessions both return '' here, deliberately
 // identical -- renderCoachingDepth() falls back to the plain existing 'how'
@@ -34818,11 +35042,16 @@ function renderExecutionStrategyBlock(dd, panelsShown){
      has been built: two tracks and two sets of dots concatenate into two
      rails, not one. So the panels come back loose and the caller is the one
      thing that decides how many rails there are. */
-  return {
-    panels: s.phases.map(renderStrategyPhase),
-    caps: '<div class="how-cap'+(panelsShown ? '' : ' how-cap-all')+'" id="exec-cap-'+dd.id+'">'+
-        s.phases.map(renderStrategyPhaseCaption).join('')+'</div>'
-  };
+  /* `caps` IS EMPTY NOW, AND THE KEY STAYS. Every caller destructures this
+     shape -- renderCoachingDepth reads .caps into the note, weekSlideHtml
+     rewrites its id, the suite asserts on it -- and returning a changed
+     shape would have made each of those a separate edit with a separate
+     chance to be wrong. The sentences did not go anywhere: they are on the
+     panels, which is the one place they are read in step with the phase
+     they describe. panelsShown is unused for the same reason it existed --
+     it chose between a swipe-linked set and showing all of them, and there
+     is no set to choose for. */
+  return { panels: s.phases.map(renderStrategyPhase), caps: '' };
 }
 
 /* =========================================================
@@ -62816,10 +63045,26 @@ function weekSlideHtml(dd, i){
      Its blueprint rail is drawn here exactly as it always was, and it never
      moves behind a tab, because there is no disclosure on that day to put
      it in. */
+  /* ---------- RACE DAY JOINS THE REST OF THE WEEK ----------
+     Founder: "The full plan last day just shows a blank screen. And has a
+     view full session tab like the old commit."
+     IT WAS BLANK BY CONSTRUCTION, and the construction was an instruction
+     that has now outlived itself. "Leave race day separate for the time
+     being" held its five execution phases off the slide, so depth was ''
+     for a race -- and hasWorkoutBlueprint() is false for a race too,
+     because its steps are phases rather than blueprint steps, so slideOwn
+     was '' as well. A hero, and then nothing, in a slide sized by the
+     tallest day of the week. That is the blank screen: not a bug in a
+     renderer, but two empty strings where every other day has a rail and a
+     note.
+     "FOR THE TIME BEING" IS OVER. The condition goes rather than being
+     widened, because there is nothing left to hold back: renderCoachingDepth
+     draws the race's rail and its note exactly as it draws every other
+     day's, from the same function, so the slide and the full card cannot
+     say different things about goal day. */
   var slideOwn = hasWorkoutBlueprint(dd) ? renderStructuredWorkout(dd) : '';
-  var foldOwnIn = prescriptionIsReference(dd) && dd.type !== 'race';
-  var depth = (dd.type === 'race') ? ''
-    : renderCoachingDepth(dd, foldOwnIn ? slideOwn : '', true);
+  var foldOwnIn = prescriptionIsReference(dd);
+  var depth = renderCoachingDepth(dd, foldOwnIn ? slideOwn : '', true);
   var capId = 'exec-cap-' + dd.id;
   depth = depth.split(capId).join(capId + '-w' + i);
   /* THE BOX FOLLOWS THE DAY. On a solo-note day the hero and this note are
@@ -63048,39 +63293,40 @@ function renderWeekSessionBox(weekNum){
      construction.
      STILL SHOWN ONCE OPEN, so "Hide full session" can close a card the
      athlete opened before the rule applied. */
-  /* ---------- THERE IS NOTHING LEFT TO OPEN ----------
+  /* ---------- THERE IS NOTHING LEFT TO OPEN, ON ANY DAY ----------
      Founder: "I don't want view full session button." The slide carries the
-     hero, the rail and the Coach's Note now, so on every day but one the
-     button offered to reveal what the athlete was already reading.
-     RACE DAY KEEPS IT, because its execution rail is deliberately still off
-     the slide (see weekSlideHtml) and the full card is the only place those
-     five phases can be read. When race day joins the rest, this condition
-     becomes unconditional and the button goes entirely.
-     STILL GHOSTED RATHER THAN DELETED, and still only while closed: the
-     slides are one height for the week and this button sits below the rail,
-     so removing its box drops everything under it and snaps it back on the
-     next swipe. "Hide full session" must also survive on a card the athlete
-     opened before the rule applied. */
-  var isRest = dd.type !== 'race' && !weekSessionOpen;
-  /* ---------- AND THE GHOST ONLY WHERE A SWIPE CAN REVEAL IT ----------
+     hero, the rail and the Coach's Note, so the button offered to reveal
+     what the athlete was already reading.
+     RACE DAY WAS THE ONE EXCEPTION and it has just gone: weekSlideHtml now
+     draws goal day's coaching on the slide like every other day's. The
+     comment that stood here said "when race day joins the rest, this
+     condition becomes unconditional and the button goes entirely", and
+     that is what this is. Founder, on the same screen: it "has a view full
+     session tab like the old commit".
+     IT IS DELETED RATHER THAN GHOSTED. The ghost existed so that swiping
+     onto the one day that COULD show the button did not drop everything
+     below it; with no such day left in any week, reserving the box reserves
+     65px of nothing on every slide in the product. The measurement that put
+     it there is in the comment below and is the same measurement that takes
+     it away.
+     "HIDE FULL SESSION" SURVIVES, and only that. A card the athlete opened
+     before this rule applied must still have a way out of itself. */
+  var closedWithNothingToOpen = !weekSessionOpen;
+  /* ---------- AND THE GHOST IS GONE WITH IT ----------
      Founder, on This Week: "Can it be moved up? There's a weird gap between
      the bottom of the rail and the bar."
-     MEASURED: the hint ended at y=954 and the zone card began at 1037, with
-     a 52px button and its 13px margin in between -- 65px of a button with
-     visibility:hidden. That is the weird gap, and it is almost all of it.
-     THE REASON IT IS GHOSTED IS GOOD AND IS KEPT. Race day still carries
-     the real button, because its five execution phases are deliberately off
-     the slide; reserving its box means swiping onto race day does not drop
-     everything below it and snap back on the next swipe.
-     IT IS ONLY A REASON IN RACE WEEK. Every other week has no day in its
-     carousel that can ever show the button, so the box is reserved against
-     a swipe that cannot happen -- 65px of nothing on 15 weeks of 16. Asked
-     of weekCarouselDays(), which is the list the swipe actually steps
-     through, rather than of state.days: a race in some other week is not
-     reachable from here and must not reserve space here. */
-  var ghostEarnsItsSpace = weekCarouselDays(weekNum).some(function(d){
-    return d.type === 'race';
-  });
+     MEASURED at the time: the hint ended at y=954 and the zone card began
+     at 1037, with a 52px button and its 13px margin in between -- 65px of a
+     button with visibility:hidden. That is the weird gap, and it was almost
+     all of it. The ghost survived that pass for one reason: race day could
+     still show the real button, and reserving its box meant swiping onto it
+     did not drop everything below and snap back.
+     THAT REASON NO LONGER EXISTS. No day in any carousel can show the
+     button now, so the box was being reserved against a swipe that cannot
+     happen -- on every slide of every week rather than on 15 weeks of 16.
+     ghostEarnsItsSpace asked weekCarouselDays() whether a race was
+     reachable from this week; the answer stopped mattering, so the question
+     goes rather than being left to compute an unread boolean. */
   /* data-week for the same reason the rail carries it: the OPEN card is
      swipeable too, and its commit stepped within currentWeekNum() -- which
      is wrong on every week screen but This Week. One source for "which week
@@ -63089,12 +63335,10 @@ function renderWeekSessionBox(weekNum){
     (weekSessionOpen ? ' data-hswipe="1"' : '')+'>'+
     overview+
     swipeHintHtml('week', 'Swipe for another day')+
-    ((isRest && !ghostEarnsItsSpace) ? '' :
-      '<button type="button" class="wk-open sess-nav'+(isRest ? ' is-ghost' : '')+'"'+
-        (isRest ? ' aria-hidden="true" tabindex="-1"'
-                : ' data-action="week-open-session" data-date="'+escapeHtml(dd.date)+'"'+
-                  ' aria-expanded="'+(weekSessionOpen?'true':'false')+'"')+'>'+
-        (weekSessionOpen ? 'Hide full session' : 'View full session')+
+    (closedWithNothingToOpen ? '' :
+      '<button type="button" class="wk-open sess-nav"'+
+        ' data-action="week-open-session" data-date="'+escapeHtml(dd.date)+'"'+
+        ' aria-expanded="true">Hide full session'+
         ' <span class="wk-open-caret" aria-hidden="true">\u2192</span></button>')+
     full+
   '</div>';

@@ -542,7 +542,13 @@ test('both ways into a session wear one treatment, stated once', () => {
 
   /* BOTH BUTTONS WEAR IT. The class is the whole mechanism. */
   assert.match(SRC, /class="rd-open sess-nav"/, 'Race Day no longer wears the shared treatment');
-  assert.match(SRC, /class="wk-open sess-nav'/, 'This Week no longer wears the shared treatment');
+  /* THE QUOTE MOVED, NOT THE CLASS. This read the source text up to the
+     opening quote of a concatenation -- class="wk-open sess-nav'+(isRest ?
+     ' is-ghost' : '')+'" -- and the ghost modifier is gone (no day can open
+     a full session any more), so the literal now closes with a double
+     quote. Either shape satisfies the claim, which is that both buttons
+     wear the shared class. */
+  assert.match(SRC, /class="wk-open sess-nav['"]/, 'This Week no longer wears the shared treatment');
 
   /* THE METRICS ARE THE BUTTON TOO. They were left behind at first -- 14.5px
      and 11px padding here, 15px and 14px in the Race Day panel -- on the

@@ -239,9 +239,17 @@ test('Execution Strategy phase copy follows the unit selection', () => {
      warning this comment has always carried still applies: a value that is
      not a string satisfies a doesNotMatch, so a test that kept adding the
      return value to a string would pass while saying nothing at all. */
+  /* ---- THE SENTENCES ARE ON THE PANELS NOW ----
+     Founder: "Can any of the current coaches notes be added to the rails?"
+     The phase prose moved out of the caption and onto the phase's own card,
+     so `caps` is deliberately empty and the panels carry what this law
+     actually checks -- that the copy speaks in the athlete's own units.
+     Asserting on the panels is asserting it where the athlete reads it. */
   const parts = mi.renderExecutionStrategyBlock(d);
   const html = parts.panels.join('') + parts.caps;
-  assert.ok(parts.panels.length && parts.caps, 'the session earns a staged plan');
+  assert.ok(parts.panels.length, 'the session earns a staged plan');
+  assert.match(parts.panels.join(''), /strat-phase-say/,
+    'the phase cards carry no prose, so the unit claims below would test nothing');
   assert.match(html, MI_WORD, 'the phase prose should be talking in miles');
   assert.doesNotMatch(html, KM_WORD);
   assert.equal(html.indexOf('@@'), -1, 'no raw token reaches the phase card');
