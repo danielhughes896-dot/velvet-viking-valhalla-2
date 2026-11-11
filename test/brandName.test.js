@@ -239,3 +239,149 @@ test('the four identities the outside world holds are untouched', () => {
       '/assets/' + f + ' is referenced but is not on disk');
   });
 });
+
+/* ===========================================================================
+ * THE PRODUCT IS SACORO, THE COMPANY IS VELVET VIKING
+ * ---------------------------------------------------------------------------
+ * Founder, asked whether page titles should read Sacoro or Velvet Viking:
+ * "If it's customer facing SACORO."
+ *
+ * The two names are not interchangeable and the line between them is not a
+ * matter of taste. Velvet Viking Ltd is a registered company that signs the
+ * work, owns the domain, is named in the privacy policy as the data
+ * controller and appears in the byline under the mark. Sacoro is the thing
+ * the athlete opens. Every sentence that addresses the athlete about the
+ * product -- a page title, an error, the name under the launcher icon -- is
+ * Sacoro.
+ *
+ * This is the law because the old name does not come back in a rename; it
+ * comes back one string at a time, in a toast somebody wrote in a hurry.
+ * ======================================================================== */
+
+/* Every surface an athlete reads outside the app. */
+const PUBLIC_PAGES = ['get.html', 'start.html', 'account.html',
+                      'privacy.html', 'terms.html', 'www/index.html'];
+
+/* THE ONLY PLACES THE COMPANY MAY SPEAK, and what each one is for. Anything
+   else carrying the company name is the product being called by the wrong
+   one, which is the entire failure this guards. */
+const COMPANY_SPEAKS = [
+  'By Velvet Viking',              /* the byline under the mark */
+  'Velvet Viking Ltd',             /* the registered company, in the legal pages */
+  'Velvet Viking crest',           /* what the artwork actually is */
+  'data Velvet Viking holds',      /* privacy: the controller, not the app */
+  'not to Velvet Viking,',         /* privacy: whose backup it is not */
+  'Velvet Viking is responsible',  /* privacy: the controller's duty */
+  /* AND ONE THAT IS NOT THE COMPANY SPEAKING AT ALL. It names the entry an
+     athlete will see on Strava's own settings screen, which carries whatever
+     the Strava application was registered as. It is pinned present by a law
+     of its own below rather than merely permitted here, so it cannot quietly
+     disappear either. */
+  'remove Velvet Viking in your Strava settings',
+  /* AND ONE IDENTIFIER, not a name on a screen. PRODID names the software
+     that wrote a calendar file, next to a UID suffix this file already pins
+     as immovable. No calendar keys an event on it, so renaming it would be
+     safe -- but it is stamped into every .ics an athlete has already
+     exported, and there is nothing to gain from two spellings of the same
+     exporter in the wild. It moves when the UID does, or not at all. */
+  "PRODID:-//Velvet Viking//Training Block//EN"
+];
+
+/* velvetviking.co.uk is infrastructure the world already resolves, and
+   com.velvetviking.valhalla is pinned as immovable above. Neither is a name
+   being shown to anybody. */
+function strippedOfCompany(text){
+  let s = text
+    /* COMMENTS ARE NOT CUSTOMER FACING, and this codebase explains itself at
+       length -- several of those explanations are about what the header used
+       to say, which is exactly the phrase being forbidden. Both comment forms
+       are removed: <!-- --> in the markup, and the block comments that carry
+       the reasoning in the stylesheet and the script. Line comments are left,
+       because stripping // would take the https:// out of every URL. */
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/com\.velvetviking\.valhalla/g, '')
+    .replace(/velvetviking\.co\.uk/g, '');
+  COMPANY_SPEAKS.forEach(ok => { s = s.split(ok).join(''); });
+  return s;
+}
+
+test('no public page calls the product by the company name', () => {
+  PUBLIC_PAGES.forEach(p => {
+    const s = strippedOfCompany(fs.readFileSync(path.join(ROOT, p), 'utf8'));
+    const at = s.indexOf('Velvet Viking');
+    if (at > -1){
+      assert.fail(p + ' calls the product Velvet Viking: "' +
+        s.slice(Math.max(0, at - 50), at + 60).replace(/\s+/g, ' ').trim() +
+        '". The company signs the work; the product the athlete opens is Sacoro');
+    }
+  });
+});
+
+test('no screen inside the app calls the product by the company name', () => {
+  /* Read from the runtime rather than rendered, because these are error and
+     confirmation strings that only a failing network or a destructive tap
+     would ever surface -- exactly the copy nobody re-reads after a rename. */
+  const s = strippedOfCompany(SRC);
+  const at = s.indexOf('Velvet Viking');
+  if (at > -1){
+    assert.fail('the runtime calls the product Velvet Viking: "' +
+      s.slice(Math.max(0, at - 60), at + 70).replace(/\s+/g, ' ').trim() + '"');
+  }
+});
+
+test('every title and launcher label says Sacoro', () => {
+  /* The name under the icon, the name in the tab, the name in a share card. */
+  const titled = [['protected/velvet-viking-valhalla.html', /<title>([^<]*)<\/title>/],
+                  ['start.html', /<title>([^<]*)<\/title>/],
+                  ['account.html', /<title>([^<]*)<\/title>/],
+                  ['get.html', /<title>([^<]*)<\/title>/],
+                  ['privacy.html', /<title>([^<]*)<\/title>/],
+                  ['terms.html', /<title>([^<]*)<\/title>/],
+                  ['www/index.html', /<title>([^<]*)<\/title>/]];
+  titled.forEach(([f, re]) => {
+    const m = re.exec(fs.readFileSync(path.join(ROOT, f), 'utf8'));
+    assert.ok(m, f + ' has no title');
+    assert.ok(/Sacoro/.test(m[1]), f + ' is titled "' + m[1] + '"');
+  });
+
+  const strings = fs.readFileSync(path.join(ROOT,
+    'android/app/src/main/res/values/strings.xml'), 'utf8');
+  assert.match(strings, /<string name="app_name">Sacoro<\/string>/,
+    'the name under the Android launcher icon is not the product name');
+  assert.match(strings, /<string name="title_activity_main">Sacoro<\/string>/);
+
+  const cap = JSON.parse(fs.readFileSync(path.join(ROOT, 'capacitor.config.json'), 'utf8'));
+  assert.equal(cap.appName, 'Sacoro', 'the native shell still ships under the company name');
+  /* And the one next to it that must NOT follow, for the reason given above. */
+  assert.equal(cap.appId, 'com.velvetviking.valhalla',
+    'the package id was renamed; every existing install is now orphaned');
+});
+
+test('the Strava disconnect copy still names what Strava shows', () => {
+  /* THE ONE PIECE OF COPY THAT IS DELIBERATELY NOT RENAMED. It tells an
+     athlete what to look for in somebody else's settings screen, and Strava
+     lists the connected application under the name it was registered with.
+     Renaming this sends them hunting for an entry that is not there. It
+     changes when the Strava application is re-registered, not before. */
+  assert.match(SRC, /remove Velvet Viking in your Strava settings/,
+    'the Strava disconnect note was renamed ahead of the Strava app itself, ' +
+    'so it now names something the athlete will not find on that screen');
+});
+
+test('the byline is the company signing it, not the product saying its own name', () => {
+  /* The counterpart to the law above, and the reason that one is scoped to
+     "calls the PRODUCT" rather than "mentions Velvet Viking". A sweep that
+     finishes the rename by replacing every occurrence takes the signature off
+     the work with it, and that is a loss rather than a tidy-up: the splash,
+     the header and the share image are where the company puts its name to
+     what it made. Three places, counted, because two means one was dropped
+     and four means one was added without thinking about where it reads. */
+  const splash = (SRC.match(/<div class="pe-by">By Velvet Viking<\/div>/g) || []).length;
+  assert.equal(splash, 2,
+    'the splash byline appears ' + splash + ' times; it belongs in exactly two -- ' +
+    'the markup the document paints and the screen the app renders, which have ' +
+    'to agree or the handover changes the words');
+  assert.match(SRC, /<span class="bm-by">By Velvet Viking<\/span>/,
+    'the header no longer carries the company byline');
+});

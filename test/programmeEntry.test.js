@@ -884,7 +884,7 @@ test('ARRIVAL: the pre-script screen is taken down, and cannot strand anyone', (
   const clear = RUNTIME_SRC.indexOf('clearBootSplash();', render);
   assert.ok(clear > -1 && clear < bind,
     'renderApp() no longer clears the pre-script arrival after writing #app');
-  const failed = RUNTIME_SRC.indexOf("console.error('Velvet Viking init failed'");
+  const failed = RUNTIME_SRC.indexOf("console.error('Sacoro init failed'");
   assert.ok(failed > -1, 'the startup catch moved; this law cannot see it');
   assert.ok(RUNTIME_SRC.indexOf('clearBootSplash();', failed) > -1 &&
             RUNTIME_SRC.indexOf('clearBootSplash();', failed) <
