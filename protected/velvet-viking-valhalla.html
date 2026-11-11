@@ -6523,6 +6523,57 @@
     min-height:44px;   /* a thumb has to land in it before a keyboard appears */
     box-shadow:inset 0 1px 3px rgba(0,0,0,.14);
   }
+  /* ---------- FOUR ANSWERS GIVEN WITH THE THUMB ----------
+     Founder: "Change build a plan to have this 4 areas as the slider
+     options." Running days, weekly volume, longest run and block length.
+     The label sits left and the answer right, large and in cherry because it
+     is the thing the athlete is setting. Under them, one track: cherry up to
+     the thumb, a white thumb with the cherry rim every chosen control wears.
+     No box round it -- the builder's fields sit on the page.
+     The rules below out-rank ".field input", which would otherwise draw the
+     range and the figure as two inset text boxes. */
+  .bld-slide-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px;}
+  .field .bld-slide-head label{margin-bottom:0;}
+  .bld-slide-val{display:inline-flex; align-items:baseline; gap:6px; flex:none;}
+  .field .bld-slide-val input{
+    width:3.4ch; min-height:44px; padding:0; background:none; border:0; border-radius:0;
+    box-shadow:none; text-align:right; font-family:var(--num-face); font-size:28px;
+    font-weight:700; color:var(--cherry-text); -moz-appearance:textfield; appearance:textfield;}
+  .field .bld-slide-val input::-webkit-outer-spin-button,
+  .field .bld-slide-val input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  .field .bld-slide-val input::placeholder{color:var(--cherry-text); opacity:1;}
+  .bld-slide-unit, .bld-slide-fig{font-family:var(--num-face); font-weight:700; color:var(--cherry-text);}
+  .bld-slide-unit{font-size:17px;}
+  .bld-slide-fig{font-size:28px; line-height:44px; min-width:1.2ch; text-align:right;}
+  .field input.bld-range{
+    -webkit-appearance:none; appearance:none; display:block; width:100%;
+    height:44px; min-height:44px; margin:0; padding:0; background:transparent;
+    border:0; border-radius:0; box-shadow:none; cursor:pointer; --p:0%;}
+  .bld-range::-webkit-slider-runnable-track{
+    height:4px; border-radius:2px;
+    background:linear-gradient(to right, var(--cherry-text) var(--p), var(--line) var(--p));}
+  .bld-range::-moz-range-track{
+    height:4px; border-radius:2px;
+    background:linear-gradient(to right, var(--cherry-text) var(--p), var(--line) var(--p));}
+  .bld-range::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:26px; height:26px; margin-top:-11px;
+    border:0; border-radius:50%; background:var(--cherry-ink);
+    box-shadow:0 0 0 3px var(--cherry-text), 0 0 18px var(--cherry-dim);}
+  .bld-range::-moz-range-thumb{
+    width:26px; height:26px; border:0; border-radius:50%; background:var(--cherry-ink);
+    box-shadow:0 0 0 3px var(--cherry-text), 0 0 18px var(--cherry-dim);}
+  /* Not answered yet: a hollow thumb at the start, lit by nothing. */
+  .bld-range.is-unset::-webkit-slider-thumb{background:var(--bg-2); box-shadow:0 0 0 2px var(--ink);}
+  .bld-range.is-unset::-moz-range-thumb{background:var(--bg-2); box-shadow:0 0 0 2px var(--ink);}
+  .bld-range:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
+  .bld-range-ends, .bld-range-ticks{
+    display:flex; justify-content:space-between; font-family:var(--num-face);
+    font-size:13px; color:var(--ink);}
+  /* The thumb's centre travels from 13px to 13px short of the far end, so
+     the eight numerals are inset to stand under the eight stops. */
+  .bld-range-ticks{padding:0 6px;}
+  .bld-range-ticks span{width:14px; text-align:center;}
+  .bld-slide .field-hint{margin-top:10px;}
   /* .wd-check input sits inside a .field (the "Training days" field wraps
      .weekday-grid) the way .day-check input on the day card never did, so
      the rule above -- same specificity, later in the file -- was repainting
@@ -54336,8 +54387,13 @@ function openSetupModal(){
           '<div class="field-hint">Progression and taper anchor to this day.</div>'+
           '<div class="field-hint" id="su-runway-note" hidden></div>'+
         '</div>'+
-        '<div class="field when-none bld-reveal" id="f-weeks"><label>Training block length (weeks)</label>'+
-          '<input type="number" min="'+BUILDER_SPEC.validation.weeksRange[0]+'" max="'+BUILDER_SPEC.validation.weeksRange[1]+'" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
+        '<div class="field when-none bld-reveal bld-slide" id="f-weeks">'+
+          '<div class="bld-slide-head"><label for="su-weeks">Training block length</label>'+
+            '<span class="bld-slide-val">'+
+              '<input type="number" min="'+BUILDER_SPEC.validation.weeksRange[0]+'" max="'+BUILDER_SPEC.validation.weeksRange[1]+'" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
+              '<span class="bld-slide-unit">weeks</span></span></div>'+
+          bldRangeHtml('su-weeks', { unit:'weeks', min:BUILDER_SPEC.validation.weeksRange[0],
+            max:BUILDER_SPEC.validation.weeksRange[1], label:'Training block length in weeks' })+
           '<div class="field-hint" id="su-weeks-hint">'+escapeHtml(purposeMeta.weeksHint)+'</div>'+
         '</div>'+
       '</div>'+
@@ -54394,9 +54450,13 @@ function openSetupModal(){
          ASKED ON EVERY PURPOSE NOW, Race Goal included -- see
          builderAsksWeeklyVolume(). The class stays so the units handler and the
          review renderer keep one set of ids across all four purposes. */
-      '<div class="field bld-volume-question" id="f-volume"><label id="su-volume-label">'+
-        escapeHtml(EV_F.weeklyKm.label)+' ('+(state.units==='mi'?'mi':'km')+')</label>'+
-        '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
+      '<div class="field bld-volume-question bld-slide" id="f-volume">'+
+        '<div class="bld-slide-head"><label id="su-volume-label" for="su-volume">'+
+          escapeHtml(EV_F.weeklyKm.label)+'</label>'+
+          '<span class="bld-slide-val">'+
+            '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'" placeholder="\u2013">'+
+            '<span class="bld-slide-unit">'+(state.units==='mi'?'mi':'km')+'</span></span></div>'+
+        bldRangeHtml('su-volume', { kmMax:BLD_SLIDER_KM.volume, step:5, label:EV_F.weeklyKm.label })+
         '<div class="field-hint">'+escapeHtml(EV_F.weeklyKm.hint)+'</div>'+
         /* THE ENTRY BOUNDARY, SAID BEFORE THE ATHLETE REACHES THE END OF THE
            BUILDER. Shown only when it applies -- a Race Goal below the minimum
@@ -54407,24 +54467,31 @@ function openSetupModal(){
       /* ZERO IS A BUTTON, NOT SOMETHING TO THINK TO TYPE -- which is the whole
          point of the grid for this one: the athlete who runs no days is the one
          whose answer matters most. */
-      '<div class="field" id="f-entry-days"><label>'+escapeHtml(EV_F.runDaysPerWeek.label)+'</label>'+
-        '<div class="opt-grid cols-4" data-mirror="su-entry-days" role="group" '+
-          'aria-label="'+escapeHtml(EV_F.runDaysPerWeek.label)+'">'+
-          EV_DAY_CHOICES.map(function(n){
-            return '<button type="button" data-v="'+n+'" class="'+
-              (String(entryDays)===String(n)?'active':'')+'">'+n+'</button>';
-          }).join('')+
-        '</div>'+
+      '<div class="field bld-slide" id="f-entry-days">'+
+        '<div class="bld-slide-head"><label>'+escapeHtml(EV_F.runDaysPerWeek.label)+'</label>'+
+          '<span class="bld-slide-fig" aria-hidden="true">'+(entryDays===''?'\u2013':entryDays)+'</span></div>'+
+        bldRangeHtml('su-entry-days', { min:EV_DAY_CHOICES[0], max:EV_DAY_CHOICES[EV_DAY_CHOICES.length-1],
+          ticks:EV_DAY_CHOICES, label:EV_F.runDaysPerWeek.label })+
+        /* AN EMPTY FIRST OPTION, SO "NOT ANSWERED" CAN BE STORED. Without one a
+           <select> nobody has touched reports its first option, and that
+           option is 0 -- so an athlete who skipped the question was recorded
+           as running no days a week. builderEntryEvidence() already reads ''
+           as unanswered; nothing ever gave it one. */
         '<select id="su-entry-days" class="bld-mirror" tabindex="-1" aria-hidden="true">'+
+          '<option value=""'+(entryDays===''?' selected':'')+'></option>'+
           EV_DAY_CHOICES.map(function(n){
             return '<option value="'+n+'" '+(String(entryDays)===String(n)?'selected':'')+'>'+n+'</option>';
           }).join('')+
         '</select>'+
         '<div class="field-hint">'+escapeHtml(EV_F.runDaysPerWeek.hint)+'</div>'+
       '</div>'+
-      '<div class="field" id="f-entry-long"><label id="su-entry-long-label">'+
-        escapeHtml(EV_F.longestRunKm.label)+' ('+(state.units==='mi'?'mi':'km')+')</label>'+
-        '<input type="number" min="0" step="1" inputmode="numeric" id="su-entry-long" value="'+entryLong+'">'+
+      '<div class="field bld-slide" id="f-entry-long">'+
+        '<div class="bld-slide-head"><label id="su-entry-long-label" for="su-entry-long">'+
+          escapeHtml(EV_F.longestRunKm.label)+'</label>'+
+          '<span class="bld-slide-val">'+
+            '<input type="number" min="0" step="1" inputmode="numeric" id="su-entry-long" value="'+entryLong+'" placeholder="\u2013">'+
+            '<span class="bld-slide-unit">'+(state.units==='mi'?'mi':'km')+'</span></span></div>'+
+        bldRangeHtml('su-entry-long', { kmMax:BLD_SLIDER_KM.longRun, step:1, label:EV_F.longestRunKm.label })+
         '<div class="field-hint">'+escapeHtml(EV_F.longestRunKm.hint)+'</div>'+
       '</div>'+
       '<div class="field" id="f-entry-long-date"'+
@@ -54593,8 +54660,17 @@ function openSetupModal(){
       // calculation, so any of the three re-syncs the short-runway note.
       bldSyncRunwayNote();
     });
+    /* One listener for all four sliders. A slider writes its answer into the
+       field it stands for; a typed answer moves the slider. */
+    cardEl.addEventListener('input', function(e){
+      var t = e.target;
+      if (!t || !t.classList) return;
+      if (t.classList.contains('bld-range')){ bldSliderInput(t); return; }
+      if (t.id && cardEl.querySelector('.bld-range[data-for="'+t.id+'"]')) bldSyncSliders();
+    });
   }
   bldApplyPurpose();
+  bldSyncSliders();
 
   var unitsBox = document.getElementById('su-units');
   if (unitsBox){
@@ -54607,7 +54683,6 @@ function openSetupModal(){
       if (newUnits===oldUnits) return;
       unitsBox.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b===btn); });
       var volInput = document.getElementById('su-volume');
-      var label = document.getElementById('su-volume-label');
       if (volInput && volInput.value){
         var n = parseFloat(volInput.value);
         if (!isNaN(n)){
@@ -54615,7 +54690,19 @@ function openSetupModal(){
           volInput.value = newUnits==='mi' ? round2(km*0.621371) : round1(km);
         }
       }
-      if (label) label.textContent = 'Current Weekly Volume ('+newUnits+')';
+      /* The longest run is a distance in the same units and was never
+         converted here: it kept its number and silently changed its meaning.
+         With the unit now printed beside it, "21 km" would have become
+         "21 mi" in front of the athlete. */
+      var longInput = document.getElementById('su-entry-long');
+      if (longInput && longInput.value){
+        var ln = parseFloat(longInput.value);
+        if (!isNaN(ln)){
+          var lkm = oldUnits==='mi' ? ln/0.621371 : ln;
+          longInput.value = newUnits==='mi' ? round2(lkm*0.621371) : round1(lkm);
+        }
+      }
+      bldSyncSliders();
       /* The experience figures carry a unit, so they move with this too. */
       renderExperienceCards();
       bldSyncRaceEntryNote();
@@ -54863,6 +54950,89 @@ function bldSyncLongDay(){
     : '<button type="button" disabled>Pick at least 3 training days first</button>';
 }
 
+/* ---------- FOUR ANSWERS GIVEN WITH THE THUMB ----------
+   Founder: "Change build a plan to have this 4 areas as the slider options"
+   -- running days in a typical week, current weekly volume, longest recent
+   run and training block length.
+   NOTHING THE BUILDER READS HAS MOVED. Each slider stands in front of the
+   field that was already there (#su-volume, #su-entry-long, #su-weeks, and
+   the mirrored <select> #su-entry-days), writes its value into it and
+   dispatches the same input/change events a keystroke or a tile press did.
+   Validation, the review, the entry-evidence reader and the generator all
+   still read those ids, so there is one answer, not two.
+   THE FIGURE IS STILL A FIELD. Volume, longest run and block length keep
+   their number input as the large figure beside the label: tap it for an
+   exact entry. A typed 52 km stays 52 while the slider, which steps in 5s
+   for volume, rests on the nearest stop.
+   NO ANSWER IS NOT AN ANSWER. An empty field leaves the thumb hollow at the
+   start of the track and the figure a dash -- it never reads as zero.
+   The block-length range is BUILDER_SPEC.validation.weeksRange, read off the
+   field's own min and max, so the slider cannot offer a length the
+   programme rules refuse. The two distance ceilings are stated here in
+   kilometres and shown in the athlete's units. */
+var BLD_SLIDER_KM = { volume:150, longRun:50 };
+function bldRangeHtml(forId, o){
+  var min = o.min != null ? o.min : 0;
+  var max = o.max != null ? o.max : (o.kmMax != null ? o.kmMax : 100);
+  var unit = o.unit || '';
+  var foot = o.ticks
+    ? '<div class="bld-range-ticks" aria-hidden="true">'+
+        o.ticks.map(function(n){ return '<span>'+n+'</span>'; }).join('')+'</div>'
+    : '<div class="bld-range-ends" aria-hidden="true"><span>'+min+(unit?' '+unit:'')+'</span>'+
+        '<span>'+max+(unit?' '+unit:'')+'</span></div>';
+  return '<input type="range" class="bld-range" data-for="'+forId+'" min="'+min+'" max="'+max+'" '+
+      'step="'+(o.step || 1)+'" value="'+min+'" aria-label="'+escapeHtml(o.label || '')+'"'+
+      (o.kmMax != null ? ' data-km-max="'+o.kmMax+'"' : '')+
+      (unit ? ' data-unit="'+unit+'"' : '')+'>'+foot;
+}
+function bldUnitsNow(){
+  var b = document.querySelector('#su-units button.active');
+  return b ? b.getAttribute('data-units') : ((state && state.units) || 'km');
+}
+/* Paint every slider from the field it stands for. Safe to call at any time:
+   it reads the DOM and writes only the sliders and their captions. */
+function bldSyncSliders(){
+  var units = bldUnitsNow();
+  Array.prototype.forEach.call(document.querySelectorAll('.bld-range[data-for]'), function(rg){
+    var target = document.getElementById(rg.getAttribute('data-for'));
+    if (!target) return;
+    var kmMax = parseFloat(rg.getAttribute('data-km-max'));
+    if (isFinite(kmMax)) rg.max = String(units === 'mi' ? Math.round(kmMax * 0.621371) : kmMax);
+    var min = parseFloat(rg.min), max = parseFloat(rg.max);
+    var raw = String(target.value == null ? '' : target.value).trim();
+    var v = raw === '' ? NaN : parseFloat(raw);
+    var has = isFinite(v);
+    var shown = has ? Math.max(min, Math.min(max, v)) : min;
+    rg.value = String(shown);
+    rg.classList.toggle('is-unset', !has);
+    rg.style.setProperty('--p', (max > min ? (shown - min) / (max - min) * 100 : 0) + '%');
+    var field = rg.closest ? rg.closest('.field') : null;
+    if (!field) return;
+    var word = rg.getAttribute('data-unit') || (isFinite(kmMax) ? units : '');
+    var u = field.querySelector('.bld-slide-unit');
+    if (u && word) u.textContent = word;
+    var ends = field.querySelectorAll('.bld-range-ends span');
+    if (ends.length === 2){
+      ends[0].textContent = min + (word ? ' ' + word : '');
+      ends[1].textContent = max + (word ? ' ' + word : '');
+    }
+    var fig = field.querySelector('.bld-slide-fig');
+    if (fig) fig.textContent = has ? String(v) : '\u2013';
+  });
+}
+/* The thumb moved: write the answer where the builder reads it, and say so
+   with the events a keystroke would have raised. */
+function bldSliderInput(rg){
+  var target = document.getElementById(rg.getAttribute('data-for'));
+  if (!target) return;
+  target.value = rg.value;
+  try {
+    target.dispatchEvent(new Event('input', { bubbles:true }));
+    target.dispatchEvent(new Event('change', { bubbles:true }));
+  } catch(e) {}
+  bldSyncSliders();
+}
+
 /* One grid click -> the mirrored <select>. A real change event is dispatched so
    any listener the select already had still fires. */
 function bldMirrorPick(grid, btn){
@@ -54942,6 +55112,7 @@ function bldApplyPurpose(){
       weeks.addEventListener('input', function(){ weeks.setAttribute('data-bld-auto', 'off'); });
     }
   }
+  bldSyncSliders();
 
   var distField = document.getElementById('f-distance');
   var distSel = document.getElementById('su-distance');

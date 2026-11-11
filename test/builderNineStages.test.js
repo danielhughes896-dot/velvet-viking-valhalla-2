@@ -563,7 +563,10 @@ test('a choice stacks by default, and only token grids ask for columns', () => {
     const dm = /data-mirror="([^"]+)"/.exec(m[1]);
     withCols.push((id && id[1]) || (dm && dm[1]) || (al && al[1]) || '?');
   }
-  assert.deepEqual(withCols.sort(), ['bld-longday-grid', 'su-entry-days'].sort(),
+  /* The eight day counts left this list when they became a slider. Founder:
+     "Change build a plan to have this 4 areas as the slider options." See
+     test/builderSliders.test.js. */
+  assert.deepEqual(withCols.sort(), ['bld-longday-grid'].sort(),
     'a grid that is not short tokens (single digits, three-letter weekdays) ' +
     'is asking for columns: ' + withCols.join(', '));
 });
