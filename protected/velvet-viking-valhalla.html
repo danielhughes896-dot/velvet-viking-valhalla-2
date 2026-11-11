@@ -145,6 +145,17 @@
        every other -soft token so an adaptation face sits at the same weight
        as the four beside it. */
     --z-mp-soft:rgba(111,185,224,0.16);
+    /* ---------- RECOVERY'S CYAN ----------
+       The sixth instrument colour, and the only one the palette did not
+       already have. Founder: "Recovery -> cyan/light blue -- fresh,
+       restored, ready."
+       NOT --z-mp, which Adaptation wears: at 204deg that is a sky blue and
+       this is 174deg, far enough apart that two rings a thumb's width from
+       each other are plainly different colours rather than two blues.
+       NOT gold, which it was, and which Progress also wears -- two of the
+       six rings in one colour is the thing locking this palette fixes.
+       11.4:1 on --bg, so it carries a 3.4px stroke and an 11px label. */
+    --cyan:#4FD1C5; --cyan-soft:rgba(79,209,197,0.16);
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
     /* THE READING'S BADGE FACE -- deliberately theme-invariant, like the
@@ -8652,6 +8663,68 @@
      SHOULD wrap ("On track") still do. */
   .b-grid .b-dial[data-rank] .rd-val b{max-width:86%;
     overflow-wrap:normal; word-break:normal; hyphens:none;}
+  /* ---------- THE RING REPLACES THE PAINTED RIM ----------
+     .b-dial drew its edge as a gradient BACKGROUND with the face laid over
+     it, which can only ever be a complete circle of one colour. An arc and
+     a dashed ring cannot be drawn that way, so in the grid the background
+     and its halo come off and the SVG is the rim -- same colour, same glow,
+     from the same --rd-base. Scoped to .b-grid: the panel heroes keep the
+     painted rim, because there the circle restates the verdict the athlete
+     just pressed and has no evidence state to report. */
+  .b-grid .b-dial{background:none; box-shadow:none;}
+  .b-grid .rd-ring{position:absolute; inset:0; width:100%; height:100%;
+    pointer-events:none; overflow:visible;}
+  .b-grid .rd-trk{fill:none; stroke:var(--line); stroke-width:3.4;}
+  .b-grid .rd-arc{fill:none; stroke:var(--rd-base); stroke-width:4.6;
+    stroke-linecap:round;
+    filter:drop-shadow(0 0 7px color-mix(in srgb, var(--rd-base) 55%, transparent));}
+  /* STILL GATHERING. A broken ring, quieter than a closed one and with butt
+     caps so the dashes read as gaps rather than as beads. */
+  .b-grid .rd-arc.is-learning{stroke-dasharray:5 9; stroke-linecap:butt; opacity:.62;
+    filter:drop-shadow(0 0 5px color-mix(in srgb, var(--rd-base) 35%, transparent));}
+  /* ---------- RECOVERY CIRCULATES ----------
+     ONE BREAK IN THE RING, 30 DEGREES OF IT. The circumference at r=46 is
+     289.03, so a twelfth of it is 24.09 and the drawn arc is the remaining
+     264.94 -- which is the 320-340deg the founder asked for, at 330.
+     FRESH: the break travels one full lap every 16s, linear, so there is no
+     pulse and no easing -- it reads as circulation rather than as a
+     throb. A full lap of dashoffset is exactly the circumference, which is
+     why the keyframe can be stated once and reused if another instrument
+     ever needs it.
+     WATCH: the same break, standing still.
+     STRAINED: no break at all -- a closed ring, nothing moving.
+     The gap is recovery's alone, so none of the three can be read as the
+     dashed "still gathering" pattern, which repeats 5 on 9 off.
+     REDUCED MOTION is already handled globally (see the rule at the top of
+     this sheet, which caps every animation at .01ms and one iteration), so
+     an athlete who asks for stillness gets the fresh ring parked. */
+  .b-grid .rd-arc.is-rec-fresh,
+  .b-grid .rd-arc.is-rec-watch{stroke-dasharray:264.9 24.1;}
+  .b-grid .rd-arc.is-rec-fresh{animation:rd-circulate 16s linear infinite;}
+  @keyframes rd-circulate{ to{ stroke-dashoffset:-289.03; } }
+  /* ---------- PROGRESS LAYS ITSELF DOWN ----------
+     The one instrument in the grid with a real proportion is the one worth
+     drawing TO it, and this is the gauge's own entrance rather than a
+     second one: the same two-ended keyframe, the same --ring-draw duration
+     and the same easing the confidence gauge and the session ring use.
+     GATED, AND THAT IS THE WHOLE OF WHY IT IS A CLASS. Declared straight on
+     the element it would replay on every renderApp(), which is the bug the
+     gauge's own comment records measuring -- it re-filled from zero
+     whenever anything on the page redrew. animateProgressRing() adds the
+     class after render and only when the figure has actually changed.
+     NOTHING ELSE IN THE GRID DRAWS IN. A dashed ring has no proportion to
+     lay down, and six entrances at once is a screen with no focal point. */
+  @keyframes rd-draw{
+    from{ stroke-dashoffset:var(--rd-len, 0); }
+    to  { stroke-dashoffset:var(--rd-to, 0); }
+  }
+  .b-grid .b-dial.is-drawing .rd-arc{
+    animation:rd-draw var(--ring-draw) cubic-bezier(.22,.61,.36,1) both;}
+  /* The face sits inside the ring rather than under it, so the track is
+     visible all the way round. */
+  .b-grid .b-medal{inset:9px;
+    background:radial-gradient(70% 70% at 50% 42%,
+      color-mix(in srgb, var(--rd-base) 13%, transparent) 0%, transparent 72%), var(--bg);}
   .b-grid .rd-cat{font-size:12px;}
   /* ---------- AND THE TWO PLATES ----------
      Even, because neither of these two facts outranks the other. The rim is
@@ -50624,15 +50697,35 @@ function renderEvolutionProposal(ev, where){
    that speaks in coaching language, and a line inside COACH NOTICED when the
    learned pattern actually says something. Where nothing has been earned yet
    it says so plainly rather than inventing a personality for the athlete. */
-function responsePatternsSummary(m, noted){
-  /* One row, one summary. It reports the learning state in Phase 5's own
-     vocabulary rather than inventing a second status model, and falls back to
-     the trend count when nothing personal has been earned yet. */
+/* THE COUNT BOTH READERS USE. responsePatternsSummary() states the patterns
+   reading in words and responsePatternsLearning() says whether that reading
+   is settled yet; they have to agree about what has been earned, so they
+   count once, here. Extracted rather than copied -- a second loop over
+   SESSION_FAMILIES is exactly how the words and the ring would come to
+   disagree. */
+function responsePatternCounts(m){
   var est = 0, emg = 0;
   if (m) SESSION_FAMILIES.forEach(function(f){
     var c = m.families[f] && m.families[f].confidence;
     if (c==='established') est++; else if (c==='emerging') emg++;
   });
+  return { est:est, emg:emg };
+}
+/* TRUE while the engine has earned nothing personal to say -- the same three
+   conditions, in the same order, that send the summary below to its last
+   branch. If a branch is added there, it belongs here too. */
+function responsePatternsLearning(m, noted){
+  var c = responsePatternCounts(m);
+  if (m && c.est && responsePatternLines(m).length) return false;
+  if (m && c.emg) return false;
+  if (noted) return false;
+  return true;
+}
+function responsePatternsSummary(m, noted){
+  /* One row, one summary. It reports the learning state in Phase 5's own
+     vocabulary rather than inventing a second status model, and falls back to
+     the trend count when nothing personal has been earned yet. */
+  var counts = responsePatternCounts(m), est = counts.est, emg = counts.emg;
   if (m && est && responsePatternLines(m).length) return est+' established';
   if (m && emg) return emg+' emerging';
   if (noted) return noted+' noted';
@@ -50933,9 +51026,12 @@ function readingSections(report){
   var rec = report.recovery;
 
   return [
+    /* Readiness is the hero gauge rather than a circle in the grid; the flag
+       is set for completeness so every section answers the same question. */
     { key:'readiness',
       title: planHasEvent() ? 'Race readiness' : 'Goal readiness',
-      value: conf!=null ? conf+'% confidence' : '—',
+      value: conf!=null ? conf+'% confidence' : '\u2014',
+      learning: conf == null,
       tone: null,
       /* Confidence is execution fidelity, not probability, so the line under
          it says what moved it rather than how likely anything is. */
@@ -50947,9 +51043,19 @@ function readingSections(report){
         'logged sessions have matched what was prescribed — it settles as more sessions are '+
         'logged, and no single session moves it far.</div>' },
 
+    /* RECOVERY IS NEVER LEARNING. It reads this week's own flags -- effort
+       above band, HR above zone, hard streak -- which exist from the first
+       session, so the reading is as settled on day one as it ever gets. */
     { key:'recovery',
       title:'Recovery & fatigue',
       value: { fresh:'Fresh', watch:'Watch', strained:'Strained' }[rec.state],
+      learning: false,
+      /* THE ENGINE'S OWN WORD, not the displayed one. The ring's motion is
+         keyed to this (see dialRingHtml's recovery variant) and there are
+         exactly three of them -- fresh, watch, strained -- because that is
+         what coachRecovery() returns. No fourth was invented for the
+         animation's benefit. */
+      state: rec.state,
       tone: { fresh:'good', watch:'watch', strained:'bad' }[rec.state],
       syn: rec.hardStreak>=3 ? rec.hardStreak+' hard sessions in a row.'
          : (rec.overRPE||rec.overHR) ? 'Effort has run above its band this week.'
@@ -50960,6 +51066,14 @@ function readingSections(report){
       title:'Plan evolution',
       value: evMeta.label,
       tone: readingTone(evMeta.cls),
+      /* ---- IS THIS READING SETTLED YET? ----
+         The circle states a word whatever the engine knows; `learning` is
+         how much evidence is behind that word, and it is read by the ring
+         (see dialRingHtml) so an athlete can see the difference between a
+         verdict and a first impression. Computed here, beside the value it
+         qualifies, from the same report -- never from the displayed word,
+         which is copy and will change. */
+      learning: !ev || ev.confidence === 'insufficient',
       syn: ev.changes && ev.changes.length
         ? ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
           ' suggested across the next '+ev.horizonDays+' days.'
@@ -50970,6 +51084,7 @@ function readingSections(report){
       title:'Recent patterns',
       value: responsePatternsSummary(report.response, shown.length),
       tone: null,
+      learning: responsePatternsLearning(report.response, shown.length),
       syn: shown.length ? shown[0].area+' — '+shown[0].headline+'.'
                         : 'Still learning your baseline.',
       body: patternsBody + renderResponsePatternsSection(report.response) },
@@ -50978,6 +51093,7 @@ function readingSections(report){
       title:'Adaptation history',
       value: blockSectionSummary(report.block),
       tone: blockMeta ? readingTone(blockMeta.cls) : null,
+      learning: !report.block || report.block.state === 'LEARNING',
       /* The state's own standard sentence, not b.read. b.read is the engine's
          prose about THIS block and runs to whatever length it needs -- it is
          the "Coach's read" line inside the panel, where it has room. A card
@@ -63085,7 +63201,7 @@ var STATUS_TINT = {
   benchmark: 'var(--c-rest-soft)',
   progress:  'var(--c-gold-soft)'
 };
-function statusDialHtml(f, isStatic){
+function statusDialHtml(f, isStatic, ring){
   var big = f.big != null ? f.big : f.value;
   var small = f.small || '';
   var tag = isStatic ? 'span' : 'button';
@@ -63095,6 +63211,7 @@ function statusDialHtml(f, isStatic){
       'aria-label="'+escapeHtml(f.subject+' — '+f.value)+'" '+
       'style="--rd-base:'+(STATUS_ACCENT[f.key]||'var(--c-rest)')+'; '+
         '--rd-tint:'+(STATUS_TINT[f.key]||'var(--c-rest-soft)')+';">'+
+      (ring || '')+
       '<span class="b-medal">'+
         '<span class="rd-val"><b'+(f.none?' class="rec-none"':'')+
           ' style="font-size:'+statusValueFontSize(big)+';">'+escapeHtml(big)+'</b></span>'+
@@ -63153,6 +63270,56 @@ function statusValueFontSize(text){
    opened. */
 var VALHALLA_CIRCLES = ['evolution','adaptation','fitness','progress','recovery','patterns'];
 var VALHALLA_PLATES  = ['goal','benchmark'];
+/* ---------- THE RING IS THE INSTRUMENT ----------
+   The circle used to carry its colour as a painted rim and nothing else, so
+   a verdict the engine had earned over nine weeks and a first impression at
+   week two looked identical. The ring now says which of three it is, and
+   every one of the three is read from the report rather than decided here:
+
+     ARC      a real proportion, drawn to it. Progress is the only reading in
+              the grid that HAS one -- the others are words with a tone, not
+              numbers, and an arc over a word would be a figure invented to
+              fill a shape. (Readiness has one too; it is the hero gauge.)
+     DASHED   the engine is still gathering. section.learning, set in
+              readingSections() beside the value it qualifies.
+     SOLID    settled on evidence.
+
+   NO CTL, NO HRV, NO SCORE OUT OF TEN. Those were in the reference this was
+   drawn from and Valhalla computes none of them; two would need health data
+   the athlete may never have granted. A ring that cannot be derived is left
+   solid rather than filled with a number nobody measured. */
+function dialRingHtml(mode, frac, variant){
+  var R = 46, C = 2 * Math.PI * R;
+  var cls = variant ? ' ' + variant : '';
+  var arc;
+  if (mode === 'learning'){
+    arc = '<circle class="rd-arc is-learning'+cls+'" cx="50" cy="50" r="'+R+'"/>';
+  } else if (mode === 'arc'){
+    var f = Math.max(0, Math.min(1, frac || 0));
+    /* THE ATTRIBUTE STAYS and the custom properties are added beside it.
+       The attribute is the resting value, so the arc is correct with no
+       script and no animation at all; --rd-len and --rd-to are the two ends
+       the entrance interpolates between, exactly as --gauge-len/--gauge-to
+       do for the confidence gauge. Stating the offset twice is deliberate:
+       one of them has to survive a browser that never runs the keyframe. */
+    arc = '<circle class="rd-arc'+cls+'" cx="50" cy="50" r="'+R+'" '+
+          'stroke-dasharray="'+C.toFixed(1)+'" '+
+          'stroke-dashoffset="'+(C * (1 - f)).toFixed(1)+'" '+
+          'style="--rd-len:'+C.toFixed(1)+'; --rd-to:'+(C * (1 - f)).toFixed(1)+';" '+
+          'transform="rotate(-90 50 50)"/>';
+  } else {
+    arc = '<circle class="rd-arc'+cls+'" cx="50" cy="50" r="'+R+'"/>';
+  }
+  return '<svg class="rd-ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
+    '<circle class="rd-trk" cx="50" cy="50" r="'+R+'"/>'+arc+'</svg>';
+}
+/* The proportion behind the Progress ring, read from the fact's own value so
+   the arc and the percentage inside it can never disagree. */
+function statusFactFraction(f){
+  if (!f || f.key !== 'progress') return null;
+  var m = /(\d+(?:\.\d+)?)\s*%/.exec(String(f.big != null ? f.big : f.value));
+  return m ? Math.max(0, Math.min(1, parseFloat(m[1]) / 100)) : null;
+}
 function renderValhallaInstruments(){
   var report = coachAnalyse();
   if (!report || !state.setup) return '';
@@ -63165,8 +63332,32 @@ function renderValhallaInstruments(){
      -- which is also the 90px the status faces already use, so a reading
      and a fact are literally the same instrument in the same grid. */
   var circles = VALHALLA_CIRCLES.map(function(k){
-    if (reading[k]) return readingDialHtml(reading[k], 0);
-    return facts[k] ? statusDialHtml(facts[k]) : '';
+    if (reading[k]) {
+      /* ---- RECOVERY CIRCULATES ----
+         Founder: "cyan, with the small gap slowly travelling around the
+         circumference. Almost like breathing/circulation ... I'd even let
+         Recovery behave differently by state ... but only if those states
+         genuinely exist in the engine -- don't invent them for the
+         animation."
+         They do: coachRecovery() returns fresh, watch or strained, and the
+         ring takes one behaviour per state and no more. The GAP is
+         recovery's own motif -- no other instrument has one -- so a gap
+         that moves, a gap that sits still and no gap at all are three
+         states of one reading and cannot be confused with the dashed
+         gathering pattern, which is a repeating dash and not a single
+         break. The COLOUR never moves with the state; see READING_ACCENT. */
+      var ring = k === 'recovery'
+        ? dialRingHtml('solid', null, 'is-rec-' + (reading[k].state || 'fresh'))
+        : dialRingHtml(reading[k].learning ? 'learning' : 'solid');
+      return readingDialHtml(reading[k], 0, false, ring);
+    }
+    if (!facts[k]) return '';
+    /* A fact with nothing behind it is still gathering too -- "Nothing
+       measured" is the same statement the readings make with a dashed ring,
+       and f.none is the flag the empty-state typography already reads. */
+    var frac = statusFactFraction(facts[k]);
+    return statusDialHtml(facts[k], false,
+      dialRingHtml(facts[k].none ? 'learning' : (frac != null ? 'arc' : 'solid'), frac));
   }).join('');
   var plates = VALHALLA_PLATES.map(function(k){
     return facts[k] ? statusPlateHtml(facts[k]) : '';
@@ -63674,8 +63865,25 @@ function toneRingColor(tone){
    .read-val exactly as it did.
 
    FIXED, AND PROVABLY SO: this function no longer reads sec.tone at all. */
+/* ---------- THE SIX ARE LOCKED ----------
+   Founder, naming each and its reason:
+     Evolution  green   growth, positive development, on track
+     Adaptation blue    learning / change / response
+     Fitness    cherry  physical training state, core Velvet energy
+     Progress   gold    advancement / achievement
+     Recovery   cyan    fresh, restored, ready
+     Patterns   white   observation / evidence, no judgement either way
+   FIVE OF THE SIX WERE ALREADY THESE COLOURS and are restated here only so
+   the set reads as one decision. Recovery is the one that moved: it wore
+   --gold-bright, which Progress also wears, so two of six rings were the
+   same colour and the one that is supposed to mean "restored" was sharing
+   with the one that means "advancement".
+   AND THE RIM IS STILL AN IDENTITY, NOT A VERDICT -- fixed per reading,
+   never consulting the engine, which is the law test/planHqReading holds.
+   A recovery that is Strained stays cyan; what its STATE changes is the
+   ring's motion (see .rd-arc.is-recovery-*), never its colour. */
 var READING_ACCENT = {
-  recovery:   'var(--gold-bright)',
+  recovery:   'var(--cyan)',
   evolution:  'var(--z-easy)',
   readiness:  'var(--cherry)',
   patterns:   'var(--ink)',
@@ -63694,7 +63902,7 @@ function dialAccentBase(sec){
    cannot disagree about which reading this is. It follows the rim rather than
    the tone for the same reason the rim does. */
 var READING_TINT = {
-  recovery:   'var(--c-gold-soft)',
+  recovery:   'var(--cyan-soft)',
   evolution:  'var(--c-easy-soft)',
   readiness:  'var(--cherry-tint)',
   patterns:   'var(--c-rest-soft)',
@@ -63859,7 +64067,13 @@ function dialFaceParts(sec){
   }
   return { big:text, small:'' };
 }
-function readingDialHtml(sec, rank, isStatic){
+/* `ring` is optional and APPENDED to the signature on purpose: both dial
+   renderers are called positionally from the panels, the grid and the tests,
+   so a parameter inserted anywhere earlier would silently shift isStatic.
+   Absent, the dial draws as it always did -- which is what the panel heroes
+   want, where the circle restates a verdict rather than reporting on the
+   evidence behind it. */
+function readingDialHtml(sec, rank, isStatic, ring){
   var face = dialFaceParts(sec);
   var text = face.big;
   var r = rank == null ? 1 : rank;
@@ -63885,6 +64099,7 @@ function readingDialHtml(sec, rank, isStatic){
       (isStatic ? '' : 'data-action="open-reading" data-reading="'+sec.key+'" ')+
       'aria-label="'+escapeHtml(sec.title+' — '+sec.value)+'" '+
       'style="--rd-base:'+dialAccentBase(sec)+'; --rd-tint:'+dialTint(sec)+';">'+
+      (ring || '')+
       '<span class="b-medal">'+
         '<span class="rd-val"><b style="font-size:'+dialValueFontSize(text, r)+';">'+escapeHtml(text)+'</b></span>'+
         (face.small ? '<span class="rd-sub">'+escapeHtml(face.small)+'</span>' : '')+
@@ -65407,6 +65622,7 @@ function renderApp(){
   animateSessionRing();
   animateWeekBar();
   animateConfidenceGauge();
+  animateProgressRing();
   wireCoachingRails();
   wireWeekDayPager();
 }
@@ -66080,6 +66296,7 @@ function wireCoachingRail(rail){
    micro-interaction. A key that has changed while one was already showing is
    a day change, which gets the shorter draw. */
 var ringLastKey = null, ringLastView = null, weekBarLastKey = null, gaugeLastKey = null;
+var progressRingLastKey = null;
 function animateSessionRing(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{
@@ -66151,6 +66368,26 @@ function animateWeekBar(){
    is carried on the element as --gauge-len, so the key IS the drawn length
    -- so the gauge still draws again when the number actually moves, and
    stays put through every render that did not move it. */
+/* The Progress ring's entrance. Same shape as animateConfidenceGauge()
+   below, same reason: every render produces a fresh element, so the class
+   has to be added after render and only when the thing it animates has
+   moved. Keyed on the view and the arc's own two ends, so switching tabs
+   and back does not re-lay a figure that has not changed. */
+function animateProgressRing(){
+  if (typeof document === 'undefined' || !document.querySelector) return;
+  try{
+    var dial = document.querySelector('.b-grid .b-dial[data-record="progress"]');
+    if (!dial){ progressRingLastKey = null; return; }
+    var arc = dial.querySelector('.rd-arc');
+    if (!arc){ progressRingLastKey = null; return; }
+    var key = (state.view || '') + ':' + (arc.getAttribute('style') || '');
+    if (key === progressRingLastKey) return;
+    progressRingLastKey = key;
+    dial.classList.remove('is-drawing');
+    void dial.offsetWidth;          // restart the animation on a live element
+    dial.classList.add('is-drawing');
+  }catch(e){}
+}
 function animateConfidenceGauge(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{

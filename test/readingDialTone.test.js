@@ -59,13 +59,20 @@ const accentOf = (html, key) =>
 test('a reading\'s colour is fixed, and the engine cannot reach it', () => {
   const a = planHQ();
   const secs = a.readingSections(a.coachAnalyse());
-  const expected = {
-    recovery: 'var(--gold-bright)',
-    evolution: 'var(--z-easy)',
-    readiness: 'var(--cherry)',
-    patterns: 'var(--ink)',
-    adaptation: 'var(--z-mp)',
-  };
+  /* ---- READ FROM THE MAP, NOT COPIED FROM IT ----
+     This held a second literal of the identity palette, and when the founder
+     moved Recovery from --gold-bright to --cyan ("Recovery -> cyan/light
+     blue -- fresh, restored, ready") the two copies disagreed and the full
+     suite failed on the stale one. Two files asserting the same five values
+     is the drift it was trying to prevent, reproduced.
+     WHICH colour each instrument wears is one decision and is pinned once,
+     in test/valhallaSurface ('each instrument wears its own named token').
+     What THIS file is about is different and is unchanged: that whatever
+     the identity is, the engine cannot reach it. So the expectation comes
+     from the map itself, and every assertion below is about invariance. */
+  const expected = a.READING_ACCENT;
+  Object.keys(expected).forEach(k => assert.match(expected[k], /^var\(--[a-z-]+\)$/,
+    k + ' names no token at all, so there is nothing to hold fixed'));
   secs.forEach((sec) => {
     assert.equal(a.dialAccentBase(sec), expected[sec.key], sec.key + ' took the wrong identity');
     /* The same section object with every tone the engine can produce --

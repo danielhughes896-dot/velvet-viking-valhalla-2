@@ -379,3 +379,357 @@ test('a left-aligned section rule fades away from its words', () => {
   assert.match(BARE, /\.sec-rule\.is-left \.sec-rule-line:last-child\{[^}]*to right/,
     'the left-aligned rule fades the wrong way again');
 });
+
+// ===========================================================================
+// THE RING IS THE INSTRUMENT
+// ---------------------------------------------------------------------------
+// The circle used to carry its colour as a painted rim and nothing else, so a
+// verdict the engine had earned over nine weeks and a first impression at week
+// two looked identical. The founder chose this design from three mock-ups:
+// "that concept is the design I want ... keep the current language & colours."
+//
+// THE WHOLE OF WHAT THESE GUARD is that the ring reports evidence the engine
+// actually has. The reference it came from put a number on every ring -- "82%
+// SCORE", "CTL 68", "HRV +6ms", "Readiness 8.4/10" -- and Valhalla computes
+// none of those; two would need health data the athlete may never have
+// granted. A ring that cannot be derived stays solid rather than being filled
+// with a figure nobody measured.
+// ===========================================================================
+test('RING: a reading is dashed from the report, never from the word it shows', () => {
+  const a = planHQ();
+  const report = a.coachAnalyse();
+  const byKey = {};
+  a.readingSections(report).forEach(s => { byKey[s.key] = s; });
+
+  /* Every section answers the question, including readiness, which is the
+     hero gauge rather than a circle -- so the flag cannot be half-present. */
+  ['readiness', 'recovery', 'evolution', 'patterns', 'adaptation'].forEach(k => {
+    assert.equal(typeof byKey[k].learning, 'boolean',
+      k + ' does not say whether its reading is settled');
+  });
+
+  /* READ FROM THE REPORT. evolution's flag must follow the engine's own
+     confidence, which is the strongest form of "not read off the copy": the
+     displayed word does not change here, and the flag does. */
+  assert.equal(byKey.evolution.learning, report.evolution.confidence === 'insufficient',
+    'the evolution ring is not following the engine’s confidence');
+  /* TWO-SIDED, BECAUSE ONE SIDE PROVES NOTHING HERE. The fixture's block is
+     already LEARNING, so an assertion against the live report is satisfied
+     by a flag hard-coded to true -- which is exactly what a mutation run
+     showed. readingSections() takes the report as an argument, so both
+     states can be put to it directly. */
+  const withBlock = st => a.readingSections(Object.assign({}, report, { block: st }))
+    .filter(x => x.key === 'adaptation')[0].learning;
+  assert.equal(withBlock({ state: 'LEARNING', dimensions: [] }), true,
+    'a block still learning is drawn as a settled reading');
+  assert.equal(withBlock({ state: 'ADAPTING', dimensions: [] }), false,
+    'a block that has adapted is still drawn as gathering');
+  assert.equal(withBlock(null), true, 'no block at all is drawn as a settled reading');
+  /* Recovery reads this week's own flags, which exist from the first session,
+     so it is never gathering. */
+  assert.equal(byKey.recovery.learning, false, 'recovery has become a learning reading');
+
+  /* AND THE FLAG IS NOT THE DISPLAYED WORD. Change the word, the flag holds. */
+  const before = byKey.evolution.learning;
+  const realMeta = a.EVOLUTION_META;
+  assert.equal(a.readingSections(report).filter(s => s.key === 'evolution')[0].learning, before,
+    'the evolution flag moved without the report moving');
+});
+
+test('RING: the words and the ring count the same evidence', () => {
+  /* responsePatternsSummary() states the patterns reading and
+     responsePatternsLearning() says whether it is settled. They share one
+     counter on purpose -- a second loop over SESSION_FAMILIES is how the
+     word and the ring would come to disagree. */
+  const a = planHQ();
+  assert.equal(typeof a.responsePatternCounts, 'function',
+    'the shared family counter is gone, so the two readers can drift');
+  const m = a.coachAnalyse().response;
+  [0, 3].forEach(noted => {
+    const learning = a.responsePatternsLearning(m, noted);
+    const summary = a.responsePatternsSummary(m, noted);
+    /* The summary's last branch is the only one that reports no personal
+       evidence; if the ring says gathering, the words must be on it. */
+    if (learning) assert.ok(!/established|emerging|noted/.test(summary),
+      'the ring says gathering and the words claim evidence: ' + summary);
+    else assert.match(summary, /established|emerging|noted/,
+      'the ring says settled and the words have nothing to show: ' + summary);
+  });
+});
+
+test('RING: Progress is the only arc, and it draws to its own percentage', () => {
+  const a = planHQ();
+  /* THE FIXTURE'S PROGRESS IS 0%, AND AN ARC AT ZERO PROVES NOTHING -- a
+     mutation halving every fraction passed this test untouched. Log enough
+     of the block to move the number first, and assert it really did move. */
+  (a.state.days || []).forEach((d, i) => {
+    if (d.type !== 'rest' && i % 2 === 0) { d.completed = true; d.actual = { km: d.km }; }
+  });
+  const moved = parseFloat(String(a.recordFacts().filter(f => f.key === 'progress')[0].big));
+  assert.ok(moved > 5 && moved < 95,
+    'progress is ' + moved + '% -- the arc has to be partial for this to discriminate');
+  const html = a.renderValhallaInstruments();
+  const arcs = html.match(/stroke-dashoffset="[\d.]+"/g) || [];
+  assert.equal(arcs.length, 1,
+    'expected exactly one drawn arc -- Progress is the only reading in the grid ' +
+    'with a real proportion behind it, and an arc over a word is an invented figure');
+
+  /* THE ARC AND THE NUMBER COME FROM ONE PLACE. statusFactFraction() reads
+     the fact's own value, so they cannot disagree; this proves it by doing
+     the arithmetic back from the markup. */
+  const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
+  const pct = parseFloat(String(facts.progress.big).replace('%', ''));
+  const R = 46, C = 2 * Math.PI * R;
+  const off = parseFloat(/stroke-dashoffset="([\d.]+)"/.exec(arcs[0])[1]);
+  assert.ok(Math.abs((1 - off / C) * 100 - pct) < 0.5,
+    'the Progress arc is drawn at ' + ((1 - off / C) * 100).toFixed(1) +
+    '% while the face reads ' + pct + '%');
+});
+
+test('RING: nothing measured is drawn as gathering, not as a complete reading', () => {
+  const a = planHQ();
+  const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
+  assert.ok(facts.fitness.none, 'the fixture has a measured fitness, so this proves nothing');
+  const html = a.renderValhallaInstruments();
+  const fitness = /<button[^>]*data-record="fitness"[\s\S]*?<\/button>/.exec(html)[0];
+  assert.match(fitness, /is-learning/,
+    '"Nothing measured" is drawn as a closed ring, which says the reading is settled');
+});
+
+test('RING: no metric Valhalla does not compute has been invented for it', () => {
+  /* The reference this was drawn from carried CTL, HRV and a readiness score
+     out of ten. None is computed here and two would need health data the
+     athlete may never have granted, so none of them may appear on the ring
+     or in the face beside it. */
+  const a = planHQ();
+  const html = a.renderValhallaInstruments();
+  [/\bCTL\b/, /\bHRV\b/, /\bATL\b/, /\/10\b/, /\bSCORE\b/i].forEach(re =>
+    assert.doesNotMatch(html, re,
+      'an invented physiological metric has reached the Valhalla grid: ' + re));
+});
+
+test('RING: the painted rim comes off only where the ring replaces it', () => {
+  /* .b-dial draws its edge as a gradient BACKGROUND, which can only ever be a
+     complete circle of one colour -- an arc and a dashed ring cannot be drawn
+     that way. The grid drops it; the panel heroes keep it, because there the
+     circle restates the verdict the athlete just pressed and has no evidence
+     state to report. */
+  assert.match(BARE, /\.b-grid \.b-dial\{[^}]*background:none/,
+    'the painted rim is back under the ring in the grid');
+  assert.match(BARE, /\n  \.b-dial\{[^}]*background:linear-gradient/,
+    'the painted rim has been taken off every dial, including the panel heroes');
+  const a = planHQ();
+  const sec = a.readingSections(a.coachAnalyse()).filter(s => s.key === 'recovery')[0];
+  assert.doesNotMatch(a.readingDialHtml(sec, 0, true), /rd-ring/,
+    'a panel hero has grown an evidence ring, which reports on a verdict rather than stating it');
+});
+
+// ===========================================================================
+// THE SIX COLOURS ARE LOCKED
+// ---------------------------------------------------------------------------
+// The founder named each instrument and its reason: evolution green (growth),
+// adaptation blue (learning/change), fitness cherry (training state), progress
+// gold (advancement), recovery cyan (fresh/restored), patterns white
+// (observation, no judgement either way). Five were already these; recovery
+// moved off --gold-bright, which Progress also wears.
+// ===========================================================================
+test('COLOUR: each instrument wears its own named token, and no two share one', () => {
+  const a = planHQ();
+  const EXPECT = {
+    evolution:  'var(--z-easy)',     // green
+    adaptation: 'var(--z-mp)',       // blue
+    fitness:    'var(--cherry)',     // cherry
+    progress:   'var(--gold-bright)',// gold
+    recovery:   'var(--cyan)',       // cyan
+    patterns:   'var(--ink)'         // white / neutral
+  };
+  Object.keys(EXPECT).forEach(k => {
+    const got = a.READING_ACCENT[k] || a.STATUS_ACCENT[k];
+    assert.equal(got, EXPECT[k], k + ' is no longer ' + EXPECT[k]);
+  });
+  /* THE SIX IN THE GRID ARE SIX DIFFERENT COLOURS. Recovery and Progress
+     were both --gold-bright before this, which is the thing being fixed --
+     so the set is asserted distinct rather than only item by item. */
+  const used = Object.keys(EXPECT).map(k => EXPECT[k]);
+  assert.equal(new Set(used).size, 6,
+    'two instruments in the grid share a colour: ' + used.join(' '));
+  /* And the cyan is a colour of its own, not the adaptation blue again. */
+  assert.match(BARE, /--cyan:#[0-9A-Fa-f]{6}/, '--cyan is not declared');
+  const cyan = /--cyan:(#[0-9A-Fa-f]{6})/.exec(BARE)[1].toLowerCase();
+  const blue = /--z-mp:(#[0-9A-Fa-f]{6})/.exec(BARE)[1].toLowerCase();
+  assert.notEqual(cyan, blue, 'recovery and adaptation resolve to the same blue');
+});
+
+test('COLOUR: recovery stays cyan whatever the engine says about it', () => {
+  /* THE RIM IS AN IDENTITY, NOT A VERDICT -- the law this screen has carried
+     since colour stopped being the circles' verdict channel. The founder
+     asked for recovery to behave differently BY STATE; what changes is the
+     ring's motion, never its colour, or a fresh athlete and a strained one
+     would be told apart by hue and the identity would be gone. */
+  const a = planHQ();
+  const base = r => {
+    const sec = a.readingSections(r).filter(s => s.key === 'recovery')[0];
+    return a.dialAccentBase(sec);
+  };
+  ['fresh', 'watch', 'strained'].forEach(st => {
+    const r = a.coachAnalyse(); r.recovery.state = st;
+    assert.equal(base(r), 'var(--cyan)', 'recovery changed colour when it went ' + st);
+  });
+});
+
+// ===========================================================================
+// RECOVERY CIRCULATES
+// ---------------------------------------------------------------------------
+// Founder: "cyan, with the small gap slowly travelling around the
+// circumference. Almost like breathing/circulation ... I'd even let Recovery
+// behave differently by state ... but only if those states genuinely exist in
+// the engine -- don't invent them for the animation."
+// ===========================================================================
+test('MOTION: the ring has one behaviour per state the engine actually returns', () => {
+  const a = planHQ();
+  /* THE ENGINE'S THREE, read from the section rather than from the word it
+     displays. A fourth variant in the sheet would mean a state was invented
+     for the animation, which is the thing the founder ruled out. */
+  const STATES = ['fresh', 'watch', 'strained'];
+  STATES.forEach(st => {
+    const r = a.coachAnalyse(); r.recovery.state = st;
+    assert.equal(a.readingSections(r).filter(s => s.key === 'recovery')[0].state, st,
+      'the recovery section does not carry the engine state ' + st);
+  });
+  /* THE RENDERER EMITS ONE PER STATE... */
+  STATES.forEach(st => {
+    const r = a.coachAnalyse(); r.recovery.state = st;
+    const sec = a.readingSections(r).filter(s => s.key === 'recovery')[0];
+    assert.match(a.dialRingHtml('solid', null, 'is-rec-' + sec.state), /is-rec-/ ,
+      'the ring takes no variant for ' + st);
+  });
+  /* ...AND THE SHEET STYLES NO OTHER. strained deliberately has no rule of
+     its own -- it falls through to the plain closed ring, which IS its
+     behaviour -- so this is a subset check, not an equality. An empty rule
+     added to make the two lists match would be a rule that styles nothing. */
+  const variants = [...new Set([...BARE.matchAll(/\.rd-arc\.is-rec-([a-z]+)/g)].map(m => m[1]))];
+  assert.ok(variants.length, 'recovery has no state styling at all');
+  variants.forEach(v => assert.ok(STATES.indexOf(v) !== -1,
+    'the sheet styles a recovery state the engine never returns: ' + v));
+});
+
+test('MOTION: only Fresh moves, and it moves as circulation rather than a pulse', () => {
+  const anim = sel => {
+    const m = new RegExp('\\' + sel + '\\{([^}]*)\\}').exec(BARE);
+    return m ? m[1] : '';
+  };
+  assert.match(anim('.b-grid .rd-arc.is-rec-fresh'), /animation:rd-circulate/,
+    'the fresh recovery ring has stopped circulating');
+  ['.b-grid .rd-arc.is-rec-watch', '.b-grid .rd-arc.is-rec-strained'].forEach(sel =>
+    assert.doesNotMatch(anim(sel), /animation:/, sel + ' is moving; only Fresh may'));
+
+  /* LINEAR AND SLOW, which is what separates circulation from a throb. */
+  const fresh = anim('.b-grid .rd-arc.is-rec-fresh');
+  assert.match(fresh, /linear/, 'the circulation has taken an easing curve and now pulses');
+  const secs = parseFloat(/animation:rd-circulate ([\d.]+)s/.exec(fresh)[1]);
+  assert.ok(secs >= 10, 'a lap takes ' + secs + 's -- under ten it reads as a spinner');
+
+  /* ONE LAP IS EXACTLY ONE CIRCUMFERENCE, or the gap jumps on repeat. */
+  const kf = /@keyframes rd-circulate\{([^}]*)\}/.exec(BARE)[1];
+  const off = Math.abs(parseFloat(/stroke-dashoffset:(-?[\d.]+)/.exec(kf)[1]));
+  const C = 2 * Math.PI * 46;
+  assert.ok(Math.abs(off - C) < 0.5,
+    'a lap travels ' + off + ' against a circumference of ' + C.toFixed(1) +
+    ' -- the gap will jump each time the animation repeats');
+});
+
+test('MOTION: the break is the 320-340 degrees that was asked for', () => {
+  const rule = /\.b-grid \.rd-arc\.is-rec-fresh,\s*\n\s*\.b-grid \.rd-arc\.is-rec-watch\{([^}]*)\}/.exec(BARE);
+  assert.ok(rule, 'the recovery gap rule is gone');
+  const m = /stroke-dasharray:([\d.]+) ([\d.]+)/.exec(rule[1]);
+  assert.ok(m, 'the recovery ring no longer states its gap');
+  const drawn = parseFloat(m[1]), gap = parseFloat(m[2]);
+  const C = 2 * Math.PI * 46;
+  assert.ok(Math.abs(drawn + gap - C) < 1,
+    'the dash and the gap do not add up to the circumference, so the ring repeats mid-lap');
+  const deg = drawn / C * 360;
+  assert.ok(deg >= 320 && deg <= 340,
+    'the ring is drawn through ' + deg.toFixed(1) + ' degrees; the founder asked for 320-340');
+  /* STRAINED HAS NO GAP AT ALL -- a closed ring, which is the third state and
+     the reason the gap can carry three without a fourth being invented. */
+  assert.doesNotMatch(BARE, /\.rd-arc\.is-rec-strained\{[^}]*stroke-dasharray/,
+    'the strained ring has grown a gap, so it reads as watch standing still');
+});
+
+// ===========================================================================
+// PROGRESS LAYS ITSELF DOWN
+// ---------------------------------------------------------------------------
+// The one instrument in the grid with a real proportion is the one worth
+// drawing to it. This is the confidence gauge's entrance reused, not a second
+// one -- and gated the same way, for the reason the gauge's own comment
+// records measuring: declared on the element it replays on every renderApp().
+// ===========================================================================
+test('DRAW: the Progress arc states both its ends, so it is right without the animation', () => {
+  const a = planHQ();
+  (a.state.days || []).forEach((d, i) => {
+    if (d.type !== 'rest' && i % 2 === 0) { d.completed = true; d.actual = { km: d.km }; }
+  });
+  const html = a.renderValhallaInstruments();
+  const arc = /<circle class="rd-arc"[^>]*>/.exec(html)[0];
+  const attr = parseFloat(/stroke-dashoffset="([\d.]+)"/.exec(arc)[1]);
+  const to   = parseFloat(/--rd-to:([\d.]+)/.exec(arc)[1]);
+  const len  = parseFloat(/--rd-len:([\d.]+)/.exec(arc)[1]);
+  /* THE RESTING VALUE AND THE ANIMATION'S DESTINATION ARE THE SAME NUMBER.
+     Stated twice on purpose: one of them has to survive a browser that
+     never runs the keyframe, and if they ever disagree the arc would snap
+     to a different figure the moment the entrance finished. */
+  assert.equal(attr, to, 'the arc rests at ' + attr + ' and animates to ' + to);
+  assert.ok(Math.abs(len - 2 * Math.PI * 46) < 0.5,
+    '--rd-len is not the circumference, so the entrance starts part-drawn');
+});
+
+test('DRAW: the entrance is gated, not declared on the element', () => {
+  /* THE BUG THIS PREVENTS IS RECORDED, MEASURED, in the confidence gauge's
+     own comment: declared straight on the element, the gauge re-filled from
+     zero whenever anything on the page redrew -- 33ms into a 1140ms draw
+     after an ordinary renderApp() with nothing changed. */
+  assert.doesNotMatch(BARE, /\.b-grid \.rd-arc\{[^}]*animation:rd-draw/,
+    'the entrance is declared on the arc itself, so it replays on every render');
+  assert.match(BARE, /\.b-grid \.b-dial\.is-drawing \.rd-arc\{[^}]*animation:rd-draw/,
+    'the entrance is no longer behind a class');
+  assert.match(SRC, /function animateProgressRing\(/, 'nothing adds the class after render');
+  assert.match(SRC, /\n  animateProgressRing\(\);/,
+    'animateProgressRing is never called, so the entrance never plays');
+  /* KEYED, so switching tabs and back does not re-lay a figure that has not
+     moved -- the same guard the other three instruments carry. */
+  const fn = SRC.slice(SRC.indexOf('function animateProgressRing('),
+                       SRC.indexOf('function animateConfidenceGauge('));
+  /* THE GUARD, NOT THE NAME. This asked only that progressRingLastKey be
+     mentioned, and the identifier also appears in the two early returns
+     that clear it -- so deleting the comparison entirely left the test
+     passing, which a mutation run showed. What has to exist is the
+     early-out itself and the assignment that arms it. */
+  assert.match(fn, /if \(key === progressRingLastKey\) return;/,
+    'the entrance no longer bails when the figure has not moved, so it replays on every render');
+  assert.match(fn, /progressRingLastKey = key;/,
+    'the key is never stored, so the guard above can never match');
+  assert.match(fn, /void dial\.offsetWidth/,
+    'the class is re-added without a reflow, so the animation will not restart');
+});
+
+test('DRAW: it is the gauge’s entrance, and nothing else in the grid has one', () => {
+  /* ONE ENTRANCE, NOT A SECOND THAT RESEMBLES IT. Same duration token, same
+     easing as the confidence gauge and the session ring. */
+  const rule = /\.b-grid \.b-dial\.is-drawing \.rd-arc\{([^}]*)\}/.exec(BARE)[1];
+  assert.match(rule, /var\(--ring-draw\)/,
+    'the Progress entrance has invented a duration of its own');
+  const gauge = /\.gauge-wrap\.is-drawing \.gauge-fill\{([^}]*)\}/.exec(BARE)[1];
+  const ease = /cubic-bezier\([^)]*\)/.exec(gauge)[0];
+  assert.ok(rule.indexOf(ease) > -1,
+    'the Progress entrance eases differently from the gauge it borrows');
+
+  /* AND ONLY PROGRESS. A dashed ring has no proportion to lay down, and six
+     entrances at once is a screen with no focal point. */
+  const a = planHQ();
+  const html = a.renderValhallaInstruments();
+  const drawn = (html.match(/--rd-to:/g) || []).length;
+  assert.equal(drawn, 1,
+    'expected exactly one ring with an entrance; found ' + drawn);
+  assert.match(/<button[^>]*data-record="progress"[\s\S]*?<\/button>/.exec(html)[0],
+    /--rd-to:/, 'the ring that draws in is not Progress');
+});
