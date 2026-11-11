@@ -141,15 +141,23 @@ test('Re-calibrate actually wins the cascade its rule is written for', () => {
      Every colour assertion in this file passed throughout, because they ask
      what the sheet SAYS and the sheet said cherry. What was wrong was which
      rule applied, so that is what this guards: weight, and then order. */
+  /* THE RULE IT HAD TO BEAT IS GONE, AND THE ONE IT NOW HAS TO BEAT IS THE
+     BUILDER'S. .hq-panel .btn-primary forced bronze onto a panel's own
+     primary. Founder, on the Plan Evolution panel: "Accept evolution ect
+     should be the same as build a program." So a panel primary inherits
+     .builder-light .btn-primary -- the cherry FILL -- and Re-calibrate,
+     which is lit rather than filled, still has to win that tie on order. */
   const recal = CODE.indexOf('.btn-recal, .hq-panel .btn-recal{');
-  const panelPrimary = CODE.indexOf('.hq-panel .btn-primary{');
-  assert.ok(panelPrimary > -1, 'the panel primary rule is gone');
+  const builderPrimary = CODE.indexOf('.builder-light .btn-primary{');
+  assert.equal(CODE.indexOf('.hq-panel .btn-primary{'), -1,
+    'a panel forces its own colour onto its primary again, instead of the builder\u2019s');
+  assert.ok(builderPrimary > -1, 'the builder\u2019s primary rule is gone');
   assert.ok(recal > -1,
     '.btn-recal lost the .hq-panel-weight half of its selector, so inside a ' +
-    'panel it is outranked by .hq-panel .btn-primary again');
-  assert.ok(recal > panelPrimary,
-    '.btn-recal is stated before .hq-panel .btn-primary again; the two tie ' +
-    'at (0,2,0), so the one written last wins and Re-calibrate goes bronze');
+    'panel it is outranked by .builder-light .btn-primary');
+  assert.ok(recal > builderPrimary,
+    '.btn-recal is stated before .builder-light .btn-primary; the two tie ' +
+    'at (0,2,0), so the one written last wins and Re-calibrate goes filled');
 });
 
 test('every customer-facing brand control now resolves through the accent token', () => {
@@ -228,7 +236,10 @@ test('gold is still the identity, and the accent did not take any of it', () => 
     [/:focus-visible\{outline:2px solid var\(--gold\)/,    'the global focus ring'],
     [/\.setup-section-title\{[^}]*color:var\(--bronze-text\)/, 'section headings'],
     [/\.btn-primary\{background:linear-gradient\(135deg,var\(--bronze\)/, 'the ordinary primary'],
-    [/\.hq-panel \.btn-primary\{[^}]*var\(--bronze\)/,     'a panel’s own content primary'],
+    /* 'a panel's own content primary' was the next row, held to bronze. It
+       is cherry now, by instruction ("Accept evolution ect should be the
+       same as build a program"), and is asserted where the accent is --
+       "Re-calibrate actually wins the cascade", above. */
     [/\.pbar-fill\{[^}]*var\(--bronze\)[^}]*var\(--gold\)/, 'the progress bars'],
     [/\.sub-pill\.sub-active\{[^}]*--modal-active/,        'the ACTIVE subscription pill'],
   ].forEach(([re, what]) => assert.match(CODE, re, 'gold must remain on ' + what));

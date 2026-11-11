@@ -714,8 +714,13 @@ test('TYPE: this page is white, and the circles are set in the words face', () =
   /* AND THE ONE WHISPER STAYS ONE. --ink-faint going white promoted the hint
      to the weight of the labels above it; it keeps the colour and gives the
      difference back in opacity. */
-  assert.match(/\.view-planhq \.b-dials-hint\{([^}]*)\}/.exec(BARE)[1], /opacity:\.\d+/,
-    'the hint reads at full strength, which makes it a statement');
+  /* CHANGED SIDES: THE WHISPER IS SAID AT FULL STRENGTH. It was held at
+     reduced opacity so it stayed quieter than the labels. Founder: "The
+     grey text I'm not keen on ... Space needs to do the talking." White at
+     52% is a grey, so the hint is white and what keeps it a hint is its
+     size and where it sits. */
+  assert.doesNotMatch(/\.view-planhq \.b-dials-hint\{([^}]*)\}/.exec(BARE)[1], /opacity:\.\d+/,
+    'the hint under the circles is dimmed again');
 });
 
 test('PLATE: each plate lights the corner that points away from the grid', () => {

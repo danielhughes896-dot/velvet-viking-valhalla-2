@@ -329,8 +329,15 @@ test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
     assert.doesNotMatch(panel, /rec-panel-nav/, key + ' still carries the old nav block');
   });
   // The rule that keeps a content primary off the navigation colour.
-  assert.match(CODE, /\.hq-panel \.btn-primary\{[^}]*var\(--bronze\)/,
-    'a Plan HQ panel repaints every primary in the accent again');
+  /* CHANGED SIDES. This held a panel's primary to bronze so that it would
+     never wear the accent. Founder, on the Plan Evolution panel: "Accept
+     evolution ect should be the same as build a program." The builder's
+     primary IS the accent, so the rule that kept it off is gone and the
+     panel's Accept is the same button the builder's Continue is. */
+  assert.equal(CODE.indexOf('.hq-panel .btn-primary{'), -1,
+    'a Plan HQ panel has a primary colour of its own again');
+  assert.match(CODE, /openModal\(html, 'modal-themed builder-light hq-panel '/,
+    'the panel no longer opens as a builder surface, so its primary is not the builder\u2019s');
   /* The cherry exit is gone with BACK, so the rule that painted it is too.
      What the pair of them existed to protect -- that a content primary never
      wears the colour of the way out -- is now unconditional: nothing in a

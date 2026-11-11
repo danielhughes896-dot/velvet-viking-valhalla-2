@@ -114,7 +114,24 @@
     /* The charcoal ground and raised face Today established, now the
        product's. #151417/#201F23 were the warmer pair these replace. */
     --bg:#121316; --bg-2:#1B1A1E; --bg-3:#1C1E24; --bg-4:#26252A;
-    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    /* ---------- ONE INK ----------
+       --ink-dim was #BBB4A4 and --ink-faint #9D9787: two greys under the
+       white, carrying "this line matters less" on 234 rules. Founder, asking
+       for a sweep of every first-layer screen and touch point: "The grey
+       text I'm not keen on. I think white text is best ... I know it says a
+       different message but visually it's busy and off putting? Space needs
+       to do the talking."
+       So the three tiers are one colour. THE NAMES STAY and resolve to
+       --ink, rather than 234 rules being rewritten to say the same thing:
+       the tier a rule asks for is still a true statement about its rank,
+       and rank is now carried by size, weight and the space around it.
+       TWO THINGS KEEP A GREY, AND NEITHER IS TEXT THAT IS BEING SAID.
+       --ink-quiet is a placeholder or a disabled control: white there would
+       read as a value somebody typed, or a button that works. --mark-faint
+       and --mark-dim are dots and ticks, which are marks rather than
+       words and were never the complaint. */
+    --ink:#F4F1EA; --ink-dim:var(--ink); --ink-faint:var(--ink);
+    --ink-quiet:#9D9787; --mark-faint:#9D9787; --mark-dim:#BBB4A4;
     --line:#302E36; --line-soft:#232126;
     --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
     /* Gold used as TEXT. Identical to --gold/--bronze in dark, so the dark theme
@@ -1105,7 +1122,7 @@
      something to press. */
   .rs-locked{
     font-family:inherit; font-size:8.5px; letter-spacing:.08em;
-    color:var(--ink-faint);
+    color:var(--ink-quiet);
   }
   /* .rs-chips, .rs-chip, .rs-chip.on and .rs-rec stood here: a wrapping row of
      capsules, the chosen one filled cherry with RECOMMENDED inside it. The
@@ -1426,7 +1443,7 @@
      without opening anything. */
   .wc-line{margin-top:12px; font-family:var(--text-face); font-size:13px;
     color:var(--ink-dim);}
-  .fuel-chevron{margin-left:auto; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
+  .fuel-chevron{margin-left:auto; display:flex; align-items:center; color:var(--mark-faint); transition:transform .25s;}
   .fuel-chevron svg{width:16px; height:16px; display:block;}
   .fuel-card[open] .fuel-chevron{transform:rotate(180deg);}
   .fuel-body{padding:2px 12px 10px;}
@@ -1734,7 +1751,7 @@
      needs a rule to stop the two reading as one long block. Same hairline the
      rest of the card system uses; no colour of its own. */
   #garmin-section{margin-top:14px; padding-top:14px; border-top:1px solid var(--line-soft);}
-  .build-tag{text-align:center; font-family:var(--num-face); font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
+  .build-tag{text-align:center; font-family:var(--num-face); font-size:9.5px; color:var(--ink-faint); margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
   .file-input-offscreen{position:absolute; width:1px; height:1px; padding:0; margin:-1px; border:0; opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
@@ -1762,7 +1779,7 @@
        on the pass that believed 40 was the standard; --tap-min settles that
        at 44 and it comes with it. */
     width:var(--tap-min); height:var(--tap-min); border-radius:999px; border:1px solid var(--line);
-    background:var(--bg-2); color:var(--ink-dim); transition:.2s;
+    background:var(--bg-2); color:var(--mark-dim); transition:.2s;
   }
   .icon-btn:hover{color:var(--ink); border-color:var(--bronze);}
   .icon-btn svg{width:18px; height:18px;}
@@ -2777,7 +2794,7 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-k{
     font-family:var(--label-face); font-weight:var(--label-weight);
     font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase;
-    color:rgba(255,255,255,.72);}
+    color:#fff;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-v{font-size:14px; color:#FFFFFF;}
   /* The hourly rate, under the total it is the rate of. order:3 -- after the
      figure (2) and before the foot (5). */
@@ -2799,7 +2816,7 @@
      lifted off --ink-faint, which is a colour for a card tint and not for a
      photograph, the same move the pace band makes below. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-hr,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-note{order:5; color:rgba(255,255,255,.72);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-note{order:5; color:#fff;}
   /* ---------- THE LINE OF COACHING, AND IT IS PROSE ----------
      Everything else on this card is a name or a number and takes the label
      face or the mono. This is the coach talking about this stage, so it
@@ -2855,7 +2872,7 @@
   /* The fuel figure's own qualifier is already a footnote under it; on a
      photograph it needs the same lift off --ink-faint that the pace band
      gets. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod .fuel-v-note{color:rgba(255,255,255,.72);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod .fuel-v-note{color:#fff;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-step{height:100%;}
   /* .how-cols stood here: the three coaching columns, their flex layout,
      the suppressed selection pool and the two dissolving hairlines between
@@ -2995,7 +3012,7 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dots{
     display:flex; justify-content:center; gap:7px; padding:12px 0 2px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dot{
-    width:6px; height:6px; border-radius:50%; background:var(--ink-faint);
+    width:6px; height:6px; border-radius:50%; background:var(--mark-faint);
     opacity:.34; transition:opacity .25s ease, background-color .25s ease,
       box-shadow .25s ease;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dot.is-on{
@@ -3406,7 +3423,7 @@
     border-radius:0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input{
     padding:2px 0 8px; font-size:var(--fs-title); color:var(--ink);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input::placeholder{color:var(--ink-faint); opacity:.7;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input::placeholder{color:var(--ink-quiet); opacity:.7;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea{padding:4px 0 8px;}
   /* ---------- THE NOTES BOX KEEPS NO RULE UNDER IT ----------
      The underline on every other field in this log marks where a figure
@@ -3684,7 +3701,12 @@
      the rest of the time. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day.open .day-drawer,
   :is(.view-today .day.is-today.open, .view-week .wk-full .day.open) .day-drawer{overflow:visible;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row{display:flex; gap:12px; margin:13px 0 0;}
+  /* 13px -> 30px. Founder, on a session whose Why sat on top of the two
+     buttons: "I think there's scope to create space between the bottom of
+     why this session and hear today and ask coach." The buttons are a
+     different thing from the sentence above them, and now nothing but the
+     gap says so. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row{display:flex; gap:12px; margin:30px 0 0;}
   /* ---- VELVET CHERRY: THE TWO THINGS YOU DO TO THE COACH ----
      This WAS the three boxes' gradient rim -- quiet at the top left, full
      gold at the bottom right -- painted as two backgrounds because a border
@@ -4097,7 +4119,7 @@
   .week-vol{text-align:right; flex:none;}
   .week-vol .v{font-family:var(--num-face); font-weight:700; font-size:15px; color:var(--ink);}
   .week-vol .l{font-size:9px; color:var(--ink-faint); letter-spacing:1px; text-transform:uppercase;}
-  .week-chevron{flex:none; color:var(--ink-faint); transition:transform .25s;}
+  .week-chevron{flex:none; color:var(--mark-faint); transition:transform .25s;}
   .week-chevron svg{width:18px; height:18px; display:block;}
   .week.open .week-chevron{transform:rotate(180deg);}
   .week-body{max-height:0; overflow:hidden; transition:max-height .35s ease;}
@@ -4326,7 +4348,8 @@
   .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .day-date{font-family:var(--num-face); font-size:var(--fs-meta); color:var(--ink-faint);}
   .day-badge{font-family:var(--label-face); font-size:var(--fs-meta); letter-spacing:var(--label-track); text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:var(--label-weight);}
-  .day-badge.type-rest{background:var(--c-rest-soft); color:var(--c-rest);}
+  /* The word is white; the rest colour stays on the ground behind it. */
+  .day-badge.type-rest{background:var(--c-rest-soft); color:var(--ink);}
   .day-badge.type-easy{background:var(--c-easy-soft); color:var(--c-easy);}
   .day-badge.type-tempo{background:var(--c-tempo-soft); color:var(--c-tempo);}
   .day-badge.type-threshold{background:var(--c-threshold-soft); color:var(--c-threshold);}
@@ -4375,7 +4398,7 @@
   .day-top{cursor:pointer;}
   /* Same rotating-chevron treatment as .week-chevron below -- one shared
      "this expands in place" grammar rather than two near-identical ones. */
-  .day-chevron{flex:none; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
+  .day-chevron{flex:none; display:flex; align-items:center; color:var(--mark-faint); transition:transform .25s;}
   .day-chevron svg{width:18px; height:18px; display:block;}
   .day.open .day-chevron{transform:rotate(180deg);}
   .day-detail, .day-drawer{max-height:0; overflow:hidden; transition:max-height .35s ease;}
@@ -4930,7 +4953,7 @@
        modal used plain text rather than a field. Same bug, same fix, wider
        net: pin the whole family to the values dark theme already uses here
        (dark is unaffected, since these already equal its :root defaults). */
-    --ink:var(--modal-text); --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    --ink:var(--modal-text); --ink-dim:var(--ink); --ink-faint:var(--ink);
     --line:var(--modal-border); --line-soft:#232126;
     --bronze-text:var(--bronze); --gold-text:var(--gold);
   }
@@ -4975,7 +4998,7 @@
   .modal-card.modal-decision{
     background:#0E0D10; border-color:#302E36; color:#F4F1EA;
     color-scheme:dark; position:relative; overflow:hidden;
-    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    --ink:#F4F1EA; --ink-dim:var(--ink); --ink-faint:var(--ink);
     --line:#302E36; --line-soft:#232126;
     --gold-text:#E3B15A; --bronze-text:#C0923F;
   }
@@ -5908,7 +5931,7 @@
     text-transform:uppercase; color:var(--ink);}
   .vvcal-arrow{width:var(--tap-min); height:var(--tap-min); display:flex;
     align-items:center; justify-content:center; border-radius:50%;
-    border:1px solid var(--line); background:var(--bg-2); color:var(--ink-dim);}
+    border:1px solid var(--line); background:var(--bg-2); color:var(--mark-dim);}
   .vvcal-arrow svg{width:16px; height:16px;}
   .vvcal-arrow.is-prev svg{transform:rotate(180deg);}
   .vvcal-dow{display:grid; grid-template-columns:repeat(7,1fr); padding:4px 11px 2px;}
@@ -5925,7 +5948,7 @@
   /* A DAY BEFORE min IS SHOWN AND REFUSED, not hidden. The builder has
      always enforced `min` on Continue; this is the first time the athlete
      can SEE which days are out before tapping one. */
-  .vvcal-cell[disabled]{color:var(--ink-faint); opacity:.32;}
+  .vvcal-cell[disabled]{color:var(--ink-quiet); opacity:.32;}
   .vvcal-cell.is-today{border-color:var(--bronze); color:var(--gold-text);}
   /* The chosen day wears the option grid's own chosen language: cherry and
      the product's cherry glow, not a colour invented for this one control. */
@@ -6141,7 +6164,9 @@
      meant to read as an arrival. Every token here is written out rather than
      taken from the theme ramp, so a light-mode athlete sees exactly what a
      dark-mode athlete sees -- which is also what the exported PNG looks like. */
-  .wc{--wc-ink:#F6F2EA; --wc-dim:rgba(246,242,234,0.72); --wc-faint:rgba(246,242,234,0.46);
+  /* --wc-dim and --wc-faint were 72% and 46% of the card's ink. One ink,
+     as on :root and for the same instruction; the names stay. */
+  .wc{--wc-ink:#F6F2EA; --wc-dim:var(--wc-ink); --wc-faint:var(--wc-ink);
     --wc-edge:rgba(227,177,90,0.42);
     /* ONE CARD SURFACE. The dark radial and the gold rim existed to frame
        the branded photograph above; with that gone they were a third ground
@@ -6396,7 +6421,7 @@
      Its card styling goes with it; .wc itself is untouched and still renders
      in the day card, where it says the same thing once the numbers are in. */
   .share-group{display:flex; flex-direction:column; gap:9px;}
-  .share-k{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; opacity:.65;}
+  .share-k{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase;}
   /* OVERLAY PICKER. Each thumbnail is the real overlay over the real picture,
      painted by the same layout function as the export -- a static swatch
      would have started lying the first time a design moved. */
@@ -6408,8 +6433,8 @@
     display:block; background:#0b0907; border:1.5px solid transparent;}
   .share-ov.active .share-ov-thumb{border-color:var(--gold); box-shadow:0 0 0 2px rgba(227,177,90,.22);}
   .share-ov span{font-size:9.5px; letter-spacing:.6px; text-transform:uppercase;
-    color:var(--ink); opacity:.6;}
-  .share-ov.active span{opacity:1; color:var(--gold-text); font-weight:700;}
+    color:var(--ink);}
+  .share-ov.active span{color:var(--gold-text); font-weight:700;}
   .share-bds{display:grid; grid-template-columns:repeat(3,1fr); gap:7px;}
   .share-bd{position:relative; aspect-ratio:1; border-radius:9px; cursor:pointer;
     background-size:cover; background-position:center; border:1.5px solid var(--line);
@@ -6418,7 +6443,7 @@
   .share-bd span{font-size:9.5px; letter-spacing:.5px; text-transform:uppercase;
     color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9);}
   .share-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
-  .share-row > span{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; opacity:.65;}
+  .share-row > span{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase;}
   /* ---------- THE SAME TWO-STATE CONTROL AS KM / MI ----------
      Sacoro|My photos and Story|Post are the same job as the unit toggle in
      the hero: a small closed set, one of them chosen. They were the shape
@@ -7201,7 +7226,7 @@
     background:var(--t-tile); color:var(--ink-dim); padding:0;
     transition:border-color .18s, color .18s, box-shadow .18s, background .18s;
   }
-  .wk-day-d{font-size:10px; letter-spacing:.04em; opacity:.85;}
+  .wk-day-d{font-size:10px; letter-spacing:.04em;}
   .wk-day-n{font-size:16px; font-weight:600; font-variant-numeric:tabular-nums;
     color:var(--ink); line-height:1;}
   /* ---------- DONE AND MISSED ARE ONE PAIR ----------
@@ -7555,7 +7580,7 @@
      first attempt at this was a second .pp-slide.is-ahead .pp-slide-w rule
      added ABOVE these three, which lost to this one on source order and
      changed nothing -- the probe is what found that, not the eye. */
-  .pp-slide.is-ahead .pp-slide-w{color:rgba(255,255,255,.78);}
+  .pp-slide.is-ahead .pp-slide-w{color:#fff;}
   /* The phase's own sentence, in the voice a stage cue uses on the session
      rail: the supporting size, 1.45 leading, 30ch so it breaks where a
      sentence breaks rather than at the card edge. */
@@ -7580,7 +7605,7 @@
     -webkit-tap-highlight-color:transparent;}
   .pp-dot::before{
     content:''; display:block; width:6px; height:6px; border-radius:50%;
-    background:var(--ink-faint); opacity:.34;
+    background:var(--mark-faint); opacity:.34;
     transition:opacity .25s ease, background-color .25s ease, box-shadow .25s ease;}
   .pp-dot.is-on::before{
     background:var(--gold-bright); opacity:1;
@@ -8042,7 +8067,7 @@
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--c-threshold);}
-  .pw-chev{flex:none; color:var(--ink-faint); display:inline-flex;}
+  .pw-chev{flex:none; color:var(--mark-faint); display:inline-flex;}
   .pw-chev svg{width:19px; height:19px;}
   .pw-row.is-today{border-color:var(--gold);
     box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 22%, transparent);}
@@ -8448,13 +8473,13 @@
      or is a grid that collapses, and nothing is wider than its container, so
      there is no horizontal overflow at any viewport. */
   .coach-status{display:flex; align-items:flex-start; gap:10px; margin-bottom:12px;}
-  .coach-dot{width:9px; height:9px; border-radius:50%; flex:none; margin-top:5px; background:var(--ink-faint);}
+  .coach-dot{width:9px; height:9px; border-radius:50%; flex:none; margin-top:5px; background:var(--mark-faint);}
   /* Retokenized from hardcoded #5FA86B/#C4643C -- a second, un-themed
      green/red pair that drifted from the semantic tokens (--c-easy/
      --c-threshold) every other positive/negative reading on this screen
      already uses, and had no light-theme value of its own at all. */
   .coach-dot.good{background:var(--c-easy);} .coach-dot.watch{background:var(--gold);}
-  .coach-dot.warn{background:var(--c-threshold);} .coach-dot.neutral{background:var(--ink-faint);}
+  .coach-dot.warn{background:var(--c-threshold);} .coach-dot.neutral{background:var(--mark-faint);}
   .coach-status-main{min-width:0; flex:1 1 auto;}
   .coach-status-label{font-family:var(--label-face); font-size:15px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.25; font-weight:var(--label-weight);}
   .coach-status-detail{ color:var(--ink-dim); margin-top:3px; overflow-wrap:anywhere;}
@@ -8546,7 +8571,7 @@
      measured at 1.4:1. Keeping the label on --ink-dim, which IS theme-aware,
      holds ~5:1 in both themes and means the state never depends on colour
      alone to be readable. */
-  .coach-state-dot{width:5px; height:5px; border-radius:99px; background:var(--ink-faint); flex:none;}
+  .coach-state-dot{width:5px; height:5px; border-radius:99px; background:var(--mark-faint); flex:none;}
   .coach-state.proceed{background:var(--tile-sheen), var(--c-easy-soft);}
   .coach-state.proceed .coach-state-dot{background:var(--c-easy);}
   .coach-state.check{background:var(--tile-sheen), var(--c-gold-soft);}
@@ -8668,7 +8693,7 @@
     font-size:8.5px; letter-spacing:1px; text-transform:uppercase;
     color:#FFFFFF; display:inline-flex; align-items:center; gap:5px;
   }
-  .day-status-dot{width:6px; height:6px; border-radius:99px; background:var(--ink-faint); flex:none;}
+  .day-status-dot{width:6px; height:6px; border-radius:99px; background:var(--mark-faint); flex:none;}
   .day-status-label.missed .day-status-dot{background:var(--c-threshold);}
   /* RESTRICTED IS NOT A WARNING. It borrows the Recovery tone rather than
      the missed one on purpose: nothing went wrong, the athlete told us, and
@@ -8778,7 +8803,7 @@
   .plan-summary-bar .psb-main{flex:1; min-width:0;}
   .plan-summary-bar .psb-title{font-family:var(--label-face); font-size:12.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
   .plan-summary-bar .psb-sub{font-family:var(--num-face); color:var(--ink-faint); margin-top:2px;}
-  .plan-summary-bar svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
+  .plan-summary-bar svg{width:16px; height:16px; color:var(--mark-faint); flex:none;}
 
   /* ---------- THE RECORD ----------
      THE RIGHT-HAND ELEMENT IS A VALUE, NOT A VERDICT. Everywhere else in Plan
@@ -8838,7 +8863,7 @@
     min-width:0; overflow-wrap:anywhere; display:inline-flex; align-items:center; gap:7px;
     flex:none; white-space:nowrap; font-weight:var(--label-weight);}
   .read-val .read-dot{width:6px; height:6px; border-radius:50%; flex:none;
-    background:var(--read-tone, var(--ink-dim));}
+    background:var(--read-tone, var(--mark-dim));}
   .read-val.good .read-dot{--read-tone:var(--c-easy);}
   .read-val.watch .read-dot{--read-tone:var(--gold);}
   .read-val.bad .read-dot{--read-tone:var(--c-tempo);}
@@ -9118,7 +9143,7 @@
      white promoted it to the weight of the labels it sits under. It keeps
      the colour the founder asked for and gives back the difference in
      opacity, which is the honest way to say quiet in one colour. */
-  .view-planhq .b-dials-hint{opacity:.52;}
+  .view-planhq .b-dials-hint{opacity:1;}
   .b-grid{display:grid; grid-template-columns:1fr 1fr; gap:22px 12px;
     justify-items:stretch; align-items:start; margin:6px 0 0; --dv:1.38;}
   .b-grid .b-dial-col{width:100%;}
@@ -9710,7 +9735,11 @@
   .stg-row-switch{flex:none; display:flex; align-items:center;}
   /* A row that states an absence is not pressable, and says so by weight. */
   .ev-card.stg-row.is-muted{cursor:default;}
-  .ev-card.stg-row.is-muted .stg-row-title{color:var(--ink-faint); font-weight:500;}
+  .ev-card.stg-row.is-muted .stg-row-title{color:var(--ink-quiet); font-weight:500;}
+  /* An unavailable row is quiet as a whole. Its second line used to be a
+     grey under a greyer title; with one ink it would be a white line under
+     a muted one, announcing the thing the row cannot do. */
+  .ev-card.stg-row.is-muted .stg-row-sub{color:var(--ink-quiet);}
   /* The two status pills, in the tones they already carried. */
   .stg-pill{flex:none; font-family:var(--label-face); font-size:9.5px; font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase; padding:4px 10px; border-radius:999px;
@@ -9792,7 +9821,7 @@
   .rs-head-text{flex:1 1 auto; min-width:0;}
   .rs-head-text h3{font-family:var(--text-face); font-weight:600; font-size:13px; color:var(--ink); margin:0;}
   .rs-chev{flex:none; display:flex; opacity:.6;}
-  .rs-chev svg{width:15px; height:15px; color:var(--ink-faint);}
+  .rs-chev svg{width:15px; height:15px; color:var(--mark-faint);}
 
   /* A Record panel opens on its fact's own one-line synopsis, set at the
      synopsis size rather than the field-hint size: it is doing the
@@ -9856,7 +9885,12 @@
      can host a real primary of its own -- a Plan evolution proposal's Accept
      commits days of training -- and with cherry no longer spent on a way out,
      a content primary must still not pick it up by inheritance. */
-  .hq-panel .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);}
+  /* .hq-panel .btn-primary stood here, forcing the bronze gradient back onto
+     a panel's own primary so that Accept Evolution would not "pick cherry up
+     by inheritance". Founder, on that panel: "Accept evolution ect should be
+     the same as build a program." So it inherits .builder-light .btn-primary
+     -- the cherry fill the builder's Continue wears -- which is exactly what
+     this rule existed to stop, and is now the instruction. */
   /* ---- RE-CALIBRATE WAS NEVER WEARING ITS OWN DESIGN ----
      Measured in the open panel: background-image resolved to the BRONZE
      gradient above, not to --cherry-fill, while .btn-recal's cherry inset
@@ -9929,7 +9963,7 @@
      against the (0,2,0) above, so it wins on specificity and not on where
      it happens to sit. */
   .hq-panel.stg-panel .icon-btn{
-    border:1px solid var(--line); background:var(--bg-2); color:var(--ink-dim);}
+    border:1px solid var(--line); background:var(--bg-2); color:var(--mark-dim);}
 
   /* ---------- THE VERDICT, ENLARGED, AND THE REASON BESIDE IT ----------
      The circle the athlete pressed, at the arc's own largest size, with the
@@ -10003,8 +10037,16 @@
   .modal-card.hq-panel{--ink:#FFFFFF; --ink-dim:#FFFFFF; --ink-faint:#FFFFFF;}
   /* The closing sentence is the one thing on the panel that IS subordinate:
      it explains the figures rather than stating one. */
-  .hq-panel .field-hint{ color:#FFFFFF; opacity:.62;}
-  .hq-panel .rec-lede{ color:#FFFFFF; opacity:.62;}
+  /* opacity:.62 stood on both. Founder, on these panels: "No grey text. All
+     white." White at 62% is a grey; the explaining line is told apart from
+     the facts by sitting under them with air between, not by being dimmer. */
+  .hq-panel .field-hint{ color:#FFFFFF;}
+  .hq-panel .rec-lede{ color:#FFFFFF;}
+  /* THE STATUS DOT WEARS THE PANEL'S COLOUR. It took the reading's tone --
+     gold on a green panel, green on a blue one. Founder: "The dot ... should
+     follow the colour of the cards." One accent per panel: the close ring,
+     the rules and the dot. */
+  .hq-panel .read-val .read-dot{background:var(--rp-accent);}
   /* ONE SUB-HEADING SHAPE ACROSS EVERY PANEL. The Reading panels label
      their evidence with a rule running off to the right; the Record panels
      had bare gold sub-headings doing the same job in a different shape.
@@ -10066,6 +10108,78 @@
   .hq-panel .hub-card.tile-card .hq-row-l,
   .hq-panel .hub-card.tile-card .hq-row-v{font-size:var(--fs-panel-row); color:#FFFFFF;}
   .modal-body .zone-paces-card{margin:0 0 4px;}
+
+  /* ============ A COACH PANEL IS A PAGE ============
+     Founder, on the nine panels behind the Coach page's circles and plates:
+     "I actually think the cards that open up should be full size? Then that
+     creates ect space. Because even on my big screen that's hard to read. So
+     I think space should make it easier. ... Scope of we make it full
+     screen. The max the text sizes could be."
+     They were a card floating over the dimmed page, 370px wide at whatever
+     height the content came to, set at 13.5 to 16px.
+     FULL SIZE: the overlay stops padding and centring, and the card takes
+     the screen -- no rim, no radius, no glow, because those are how a card
+     says where it ends and a page has no edge to describe.
+     THE TYPE SCALE IS SET BY THE TOKENS, so every line inside takes the
+     step up together rather than rule by rule: rows 14 -> 19px, sentences
+     16 -> 20px, explaining lines 13.5 -> 17px, section labels 11 -> 14px.
+     The ceiling is the label-and-value row: "Easy HR vs baseline" and
+     "building baseline" have to share a line on a 320px phone, and 19px is
+     the largest that does it with air between them (measured).
+     AND NO BOX INSIDE IT. "There should be no raised black boxes." The
+     proposal on Plan Evolution sat in a filled, bordered tile within the
+     card; on a page it is just the next section. */
+  .modal-overlay:has(> .hq-full){align-items:stretch; padding:0;}
+  .modal-overlay:has(> .hq-full) > .hq-full{
+    width:100%; max-width:560px; height:100%; max-height:none; margin:0 auto;
+    border:0; border-radius:0; box-shadow:none;
+    padding:env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+    --fs-label:.875rem; --fs-support:1.0625rem; --fs-panel-row:1.1875rem;
+    --fs-body:1.25rem; --lh-body:1.45; --lh-support:1.5;}
+  .hq-full .modal-head{padding:26px 24px 8px; align-items:flex-start; gap:14px;}
+  /* min-width:0 so a long title wraps under itself rather than running into
+     the close ring: measured at 320px, RECOVERY & FATIGUE touched it. */
+  .hq-full .modal-head h2{font-size:clamp(23px, 7.2vw, 28px); line-height:1.15; padding-top:6px;
+    flex:1 1 auto; min-width:0;}
+  .hq-full .modal-head .icon-btn{flex:none;}
+  .hq-full .modal-body{padding:10px 24px 48px; font-size:var(--fs-body); line-height:var(--lh-body);}
+  .hq-full .rp-hero{margin:22px 0 34px;}
+  .hq-full .rp-hero-verdict{margin-bottom:10px;}
+  .hq-full .rp-hero-verdict .read-val{font-size:17px;}
+  .hq-full .rp-hero-verdict .read-val .read-dot{width:8px; height:8px;}
+  .hq-full .rp-hero-say{font-size:var(--fs-body); line-height:var(--lh-body);}
+  .hq-full .sec-rule{margin:40px 0 14px;}
+  .hq-full .setup-section-title,
+  .hq-full .evo-k{font-size:var(--fs-label);}
+  .hq-full .rp-rows .hq-row,
+  .hq-full .hub-card.tile-card .hq-row{padding:16px 0;}
+  .hq-full .evo-panel{margin-top:6px; padding:0; background:none; border:0; border-radius:0;}
+  .hq-full .evo-sec + .evo-sec{margin-top:30px;}
+  .hq-full .evo-sec .evo-k{margin:0 0 10px;}
+  .hq-full .evo-v,
+  .hq-full .evo-list li{font-size:var(--fs-body); line-height:var(--lh-body);}
+  .hq-full .field-hint,
+  .hq-full .rec-lede{font-size:var(--fs-support); line-height:var(--lh-support); margin-top:28px;}
+  .hq-full .coach-actions{gap:12px; margin-top:40px;}
+  .hq-full .btn{font-size:17px; min-height:56px;}
+  /* A ROW THAT CANNOT SHARE A LINE GIVES ITS VALUE THE NEXT ONE. At 19px
+     "Fitness Checkpoint: 6km Time Trial" and "Week 9 · Dec 8" are wider
+     together than the page, and squeezed they broke mid-date ("Week 9 · Dec
+     / 8"). The value drops whole, still on the right. */
+  .hq-full .hq-row{flex-wrap:wrap; row-gap:4px;}
+  .hq-full .hq-row-l{flex:0 1 auto;}
+  .hq-full .hq-row-v{margin-left:auto; text-align:right;}
+  /* The zone rows and the goal option were set in fixed pixels, so the
+     token step-up above passed them by and they sat at 10.5-12.5px on a
+     page whose sentences are 20. */
+  .hq-full .pzr{padding:13px 0;}
+  .hq-full .pzr-label{font-size:17px;}
+  .hq-full .pzr-hr{font-size:13px; margin-top:4px;}
+  .hq-full .pzr-input{font-size:16px;}
+  .hq-full .pzr-sep, .hq-full .pzr-unit{font-size:14px;}
+  .hq-full .pzr-unit{width:26px;}
+  .hq-full .goal-opt .t{font-size:22px;}
+  .hq-full .goal-opt .p{font-size:14px; margin-top:4px;}
 
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
@@ -64811,8 +64925,13 @@ function openHQPanel(key){
   var html = hqPanelHtml(key);
   if (!html) return;
   rememberPlanHQScroll();
+  /* hq-full: the nine panels the Coach page's circles and plates open are
+     pages, not cards -- see ".hq-full" in the stylesheet. The Settings
+     panels share this shell and stay the cards they were: they are forms,
+     and nobody asked for those to move. */
+  var coachPanel = READING_KEYS.indexOf(key) !== -1 || !!RECORD_PANELS[key];
   openModal(html, 'modal-themed builder-light hq-panel '+
-    (PANEL_ACCENT_CLASS[key] || 'rp-cherry'));
+    (PANEL_ACCENT_CLASS[key] || 'rp-cherry')+(coachPanel ? ' hq-full' : ''));
   // after openModal, which clears the key through closeModal()
   openRecordPanelKey = key;
 }

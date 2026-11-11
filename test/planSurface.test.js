@@ -165,13 +165,13 @@ test('done, now and ahead are one colour language on the plan', () => {
      ASSERTED AS A RANGE, not as .78: anything in this band is legible over
      the veil and still visibly the quietest of the three, and pinning the
      exact number would make a re-measure read as a regression. */
+  /* CHANGED SIDES: AHEAD IS WHITE, NOT A QUIETER WHITE. It was held to a
+     band of .72-.92 alpha so it stayed "the quiet one". Founder: "The grey
+     text I'm not keen on. I think white text is best ... Space needs to do
+     the talking." A dimmed white over a photograph is a grey. The three
+     states are still three: now is gold, done is green, ahead is white. */
   const ahead = ruleFor('.pp-slide.is-ahead .pp-slide-w{');
-  const am = /color:rgba\(255,255,255,\.(\d+)\)/.exec(ahead);
-  assert.ok(am, 'a phase still ahead is not a white alpha: ' + ahead);
-  const aa = Number('0.' + am[1]);
-  assert.ok(aa >= 0.72, 'ahead is at ' + aa + ' alpha — measured below 4.5:1 under that');
-  assert.ok(aa < 0.92, 'ahead is at ' + aa + ' alpha — it is no longer the quiet one, ' +
-    'the message beside it is .92');
+  assert.match(ahead, /color:#fff;/, 'a phase still ahead is dimmed again: ' + ahead);
   assert.doesNotMatch(ahead, /var\(--ink-faint\)/,
     'ahead went back to --ink-faint, which measured 2.67:1 on the taper photograph');
   assert.doesNotMatch(BARE, /\.pp-slide[^{]*\{[^}]*(?:#9BC08C|rgba\(122,160,110)/,
