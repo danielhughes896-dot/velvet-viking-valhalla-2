@@ -672,6 +672,70 @@ test('SHAPE: a plate value cannot wrap, whatever the string it is given', () => 
     'the plate is not a query container, so 100cqw measures the wrong box');
 });
 
+test('TYPE: this page is white, and the circles are set in the words face', () => {
+  /* Founder: "The text in the circles and boxes should be the same style as
+     the rest of the app ... I also think this page shouldn't have the off
+     white text. All white." */
+  const view = /\.view-planhq\{([^}]*)\}/.exec(BARE)[1];
+  ['--ink', '--ink-dim', '--ink-faint'].forEach(tok =>
+    assert.match(view, new RegExp(tok + ':#FFFFFF', 'i'),
+      tok + ' is still the warm cream on this screen'));
+  /* RE-POINTED, NOT OVERRIDDEN ELEMENT BY ELEMENT -- which is the half worth
+     guarding, because the next thing added to this screen inherits the
+     decision only if it was made on the view. */
+  assert.ok(view.indexOf('--ink:') > -1, 'the page re-points no ink token at all');
+
+  /* THE WORDS FACE IN THE GRID, AND ONLY IN THE GRID. The base rule feeds
+     the panel heroes, where the circle states a measured figure -- and an
+     existing law holds that an absence takes the words face while the
+     measurement beside it keeps the figure face. A blanket change collapses
+     both into one and takes that law with it. */
+  assert.match(/\n  \.rd-val b\{([^}]*)\}/.exec(BARE)[1], /font-family:var\(--num-face\)/,
+    'the base dial face left the figure face, which the panel heroes rely on');
+  assert.match(/\.b-grid \.rd-val b\{([^}]*)\}/.exec(BARE)[1], /font-family:var\(--text-face\)/,
+    'the reading circles are back in the monospace figure face');
+
+  /* AND THE ONE WHISPER STAYS ONE. --ink-faint going white promoted the hint
+     to the weight of the labels above it; it keeps the colour and gives the
+     difference back in opacity. */
+  assert.match(/\.view-planhq \.b-dials-hint\{([^}]*)\}/.exec(BARE)[1], /opacity:\.\d+/,
+    'the hint reads at full strength, which makes it a statement');
+});
+
+test('PLATE: each plate lights the corner that points away from the grid', () => {
+  /* Founder: "The fitness progress goal bench mark boxes could have brighter
+     boarders ... Goal brighter bottom left. Progress top right and benchmark
+     bottom right."
+     The founder wrote "top right" for Fitness and then "top right" again for
+     Progress; Fitness is the top-LEFT box, and the outer-corner reading is
+     the one that makes the set cohere, so it takes that. The four radiate
+     outward rather than all leaning the same way. */
+  const CORNERS = { fitness:['0%','0%'], progress:['100%','0%'],
+                    goal:['0%','100%'], benchmark:['100%','100%'] };
+  Object.keys(CORNERS).forEach(k => {
+    const m = new RegExp('\\.b-plate\\[data-record="' + k + '"\\]\\s*\\{([^}]*)\\}').exec(BARE);
+    assert.ok(m, k + ' no longer names a corner');
+    assert.match(m[1], new RegExp('--rim-x:' + CORNERS[k][0]), k + ' lights the wrong side');
+    assert.match(m[1], new RegExp('--rim-y:' + CORNERS[k][1]), k + ' lights the wrong edge');
+  });
+  /* THE LIT EDGE IS A MASKED GRADIENT, because a border cannot hold one and
+     border-image would drop the radius -- the same constraint the coach
+     buttons hit. If the ::before goes, every plate falls back to the flat
+     rim underneath and the four stop radiating. */
+  const before = /\.b-plate::before\{([^}]*)\}/.exec(BARE);
+  assert.ok(before, 'the lit edge is gone');
+  /* THE ONE DECLARATION THAT DECIDES WHETHER ANY OF THE REST RUNS. A
+     mutation setting content:none left the gradient, the mask and the four
+     corners all present and correct, and drew nothing at all -- the law
+     passed on a feature that had been switched off. */
+  assert.match(before[1], /content:''/,
+    'the lit edge declares no content, so the pseudo-element never renders');
+  assert.match(before[1], /radial-gradient\(.*var\(--rim-x/,
+    'the lit edge no longer reads the corner each plate names');
+  assert.match(before[1], /mask-composite:exclude/,
+    'the gradient fills the plate instead of ringing it');
+});
+
 // ===========================================================================
 // THE SIX COLOURS ARE LOCKED
 // ---------------------------------------------------------------------------

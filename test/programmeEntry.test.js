@@ -121,7 +121,17 @@ test('S4. the splash has its own photograph, and the decision modal keeps hers',
      and a window measured in characters over raw source is a law that fails
      the next time someone explains themselves. */
   const BARE = RUNTIME_SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.match(/\.pe-mountains\{([^}]*)\}/.exec(BARE)[1], /valhalla-sunrise-820\.jpg/,
+  /* ANCHORED, BECAUSE `.pe-mountains{` IS A SUBSTRING OF `.pe > .pe-mountains{`.
+     The three-thirds grid added that descendant rule immediately above this
+     one, and an unanchored exec() matched it first and read a body with no
+     photograph in it at all. The newline anchor is what makes the selector
+     mean itself. */
+  const peRule = sel => {
+    const m = new RegExp('\\n\\s*\\' + sel + '\\{([^}]*)\\}').exec(BARE);
+    assert.ok(m, 'rule not found: ' + sel);
+    return m[1];
+  };
+  assert.match(peRule('.pe-mountains'), /valhalla-sunrise-820\.jpg/,
     'the splash is not on the sunrise');
   assert.match(/\.modal-decision-hero\{([^}]*)\}/.exec(BARE)[1], /valhalla-mountains-820\.jpg/,
     'the decision modal\u2019s photograph was changed too, which was not asked for');
@@ -144,18 +154,32 @@ test('S5. the photograph is sized, not covered, so the lit sky can be placed', (
      there are no words. With that done every line measures 6.73:1 or
      better. Restoring cover silently undoes all of it, so it is named. */
   const CSS = RUNTIME_SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
-  const pe = /\.pe-mountains\{([^}]*)\}/.exec(CSS)[1];
+  const pe = new RegExp('\\n\\s*\\.pe-mountains\\{([^}]*)\\}').exec(CSS)[1];
   assert.match(pe, /background-size:auto \d+px/,
     'the splash photograph is back on cover, so its vertical position does nothing');
   assert.doesNotMatch(pe, /background-size:cover/, 'cover is back');
   assert.match(pe, /background-position:50% \d+%/,
     'the photograph no longer states where it sits');
-  /* AND THE GAP THE SKY SITS IN. If the greeting climbs back up under the
-     lockup there is nowhere for the photograph to speak, and the sky is
-     behind words again. */
-  const hello = /\.pe-hello\{([^}]*)\}/.exec(CSS)[1];
-  assert.match(hello, /margin:clamp\(\d+px, \d+vh, \d+px\) 0 0/,
-    'the gap between the lockup and the greeting is no longer reserved');
+  /* ---- CHANGED SIDES: THE GAP IS A THIRD NOW ----
+     Founder: "If you imagine the screen is 3 equal sections, I want each
+     part verticalaly central."
+     This asked that .pe-hello reserve the gap the sky sits in with a
+     clamp(). Three equal rows reserve it by being a third, which is the
+     same job stated by the layout instead of by a hand-set margin -- so
+     what is held here is the grid, and the margin it replaced must be gone
+     rather than left to fight it. */
+  const peRoot = new RegExp('\\n\\s*\\.pe\\{([^}]*)\\}').exec(CSS)[1];
+  assert.match(peRoot, /grid-template-rows:1fr 1fr 1fr/,
+    'the splash is no longer three equal thirds');
+  const hello = new RegExp('\\n\\s*\\.pe-hello\\{([^}]*)\\}').exec(CSS)[1];
+  assert.doesNotMatch(hello, /margin:clamp/,
+    'the hand-set gap is back, fighting the third that now reserves it');
+  /* AND THE MIDDLE THIRD IS ONE BLOCK. Four loose siblings in a three-row
+     grid would take rows of their own and the thirds would mean nothing. */
+  const a2 = athleteInProgramme({ name: 'Daniel' });
+  const html2 = a2.renderProgrammeEntry();
+  assert.match(html2, /<div class="pe-athlete">/,
+    'the greeting, programme line, bar and figure are loose in the grid again');
 });
 
 // ---------------------------------------------------------------------------

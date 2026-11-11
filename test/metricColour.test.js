@@ -67,8 +67,19 @@ test('prescribed values resolve through an --ink token, so both themes work', ()
 test('gold still means what it means: headings, badges, status, the confidence figure', () => {
   /* The counterpart assertion. If a future pass "cleans up" gold by removing
      it from these, the accent system has lost its other half. */
-  [['.gauge-num b', 'the confidence figure'],
-   ['.exec-pill', 'the execution score pill'],
+  /* ---- CHANGED SIDES: THE CONFIDENCE FIGURE IS WHITE ----
+     Founder: "50% should now be white ... Confidence inside should be
+     white ... I also think this page shouldn't have the off white text. All
+     white."
+     .gauge-num b was in this list because a reading takes gold, which was
+     the law while the gauge stood alone above a block name. It is one of
+     five circles now, and the other four state their readings in white with
+     the RING carrying the colour -- so gold here made the gauge a different
+     kind of instrument from its own row. The counterpart claim this test
+     exists for is untouched: gold still means heading, badge and status,
+     and the three below still prove it. The gauge's ring keeps the cherry
+     accent, which was never the question. */
+  [['.exec-pill', 'the execution score pill'],
    ['.coach-cue', 'the coaching cue'],
    ['.day-status-label.key', 'the Key-session status label']].forEach(([sel, what]) => {
     const body = ruleBody(sel);

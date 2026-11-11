@@ -60,16 +60,28 @@ test('NAV: the bottom nav says Coach, never Plan HQ and never Valhalla', () => {
   assert.match(nav, /data-view="planhq"/, 'the internal route key is unchanged on purpose');
 });
 
-test('NAV: the screen heading follows the tab', () => {
-  /* It is rendered -- only .view-today hides its heading row -- so a heading
-     reading VALHALLA would have sat directly under the VALHALLA mark in the
-     bar above it. The two must say the same word as the tab, or the screen
-     names itself twice and differently. */
+test('NAV: the screen does not name itself at all', () => {
+  /* ---- CHANGED SIDES TWICE IN ONE DAY, AND THAT IS THE POINT ----
+     It read Valhalla, then Coach when the app took that name, and now
+     nothing. Founder: "At the top remove the 3 lines of text - coach - full
+     marathon - week 1 of 14."
+     The lit tab names this screen, which is the same reason Today's heading
+     row has been hidden for far longer. A heading that has had three values
+     in a day was a heading nothing needed. */
   const a = planHQ();
   const view = a.renderPlanHQView();
-  assert.match(view, /<div class="view-heading font-head">Coach<\/div>/);
-  assert.doesNotMatch(view, /<div class="view-heading font-head">Valhalla<\/div>/,
-    'the heading still names the app rather than the screen');
+  assert.doesNotMatch(view, /class="view-heading/,
+    'the screen heading is back, and the lit tab already says it');
+  /* AND THE TWO LINES UNDER IT. The block name and the week number are on
+     Full Plan and This Week, both one tap away, and here they pushed the
+     instruments down by a third of the viewport. */
+  assert.doesNotMatch(view, /class="v-hero-block/, 'the block name is back above the gauge');
+  assert.doesNotMatch(view, /class="v-hero-week/, 'the week line is back above the gauge');
+  /* blockIdentityParts() is untouched -- not printed here, still read by the
+     screens that are about the block. */
+  assert.equal(typeof a.blockIdentityParts, 'function',
+    'the block identity was deleted rather than simply not printed');
+  assert.ok(a.blockIdentityParts().label, 'the block identity stopped resolving');
 });
 
 test('NAV: the five-tab shell is otherwise unchanged', () => {

@@ -807,7 +807,8 @@
   /* confidence score fuel gauge — the approved-concept full-circle hero.
      A ring, not a semicircle: 12 tick marks framing a single progress arc,
      the percentage and its label set inside the ring rather than below it. */
-  .gauge-tick{stroke:var(--gold); stroke-width:1.4; opacity:.45;}
+  /* .gauge-tick stood here, with .gauge-ticks around it. Both are deleted
+     with the marks they drew. */
   /* drop-shadow (not box-shadow) because the wrap holds an SVG plus a div,
      and the SVG's own background is transparent outside the ring -- a
      box-shadow would draw a shadow for the wrap's square bounding box,
@@ -829,7 +830,11 @@
      and elevation is the language this product has given up everywhere
      else. What is left is light, and more of it than any other ring gets:
      this is the reading the screen is built around. */
-  .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;
+  /* The gauge reads the same token as the four reading circles, so the five
+     cannot drift apart. 132px stays the fallback for the surfaces that draw
+     a gauge outside .view-planhq. */
+  .gauge-wrap{position:relative; width:var(--ring-dia, 132px); height:var(--ring-dia, 132px);
+    margin:0 auto;
     display:block; background:none; border:0; padding:0; cursor:pointer;}
   /* ---------- THE GLOW BELONGS TO THE RING, NOT TO THE NUMBER ----------
      This filter sat on .gauge-wrap, which is the <button> -- and the button
@@ -898,7 +903,12 @@
   .view-planhq :is(.hub-card, .hub-card.tile-card){
     background:none; border:0; border-radius:0; box-shadow:none;
     padding:18px 0 0;}
-  .gauge-rim{stroke:url(#gaugeRim); stroke-width:2.2;}
+  /* Stroke widths are in viewBox units, and the box shrank from 120 to 100
+     while the element grew from 132 to 164 -- so every width here is
+     restated to keep what it RENDERS at unchanged. The founder's note on
+     the gauge was "I like the thickness", and that is the thing being
+     preserved, not the number. */
+  .gauge-rim{stroke:url(#gaugeRim); stroke-width:1.5;}
   .gauge-track{stroke:var(--bg-4);}
   /* ---- THE GAUGE LAYS ITSELF DOWN, LIKE EVERY OTHER RING ----
      The session ring draws itself in on arrival and the gauge did not: it
@@ -953,7 +963,10 @@
      this becomes an actual cream medallion face sitting inside the ring --
      the same face treatment as the Reading badges below it -- instead of
      text floating on whatever the hero card's background happens to be. */
-  .gauge-num{position:absolute; left:50%; top:50%; width:84px; height:84px; transform:translate(-50%,-50%);
+  /* A PERCENTAGE, NOT 84px. The face sat inside a 132px wrap; the wrap is
+     --ring-dia now and a fixed face would float in it. 63.6% is exactly the
+     84/132 it has always been, so nothing about its proportion changed. */
+  .gauge-num{position:absolute; left:50%; top:50%; width:63.6%; height:63.6%; transform:translate(-50%,-50%);
     border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:linear-gradient(
         color-mix(in srgb, var(--cherry-tint) 42%, transparent),
@@ -980,9 +993,20 @@
      a brown smudge. --gold-bright and --gold-text are the shades proven on
      this surface, and they are what the bottom nav and every section title
      already use. Same law, correct side of it. */
-  .gauge-num b{font-size:32px; color:var(--gold-bright); line-height:1; font-weight:700;
-    text-shadow:0 0 10px color-mix(in srgb, var(--gold-bright) 32%, transparent);}
-  .gauge-num span{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); margin-top:3px; font-weight:var(--label-weight);}
+  /* ---- CHANGED SIDES: THE FIGURE AND ITS CAPTION ARE WHITE ----
+     Founder: "50% should now be white ... Confidence inside should be
+     white ... I also think this page shouldn't have the off white text. All
+     white."
+     The comment above argued the number takes gold because that is what
+     every reading in the product does. That was true when the gauge stood
+     alone above a block name; it is now one of five circles, and the other
+     four state their readings in white with the RING carrying the colour.
+     Gold here made the gauge a different kind of instrument from its own
+     row. The ring keeps its cherry gradient, which is the mechanism and was
+     never in question. */
+  .gauge-num b{font-size:32px; color:#FFFFFF; line-height:1; font-weight:700;
+    text-shadow:0 0 10px rgba(255,255,255,.26);}
+  .gauge-num span{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-top:3px; font-weight:var(--label-weight);}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px;
     background:var(--tile-sheen), var(--c-gold-soft);
@@ -3557,9 +3581,25 @@
      already uses for a primary action, on the existing line token. */
   /* Full height and its own top inset, because there is no header above it
      any more -- the 120px it used to subtract was that chrome. */
-  .pe{position:relative; min-height:100vh; display:flex;
-    flex-direction:column; align-items:center; text-align:center;
+  /* ---------- THREE EQUAL THIRDS ----------
+     Founder: "If you imagine the screen is 3 equal sections, I want each
+     part verticalaly central."
+     So the screen is three rows of exactly 1fr -- the lockup, the athlete,
+     the claim -- and each row centres its own content. This replaces a stack
+     that flowed from the top with a hand-set gap above the greeting and
+     margin-top:auto under the claim: two devices doing by arithmetic what
+     the grid states outright, and neither of which held a THIRD.
+     THE ROWS ARE THE LAYOUT, SO THE GAPS COME OFF. .pe-hello's clamp()
+     reserved the space the sky sits in and .pe-foot's auto pushed the claim
+     down; the middle row now reserves that space by being a third, and the
+     bottom row holds the claim by being one. */
+  .pe{position:relative; min-height:100vh; display:grid;
+    grid-template-rows:1fr 1fr 1fr; justify-items:center; text-align:center;
     padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 36px;}
+  .pe > .pe-mountains{grid-row:1 / -1; grid-column:1;}
+  .pe-brand, .pe-athlete, .pe-foot{grid-column:1; width:100%;
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center;}
   /* top:0, not -64px: that offset pulled the photograph up behind a header
      that is no longer drawn over this screen. It now begins at the very top
      of the viewport and fades, through the mask below, into --bg. */
@@ -3607,13 +3647,19 @@
        at 1.67:1 and in the same place. The plateau therefore starts higher
        and holds deeper, and every line is re-measured in Chromium rather
        than reasoned about; see the figures in the comment on .pe-pct. */
+    /* RE-WEIGHTED AGAIN WHEN THE SCREEN BECAME THREE THIRDS. Centring each
+       block in its own third moved the lockup down from y=98 to y=165-237,
+       which put the lit sky behind BY VELVET VIKING at 1.79:1 on gold. The
+       gap between the lockup and the greeting is 115px and the lit band is
+       wider than that, so it cannot be moved out from behind the words --
+       it is darkened under them instead, early and hard, where the frame is
+       cloud rather than sun and has least to lose. */
     background:linear-gradient(180deg,
-      rgba(0,0,0,0) 8%, rgba(0,0,0,0.22) 18%, rgba(0,0,0,0.52) 30%,
-      rgba(0,0,0,0.68) 40%, rgba(0,0,0,0.68) 68%, rgba(0,0,0,0.34) 84%,
-      rgba(0,0,0,0) 95%);
+      rgba(0,0,0,0) 3%, rgba(0,0,0,0.42) 13%, rgba(0,0,0,0.74) 21%,
+      rgba(0,0,0,0.60) 30%, rgba(0,0,0,0.68) 40%, rgba(0,0,0,0.68) 68%,
+      rgba(0,0,0,0.34) 84%, rgba(0,0,0,0) 95%);
   }
-  .pe-brand{position:relative; z-index:1; display:flex; flex-direction:column;
-    align-items:center; gap:7px;}
+  .pe-brand{position:relative; z-index:1; gap:7px;}
   /* The mark is no longer the dominant element -- it opens the lockup and
      the NAME is what the screen says. 320px of crest became 86px of mark,
      which is what the founder's mock-up shows. */
@@ -3651,7 +3697,7 @@
      screen with no words in it -- so it is where the lit sky belongs. Set
      in vh with a floor and a ceiling: a short phone keeps the whole stack
      and the claim on screen, a tall one does not strand the greeting. */
-  .pe-hello{position:relative; z-index:1; margin:clamp(104px, 19vh, 176px) 0 0;
+  .pe-hello{position:relative; z-index:1; margin:0;
     font-size:clamp(30px,8.5vw,38px);
     color:var(--modal-text); font-weight:600;
     text-shadow:0 2px 10px rgba(0,0,0,0.55);}
@@ -3683,8 +3729,9 @@
      at the foot of the viewport on a tall phone and directly under the
      percentage on a short one rather than being cut off. The rule carries a
      small gold triangle at its centre, as the mock-up has it. */
-  .pe-foot{position:relative; z-index:1; margin-top:auto; padding-top:26px;
-    width:min(430px,94%); display:flex; flex-direction:column; align-items:center;}
+  /* No margin-top:auto any more -- the third IS the placement. */
+  .pe-foot{position:relative; z-index:1;}
+  .pe-foot > *{width:min(430px,94%);}
   .pe-rule{position:relative; width:100%; height:1px; margin-bottom:22px;
     background:linear-gradient(90deg, transparent,
       color-mix(in srgb, var(--gold) 70%, transparent) 22%,
@@ -5681,6 +5728,23 @@
     box-shadow:inset 0 0 0 1px var(--cherry), 0 0 16px var(--cherry-dim);}
   .vvcal-foot{display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:9px 13px 14px;}
   .vvcal-foot .btn{min-height:48px;}
+  /* The units control sits in a Settings row's trail, where the health
+     switch already sits, so it takes that slot's alignment and nothing
+     else -- the toggle keeps its own look. */
+  .stg-row-units{display:inline-flex; align-items:center; flex:none;}
+  /* ---- SET DATE IS AN INTERACTION, SO IT IS CHERRY ----
+     Founder: "Set date button. Needs the new rules. Cherry colour."
+     It inherited the base .btn-primary, which is the bronze gradient -- and
+     the calendar opens from the builder, from Settings and from /start, so
+     it cannot rely on .builder-light being an ancestor to recolour it. Same
+     two declarations the builder's own primary wears, applied where the
+     control actually is. The disabled state keeps the fill and drops the
+     light, because a date that cannot be set must still look like the
+     button it will become. */
+  .vvcal-foot .btn-primary{
+    background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    box-shadow:inset 0 0 0 1px var(--cherry), 0 0 16px var(--cherry-dim);}
+  .vvcal-foot .btn-primary:disabled{box-shadow:inset 0 0 0 1px var(--cherry-dim); opacity:.55;}
 
   /* ---------- EVERY NUMBER THE ATHLETE TYPES IS A NUMBER ----------
      Audited at 412px across all eleven stages: the option tiles, the event
@@ -8575,9 +8639,10 @@
   /* Pulled tight to the corner now that the control has no track around it
      -- the pill's own 1px border and 5px padding were what the old 14px
      inset was measured against. */
-  .v-hero-unit-toggle{position:absolute; top:10px; right:14px;}
-  .v-hero-block{font-size:15px; color:var(--ink); margin:0 0 2px;}
-  .v-hero-week{font-size:11px; color:var(--ink-faint); margin:0 0 14px;}
+  /* .v-hero-unit-toggle, .v-hero-block and .v-hero-week stood here and are
+     deleted with the elements they styled -- the units control moved to
+     Settings and the block and week lines came off the top of the page.
+     See renderProgrammeStatus(). */
   /* THE BAND. Two figures and a gauge on one line, the figures on equal
      flexible columns so the gauge is optically centred whatever the figures
      say -- "39d" and "1.08x" are different widths and a plain flex row would
@@ -8754,11 +8819,43 @@
      already used -- so one custom property grows the words with the circle
      instead of leaving a 13.5px verdict adrift in a 176px ring.
      max-width is the ceiling a tablet would otherwise blow through. */
+  /* ---------- ONE DIAMETER FOR ALL FIVE ----------
+     Founder: "I want the confidence circle to be the same size as the other
+     circles. So increase that's size and reduce the others."
+     So neither keeps its own number: --ring-dia is declared once on the view
+     and read by the gauge and by the grid, and the two meet between the
+     gauge's old 132 and the grid's old 184. A circle that is capped rather
+     than fixed still tracks the column on a narrow phone, so the cap is a
+     max-width and the width stays 100%.
+     --dv COMES DOWN WITH THEM. It is the multiplier every face size in the
+     dial renderers is expressed against, so leaving it at 1.55 would keep a
+     184px circle's lettering inside a 164px one. */
+  /* ---------- THIS PAGE IS WHITE, NOT OFF-WHITE ----------
+     Founder: "I also think this page shouldn't have the off white text. All
+     white."
+     --ink is #F4F1EA, a warm cream that is right across a product whose
+     surfaces are warm. This screen is five rings and four plates on near
+     black, and against that the cream reads as dimmed rather than as warm.
+     RE-POINTED, NOT OVERRIDDEN PER ELEMENT. --ink and --ink-dim are
+     redeclared on the view, so every descendant that already reads them --
+     the dial faces, the plate values, the circle labels, the figures beside
+     the gauge -- comes white without a single new selector, and anything
+     added to this screen later inherits the same decision.
+     --ink-faint IS LEFT ALONE: it is the hint voice ("Tap any circle for the
+     evidence"), which is meant to recede, and making it white would promote
+     a whisper to a statement. */
+  .view-planhq{--ring-dia:164px; --ink:#FFFFFF; --ink-dim:#FFFFFF; --ink-faint:#FFFFFF;}
+  /* THE ONE WHISPER STAYS A WHISPER, and it is still white. "Tap any circle
+     for the evidence" is a hint that should recede, and --ink-faint going
+     white promoted it to the weight of the labels it sits under. It keeps
+     the colour the founder asked for and gives back the difference in
+     opacity, which is the honest way to say quiet in one colour. */
+  .view-planhq .b-dials-hint{opacity:.52;}
   .b-grid{display:grid; grid-template-columns:1fr 1fr; gap:22px 12px;
-    justify-items:stretch; align-items:start; margin:6px 0 0; --dv:1.55;}
+    justify-items:stretch; align-items:start; margin:6px 0 0; --dv:1.38;}
   .b-grid .b-dial-col{width:100%;}
   .b-grid .b-dial[data-rank]{width:100%; height:auto; aspect-ratio:1/1;
-    max-width:210px; margin-left:auto; margin-right:auto;}
+    max-width:var(--ring-dia, 210px); margin-left:auto; margin-right:auto;}
   .b-grid .b-medal{inset:6px;}
   /* OUT-SPECIFIES THE RANK LADDER, DELIBERATELY. .b-dial[data-rank="0"]
      .rd-val b caps the face at 74px -- right for a 90px circle, and the
@@ -8838,11 +8935,41 @@
        widening its own column, which in a 1fr grid it could not do anyway --
        so this costs nothing and makes that explicit. */
     container-type:inline-size;
+    /* ---------- THE RIM BRIGHTENS AT THE OUTER CORNER ----------
+       Founder: "The fitness progress goal bench mark boxes could have
+       brighter boarders ... Goal brighter bottom left. Progress top right
+       and benchmark bottom right."
+       Each plate lights the corner that points AWAY from the centre of the
+       2x2, so the four radiate outward rather than all leaning the same
+       way. The founder wrote "top right" for Fitness and then "top right"
+       again for Progress; Fitness is the top-LEFT box, and the outer-corner
+       reading is the one that makes the set cohere, so it takes that.
+       A BORDER CANNOT HOLD A GRADIENT, which is the same constraint the
+       coach buttons hit: border-image would drop border-radius, so the lit
+       edge is a radial gradient painted in a ::before inset by the border
+       width, and the flat border underneath stays as the floor. Each plate
+       sets --rim-x/--rim-y, so one rule serves all four. */
+    position:relative;
     border:1px solid color-mix(in srgb, var(--rd-base) 55%, transparent);
     border-radius:var(--tile-radius);
     background:var(--tile-sheen), var(--bg-2);
     box-shadow:0 0 16px color-mix(in srgb, var(--rd-base) 14%, transparent);
     -webkit-appearance:none; appearance:none; cursor:pointer;}
+  .b-plate::before{
+    content:''; position:absolute; inset:-1px; border-radius:inherit;
+    padding:1px; pointer-events:none;
+    background:radial-gradient(120% 120% at var(--rim-x, 50%) var(--rim-y, 50%),
+      var(--rd-base) 0%,
+      color-mix(in srgb, var(--rd-base) 62%, transparent) 34%,
+      transparent 72%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0); mask-composite:exclude;}
+  /* The four corners, in the order VALHALLA_PLATES emits them. */
+  .b-plate[data-record="fitness"]  {--rim-x:0%;   --rim-y:0%;}
+  .b-plate[data-record="progress"] {--rim-x:100%; --rim-y:0%;}
+  .b-plate[data-record="goal"]     {--rim-x:0%;   --rim-y:100%;}
+  .b-plate[data-record="benchmark"]{--rim-x:100%; --rim-y:100%;}
   .b-plate-k{font-family:var(--label-face); font-size:var(--fs-label);
     letter-spacing:var(--label-track); text-transform:uppercase;
     font-weight:var(--label-weight); color:var(--ink);}
@@ -9052,6 +9179,23 @@
   .rd-val b{display:block; text-align:center; line-height:1.08; max-width:50px;
     overflow-wrap:break-word; word-break:break-word;
     font-family:var(--num-face); color:var(--ink); font-weight:700;}
+  /* ---- THE READING IS A WORD, SO IT IS SET LIKE ONE ----
+     Founder: "The text in the circles and boxes should be the same style as
+     the rest of the app."
+     --num-face is the monospace this product uses for FIGURES -- 8km, 45:33,
+     5:12/km -- and in the grid it was setting "Worth watching", "Learning"
+     and "Fresh", which are none of those.
+     SCOPED TO THE GRID, AND THAT IS NOT TIDINESS. The base rule above feeds
+     the PANEL HEROES too, where the circle states a fact -- a measured
+     fitness, a benchmark time -- and those are figures. There is a law on
+     exactly that distinction: an absence takes the words face while the
+     measurement beside it keeps the figure face (.rd-val b.rec-none). A
+     blanket change here collapses the two into one face and takes that law
+     with it. The grid holds only readings, so only the grid moves.
+     The plates keep the number face for their values for the same reason --
+     those really are figures, and tabular numerals are what stops them
+     jittering as they change. */
+  .b-grid .rd-val b{font-family:var(--text-face);}
 
   /* ---------- AND ON A 360pt PHONE ----------
      MEASURED: 360pt leaves 328px inside the page gutter. The arc is
@@ -29195,16 +29339,24 @@ function renderConfidenceGauge(){
   if (!state.setup) return '';
   var pct = computeConfidenceScore();
   var clamped = Math.max(0, Math.min(100, pct));
-  var cx=60, cy=60, r=46;
+  /* ---------- THE SAME GEOMETRY AS THE FOUR READING CIRCLES ----------
+     Founder: "I want the confidence circle to be the same size as the other
+     circles."
+     Equal boxes were not enough and the measurement said so: the wrap came
+     out at 164px like the dials, and the ring inside it still drew 126px
+     against their 151px. The dials are r=46 in a 100 viewBox -- 92% of
+     their box -- and this was r=46 in a 120 one, 77%, because the twelve
+     tick marks needed room outside the track at r=52..59. The ticks are
+     gone, so the box can close on the ring and the two are now literally
+     the same construction. */
+  var cx=50, cy=50, r=46;
   var circ = 2*Math.PI*r;
   var fillLen = circ*(clamped/100);
-  var ticks = [];
-  for (var i=0;i<12;i++){
-    var a = (Math.PI*2)*(i/12) - Math.PI/2;
-    var x1 = cx+52*Math.cos(a), y1 = cy+52*Math.sin(a);
-    var x2 = cx+59*Math.cos(a), y2 = cy+59*Math.sin(a);
-    ticks.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="gauge-tick"/>');
-  }
+  /* The twelve radial marks that ringed the gauge were built here and are
+     deleted with the <g> that carried them -- founder: "don't now like the
+     dash's around the side". r=52..59 put them OUTSIDE the 46-unit track,
+     which is why the gauge read wider than its ring; nothing else in this
+     function used them. */
   var pctLabel = formatConfidencePct(clamped);
   /* A BUTTON, BECAUSE IT IS NOW THE WAY IN to the readiness panel that used
      to hang off a second circle showing this same figure. Same data-action
@@ -29212,7 +29364,9 @@ function renderConfidenceGauge(){
      are unchanged code on an unchanged path. */
   return '<button type="button" class="gauge-wrap" data-action="open-reading" data-reading="readiness" '+
       'aria-label="Confidence score '+pctLabel+' percent — open the evidence">'+
-    '<svg viewBox="0 0 120 120" width="132" height="132">'+
+    /* NO PIXEL SIZE ON THE ELEMENT. width="132" is what stopped --ring-dia
+       reaching the drawing at all -- the wrap grew and the SVG did not. */
+    '<svg viewBox="0 0 100 100" width="100%" height="100%">'+
       /* #gaugeRim is --t-rim-grad expressed in SVG: the same three stops at
          the same 135deg, in cherry -- so the ring's edge is built from the
          identical recipe as every card border and every circle rim on the
@@ -29235,9 +29389,14 @@ function renderConfidenceGauge(){
         '<stop offset="52%" stop-color="var(--cherry)"/>'+
         '<stop offset="100%" stop-color="var(--cherry-dim)"/>'+
       '</linearGradient></defs>'+
-      '<g class="gauge-ticks">'+ticks.join('')+'</g>'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="52" fill="none" class="gauge-rim"/>'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-track" stroke-width="9"/>'+
+      /* THE TICKS ARE GONE. Founder: "I like the thickness. But don't now
+         like the dash's around the side." They were a ring of gold marks
+         outside the track, and with four reading circles beside the gauge
+         now they read as a sixth kind of edge on a screen with five. The
+         ring itself is untouched: same stroke-width, same gradient, same
+         entrance. `ticks` is no longer built -- see above. */
+      '<circle cx="'+cx+'" cy="'+cy+'" r="48.6" fill="none" class="gauge-rim"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-track" stroke-width="6"/>'+
       /* THE DASH IS THE WHOLE CIRCLE, and the offset is how much of it is
          still withheld -- so --gauge-to IS the reading, and the arc grows
          from a fixed 12 o'clock instead of sliding into place. Absolute
@@ -29246,7 +29405,7 @@ function renderConfidenceGauge(){
          a plain circle whose circumference is right here, and a dasharray
          of 1 on a 289-unit circle would render as dots anywhere pathLength
          were ignored. Same mechanism, no new assumption. */
-      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-fill" stroke-width="9" '+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-fill" stroke-width="6" '+
         'stroke-linecap="round" stroke-dasharray="'+circ.toFixed(1)+'" '+
         'style="--gauge-len:'+circ.toFixed(1)+'; --gauge-to:'+(circ-fillLen).toFixed(1)+'" '+
         'transform="rotate(-90 '+cx+' '+cy+')"/>'+
@@ -63068,12 +63227,22 @@ function renderGoalDayFig(){
    -- only the layout and shape changed. The KM/MI toggle is real, unrelated
    state (display units, not coaching) and stays reachable as a small corner
    control rather than disappearing with the redesign. */
-function renderProgrammeStatus(){
-  var unitToggle = '<div class="tb-unit-toggle v-hero-unit-toggle" role="group" aria-label="Distance units">'+
+/* ---------- THE UNIT TOGGLE LIVES IN SETTINGS NOW ----------
+   Founder: "Coach tab. Remove the KM / Ml tab. Move to settings."
+   It was defended here as "real, unrelated state (display units, not
+   coaching)" that should stay reachable -- and that is exactly the argument
+   for Settings. It is a preference, it is set once, and it was the only
+   control on a screen that otherwise states readings. unitsToggleHtml() is
+   the same markup and the same data-action; only where it hangs changed. */
+function unitsToggleHtml(extraClass){
+  return '<div class="tb-unit-toggle'+(extraClass ? ' '+extraClass : '')+
+      '" role="group" aria-label="Distance units">'+
       '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
       '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
     '</div>';
-  if (!state.setup) return '<div class="v-hero">'+unitToggle+'</div>';
+}
+function renderProgrammeStatus(){
+  if (!state.setup) return '<div class="v-hero"></div>';
   var parts = blockIdentityParts();
   var report = coachAnalyse();
   var loadVal = (report && report.load && report.load.ratio!=null) ? report.load.ratio.toFixed(2)+'x' : '—';
@@ -63109,10 +63278,17 @@ function renderProgrammeStatus(){
      what is left is the band: the days to goal day, the gauge, the load.
      Three figures, one line, no scroll. Every one of them is the same
      computation it was; none of them moved screens. */
+  /* ---------- THREE LINES OFF THE TOP ----------
+     Founder: "At the top remove the 3 lines of text - coach - full marathon
+     - week 1 of 14. The realign the page with equal spacing."
+     The screen heading, the block name and the week number stood above the
+     band. All three are said elsewhere on screens the athlete reaches in one
+     tap -- the lit tab names this one, and Full Plan and This Week both
+     carry the block and the week -- and here they pushed the instruments,
+     which are the only thing this page exists for, down by a third of the
+     viewport. blockIdentityParts() is untouched and still read by Full Plan
+     and This Week; it is simply not printed here. */
   return '<div class="v-hero">'+
-    unitToggle+
-    '<div class="v-hero-block font-display">'+escapeHtml(parts.label)+'</div>'+
-    (parts.wk && parts.total ? '<div class="v-hero-week">Week '+parts.wk+' of '+parts.total+'</div>' : '')+
     '<div class="v-hero-band">'+
       renderGoalDayFig()+
       '<div id="confidence-gauge-mount" class="v-hero-gauge">'+renderConfidenceGauge()+'</div>'+
@@ -64865,11 +65041,14 @@ function renderPlanHQView(){
      and the post-race panel, and the comment on it says in as many words
      that it must never be restyled bare. */
   return '<div class="view-planhq">'+
-    /* The screen's own heading follows the tab. It is rendered (only
-       .view-today hides its heading row), so leaving it would have put
-       VALHALLA under the VALHALLA mark in the bar directly above it --
-       the same word twice on one screen, meaning two different things. */
-    '<div class="view-heading font-head">Coach</div>'+
+    /* ---- AND THE HEADING ITSELF IS GONE ----
+       Founder: "At the top remove the 3 lines of text - coach - full
+       marathon - week 1 of 14."
+       It briefly read Valhalla, then Coach when the app took that name, and
+       now nothing: the bottom nav lights the tab it belongs to, which is the
+       same reason Today's heading row has been hidden for far longer. The
+       element is still emitted for every other view through this function;
+       only this screen stops printing one. */
     renderProgrammeStatus()+
     renderValhallaInstruments()+
     renderCheckpointBanner()+
@@ -65239,7 +65418,18 @@ function renderSettingsHubView(){
       sub: openRestriction() ? 'Injury or illness — restriction open' : 'Injured or ill? Tell Valhalla',
       attrs:'data-action="restriction-open"' }) : '')+
     (hasPlan ? stgPanelRow('Training & Zones', 'Paces, recalibrate and race day strategy',
-      'training') : '');
+      'training') : '')+
+    /* ---- THE UNITS CONTROL, OFF THE COACH TAB ----
+       Founder: "Coach tab. Remove the KM / Ml tab. Move to settings."
+       Same row shape as Health & Readiness above: the control lives in the
+       trail and there is no chevron, because the row IS the decision and
+       there is no panel behind it to open. Not gated on hasPlan -- an
+       athlete can prefer miles before they have a block, and every distance
+       the builder shows them is already in their chosen unit. */
+    stgRow({ title:'Distance units',
+      sub: state.units === 'mi' ? 'Miles' : 'Kilometres',
+      chevron:false,
+      trail:'<span class="stg-row-units">'+unitsToggleHtml()+'</span>' });
 
   var connect = '<div id="stg-connect-group">'+settingsConnectRows()+'</div>';
 
@@ -65690,6 +65880,12 @@ function renderProgrammeEntry(){
       '<div class="pe-name">Valhalla</div>'+
       '<div class="pe-by">By Velvet Viking</div>'+
     '</div>'+
+    /* THE MIDDLE THIRD IS ONE BLOCK. The greeting, the programme line, the
+       bar and the figure were four siblings of .pe, which is a three-row
+       grid now -- as siblings they would have taken rows of their own and
+       the thirds would mean nothing. They are what the athlete came for, so
+       they are one row and centre together. */
+    '<div class="pe-athlete">'+
     greeting+
     (label && wk && total
       ? '<div class="pe-prog font-head">'+escapeHtml(label)+' (Week '+wk+' of '+total+')</div>'
@@ -65700,6 +65896,7 @@ function renderProgrammeEntry(){
           '<span style="width:'+pct+'%"></span></div>'+
         '<div class="pe-pct font-head">Programme '+pct+'% complete</div>'
       : '')+
+    '</div>'+
     /* ---------- AND THE CLAIM CLOSES IT ----------
      "EARN YOUR PLACE / BUILT AROUND THE CLIMB". It was inside the crest
      artwork, in the lockup at the top; the founder's mock-up puts it at the

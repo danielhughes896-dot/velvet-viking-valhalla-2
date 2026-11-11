@@ -45,12 +45,20 @@ function planHQ(opts) {
 // ===========================================================================
 // 1. THE HERO
 // ===========================================================================
-test('HERO: centred block/week, a full-circle gauge, two figures, a contained outlook card, a status line', () => {
+test('HERO: a full-circle gauge, two figures, a contained outlook card, a status line', () => {
+  /* ---- CHANGED SIDES: THE BLOCK AND THE WEEK ARE OFF THE TOP ----
+     Founder: "At the top remove the 3 lines of text - coach - full marathon
+     - week 1 of 14. The realign the page with equal spacing."
+     This asked for a CENTRED BLOCK/WEEK above the band, and that was right
+     while the hero was the page's opening statement. The page opens on the
+     instruments now; both lines are on Full Plan and This Week, each one
+     tap away, and here they cost a third of the viewport before the first
+     reading. Everything else this test holds is unchanged. */
   const a = planHQ();
   const hero = a.renderProgrammeStatus();
   assert.match(hero, /<div class="v-hero">/);
-  assert.match(hero, /<div class="v-hero-block[^>]*>Half Marathon Build<\/div>/);
-  assert.match(hero, /<div class="v-hero-week">Week \d+ of \d+<\/div>/);
+  assert.doesNotMatch(hero, /v-hero-block/, 'the block name is back above the gauge');
+  assert.doesNotMatch(hero, /v-hero-week/, 'the week line is back above the gauge');
   // The gauge is a ring: a real SVG <circle> progress arc, not the old
   // semicircular <path> arc.
   assert.match(hero, /class="gauge-fill"/);
@@ -130,12 +138,33 @@ test('HERO: an athlete with no plan gets an empty hero, not a crash', () => {
   assert.doesNotMatch(hero, /v-hero-block/, 'a hero with no plan still named a block');
 });
 
-test('HERO: the unit toggle is still real and still reachable from the hero', () => {
+test('HERO: the unit toggle is still real, and reachable from Settings', () => {
+  /* ---- CHANGED SIDES: THE CONTROL MOVED, THE CLAIM DID NOT ----
+     Founder: "Coach tab. Remove the KM / Ml tab. Move to settings."
+     This held that the toggle stays reachable FROM THE HERO, on the
+     reasoning in renderProgrammeStatus() that display units are real,
+     unrelated state and must not disappear with a redesign. That reasoning
+     is exactly why it belongs in Settings: it is a preference, set once, and
+     it was the only control on a screen that otherwise states readings.
+     So the claim is unchanged -- the toggle is real and reachable -- and
+     only the surface it hangs on moves. */
   const a = planHQ();
   const hero = a.renderProgrammeStatus();
-  assert.match(hero, /class="tb-unit-toggle v-hero-unit-toggle"/);
-  assert.match(hero, /data-action="set-units" data-units="km"/);
-  assert.match(hero, /data-action="set-units" data-units="mi"/);
+  assert.doesNotMatch(hero, /tb-unit-toggle/, 'the toggle is back on the Coach hero');
+  assert.doesNotMatch(hero, /data-action="set-units"/, 'the hero can still set units');
+
+  const settings = a.renderSettingsHubView();
+  assert.match(settings, /class="tb-unit-toggle"/, 'the toggle did not arrive in Settings');
+  assert.match(settings, /data-action="set-units" data-units="km"/);
+  assert.match(settings, /data-action="set-units" data-units="mi"/);
+  assert.match(settings, />Distance units</, 'the units row does not name itself');
+  /* AND IT STILL REFLECTS THE STATE IT SETS, which is the half of a moved
+     control that is easiest to drop on the way. */
+  a.state.units = 'mi';
+  assert.match(a.renderSettingsHubView(),
+    /data-units="mi"[^>]*>MI|class="active"[^>]*data-units="mi"/,
+    'the toggle in Settings does not show which unit is live');
+  a.state.units = 'km';
 });
 
 test('HERO: KM/MI is one tight control on the shared white rim, not two labels floating in reserved width', () => {
@@ -460,15 +489,74 @@ test('COLOUR: the contained Race Outlook keeps the app\'s own law, not the mock-
     'the goal marker is no longer gold');
 });
 
-test('COLOUR: the readiness figure stays gold, the ring stays the accent -- same law as before the redesign', () => {
-  /* THE LAW IS THE SAME; THE SURFACE UNDER IT CHANGED. The figure takes
-     gold and the ring takes the accent -- that has not moved. Which gold has:
-     the face was a fixed-cream medallion and --gold-badge-ink is the shade
-     proven on cream, which on the dark face the gauge now wears is a brown
-     smudge. --gold-bright is the shade proven on this surface, and it is the
-     one the bottom nav and every section title already use. Still gold, per
-     metricColour.test.js's broader --(gold|bronze) check. */
-  assert.match(CODE, /\.gauge-num b\{[^}]*color\s*:\s*var\(--gold-bright\)/);
+test('SIZE: all five circles are one diameter, drawn the same way', () => {
+  /* Founder: "I want the confidence circle to be the same size as the other
+     circles. So increase that's size and reduce the others."
+     EQUAL BOXES WERE NOT ENOUGH, and the measurement is why this law reads
+     as it does. The wrap came out at 164px like the dials and the ring
+     inside it still drew 126px against their 151px: the SVG carried a
+     hard-coded width="132" so the token never reached the drawing, and the
+     gauge was r=46 in a 120 viewBox (77% of its box) where the dials are
+     r=46 in a 100 one (92%). The extra margin held the twelve tick marks at
+     r=52..59, and they are gone. */
+  const ring = /\.view-planhq\{([^}]*)\}/.exec(CODE);
+  assert.ok(ring, 'the view no longer declares the shared diameter');
+  assert.match(ring[1], /--ring-dia:\d+px/, 'the shared diameter token is gone');
+  /* BOTH READ THE SAME TOKEN. Either one carrying its own number is how the
+     five come apart again. */
+  assert.match(/\.gauge-wrap\{([^}]*)\}/.exec(CODE)[1], /width:var\(--ring-dia/,
+    'the gauge sizes itself rather than reading the shared diameter');
+  assert.match(/\.b-grid \.b-dial\[data-rank\]\{([^}]*)\}/.exec(CODE)[1],
+    /max-width:var\(--ring-dia/,
+    'the reading circles size themselves rather than reading the shared diameter');
+  /* AND THE SVG MUST NOT PIN ITSELF, which is the half that silently undoes
+     the rest: a width in pixels on the element leaves the wrap growing
+     around a drawing that does not. */
+  assert.match(CODE, /<svg viewBox="0 0 100 100" width="100%" height="100%">/,
+    'the gauge drawing is pinned in pixels again, so the token cannot reach it');
+  assert.match(CODE, /var cx=50, cy=50, r=46;/,
+    'the gauge is not drawn on the same geometry as the reading circles');
+});
+
+test('SIZE: the gauge has no tick marks, and keeps the thickness it had', () => {
+  /* Founder: "I like the thickness. But don't now like the dash's around
+     the side."
+     The marks lived OUTSIDE the track at r=52..59, which is what made the
+     gauge read wider than its own ring. Deleted with the <g> that carried
+     them and the rule that styled them.
+     THE THICKNESS IS A RENDERED MEASUREMENT, NOT A NUMBER IN THE FILE. The
+     box went 120 -> 100 and the element 132 -> 164, so the stroke width had
+     to change for what is drawn to stay put: 9 units in a 120 box at 132px
+     is 9.9px, and 6 units in a 100 box at 164px is 9.8px. That is the thing
+     the founder asked to keep. */
+  assert.doesNotMatch(CODE, /class="gauge-tick"/, 'the tick marks are back');
+  assert.doesNotMatch(CODE, /gauge-ticks/, 'the tick group is back');
+  assert.doesNotMatch(CODE, /\.gauge-tick\{/, 'the tick rule is back');
+  const stroke = /class="gauge-fill" stroke-width="(\d+(?:\.\d+)?)"/.exec(CODE);
+  assert.ok(stroke, 'the gauge arc no longer states its stroke width');
+  const rendered = parseFloat(stroke[1]) * (164 / 100);
+  assert.ok(Math.abs(rendered - 9.9) < 0.6,
+    'the gauge ring now renders at ' + rendered.toFixed(1) +
+    'px where it rendered at 9.9px -- the founder asked for that thickness');
+});
+
+test('COLOUR: the readiness figure is white, the ring still carries the accent', () => {
+  /* ---- CHANGED SIDES: THE FIGURE LEFT GOLD ----
+     Founder: "50% should now be white ... Confidence inside should be
+     white ... this page shouldn't have the off white text. All white."
+     The note that stood here argued only about WHICH gold, because the law
+     that a reading takes gold was settled. What unsettled it was the
+     company the gauge now keeps: it is one of five circles at one diameter,
+     and the other four state their readings in white while their RINGS
+     carry the colour. A gold figure made this one a different species in
+     its own row.
+     THE HALF THAT DID NOT CHANGE is the one this test is named for -- the
+     ring is still where this instrument wears the accent, and everything
+     below is untouched. */
+  assert.match(CODE, /\.gauge-num b\{[^}]*color\s*:\s*#FFFFFF/i,
+    'the confidence figure went back to gold');
+  assert.match(CODE, /\.gauge-num span\{[^}]*color\s*:\s*#FFFFFF/i,
+    'the CONFIDENCE caption is not white');
   /* THE ARC STILL CARRIES THE ACCENT, it is simply no longer a single
      stroke:var(--cherry). It takes the session ring's filament -- the same
      four stops, near-white at the hot end falling through --cherry-text and
