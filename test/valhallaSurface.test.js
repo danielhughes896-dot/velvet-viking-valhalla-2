@@ -132,19 +132,35 @@ test('the confidence gauge is lit by the same rules as the session ring', () => 
 });
 
 test('the gauge is the brightest ring on any screen, because it is the headline', () => {
+  /* ---- CHANGED SIDES: THERE IS NO HALO LEFT TO COMPARE ----
+     Founder: "The haze from the glow isnt the best anymore. Should it just
+     be the ring cherry that glows without the haze?"
+     This read two alphas from each keyframe -- an edge and a halo -- and
+     required the gauge to beat the session ring on both. The gauge has one
+     shadow now, so the second number does not exist and the test could not
+     even read it. The CLAIM is untouched and still worth holding: this is
+     the reading the screen is built around, so its ring must be the
+     brightest on any screen. It is now settled on the edge alone, which is
+     the only light either instrument has in common. */
   const peak = (name) => {
     const i = BARE.indexOf('@keyframes ' + name);
     const body = BARE.slice(i, BARE.indexOf('\n  }', i));
     const fifty = body.slice(body.indexOf('50%'));
     const nums = [...fifty.matchAll(/rgba\(154,84,108,([\d.]+)\)/g)].map(m => Number(m[1]));
-    assert.ok(nums.length >= 2, 'could not read the peak of ' + name);
+    assert.ok(nums.length >= 1, 'could not read the peak of ' + name);
     return nums;
   };
   const gauge = peak('vv-glow-gauge');
   const ring = peak('vv-glow-ring');
-  assert.ok(gauge[0] >= ring[0] && gauge[1] > ring[1],
-    'the confidence gauge (' + gauge.join('/') + ') is no longer brighter at its peak ' +
-    'than the session ring (' + ring.join('/') + '), and it is the reading this screen is built around');
+  assert.ok(gauge[0] >= ring[0],
+    'the confidence gauge peaks at ' + gauge[0] + ' against the session ring\u2019s ' +
+    ring[0] + ', and it is the reading this screen is built around');
+  /* AND THE SHAPES DIFFER ON PURPOSE, which is the thing that would
+     otherwise rot quietly: the ring still carries a halo because it sits
+     alone on Today, and the gauge does not because it sits in a row of five
+     and its bloom reached into the two beneath it. */
+  assert.equal(gauge.length, 1, 'the gauge has grown a halo again');
+  assert.ok(ring.length >= 2, 'the session ring lost the halo it is supposed to keep');
 });
 
 /* ===========================================================================
@@ -734,6 +750,74 @@ test('PLATE: each plate lights the corner that points away from the grid', () =>
     'the lit edge no longer reads the corner each plate names');
   assert.match(before[1], /mask-composite:exclude/,
     'the gradient fills the plate instead of ringing it');
+});
+
+test('PANEL: a panel is rimmed in the colour of the circle that opens it', () => {
+  /* ---- THE BUG THIS EXISTS FOR, AND IT SHIPPED ----
+     The six colours were locked on the founder's list and READING_ACCENT
+     moved Recovery from gold to cyan. PANEL_ACCENT_CLASS did not: it still
+     read rp-gold, and there was no cyan class to point it at -- so the one
+     instrument whose colour changed opened a panel rimmed in the colour it
+     had just left. Founder, from a screenshot of it: the panels behind the
+     circles.
+     THE FIX IS NOT THE LAW. A law that pinned recovery to rp-cyan would
+     have caught nothing except recovery. What is held here is the
+     INVARIANT: every panel's accent resolves to the same token its own
+     instrument wears, so moving any colour in either map and not the other
+     fails here rather than on a phone. */
+  const a = planHQ();
+  const CLASS_TOKEN = {
+    'rp-gold':   'var(--gold-bright)',
+    'rp-green':  'var(--z-easy)',
+    'rp-cherry': 'var(--cherry)',
+    'rp-white':  'var(--ink)',
+    'rp-blue':   'var(--z-mp)',
+    'rp-cyan':   'var(--cyan)'
+  };
+  /* Each class must actually declare the token this test believes it does,
+     or the agreement below is checked against a table rather than the
+     sheet. */
+  Object.keys(CLASS_TOKEN).forEach(cls => {
+    const m = new RegExp('\\.modal-card\\.' + cls + '\\{--rp-accent:([^;}]+)').exec(BARE);
+    assert.ok(m, cls + ' is not declared in the sheet');
+    assert.equal(m[1].trim(), CLASS_TOKEN[cls], cls + ' no longer resolves to ' + CLASS_TOKEN[cls]);
+  });
+  const panel = a.PANEL_ACCENT_CLASS;
+  Object.keys(panel).forEach(key => {
+    const instrument = a.READING_ACCENT[key] || a.STATUS_ACCENT[key];
+    if (!instrument) return;            // a panel with no instrument of its own
+    assert.equal(CLASS_TOKEN[panel[key]], instrument,
+      key + "'s panel is rimmed " + CLASS_TOKEN[panel[key]] + ' while its circle is ' +
+      instrument + ' -- the identity is contradicted by the screen behind it');
+  });
+  /* AND RECOVERY BY NAME, because it is the one that was wrong and the one
+     a careless revert would put back. */
+  assert.equal(panel.recovery, 'rp-cyan', "recovery's panel left cyan again");
+});
+
+test('PANEL: one colour per panel, and everything else in it is white', () => {
+  /* Founder: "Should the titles be the same colour as the circle and box?"
+     The titles should not -- the rim, the close button and the hero ring
+     already carry the identity, and a title naming its own panel is
+     information, which is white under the founder's own rule. What was
+     wrong was between them: section headings bronze and row glyphs gold on
+     every panel, so eight panels of five identities all wore a third accent
+     belonging to none of them. */
+  assert.match(/\.hq-panel \.setup-section-title\{([^}]*)\}/.exec(BARE)[1], /color:#FFFFFF/i,
+    'the panel section headings are back in bronze');
+  /* THE GLYPH AGREES WITH THE RULE BESIDE IT. .sec-rule-line has always
+     read var(--rp-accent, var(--gold-text)); the row icons now read the
+     same, so a panel states its colour once and in one voice. */
+  const icon = /\.hq-row-i\{([^}]*)\}/.exec(BARE)[1];
+  assert.match(icon, /color:var\(--rp-accent/,
+    'the row glyphs are back to one gold for every panel');
+  /* AND THE FALLBACK IS WHY THAT IS SAFE OFF A PANEL: --rp-accent is
+     declared only on .modal-card.hq-panel, so every other surface using
+     .hq-row-i still resolves to the gold it always had. */
+  assert.match(icon, /var\(--gold-text\)\)/,
+    'the glyph lost its fallback, so it is colourless outside a panel');
+  assert.match(BARE, /\.modal-card\.hq-panel\{--rp-accent:/,
+    '--rp-accent is no longer scoped to the panel, so the fallback never applies');
 });
 
 // ===========================================================================

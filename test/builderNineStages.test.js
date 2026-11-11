@@ -76,6 +76,31 @@ function panels(html) {
 }
 
 // ---------------------------------------------------------------- 1. structure
+test('THE BUILDER IS WHITE, AND SAYS SO ONCE', () => {
+  /* Founder: "The build 11 pages. Change all text to white. Make sure the
+     titles and text in the circles and boxes are the same throughout the
+     app."
+     --ink is #F4F1EA, a warm cream that is right across a product whose
+     surfaces are warm; the builder is eleven dark panels. RE-POINTED ON THE
+     SCOPE, not overridden element by element -- the same move the Coach
+     page makes, which is the thing that makes the two agree. Every stage
+     title, option tile, field label and body line already reads --ink, so
+     they come white with no new selector and the twelfth stage someone adds
+     inherits the decision. */
+  const css = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const scope = /\.bld-panel\{([^}]*)\}/.exec(css);
+  assert.ok(scope, 'the builder no longer re-points its ink at all');
+  ['--ink', '--ink-dim', '--ink-faint'].forEach(tok =>
+    assert.match(scope[1], new RegExp(tok + ':#FFFFFF', 'i'),
+      tok + ' is still the warm cream inside the builder'));
+  /* THE HINTS KEEP THEIR PLACE. --ink-faint going white promoted every
+     field hint to the weight of the label above it; it keeps the colour and
+     gives the difference back in opacity, exactly as the Coach page's one
+     hint does. */
+  assert.match(/\.bld-panel \.field-hint\{([^}]*)\}/.exec(css)[1], /opacity:\.\d+/,
+    'the builder hints read at full strength, which makes every one a statement');
+});
+
 test('the builder is eleven stages, and the rail and numeral agree', () => {
   const { a, html } = buildJourney();
 

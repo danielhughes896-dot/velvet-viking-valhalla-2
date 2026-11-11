@@ -59,7 +59,19 @@ function alphas(block) {
   return (block.match(/rgba\([^)]*,\s*([\d.]+)\)/g) || []).map(s => s.match(/,\s*([\d.]+)\)$/)[1]);
 }
 
-const GLOWS = ['vv-glow-ring', 'vv-glow-gauge', 'vv-glow-gold'];
+/* ---- CHANGED SIDES: THE GAUGE LEFT THE EDGE-AND-HALO SET ----
+   Founder: "The haze from the glow isnt the best anymore. Should it just be
+   the ring cherry that glows without the haze?"
+   Two of the laws below hold every glow to an EDGE shadow and a HALO, with
+   floors on how wide the halo is pinned and how far its alpha travels. That
+   is still right for the session ring and the week's bar, which sit alone on
+   their screens. The gauge does not any more: it is one of five circles at
+   one diameter, and a 58px bloom reaches into the two beneath it. Its halo
+   is gone on instruction, so it cannot be held to having one -- it has a law
+   of its own below instead, and the shared set keeps the two instruments the
+   shared rule still describes. */
+const GLOWS = ['vv-glow-ring', 'vv-glow-gold'];
+const SOLO_GLOWS = ['vv-glow-gauge'];
 
 test('no glow keyframe animates geometry -- only the light moves', () => {
   GLOWS.forEach(name => {
@@ -140,6 +152,34 @@ test('the crest is bright enough to be seen, not merely different', () => {
     assert.ok(crest[0] >= 0.9, name + ': the edge only reaches ' + crest[0] + ' at the crest');
     assert.ok(crest[1] >= 0.5, name + ': the halo only reaches ' + crest[1] + ' at the crest');
   });
+});
+
+test('the gauge glows off its ring, with no halo around it', () => {
+  /* Founder: "Should it just be the ring cherry that glows without the
+     haze?" It should, and the two places that made the haze both had to
+     move: the static filter on the svg AND the pulse keyframe, whose crest
+     drove the two wide shadows to full opacity once every 3.6 seconds --
+     which is the wash as it was actually being seen. */
+  SOLO_GLOWS.forEach(name => {
+    const stops = keyframes(name).split(/\n\s*(?=\d+%|\d+%,)/).filter(s => /%/.test(s));
+    stops.forEach(st => {
+      const shadows = st.match(/drop-shadow\(/g) || [];
+      assert.equal(shadows.length, 1,
+        name + ': a pulse stop carries ' + shadows.length + ' shadows -- the haze is back');
+    });
+    /* AND IT STILL BREATHES. One shadow must not mean a dead ring: the
+       alpha is the whole pulse now that there is nothing else to move. */
+    const a0 = alphas(stops[0]).map(Number), a1 = alphas(stops[1]).map(Number);
+    assert.notDeepEqual(a0, a1, name + ': rest and crest are identical -- nothing pulses');
+    assert.ok(a1[0] >= 0.9, name + ': the ring only reaches ' + a1[0] + ' at the crest');
+  });
+  /* THE STATIC FILTER TOO. The keyframe only runs while the animation does;
+     a reduced-motion athlete, and every frame before the delay elapses, sees
+     the rule on the element -- so a haze left there is a haze shipped. */
+  const stat = /\.gauge-wrap > svg\{([^}]*)\}/.exec(CSS);
+  assert.ok(stat, 'the gauge glow rule is gone');
+  assert.equal((stat[1].match(/drop-shadow\(/g) || []).length, 1,
+    'the resting gauge still carries a stacked haze');
 });
 
 test("the gold bar's glow is not clipped back inside its own track", () => {

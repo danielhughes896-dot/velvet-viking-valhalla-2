@@ -21,6 +21,43 @@ const fn = name => {
   return m[0];
 };
 
+test('arriving at THIS WEEK returns it to today, however you arrived', () => {
+  /* Founder: "This week. When I swipe between nav screens - it should
+     default back to today."
+     weekSelectedDate latches the moment an athlete taps a day and nothing
+     cleared it, so glancing at Friday, leaving the tab and coming back
+     reopened on Friday -- the screen remembering a glance as though it were
+     a choice. That is the same defect, in the same function, that the phase
+     carousel directly above it was fixed for.
+     NULL IS NOT A SPECIAL CASE: weekSelectedDay() already falls back to
+     today when nothing is selected, so clearing the latch IS the default
+     rather than a second rule about what the default should be. */
+  const a = loadApp({ pinnedDate: '2026-03-10T09:00:00Z' });
+  const body = fn('handleSetView');
+  assert.match(body, /if \(view==='week'\)\{ weekSelectedDate = null; weekSessionOpen = false; \}/,
+    'arriving at This Week no longer clears the day an athlete tapped');
+  /* THE OPEN CARD GOES WITH IT, or the tab reopens on today with a card
+     expanded -- neither where the athlete left it nor the default asked
+     for. Named separately because dropping it is the easy half to forget. */
+  assert.match(body, /weekSessionOpen = false/, 'the expanded card survives the reset');
+  /* AND THE RE-TAP REDRAWS. Clearing the latch while already on the tab
+     changes what is drawn, so the early return has to know about it -- the
+     exact reason leftASubScreen and leftAPhase are computed before it. */
+  assert.match(body, /leftASubScreen \|\| leftAPhase \|\| leftADay/,
+    'the already-on-this-view return does not redraw after the day is cleared');
+  assert.match(body, /var leftADay = \(view==='week'/,
+    'nothing records that a day was cleared, so the redraw cannot be conditional');
+
+  /* SWIPING COMES THROUGH THE SAME DOOR, which is the whole reason one
+     change answers the gesture the founder described AND the tab tap. If
+     the pager ever stops calling handleSetView, this reset silently stops
+     applying to swipes and nothing else would say so. */
+  const commit = fn('pagerFinish');
+  assert.match(commit, /handleSetView\(/,
+    'the pager no longer routes through handleSetView, so swiping skips every arrival reset');
+  assert.ok(typeof a.weekSelectedDay === 'function', 'the fallback-to-today reader is gone');
+});
+
 test('the swipe order IS the bottom nav order, taken from the same five keys', () => {
   // A second ordering of the tabs would be a second answer to "what is next
   // to what", and the two would drift. The nav is the source.

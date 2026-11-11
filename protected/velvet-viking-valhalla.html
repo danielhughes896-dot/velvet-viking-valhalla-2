@@ -849,11 +849,19 @@
      stays crisp through the whole cycle. This is what the session ring on
      Today already does; .th-arc is the arc alone and .th-ring-in sits beside
      it, which is why that ring's centre never showed this. */
+  /* ---------- ONE GLOW, NOT A HAZE ----------
+     Founder: "The haze from the glow isnt the best anymore. Should it just
+     be the ring cherry that glows without the haze?"
+     Three stacked drop-shadows at 13, 34 and 58px made a wash that read as
+     light on the screen rather than light off the ring. It was right while
+     the gauge stood alone above a block name with empty space around it;
+     the gauge is one of five circles now, at the same diameter, and a 58px
+     bloom reaches into the two beneath it. The four reading circles glow at
+     9 and 24px from their own rims, so one tight shadow is also what puts
+     this instrument in the same family as its row. */
   .gauge-wrap > svg{
     display:block;
-    filter:drop-shadow(0 0 13px rgba(154,84,108,.78))
-           drop-shadow(0 0 34px rgba(154,84,108,.46))
-           drop-shadow(0 0 58px rgba(154,84,108,.30));}
+    filter:drop-shadow(0 0 11px rgba(154,84,108,.80));}
   /* ---------- VALHALLA TAKES THE SAME RULES ----------
      The instruments stay and the containers go. Every circle on this screen
      -- the gauge, the Reading badges, the Athlete Status dials -- is a
@@ -2255,13 +2263,14 @@
                     drop-shadow(0 0 26px rgba(154,84,108,.90))
                     drop-shadow(0 0 40px rgba(154,84,108,.78)); }
   }
+  /* THE BREATH SURVIVES THE HAZE. Both ends carried the same three stacked
+     shadows as the static rule, and the 50% frame drove the two wide ones
+     to full opacity -- which is precisely the wash the founder is seeing,
+     arriving once every 3.6 seconds. One shadow, and the pulse is now a
+     change in the ring's own light rather than a cloud around it. */
   @keyframes vv-glow-gauge{
-    0%,100%{ filter:drop-shadow(0 0 13px rgba(154,84,108,.78))
-                    drop-shadow(0 0 34px rgba(154,84,108,.46))
-                    drop-shadow(0 0 58px rgba(154,84,108,.30)); }
-    50%    { filter:drop-shadow(0 0 13px rgba(154,84,108,1))
-                    drop-shadow(0 0 34px rgba(154,84,108,1))
-                    drop-shadow(0 0 58px rgba(154,84,108,.98)); }
+    0%,100%{ filter:drop-shadow(0 0 11px rgba(154,84,108,.80)); }
+    50%    { filter:drop-shadow(0 0 14px rgba(154,84,108,1)); }
   }
   /* The week bar takes the same treatment as the two rings. It is a
      box-shadow rather than a filter, so it was never rasterising a subtree
@@ -3596,7 +3605,20 @@
   .pe{position:relative; min-height:100vh; display:grid;
     grid-template-rows:1fr 1fr 1fr; justify-items:center; text-align:center;
     padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 36px;}
-  .pe > .pe-mountains{grid-row:1 / -1; grid-column:1;}
+  /* NO GRID PLACEMENT ON THE PHOTOGRAPH, AND THAT IS NOT A TIDY-UP.
+     .pe > .pe-mountains{grid-row:1 / -1; grid-column:1} stood here, added
+     when this became a three-row grid to stop the photograph taking a row.
+     It never could: it is position:absolute and absolutely positioned
+     children do not participate in grid flow at all. What the rule DID do
+     is give it a grid AREA, and for an absolutely positioned grid child the
+     grid area becomes the containing block -- so top:0 stopped meaning the
+     top of the screen and started meaning the top of the content box, below
+     the 18px padding. Measured: the photograph sat at x=9, y=18 and ran off
+     the right edge to 421. Without the rule the containing block is .pe's
+     padding box again and the image is full-bleed, which is what it was
+     before the thirds and what it should be.
+     Founder: "a slight inset around the mountain image ... whether the
+     background should reach the screen edges." It should. */
   .pe-brand, .pe-athlete, .pe-foot{grid-column:1; width:100%;
     display:flex; flex-direction:column; align-items:center;
     justify-content:center;}
@@ -6735,7 +6757,16 @@
      it, which pushed that one gap to 27 and made it the odd one out: a 2px
      mark under one of seven circles is not the edge the eye measures from.
      It sits inside the gap with 9px still clear beneath it. */
-  .view-week{display:flex; flex-direction:column; gap:var(--wk-gap); padding-top:26px;}
+  /* ---- THIS WEEK MOVES WITH FULL PLAN, AND THAT IS THE LAW ----
+     The founder's note was about Full Plan: "quite a lot of vertical space
+     between the header and programme information." The cause is the header
+     itself, which went from 69px to 83px when it became the two-line
+     VALHALLA mark -- and that lands on this tab exactly as hard.
+     planSurface pins these two declarations to each other on purpose: when
+     they differed, "two tabs of one app felt like two apps". So tightening
+     one and not the other is not an option the product has, and both give
+     back the 14px the bar took. --wk-gap is untouched on both. */
+  .view-week{display:flex; flex-direction:column; gap:var(--wk-gap); padding-top:12px;}
   .view-week{--wk-gap:18px;}
 
   /* ---- BOX 1: the week ---- */
@@ -7157,7 +7188,19 @@
      beside it, which is what made the two screens feel like two apps. The
      negative margins that used to pull the stepper back up go with it: they
      were compensating for a gap that is now the right size. */
-  .view-plan{display:flex; flex-direction:column; gap:var(--wk-gap); padding-top:26px;}
+  /* ---------- THE OPENING GAP GIVES BACK WHAT THE HEADER TOOK ----------
+     Founder: "There's quite a lot of vertical space between the header and
+     programme information. It might be worth tightening."
+     MEASURED AT 412, AND THE CAUSE IS THE BAR ABOVE IT. The header was a
+     one-line wordmark and is a two-line mark now -- VALHALLA over BY VELVET
+     VIKING -- which took it from 69px to 83px. That 14px lands on every
+     screen, and here it sat on top of a 26px opening gap that was chosen
+     against the shorter bar: 109px of nothing before the block's own name.
+     12 gives the 14 back and leaves the rhythm this view was designed with
+     otherwise intact -- --wk-gap, which spaces the blocks BELOW the hero, is
+     deliberately untouched, because the founder's note is about the top of
+     the screen and not about how the page breathes further down. */
+  .view-plan{display:flex; flex-direction:column; gap:var(--wk-gap); padding-top:12px;}
   .view-plan{--wk-gap:18px;}
   /* The carousel is the hero's own footnote -- the shape of the block the
      hero is reporting on -- so it sits closer to it than the sections do,
@@ -9612,6 +9655,14 @@
   .modal-card.rp-cherry{--rp-accent:var(--cherry);}
   .modal-card.rp-white{--rp-accent:var(--ink);}
   .modal-card.rp-blue{--rp-accent:var(--z-mp);}
+  /* ---- RECOVERY'S PANEL FOLLOWS RECOVERY'S CIRCLE ----
+     The six colours were locked on the founder's list -- "Recovery ->
+     Cyan/light blue" -- and READING_ACCENT moved. PANEL_ACCENT_CLASS did
+     not: it still said rp-gold, and there was no cyan class to point it at.
+     So the one instrument whose colour changed opened a panel rimmed in the
+     colour it had just left, which is the circle's identity contradicted by
+     the screen behind it. */
+  .modal-card.rp-cyan{--rp-accent:var(--cyan);}
   .hq-panel .modal-head{border-bottom:0; padding-bottom:4px;}
   .hq-panel .modal-head h2{font-size:21px; letter-spacing:1.6px; color:#FFFFFF;}
   .hq-panel .icon-btn{border:1.5px solid color-mix(in srgb, var(--rp-accent) 70%, transparent);
@@ -9656,7 +9707,25 @@
   .rp-rows{display:block; margin-top:2px;}
   .rp-rows .hq-row{padding:11px 0;}
   .rp-rows .hq-row:last-child{border-bottom:0;}
-  .hq-row-i{flex:none; display:inline-flex; width:17px; height:17px; color:var(--gold-text);}
+  /* ---------- ONE COLOUR PER PANEL, AND IT IS THE PANEL'S OWN ----------
+     Founder, on the screens behind the circles: "Should the titles be the
+     same colour as the circle and box?" The titles should not -- the rim,
+     the close button and the hero ring already carry the identity, and a
+     title naming the panel is information, which is white under the
+     founder's own rule. What WAS wrong is everything between them: the
+     section headings were bronze and these glyphs were gold on every panel,
+     so eight panels of five different identities all wore the same third
+     accent that belonged to none of them.
+     THE RULE WAS ALREADY HALF-WRITTEN HERE. .sec-rule-line -- the line
+     beside each section heading -- has always read
+     var(--rp-accent, var(--gold-text)). The glyphs now read the same thing,
+     so the line and the icon beside it agree, and a panel says its colour
+     once: rim, close, hero ring, section rule, row glyph.
+     THE FALLBACK IS WHY THIS IS SAFE OUTSIDE A PANEL. --rp-accent is
+     declared only on .modal-card.hq-panel, so every other surface that uses
+     .hq-row-i resolves to --gold-text exactly as before. */
+  .hq-row-i{flex:none; display:inline-flex; width:17px; height:17px;
+    color:var(--rp-accent, var(--gold-text));}
   .hq-row-i svg{width:17px; height:17px;}
   .hq-row-i:empty{display:inline-block;}
   /* CRISP WHITE, BOTH SIDES. A label and its figure are the two halves of
@@ -9679,7 +9748,16 @@
      functions that know nothing about this -- picks it up. The Reading
      panels build theirs through sectionRule(), which carries its own line,
      so that one opts out below rather than drawing two. */
-  .hq-panel .setup-section-title{display:flex; align-items:center; gap:12px; margin:20px 0 6px;}
+  /* WHITE, AND ON THIS RULE RATHER THAN A SECOND ONE. A section heading
+     inside a panel is information, and the panel already says its identity
+     five other ways -- rim, close button, hero ring, section rule, row
+     glyph. Set here because this selector already exists: a sheet this size
+     does not need two rules for one selector, and the first attempt put the
+     colour in a second rule further down, where a law looking for
+     `.hq-panel .setup-section-title{` found the layout one and reported the
+     heading still bronze. */
+  .hq-panel .setup-section-title{display:flex; align-items:center; gap:12px;
+    margin:20px 0 6px; color:#FFFFFF;}
   .hq-panel .setup-section-title::after{
     content:''; flex:1 1 0; min-width:0; height:1px; opacity:.85;
     background:linear-gradient(to right,
@@ -9798,12 +9876,32 @@
      one at a time. .bld-panel below does it by scope; this is for the ones
      that are a single heading rather than a whole screen. */
   .setup-section-title.is-white{color:var(--ink);}
+  /* A panel's own headings are white too -- declared on the rule that
+     already styles them, further up, rather than as a second rule for the
+     same selector. */
   /* INSIDE THE BUILDER THEY ARE WHITE. Bronze is the eyebrow colour the
      other 54 uses of this class wear and keep; a build stage already has a
      gold-free palette (cherry chooses, white states) and a bronze eyebrow
      in it read as a third accent with no job. Scoped to .bld-panel rather
      than .builder-light so Settings and Re-calibrate are untouched. */
   .bld-panel .setup-section-title{color:var(--ink);}
+  /* ---------- AND THE WHOLE BUILDER IS WHITE ----------
+     Founder: "The build 11 pages. Change all text to white. Make sure the
+     titles and text in the circles and boxes are the same throughout the
+     app."
+     --ink is #F4F1EA, a warm cream that is right across a product whose
+     surfaces are warm, and the builder is eleven dark panels. Re-pointed on
+     the scope rather than overridden element by element -- the same move
+     the Coach page takes, which is what makes the two agree. Every stage
+     title, option tile, field label and body line reads it already, so they
+     all come white without a single new selector, and the twelfth stage
+     someone adds inherits the decision.
+     THE HINTS KEEP THEIR PLACE. --ink-faint going white promoted every
+     field hint to the weight of the label above it; they keep the colour
+     the founder asked for and give the difference back in opacity, exactly
+     as the Coach page's one hint does. */
+  .bld-panel{--ink:#FFFFFF; --ink-dim:#FFFFFF; --ink-faint:#FFFFFF;}
+  .bld-panel .field-hint{opacity:.62;}
   /* ---------- A SECTION TITLE WITH A RULE EITHER SIDE ----------
      The heading is .setup-section-title exactly as it is everywhere else --
      same Oswald, same 11px, same 1.5px tracking, same uppercase, same bronze
@@ -64095,7 +64193,7 @@ var openRecordPanelKey = null;
    are the ones the circles themselves are drawn from, so a panel cannot wear
    a colour its own circle does not. */
 var PANEL_ACCENT_CLASS = {
-  recovery:'rp-gold', evolution:'rp-green', readiness:'rp-cherry',
+  recovery:'rp-cyan', evolution:'rp-green', readiness:'rp-cherry',
   patterns:'rp-white', adaptation:'rp-blue',
   goal:'rp-gold', fitness:'rp-cherry', benchmark:'rp-white', progress:'rp-gold'
 };
@@ -65546,10 +65644,30 @@ function handleSetView(view){
      what "opening full plan" means. */
   var leftAPhase = (view==='full' && planPhaseSel !== null);
   if (view==='full'){ planSessionOpen = null; planWeekOpen = null; planPhaseSel = null; }
+  /* ---------- AND THIS WEEK RETURNS TO TODAY ----------
+     Founder: "This week. When I swipe between nav screens - it should
+     default back to today."
+     The same doorway and the same argument as the phase carousel directly
+     above. weekSelectedDate latches the moment an athlete taps a day and
+     nothing cleared it, so glancing at Friday, leaving the tab and coming
+     back re-opened on Friday -- the screen remembering a glance as though
+     it were a choice.
+     NULL IS NOT A SPECIAL CASE. weekSelectedDay() already falls back to
+     today's day when nothing is selected, so clearing the latch IS the
+     default rather than a second rule about what the default should be.
+     THE OPEN CARD GOES WITH IT. weekSessionOpen says whether the selected
+     day's full card is showing; left true, the tab would reopen on today
+     with a card expanded -- neither where the athlete left it nor the
+     default they asked for.
+     SWIPING COMES THROUGH HERE, which is why one doorway answers the
+     gesture the founder described and the tab tap as well: the pager calls
+     handleSetView() (see pagerFinish). */
+  var leftADay = (view==='week' && (weekSelectedDate !== null || weekSessionOpen));
+  if (view==='week'){ weekSelectedDate = null; weekSessionOpen = false; }
   if (state.view===view){
     /* ...unless clearing those just changed what 'full' draws. A re-tap
        that changed nothing stays the no-op every other tab is. */
-    if (leftASubScreen || leftAPhase) renderApp();
+    if (leftASubScreen || leftAPhase || leftADay) renderApp();
     /* Re-tapping VALHALLA used to return from Coach or Record to the
        overview. There is no Coach or Record to return from, so this is a
        no-op again, exactly like every other tab. */

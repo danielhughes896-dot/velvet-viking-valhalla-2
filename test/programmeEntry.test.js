@@ -171,6 +171,22 @@ test('S5. the photograph is sized, not covered, so the lit sky can be placed', (
   const peRoot = new RegExp('\\n\\s*\\.pe\\{([^}]*)\\}').exec(CSS)[1];
   assert.match(peRoot, /grid-template-rows:1fr 1fr 1fr/,
     'the splash is no longer three equal thirds');
+  /* ---- AND THE PHOTOGRAPH TAKES NO GRID PLACEMENT ----
+     Founder: "a slight inset around the mountain image ... whether the
+     background should reach the screen edges."
+     It should, and a single defensive rule took it away. .pe-mountains is
+     position:absolute, so it never participated in grid flow and never
+     needed placing -- but giving it a grid-row made the GRID AREA its
+     containing block, and top:0 stopped meaning the top of the screen and
+     started meaning the top of the content box, inside the 18px padding.
+     Measured at 412: the image sat at x=9, y=18 and ran off the right edge
+     to 421. Nothing may place it. */
+  assert.doesNotMatch(CSS, /\.pe > \.pe-mountains\{/,
+    'the photograph has been given a grid area again, which insets it by the padding');
+  const mt = new RegExp('\\n\\s*\\.pe-mountains\\{([^}]*)\\}').exec(CSS)[1];
+  assert.match(mt, /position:absolute/, 'the photograph is in flow, so it cannot full-bleed');
+  assert.match(mt, /width:100vw/, 'the photograph is no longer the width of the screen');
+  assert.match(mt, /top:0/, 'the photograph no longer starts at the top of the screen');
   const hello = new RegExp('\\n\\s*\\.pe-hello\\{([^}]*)\\}').exec(CSS)[1];
   assert.doesNotMatch(hello, /margin:clamp/,
     'the hand-set gap is back, fighting the third that now reserves it');
