@@ -4790,54 +4790,16 @@
   /* ---------- tune-up checkpoint card ---------- */
   /* .checkpoint{...} removed with the Full Plan panel it styled.
      .checkpoint-banner above is a DIFFERENT control (Plan HQ) and stays. */
-  .goal-options{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
-  /* ---------- A GOAL IS CHOSEN THE WAY A VIEW IS CHOSEN ----------
-     This was a raised tile -- border, sheen fill, drop shadow -- sitting
-     inside the Goal panel's own card: an object on an object, which is the
-     one thing the card pass took out everywhere else. It is a choice
-     between three named things, which is what the bottom nav is, so it
-     takes the bottom nav's law instead of a tile's: no box at all, the
-     label crisp white at rest, and the chosen one LIT rather than filled.
-
-     Both lights are borrowed rather than invented. The letter takes
-     .bn-item.active's four-layer gold illumination unchanged. Behind it
-     sits the coaching rail's radial pool (.how-mod::before) -- the same
-     "lit, not boxed" treatment the Why and Execution panels wear on a
-     focused session. */
-  .goal-opt{
-    position:relative; background:none; border:0; box-shadow:none;
-    border-radius:var(--tile-radius);
-    padding:10px 16px; text-align:center; min-width:88px;
-    transition:color .2s, text-shadow .2s;
-  }
-  /* The pool is painted UNDER the content rather than as the element's own
-     background, so its falloff may overspill the padding box without the
-     text ever sitting on an edge. Both radii stay under 50%: a radial's
-     ending-shape percentages are relative to the BOX, not the half-box, so
-     anything larger is still carrying colour when it reaches the edge and
-     the browser cuts it into a visible rounded rectangle. Same arithmetic
-     and the same stops as .how-mod::before. */
-  .goal-opt::before{
-    content:''; position:absolute; inset:0; border-radius:inherit;
-    pointer-events:none; z-index:0;
-    background:radial-gradient(48% 46% at 50% 46%,
-      rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
-    opacity:0; transition:opacity .34s ease;
-  }
-  .goal-opt > *{position:relative; z-index:1;}
-  /* CRISP MEANS THE TIGHT LAYER DOES THE WORK -- pure white at full
-     strength, a 1px halo to set the glyph off the ground, then one wide
-     layer. .bn-item's structure, radii scaled from 8.5px type up to 16px. */
-  .goal-opt .t{font-family:var(--num-face); font-weight:700; font-size:16px; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);}
-  .goal-opt .p{font-size:10px; color:var(--ink-faint); margin-top:2px;}
-  .goal-opt.active::before{opacity:1;}
-  .goal-opt.active .t{color:var(--gold-bright);
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
-  .goal-opt.active .p{color:var(--gold-text);}
-  .goal-opt:hover:not(.active)::before{opacity:.38;}
-  .goal-opt:active{transform:scale(.95);}
+  /* .goal-options and .goal-opt had forty lines here: a boxless letter, a
+     gold radial pool under the chosen one and a four-layer gold glow on its
+     glyph. The control is drawn with the builder's .opt-grid now -- see
+     renderGoalButtons() -- so those rules would be fighting the tiles it
+     has become. What is left is what a tile with two lines needs: the
+     letter over its time, and room under them for the builder's tick. */
+  .goal-options{margin-top:10px;}
+  .goal-options.opt-grid .goal-opt{flex-direction:column; min-height:96px; padding:14px 4px; cursor:pointer;}
+  .goal-options.opt-grid .goal-opt .t{font-size:20px; line-height:1.1;}
+  .goal-options.opt-grid .goal-opt .sub{margin-top:4px;}
 
   /* ---------- buttons ---------- */
   .btn{
@@ -6521,7 +6483,12 @@
      which is the only ordering a pair of actions needs. */
   .share-actions .btn-primary,
   .share-actions .btn-ghost{color:var(--gold); text-shadow:none;}
-  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
+  /* opacity:.65 stood on every form label in the product, which made each
+     one a grey. Founder: "The grey text I'm not keen on. I think white text
+     is best ... Space needs to do the talking." -- and the builder page in
+     the next screenshot still had them. A label is told from its field by
+     being small capitals above it. */
+  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); margin-bottom:5px;}
   /* .goal-input-row is listed alongside .field because a goal time entry is a
      field like any other, and it is not always inside one -- the builder wraps
      its three rows in #f-goals, Re-calibrate emits them bare. Left unlisted it
@@ -10178,8 +10145,9 @@
   .hq-full .pzr-input{font-size:16px;}
   .hq-full .pzr-sep, .hq-full .pzr-unit{font-size:14px;}
   .hq-full .pzr-unit{width:26px;}
-  .hq-full .goal-opt .t{font-size:22px;}
-  .hq-full .goal-opt .p{font-size:14px; margin-top:4px;}
+  .hq-full .goal-options.opt-grid .goal-opt .t{font-size:24px;}
+  .hq-full .goal-options.opt-grid .goal-opt .sub{font-size:15px; margin-top:6px;}
+  .hq-full .goal-options.opt-grid .goal-opt{min-height:112px;}
 
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
@@ -10308,7 +10276,8 @@
      the founder asked for and give the difference back in opacity, exactly
      as the Coach page's one hint does. */
   .bld-panel{--ink:#FFFFFF; --ink-dim:#FFFFFF; --ink-faint:#FFFFFF;}
-  .bld-panel .field-hint{opacity:.62;}
+  /* .bld-panel .field-hint{opacity:.62} stood here: the builder's helper
+     lines, greyed. Same instruction, same answer as the panels'. */
   /* ---------- A SECTION TITLE WITH A RULE EITHER SIDE ----------
      The heading is .setup-section-title exactly as it is everywhere else --
      same Oswald, same 11px, same 1.5px tracking, same uppercase, same bronze
@@ -29712,8 +29681,38 @@ function getDayTargets(dd){
   // even on an untrusted-identity day, exactly as it would be for a genuine
   // marathon-pace segment.
   if (dd.mpSegment){
-    var gp2 = getGoalPaceSecPerKm();
-    if (gp2) out.goalPace = 'Goal '+fmtPaceFromSecPerKm(gp2);
+    /* ---------- THE RING SAYS WHAT THE SESSION ASKS FOR ----------
+       This printed the raw goal -- goal time over race distance -- on every
+       training day with a goal-pace section. The section itself is
+       prescribed by racePacePrescription(), which only asks for literal
+       goal pace when current fitness is within 2% of it; further off it
+       asks for the midpoint, or for current-fitness race effort. So the
+       ring said "Goal 4:46/km" over a stage prescribed, and scored, at
+       4:50-4:55.
+       It went unnoticed while the Coach's Note listed the stage's own band
+       beside it. With the stages on cards, which carry no pace, the ring
+       became the only figure on the screen for that section -- and it was
+       the one number the session does not ask for. Found while checking
+       paces for the founder: "Interesting finding on the pacing. Please
+       check which one is right." The stage is.
+       THE SAME BAND THE STAGE READS, formatted by the same function, so the
+       two cannot disagree again. It is a single figure whenever the
+       prescription is the goal itself.
+       RACE DAY KEEPS THE GOAL, AND HAS TO BE NAMED. A race carries
+       mpSegment too, so without this branch goal day's own line became the
+       training band -- the first render after the change printed "Goal
+       4:50-4:55/km" under a race, which is the one day the goal is the
+       instruction. The rule governs what is prescribed in TRAINING. */
+    var gBand = null;
+    if (dd.type !== 'race'){
+      try { gBand = strategyPaceBand('goal_pace'); } catch(e) { gBand = null; }
+    }
+    var gText = gBand ? fmtStrategyPace(gBand, null) : null;
+    if (!gText){
+      var gp2 = getGoalPaceSecPerKm();
+      if (gp2) gText = fmtPaceFromSecPerKm(gp2);
+    }
+    if (gText) out.goalPace = 'Goal '+gText;
   }
   return out;
 }
@@ -30033,11 +30032,26 @@ function renderGoalButtons(){
     var active = state.setup.activeGoal===k ? ' active' : '';
     // The goal time is the meaningful, athlete-facing number here; no internal
     // score is shown alongside it (see HQ's customer-facing VDOT removal).
-    return '<button type="button" class="goal-opt'+active+'" data-action="set-goal" data-goal="'+k+'">'+
-      '<div class="t font-mono">'+k+'</div><div class="p font-mono">'+secToClock(g.timeSec)+'</div>'+
+    /* ---------- THE BUILDER'S TILE, NOT A GLOW OF ITS OWN ----------
+       Founder, with the Goal panel beside a builder page: "The selection of
+       A B or C should be the same as build a plan! Not the old gold hazey
+       glow haha". These were boxless letters with a gold radial pool behind
+       the chosen one. They are .opt-grid buttons now -- the same ground,
+       rim and radius as the builder's 0-7 day squares, the same cherry line
+       and cherry tick for the chosen one -- because the markup is the
+       builder's and there is no second rule to keep in step. The time is
+       the tile's sub-line. aria-pressed says the choice to a screen reader,
+       which the glow never did. */
+    return '<button type="button" class="goal-opt'+active+'" aria-pressed="'+(active ? 'true' : 'false')+'"'+
+      ' data-action="set-goal" data-goal="'+k+'">'+
+      '<span class="t">'+k+'</span><span class="sub font-mono">'+secToClock(g.timeSec)+'</span>'+
       '</button>';
-  }).join('');
-  return '<div class="goal-options">'+opts+'</div>';
+  });
+  var shown = opts.filter(function(o){ return !!o; });
+  /* One column per goal the athlete has set, so one goal is one full tile
+     rather than a third of a row with two holes beside it. */
+  return '<div class="goal-options opt-grid cols-3" style="grid-template-columns:repeat('+
+    Math.max(1, shown.length)+',1fr);">'+shown.join('')+'</div>';
 }
 function renderGoalToggle(){
   if (!state.setup || !state.setup.goals) return '';

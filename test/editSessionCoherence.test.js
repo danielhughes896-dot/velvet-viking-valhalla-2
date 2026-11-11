@@ -167,13 +167,27 @@ test('3. materially contradictory custom prescription cannot retain stale Easy g
   const targets = a.getDayTargets(after);
   assert.equal(targets.pace, null, 'no stale Easy-zone pace target');
   assert.equal(targets.hr, null, 'no stale Easy-zone HR target');
-  // The athlete's own goal race pace is not a type-zone lookup and survives.
-  assert.equal(targets.goalPace, 'Goal ' + a.fmtPaceFromSecPerKm(a.getGoalPaceSecPerKm()));
+  // The goal-pace line is not a type-zone lookup and survives.
+  /* WHAT IT SAYS CHANGED SIDES. It was the raw goal: goal time over race
+     distance. On a training day the goal-pace work is prescribed by
+     racePacePrescription(), which asks for literal goal pace only when
+     current fitness is within 2% of it -- so the ring read "Goal 4:22/km"
+     over a stage prescribed and scored at 4:26-4:30. Found checking paces
+     for the founder: "Interesting finding on the pacing. Please check which
+     one is right." The stage is, so the line is the stage's own band,
+     through the same formatter. */
+  assert.equal(targets.goalPace, 'Goal ' + a.fmtStrategyPace(a.strategyPaceBand('goal_pace'), null));
   // renderDayCard() renders getDayTargets() verbatim into .day-targets, so a
   // pace RANGE (the only "–"-joined figure getDayTargets ever produces) can
   // only appear there if the Easy zone leaked back in.
   const cardTargets = (a.renderDayCard(after).match(/class="day-targets">([\s\S]*?)<\/div>/) || [])[1] || '';
-  assert.doesNotMatch(cardTargets, /\d:\d\d\u2013\d:\d\d/, 'no pace band may appear in the card\'s target line');
+  /* "The only range getDayTargets ever produces" is no longer true: the
+     goal-pace line is a band whenever the prescription is not the goal
+     itself. That line is the one thing allowed to be a range here, so it is
+     taken out by its own class before asking the question this is for --
+     did the Easy zone leak back in. */
+  const zoneTargets = cardTargets.replace(/<span class="mp">[\s\S]*?<\/span>/g, '');
+  assert.doesNotMatch(zoneTargets, /\d:\d\d\u2013\d:\d\d/, 'no pace band may appear in the card\'s target line');
   // And the daily notification body, which reads the same function.
   after.date = a.todayStr();
   a.state.days = [after];

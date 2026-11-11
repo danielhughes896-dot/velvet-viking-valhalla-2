@@ -126,3 +126,44 @@ test('no box inside the page, the builder’s buttons, and the dot in the panel�
   assert.match(bodyOf('.hq-panel .read-val .read-dot'), /background:var\(--rp-accent\)/,
     'the status dot wears the reading’s tone rather than the panel’s colour');
 });
+
+/* ---- THE SECOND LAYER, WHICH THE FIRST SWEEP DID NOT OPEN ----
+   Form labels and the builder's helper lines were greyed by opacity rather
+   than by a token, inside modals the first-layer audit never visited. The
+   founder's next screenshot was a builder page with both still grey. */
+test('form labels and the builder\u2019s helper lines are not dimmed', () => {
+  assert.doesNotMatch(bodyOf('.field label'), /opacity:\s*\.\d/, 'every form label is a grey again');
+  assert.ok(!RULES.some(r => /\.bld-panel \.field-hint$/.test(r[0]) && /opacity:\s*\.\d/.test(r[1])),
+    'the builder\u2019s helper lines are dimmed again');
+});
+
+test('the goal is chosen on the builder\u2019s tiles, not under a gold glow', () => {
+  /* "The selection of A B or C should be the same as build a plan! Not the
+     old gold hazey glow haha" */
+  const { loadApp } = require('./harness.js');
+  const { buildPlan } = require('./fixtures.js');
+  const a = loadApp();
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { distanceKey: 'full', volume: 55, weeks: 14 });
+  a.state.setup.goals = { A: { timeSec: 12000 }, B: { timeSec: 12600 }, C: { timeSec: 13200 } };
+  a.state.setup.activeGoal = 'B';
+  const html = a.renderGoalButtons();
+  assert.match(html, /^<div class="goal-options opt-grid cols-3" style="grid-template-columns:repeat\(3,1fr\);">/,
+    'the three goals are not laid out on the builder\u2019s grid');
+  const tiles = html.match(/<button[^>]*>/g) || [];
+  assert.equal(tiles.length, 3);
+  assert.equal(tiles.filter(t => /class="goal-opt active"/.test(t)).length, 1, 'exactly one goal is chosen');
+  assert.match(html, /class="goal-opt active" aria-pressed="true" data-action="set-goal" data-goal="B"/,
+    'the chosen goal is not marked the way the builder marks a choice');
+  assert.equal((html.match(/aria-pressed="false"/g) || []).length, 2);
+  /* the time rides as the tile's sub-line, and every goal still shows its own */
+  ['3:20:00', '3:30:00', '3:40:00'].forEach(t =>
+    assert.ok(html.indexOf('<span class="sub font-mono">' + t + '</span>') > -1, 'the goal time ' + t + ' is not on its tile'));
+  /* one goal is one tile, not a third of a row */
+  a.state.setup.goals = { A: { timeSec: 12000 } }; a.state.setup.activeGoal = 'A';
+  assert.match(a.renderGoalButtons(), /grid-template-columns:repeat\(1,1fr\)/);
+  /* and the tap still does what it did */
+  assert.match(html, /data-action="set-goal" data-goal="C"/);
+  assert.equal(CSS.indexOf('.goal-opt.active'), -1, 'the goal selector has a chosen style of its own');
+  assert.doesNotMatch(CSS, /\.goal-opt[^{]*\{[^}]*(227,177,90|245,208,97)/, 'the gold glow is back on the goal selector');
+});

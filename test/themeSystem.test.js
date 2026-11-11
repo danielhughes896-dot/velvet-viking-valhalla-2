@@ -280,16 +280,20 @@ test('fills that carry state or semantics were not flattened', () => {
      what must not happen is the SELECTION vanishing with the fill. Three
      things carry it now, and all three are asserted, because any one of
      them surviving alone would still read as a bug. */
-  assert.doesNotMatch(RUNTIME, /\.goal-opt\{[^}]*background:var\(--tile-sheen\)/,
-    '.goal-opt is a raised tile again -- the fill came back');
-  assert.match(RUNTIME, /\.goal-opt\.active::before\{opacity:1;\}/,
-    '.goal-opt.active lost its pool -- the lit selection was deleted, not moved');
-  assert.match(RUNTIME, /\.goal-opt\.active \.t\{color:var\(--gold-bright\);/,
-    '.goal-opt.active no longer lights its letter gold');
-  assert.match(RUNTIME, /\.goal-opt\.active \.t\{[^}]*text-shadow:[^}]*rgba\(245,208,97/,
-    '.goal-opt.active lost the four-layer illumination it borrows from .bn-item.active');
-  /* The resting letter is the nav's crisp white, not --ink: at rest these
-     have to read as the same kind of thing the nav tabs are. */
-  assert.match(RUNTIME, /\.goal-opt \.t\{[^}]*color:#FFFFFF;/,
-    '.goal-opt at rest is no longer the nav\'s crisp white');
+  /* ---- CHANGED SIDES: IT IS THE BUILDER'S TILE, AND THE GLOW IS GONE ----
+     The four assertions here held the boxless letter and its gold pool and
+     four-layer glow. Founder, with the Goal panel beside a builder page:
+     "The selection of A B or C should be the same as build a plan! Not the
+     old gold hazey glow haha". What this block exists to protect has not
+     changed -- the SELECTION must not vanish -- so it asks for the thing
+     that carries it now: the builder's own grid, and its own chosen state. */
+  const CSSONLY = RUNTIME.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/\.goal-opt(\.active)?(::before| \.t)?\{[^}]*(245,208,97|227,177,90|--gold)/.test(CSSONLY),
+    'the goal selector has a gold light of its own again');
+  assert.equal(CSSONLY.indexOf('.goal-opt.active'), -1,
+    'the goal selector has a chosen style of its own instead of the builder\'s');
+  assert.match(RUNTIME, /'<div class="goal-options opt-grid cols-3"/,
+    'the goal selector is not drawn with the builder\'s option grid');
+  assert.match(CSSONLY, /\.opt-grid button\.active\{[^}]*border-color:var\(--cherry\)/,
+    'the builder\'s chosen tile lost its cherry line, so the goal has no selection either');
 });
