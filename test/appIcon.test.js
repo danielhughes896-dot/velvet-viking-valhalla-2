@@ -105,25 +105,6 @@ function pngPixels(file){
   return { w: w, h: h, ch: ch, px: px };
 }
 
-/* The bounding box of everything that is not the black ground. The artwork is
-   gold on black, so anything appreciably above black is ink. */
-function inkBox(img){
-  let x0 = img.w, y0 = img.h, x1 = -1, y1 = -1;
-  for (let y = 0; y < img.h; y++){
-    for (let x = 0; x < img.w; x++){
-      const i = y * img.w * img.ch + x * img.ch;
-      if (img.ch === 4 && img.px[i + 3] < 8) continue;
-      if (Math.max(img.px[i], img.px[i + 1], img.px[i + 2]) <= 24) continue;
-      if (x < x0) x0 = x;
-      if (x > x1) x1 = x;
-      if (y < y0) y0 = y;
-      if (y > y1) y1 = y;
-    }
-  }
-  assert.ok(x1 >= 0, 'the image is entirely black -- there is no mark in it');
-  return { x0: x0, y0: y0, x1: x1, y1: y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-}
-
 // ---------------------------------------------------------------------------
 // 1. EVERY DECLARED ICON IS A FILE THAT EXISTS
 // ---------------------------------------------------------------------------
@@ -247,77 +228,152 @@ test('the adaptive icon still declares the inset the safe-zone sum assumes', () 
 // ---------------------------------------------------------------------------
 // 4. THE MARK SURVIVES THE LAUNCHER'S MASK
 // ---------------------------------------------------------------------------
-/* Android's arithmetic, written out once.
+/* ---- THIS SECTION CHANGED SIDES WITH THE ICON ----
+ * It was written for a gold ring on flat black, where "the mark" was simply
+ * everything that was not black. Founder, shown a new icon -- a serif S between
+ * two gold dots on a dark tile, with the rest of the name under it: "I prefer
+ * that for the app icon", and of the small line beneath: "But use ACORO AT THE
+ * BOTTOM."
+ * That icon has a lit surface, so "not black" is the whole tile and the old
+ * measure passed by accident while measuring nothing. What can be cut off by a
+ * launcher is the CONTENT -- the S, the dots and the line of type -- and that
+ * is what is measured now: everything bright enough to be ink.
+ *
+ * Android's arithmetic, written out once.
  *
  *   The adaptive layer is 108dp. The XML insets the foreground by 16.7% a side,
  *   so the artwork is drawn into the middle 72dp. The launcher then masks the
- *   result: 72dp is the largest any mask can be, and 66dp is the circle every
- *   mask is guaranteed to contain -- the safe zone.
+ *   result: 72dp is the largest any mask can be, and a 66dp circle is the part
+ *   every mask is guaranteed to keep -- the safe zone.
  *
- *   So artwork occupying a fraction f of the foreground file ends up 72*f dp
- *   across, and must be no wider than 66dp to survive every launcher:
+ *   So a point r pixels from the centre of a W-pixel foreground file ends up
+ *   72 * r / W dp from the centre of the icon, and survives every launcher
+ *   only if that is no more than 33dp:
  *
- *       72 * f <= 66   ->   f <= 0.9167
+ *       r / W <= 33 / 72 = 0.4583
  *
- *   The floor is taste rather than geometry: below about 0.70 the mark is a
- *   dot in a black tile.
+ *   WHY THE FOREGROUND IS DRAWN AT 92%, AND WHY THE LAW ASKS FOR A MARGIN.
+ *   Measured, not reasoned: at full size the furthest ink -- the ends of the
+ *   ACORO line -- sits 32.0dp from the centre. That is inside the 33dp edge,
+ *   by one dp, which is true on paper and nothing to spare against a launcher
+ *   that draws its mask a pixel tight or a re-export that sets the type a
+ *   point larger. The foreground is the same picture at 92%, set on a soft
+ *   blur of its own surface so the border it leaves is a continuation of the
+ *   tile rather than a frame around it -- carrying the edge pixels outward
+ *   was tried first and drew hard streaks under a round mask. It measures
+ *   29.4dp. So the law is not "inside the safe zone"; it is "inside it with
+ *   two dp to spare", and the full-size picture fails it.
  */
 const INSET_TO = 72;   // dp the foreground is drawn into
 const SAFE = 66;       // dp diameter every launcher mask contains
-const FLOOR = 0.70;
+const MARGIN = 2;      // dp kept clear inside the safe zone -- see above
+const FLOOR = 0.55;    // below this the content is a speck in the tile
 
-function foregroundInk(file){
+/* WHAT COUNTS AS INK, AND WHY IT IS NOT JUST "BRIGHT". The tile has a lit
+   surface: measured on the master its highlight reaches a luminance of 153,
+   while the cherry line of type under the S peaks at 127 -- so the surface is
+   brighter than some of the content, and no single brightness threshold can
+   tell them apart. Colour can. The surface is a neutral blue-grey; the content
+   is either near-white (the S) or distinctly warm (gold dots, cherry type). */
+function isInk(r, g, b){
+  if (Math.min(r, g, b) > 185) return true;                 /* the S */
+  return r > 120 && (r - Math.min(g, b)) > 50;              /* gold, cherry */
+}
+
+function contentOf(file){
   const img = pngPixels(file);
-  const box = inkBox(img);
+  let x0 = img.w, y0 = img.h, x1 = -1, y1 = -1, far = 0;
+  const cx = (img.w - 1) / 2, cy = (img.h - 1) / 2;
+  for (let y = 0; y < img.h; y++){
+    for (let x = 0; x < img.w; x++){
+      const i = y * img.w * img.ch + x * img.ch;
+      if (img.ch === 4 && img.px[i + 3] < 8) continue;
+      if (!isInk(img.px[i], img.px[i + 1], img.px[i + 2])) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+      const r = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+      if (r > far) far = r;
+    }
+  }
+  assert.ok(x1 >= 0, path.basename(file) + ' has nothing bright enough to be the mark');
   return {
-    img: img, box: box,
-    fraction: Math.max(box.w, box.h) / img.w,
-    /* How far the mark's centre sits from the file's centre, in px. */
-    offX: Math.abs((box.x0 + box.x1 + 1) / 2 - img.w / 2),
-    offY: Math.abs((box.y0 + box.y1 + 1) / 2 - img.h / 2)
+    img: img,
+    w: x1 - x0 + 1, h: y1 - y0 + 1,
+    fraction: Math.max(x1 - x0 + 1, y1 - y0 + 1) / img.w,
+    /* The furthest any ink sits from the centre, as a fraction of the width. */
+    reach: far / img.w,
+    offX: Math.abs((x0 + x1 + 1) / 2 - img.w / 2)
   };
 }
 
-test('the adaptive foreground keeps the mark inside the launcher safe zone', () => {
+test('everything on the adaptive foreground survives every launcher mask', () => {
   /* The source asset and the largest generated density. The small densities are
      the same artwork resampled; decoding all six costs seconds for no new fact. */
   [path.join(ROOT, 'assets', 'icon-foreground.png'),
    path.join(RES, 'mipmap-xxxhdpi', 'ic_launcher_foreground.png')
   ].forEach(file => {
-    const f = foregroundInk(file);
-    const dp = INSET_TO * f.fraction;
-    assert.ok(dp <= SAFE,
-      path.basename(file) + ': the mark fills ' + (f.fraction * 100).toFixed(1) +
-      '% of the layer, which lands at ' + dp.toFixed(1) + 'dp once Android insets it. ' +
-      'Anything over ' + SAFE + 'dp has its outer ring sliced off by a round launcher ' +
-      'mask. This is drawn full-bleed -- it needs padding, not a resize');
-    assert.ok(f.fraction >= FLOOR,
-      path.basename(file) + ': the mark fills only ' + (f.fraction * 100).toFixed(1) +
-      '% of the layer; it will read as a speck floating in a black tile');
+    const c = contentOf(file);
+    const dp = INSET_TO * c.reach;
+    assert.ok(dp <= SAFE / 2 - MARGIN,
+      path.basename(file) + ': the furthest ink sits ' + dp.toFixed(1) + 'dp from the centre once ' +
+      'Android insets it. A round launcher cuts at ' + (SAFE / 2) + 'dp and this keeps ' + MARGIN +
+      'dp clear of that; the first thing to go is the end of the name under the S. ' +
+      'The full-size picture measures 32.0dp -- this layer is meant to be the 92% one');
+    assert.ok(c.fraction >= FLOOR,
+      path.basename(file) + ': the content fills only ' + (c.fraction * 100).toFixed(1) +
+      '% of the layer; it will read as a speck in a dark tile');
   });
 });
 
-test('the adaptive foreground is centred, because the mask is', () => {
-  const f = foregroundInk(path.join(RES, 'mipmap-xxxhdpi', 'ic_launcher_foreground.png'));
-  const slack = f.img.w * 0.01;
-  assert.ok(f.offX <= slack && f.offY <= slack,
-    'the mark sits ' + f.offX.toFixed(0) + 'px across and ' + f.offY.toFixed(0) +
-    'px down from centre. The launcher mask is centred on the layer, so an ' +
-    'off-centre mark loses more on one side than the other');
+test('the adaptive foreground is centred left to right, because the mask is', () => {
+  /* ONLY LEFT TO RIGHT, and that is the design rather than a tolerance. The S
+     sits a little above centre with the rest of the name beneath it, so the
+     content is bottom-heavy on purpose; the test above is what guarantees the
+     low line survives. Sideways there is no such reason: the two dots are a
+     pair, and a foreground nudged off-centre loses one before the other. */
+  const c = contentOf(path.join(RES, 'mipmap-xxxhdpi', 'ic_launcher_foreground.png'));
+  assert.ok(c.offX <= c.img.w * 0.01,
+    'the content sits ' + c.offX.toFixed(0) + 'px off centre; the launcher mask is centred, ' +
+    'so one gold dot is nearer the edge than the other');
 });
 
-test('the legacy launcher icon is full bleed, unlike the adaptive foreground', () => {
-  /* Pre-adaptive Android draws ic_launcher.png as-is with no inset, so the two
-     cannot be the same artwork. Shipping the padded foreground as the legacy
-     icon leaves a visibly small mark in a black square on older phones. */
-  const legacy = foregroundInk(path.join(RES, 'mipmap-xxxhdpi', 'ic_launcher.png'));
-  const fg = foregroundInk(path.join(RES, 'mipmap-xxxhdpi', 'ic_launcher_foreground.png'));
+test('the legacy launcher icon is drawn larger than the adaptive foreground', () => {
+  /* Pre-adaptive Android draws ic_launcher.png as-is with no inset, so it is the
+     picture at full size; the adaptive foreground is the same picture at 92%
+     for the reason given above. Shipping one as the other either clips the
+     name on new phones or shrinks the icon on old ones. */
+  const legacy = contentOf(path.join(RES, 'mipmap-xxxhdpi', 'ic_launcher.png'));
+  const fg = contentOf(path.join(RES, 'mipmap-xxxhdpi', 'ic_launcher_foreground.png'));
   assert.ok(legacy.fraction > fg.fraction + 0.04,
     'ic_launcher.png fills ' + (legacy.fraction * 100).toFixed(1) + '% and the adaptive ' +
-    'foreground ' + (fg.fraction * 100).toFixed(1) + '% -- they are the same file. One of ' +
-    'the two is wrong: the legacy icon is never inset, the adaptive one always is');
-  assert.ok(legacy.fraction >= 0.90,
-    'ic_launcher.png fills only ' + (legacy.fraction * 100).toFixed(1) + '% of its tile');
+    'foreground ' + (fg.fraction * 100).toFixed(1) + '% -- they are the same picture at the ' +
+    'same size. The legacy icon is never inset; the adaptive one always is');
+});
+
+test('the icon says the name: an S between two dots, with a line of type beneath', () => {
+  /* What makes this icon this icon, read from its pixels at the size the
+     share image and every notification draw it from. Three bands, top to
+     bottom: nothing above the S, the S with a dot each side, the name under it.
+     The dots are the part most likely to be lost in a re-export -- they are
+     small, they are not white, and a crop that trims the tile takes them
+     first -- so they are looked for where they have to be. */
+  const img = pngPixels(path.join(ROOT, 'assets', 'icon.png'));
+  const lit = (x, y) => {
+    const i = y * img.w * img.ch + x * img.ch;
+    return isInk(img.px[i], img.px[i + 1], img.px[i + 2]);
+  };
+  const count = (fx0, fx1, fy0, fy1) => {
+    let n = 0;
+    for (let y = Math.floor(fy0 * img.h); y < Math.floor(fy1 * img.h); y++)
+      for (let x = Math.floor(fx0 * img.w); x < Math.floor(fx1 * img.w); x++) if (lit(x, y)) n++;
+    return n;
+  };
+  const unit = img.w * img.h / 10000;   /* one hundredth of a per cent of the icon */
+  assert.ok(count(0.30, 0.70, 0.15, 0.80) > 300 * unit, 'the S is missing from the middle of the icon');
+  assert.ok(count(0.14, 0.26, 0.42, 0.54) > 4 * unit, 'the left gold dot is missing');
+  assert.ok(count(0.74, 0.86, 0.42, 0.54) > 4 * unit, 'the right gold dot is missing');
+  assert.ok(count(0.28, 0.72, 0.84, 0.93) > 20 * unit, 'the line of type under the S is missing');
+  assert.equal(count(0.00, 1.00, 0.00, 0.10), 0, 'something is drawn in the band above the S');
 });
 
 // ---------------------------------------------------------------------------

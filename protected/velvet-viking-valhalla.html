@@ -6104,7 +6104,7 @@
   .wc-hero{position:relative; border:1px solid var(--wc-edge); border-radius:14px;
     overflow:hidden; background:#07080C;}
   .wc-hero-type{position:relative; z-index:2; padding:16px 14px 14px; text-align:center;}
-  .wc-mark{display:block; width:62px; height:62px; margin:0 auto 8px; border-radius:50%;}
+  .wc-mark{display:block; width:62px; height:62px; margin:0 auto 8px; border-radius:19%;}
   /* ---------- THE SAME MARK, AT SHARE SIZE ----------
      Founder: "We could put it on the socials share overlays and the splash
      screen but I'm not sure it's needed everywhere."
@@ -36882,22 +36882,33 @@ function shareFontsReady(){
    Proportions are fractions of the mark's own box, measured off the supplied
    artwork: x as a fraction of half-width, y as a fraction of half-height. */
 var SHARE_MARK = {
-  /* ---- CHANGED SIDES: THE V CHEVRON BECAME THE MOUNTAIN ----
+  /* ---- CHANGED SIDES: THE V CHEVRON BECAME THE APP ICON ----
      This held the proportions of the Velvet Viking V, drawn as geometry so it
      needed no image. Founder: "remove the V and swap the mountain icon that's
-     on the home screen."
+     on the home screen." The icon itself has changed since -- it is the S
+     between two gold dots now, at the founder's choosing -- and nothing here
+     had to: this draws whatever /assets/icon.png is, which is the point.
      The reason is recognition rather than taste. A shared image lands in
      front of someone who has never seen this product, and the only thing they
      can go and look for is what sits on a home screen. The V was the
      company's mark; nothing a stranger could find is shaped like it.
-     wide   the mark is a circle now, so its box is square. Every layout that
-            reserves room beside or around it reads this.
-     ring   where the gold ring's outer edge sits in /assets/icon.png, as a
-            fraction of the half-width: (452 + 21) / 512. The image is drawn
-            slightly over-size and clipped to a circle on that edge, so the
-            black square the icon is delivered on never reaches the photograph. */
+     ---- AND IT IS THE WHOLE ICON, NOT A DISC CUT FROM IT ----
+     The first version clipped the icon to a circle, which suited a ring and
+     was wrong for a tile. Founder: "Keep the complete icon, including its
+     dark rounded-square background, white S, gold dots and cherry lettering.
+     Display it small and discreetly, maintaining the existing layout, spacing
+     and mountain imagery. No other design changes."
+     So the box, its size and its position in every layout are exactly what
+     they were; only what is painted inside the box changed.
+     wide    the icon is square, so its box is. Every layout that reserves
+             room beside or around it reads this.
+     corner  the tile's own corner radius as a fraction of its width, measured
+             off the artwork (about 150px on a 798px tile). The image is
+             clipped to that, because the file is delivered square with a
+             darker ground outside the tile's corners and that ground must not
+             reach the photograph. */
   wide:1.0,
-  ring:0.93,
+  corner:0.19,
   src:'/assets/icon.png'
 };
 /* THE ONE IMAGE THE CARD WAITS FOR. The V needed no network; this does, once,
@@ -36921,32 +36932,45 @@ function shareLoadMark(){
   });
   return shareMarkLoading;
 }
+/* A rounded square, once, for the icon and for the outline that stands in for
+   it. arcTo rather than roundRect(): the latter is newer than some of the
+   WebViews this runs in. */
+function shareMarkPath(ctx, cx, cy, h){
+  var x = cx - h/2, y = cy - h/2, r = h * SHARE_MARK.corner;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + h, y,     x + h, y + h, r);
+  ctx.arcTo(x + h, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + h, y,     r);
+  ctx.closePath();
+}
 function shareDrawMark(ctx, cx, cy, h, theme){
-  var r = h / 2;
-  /* The disc first, so the shadow the caller set falls from a circle rather
-     than from the square the image is delivered on. */
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.closePath();
-  ctx.fillStyle = '#000000'; ctx.fill();
+  /* The tile's shape first, so the shadow the caller set falls from a rounded
+     square rather than from the hard square the file is delivered as. */
+  shareMarkPath(ctx, cx, cy, h);
+  ctx.fillStyle = '#0B0C10'; ctx.fill();
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
   if (shareMarkImg){
-    var side = h / SHARE_MARK.ring;
     ctx.save();
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
-    ctx.drawImage(shareMarkImg, cx - side/2, cy - side/2, side, side);
+    shareMarkPath(ctx, cx, cy, h); ctx.clip();
+    /* At exactly the box, not over-size: the whole icon is the instruction,
+       and anything larger than the box would crop the lettering under the S. */
+    ctx.drawImage(shareMarkImg, cx - h/2, cy - h/2, h, h);
     ctx.restore();
     return;
   }
-  /* NOT LOADED: THE RING ALONE. An export must never fail or stall on a
+  /* NOT LOADED: THE OUTLINE ALONE. An export must never fail or stall on a
      decoration, and an empty hole where the layout reserved a mark reads as a
-     broken image. The ring is the icon's own outline in the product's gold. */
-  var grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+     broken image. The tile's own outline, in the product's gold. */
+  var grad = ctx.createLinearGradient(cx - h/2, cy - h/2, cx + h/2, cy + h/2);
   grad.addColorStop(0, theme.goldDeep);
   grad.addColorStop(0.40, theme.goldBright);
   grad.addColorStop(0.72, theme.gold);
   grad.addColorStop(1, theme.goldDeep);
-  ctx.lineWidth = Math.max(2, h * 0.085);
+  ctx.lineWidth = Math.max(2, h * 0.05);
   ctx.strokeStyle = grad;
-  ctx.beginPath(); ctx.arc(cx, cy, r - ctx.lineWidth/2, 0, Math.PI * 2); ctx.closePath();
+  shareMarkPath(ctx, cx, cy, h - ctx.lineWidth);
   ctx.stroke();
 }
 /* ---- THE NAME BETWEEN ITS DOTS, MEASURED ONCE ----

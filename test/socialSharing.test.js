@@ -841,7 +841,15 @@ test('the mark is the icon on the home screen, not the chevron', () => {
   assert.equal(typeof app.shareMarkGeometry, 'undefined', 'the chevron geometry is back');
 });
 
-test('the painter draws the icon when it has it, and a ring when it does not', () => {
+test('the painter draws the whole icon when it has it, and its outline when it does not', () => {
+  /* ---- CHANGED SIDES: THE ICON IS NOT CUT TO A CIRCLE ----
+     This asserted the icon was drawn over-size and clipped to a disc, which
+     was right for the ringed mark it was written for. Founder, of the icon
+     that replaced it: "Keep the complete icon, including its dark
+     rounded-square background, white S, gold dots and cherry lettering.
+     Display it small and discreetly, maintaining the existing layout, spacing
+     and mountain imagery. No other design changes."
+     So the box is what it was and the picture inside it is the whole tile. */
   const app = loadApp({ pinnedDate: '2026-11-03' });
   const theme = app.SHARE_THEME;
 
@@ -851,24 +859,31 @@ test('the painter draws the icon when it has it, and a ring when it does not', (
   let ctx = recordingCtx();
   app.shareDrawMark(ctx, 540, 300, 120, theme);
   assert.equal(ctx.calls.filter(c => c[0] === 'drawImage').length, 0);
-  assert.ok(ctx.calls.some(c => c[0] === 'stroke'), 'with no icon there is no ring either');
+  assert.ok(ctx.calls.some(c => c[0] === 'stroke'), 'with no icon there is no outline either');
 
-  /* LOADED. Clipped to a circle before it is drawn, because the icon is
-     delivered on a black square and that square must not reach the photograph. */
   app.shareMarkImg = { marker: true };
   ctx = recordingCtx();
   app.shareDrawMark(ctx, 540, 300, 120, theme);
   const names = ctx.calls.map(c => c[0]);
   const clipAt = names.indexOf('clip'), drawAt = names.indexOf('drawImage');
   assert.ok(drawAt > -1, 'the icon is loaded and was not drawn');
-  assert.ok(clipAt > -1 && clipAt < drawAt, 'the icon is drawn without being clipped to its ring first');
+  /* Clipped to the tile's own rounded corners, because the file is square
+     with a darker ground outside them and that ground must stay off the photo. */
+  assert.ok(clipAt > -1 && clipAt < drawAt, 'the icon is drawn without being clipped to its corners first');
+  /* A ROUNDED SQUARE, NOT A CIRCLE. Four corner arcs and no full-circle arc
+     anywhere in the mark -- a disc is what cut the lettering close before. */
+  assert.equal(ctx.calls.filter(c => c[0] === 'arc').length, 0, 'the mark is being cut to a circle again');
+  const corners = ctx.calls.slice(0, clipAt + 1).filter(c => c[0] === 'arcTo');
+  assert.ok(corners.length >= 4, 'the clip is not a rounded square');
+  assert.ok(Math.abs(corners[corners.length - 1][5] - 120 * app.SHARE_MARK.corner) < 0.01,
+    'the corner radius is not the tile\u2019s own');
+  /* THE COMPLETE ICON: drawn at exactly its box. Larger would crop the
+     lettering under the S; smaller would leave a rim of the fill showing. */
   const d = ctx.calls[drawAt];
-  /* Over-size by exactly the ring's inset, so the ring's outer edge lands on
-     the clip and the black corners fall outside it. */
-  assert.ok(d[4] > 120 && Math.abs(d[4] - 120 / app.SHARE_MARK.ring) < 0.01,
-    'the icon is drawn at ' + d[4] + 'px for a 120px mark');
-  assert.ok(Math.abs((d[2] + d[4] / 2) - 540) < 0.01 && Math.abs((d[3] + d[5] / 2) - 300) < 0.01,
-    'the icon is not centred on the mark');
+  assert.equal(d[4], 120, 'the icon is drawn ' + d[4] + 'px wide in a 120px box');
+  assert.equal(d[5], 120);
+  assert.equal(d[2], 540 - 60, 'the icon is not centred on the mark');
+  assert.equal(d[3], 300 - 60);
   app.shareMarkImg = null;
 });
 
