@@ -54,28 +54,43 @@ function athleteInProgramme(opts) {
 // WHAT IT LOOKS LIKE
 // ---------------------------------------------------------------------------
 // Founder, with a mock-up: "Photo 3 is what I want the splash screen to look
-// like", and the content in order -- the V mark, SACORO, BY VELVET VIKING,
+// like", and the content in order -- the mark, SACORO, BY VELVET VIKING,
 // the greeting, the programme line, the bar, the percentage, then EARN YOUR
 // PLACE / BUILT AROUND THE CLIMB.
 // ---------------------------------------------------------------------------
 
-test('S1. the lockup is a mark, a name and a byline, in that order', () => {
+test('S1. the lockup is the name between two dots, signed by the company', () => {
+  /* ---- CHANGED SIDES: THE V CHEVRON WENT ----
+     This held that an <img class="pe-mark"> -- the gold V -- opened the
+     lockup above the name, which is what the original mock-up drew.
+     Founder, shown four lockups: "Pic c for the splash screen by the way",
+     having said: "the splash screen doesn't have the gold dots either side.
+     I think that should be the logo. We don't need an emblem everywhere for
+     the app. It's simply the name with the dots. That's it. Clean & sleek."
+     Two reasons it is better, beyond being what was asked: the V is a
+     VELVET VIKING asset, so it put the company's mark above the product's
+     own name; and it was a third picture on a screen that already carries a
+     photograph. The mark is now the same one the header draws. */
   const a = athleteInProgramme({ name: 'Daniel' });
   const html = a.renderProgrammeEntry();
   const at = frag => html.indexOf(frag);
-  assert.ok(at('pe-mark') > -1, 'the V mark is gone from the splash');
+  assert.equal(html.indexOf('pe-mark'), -1,
+    'the V chevron is back above the name; the mark is the name and the dots');
+  assert.equal(html.indexOf('valhalla-v-256'), -1,
+    'the splash is loading the retired chevron artwork again');
   assert.ok(at('>Sacoro<') > -1, 'the splash no longer says the app\u2019s name');
   assert.ok(at('>By Velvet Viking<') > -1, 'the company no longer signs the splash');
-  assert.ok(at('pe-mark') < at('>Sacoro<'), 'the mark is below the name');
   assert.ok(at('>Sacoro<') < at('>By Velvet Viking<'), 'the byline is above the name');
-  /* THE MARK IS DECORATION, AND THE WORDS ARE REAL TEXT. The crest it
-     replaced spelled "Sacoro Awaits, Earn Your Place" into its alt
-     attribute because the artwork was the only place those words existed.
-     Both are rendered text now, so an alt that repeated them would read the
-     screen twice to anyone who hears it. */
-  const tag = /<img class="pe-mark"[^>]*>/.exec(html)[0];
-  assert.match(tag, /alt=""/, 'the decorative mark describes itself again');
-  assert.match(tag, /aria-hidden="true"/, 'the decorative mark is announced');
+  /* ONE DOT EACH SIDE, AND NEITHER IS READ ALOUD. Two bullets announced
+     around the name is the mark made worse for the athletes most likely to
+     need it plain -- the same rule the header's dots follow. */
+  assert.equal((html.match(/class="pe-dot"/g) || []).length, 2,
+    'the splash mark does not carry exactly one dot either side');
+  assert.equal((html.match(/class="pe-dot" aria-hidden="true"/g) || []).length, 2,
+    'a decorative dot is exposed to a screen reader');
+  /* The dots sit either side of the NAME, not loose in the lockup. */
+  assert.match(html, /<div class="pe-lockup">\s*<span class="pe-dot"[^>]*><\/span>\s*<div class="pe-name">Sacoro<\/div>\s*<span class="pe-dot"[^>]*><\/span>\s*<\/div>/,
+    'the dots are no longer either side of the name');
   assert.doesNotMatch(html, /Sacoro Awaits/,
     'the retired crest\u2019s wording is back on the screen');
 });
@@ -851,7 +866,7 @@ test('ARRIVAL: the document paints it before a line of script runs', () => {
      jump rather than the middle third filling in. */
   const splash = preScript.slice(splashAt);
   const live = arrived().renderProgrammeEntry();
-  ['pe-mountains', 'pe-mark', 'pe-name', 'pe-by', 'pe-athlete',
+  ['pe-mountains', 'pe-lockup', 'pe-dot', 'pe-name', 'pe-by', 'pe-athlete',
    'pe-rule', 'pe-claim', 'pe-sub'].forEach(cls => {
     assert.ok(splash.indexOf(cls) > -1,
       'the pre-script arrival has no .' + cls + ', so the handover moves things');

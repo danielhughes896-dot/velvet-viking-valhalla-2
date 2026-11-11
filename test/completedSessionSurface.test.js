@@ -237,12 +237,31 @@ test('the header is one height on every view, so the page under it cannot shift'
      was fixed. There is one header now (see the law below), so the pair
      cannot disagree; the padding is still asserted because the cheapest way
      to bring that bug back is to give one view a bar of its own again. */
-  const base = /padding:calc\((\d+)px \+ env\(safe-area-inset-top, 0px\)\) 16px (\d+)px/.exec(rule('.topbar-inner'));
-  const brand = /padding-top:calc\((\d+)px \+ env\(safe-area-inset-top, 0px\)\); padding-bottom:(\d+)px/
+  /* [\d.]+ rather than \d+: the bar lost its byline and took half the height
+     back, which does not land on a whole pixel. See .topbar-inner. */
+  const base = /padding:calc\(([\d.]+)px \+ env\(safe-area-inset-top, 0px\)\) 16px ([\d.]+)px/.exec(rule('.topbar-inner'));
+  const brand = /padding-top:calc\(([\d.]+)px \+ env\(safe-area-inset-top, 0px\)\); padding-bottom:([\d.]+)px/
     .exec(rule('.topbar-inner-brand-only'));
   assert.ok(base && brand, 'the header padding rules changed shape');
   assert.equal(base[1], brand[1], 'the header is a different height on Today (top padding)');
   assert.equal(base[2], brand[2], 'the header is a different height on Today (bottom padding)');
+  /* ---- AND WHAT THE PADDING IS, not merely that the two agree ----
+     Founder, on dropping the byline: "And then the gap left only close by
+     half. So it stays spacious."
+     Measured in Chromium at 390px before the change: the bar was 82px, made
+     of 14 + a 54px brandmark + 14, and the byline was 18px of that brandmark
+     -- a 15px line plus the 3px that separated it from the name. Remove it
+     and change nothing else and the bar is 64px, which is tighter than
+     anyone asked for. Half of 18 is 9, so the mark's row takes 4.5px back on
+     each side: 14 + 4.5 = 18.5, and the bar measures 73px.
+     It is pinned as a number rather than derived, because the thing it was
+     derived FROM is no longer in the file to measure again. 14 closes the
+     gap entirely and 23 does not close it at all; both were tried against
+     this law while it was being written, and both have to fail it. */
+  assert.equal(base[1], '18.5',
+    'the header top padding is ' + base[1] + 'px. 14 gives the whole 18px back to ' +
+    'the page and 23 gives none of it; the instruction was half');
+  assert.equal(base[2], '18.5', 'the header bottom padding is ' + base[2] + 'px');
   assert.doesNotMatch(rule('.topbar'), /border-bottom:1px solid var\(--line\)/,
     'the redundant rule under the header is back');
 });
@@ -279,16 +298,29 @@ test('one header, the same one, on every view', () => {
   a.state.view = 'today';
 });
 
-test('the mark is SACORO, signed by the company, with one gold dot each side', () => {
+test('the mark is SACORO with one gold dot each side, and nothing else', () => {
   /* Founder, with a mock-up: "I want the title at the top changing to that.
      No date. Stuck on every page. No hairline. Just 1 gold dot either side.
-     Sacoro is the apps name so should be big. Velvet viking is the
-     company so small accent under it." */
+     Sacoro is the apps name so should be big."
+     ---- CHANGED SIDES: THE BYLINE LEFT THE BAR ----
+     This asserted ">By Velvet Viking<" was in the header, from the rest of
+     that same mock-up ("Velvet viking is the company so small accent under
+     it"). Founder, later: "Do you think we need by velvet viking on every
+     page of the plan? Or just the splash screen? ... I'm not sure it's
+     needed everywhere."
+     It now asserts the opposite, and the reason is not tidiness: a byline
+     attributes work at the moment it is introduced or the moment it leaves
+     the app. On five tabs of a daily tool it is furniture, and it cost 18px
+     off the top of every screen. It is pinned to the splash and the share
+     image in test/brandName instead, so it cannot simply be lost. */
   const a = app();
   a.state.view = 'today';
   const bar = a.renderTopbar();
   assert.match(bar, />Sacoro</, 'the app name is not in the mark');
-  assert.match(bar, />By Velvet Viking</, 'the company no longer signs the mark');
+  assert.equal(bar.indexOf('By Velvet Viking'), -1,
+    'the company is signing every screen again; the byline belongs to the ' +
+    'splash and the share image, where it is introduced or passed on');
+  assert.equal(bar.indexOf('bm-by'), -1, 'the byline element is back in the bar');
   assert.equal((bar.match(/class="bm-dot"/g) || []).length, 2,
     'the mark does not carry exactly one dot either side');
   /* THE DOTS ARE DECORATION AND MUST NOT BE READ ALOUD. Two bullets

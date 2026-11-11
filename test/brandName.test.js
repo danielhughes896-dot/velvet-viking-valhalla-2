@@ -232,12 +232,27 @@ test('the four identities the outside world holds are untouched', () => {
   assert.ok(fs.existsSync(path.join(ROOT, RUNTIME_RELATIVE)),
     'the runtime filename changed without the service worker, the tests and the host following it');
 
-  ['valhalla-sunrise-820.jpg', 'valhalla-v-256.png'].forEach(f => {
+  ['valhalla-sunrise-820.jpg'].forEach(f => {
     assert.ok(SRC.indexOf('/assets/' + f) > -1,
       '/assets/' + f + ' is no longer referenced — the file on disk and the reference have drifted');
     assert.ok(fs.existsSync(path.join(ROOT, 'assets', f)),
       '/assets/' + f + ' is referenced but is not on disk');
   });
+  /* ---- CHANGED SIDES: valhalla-v-256.png IS NO LONGER DRAWN ----
+     It was the gold V above the name on the splash, and it was listed with
+     the sunrise because both are real files whose names must not be
+     "finished". The splash is the name between two dots now -- founder: "We
+     don't need an emblem everywhere for the app. It's simply the name with
+     the dots." -- so nothing references it.
+     THE FILE STAYS, AND THAT IS THE ASSERTION. It is the Velvet Viking V: a
+     brand asset rather than a build artefact, and exactly the kind of thing
+     deleted in a clear-out and then wanted back. If it is ever drawn again
+     it must still be under this name, which the rename guards above cover. */
+  assert.ok(fs.existsSync(path.join(ROOT, 'assets', 'valhalla-v-256.png')),
+    'the Velvet Viking V was deleted as an orphan; it is a brand asset, not a build artefact');
+  assert.equal(SRC.indexOf('valhalla-v-256'), -1,
+    'the chevron is being drawn again. If that is intended, this law and the ' +
+    'splash lockup law in test/programmeEntry both have to say so');
 });
 
 /* ===========================================================================
@@ -382,6 +397,24 @@ test('the byline is the company signing it, not the product saying its own name'
     'the splash byline appears ' + splash + ' times; it belongs in exactly two -- ' +
     'the markup the document paints and the screen the app renders, which have ' +
     'to agree or the handover changes the words');
-  assert.match(SRC, /<span class="bm-by">By Velvet Viking<\/span>/,
-    'the header no longer carries the company byline');
+  /* ---- CHANGED SIDES: THE HEADER GAVE IT UP, THE SHARE IMAGE TOOK IT ----
+     This asserted <span class="bm-by"> in the top bar. Founder: "Do you
+     think we need by velvet viking on every page of the plan? Or just the
+     splash screen? ... We could put it on the socials share overlays and
+     the splash screen but I'm not sure it's needed everywhere."
+     So the two surfaces are: where the product introduces itself, and where
+     its work leaves the app in front of people who have never seen it. A
+     daily tool's chrome is neither. */
+  /* READ FROM THE RENDERED BAR, NOT THE SOURCE. The deleted rule left a
+     comment behind saying what .bm-by used to be and why it went, and a law
+     that matches its own explanation is a law that asks the next person to
+     delete the reasoning in order to pass. */
+  const bar = planned().renderTopbar();
+  assert.equal(bar.indexOf('bm-by'), -1,
+    'the byline element is back in the top bar, on all five tabs of a daily tool');
+  assert.equal(bar.indexOf('By Velvet Viking'), -1,
+    'the company is signing every screen again');
+  assert.match(SRC, /<div class="wc-by">By Velvet Viking<\/div>/,
+    'the share image does not carry the byline -- it is the one picture of ' +
+    'this product that reaches people who have never seen it');
 });

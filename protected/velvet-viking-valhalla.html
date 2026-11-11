@@ -636,17 +636,27 @@
        it by 4px. There is one header now, so the two can no longer disagree
        -- but the pair is still asserted, because the cheapest way to bring
        that bug back is to give some view its own bar again. */
-    padding:calc(14px + env(safe-area-inset-top, 0px)) 16px 14px; max-width:var(--maxw); margin:0 auto;
+    /* ---- 18.5px, AND THE .5 IS THE WHOLE POINT ----
+       Founder, on dropping the byline: "And then the gap left only close by
+       half. So it stays spacious."
+       Measured in Chromium at 390px: the bar was 82px (14 + 54 + 14), and
+       the byline was 18px of that -- 15px of line plus the 3px that
+       separated it from the name. Removing it and changing nothing else
+       leaves 64px, which is a tighter bar than anyone asked for. Half of
+       the 18px is 9px, so the mark's row needs 4.5px back on each side:
+       14 + 4.5 = 18.5, and 18.5 + 36 + 18.5 = 73px. Not a round number
+       because the thing it is half of was not one. */
+    padding:calc(18.5px + env(safe-area-inset-top, 0px)) 16px 18.5px; max-width:var(--maxw); margin:0 auto;
   }
   /* all five main tabs: brand-only header, nothing to balance against --
      center the title and give it clean, even padding instead of the
      tighter/lopsided padding the old gauge/countdown/toggle rows needed. */
-  .topbar-inner-brand-only{justify-content:center; padding-top:calc(14px + env(safe-area-inset-top, 0px)); padding-bottom:14px;}
+  .topbar-inner-brand-only{justify-content:center; padding-top:calc(18.5px + env(safe-area-inset-top, 0px)); padding-bottom:18.5px;}
   .tb-slot-left{flex:0 0 28%; min-width:0; overflow:hidden; text-align:left;}
   .tb-slot-center{flex:1; min-width:0; text-align:center;}
   .tb-slot-right{flex:0 0 32%; min-width:0; overflow:hidden; text-align:right; display:flex; align-items:center; justify-content:flex-end;}
   .brandmark{display:flex; flex-direction:column; align-items:center;
-    min-width:0; gap:3px;}
+    min-width:0;}
   /* THE HAIRLINE IS GONE. Founder: "No hairline." A 64% rule sat under the
      wordmark as pure decoration; the second line of the mark now does the
      job it was doing, which is to close the lockup. .brandmark::after is
@@ -683,13 +693,10 @@
   .bm-dot{flex:none; width:7px; height:7px; border-radius:50%;
     background:var(--gold-bright);
     box-shadow:0 0 8px color-mix(in srgb, var(--gold-bright) 45%, transparent);}
-  /* ---------- THE COMPANY SIGNS IT ----------
-     Founder: "Velvet viking is the company so small accent under it." Small,
-     tracked, dim: it is a byline, not a second title. Its own trailing
-     track is cancelled for the same reason the name's is. */
-  .bm-by{font-family:var(--label-face); font-weight:600;
-    font-size:10px; letter-spacing:.26em; margin-right:-.26em;
-    text-transform:uppercase; white-space:nowrap; color:var(--ink-dim);}
+  /* .bm-by stood here -- "By Velvet Viking", 10px and tracked, under the
+     name on every screen. Deleted rather than left unreferenced: the header
+     is one line now and the byline lives on the splash and the share image,
+     which have their own rules for it. */
   /* .word-metallic stood here -- the metallic 3D gold gradient that set
      "Velvet Viking" in Cinzel across the top of every screen. The header is
      the SACORO mark now and the company name under it is a 10px byline,
@@ -3782,10 +3789,22 @@
       rgba(0,0,0,0.34) 84%, rgba(0,0,0,0) 95%);
   }
   .pe-brand{position:relative; z-index:1; gap:7px;}
-  /* The mark is no longer the dominant element -- it opens the lockup and
-     the NAME is what the screen says. 320px of crest became 86px of mark,
-     which is what the founder's mock-up shows. */
-  .pe-mark{width:86px; height:auto; display:block;}
+  /* ---------- THE MARK IS THE NAME AND TWO DOTS ----------
+     Founder: "the splash screen doesn't have the gold dots either side. I
+     think that should be the logo. We don't need an emblem everywhere for
+     the app. It's simply the name with the dots. That's it. Clean & sleek."
+     So the V chevron goes. It was a Velvet Viking asset standing above the
+     product's own name, which is backwards now, and it was the third
+     picture on a screen that already has a photograph. What is left is the
+     header's own mark at the size this screen sets it -- one lockup, three
+     places: the bar, the splash, the share image.
+     THE DOTS ARE PROPORTIONAL, NOT COPIED. The bar carries 7px dots beside
+     a 26px name; this name is 40px, so 11px holds the same relationship.
+     The gap is set the same way: 15px beside 26px becomes 22px beside 40. */
+  .pe-lockup{display:flex; align-items:center; justify-content:center; gap:22px;}
+  .pe-dot{flex:none; width:11px; height:11px; border-radius:50%;
+    background:var(--gold-bright);
+    box-shadow:0 0 12px color-mix(in srgb, var(--gold-bright) 45%, transparent);}
   /* ---------- THE NAME, IN THE MARK'S OWN FACE ----------
      Cinzel, which is this product's logo face and already sets the SACORO
      lockup on the share image and the welcome card -- so the splash and the
@@ -6080,8 +6099,21 @@
     overflow:hidden; background:#07080C;}
   .wc-hero-type{position:relative; z-index:2; padding:16px 14px 14px; text-align:center;}
   .wc-mark{display:block; width:62px; height:62px; margin:0 auto 2px;}
+  /* ---------- THE SAME MARK, AT SHARE SIZE ----------
+     Founder: "We could put it on the socials share overlays and the splash
+     screen but I'm not sure it's needed everywhere."
+     This is the one surface that leaves the app, so it is the one surface
+     where the company signing it is worth the two lines it costs. The dots
+     come with it, because the mark is the name and the dots everywhere or
+     it is not a mark. Scaled from the header the same way the splash is:
+     7px dots beside a 26px name become 5px beside 17px. */
+  .wc-lockup{display:flex; align-items:center; justify-content:center; gap:10px;}
+  .wc-dot{flex:none; width:5px; height:5px; border-radius:50%; background:var(--gold-bright);}
   .wc-wordmark{font-family:'Cinzel',serif; font-weight:600; font-size:17px;
-    letter-spacing:7px; text-indent:7px; color:var(--wc-ink); margin-bottom:10px;}
+    letter-spacing:7px; text-indent:7px; color:var(--wc-ink);}
+  .wc-by{font-family:var(--label-face); font-weight:600; font-size:7.5px;
+    letter-spacing:.24em; margin-right:-.24em; text-transform:uppercase;
+    color:var(--wc-faint); margin:4px 0 10px;}
   .wc-headline{font-family:var(--text-face); font-weight:700; font-size:17px;
     letter-spacing:.3px; color:var(--wc-ink);}
   .wc-verdict-word{color:var(--gold-bright);}
@@ -10516,8 +10548,7 @@
 <div id="boot-splash" class="pe" aria-hidden="true">
   <div class="pe-mountains" role="presentation" aria-hidden="true"></div>
   <div class="pe-brand">
-    <img class="pe-mark" src="/assets/valhalla-v-256.png" width="256" height="217" alt="" aria-hidden="true" fetchpriority="high">
-    <div class="pe-name">Sacoro</div>
+    <div class="pe-lockup"><span class="pe-dot" aria-hidden="true"></span><div class="pe-name">Sacoro</div><span class="pe-dot" aria-hidden="true"></span></div>
     <div class="pe-by">By Velvet Viking</div>
   </div>
   <div class="pe-athlete"></div>
@@ -29554,8 +29585,17 @@ function renderTopbar(){
   /* ---------- THE MARK IS SACORO, AND VELVET VIKING SIGNS IT ----------
      Founder, with a mock-up: "I want the title at the top changing to that.
      No date. Stuck on every page. No hairline. Just 1 gold dot either side.
-     Sacoro is the apps name so should be big. Velvet viking is the
-     company so small accent under it."
+     Sacoro is the apps name so should be big."
+     ---- CHANGED SIDES: THE COMPANY STOPPED SIGNING EVERY SCREEN ----
+     The mock-up put "Velvet viking is the company so small accent under
+     it" here, and it stood for a while. Founder, later: "Do you think we
+     need by velvet viking on every page of the plan? Or just the splash
+     screen? ... We could put it on the socials share overlays and the
+     splash screen but I'm not sure it's needed everywhere."
+     A byline attributes the work at the moment it is introduced or at the
+     moment it leaves the app in front of strangers. Repeated on all five
+     tabs of a tool opened daily it is furniture, and it was costing 18px
+     of the top of every screen. It is the splash and the share image now.
      Two lines, one mark, and the same one on every screen. The dots are the
      only gold left in the header -- the wordmark itself was a metallic gold
      gradient, and under the founder's own hierarchy ("Gold =
@@ -29568,7 +29608,6 @@ function renderTopbar(){
       '<span class="bm-word">Sacoro</span>'+
       '<span class="bm-dot" aria-hidden="true"></span>'+
     '</span>'+
-    '<span class="bm-by">By Velvet Viking</span>'+
   '</div>';
 
   if (!state.setup){
@@ -38009,7 +38048,12 @@ function renderCompletionHero(dd){
   return '<div class="wc-hero">'+
     '<div class="wc-hero-type">'+
       shareMarkSVG('wc-mark')+
-      '<div class="wc-wordmark">SACORO</div>'+
+      '<div class="wc-lockup">'+
+        '<span class="wc-dot" aria-hidden="true"></span>'+
+        '<div class="wc-wordmark">SACORO</div>'+
+        '<span class="wc-dot" aria-hidden="true"></span>'+
+      '</div>'+
+      '<div class="wc-by">By Velvet Viking</div>'+
       '<div class="wc-headline">'+escapeHtml(d.sessionLabel)+
         (d.verdict ? ' <span class="wc-verdict-word">— '+escapeHtml(d.verdict)+'</span>' : '')+
       '</div>'+
@@ -66392,9 +66436,11 @@ function renderProgrammeEntry(){
       '</div>';
   /* ---------- THE LOCKUP, NOT THE CREST ----------
      Founder, with a mock-up: "Photo 3 is what I want the splash screen to
-     look like", and the content in order: the V mark, SACORO, BY VELVET
+     look like", and the content in order: the mark, SACORO, BY VELVET
      VIKING, the greeting, the programme line, the bar, the percentage, then
      EARN YOUR PLACE / BUILT AROUND THE CLIMB.
+     THE V CHEVRON HAS SINCE GONE, and the mark is the name between two gold
+     dots -- the same one the header carries. See .pe-lockup.
      THE CIRCULAR CREST CARRIED FOUR THINGS AS ONE PICTURE -- the ring, the
      axes, SACORO AWAITS and EARN YOUR PLACE -- which is why none of them
      could move or be read by anything but an eye. They are elements now:
@@ -66408,9 +66454,11 @@ function renderProgrammeEntry(){
   return '<div class="pe">'+
     '<div class="pe-mountains" role="presentation" aria-hidden="true"></div>'+
     '<div class="pe-brand">'+
-      '<img class="pe-mark" src="/assets/valhalla-v-256.png" width="256" height="217" '+
-        'alt="" aria-hidden="true" loading="eager">'+
-      '<div class="pe-name">Sacoro</div>'+
+      '<div class="pe-lockup">'+
+        '<span class="pe-dot" aria-hidden="true"></span>'+
+        '<div class="pe-name">Sacoro</div>'+
+        '<span class="pe-dot" aria-hidden="true"></span>'+
+      '</div>'+
       '<div class="pe-by">By Velvet Viking</div>'+
     '</div>'+
     /* THE MIDDLE THIRD IS ONE BLOCK. The greeting, the programme line, the
