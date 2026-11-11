@@ -8,7 +8,7 @@ const { buildPlan } = require('./fixtures.js');
 
 /* AN EMPTY VALUE BELONGS TO THE VALUE SYSTEM
  * ===========================================================================
- * The Athlete Status on Valhalla is four circles, each a label over a value:
+ * The Athlete Status on Sacoro is four circles, each a label over a value:
  *
  *        GOAL      |   FITNESS   |  BENCHMARK  |  PROGRESS
  *          B       |      —      |     10K     |    63%
@@ -40,7 +40,7 @@ const { buildPlan } = require('./fixtures.js');
  *
  * HISTORY, so the next reader does not think this drifted by accident. The
  * slot has been three different things: a dimmed headline on the Record tab,
- * then the chamfered Valhalla plate, now the circle. The quieting selector
+ * then the chamfered Sacoro plate, now the circle. The quieting selector
  * followed each move and the dead half was removed each time. The LAW -- an
  * absence is the value role, unavailable, and never a value of its own -- has
  * not changed once.
@@ -346,7 +346,7 @@ test('a measured athlete gets no empty treatment at all', () => {
 test('the quieting rule reaches the value slot and nothing else', () => {
   /* This selector has outlived two markups now. It began as
      `.rec-headline b.rec-none`, for a Record tab whose empty state was a
-     dimmed headline; it became `.b-plate .val.rec-none` for the Valhalla
+     dimmed headline; it became `.b-plate .val.rec-none` for the Sacoro
      plates; it is `.rd-val b.rec-none` for the Athlete Status circles. Each
      time the dead half was removed and the live half kept, because the law
      is about the ROLE -- a value that is unavailable -- and not about any of

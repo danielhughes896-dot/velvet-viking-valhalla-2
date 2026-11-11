@@ -12,7 +12,7 @@ const { buildPlan } = require('./fixtures.js');
  * changes which larynx says the words, and nothing else. Not the coaching, not
  * the prescription, not Guidance Level, not Ask Coach's reasoning, not the
  * athlete's state, and not one character of the text handed to the speech
- * vendor. The same Valhalla coach, speaking through a different voice.
+ * vendor. The same Sacoro coach, speaking through a different voice.
  *
  * The rest of the file covers the delivery layer that sits under it: the
  * premium voice is primary, the device's own engine is the floor beneath every

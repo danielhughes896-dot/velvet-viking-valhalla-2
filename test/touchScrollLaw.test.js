@@ -223,7 +223,7 @@ test('nothing opaque sits between those layers and the page, so --bg is the righ
 });
 
 test('every touch-action in the sheet still allows pinch-zoom', () => {
-  /* Founder: "Enable native pinch-to-zoom across the entire Valhalla app.
+  /* Founder: "Enable native pinch-to-zoom across the entire Sacoro app.
      This must be a GLOBAL behaviour, not implemented separately per screen."
      pan-x, pan-y and none each name the ONLY gestures the browser may
      perform on that subtree, and none of those lists includes zooming -- so

@@ -186,7 +186,7 @@ test('an unnamed Strava account does not print a dangling "Connected as"', () =>
 // ---------------------------------------------------------------------------
 test('start.html never draws a Strava control', () => {
   /* THE ARCHITECTURAL REASON, asserted so it cannot be undone by accident.
-     The pre-account builder runs BEFORE the athlete has a Valhalla account:
+     The pre-account builder runs BEFORE the athlete has a Sacoro account:
      build, preview, "Save My Plan", then authenticate. A Strava authorization
      has nothing to attach to until that account exists -- strava_connections
      is keyed on auth.users(id) and every Strava route verifies a Supabase

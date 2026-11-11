@@ -86,7 +86,7 @@ test('it does not read as a required session, a missed one, or a warning', () =>
      it used to require `day-badge type-rest`, on the reasoning that an
      optional run is a rest day with an offer on it. That reading was
      overturned deliberately -- one day may not carry two coaching identities,
-     and a day Valhalla is not asking to rest is not a Rest Day. So the badge
+     and a day Sacoro is not asking to rest is not a Rest Day. So the badge
      is now the optional one, and the assertion is tightened rather than
      relaxed: the rest identity must be ABSENT, not merely coexisting. */
   assert.match(html, /day-badge type-optional/);

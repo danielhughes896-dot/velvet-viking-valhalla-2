@@ -7,7 +7,7 @@ const { RUNTIME_RELATIVE } = require('./harness.js');
 
 /* CHERRY LACQUER — the Velvet Viking interactive accent.
  * ===========================================================================
- * #532D3A replaced the Valhalla violet across every place violet meant
+ * #532D3A replaced the Sacoro violet across every place violet meant
  * VELVET VIKING / PRIMARY INTERACTION / SELECTED BRAND STATE. These tests hold
  * the three things that migration can quietly lose:
  *
@@ -372,7 +372,7 @@ test('the accent is one token, and no component redefines it', () => {
    from 339deg to 347deg, which put it 6.8 deltaE from --c-threshold #B5505A --
    the colour of a threshold session's left edge. On an expanded threshold card
    the semantic edge and the brand accent then read as the same colour, and the
-   athlete loses the difference between "Valhalla" and "this session is hard".
+   athlete loses the difference between "Sacoro" and "this session is hard".
 
    Nothing caught it: every existing guard asked whether the accent was
    ACCESSIBLE and whether it was still in the cherry family, and it was both.
@@ -518,7 +518,7 @@ test('the connector cannot drift toward violet again, because it has no alpha le
  * The founder's rule was "anywhere there is a filled cherry clickable box
  * should follow the same rules as Race Day view session". This is the half
  * of it that is navigation. The other half -- Continue, Got it, Tell
- * Valhalla -- is a COMMIT, the one action that moves the athlete forward in
+ * Sacoro -- is a COMMIT, the one action that moves the athlete forward in
  * a flow where nothing else carries weight, and stays filled. Race Day's can
  * be rim-lit because it sits inside a cherry-rimmed panel that already
  * supplies the weight; a modal's primary has no such panel behind it.

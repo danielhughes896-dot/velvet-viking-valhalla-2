@@ -1,5 +1,5 @@
 'use strict';
-/* DOES VALHALLA OPEN IN AIRPLANE MODE? THE AUDIT'S FAILING TEST, RERUN.
+/* DOES SACORO OPEN IN AIRPLANE MODE? THE AUDIT'S FAILING TEST, RERUN.
  * ===========================================================================
  * The startup audit's strongest finding was one line:
  *

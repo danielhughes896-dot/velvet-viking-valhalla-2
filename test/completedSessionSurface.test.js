@@ -182,7 +182,7 @@ test('clearing a log comes last inside the log it would undo', () => {
      reading of them.
 
      The card is four tabs now and the founder's order is Share, Session
-     Details, Your Log, Valhalla Analysis -- so the analysis comes after the
+     Details, Your Log, Sacoro Analysis -- so the analysis comes after the
      log rather than before it, and "after the review" is no longer a place
      Clear log can be without leaving the tab it belongs to. The intent is
      unchanged and is what is asserted: last, under everything the log
@@ -224,7 +224,7 @@ test('both disclosures are a label with its explanation under it', () => {
 
 test('pace is still offered as optional on the completed surface', () => {
   /* The design drops the word; the promise does not. A missing pace narrows
-     what Valhalla will CLAIM and is never a failure, so the label says so. */
+     what Sacoro will CLAIM and is never a failure, so the label says so. */
   const a = app();
   const html = a.renderDayCard(completedDayWithLogOpen(a));
   assert.match(html, /Avg Pace[^<]*optional/i, 'pace reads as compulsory again');
@@ -279,15 +279,15 @@ test('one header, the same one, on every view', () => {
   a.state.view = 'today';
 });
 
-test('the mark is VALHALLA, signed by the company, with one gold dot each side', () => {
+test('the mark is SACORO, signed by the company, with one gold dot each side', () => {
   /* Founder, with a mock-up: "I want the title at the top changing to that.
      No date. Stuck on every page. No hairline. Just 1 gold dot either side.
-     Valhalla is the apps name so should be big. Velvet viking is the
+     Sacoro is the apps name so should be big. Velvet viking is the
      company so small accent under it." */
   const a = app();
   a.state.view = 'today';
   const bar = a.renderTopbar();
-  assert.match(bar, />Valhalla</, 'the app name is not in the mark');
+  assert.match(bar, />Sacoro</, 'the app name is not in the mark');
   assert.match(bar, />By Velvet Viking</, 'the company no longer signs the mark');
   assert.equal((bar.match(/class="bm-dot"/g) || []).length, 2,
     'the mark does not carry exactly one dot either side');
@@ -412,7 +412,7 @@ test('FEEL: the pills speak the product\'s own language, not the old one', () =>
  *   Share
  *   Session Details      -- why / execution / feel / coach's note, and the
  *                           session's own targets, description and steps
- *   Valhalla Analysis    -- the verdict / execution review / next steps
+ *   Sacoro Analysis    -- the verdict / execution review / next steps
  *   <verdict> · <n>% execution
  *
  * Stated as positions rather than as markup, so the guard survives the next
@@ -439,12 +439,12 @@ test('a finished session leads with what you did, then the two tabs', () => {
   const done   = at(/actual-done-k">Session complete/,        'the completion statement');
   const share  = at(/sess-tab-k">Share</,                     'the Share tab');
   const detail = at(/sess-tab-k">Session Details</,           'the Session Details tab');
-  const anal   = at(/sess-tab-k">Valhalla Analysis</,         'the Valhalla Analysis tab');
+  const anal   = at(/sess-tab-k">Sacoro Analysis</,         'the Sacoro Analysis tab');
   const log    = at(/sess-tab-k">Your Log</,                  'the Your Log tab');
   assert.ok(done < share,   'Share no longer follows the completion statement');
   assert.ok(share < detail, 'Session Details no longer follows Share');
   assert.ok(detail < log,   'Your Log no longer follows Session Details');
-  assert.ok(log < anal,     'Valhalla Analysis no longer comes last');
+  assert.ok(log < anal,     'Sacoro Analysis no longer comes last');
 
   /* NOTHING IS LOOSE. Everything on a finished session is one of the four
      tabs: the fields, the verdict line and Clear log are all behind one, so
@@ -467,8 +467,8 @@ test('all four tabs are the same object, drawn from one helper', () => {
     'the shared session tab is gone');
   assert.match(src, /sessionTabHtml\('Session Details'/,
     'Session Details is no longer drawn from the shared tab');
-  assert.match(src, /sessionTabHtml\('Valhalla Analysis'/,
-    'Valhalla Analysis is no longer drawn from the shared tab');
+  assert.match(src, /sessionTabHtml\('Sacoro Analysis'/,
+    'Sacoro Analysis is no longer drawn from the shared tab');
   assert.match(src, /sessionTabHtml\('Share'/,
     'Share is no longer drawn from the shared tab');
   assert.match(src, /sessionTabHtml\('Your Log'/,
@@ -562,14 +562,14 @@ const tabsOn = (a, d) => [...a.renderDayCard(d).matchAll(/sess-tab-k">([^<]*)</g
    BODY: the panel is where scored and unscored now differ. */
 const analysisBody = (a, d) => {
   const c = a.renderDayCard(d);
-  const i = c.indexOf('Valhalla Analysis');
+  const i = c.indexOf('Sacoro Analysis');
   return i < 0 ? '' : c.slice(i).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 };
 
 test('every finished session gets all four tabs, however little is logged', () => {
   const a = app();
   const ds = a.state.days.filter(x => x.type !== 'rest');
-  const WANT = ['Share', 'Session Details', 'Your Log', 'Valhalla Analysis'];
+  const WANT = ['Share', 'Session Details', 'Your Log', 'Sacoro Analysis'];
 
   const nothing = ds[0];
   nothing.completed = true; nothing.actual = a.emptyActual();
@@ -653,7 +653,7 @@ test('the week slide carries a finished session’s tabs, in the founder’s ord
   assert.match(slide, /actual-done-k">Session complete/,
     'the week slide does not say the session is complete');
   const tabs = slideTabs(slide);
-  assert.deepEqual(tabs, ['Share', 'Session Details', 'Your Log', 'Valhalla Analysis'],
+  assert.deepEqual(tabs, ['Share', 'Session Details', 'Your Log', 'Sacoro Analysis'],
     'the week slide does not carry the finished session’s four tabs in order: ' +
     JSON.stringify(tabs));
 
@@ -684,7 +684,7 @@ test('every shape of finished session gets the same four tabs on the slide', () 
      So every completed day in the block is asked, and the shapes are
      counted to make sure the sweep contains the one that broke. */
   const a = slideApp();
-  const want = ['Share', 'Session Details', 'Your Log', 'Valhalla Analysis'];
+  const want = ['Share', 'Session Details', 'Your Log', 'Sacoro Analysis'];
   let solo = 0, blueprint = 0, other = 0;
   a.state.days.forEach(d => {
     if (d.type === 'rest' || !(d.km > 0) || d.type === 'race') return;

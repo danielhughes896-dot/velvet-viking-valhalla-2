@@ -139,12 +139,12 @@ test('the coaching product contains no marketing or social vocabulary', () => {
                       .toLowerCase();
   for (const word of forbidden) {
     assert.equal(code.indexOf(word), -1,
-      'Valhalla must stay unaware of marketing: found "' + word + '" in executable runtime code');
+      'Sacoro must stay unaware of marketing: found "' + word + '" in executable runtime code');
   }
 });
 
 test('the prohibition itself is written down in the runtime', () => {
-  assert.match(RUNTIME, /WHAT VALHALLA MUST NEVER KNOW/,
+  assert.match(RUNTIME, /WHAT SACORO MUST NEVER KNOW/,
     'the next person to read this file must find the rule, not infer it');
 });
 
@@ -305,10 +305,10 @@ test('the server boundary has no publishing capability', () => {
     'the prohibition must stay written down');
 });
 
-test('approval belongs to monday, and Valhalla cannot grant it', () => {
+test('approval belongs to monday, and Sacoro cannot grant it', () => {
   const src = fs.readFileSync(path.join(ROOT, 'api/_content-bridge.js'), 'utf8');
-  assert.equal(src.indexOf("'Approved'"), -1, 'Valhalla must never set Approved');
-  assert.equal(src.indexOf("'Selected'"), -1, 'Valhalla must never select a candidate');
+  assert.equal(src.indexOf("'Approved'"), -1, 'Sacoro must never set Approved');
+  assert.equal(src.indexOf("'Selected'"), -1, 'Sacoro must never select a candidate');
 });
 
 // ---------------------------------------------------------------------------

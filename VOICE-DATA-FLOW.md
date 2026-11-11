@@ -20,7 +20,7 @@ A spoken question to a running coach is not neutral text. *"My calf is sore,
 should I run?"* is health information, and routing it to a third-party service
 is a sub-processor decision, not an implementation detail.
 
-**So Valhalla asks for the on-device recogniser only.** Where Android exposes
+**So Sacoro asks for the on-device recogniser only.** Where Android exposes
 one (`SpeechRecognizer.isOnDeviceRecognitionAvailable()` /
 `createOnDeviceSpeechRecognizer()`, API 31+) it is used. Where the phone has
 none, speech input is **refused** and the athlete types instead — the microphone
@@ -33,9 +33,9 @@ sides of the bridge, and a test holds each side.
 
 | Stage | Processor | Leaves the device? | Persisted? | Logged? | Consent | On failure |
 |---|---|---|---|---|---|---|
-| **Raw microphone audio** | Android's **on-device** recogniser only, via `VvvSpeechPlugin` | **No** — the networked recogniser is refused, not preferred-against | No. Valhalla never opens an audio stream; `onBufferReceived` is deliberately empty | No | Runtime `RECORD_AUDIO`, asked at the press | No transcript; typed path remains |
-| **Transcript** | Valhalla, in the WebView | Only as the question text, to Valhalla's own server | **No** — held in memory for the exchange, never written to `localStorage` or the plan | **No** — never in logcat, never in a server log | Shown to the athlete before it is sent | Athlete retypes or edits |
-| **Model context** | Assembled in the browser, sent to `/api/voice-ask` | Yes — HTTPS to Valhalla, then to Anthropic | No | No — server logs carry fixed reason codes and counts only | Health fields omitted entirely without consent; Strava-derived evidence excluded by provenance | Refused, athlete keeps written coaching |
+| **Raw microphone audio** | Android's **on-device** recogniser only, via `VvvSpeechPlugin` | **No** — the networked recogniser is refused, not preferred-against | No. Sacoro never opens an audio stream; `onBufferReceived` is deliberately empty | No | Runtime `RECORD_AUDIO`, asked at the press | No transcript; typed path remains |
+| **Transcript** | Sacoro, in the WebView | Only as the question text, to Sacoro's own server | **No** — held in memory for the exchange, never written to `localStorage` or the plan | **No** — never in logcat, never in a server log | Shown to the athlete before it is sent | Athlete retypes or edits |
+| **Model context** | Assembled in the browser, sent to `/api/voice-ask` | Yes — HTTPS to Sacoro, then to Anthropic | No | No — server logs carry fixed reason codes and counts only | Health fields omitted entirely without consent; Strava-derived evidence excluded by provenance | Refused, athlete keeps written coaching |
 | **Model response** | Anthropic (`claude-opus-5`) | Returns over HTTPS | No | No — only a character count | — | Human message, written coaching untouched |
 | **Spoken output** | Android `TextToSpeech` (`@capacitor-community/text-to-speech`) or the browser's own synthesiser | **No** — local engine, no cloud TTS anywhere in the repo | No | No | — | Text is shown instead |
 
@@ -47,7 +47,7 @@ endpoint — asserted by test against both the plugin and the server module.
 ## What is still the founder's decision
 
 **Enabling the networked recogniser.** Today a phone with no on-device
-recognition simply cannot use the microphone in Valhalla. Allowing the ordinary
+recognition simply cannot use the microphone in Sacoro. Allowing the ordinary
 `SpeechRecognizer` would make speech work on many more devices, at the cost of
 the athlete's spoken words — possibly including health information — reaching
 the device's speech service provider.

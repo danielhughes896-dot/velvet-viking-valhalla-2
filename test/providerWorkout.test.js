@@ -19,7 +19,7 @@ const { buildPlan } = require('./fixtures.js');
 //
 // Everything else here -- fingerprints, reconciliation, the fail-closed gate --
 // exists so a future sync cannot duplicate an athlete's calendar or send a
-// workout Valhalla did not prescribe.
+// workout Sacoro did not prescribe.
 const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 const TODAY = '2026-05-20';

@@ -212,7 +212,7 @@ test('the policy statements are exactly activation STEP 3, and nothing else from
 
 test('owning your rows is not being allowed through the door', () => {
   /* The separation this migration must not blur. Row authorization says which
-     rows are yours; resolveAccess() says whether you may use Valhalla. */
+     rows are yours; resolveAccess() says whether you may use Sacoro. */
   assert.equal(decide(null).allow, false);
   assert.equal(decide(null).reason, 'no_entitlement');
   assert.equal(decide(row({})).allow, false);

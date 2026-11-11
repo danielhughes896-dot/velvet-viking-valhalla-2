@@ -10,7 +10,7 @@ const G = require('../api/_garmin.js');
 
 /* EXPLICIT CONSENT FOR HEALTH AND READINESS INFORMATION.
  *
- * Some of what an athlete may tell Valhalla can reveal something about their
+ * Some of what an athlete may tell Sacoro can reveal something about their
  * health, and running a training programme is not a lawful basis for
  * processing that on its own. This file is the behavioural proof of the
  * mechanism: what is covered, what is not, that consent is a real affirmative
@@ -219,7 +219,7 @@ test('9d. withdrawal touches nothing commercial and nothing about the plan', () 
 // ---------------------------------------------------------------------------
 // 10-12. DECLINING LEAVES A WORKING PRODUCT
 // ---------------------------------------------------------------------------
-test('10. declining does not prevent ordinary use of Valhalla', () => {
+test('10. declining does not prevent ordinary use of Sacoro', () => {
   const a = withholding();
   const dd = loggedDay(a, { hr: null, feel: null });
   ['renderTodayView', 'renderWeekView', 'renderFullPlanView', 'renderPlanHQView',
@@ -366,7 +366,7 @@ test('13b. an existing athlete keeps their plan and their programme', () => {
   const dd = loggedDay(a, { hr: 150 });
   assert.ok(a.state.days.length > 50, 'the plan is intact');
   assert.ok(a.computeExecutionScore(dd) != null, 'their logged sessions still score');
-  assert.doesNotThrow(() => a.renderTodayView(), 'and entry into Valhalla is not broken');
+  assert.doesNotThrow(() => a.renderTodayView(), 'and entry into Sacoro is not broken');
 });
 
 test('14. ordinary athlete memory survives — ATHLETE is still not PLAN', () => {
@@ -518,7 +518,7 @@ test('15d. a covered decision path is not merely quiet — it changes the outcom
   assert.equal(on.state, 'recover', 'and a reported pain reaches safety, as it always did');
   assert.ok(off, 'the withholding athlete still gets a decision');
   assert.notEqual(off.state, 'recover',
-    'but it is not built from information Valhalla was not allowed to read');
+    'but it is not built from information Sacoro was not allowed to read');
   assert.ok(!(off.reasons || []).some(r => /pain|sore|injur/i.test(r)),
     'and nothing it says is derived from that information');
 });

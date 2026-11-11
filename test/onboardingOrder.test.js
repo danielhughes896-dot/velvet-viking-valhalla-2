@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const Preview = require('../api/_preview.js');
 
-// VALHALLA FIRST-TIME ONBOARDING ORDER
+// SACORO FIRST-TIME ONBOARDING ORDER
 //
 // The approved acquisition journey: Builder -> Personalised Preview ->
 // "Save My Plan" / Authenticate -> Trial or Purchase -> App. Before this, the

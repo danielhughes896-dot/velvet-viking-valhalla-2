@@ -17,7 +17,7 @@ const { buildPlan } = require('./fixtures.js');
  *
  * THE PRIVACY RULE THIS FILE PROTECTS ABOVE ALL. Android's ordinary recogniser
  * may send audio to the device's speech service. A spoken question to a running
- * coach can contain health information, so Valhalla asks for the ON-DEVICE
+ * coach can contain health information, so Sacoro asks for the ON-DEVICE
  * recogniser only and refuses rather than routing an athlete's voice to a third
  * party. That is a product decision, and it is enforced on both sides of the
  * bridge.
@@ -160,7 +160,7 @@ test('cancel reaches the native plugin', () => {
 // ---------------------------------------------------------------------------
 // THE PRIVACY RULE
 // ---------------------------------------------------------------------------
-test('Valhalla asks for the on-device recogniser and refuses the networked one', async () => {
+test('Sacoro asks for the on-device recogniser and refuses the networked one', async () => {
   const a = installed(app(), { stt: {
     available: () => Promise.resolve({ supported:true, onDevice:false }) } });
   await a.voiceCheckNativeStt();

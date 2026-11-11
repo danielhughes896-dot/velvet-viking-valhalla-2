@@ -15,7 +15,7 @@ const path = require('path');
 //
 // This is checked at the CSS-rule level because that is where the mistake was
 // made and where it would be made again -- a future rule reaching for
-// --bronze-text because it "looks like a Valhalla number".
+// --bronze-text because it "looks like a Sacoro number".
 const ROOT = path.join(__dirname, '..');
 const APP = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
 

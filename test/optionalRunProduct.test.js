@@ -5,14 +5,14 @@ const { loadApp } = require('./harness.js');
 
 /* OPTIONAL RUN — THE PRODUCT CONTRACT
  * ===========================================================================
- * Valhalla has three athlete-facing day states, and they must never be
+ * Sacoro has three athlete-facing day states, and they must never be
  * confused with one another:
  *
- *   REST DAY           Valhalla actively wants recovery. No invitation.
- *   OPTIONAL RUN       the athlete made the day available and Valhalla did not
+ *   REST DAY           Sacoro actively wants recovery. No invitation.
+ *   OPTIONAL RUN       the athlete made the day available and Sacoro did not
  *                      need another prescribed run. Run or rest; both are
  *                      complete answers, and neither is scored.
- *   PRESCRIBED SESSION Valhalla wants the session performed. It counts.
+ *   PRESCRIBED SESSION Sacoro wants the session performed. It counts.
  *
  * The hard part is not the card. It is that a logged optional run has to
  * become REAL completed activity -- evidence the frequency model reads -- while
@@ -291,7 +291,7 @@ test('9. Log a run records an actual completed activity', () => {
   assert.equal(d.date, dd.date, 'on the day it was run');
   const html = a.renderDayCard(d);
   assert.doesNotMatch(html, /Log a run/, 'the invitation is gone');
-  assert.match(html, /Logged — Valhalla will take this into account/);
+  assert.match(html, /Logged — Sacoro will take this into account/);
 });
 
 test('10. the actual distance persists, and is what is shown', () => {
@@ -460,7 +460,7 @@ test('17. a reload preserves a completed optional run', () => {
   assert.equal(d.actual.km, 5.2);
   assert.equal(d.actual.pace, '5:34');
   assert.equal(revived.optionalRunDayState(d), 'logged');
-  assert.match(revived.renderDayCard(d), /Logged — Valhalla/);
+  assert.match(revived.renderDayCard(d), /Logged — Sacoro/);
   assert.equal(revived.planContentSignature(revived.state), sig, 'and it signs the same');
 
   /* THE MARKER IS PART OF THE SIGNATURE, or a device that dropped it would

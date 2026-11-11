@@ -27,7 +27,7 @@ const SCHEDULE = { activeDays: [0, 1, 2, 4, 5], longRunDay: 5 };
 const QUALITY = ['tempo', 'threshold', 'interval', 'repetition', 'checkpoint', 'race'];
 
 /* A finished race block, fully logged, with the race yesterday -- then the
-   recovery block Valhalla offers next. */
+   recovery block Sacoro offers next. */
 function recoverAfter(distanceKey, volume, opts){
   const o = opts || {};
   const today = o.today || TODAY;

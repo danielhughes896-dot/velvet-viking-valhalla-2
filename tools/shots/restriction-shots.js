@@ -39,7 +39,7 @@ function athlete(){
   });
   return a;
 }
-/* An athlete Valhalla can actually speak about: two measured efforts (so a
+/* An athlete Sacoro can actually speak about: two measured efforts (so a
    demonstrated rate exists) and a completed Fitness Checkpoint (so the
    intervention card is earned). Nothing here is special to the restriction
    -- it is the ordinary precondition raceGoalAssessment() has always had. */
@@ -115,7 +115,7 @@ const SCENES = [
                                                   a.state.setup.restriction.from = a.addDays(TODAY, -18);
                                                   a.state.setup.restriction.until = a.addDays(TODAY, -1); } },
   /* BACK, AND THE PRODUCT CLAIMS NOTHING. There is deliberately no third
-     card: Valhalla does not size a return (see the RETURN TO TRAINING
+     card: Sacoro does not size a return (see the RETURN TO TRAINING
      open-authority note in the runtime), so a card implying it was managing
      one would be a coaching act the product is not performing. This frame
      exists to show the programme restored, intensity included. */
@@ -182,7 +182,7 @@ const SCENES = [
         if ((scene.tag === 'open' || scene.tag === 'back') && !m.hasCard)
           errors.push('no restriction card rendered — this frame proves nothing');
         if (scene.tag === 'resumed' && m.hasCard)
-          errors.push('a card is claiming a return Valhalla does not manage');
+          errors.push('a card is claiming a return Sacoro does not manage');
         if (scene.tag === 'resumed' && m.restrictedLabels)
           errors.push('the programme did not come back — this frame proves nothing');
         if (scene.tag === 'checkpoint' && !m.prepLine)

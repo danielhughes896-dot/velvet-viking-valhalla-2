@@ -366,7 +366,7 @@ test('no instrument puts text inside its own animated filter', () => {
 
 test('every gold bar in the product is the same material', () => {
   /* "Have you done the same for the gold bars?" turned up two more. Runs and
-     Volume in Valhalla's Progress panel are the same component as the week
+     Volume in Sacoro's Progress panel are the same component as the week
      bar and carried no light at all, so they read as a different material to
      the one thing the product calls a progress bar.
      They take the week bar's RESTING recipe with the radii scaled to a 5px

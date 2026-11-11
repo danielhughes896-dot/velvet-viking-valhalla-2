@@ -1,12 +1,12 @@
 'use strict';
-/* Visual proof for the VALHALLA 3D VISUAL LANGUAGE pass: the Confidence
+/* Visual proof for the SACORO 3D VISUAL LANGUAGE pass: the Confidence
    gauge's refined depth, alongside the already-refined Reading badges, in
-   normal Valhalla context.
+   normal Sacoro context.
 
    Captures, at 360px and 390px width, light + dark:
      gauge.<w>.<theme>       the Confidence gauge alone, tightly cropped
      hero.<w>.<theme>        the whole hero card (gauge + block/week/figures)
-     valhalla.<w>.<theme>    the full Valhalla screen (hero + Reading + Record)
+     sacoro.<w>.<theme>    the full Sacoro screen (hero + Reading + Record)
 
    And MEASURES:
      - the gauge's cream face is sized to the inner ring, not the old
@@ -15,14 +15,14 @@
        value -- the depth pass must not have touched the calculation
      - the gauge's own drop-shadow is not clipped by an ancestor
 
-   Run:  node tools/shots/valhalla-3d-shots.js  */
+   Run:  node tools/shots/sacoro-3d-shots.js  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require(process.env.PW || '/opt/node22/lib/node_modules/playwright');
 
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'tools', 'shots', 'valhalla-3d');
+const OUT = path.join(ROOT, 'tools', 'shots', 'sacoro-3d');
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8' };
 
 function serve(){
@@ -65,7 +65,7 @@ function seed(theme){
     if (dd.type === 'race' || dd.type === 'checkpoint') recordMeasuredPerformance(dd);
   });
   state.theme = theme; state.themeExplicit = true; applyThemeToDocument();
-  state.view = 'planhq'; planhqTab = 'valhalla';
+  state.view = 'planhq'; planhqTab = 'sacoro';
   renderApp();
 }
 
@@ -96,7 +96,7 @@ async function main(){
       await page.waitForTimeout(400);
 
       const tag = width + '.' + theme;
-      await page.screenshot({ path: path.join(OUT, 'valhalla.' + tag + '.png'), fullPage: true });
+      await page.screenshot({ path: path.join(OUT, 'sacoro.' + tag + '.png'), fullPage: true });
       const heroClip = await clipOf(page, '.v-hero', 12, 12, width);
       if (heroClip) await page.screenshot({ path: path.join(OUT, 'hero.' + tag + '.png'), fullPage: true, clip: heroClip });
       const gaugeClip = await clipOf(page, '.gauge-wrap', 20, 20, width);

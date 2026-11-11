@@ -38,7 +38,7 @@ three days, ~20 km on six — and calls it the athlete's plan. A 1 km/week 5K
 athlete gets 17.5 km in week one, 66% of it quality, with a 0 km long run.
 
 ### Proposed rule
-> **A race programme has a minimum viable starting volume. Below it, Valhalla
+> **A race programme has a minimum viable starting volume. Below it, Sacoro
 > does not build a smaller race programme — it builds a different thing.**
 >
 > Four states, chosen by comparing the athlete's stated volume against the
@@ -428,7 +428,7 @@ supported **stated** volume is that figure divided by 1.30–2.00.
 >
 > 1. **At build time**, if the target cannot be distributed, the builder tells
 >    the athlete before the plan is generated: *"At 80 km/week over 3 days,
->    each run averages 27 km. Valhalla can prescribe about 49 km/week on three
+>    each run averages 27 km. Sacoro can prescribe about 49 km/week on three
 >    days. Add a day to train at the volume you've entered."* — with the day
 >    count still editable on the same screen.
 > 2. **If they proceed anyway**, the plan is generated at the distributable
@@ -665,7 +665,7 @@ meaningless at low volume; the percentage term takes over above 20 km/week.
 \* at 24 weeks the assemblability floor binds rather than the long-run one.
 
 ### How the event date interacts — the rule that matters most
-> **Valhalla computes the route before it builds anything:**
+> **Sacoro computes the route before it builds anything:**
 > `weeks required = foundation + on-ramp + MIN_BLOCK_WEEKS`
 >
 > - **Enough time** → build the staged plan, show the stages and their dates.
@@ -675,7 +675,7 @@ meaningless at low volume; the percentage term takes over above 20 km/week.
 >   (c) a foundation/on-ramp plan with an honest statement that the event is
 >   not a target this cycle.
 >
-> **Valhalla must not fabricate a plan.** A 0 km/week athlete with a marathon in
+> **Sacoro must not fabricate a plan.** A 0 km/week athlete with a marathon in
 > 12 weeks is told the truth: from zero, marathon-ready is roughly 39 weeks.
 
 **From true zero, to a race, the honest totals:**
@@ -687,7 +687,7 @@ meaningless at low volume; the percentage term takes over above 20 km/week.
 | Half | ~9 | 13 | 12 | **~34 weeks** |
 | Marathon | ~9 | 18 | 12 | **~39 weeks** |
 
-These are the numbers a coach would give, and they are the numbers Valhalla
+These are the numbers a coach would give, and they are the numbers Sacoro
 should give.
 
 ---

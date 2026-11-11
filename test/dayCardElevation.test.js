@@ -7,7 +7,7 @@ const { RUNTIME_RELATIVE } = require('./harness.js');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-// VALHALLA -- SESSION BREAKDOWN + DAILY CARD ELEVATION.
+// SACORO -- SESSION BREAKDOWN + DAILY CARD ELEVATION.
 //
 // .day is the ONE shared render primitive behind every daily/session card in
 // the app: renderDayCard() is called from Today, from This Week/Full Plan's
@@ -19,7 +19,7 @@ const { buildPlan } = require('./fixtures.js');
 // views).
 //
 // UPGRADED from --shadow-sm alone to --tile-shadow/--tile-sheen -- the same
-// premium soft-raised recipe Valhalla, Coach, Settings and Zone Breakdown
+// premium soft-raised recipe Sacoro, Coach, Settings and Zone Breakdown
 // already use, and still not a new shadow system: --tile-shadow IS
 // --shadow-sm plus one restrained inset highlight, so the base depth these
 // tests originally asserted is still present, just no longer the whole

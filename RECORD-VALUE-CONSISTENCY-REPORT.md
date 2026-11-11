@@ -34,7 +34,7 @@ empty record does not read as a warning.
 | colour | `var(--ink)` from `.b-plate` | `var(--ink-faint)` | `var(--ink-faint)` |
 | overflow-wrap | `anywhere` | inherited | **inherited** |
 
-The other Valhalla value treatments were checked for the same system:
+The other Sacoro value treatments were checked for the same system:
 `.rec-headline b` (Record tab headline) is the same face and weight at 20px, and
 `.rd-val b` (the Reading dials) is the same face at weight 700. Monospace at
 600–700 **is** the value typography here; Inter was the outlier.

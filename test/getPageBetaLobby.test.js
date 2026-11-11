@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // /get is the private-beta tester's install lobby: the last step after the
-// marketing site, sent an invited tester straight to "how do I get Valhalla
+// marketing site, sent an invited tester straight to "how do I get Sacoro
 // onto this device". A live check once found this exact page serving
 // obsolete copy -- customer-facing VDOT and an absolute "no account, nothing
 // uploaded" claim -- despite the repository having long since corrected both.
@@ -32,7 +32,7 @@ test('get.html: does not imply an App Store app exists', () => {
   // The page DOES mention "App Store" -- correctly, to explain why the PWA
   // route is the way in on iOS ("Apple only allows real installs through the
   // App Store, so this is the way in"). What it must never do is claim the
-  // App Store route itself is available for Valhalla.
+  // App Store route itself is available for Sacoro.
   assert.doesNotMatch(FLAT, /(download|available|get it|find it)[^.]{0,40}App Store/i,
     'iOS only has the PWA route today -- claiming an App Store download exists ' +
     'would send a beta tester looking for something that is not there');

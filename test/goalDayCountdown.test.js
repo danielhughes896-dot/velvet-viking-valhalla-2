@@ -5,7 +5,7 @@ const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
 // AUDIT REPRO (Final Full Product Audit, Part 12, finding B2). renderGoalDayFig()
-// (the Valhalla hero) computed Math.floor((raceDateMidnight - Date.now()) /
+// (the Sacoro hero) computed Math.floor((raceDateMidnight - Date.now()) /
 // 86400000) -- a wall-clock diff from the current MOMENT -- while
 // readingSections()'s goal-day row (same screen's Readiness panel, for the
 // identical race date) used daysBetween(todayStr(), raceDate), a pure

@@ -6,7 +6,7 @@ const path = require('path');
 const vm = require('vm');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 
-/* OPENING VALHALLA WITHOUT A NETWORK
+/* OPENING SACORO WITHOUT A NETWORK
  * ===========================================================================
  * The startup audit found that the app could not open at all in airplane mode
  * even with a complete plan in localStorage: the shell needed to read that plan

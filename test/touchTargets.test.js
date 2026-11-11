@@ -17,7 +17,7 @@ const { RUNTIME_RELATIVE } = require('./harness.js');
  * an athlete opens most:
  *
  *   coach-why-btn  "Injured or ill?"   70 x 14   (Today)
- *   KM / MI                            24 x 34   and 21 x 34   (Valhalla)
+ *   KM / MI                            24 x 34   and 21 x 34   (Sacoro)
  *
  * 44 wins: it is the floor both platforms publish, and the passes before this
  * one had already been moving things to it one control at a time.
@@ -70,7 +70,7 @@ test('the components that were under the minimum take the token, not a literal',
      is worth keeping in front of whoever reads this next. KM and MI measured
      24x34 and 21x34 -- the smallest targets in the app, on the screen whose
      only pressable control they are -- so this pass set both dimensions to
-     44. A guard in valhallaConceptRedesign caught it: each segment used to
+     44. A guard in sacoroConceptRedesign caught it: each segment used to
      reserve min-width:30px for 15px and 12px of ink, which left an 18px hole
      between the two words, and that reservation had been deliberately
      removed. 44 per segment reopened the hole at 31px, measured.

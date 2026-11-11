@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan, logAsPrescribed } = require('./fixtures.js');
 
-/* VALHALLA SAID THE SAME THING TO EVERYONE.
+/* SACORO SAID THE SAME THING TO EVERYONE.
  *
  * An athlete who had missed one session and an athlete who had missed seven
  * both got: "A threshold session went unlogged on Wednesday and it is still
@@ -13,7 +13,7 @@ const { buildPlan, logAsPrescribed } = require('./fixtures.js');
  * something has changed -- and then stop saying it, because a coach who
  * repeats one warning forever is nagging rather than coaching.
  *
- * Three tiers, and the difference between them is what Valhalla DOES: an
+ * Three tiers, and the difference between them is what Sacoro DOES: an
  * isolated miss is acknowledged and nothing changes, an emerging pattern is
  * named once with an offer, a persistent one is an honest conversation about
  * whether the block still fits the athlete's life.
@@ -152,7 +152,7 @@ test('escalation is monotonic: more missed is never a milder tier', () => {
 });
 
 test('an accepted adjustment is not a missed session', () => {
-  /* A session the athlete and Valhalla agreed to change is the opposite of one
+  /* A session the athlete and Sacoro agreed to change is the opposite of one
      they ignored, and counting it as a miss would punish the athlete for using
      the feature. */
   const a = textbook(athlete());

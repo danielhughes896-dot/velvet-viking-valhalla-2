@@ -42,7 +42,7 @@ function logged(a, actual){
   return dd;
 }
 /* THE LOG IS BEHIND ITS OWN TAB NOW -- Share, Session Details, Your Log,
-   Valhalla Analysis -- and it is closed until asked. Every test in this file
+   Sacoro Analysis -- and it is closed until asked. Every test in this file
    is about what the FIELDS do, so the tab is opened here, at the one seam
    they all render through. Without it they would each be asserting against
    an empty string, which is the kind of green that means nothing. Where the
@@ -65,7 +65,7 @@ test('a completed session asks for distance and pace, and nothing else', () => {
 });
 
 test('pace is offered as optional, never as a requirement', () => {
-  /* A missing pace narrows what Valhalla will CLAIM. It is not a failure and
+  /* A missing pace narrows what Sacoro will CLAIM. It is not a failure and
      must not be presented as one. */
   const a = app();
   const html = card(a, logged(a, { km: 8 }));

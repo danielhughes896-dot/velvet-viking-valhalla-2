@@ -1,5 +1,5 @@
 'use strict';
-/* WHAT OPENING VALHALLA ACTUALLY COSTS, MEASURED.
+/* WHAT OPENING SACORO ACTUALLY COSTS, MEASURED.
  * ===========================================================================
  * Serves the runtime through the PRODUCTION cache headers -- api/app.js sends
  * `private, no-store, must-revalidate` -- and measures a cold load and a

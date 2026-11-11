@@ -236,7 +236,7 @@ function run(set, label){
     const met      = okKm && okLong && okSecond && p.optInPeak === 0;
     /* ---- A SHORTFALL THE PROGRAMME DECLARES IS NOT THE SAME DEFECT ----
        HQ: safety may delay or prevent an athlete reaching a preparation
-       standard, and where it does Valhalla must expose an honest readiness
+       standard, and where it does Sacoro must expose an honest readiness
        shortfall. A pathway that misses and SAYS SO is that instruction working.
        A pathway that misses while readiness reports READY is the failure this
        gate exists to catch, because that is the programme calling inadequate

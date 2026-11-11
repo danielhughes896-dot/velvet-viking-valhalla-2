@@ -8,7 +8,7 @@ const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 /* THE FOUR TABS, AND THE TAB BODIES BEHIND THEM.
  * ===========================================================================
  * A completed session is four stacked tabs -- Share, Session Details, Your
- * Log, Valhalla Analysis -- and what opens behind each of them. Everything
+ * Log, Sacoro Analysis -- and what opens behind each of them. Everything
  * guarded here was found by measuring the rendered page rather than by
  * reading the sheet, and every number in a comment below is a measurement:
  *
@@ -74,7 +74,7 @@ test('the title grew into the space the sub was holding', () => {
   /* WAS 15px, "a step that reads without shouting" against a 12.5px sub.
      There is no sub now -- the row is its name -- so the title is not
      competing with a second line and the only question left is how big it
-     can be. Measured with the real classes: "VALHALLA ANALYSIS", the
+     can be. Measured with the real classes: "SACORO ANALYSIS", the
      longest of the four, is 186px of ink at 21px in a 193px column on a
      320px phone and 204px at 23px. 21px is the largest that never wraps,
      and it is also just under the session title's own 21.85px -- a tab

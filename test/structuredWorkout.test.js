@@ -2173,7 +2173,7 @@ test('why, feel and watch for left the screen — Why for its own section, the r
 });
 
 test('a tab is its name, centred, at the size that fits the narrowest phone', () => {
-  /* Measured with the real classes: "VALHALLA ANALYSIS" is 186px of ink at
+  /* Measured with the real classes: "SACORO ANALYSIS" is 186px of ink at
      21px in a 193px column on a 320px phone, 204px at 23px. 21px is the
      largest that never wraps -- and it is also just under the session
      title's 21.85px, so a tab heading cannot out-shout the session it

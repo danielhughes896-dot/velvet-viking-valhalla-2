@@ -45,7 +45,7 @@ function athlete(pinned){
 
 /* view: which screen. FULL PLAN IS ITS OWN VIEW ('full'), not a Plan HQ tab --
    handleGoToCheckpoint() sets state.view='full'. Pointing these frames at
-   'planhq' photographed the Valhalla overview and reported the continuity card
+   'planhq' photographed the Sacoro overview and reported the continuity card
    missing from every single stage, which was the harness being wrong and not
    the product. */
 const FRAMES = [

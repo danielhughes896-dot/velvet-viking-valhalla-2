@@ -113,7 +113,7 @@ test('.week now owns the hairline-lift recipe outright, because the control it b
 // --tile-shadow would make the shell as loud as its contents and flatten the
 // hierarchy between them" -- is the same rule read the other way up. The
 // raised-tile recipe is the app's premium card and is right on a PAGE
-// ground: measured across Today, This Week, Full Plan, Valhalla and
+// ground: measured across Today, This Week, Full Plan, Sacoro and
 // Settings, every tile wearing it has nothing above it wearing it.
 //
 // These four render only inside a modal card, so each was a tile as loud as

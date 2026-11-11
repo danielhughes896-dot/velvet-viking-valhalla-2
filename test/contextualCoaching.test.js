@@ -152,7 +152,7 @@ test('the short lines stay short, and carry no em dash', () => {
 
 test('the execution guidance never rotates, whatever the context', () => {
   /* THE SAFETY PROPERTY. Only `why` is contextual. If how/feel/avoid ever
-     varied by day, Valhalla would be inventing alternative instructions for
+     varied by day, Sacoro would be inventing alternative instructions for
      running the same session, which is a methodology change wearing a copy
      change's clothes. */
   const a = block();
@@ -310,10 +310,10 @@ test('Hear Today is a separate, deeper layer and not a copy of the card', () => 
   assert.ok(taught > 50, 'only ' + taught + ' days carry a teaching line');
 });
 
-test('no coaching claims knowledge Valhalla does not have', () => {
+test('no coaching claims knowledge Sacoro does not have', () => {
   /* Founder: do not infer recovery, soreness, sleep, HRV, adaptation rate or
      the weather. The heat and plasma-volume material is legitimate physiology
-     and is deliberately absent, because Valhalla has no weather data and a
+     and is deliberately absent, because Sacoro has no weather data and a
      context-selected line about heat would be a claim about conditions it
      cannot see. */
   const a = block();
@@ -337,7 +337,7 @@ test('no coaching claims knowledge Valhalla does not have', () => {
 
 test('adaptation is attributed to the pattern, never to one session', () => {
   /* The science integrity rule. Mitochondrial, capillary and plasma-volume
-     changes are responses to repeated exposure; Valhalla cannot observe an
+     changes are responses to repeated exposure; Sacoro cannot observe an
      individual's, and must not credit them to today's run. */
   const a = block();
   const all = [];

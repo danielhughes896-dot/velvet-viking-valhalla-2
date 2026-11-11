@@ -17,7 +17,7 @@ const { buildPlan } = require('./fixtures.js');
  *     They were two separate sentences.
  *   - Labelled status paragraphs -- "Insufficient evidence: Not enough scored
  *     sessions yet to judge your training trend confidently" -- were spoken.
- *     That is Valhalla's confidence in itself, read to the athlete.
+ *     That is Sacoro's confidence in itself, read to the athlete.
  *
  * THE ARCHITECTURE NOW. Structured coaching outputs -> composer -> speech.
  * The composer may condense, join and choose between two renderings of one
@@ -135,7 +135,7 @@ test('an unlabelled coaching paragraph is never dropped', () => {
 test('the filter reads shape, not a particular message', () => {
   const a = app();
   assert.equal(a.voiceBriefParagraphs({ paragraphs:[
-    'Some status: A thing about Valhalla.', 'Real coaching here.' ] }).length, 1);
+    'Some status: A thing about Sacoro.', 'Real coaching here.' ] }).length, 1);
   assert.equal(a.voiceBriefParagraphs({ paragraphs:[ 'Real coaching here.' ] }).length, 1);
   assert.equal(a.voiceBriefParagraphs(null).length, 0);
 });

@@ -117,7 +117,7 @@ test('TODAY being Strava-derived withdraws the DAY, and the coach says why', () 
 
      WHAT THIS TEST USED TO ASSERT. That Ask Coach was gone entirely. Measured
      on a device, that took the athlete's own future prescription with it:
-     Valhalla wrote Sunday's intervals, their pace and their purpose before the
+     Sacoro wrote Sunday's intervals, their pace and their purpose before the
      import existed, and none of it is Strava-derived. So the assertion moves
      from "no control is drawn" to "the imported day is the subject of nothing",
      which is what the boundary actually requires and is strictly harder to

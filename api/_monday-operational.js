@@ -109,7 +109,7 @@ function config(env){
  * a collision across every account this product will ever have unreachable,
  * and keeps the item name short enough for a human to read out loud.
  *
- * Prefixed so an operator can tell at a glance that it is a Valhalla reference
+ * Prefixed so an operator can tell at a glance that it is a Sacoro reference
  * and not something they can paste into a database. */
 function accountRef(accountId, cfg){
   const c = cfg || config();

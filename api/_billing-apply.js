@@ -133,7 +133,7 @@ async function applySubscriptionFacts(S, cfg, facts, opts){
     current_period_end: f.period_end,
     /* PROVIDER GRACE ONLY, AND WRITTEN EXPLICITLY. The adapter says what the
        provider gave; where a provider gives nothing this is null, and a
-       past_due row with no provider grace grants nothing. Valhalla adds no
+       past_due row with no provider grace grants nothing. Sacoro adds no
        days of its own -- that rule was bought with the removal of a second
        commercial brain and it is not being re-learned. */
     grace_period_end: f.grace_period_end == null ? null : f.grace_period_end,

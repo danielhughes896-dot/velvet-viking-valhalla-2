@@ -2,7 +2,7 @@
 /* FITNESS CHECKPOINT -> RACE GOAL ASSESSMENT.
  * ===========================================================================
  * The question APP is parked on: "given where I am and the programme I am
- * about to run, which of my goals does Valhalla support?" Three rules govern
+ * about to run, which of my goals does Sacoro support?" Three rules govern
  * the answer, and each is asserted here.
  *
  *   CURRENT FITNESS IS NOT RACE-DAY DESTINATION. Comparing A/B/C against
@@ -101,7 +101,7 @@ test('an unsupported active goal names the one that is, and why', () => {
 
 test('where several goals are legitimate the quickest supported one is recommended', () => {
   /* Fitness admits a range and often admits more than one. There is no reason
-     to talk an athlete down from a goal Valhalla is prepared to stand behind. */
+     to talk an athlete down from a goal Sacoro is prepared to stand behind. */
   const a = athlete('half', IMPROVING, [88, 92, 100], 'C');
   const r = a.raceGoalAssessment(null);
   const supported = r.goals.filter(g => g.supported).map(g => g.key);

@@ -363,7 +363,7 @@ test('a failed renewal does not buy an unpaid month', async () => {
    * paid for, and _entitlement.js's "the month you already paid for still
    * counts" branch reads it as paid.
    *
-   * That is Valhalla inventing grace again, arriving through the mirror instead
+   * That is Sacoro inventing grace again, arriving through the mirror instead
    * of through a constant. The architecture recovery deleted seven invented
    * days; this would have been thirty.
    *
@@ -429,7 +429,7 @@ test('a provider that DOES supply grace is honoured, and only the provider', asy
      through the same column -- and pins that nothing in the API computes one. */
   const E = require('../api/_entitlement.js');
   const at = new Date(T0 + days(31));
-  const base = { provider: 'web', product_code: 'VALHALLA_STANDARD', condition: 'past_due',
+  const base = { provider: 'web', product_code: 'SACORO_STANDARD', condition: 'past_due',
                  current_period_end: new Date(T0 + days(30)).toISOString() };
 
   const none = E.subscriptionAccess(base, at);

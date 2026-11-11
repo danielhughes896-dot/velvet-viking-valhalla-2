@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-// VALHALLA -- EDIT SESSION MUST NOT LEAVE STALE COACHING IDENTITY BEHIND.
+// SACORO -- EDIT SESSION MUST NOT LEAVE STALE COACHING IDENTITY BEHIND.
 //
 // REPRODUCED DEFECT. An athlete edits an Easy session's title, distance and
 // instructions to "10km best effort" and turns on the goal-pace segment, but

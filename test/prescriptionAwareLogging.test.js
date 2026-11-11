@@ -6,7 +6,7 @@ const { buildPlan } = require('./fixtures.js');
 
 // PRESCRIPTION-AWARE LOGGING.
 //
-// The athlete already ran a session Valhalla wrote. Asking them to rebuild it
+// The athlete already ran a session Sacoro wrote. Asking them to rebuild it
 // as anonymous numbered laps is asking them to do the app's work -- the real
 // beta report was someone reconstructing a Garmin interval session by hand.
 //
@@ -534,7 +534,7 @@ test('the worst-case sessions stay bounded and collapsed by default', () => {
     const closed = a.renderSplitsBlock(dd);
     assert.doesNotMatch(closed, /slog-row/, arch + ' must be closed until asked for');
     // Collapsed + structured now renders the soft-raised summary card
-    // (VALHALLA -- SESSION BREAKDOWN pass) rather than the old plain toggle
+    // (SACORO -- SESSION BREAKDOWN pass) rather than the old plain toggle
     // text -- same closed guarantee, new presentation.
     assert.match(closed, /class="ev-card splits-summary"/);
     assert.match(closed, /Session breakdown/i);

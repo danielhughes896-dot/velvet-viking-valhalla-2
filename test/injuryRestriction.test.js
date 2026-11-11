@@ -6,7 +6,7 @@ const { buildPlan } = require('./fixtures.js');
 
 /* INJURY / TRAINING RESTRICTION
    =========================================================================
-   An athlete who cannot train normally could not tell Valhalla so. Illness
+   An athlete who cannot train normally could not tell Sacoro so. Illness
    and pain were only ever read retrospectively, out of the notes on a
    session that was RUN -- which is the one thing an injured athlete does
    not produce. Everything downstream then read their silence as a choice:
@@ -256,7 +256,7 @@ test('no restricted session is ever offered back', () => {
 // 4. HISTORY IS PROTECTED
 // =====================================================================
 
-test('what Valhalla prescribed is kept, restored ahead, and left standing behind', () => {
+test('what Sacoro prescribed is kept, restored ahead, and left standing behind', () => {
   const a = app();
   const until = a.addDays(TODAY, 20);
   // protected sessions are deliberately never snapshotted -- see the test above
@@ -331,7 +331,7 @@ test('no return ramp is invented, and RECOVERY_PROFILE is not consulted for one'
     'a day ahead of the athlete is still restricted after they said they were back');
 });
 
-test('the programme that comes back is the one Valhalla wrote, intensity included', () => {
+test('the programme that comes back is the one Sacoro wrote, intensity included', () => {
   const a = app();
   const until = a.addDays(TODAY, 20);
   const ahead = a.state.days.filter(d => d.date >= TODAY && d.date <= until);
@@ -394,7 +394,7 @@ test('restricted days are neither evidence nor the absence of it', () => {
   assert.ok(e.sessions > 0, 'the training that did happen was discarded');
 });
 
-test('an interruption cannot lengthen the window that decides how much Valhalla claims to know', () => {
+test('an interruption cannot lengthen the window that decides how much Sacoro claims to know', () => {
   const a = app();
   // ten days of real training, then ten days restricted: a twenty-day span
   logObjective(a, 20, a.addDays(TODAY, -10));
@@ -515,10 +515,10 @@ test('the card renders nothing until there is something to say', () => {
   a.state.setup.restriction.from = a.addDays(TODAY, -12);   // twelve days out
   a.endRestriction();
   assert.equal(a.renderRestrictionCard(), '',
-    'a card is still claiming a return Valhalla does not manage');
+    'a card is still claiming a return Sacoro does not manage');
 });
 
-test('nothing on screen promises a return Valhalla does not size', () => {
+test('nothing on screen promises a return Sacoro does not size', () => {
   const a = app();
   a.declareRestriction('easy', a.addDays(TODAY, 3));
   a.state.setup.restriction.from = a.addDays(TODAY, -18);
@@ -616,7 +616,7 @@ test('applying a restriction twice cannot eat the session it is protecting', () 
   const afterOne = ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|');
   // four more passes: an extension, a level change, and two keeper runs
   a.extendRestriction('easy', until);
-  // a regeneration: one day comes back as Valhalla wrote it, with no marker
+  // a regeneration: one day comes back as Sacoro wrote it, with no marker
   a.state.days.forEach(d => {
     if (d.date !== TODAY || !d.restricted) return;
     a.restoreWorkoutSnapshot(d, d.restricted.from);
@@ -627,12 +627,12 @@ test('applying a restriction twice cannot eat the session it is protecting', () 
   a.extendRestriction('easy', until);
   assert.equal(ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|'), afterOne,
     'repeated application kept shrinking the plan');
-  // and what Valhalla prescribed is still the thing that comes back
+  // and what Sacoro prescribed is still the thing that comes back
   ahead.forEach(d => assert.ok(d.restricted.from,
     'the original prescription was lost on a later pass'));
   a.endRestriction();
   assert.equal(ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|'), original,
-    'the programme that came back is not the one Valhalla wrote');
+    'the programme that came back is not the one Sacoro wrote');
 });
 
 test('the coach does not say proceed over an unanswered "are you back?"', () => {
@@ -647,7 +647,7 @@ test('the coach does not say proceed over an unanswered "are you back?"', () => 
   assert.ok(dec, 'no decision at all');
   assert.equal(dec.state, 'recover',
     'Next Move reads ' + dec.state + ' beneath a card saying nothing resumes until you say so');
-  assert.ok(dec.reasons.some(r => /not told Valhalla you are back/.test(r)),
+  assert.ok(dec.reasons.some(r => /not told Sacoro you are back/.test(r)),
     JSON.stringify(dec.reasons));
   assert.equal(a.supportSafetyBlocked(), true);
 });
@@ -1046,7 +1046,7 @@ test('durability is still not modified, and the bands and scope are unchanged', 
   });
 });
 
-test('no surface anywhere promises a return Valhalla does not size', () => {
+test('no surface anywhere promises a return Sacoro does not size', () => {
   /* Caught by a screenshot, not by a test: the ramp was removed and two
      field hints went on saying "eases you back in". Pinned here so the next
      reader of this copy has to mean it. */
@@ -1065,7 +1065,7 @@ test('no surface anywhere promises a return Valhalla does not size', () => {
 // =====================================================================
 
 /* An athlete who has just been told to stop running opens Today, not
-   Settings, and nothing on Today said this was a thing Valhalla could be
+   Settings, and nothing on Today said this was a thing Sacoro could be
    told. The answer is a signpost, not a second control: Settings -> Training
    Availability stays the only place a restriction is declared, changed or
    ended, because two routes into the same declaration are two routes to get
@@ -1080,7 +1080,7 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
   /* WHAT THIS TEST IS FOR IS UNCHANGED: one quiet pointer, at the foot, not
      competing with the session the athlete opened the app for. How it was
      expressed referred to two things that are no longer on Today by ruling
-     -- the Pace Reference (whose destination is now Valhalla -> Coach) and
+     -- the Pace Reference (whose destination is now Sacoro -> Coach) and
      Next Move. Ordering assertions against absent markup do not fail, they
      pass vacuously: indexOf returns -1 and every index beats it. So the
      property is pinned directly instead, which is strictly stronger than
@@ -1092,7 +1092,7 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
   assert.match(html.slice(html.indexOf('Injured or ill?')), /^Injured or ill\?(?:<\/[a-z]+>)*$/,
     'nothing follows the signpost');
   // the two surfaces this screen no longer carries, held so they cannot creep back
-  assert.equal(html.indexOf('pace-ref-card'), -1, 'the Pace Reference belongs to Valhalla -> Coach');
+  assert.equal(html.indexOf('pace-ref-card'), -1, 'the Pace Reference belongs to Sacoro -> Coach');
   assert.equal(html.indexOf('coach-next-title'), -1, 'Next Move is not on Today');
 });
 

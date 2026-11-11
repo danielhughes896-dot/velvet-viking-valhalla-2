@@ -8,7 +8,7 @@
  *   2  the Ask panel open, with forward-looking suggestions
  *   3  "How did today's run go?"  -> the boundary answer, no request opened
  *   4  "What am I doing next?"    -> a normal coaching answer about the
- *                                    Valhalla-owned future session
+ *                                    Sacoro-owned future session
  *
  * WHAT IS REAL AND WHAT IS STUBBED, because acceptance evidence that blurs
  * that is worth nothing. Everything on the device is real: the state, the

@@ -86,7 +86,7 @@ function seed(p){
 
   for (const width of WIDTHS){
     for (const theme of ['light', 'dark']){
-      // ---- 1/2/4. VALHALLA OVERVIEW HERO: Current Fitness (primary + vs Goal + evidence state) ----
+      // ---- 1/2/4. SACORO OVERVIEW HERO: Current Fitness (primary + vs Goal + evidence state) ----
       for (const key of ['goal', 'calibrated']){
         const s = scenarios[key];
         const ctx = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 2,

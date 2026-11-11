@@ -449,7 +449,7 @@ test('the check-in introduces no purple: the retired violet does not come back t
   assert.ok(start > 0 && end > start);
   const block = CODE.slice(start, end);
   assert.doesNotMatch(block, /--violet|#A88FD8|#4C2A6B|#B79FDF/i,
-    'Cherry Lacquer replaced the Valhalla violet; the check-in must not reintroduce it');
+    'Cherry Lacquer replaced the Sacoro violet; the check-in must not reintroduce it');
 });
 
 test('the option chips are a real tap target on a phone', () => {

@@ -5,7 +5,7 @@ holds an implementation.
 
 ## What changed, and why
 
-The first prototype kept the whole pipeline out of Valhalla in an operator-run
+The first prototype kept the whole pipeline out of Sacoro in an operator-run
 script here, because the monday.com board did not exist yet and the AI and
 approval steps had nowhere real to happen. Both of those are now configured:
 
@@ -21,7 +21,7 @@ pipeline, and the wrong one would eventually get used.
 ## The boundary now
 
 ```
-VALHALLA (coaching product — knows nothing about marketing)
+SACORO (coaching product — knows nothing about marketing)
   coachPersistReview(dd)           the domain hook, never a render path
    └ contentCandidateNotify(dd)    ancillary, wrapped, silent, last
   coachBreakthroughs()             deterministic, athlete-first, already existed
@@ -32,7 +32,7 @@ VALHALLA (coaching product — knows nothing about marketing)
   api/_content-bridge.js                          the only file that knows monday
         │  creates one item, Workflow Status = Candidate
         ▼
-  ── VALHALLA'S RESPONSIBILITY ENDS HERE ──
+  ── SACORO'S RESPONSIBILITY ENDS HERE ──
         │
   monday.com   HUMAN sets Selected
                → Social Content Agent writes AI Content Pack, sets Review
@@ -40,7 +40,7 @@ VALHALLA (coaching product — knows nothing about marketing)
                → publishing: a later, separately authorised boundary
 ```
 
-Valhalla never writes Format, AI Content Pack, Review Feedback or Assets, never
+Sacoro never writes Format, AI Content Pack, Review Feedback or Assets, never
 moves an item past `Candidate`, and has no publishing capability. Tests assert
 each of those.
 
@@ -52,11 +52,11 @@ Server-side environment only, never committed and never sent to a browser:
 MONDAY_API_TOKEN              secret
 MONDAY_CONTENT_BOARD_ID       5102476403
 MONDAY_CONTENT_GROUP_ID       optional; defaults to group_mm6bbdp2
-                              ("APP DATA — Valhalla Evidence")
+                              ("APP DATA — Sacoro Evidence")
 VVV_CONTENT_BRIDGE_ENABLED    off unless explicitly set
 VVV_OWNER_USER_ID             already used by the existing owner-only routes
 
-MONDAY_CONTENT_SOURCE_LABEL   optional; overrides the Source value ("Valhalla")
+MONDAY_CONTENT_SOURCE_LABEL   optional; overrides the Source value ("Sacoro")
 ```
 
 `MONDAY_API_TOKEN` and `VVV_CONTENT_BRIDGE_ENABLED` are required and each fails

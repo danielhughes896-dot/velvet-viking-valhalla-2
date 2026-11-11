@@ -8,17 +8,17 @@ const { buildPlan } = require('./fixtures.js');
 
 /* THE APPROVED-CONCEPT VISUAL REDESIGN.
  * ===========================================================================
- * The first Valhalla pass reorganised the existing Plan HQ components into
- * VALHALLA/COACH/RECORD tabs but kept their old presentation (the
+ * The first Sacoro pass reorganised the existing Plan HQ components into
+ * SACORO/COACH/RECORD tabs but kept their old presentation (the
  * semicircular gauge, the bare Race Outlook track, list-row Reading/Record
  * cards). The approved Artifact mock-up is a genuine visual redesign, not a
  * relayout, so this file protects the things that pass changed:
  *
- *   - the Valhalla hero: centred block/week, a full-circle readiness ring,
+ *   - the Sacoro hero: centred block/week, a full-circle readiness ring,
  *     two quiet figures (days to goal, load), a contained Race Outlook card,
  *     a one-line status read;
  *   - THE READING and THE RECORD condensed, non-interactive previews on the
- *     Valhalla tab itself, using the same circular-dial and chamfered-plate
+ *     Sacoro tab itself, using the same circular-dial and chamfered-plate
  *     language the Coach and Record tabs use in full;
  *   - Coach and Record's own cards reskinned into that dial/headline
  *     language, still tappable, still opening the same real evidence panels.
@@ -26,7 +26,7 @@ const { buildPlan } = require('./fixtures.js');
  * Every value below still has to come from the same real computations this
  * pass did not touch -- computeConfidenceScore(), coachAnalyse(),
  * raceOutlook(), the four record facts. This file checks the new shape; the
- * existing planHqReading/planHqRecord/valhallaRedesign suites still check
+ * existing planHqReading/planHqRecord/sacoroRedesign suites still check
  * that the underlying data and actions never moved.
  */
 
@@ -102,22 +102,22 @@ test('HERO: a full-circle gauge, two figures, a contained outlook card, a status
      THE DOT HAS GONE AND THIS ASSERTION WITH IT. It was a third telling:
      the card already carries the tone as a class -- which is what drives
      --call-tone and the gradient wash behind the words -- and the title
-     already ENDS in the decision ("Valhalla's Call -- Proceed"). What the
+     already ENDS in the decision ("Sacoro's Call -- Proceed"). What the
      dot cost was the left edge: it held the title at x=32 on a screen whose
      every other line starts at 16.
      Both surviving signals are asserted immediately below, so a card that
      lost its tone or its decision word still fails here. */
   /*
-     ---- CHANGED SIDES: VALHALLA'S CALL IS GONE ----
-     Founder: "I don't like Valhalla's call - proceed / Recovery fresh,
+     ---- CHANGED SIDES: SACORO'S CALL IS GONE ----
+     Founder: "I don't like Sacoro's call - proceed / Recovery fresh,
      trend still building. We know the user should proceed."
      The engine returns PROCEED on most days, so a band under the hero
      announcing it told the athlete what opening the app already assumed,
      and both readings in its sub-line are circles in the grid beneath it
      with panels of their own. It had already given up its dot and then its
      wash for the same reason; this is that argument reaching the block. */
-  assert.doesNotMatch(hero, /class="v-call/, 'Valhalla\u2019s Call is back in the hero');
-  assert.doesNotMatch(hero, /Valhalla\u2019s Call/, 'the call\u2019s title is back');
+  assert.doesNotMatch(hero, /class="v-call/, 'Sacoro\u2019s Call is back in the hero');
+  assert.doesNotMatch(hero, /Sacoro\u2019s Call/, 'the call\u2019s title is back');
   /* AND THE HERO ITSELF IS UNTOUCHED -- founder: "hero stays exactly the
      same!!" The block, the week, the gauge and the two figures either
      side are asserted above; this pins that removing the call took
@@ -222,7 +222,7 @@ test('HERO: load is coachAnalyse().load.ratio, not a second computation', () => 
 });
 
 // ===========================================================================
-// 2. THE READING / THE RECORD PREVIEWS ON VALHALLA
+// 2. THE READING / THE RECORD PREVIEWS ON SACORO
 // ===========================================================================
 /* THE DIALS ARE THE DESTINATION NOW, which is the whole reason Coach and
    Record could be retired. They were decorative <div>s with no action on
@@ -233,7 +233,7 @@ test('HERO: load is coachAnalyse().load.ratio, not a second computation', () => 
    the old one could pass with every circle inert. */
 test('PREVIEW: the Reading arc shows every section it owns, each one a destination', () => {
   const a = planHQ();
-  const preview = a.renderValhallaInstruments();
+  const preview = a.renderSacoroInstruments();
   /* The heading went with the founder's "the reading and the athlete status
      and gold decor lines can be removed"; what it headed did not. */
   assert.doesNotMatch(preview, /The Reading</, 'the retired heading is back');
@@ -282,7 +282,7 @@ test('PREVIEW: the circles are a two-column grid, all one size', () => {
      the readings. What is still pinned is that the ORDER is the founder's
      and that the ladder has not crept back in. */
   const a = planHQ();
-  const preview = a.renderValhallaInstruments();
+  const preview = a.renderSacoroInstruments();
   assert.match(preview, /class="b-grid"/);
   assert.doesNotMatch(preview, /class="b-dials-(arc|row)"/, 'the staggered arc is back');
   const order = (preview.match(/data-reading="([a-z]+)"/g) || [])
@@ -329,7 +329,7 @@ test('PREVIEW: the circles are a two-column grid, all one size', () => {
 
 test('PREVIEW: The Athlete Status shows all four facts, each one a destination', () => {
   const a = planHQ();
-  const preview = a.renderValhallaInstruments();
+  const preview = a.renderSacoroInstruments();
   /* ---- CHANGED SIDES: ALL FOUR ARE PLATES NOW ----
      Founder: "I think we make the fitness and progress circles the same as
      goal and benchmark. And then put them under the circles."
@@ -381,7 +381,7 @@ test('HERO: the gauge carries the live confidence percentage, and nothing in the
   const a = planHQ();
   const pct = a.formatConfidencePct(a.computeConfidenceScore());
   const gauge = (a.renderPlanHQView().match(/<button[^>]*class="gauge-wrap"[\s\S]*?<\/button>/) || [])[0] || '';
-  assert.ok(gauge, 'the confidence gauge is not on the Valhalla view');
+  assert.ok(gauge, 'the confidence gauge is not on the Sacoro view');
   assert.ok(gauge.indexOf('<b class="font-mono">' + pct + '%</b>') !== -1,
     'the gauge does not show formatConfidencePct(computeConfidenceScore())');
   assert.ok(gauge.indexOf('aria-label="Confidence score ' + pct + ' percent') !== -1,
@@ -389,32 +389,32 @@ test('HERO: the gauge carries the live confidence percentage, and nothing in the
   // Anchored on the value face, not on the bare digits: the arc legitimately
   // carries percentages elsewhere (a tick, a width), and it is a second
   // READING of confidence that must not come back, not the character '%'.
-  assert.ok(a.renderValhallaInstruments().indexOf('>' + pct + '%</b>') === -1,
+  assert.ok(a.renderSacoroInstruments().indexOf('>' + pct + '%</b>') === -1,
     'a circle in the arc is showing the confidence number again');
 });
 
 test('PREVIEW: an athlete with no plan gets empty previews, not a crash', () => {
   const a = loadApp({ pinnedDate: TODAY });
   a.state = a.makeDefaultState();
-  assert.equal(a.renderValhallaInstruments(), '');
-  assert.equal(a.renderValhallaInstruments(), '');
+  assert.equal(a.renderSacoroInstruments(), '');
+  assert.equal(a.renderSacoroInstruments(), '');
 });
 
 // ===========================================================================
-// 3. THE VALHALLA TAB ASSEMBLES HERO + BOTH PREVIEWS + THE EXISTING ACTIONS
+// 3. THE SACORO TAB ASSEMBLES HERO + BOTH PREVIEWS + THE EXISTING ACTIONS
 // ===========================================================================
-test('TAB: Valhalla renders the hero, then the Reading preview, then the Record preview, with no action tiles beneath', () => {
+test('TAB: Sacoro renders the hero, then the Reading preview, then the Record preview, with no action tiles beneath', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   const at = s => html.indexOf(s);
-  assert.doesNotMatch(html, /class="v-call/, 'Valhalla\u2019s Call is back');
+  assert.doesNotMatch(html, /class="v-call/, 'Sacoro\u2019s Call is back');
   /* The two headed rows became one grid and two plates on instruction --
      see the order law in test/planHqReading, which carries the reasoning.
      The sequence this test is about is unchanged. */
   assert.ok(at('class="v-hero"') < at('class="b-grid"'), 'the circles are not below the hero');
   assert.ok(at('class="b-grid"') < at('class="b-plates"'),
     'the plates are not below the circles');
-  // New Block and Plan Settings no longer render on the daily Valhalla page
+  // New Block and Plan Settings no longer render on the daily Sacoro page
   // at all (requirement 5 relocated both to Settings).
   assert.doesNotMatch(html, /class="act-trio/, 'a management action tile is still below the Record preview');
 });
@@ -587,8 +587,8 @@ test('SAFETY: the redesigned shell renders every real value from the same real f
     load: JSON.stringify(a.coachAnalyse().load),
   };
   a.renderPlanHQView();
-  a.renderValhallaInstruments();
-  a.renderValhallaInstruments();
+  a.renderSacoroInstruments();
+  a.renderSacoroInstruments();
   Object.keys(a.RECORD_PANELS).forEach(k => a.hqPanelHtml(k));
   a.readingSections(a.coachAnalyse()).forEach(sec => a.hqPanelHtml(sec.key));
   a.renderPlanHQView();
@@ -613,7 +613,7 @@ test('ARC: every rank the renderers draw has a diameter rule behind it', () => {
   const a = planHQ();
   const drawn = new Set();
   // Every circle the product can actually put on screen, from its own output.
-  [a.renderPlanHQView(), a.renderValhallaInstruments(), a.renderValhallaInstruments()]
+  [a.renderPlanHQView(), a.renderSacoroInstruments(), a.renderSacoroInstruments()]
     .forEach(html => {
       (html.match(/data-rank="([^"]+)"/g) || [])
         .forEach(m => drawn.add(m.replace(/.*"([^"]+)"$/, '$1')));

@@ -127,7 +127,7 @@ async function ingestActivity(uid, payload){
 }
 
 /* ---------- the health boundary, waiting for the integration ----------
-   A watch is the richest source of health-indicating data Valhalla will ever
+   A watch is the richest source of health-indicating data Sacoro will ever
    have, and Garmin is off, which is exactly when a boundary is cheap to build
    and impossible to remember later. This is the seam: whoever implements
    ingestActivity() hands the normalised activity through here before it

@@ -65,7 +65,7 @@ same failure as the dead CSS, one level up.
 ## 3. Proven inert, two ways
 
 `tools/shots/plan-hq-shell-shots.js` — **12 frames**: Plan HQ's three tabs
-(Valhalla / Coach / Record) × light and dark × a measured and an unmeasured
+(Sacoro / Coach / Record) × light and dark × a measured and an unmeasured
 athlete.
 
 1. **No element matches.** The sweep queries the removed selectors against the
@@ -119,7 +119,7 @@ protected/velvet-viking-valhalla.html   11 dead rules removed; the design law
 test/recordShellDead.test.js            NEW — 7 tests
 tools/shots/plan-hq-shell-shots.js      NEW — 12 frames + live-DOM selector check
 test/themeSystem.test.js                one row re-homed (§6)
-test/valhallaRedesign.test.js           one test re-homed (§6)
+test/sacoroRedesign.test.js           one test re-homed (§6)
 test/mutation/run.js                    two cases re-homed, subset widened (§6)
 DEAD-REC-SHELL-REPORT.md                this file
 ```
@@ -134,7 +134,7 @@ vacuously against a component nothing renders:
 | Test | Pinned | Re-homed to |
 |---|---|---|
 | `themeSystem` — *fills that carry state or semantics were not flattened* | `.rec-card:hover` | `.ev-card:hover` |
-| `valhallaRedesign` — *carries its data typography by default, not by caller convention* | `.rec-val` | `.b-plate .val` + `.rec-headline b` |
+| `sacoroRedesign` — *carries its data typography by default, not by caller convention* | `.rec-val` | `.b-plate .val` + `.rec-headline b` |
 
 The second is the sharper one: a test named for a law about components not
 relying on caller convention was asserting it on a class with **no callers**.
@@ -169,5 +169,5 @@ against `RECORD_SUBSET` instead.
 ## 7. Suite
 
 Targeted: `recordShellDead` 7/7, `recordEmptyTypography` 10/10,
-`themeSystem` + `valhallaRedesign` 60/60.
+`themeSystem` + `sacoroRedesign` 60/60.
 **Complete suite: 3085 pass / 0 fail** (3078 before; 7 new).

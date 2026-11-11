@@ -77,10 +77,10 @@ test('the current day is lit rather than ringed', () => {
   assert.doesNotMatch(body, /0 0 0 1px/, 'the gold ring came back around the today row');
 });
 
-test('bare .hub-card is untouched, because Today and Valhalla use it too', () => {
+test('bare .hub-card is untouched, because Today and Sacoro use it too', () => {
   /* The de-boxing is scoped to the plan views by name. A change to bare
-     .hub-card would reach Today's Next Move and the Valhalla panels, which
-     is exactly what the VALHALLA CONSISTENCY PASS comment warns against. */
+     .hub-card would reach Today's Next Move and the Sacoro panels, which
+     is exactly what the SACORO CONSISTENCY PASS comment warns against. */
   const i = BARE.indexOf('.hub-card{');
   assert.ok(i > -1, '.hub-card is gone');
   const body = BARE.slice(i + '.hub-card{'.length, BARE.indexOf('}', i));
@@ -412,13 +412,13 @@ test('ROW: a finished day shows its score, a past unlogged one says so, a rest d
 /* SETTINGS WAS THE LAST SCREEN BUILT AS BOXES INSIDE BOXES.
  * ===========================================================================
  * Five lifted, rimmed cards, each holding a stack of rows. Today, This Week,
- * Full Plan and Valhalla have all shed exactly this, and the nesting was not
+ * Full Plan and Sacoro have all shed exactly this, and the nesting was not
  * free: a card inset 16px holding rows inset a further 15px put every line
  * 31px from the edge, on a screen whose other views run to the 16px gutter.
  * Measured in Chromium: a row title moved from 63px to 48px.
  */
 test('SETTINGS: the containers come off, and the rows take the gutter', () => {
-  /* THE WRAPPER FIRST, for the reason Valhalla needed one. .stg-group is a
+  /* THE WRAPPER FIRST, for the reason Sacoro needed one. .stg-group is a
      .hub-card -- the same class Today's Next Move and the post-race panel
      wear -- so without a scope there is no way to restyle it HERE without
      restyling them. */
@@ -766,7 +766,7 @@ test('every rail photograph is cut to the rail\u2019s own shape', () => {
      --card-pic (a session card) and --phase-pic (a phase slide).
      NOT EVERY JPEG IN assets/. The first version of this matched them all
      and failed on valhalla-mountains-820, which is 820x1093: a 3:4 portrait
-     behind the Valhalla hero, not a rail picture at all. It was right to
+     behind the Sacoro hero, not a rail picture at all. It was right to
      fail and the selector was wrong. */
   const named = [...new Set(
     (BARE.match(/--(?:card|phase)-pic:url\('(\/assets\/[a-z-]+-\d+\.jpg)'\)/g) || [])
@@ -1458,12 +1458,12 @@ test('the day the block is for is a panel, not another row', () => {
 test('neither week hero carries a recovery reading, on either screen', () => {
   /* ---- CHANGED SIDES, AND IT SHOULD NOT HAVE TAKEN TWO ----
      Founder, first: "Recovery normal top right doesn't need to be there
-     neither - that's all ok Valhalla tab." That was applied to Full Plan
+     neither - that's all ok Sacoro tab." That was applied to Full Plan
      only, and the law here asserted This Week KEPT the chip -- its failure
      message read "This Week lost its recovery chip as well, which was not
      the instruction." It was the instruction.
      Founder, again: "remove the bloody pill from this week."
-     One element, one place it belongs, and that place is Valhalla. */
+     One element, one place it belongs, and that place is Sacoro. */
   const a = app();
   const cur = a.currentWeekNum();
   [true, false].forEach(asBlock => {
@@ -1536,7 +1536,7 @@ test('a rest day cannot be missed, and a declared day is never a reproach', () =
   /* The circle painted every past unfinished day, rest days included. That
      was harmless while the state was a dimming and would be a red mark
      against a day the athlete was never asked to run — or worse, against one
-     they told Valhalla about in advance. dayStatusLabel() has ranked
+     they told Sacoro about in advance. dayStatusLabel() has ranked
      Restricted above Missed since it was written, for exactly that reason. */
   const i = SRC.indexOf('function renderWeekDaySelector(');
   assert.ok(i > -1, 'renderWeekDaySelector is gone');
@@ -1558,7 +1558,7 @@ test('a rest day cannot be missed, and a declared day is never a reproach', () =
 test('the taper line is coaching, lit like coaching', () => {
   /* It was a dim left-aligned sentence behind a gold "Taper:" label, sitting
      under the bar like a footnote to the numbers. It is not a footnote — it
-     is Valhalla saying what the week is for, which is the Coach's Note's job
+     is Sacoro saying what the week is for, which is the Coach's Note's job
      on a session, so it takes the same treatment. */
   assert.ok(!/<b>Taper:<\/b>/.test(SRC),
     'the "Taper:" label is back. The title two lines above already says TAPER, so the ' +
@@ -1576,7 +1576,7 @@ test('the taper line is coaching, lit like coaching', () => {
      in step. A glow that drifts from the one it was copied from is two
      cherries on one product. */
   /* The selector is a LIST now: What's Next on Full Plan is the same kind of
-     line -- Valhalla saying where this is going -- so it takes the same
+     line -- Sacoro saying where this is going -- so it takes the same
      light from the same declaration rather than a second copy of the
      gradient. A copy is exactly how the taper SENTENCE ended up saying two
      different things on two screens. */

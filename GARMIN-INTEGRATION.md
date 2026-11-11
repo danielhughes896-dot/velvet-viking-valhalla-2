@@ -1,6 +1,6 @@
 # Garmin integration — what exists, and what waits for Garmin
 
-Valhalla's side of the Garmin integration is built. Garmin's side is not, and
+Sacoro's side of the Garmin integration is built. Garmin's side is not, and
 deliberately so: everything below the line marked *waiting* depends on a
 contract Garmin supplies only to approved Developer Program members, and a
 plausible guess at any of it produces code that looks finished, passes its own
@@ -77,7 +77,7 @@ calendars.
 
 ## The activity return path
 
-The loop Valhalla is built for:
+The loop Sacoro is built for:
 
 ```
 scheduled training → Garmin Connect → watch → completed activity
@@ -128,10 +128,10 @@ control to press.
 
 ## Mapping decisions already made
 
-These are Valhalla-side and did not need Garmin's contract. The adapter chooses
+These are Sacoro-side and did not need Garmin's contract. The adapter chooses
 the closest supported representation once the schema is known.
 
-| Valhalla | canonical form | note |
+| Sacoro | canonical form | note |
 |---|---|---|
 | qualitative recovery (`short`, `scaled to the rep`, `jog/walk back down`, `full recovery`) | `duration: {type:'open', advance:'manual', rule}` | no number is fabricated |
 | timed cool-down (`complete 10km total`) | `{type:'open', rule:'complete_session_total', sessionTotalMetres}` | the remainder is not knowable in advance; the total is |

@@ -455,7 +455,7 @@ test('a signed-in athlete who already subscribes is not offered a trial', async 
      checkout. Same dishonesty as the hardcoded `true`, from the other side. */
   await withWorld({ seed: { subscriptions: [{
     account_id: ATHLETE, provider: 'web', provider_subscription_id: 'sub_live',
-    product_code: 'VALHALLA_STANDARD', offer_code: 'STANDARD_MONTHLY',
+    product_code: 'SACORO_STANDARD', offer_code: 'STANDARD_MONTHLY',
     condition: 'active', current_period_end: new Date(Date.now() + days(20)).toISOString()
   }] } }, async ({ api }) => {
     const r = await api.call('preview', 'POST', PREVIEW_BODY);
@@ -731,7 +731,7 @@ test('a reconcile racing the webhook spends one allowance between them', async (
 test('cancelling during the trial keeps the fortnight and stops the renewal', async () => {
   /* Stripe does not move a subscription to 'cancelled' merely because
      auto-renew was switched off, so the row stays 'trialing' and access runs to
-     trial_end. Somebody who tries Valhalla for a week and decides against it
+     trial_end. Somebody who tries Sacoro for a week and decides against it
      keeps the week they were promised. */
   await withWorld({}, async ({ f, stripe, api }) => {
     await withHook(f, stripe, stripe.put(stripe.sub({ id: 'sub_t' })), 'evt_1');
@@ -809,7 +809,7 @@ test('nothing anywhere in the repository clears a consumed trial', () => {
 test('an athlete who already subscribes cannot buy a second subscription', async () => {
   await withWorld({ seed: { subscriptions: [{
     account_id: ATHLETE, provider: 'web', provider_subscription_id: 'sub_live',
-    product_code: 'VALHALLA_STANDARD', offer_code: 'STANDARD_MONTHLY',
+    product_code: 'SACORO_STANDARD', offer_code: 'STANDARD_MONTHLY',
     condition: 'active', current_period_end: new Date(Date.now() + days(20)).toISOString()
   }] } }, async ({ stripe, api }) => {
     const r = await api.call('checkout', 'POST', { period: 'yearly' });
@@ -822,7 +822,7 @@ test('an athlete who already subscribes cannot buy a second subscription', async
 test('an athlete who subscribes through a store is sent to that store, not sold again', async () => {
   await withWorld({ seed: { subscriptions: [{
     account_id: ATHLETE, provider: 'apple', provider_subscription_id: 'apple_1',
-    product_code: 'VALHALLA_STANDARD', condition: 'active',
+    product_code: 'SACORO_STANDARD', condition: 'active',
     current_period_end: new Date(Date.now() + days(20)).toISOString()
   }] } }, async ({ api }) => {
     const r = await api.call('checkout', 'POST', { period: 'monthly' });
@@ -1103,9 +1103,9 @@ test('a delivery that is not Stripe is refused, not interpreted', async () => {
    about the beta programme -- are written on the grant that still works.
    The retirement itself is asserted immediately after this line. */
 const compGrant = { account_id: ATHLETE, source: 'admin_comp',
-                    product_code: 'VALHALLA_STANDARD', expires_at: null, revoked_at: null };
+                    product_code: 'SACORO_STANDARD', expires_at: null, revoked_at: null };
 const betaGrant = { account_id: ATHLETE, source: 'admin_beta',
-                    product_code: 'VALHALLA_STANDARD', expires_at: null, revoked_at: null };
+                    product_code: 'SACORO_STANDARD', expires_at: null, revoked_at: null };
 
 test('a beta athlete is gated once the commercial flag is switched on', async () => {
   /* THE COMMERCIAL LAUNCH, END TO END. This asserted the opposite for the

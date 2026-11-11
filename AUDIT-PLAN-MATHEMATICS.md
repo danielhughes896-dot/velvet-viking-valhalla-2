@@ -14,7 +14,7 @@ nothing tells the athlete — or us — which side of it they are on.
 ## 1. The question, answered
 
 > *Can I let an athlete enter any supported current weekly volume — including
-> 0 km/week — and trust Valhalla to produce a mathematically coherent,
+> 0 km/week — and trust Sacoro to produce a mathematically coherent,
 > physiologically sensible plan for their chosen race?*
 
 **No.**

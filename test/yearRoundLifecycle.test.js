@@ -14,7 +14,7 @@ const { buildPlan } = require('./fixtures.js');
 // handover from a race to it, and from it to whatever comes next.
 //
 // Every path below ends somewhere. "No dead end" is the property under test as
-// much as any individual recommendation, so each campaign asserts that Valhalla
+// much as any individual recommendation, so each campaign asserts that Sacoro
 // still has something to say at the end of it.
 
 const ROOT = path.join(__dirname, '..');
@@ -557,7 +557,7 @@ test('MUTATION: historical coaching cannot fall back to current-plan-only', () =
 
 /* THE GAP THIS CLOSES, found by mutation rather than by inspection.
 
-   The test below drives startDevelopmentBlock(), which is how Valhalla builds
+   The test below drives startDevelopmentBlock(), which is how Sacoro builds
    a non-race block when the athlete accepts a recommendation. But there is a
    SECOND way in -- handleGeneratePlan(), the builder -- and forcing hasEvent
    to true there changed nothing any test could see. An athlete who picked

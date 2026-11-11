@@ -1,4 +1,4 @@
-# Valhalla commercial core
+# Sacoro commercial core
 
 The provider-neutral foundation that web billing, Apple StoreKit and Google Play
 Billing all feed. It sells nothing. It charges nothing. It starts no trial.
@@ -27,7 +27,7 @@ PURCHASE / SUBSCRIPTION              subscriptions   +   entitlement_grants
       ↓                              (bought)            (given)
 ENTITLEMENT                          derived by resolveStandardEntitlement()
       ↓
-VALHALLA ACCESS                      the delivery gate in _access.js
+SACORO ACCESS                      the delivery gate in _access.js
 ```
 
 **Email is never any part of this.** It is mutable, it is not an identity, and
@@ -44,7 +44,7 @@ One product. Two ways to pay for it.
 
 | | code | period | price | trial |
 |---|---|---|---|---|
-| product | `VALHALLA_STANDARD` | — | — | 14 days |
+| product | `SACORO_STANDARD` | — | — | 14 days |
 | offer | `STANDARD_MONTHLY` | monthly | £11.99 | 14 days |
 | offer | `STANDARD_YEARLY` | yearly | £89.99 | 14 days |
 
@@ -181,7 +181,7 @@ athlete will still be relying on tomorrow.
   `current_period_end`. Taking the product away when somebody clicks cancel is
   both wrong and the fastest route to a chargeback.
 - **Payment failure** — access continues through the **provider's**
-  `grace_period_end`. **Valhalla adds no grace of its own**: a `past_due` row
+  `grace_period_end`. **Sacoro adds no grace of its own**: a `past_due` row
   with no provider grace end grants nothing. A failure *inside* an already-paid
   period does not end that period.
 - **Expiry** — entitlement goes inactive. The account, the plans, the completed
@@ -434,7 +434,7 @@ the resolver, so the projection could contradict the subscriptions and grants
 behind it. It also **invented seven days of grace** on a failed payment.
 
 Both are gone. The approved rule is **provider grace only**: whatever
-`grace_period_end` a provider supplies is honoured exactly, and Valhalla adds
+`grace_period_end` a provider supplies is honoured exactly, and Sacoro adds
 nothing on top. Being inside a period that was already paid for is not grace and
 is not reported as grace. `test/commercialAuthority.test.js` asserts that no
 module in `api/` declares a grace length of its own.

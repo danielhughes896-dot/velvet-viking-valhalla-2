@@ -1,6 +1,6 @@
 // Velvet Viking -- the product catalogue.
 //
-// ONE PRODUCT. Valhalla sells Valhalla Standard, monthly or yearly, with a
+// ONE PRODUCT. Sacoro sells Sacoro Standard, monthly or yearly, with a
 // fourteen-day introductory trial. That is the whole commercial surface, and
 // stating it in one place is what stops it being restated, slightly
 // differently, in a checkout page, a paywall, an App Store description and a
@@ -9,7 +9,7 @@
 // WHAT A PRODUCT IS AND WHAT AN OFFER IS. These are not the same thing and the
 // distinction is load-bearing:
 //
-//   PRODUCT   VALHALLA_STANDARD -- what the athlete may DO. This is what the
+//   PRODUCT   SACORO_STANDARD -- what the athlete may DO. This is what the
 //             entitlement layer grants and what the coaching engine, if it
 //             ever asks anything at all, asks about.
 //   OFFER     STANDARD_MONTHLY / STANDARD_YEARLY -- how they PAY for it. A
@@ -38,7 +38,7 @@
 'use strict';
 
 /* The one product code. Written once; imported everywhere. */
-const STANDARD = 'VALHALLA_STANDARD';
+const STANDARD = 'SACORO_STANDARD';
 
 /* The providers this model is built to normalise. 'web' is whichever web
    billing provider Phase 2 chooses -- the code is deliberately the CHANNEL and
@@ -94,7 +94,7 @@ const OFFERS = {
 const PRODUCTS = {
   [STANDARD]: {
     code: STANDARD,
-    name: 'Valhalla Standard',
+    name: 'Sacoro Standard',
     offers: ['STANDARD_MONTHLY', 'STANDARD_YEARLY']
   }
 };

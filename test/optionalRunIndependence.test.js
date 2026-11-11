@@ -4,7 +4,7 @@
  * An Optional Run says: you offered this day and the programme does not
  * currently need it. That sentence is only honest if the kilometres are
  * genuinely surplus -- if a canonical athlete can leave every one of them
- * unperformed and have Valhalla treat them as having done the programme.
+ * unperformed and have Sacoro treat them as having done the programme.
  *
  * The proof is structural rather than statistical. An offered day carries ZERO
  * kilometres and no prescription; everything that accumulates, gates or

@@ -365,14 +365,14 @@ test('one product, two offers, the approved prices, and no resurrected tier', ()
   assert.equal(Prod.OFFERS.STANDARD_YEARLY.priceMinor, 8999);
   assert.equal(Prod.OFFERS.STANDARD_MONTHLY.currency, 'GBP');
   assert.equal(Prod.TRIAL_DAYS, 14);
-  assert.deepEqual(Object.keys(Prod.PRODUCTS), ['VALHALLA_STANDARD']);
+  assert.deepEqual(Object.keys(Prod.PRODUCTS), ['SACORO_STANDARD']);
 
   /* No Basic, no Pro, and no £9.99 founding price anywhere in the catalogue or
      on the purchase surface. Matched precisely rather than loosely: a bare
      "999" also appears inside 8999, and a test that fires on the correct annual
      price is a test somebody deletes. */
   const src = read('api/_products.js') + read('account.html');
-  [/priceMinor:\s*999\b/, /£9\.99/, /VALHALLA_BASIC/, /VALHALLA_PRO/,
+  [/priceMinor:\s*999\b/, /£9\.99/, /SACORO_BASIC/, /SACORO_PRO/,
    /founding[ _]?price/i, /\btier:\s*'(basic|pro)'/]
     .forEach(rx => assert.ok(!rx.test(src), 'retired pricing or tier resurfaced: ' + rx));
 

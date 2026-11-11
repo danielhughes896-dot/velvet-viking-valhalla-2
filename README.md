@@ -44,7 +44,7 @@ the single master asset (identical to the website repo's
 
 ```
 VELVET VIKING
-VALHALLA AWAITS
+SACORO AWAITS
 EARN YOUR PLACE
 ```
 
@@ -64,7 +64,7 @@ of it:
 | `apple-touch-icon.png` (180×180) | Apple touch icon (both `velvet-viking-valhalla.html` and `get.html`) | Same pillarbox as `icon.png`, resized to 180×180. **Current.** Replaces a ~16KB inline base64 blob that used to sit in `velvet-viking-valhalla.html`'s `<head>` — that blob was never actually crest-derived (see note below), so this is both a freshness fix and a page-weight cleanup. |
 | `icon-foreground.png` (+ per-density `android/.../mipmap-*/ic_launcher_foreground.png`) | Android adaptive-icon foreground layer | Same square-pillarbox as `icon.png`, resized per density — the adaptive-icon XML (`mipmap-anydpi-v26/ic_launcher.xml`) already wraps it in `<inset android:inset="16.7%">`, so no manual safe-zone padding is baked in here. **STALE, deliberately not regenerated** — see below. |
 | `icon-background.png` (+ per-density `ic_launcher_background.png`) | Android adaptive-icon background layer | Solid black — brand-agnostic, not crest-derived, unrelated to the master. Not stale (never tied to the master). |
-| Per-density `ic_launcher.png` / `ic_launcher_round.png` (legacy pre-Android-8 launcher icon) | Legacy launcher icon | Master's circular emblem only (ring/axes/wheel/"VELVET VIKING"/"VALHALLA AWAITS" — no "EARN YOUR PLACE" line), composited onto solid black with the same 16.7% inset as the adaptive icon, at each legacy resolution. **STALE, deliberately not regenerated** — see below. |
+| Per-density `ic_launcher.png` / `ic_launcher_round.png` (legacy pre-Android-8 launcher icon) | Legacy launcher icon | Master's circular emblem only (ring/axes/wheel/"VELVET VIKING"/"SACORO AWAITS" — no "EARN YOUR PLACE" line), composited onto solid black with the same 16.7% inset as the adaptive icon, at each legacy resolution. **STALE, deliberately not regenerated** — see below. |
 
 **Android launcher icons (adaptive + legacy, all densities) are deliberately
 still on the previous master, pending a design decision.** Rendered at their

@@ -11,7 +11,7 @@ const Prod = require('../api/_products.js');
 /* PUBLIC AUTHENTICATION, COMMERCIAL ACCESS
  * ===========================================================================
  * THE SEPARATION THIS FILE EXISTS TO HOLD. Anyone may prove they own an email
- * address. Nobody reaches Valhalla without a commercial entitlement. Those are
+ * address. Nobody reaches Sacoro without a commercial entitlement. Those are
  * different questions decided in different places, and conflating them is what
  * kept public signup shut for a fortnight after the database gate was dropped.
  *
@@ -116,7 +116,7 @@ test('unsafe redirects are still discarded in favour of the entry point', () => 
 // 2. SIGNING IN GRANTS NOTHING
 // ---------------------------------------------------------------------------
 
-test('authentication alone does not grant Valhalla access', () => {
+test('authentication alone does not grant Sacoro access', () => {
   /* The entire commercial model in one assertion. A new athlete exists, is
      authenticated, and has no row: refused. */
   const d = decide(null);

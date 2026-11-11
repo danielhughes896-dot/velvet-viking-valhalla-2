@@ -5,10 +5,10 @@ const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 
-/* VALHALLA SOCIAL SHARING — WHAT THE GRAPHIC IS ALLOWED TO SAY
+/* SACORO SOCIAL SHARING — WHAT THE GRAPHIC IS ALLOWED TO SAY
  * ===========================================================================
  * The product claim is "Strava shows the activity, Runna shows the workout,
- * Valhalla shows what the workout MEANT". A shareable image is therefore a
+ * Sacoro shows what the workout MEANT". A shareable image is therefore a
  * coaching statement, and three separate rules decide what may appear on it.
  * All three are properties of pure functions, which is why they are testable
  * here rather than asserted by eye on a screenshot.
@@ -151,7 +151,7 @@ test('a Strava-imported session puts no imported measurement on the image', () =
      Data -- which is precisely what 5.4 reaches. */
   assert.equal(data.verdict, null, 'and the verdict, which is derived from them');
 
-  // Valhalla's own facts are not Strava's and survive.
+  // Sacoro's own facts are not Strava's and survive.
   assert.equal(data.week, 1);
   assert.ok(data.sessionLabel);
 
@@ -327,7 +327,7 @@ test('the imported-data rule holds on every overlay, not just the default', () =
         assert.ok(!new RegExp(leak.replace('.', '\\.'), 'i').test(said),
           key + '/' + fmt + ' published an imported value: ' + leak);
       }
-      assert.ok(/week 1/i.test(said), key + '/' + fmt + ' lost Valhalla\'s own facts');
+      assert.ok(/week 1/i.test(said), key + '/' + fmt + ' lost Sacoro\'s own facts');
     }
   }
 });
@@ -491,7 +491,7 @@ test('the exported file is handed to the device, not to a server', () => {
   const region = src.slice(start, after);
 
   /* NO UPLOAD, ANYWHERE ON THIS PATH. The image is composed locally and given
-     to the native share sheet, so Valhalla never learns where a post went --
+     to the native share sheet, so Sacoro never learns where a post went --
      which is also why there is no account to link. */
   for (const banned of ['fetch(', 'XMLHttpRequest', 'supabase', 'api/']) {
     assert.ok(!region.includes(banned),
@@ -585,8 +585,8 @@ test('the editor offers overlay, picture source and format as three choices', ()
      attribute from its argument -- so the literal never appears in source and
      the control is asserted at the call that creates it. */
   assert.match(body, /data-k="overlay"/, 'overlay picker');
-  assert.match(body, /seg\('source'[\s\S]{0,120}Valhalla[\s\S]{0,60}My photos/,
-    'Valhalla / My photos');
+  assert.match(body, /seg\('source'[\s\S]{0,120}Sacoro[\s\S]{0,60}My photos/,
+    'Sacoro / My photos');
   assert.match(body, /seg\('format'[\s\S]{0,120}Story[\s\S]{0,40}Post/, 'Story / Post');
   assert.match(body, /data-action="share-export" data-mode="share"/);
   assert.match(body, /data-action="share-export" data-mode="save"/);
@@ -601,7 +601,7 @@ test('changing the overlay changes nothing but the overlay', () => {
   const st = app.shareState;
   assert.ok(st, 'the editor opened');
   assert.equal(st.overlay, 'frame', 'defaults to the frame');
-  assert.equal(st.source, 'valhalla', 'and to a Valhalla backdrop');
+  assert.equal(st.source, 'sacoro', 'and to a Sacoro backdrop');
 
   st.transform = { scale: 2.2, x: -0.3, y: 0.1 };
   const dataBefore = JSON.stringify(st.data);

@@ -69,7 +69,7 @@ absence is a deliberate off state, not a misconfiguration.
 | Name | Secret | Purpose | Launch | Source |
 |---|---|---|---|---|
 | `VVV_STRAVA_ENABLED` | no | **SWITCH.** Off = the integration is not offered at all, and no request reaches Strava. | as configured | you |
-| `VVV_STRAVA_MAX_ATHLETES` | no | **PRIVATE-BETA CAPACITY.** How many athletes may hold a Strava connection at once. Unset or malformed means **10**; there is deliberately no value meaning unlimited. Counted against Valhalla's own `strava_connections` roster, which is the only number it can establish exactly — Strava remains authoritative for its own application limit. An athlete who already holds a connection is never counted against admission and is never disconnected by a full roster. | `10` | you |
+| `VVV_STRAVA_MAX_ATHLETES` | no | **PRIVATE-BETA CAPACITY.** How many athletes may hold a Strava connection at once. Unset or malformed means **10**; there is deliberately no value meaning unlimited. Counted against Sacoro's own `strava_connections` roster, which is the only number it can establish exactly — Strava remains authoritative for its own application limit. An athlete who already holds a connection is never counted against admission and is never disconnected by a full roster. | `10` | you |
 | `STRAVA_CLIENT_ID` | no | OAuth client id. | for Strava | strava.com/settings/api |
 | `STRAVA_CLIENT_SECRET` | **YES** | OAuth client secret. Also keys the OAuth `state` HMAC. | for Strava | strava.com/settings/api |
 | `STRAVA_WEBHOOK_VERIFY_TOKEN` | **YES** | Echoed back during Strava's webhook handshake. | if webhooks used | you |

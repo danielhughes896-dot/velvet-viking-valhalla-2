@@ -5,7 +5,7 @@
 // WHAT THIS IS, AND THE LINE IT DOES NOT CROSS.
 // ===========================================================================
 // This is a LOUDSPEAKER, not a coach. The words it speaks were composed by
-// Valhalla's own deterministic engine on the athlete's device -- see
+// Sacoro's own deterministic engine on the athlete's device -- see
 // voiceBriefingScript() in the runtime -- and this route renders those exact
 // words as audio. ElevenLabs is never asked what to say, never asked to
 // rephrase, summarise, shorten or improve, and never sees anything except the

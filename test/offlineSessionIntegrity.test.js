@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-// Opening Valhalla with no connection must never be mistaken for the athlete's
+// Opening Sacoro with no connection must never be mistaken for the athlete's
 // account having ended.
 //
 // cloudRefreshIfNeeded() returned the same `false` whether GoTrue had rejected

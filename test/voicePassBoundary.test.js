@@ -3,9 +3,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 
-/* THE VALHALLA VOICE, AND WHERE IT STOPS.
+/* THE SACORO VOICE, AND WHERE IT STOPS.
  * ===========================================================================
- * The voice pass humanised Valhalla's INTERPRETATION of the evidence. It did
+ * The voice pass humanised Sacoro's INTERPRETATION of the evidence. It did
  * not touch the evidence, the execution language, the targets, the status
  * labels or anything safety-critical, and this file is the boundary.
  *
@@ -50,7 +50,7 @@ test('live execution language stayed terse', () => {
 });
 
 test('the evidence rows were left as evidence', () => {
-  /* HQ: humanise Valhalla's interpretation of the evidence, not the evidence
+  /* HQ: humanise Sacoro's interpretation of the evidence, not the evidence
      itself. These rows are scannable facts and stay that way. */
   const src = require('fs').readFileSync(
     __dirname + '/../protected/velvet-viking-valhalla.html', 'utf8');

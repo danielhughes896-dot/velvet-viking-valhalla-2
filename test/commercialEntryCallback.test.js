@@ -296,7 +296,7 @@ test('an athlete with access is not shown acquisition screens again', () => {
 });
 
 // ===========================================================================
-// VALHALLA FIRST-TIME ONBOARDING ORDER
+// SACORO FIRST-TIME ONBOARDING ORDER
 // builder -> personalised preview -> "Save My Plan" / authenticate -> trial
 // or purchase -> app. See test/onboardingOrder.test.js for the full matrix;
 // these two stay here because they are about the SAME route() this suite

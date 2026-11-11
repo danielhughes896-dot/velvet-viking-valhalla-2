@@ -19,7 +19,7 @@ const S = require('../api/_strava.js');
  * session had been imported, the whole voice surface was withdrawn -- taking
  * Ask Coach with it, and with Ask Coach the athlete's own future prescription:
  * Sunday's intervals, their pace, their purpose, the phase of the block. None
- * of that came from Strava. Refusing to discuss it was withholding Valhalla's
+ * of that came from Strava. Refusing to discuss it was withholding Sacoro's
  * coaching from the athlete for a reason that was not theirs.
  *
  * SO THE RESTRICTION MOVED FROM THE DAY TO THE QUESTION. Two mechanisms, and
@@ -148,7 +148,7 @@ test('an imported session does not take Ask Coach away when there is a safe next
   assert.ok(a.askLocalNextSession(), 'the fixture has no future session to be safe about');
 });
 
-test('the briefing offered is about the NEXT session, and that session is Valhalla-owned', () => {
+test('the briefing offered is about the NEXT session, and that session is Sacoro-owned', () => {
   const a = app();
   const today = importOnto(a, todayDay(a));
   const html = a.renderVoiceCard(today);
@@ -198,7 +198,7 @@ test('the athlete is told why the run is off limits \u2014 by whatever can still
 });
 
 test('with no safe next session the original refusal is kept, not manufactured content', () => {
-  /* The preferred behaviour has a floor: where there is nothing Valhalla owns
+  /* The preferred behaviour has a floor: where there is nothing Sacoro owns
      to talk about, the honest answer is still the one it always was. Nothing
      is invented to fill the space. */
   const a = app();
@@ -217,7 +217,7 @@ test('a Strava-derived FUTURE day is never offered as what is next', () => {
   /* FOUND BY MUTATION, NOT BY READING. Deleting the provenance skip inside
      askLocalNextSession() changed nothing any test could see, because no
      fixture had ever put an import on a future day -- so "the next session is
-     Valhalla-owned" was passing vacuously everywhere it was asserted.
+     Sacoro-owned" was passing vacuously everywhere it was asserted.
 
      It is not hypothetical either: an activity resolves onto the day it
      happened, and a device whose clock or timezone puts that a few hours ahead
@@ -544,7 +544,7 @@ test('the reason is a label and cannot re-route a local answer', async () => {
   assert.equal(forced.why, 'strava_session');
 });
 
-test('offline, a future Valhalla session is still answered from the device', async () => {
+test('offline, a future Sacoro session is still answered from the device', async () => {
   const a = app({ onLine: false });
   importOnto(a, todayDay(a));
   stubFetch(a, null);

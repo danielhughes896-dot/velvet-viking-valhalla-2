@@ -11,11 +11,11 @@ const { buildPlan } = require('./fixtures.js');
    A real ladder -- 2km warm-up, 500/1000/1500/1000/500 at rep pace with
    recoveries, 2km cool-down -- was imported and then judged on the average of
    the whole ten kilometres, recoveries and warm-up included, because the only
-   sub-session evidence Valhalla kept was Strava's per-KILOMETRE markers.
+   sub-session evidence Sacoro kept was Strava's per-KILOMETRE markers.
 
    Strava's detailed activity also carries the DEVICE's own laps, and for that
    session they are the reps: 500m and 1000m entries at 4:14-4:20 with 7:0x
-   entries between them. Valhalla was discarding them entirely.
+   entries between them. Sacoro was discarding them entirely.
 
    WHAT THIS FILE HOLDS SHUT IS BOTH HALVES:
 

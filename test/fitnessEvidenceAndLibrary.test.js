@@ -14,7 +14,7 @@ const { buildPlan } = require('./fixtures.js');
       feel/readiness/HR. Objective evidence was being thrown away.
    2. RESCHEDULE. Every past week was offered, and so were the race and the
       Fitness Checkpoint.
-   3. PROVENANCE. Nothing distinguished a Valhalla prescription from an athlete
+   3. PROVENANCE. Nothing distinguished a Sacoro prescription from an athlete
       one, and editing a session left its structure describing the old one.
    4. LIBRARY. Personal -> Candidate -> Approved, where nothing a client can
       write is ever globally prescribable. */
@@ -246,11 +246,11 @@ test('the swap guards and the fields that travel are untouched', () => {
 // 3. PRESCRIPTION PROVENANCE AND COHERENCE
 // =====================================================================
 
-test('an existing plan reads as Valhalla’s, with no migration', () => {
+test('an existing plan reads as Sacoro’s, with no migration', () => {
   const a = app();
   const dd = a.state.days.filter(d => d.prescription)[0];
   assert.equal(dd.prescription.source, undefined, 'a stored plan was rewritten');
-  assert.equal(a.prescriptionSource(dd), 'valhalla');
+  assert.equal(a.prescriptionSource(dd), 'sacoro');
   assert.equal(a.isAthleteAuthored(dd), false);
 });
 
@@ -260,7 +260,7 @@ test('a cosmetic edit leaves the structure alone', () => {
   const before = JSON.stringify(dd.prescription);
   a.reconcilePrescriptionAfterEdit(dd, ['title']);
   assert.equal(JSON.stringify(dd.prescription), before);
-  assert.equal(a.prescriptionSource(dd), 'valhalla');
+  assert.equal(a.prescriptionSource(dd), 'sacoro');
 });
 
 test('a rescalable distance edit keeps the structure true to the new distance', () => {
@@ -273,7 +273,7 @@ test('a rescalable distance edit keeps the structure true to the new distance', 
   assert.equal(dd.prescription.athleteModified, true);
 });
 
-test('a structural edit stops the prescription claiming to be Valhalla’s', () => {
+test('a structural edit stops the prescription claiming to be Sacoro’s', () => {
   const a = app({ distanceKey:'half', volume:55, weeks:14, earnedSecondQuality:true });
   const dd = a.state.days.filter(d => d.date >= TODAY && d.type === 'interval')[0];
   const was = dd.prescription.archetype;
@@ -299,7 +299,7 @@ test('the three layers survive a real edit through the save path', () => {
   dd.km = 12;
   a.reconcilePrescriptionAfterEdit(dd, ['km']);
   // PRESCRIBED
-  assert.deepEqual(a.valhallaOriginalOf(dd), original, 'the original was lost');
+  assert.deepEqual(a.sacoroOriginalOf(dd), original, 'the original was lost');
   // MODIFIED
   assert.equal(a.isAthleteModified(dd), true);
   assert.equal(dd.prescription.params.km, 12);
@@ -307,13 +307,13 @@ test('the three layers survive a real edit through the save path', () => {
   assert.equal(dd.actual.km, 9.4, 'the log was disturbed');
 });
 
-test('a workout the athlete wrote never carries a Valhalla archetype', () => {
+test('a workout the athlete wrote never carries a Sacoro archetype', () => {
   const a = app();
   const p = a.athletePrescription({ km:9, type:'tempo', name:'My Tempo' });
   assert.equal(p.source, 'athlete');
   assert.equal(p.archetype, a.ATHLETE_ARCHETYPE);
   assert.equal(a.isKnownArchetype(p.archetype), false,
-    'an athlete archetype entered the Valhalla registry');
+    'an athlete archetype entered the Sacoro registry');
   assert.equal(p.derivedFrom, null);
 });
 
@@ -337,7 +337,7 @@ test('a saved workout is personal, athlete-sourced and not prescribable', () => 
   assert.equal(a.librarySaveWorkout({ name:'  ' }), null, 'an unnamed workout was saved');
 });
 
-test('applying one to a day produces an athlete prescription, never a Valhalla one', () => {
+test('applying one to a day produces an athlete prescription, never a Sacoro one', () => {
   const a = libApp();
   const w = a.librarySaveWorkout({ name:'My Tempo', type:'tempo', km:10 });
   const dd = a.state.days.filter(d => d.date >= TODAY && d.type === 'easy')[0];
@@ -380,7 +380,7 @@ test('nothing a client can write is ever globally prescribable', () => {
   w.tier = 'approved';
   assert.equal(a.libraryWorkoutIsPrescribable(w), false,
     'setting the tier locally made an athlete workout globally prescribable');
-  w.source = 'valhalla';
+  w.source = 'sacoro';
   assert.equal(a.libraryWorkoutIsPrescribable(w), false,
     'an unknown archetype became prescribable');
 });

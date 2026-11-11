@@ -10,8 +10,8 @@ const P = require('../api/_products.js');
 
 // THE COMMERCIAL FRONT DOOR.
 //
-// The property the whole phase rests on: an athlete may see what Valhalla built
-// for them without receiving Valhalla. Everything else is routing.
+// The property the whole phase rests on: an athlete may see what Sacoro built
+// for them without receiving Sacoro. Everything else is routing.
 
 const ROOT = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
@@ -218,7 +218,7 @@ test('a hung server does not strand the athlete on a spinner', () => {
   const html = read('start.html');
   assert.match(html, /function within\(ms, p\)/, 'route resolution must be time-bounded');
   assert.match(html, /within\(10000, establish\(tok\)\)/);
-  assert.match(html, /We could not reach Valhalla just then/,
+  assert.match(html, /We could not reach Sacoro just then/,
     'and it must say something actionable rather than nothing');
   // Falling back to sign-in grants nothing: the server still decides access.
   assert.match(html, /show\('pane-auth'\);\s*\n\s*fail\('auth-err'/);

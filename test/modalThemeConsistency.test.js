@@ -132,14 +132,14 @@ const WORK_SURFACES = [
   /* ---- THE PREPARATION DECISION IS DELIBERATELY NOT ON THIS LIST ----
      HQ RULING. openRaceGoalPreparationModal() was a themed work surface and
      is now the app's one DECISION SURFACE: it opens on `modal-decision`,
-     which pins the Valhalla dark ramp and a photographic hero in BOTH themes.
+     which pins the Sacoro dark ramp and a photographic hero in BOTH themes.
      WHY IT IS DIFFERENT FROM THE OTHER TWO OFFERS. The runway and entry
      offers are routing conveniences -- the athlete is being pointed at a
      better-ordered path. This one tells an athlete that the preparation
      standard for the event they have entered is not safely reachable from
      where they stand, and asks them to choose between developing first and
      continuing with a programme that will fall short. HQ's ruling is that
-     this is a significant Valhalla coaching decision rather than an error
+     this is a significant Sacoro coaching decision rather than an error
      popup, and that it carries the brand's own register.
      THE GUARD BELOW STILL BINDS. The themed set must still EQUAL this list,
      so nothing else can quietly leave the theme ramp; this surface left it by
@@ -232,7 +232,7 @@ test('a modal that does not opt in keeps the fixed dark ramp', () => {
    belongs to none of them fails the guard below rather than quietly inventing
    a fourth. */
 const DELIBERATE_INTERRUPT = 'openCloudConflictModal';
-/* THE DECISION SURFACE -- HQ RULING. One modal, pinned to the Valhalla dark
+/* THE DECISION SURFACE -- HQ RULING. One modal, pinned to the Sacoro dark
    ramp and a photographic hero in both themes, because it asks the athlete to
    decide what to do about a preparation standard they cannot safely reach.
    Named here rather than exempted by a pattern, so a second one cannot appear
@@ -334,7 +334,7 @@ test('the Plan HQ panels opt in, and carry the builder accent deliberately', () 
 });
 
 test('theming and positioning are two separate opt-ins, both available to any surface that needs them', () => {
-  // VALHALLA CONSISTENCY PASS: Re-calibrate Training Zones and the Race Day
+  // SACORO CONSISTENCY PASS: Re-calibrate Training Zones and the Race Day
   // Pacing Strategy modal were both bottom sheets, sitting low on the mobile
   // viewport, while the builder and the Record/HQ panels already had the
   // premium centred/keyboard-safe treatment. They now opt into that same

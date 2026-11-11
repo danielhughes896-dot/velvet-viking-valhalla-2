@@ -6,7 +6,7 @@ const path = require('path');
 
 /* TYPOGRAPHY CONSISTENCY
  * ===========================================================================
- * TWO RULES, AND ONLY TWO. Valhalla ran four typographic roles -- Oswald on
+ * TWO RULES, AND ONLY TWO. Sacoro ran four typographic roles -- Oswald on
  * labels, Inter on prose, JetBrains Mono on figures, Cinzel on display --
  * which meant the same row could carry its title in one face and its
  * sentence in another, and "is the text style the same everywhere" had no
@@ -20,7 +20,7 @@ const path = require('path');
  * as broken type rather than as a system. A standalone figure is one that IS
  * the reading: 18.5, 5:12, 84%, 44:00.
  *
- * Cinzel is not a third voice. It sets the wordmark and the VALHALLA lockup
+ * Cinzel is not a third voice. It sets the wordmark and the SACORO lockup
  * inside the share image -- marks, not text -- and the test below pins it to
  * exactly those, so it cannot creep back onto headings.
  *
@@ -163,16 +163,16 @@ test('Cinzel sets the wordmark and nothing else', () => {
   const rules = [...css.matchAll(/([^{}]+)\{[^}]*font-family:'Cinzel',serif/g)]
     .map(m => m[1].trim().split('\n').pop().trim());
   /* ---- CHANGED SIDES: THE TOP BAR'S MARK LEFT CINZEL ----
-     Founder, with a mock-up: "Valhalla is the apps name so should be big.
+     Founder, with a mock-up: "Sacoro is the apps name so should be big.
      Velvet viking is the company so small accent under it."
      .word-metallic set "Velvet Viking" in Cinzel across every screen and is
-     deleted with the name it painted -- the mock-up sets VALHALLA in the
+     deleted with the name it painted -- the mock-up sets SACORO in the
      app's own sans, tracked wide. The claim here does not change: Cinzel is
      a mark's face and never a heading's. There is one mark left in it. */
   /* THREE MARKS, NOT THREE HEADINGS, and the claim is unchanged: Cinzel is
      a mark's face and never a heading's.
-       .wc-wordmark   VALHALLA on the welcome card and in the share image
-       .pe-name       VALHALLA on the splash lockup
+       .wc-wordmark   SACORO on the welcome card and in the share image
+       .pe-name       SACORO on the splash lockup
      The top bar is deliberately NOT in this list. Its mark is the app's own
      sans, which is how the founder's two mock-ups draw them -- the splash is
      a brand moment and the bar is chrome. */
@@ -319,7 +319,7 @@ test('a number the athlete acts on outranks the prose around it', () => {
      place the selector appeared as a SUBSTRING -- so adding
      `.exec-rail .strat-phase-span{display:block}` above the base rule made
      this read the override, find no font-size and fail, while the tier it
-     is actually guarding was untouched. The same trap valhallaSurface
+     is actually guarding was untouched. The same trap sacoroSurface
      already records for its own rule() helper. */
   /* EVERY RULE FOR THE SELECTOR, NOT THE FIRST. Anchoring to the start of a
      rule stopped this reading a longer selector that merely CONTAINED the

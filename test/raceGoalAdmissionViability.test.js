@@ -1,7 +1,7 @@
 'use strict';
 /* HQ'S ADMISSION RULING — TEN WEEKS IS A CONTAINER, NOT AN ELIGIBILITY.
  * ===========================================================================
- * Valhalla permits a ten-week Race Goal. It does not promise that every
+ * Sacoro permits a ten-week Race Goal. It does not promise that every
  * athlete can use one. Before a block is constructed, admission asks whether
  * this athlete can credibly establish the preparation the event requires
  * inside the runway they have -- and where the answer is no, it routes them

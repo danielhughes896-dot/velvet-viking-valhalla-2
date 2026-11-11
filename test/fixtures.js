@@ -93,7 +93,7 @@ function buildPlan(app, opts) {
    *
    * Most of this suite is about coaching: what heart rate, feel and the
    * morning readiness answers tell the engine, and what it does about them.
-   * Every one of those tests describes an athlete who agreed to Valhalla
+   * Every one of those tests describes an athlete who agreed to Sacoro
    * reading that information, so the fixture says so explicitly instead of
    * leaving it implied. The alternative -- a fixture that silently withholds
    * consent -- would make a hundred coaching tests assert the behaviour of a
@@ -124,7 +124,7 @@ function buildPlan(app, opts) {
  * 4:45/km is a good easy run, a mediocre threshold and a hopeless 8x1200m.
  * Every quality session in that fixture scored below the poor-execution bar,
  * so the run measured the fixture rather than the app, and the honest answer
- * to "what does Valhalla say to an athlete who is going well" was: unknown.
+ * to "what does Sacoro say to an athlete who is going well" was: unknown.
  *
  * This asks the app what it wanted -- the day's own execution pace target and
  * its own expected effort band -- and logs the middle of both. `quality`

@@ -8,7 +8,7 @@ const path = require('path');
 const { RUNTIME_RELATIVE } = require('./harness.js');
 const RUNTIME_SRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
 
-// VALHALLA -- THE PROGRAMME ENTRY (SCREEN 1).
+// SACORO -- THE PROGRAMME ENTRY (SCREEN 1).
 //
 // A brief signed-in surface shown once per genuine app launch, before Today,
 // to an athlete who already has a programme: crest, "Hello <first name>",
@@ -54,7 +54,7 @@ function athleteInProgramme(opts) {
 // WHAT IT LOOKS LIKE
 // ---------------------------------------------------------------------------
 // Founder, with a mock-up: "Photo 3 is what I want the splash screen to look
-// like", and the content in order -- the V mark, VALHALLA, BY VELVET VIKING,
+// like", and the content in order -- the V mark, SACORO, BY VELVET VIKING,
 // the greeting, the programme line, the bar, the percentage, then EARN YOUR
 // PLACE / BUILT AROUND THE CLIMB.
 // ---------------------------------------------------------------------------
@@ -64,19 +64,19 @@ test('S1. the lockup is a mark, a name and a byline, in that order', () => {
   const html = a.renderProgrammeEntry();
   const at = frag => html.indexOf(frag);
   assert.ok(at('pe-mark') > -1, 'the V mark is gone from the splash');
-  assert.ok(at('>Valhalla<') > -1, 'the splash no longer says the app\u2019s name');
+  assert.ok(at('>Sacoro<') > -1, 'the splash no longer says the app\u2019s name');
   assert.ok(at('>By Velvet Viking<') > -1, 'the company no longer signs the splash');
-  assert.ok(at('pe-mark') < at('>Valhalla<'), 'the mark is below the name');
-  assert.ok(at('>Valhalla<') < at('>By Velvet Viking<'), 'the byline is above the name');
+  assert.ok(at('pe-mark') < at('>Sacoro<'), 'the mark is below the name');
+  assert.ok(at('>Sacoro<') < at('>By Velvet Viking<'), 'the byline is above the name');
   /* THE MARK IS DECORATION, AND THE WORDS ARE REAL TEXT. The crest it
-     replaced spelled "Valhalla Awaits, Earn Your Place" into its alt
+     replaced spelled "Sacoro Awaits, Earn Your Place" into its alt
      attribute because the artwork was the only place those words existed.
      Both are rendered text now, so an alt that repeated them would read the
      screen twice to anyone who hears it. */
   const tag = /<img class="pe-mark"[^>]*>/.exec(html)[0];
   assert.match(tag, /alt=""/, 'the decorative mark describes itself again');
   assert.match(tag, /aria-hidden="true"/, 'the decorative mark is announced');
-  assert.doesNotMatch(html, /Valhalla Awaits/,
+  assert.doesNotMatch(html, /Sacoro Awaits/,
     'the retired crest\u2019s wording is back on the screen');
 });
 

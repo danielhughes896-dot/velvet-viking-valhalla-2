@@ -9,13 +9,13 @@ const { buildPlan } = require('./fixtures.js');
 /* ASK COACH — THE GENERATIVE LAYER, AND EVERYTHING THAT BOUNDS IT
  * ===========================================================================
  * THE ARCHITECTURAL RULE THIS FILE ENFORCES: the language model is not the
- * training methodology. It may explain a decision Valhalla already made. It may
+ * training methodology. It may explain a decision Sacoro already made. It may
  * not make one, and it may not reach anything that could.
  *
  * The three properties that make that true rather than intended:
  *
  *   1. THE MODEL CANNOT WRITE A PLAN. The endpoint has no database access, and
- *      a plan change is only ever offered when Valhalla's OWN engine already
+ *      a plan change is only ever offered when Sacoro's OWN engine already
  *      recommended one -- routed through the existing coach-accept handler,
  *      with the existing provenance.
  *   2. THE MODEL CANNOT SEE WHAT IT MAY NOT SEE. Strava-derived days and
@@ -266,7 +266,7 @@ test('an answer is readable text before it is ever speech', () => {
   assert.match(a.renderAskPanel(a.findDayByDate(TODAY)), /Keep tomorrow easy\./);
 });
 
-test('what Valhalla heard is shown back before the answer', () => {
+test('what Sacoro heard is shown back before the answer', () => {
   const a = athlete();
   a.askSet('thinking', { heard: 'why intervals tomorrow' });
   const panel = a.renderAskPanel(a.findDayByDate(TODAY));

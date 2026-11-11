@@ -12,7 +12,7 @@
 // that holds the secret key.
 //
 // WHAT THIS FILE WILL NOT DO
-//   - decide whether anyone may use Valhalla. That is _access.js, and it reads
+//   - decide whether anyone may use Sacoro. That is _access.js, and it reads
 //     an entitlement row, never a Stripe status.
 //   - invent an entitlement state for a Stripe status it does not recognise.
 //     An unmapped event is dropped and recorded, not guessed at.
@@ -179,7 +179,7 @@ async function call(cfg, method, path, params, opts){
 }
 
 /* ---------- customer mapping ----------
-   The Valhalla user id is the durable key and travels in metadata. Email is
+   The Sacoro user id is the durable key and travels in metadata. Email is
    passed for the receipt Stripe sends, never as the relational key: an athlete
    who changes their email must not acquire a second customer, and two athletes
    who share one inbox must not collapse into one. */
@@ -295,10 +295,10 @@ async function createPortalSession(cfg, input, opts){
  *   mark_uncollectible   the debt is recorded and written off, which puts a
  *                        bad-debt mark against somebody who did nothing wrong.
  *
- * Valhalla promised a pause, not a deferral and not a write-off, so 'void' is
+ * Sacoro promised a pause, not a deferral and not a write-off, so 'void' is
  * the only one that matches what was said.
  *
- * resumes_at is Stripe's own automatic resume. Nothing in Valhalla has to run a
+ * resumes_at is Stripe's own automatic resume. Nothing in Sacoro has to run a
  * job, and no athlete has to come back and press anything -- a pause that needs
  * either is a cancellation with a friendlier name.
  *
@@ -381,7 +381,7 @@ function verifySignature(rawBody, header, secret, nowSec){
  * A webhook is a NOTIFICATION, not the only way to learn a fact. It can be
  * delayed behind a queue, dropped by a bad deployment, or simply arrive after
  * the athlete's browser has already come back from Checkout. When that happens
- * the athlete has paid and Valhalla does not yet know, which is the worst
+ * the athlete has paid and Sacoro does not yet know, which is the worst
  * minute in the whole commercial journey to be wrong in.
  *
  * So the same facts can be PULLED. Both of these read Stripe server-side with
@@ -465,10 +465,10 @@ async function clearCancelAtPeriodEnd(cfg, subscriptionId, opts){
  * So the adapter asks both places, in the order of authority: the subscription
  * first, because when it is present it is the whole subscription's period; then
  * the first item, which is the same instant for the single-item subscriptions
- * Valhalla sells. Absent from both stays null, which is the existing
+ * Sacoro sells. Absent from both stays null, which is the existing
  * fail-closed behaviour and is left exactly as it was.
  *
- * VALHALLA SELLS ONE PRICE, so items.data[0] is the only item there is. A
+ * SACORO SELLS ONE PRICE, so items.data[0] is the only item there is. A
  * multi-item subscription would need a rule about WHICH item's period governs,
  * and that rule would be a product decision rather than an adapter one -- named
  * here so the next person meets the question rather than the assumption.
@@ -549,12 +549,12 @@ function periodOf(sub){
  * the last period anybody actually paid for ended when this one began.
  * _entitlement.js then reaches 'payment_hold' rather than handing out a free
  * month -- the same rule the architecture recovery applied when it deleted
- * Valhalla's seven invented days of grace. Grace is a date a PROVIDER supplies,
+ * Sacoro's seven invented days of grace. Grace is a date a PROVIDER supplies,
  * and on a subscription object Stripe supplies none.
  *
  * WHY THIS IS SAFE EVEN IF STRIPE DOES NOT ADVANCE THE PERIOD. If the period
  * had not advanced, then the invoice covering it was the one that was paid --
- * and a subscription whose current invoice is paid is not past_due. Valhalla
+ * and a subscription whose current invoice is paid is not past_due. Sacoro
  * sells one price with no add-ons, no metering, no prorations and no plan
  * switching, so there is no second invoice that could fail mid-period and no
  * way to be past_due inside a period that was paid for. Both readings of

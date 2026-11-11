@@ -16,10 +16,10 @@ allowance Strava currently provides.
 
 This is the part most easily misremembered, so it is written plainly:
 
-1. Valhalla **disclosed its intended private-beta use** to Strava and asked
+1. Sacoro **disclosed its intended private-beta use** to Strava and asked
    them to clarify the policy position relevant to the product.
 2. Strava **did not provide an individual interpretation.** Their response
-   referred Valhalla back to the published API Agreement and API Policy,
+   referred Sacoro back to the published API Agreement and API Policy,
    because they are unable to give individual feedback given submission volume.
 3. This is **NOT recorded as Strava approval.**
 4. This is **NOT recorded as Strava rejection.**
@@ -41,7 +41,7 @@ Two independent gates, and neither is a claim about Strava's internal state.
 | Is Strava commissioned here at all | `VVV_STRAVA_ENABLED` | every route |
 | Is there a seat | count of `strava_connections` rows vs `VVV_STRAVA_MAX_ATHLETES` | `stravaMayConnect()`, checked at OAuth start **and** at the callback |
 
-**Valhalla cannot see how many athletes Strava believes this application has,
+**Sacoro cannot see how many athletes Strava believes this application has,
 and does not pretend to.** What it counts is its own roster — a table it owns —
 and that is what the cap applies to. Strava remains authoritative for its own
 limit; a refusal from Strava is handled on its own terms at the callback, and

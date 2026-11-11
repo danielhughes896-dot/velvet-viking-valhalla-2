@@ -14,7 +14,7 @@ const { loadApp } = require('./harness.js');
    converge capable athletes onto the floor either.
 
    CHOICE. An INSUFFICIENT reachability verdict says the optimal preparation
-   standard is not safely reachable. It does not say Valhalla refuses to build
+   standard is not safely reachable. It does not say Sacoro refuses to build
    a Marathon. The athlete is given a recommendation and a real alternative,
    and if they continue they get the safest useful programme their capacity and
    runway allow, with the limitation carried by the plan from day one. */

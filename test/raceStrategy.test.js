@@ -371,7 +371,7 @@ test('the custom stepper appears only while Custom is chosen', () => {
   assert.match(a.renderRaceStrategyPicker(race), /data-action="race-custom"/);
 });
 
-test('the selected chip takes the Valhalla accent, and gold is not the selection colour', () => {
+test('the selected chip takes the Sacoro accent, and gold is not the selection colour', () => {
   const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
   const i = CODE.indexOf('.rs-chip.on{');
   assert.ok(i > 0);
@@ -493,7 +493,7 @@ test('the Custom summary names itself and states its own differential', () => {
     assert.match(line, /^Custom:/, 'it must identify itself as Custom');
     assert.ok(line.indexOf(shown) !== -1, 'it must state ' + shown + ': ' + line);
     assert.doesNotMatch(line, /^Negative split/,
-      'a custom differential is the athlete’s own choice, not a Valhalla strategy name');
+      'a custom differential is the athlete’s own choice, not a Sacoro strategy name');
     assert.doesNotMatch(line, /0\.0\d/, 'and it must not leak the implementation maths');
     assert.doesNotMatch(line, /for you|based on|your history|we recommend/i,
       'it must not imply personalised evidence that does not exist');

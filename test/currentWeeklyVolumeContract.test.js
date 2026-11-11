@@ -35,7 +35,7 @@ test('RACE GOAL — an athlete with evidence builds the same plan for any typed 
 
 test('RACE GOAL — an athlete with NO evidence builds the same plan with the field or without it', () => {
   /* The harder case, because the typed figure was the only account of the
-     athlete Valhalla had. The pathway answers instead: removing the field
+     athlete Sacoro had. The pathway answers instead: removing the field
      changes nothing, and typing a figure consistent with the pathway changes
      nothing either. */
   PATHWAYS.forEach(([d, e]) => {
@@ -50,7 +50,7 @@ test('RACE GOAL — an athlete with NO evidence builds the same plan with the fi
 
 test('RACE GOAL — a typed figure below the safety floor still defers the field test', () => {
   /* DELIBERATELY RETAINED, and the one job HQ left the typed number. An
-     athlete with no history who tells Valhalla they run five kilometres a week
+     athlete with no history who tells Sacoro they run five kilometres a week
      is not given a maximal field test in week one on the strength of the
      pathway's assumption. It defers the TEST; it sizes nothing, admits nothing
      and moves no destination -- and once the field is gone there is no such

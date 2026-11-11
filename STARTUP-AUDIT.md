@@ -1,4 +1,4 @@
-# Opening Valhalla — startup audit
+# Opening Sacoro — startup audit
 
 Audit only. **No behavioural change is proposed for merge here.** Branch
 `claude/startup-audit` carries one dev-only measurement tool; nothing that

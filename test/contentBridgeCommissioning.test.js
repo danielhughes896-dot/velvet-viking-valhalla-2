@@ -9,7 +9,7 @@ const CB = require('../api/_content-bridge.js');
 
 // COMMISSIONING -- the complete upstream path, driven end to end.
 //
-// A synthetic Valhalla event goes in at the domain boundary and a monday
+// A synthetic Sacoro event goes in at the domain boundary and a monday
 // create_item comes out the far side, through the real eligibility rule, the
 // real DTO builder, the real server validation, the real idempotency check and
 // the real column mapping. The ONLY thing replaced is the HTTP call itself.
@@ -21,7 +21,7 @@ const ROOT = path.join(__dirname, '..');
 const RUNTIME = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 const TODAY = '2026-05-20';
 
-const GROUP = 'group_synthetic_valhalla_evidence';
+const GROUP = 'group_synthetic_sacoro_evidence';
 
 /* A recording monday. Holds items in memory keyed exactly the way the board
  * keys them -- by the Candidate ID column -- so idempotency is exercised against
@@ -246,9 +246,9 @@ test('J. the candidate lands in the right board, group and state', async () => {
 
     const it = m.items[0];
     assert.equal(m.calls[1].variables.board, '5102476403');
-    assert.equal(it.group, GROUP, 'APP DATA — Valhalla Evidence, not the editorial group');
+    assert.equal(it.group, GROUP, 'APP DATA — Sacoro Evidence, not the editorial group');
     assert.deepEqual(it.cols[CB.COL.workflowStatus], { label: 'Candidate' });
-    assert.equal(it.cols[CB.COL.source], 'Valhalla');
+    assert.equal(it.cols[CB.COL.source], 'Sacoro');
     assert.deepEqual(it.cols[CB.COL.marketingEligible], { checked: 'true' });
     assert.equal(it.cols[CB.COL.candidateId], c.candidateId);
     assert.equal(it.cols[CB.COL.eventType], c.sessionKind);
@@ -278,7 +278,7 @@ test('K. no downstream preparation or publication field is populated', async () 
     ].sort());
 
     for (const [name, id] of Object.entries(CB.NEVER_WRITTEN))
-      assert.equal(written.includes(id), false, 'Valhalla wrote ' + name);
+      assert.equal(written.includes(id), false, 'Sacoro wrote ' + name);
 
     // And the whole request body mentions no publishing concept at all.
     const wire = JSON.stringify(m.calls);
@@ -563,9 +563,9 @@ test('P2. no protected column can be written, and none overlaps the mapping', as
     await CB.exportCandidate(c, true, { fetch: m.fetch });
     const cols = Object.keys(m.items[0].cols);
     for (const [name, id] of Object.entries(CB.NEVER_WRITTEN))
-      assert.equal(cols.includes(id), false, 'Valhalla wrote ' + name);
+      assert.equal(cols.includes(id), false, 'Sacoro wrote ' + name);
     for (const [name, id] of Object.entries(CB.PUBLISH_COLUMNS))
-      assert.equal(cols.includes(id), false, 'Valhalla wrote ' + name);
+      assert.equal(cols.includes(id), false, 'Sacoro wrote ' + name);
     // And no protected id appears anywhere on the wire, in any position.
     const wire = JSON.stringify(m.calls);
     for (const id of protectedIds)

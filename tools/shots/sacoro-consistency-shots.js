@@ -1,18 +1,18 @@
 'use strict';
-/* Visual verification for the VALHALLA CONSISTENCY PASS:
+/* Visual verification for the SACORO CONSISTENCY PASS:
    - Build Your Training Block: all 10 stages (incl. new Overview)
    - Re-calibrate Training Zones + Race Day Pacing Strategy (repositioned modals)
    - Settings (elevated sections)
    - Plan HQ Coach tab (elevated cards)
 
-   Run:  node tools/shots/valhalla-consistency-shots.js  */
+   Run:  node tools/shots/sacoro-consistency-shots.js  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require(process.env.PW || '/opt/node22/lib/node_modules/playwright');
 
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'tools', 'shots', 'valhalla-consistency');
+const OUT = path.join(ROOT, 'tools', 'shots', 'sacoro-consistency');
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8' };
 
 function serve(){

@@ -129,7 +129,7 @@ test('the Settings section reuses the existing hub architecture', () => {
   // other Settings section already uses. The three links themselves reuse
   // .ev-card -- the exact tappable-destination shell Coach's Reading rows use
   // -- rather than the plain .btn-ghost box a navigational entry used to get;
-  // see the VALHALLA CONSISTENCY PASS comment on .ev-card.stg-nav.
+  // see the SACORO CONSISTENCY PASS comment on .ev-card.stg-nav.
   /* The heading is built by stgGroup() now rather than written out at each
      call site -- Settings is five groups of one row shape -- so the claim
      is read off the render rather than off a literal. It is the same

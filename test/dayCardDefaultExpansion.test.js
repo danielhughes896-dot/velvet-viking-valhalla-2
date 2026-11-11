@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-// VALHALLA -- DEFAULT DAY-CARD EXPANSION.
+// SACORO -- DEFAULT DAY-CARD EXPANSION.
 //
 // isDayExpanded() is the ONE function every day card (Today, This Week, an
 // opened Full Plan week) reads to decide its initial open/closed state --

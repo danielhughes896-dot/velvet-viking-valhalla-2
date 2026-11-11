@@ -29,9 +29,9 @@ must not be a data migration.
 
 Everything Stripe-shaped stops in `api/_stripe.js`.
 
-### What Stripe says → what Valhalla records
+### What Stripe says → what Sacoro records
 
-| Stripe | Valhalla `condition` | Note |
+| Stripe | Sacoro `condition` | Note |
 |---|---|---|
 | `trialing` | `trialing` | access to `trial_end` |
 | `active` | `active` | |
@@ -40,7 +40,7 @@ Everything Stripe-shaped stops in `api/_stripe.js`.
 | `incomplete` | `past_due` | the first payment never completed |
 | `incomplete_expired` | `expired` | |
 | `canceled` | `expired` | …unless disputed, below |
-| `paused` | `past_due` | **not** our pause. Stripe's `paused` status means a trial that ended with no payment method, which is a payment problem. Valhalla's pause is `pause_collection` plus our own `paused_at` / `pause_resumes_at` window, and the subscription status does not change while it runs. |
+| `paused` | `past_due` | **not** our pause. Stripe's `paused` status means a trial that ended with no payment method, which is a payment problem. Sacoro's pause is `pause_collection` plus our own `paused_at` / `pause_resumes_at` window, and the subscription status does not change while it runs. |
 | anything else | *refused* | `conditionOf()` returns null and the event is dropped and recorded. An unmapped status must never be guessed into one that grants access. |
 
 Two conditions have no Stripe status behind them and are reached from a field
@@ -57,7 +57,7 @@ rather than from the enum:
 
 ### Other fields
 
-| Valhalla column | Stripe source |
+| Sacoro column | Stripe source |
 |---|---|
 | `provider_subscription_id` | `subscription.id` |
 | `provider_customer_id` | `subscription.customer` |
@@ -81,7 +81,7 @@ to `past_due` when the attempt fails.
 
 A row mirrored verbatim then carries a period end a month in the future that
 nobody has paid for — and the resolver's *"a card that fails on day two of a
-paid month does not end the month"* branch reads it as paid. That is Valhalla
+paid month does not end the month"* branch reads it as paid. That is Sacoro
 inventing grace again, arriving through the mirror instead of through a
 constant. The architecture recovery deleted seven invented days; this would have
 been thirty, on every failed renewal, automatically.
@@ -92,7 +92,7 @@ last period anybody actually paid for ended when this one began.
 
 **Why this is safe even if Stripe does not advance the period.** If the period
 had not advanced, the invoice covering it is the one that was paid — and a
-subscription whose current invoice is paid is not `past_due`. Valhalla sells one
+subscription whose current invoice is paid is not `past_due`. Sacoro sells one
 price with no add-ons, no metering, no prorations and no plan switching, so
 there is no second invoice that could fail mid-period. Both readings reach the
 same answer.
@@ -237,7 +237,7 @@ below.
 **`GET /api/checkout`** — public shape for a pricing surface.
 
 ```json
-{ "catalogue": { "product": { "code": "VALHALLA_STANDARD", "name": "Valhalla Standard" },
+{ "catalogue": { "product": { "code": "SACORO_STANDARD", "name": "Sacoro Standard" },
                  "trialDays": 14,
                  "offers": [ { "code": "STANDARD_MONTHLY", "billingPeriod": "monthly",
                                "priceMinor": 1199, "currency": "GBP", "trialDays": 14,
@@ -287,7 +287,7 @@ WEBSITE → BUILD MY PLAN → PLAN BUILDER → POST /api/preview   (no account n
         → POST /api/checkout {period}   → provider
         → return to /account?checkout=complete&session_id=…
         → POST /api/subscription {action:'reconcile', session_id}
-        → GET /api/app                  → ENTER VALHALLA
+        → GET /api/app                  → ENTER SACORO
 ```
 
 **`POST /api/preview`** answers two different questions depending on whether it
@@ -420,7 +420,7 @@ they are absent, and every caller treats null as *this cannot be purchased yet*.
 
 ### 1. Stripe, in test mode first
 
-- [ ] Create the product **Valhalla Standard**.
+- [ ] Create the product **Sacoro Standard**.
 - [ ] Create two recurring prices: **£11.99/month** and **£89.99/year**, GBP.
       Do **not** put a trial on the Price — the trial is set on the Checkout
       Session (`trial_period_days: 14`) so that one number has one source.
@@ -489,7 +489,7 @@ identifier variables.
 ## Owner verification — open questions
 
 1. **Does Stripe advance `current_period_end` on a failed renewal?** The
-   translation above is safe under both answers for Valhalla's catalogue, and
+   translation above is safe under both answers for Sacoro's catalogue, and
    the argument for why is written out in `api/_stripe.js`. It is still
    reasoning about another company's system. Verify it (step 4.1) before launch.
 2. **Which migrations are actually applied?** Unknowable from here. Section 1–3

@@ -28,26 +28,26 @@ release is small: there is almost no native surface.
 ### The microphone permission, and what to declare for it
 
 `RECORD_AUDIO` is requested **at runtime**, at the moment the athlete presses the
-Ask Coach microphone, and by nothing else in the app. Valhalla never opens an
+Ask Coach microphone, and by nothing else in the app. Sacoro never opens an
 audio stream itself: Android's recogniser consumes the audio and returns a
 transcript string, and the plugin's audio-buffer callback is deliberately empty.
 
 **Only the on-device recogniser is used.** Android's ordinary `SpeechRecognizer`
-may send audio to the device's speech service provider; Valhalla asks for
+may send audio to the device's speech service provider; Sacoro asks for
 `createOnDeviceSpeechRecognizer()` and refuses rather than fall back to the
 networked one, so a phone without on-device recognition simply types instead.
 That is what makes the Data Safety answer straightforward:
 
 - audio is **not collected** and **not shared** — it never leaves the device and
-  Valhalla never receives it;
+  Sacoro never receives it;
 - the resulting **transcript** is the athlete's question and is sent to
-  Valhalla's server and on to the model as text, not stored, and not logged.
+  Sacoro's server and on to the model as text, not stored, and not logged.
 
 `<queries>` for `android.speech.RecognitionService` is required from Android 11:
 without it the recogniser is invisible to package-visibility filtering and every
 device reports "no speech recognition". `android.hardware.microphone` is
 declared `required="false"` so a device without one can still install and use
-Valhalla, where Ask Coach accepts a typed question exactly as before.
+Sacoro, where Ask Coach accepts a typed question exactly as before.
 
 The full stage-by-stage flow is in `VOICE-DATA-FLOW.md`.
 
@@ -132,7 +132,7 @@ deleted and what is retained. `LEGAL-FACTS.md` §6 has the exact facts.
 
 | Field | Value |
 |---|---|
-| Title | Velvet Viking Valhalla |
+| Title | Velvet Viking Sacoro |
 | Short description | *(Website supplies; must match the site's positioning)* |
 | Category | Health & Fitness |
 | Contact email | `support@velvetviking.co.uk` |

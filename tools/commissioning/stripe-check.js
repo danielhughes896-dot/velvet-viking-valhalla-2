@@ -163,7 +163,7 @@ async function main(){
       bad(offerCode + ' amount is ' + price.unit_amount + ' minor units',
           'catalogue renders ' + offer.priceMinor + ' — an athlete would be shown one and charged the other');
     }
-    /* A TRIAL ON THE PRICE IS A SECOND SOURCE OF TRUTH. Valhalla sets
+    /* A TRIAL ON THE PRICE IS A SECOND SOURCE OF TRUTH. Sacoro sets
        trial_period_days on the Checkout Session so the fourteen days have one
        origin: TRIAL_DAYS in api/_products.js. A Price that also carries a trial
        can silently win, and then the trial length is whatever a dashboard says. */

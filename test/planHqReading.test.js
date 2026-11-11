@@ -65,7 +65,7 @@ function withHistory(a) {
   });
   return a;
 }
-/* The Reading's destinations are the circles on Valhalla now -- the Coach
+/* The Reading's destinations are the circles on Sacoro now -- the Coach
    tab's list of rectangular rows is gone, and with it the one screen that
    restated what the circles already said. Same action, same panels; a
    different element carries them. */
@@ -162,7 +162,7 @@ test('READING: the ring says which reading, the face says what it says', () => {
   const accent = s => (s.match(/--rd-base:([^;]+);/) || [])[1];
   const face = s => (s.match(/<b style="[^"]*">([^<]*)<\/b>/) || [])[1];
 
-  const before = recDial(a.renderValhallaInstruments());
+  const before = recDial(a.renderSacoroInstruments());
   /* THE RECORD FACTS ONLY. This took a snapshot of the whole Record preview
      and compared it after the verdict moved. The two previews are one
      renderer now, so a whole-block compare would include the reading
@@ -170,7 +170,7 @@ test('READING: the ring says which reading, the face says what it says', () => {
      thing it is meant to allow. Narrowed to the facts themselves, which is
      what "a fact took a tone" was ever about. */
   const statusOnly = s => (s.match(/<button type="button" class="b-(?:dial b-stat|plate)"[\s\S]*?<\/button>/g) || []).join('');
-  const statusBefore = statusOnly(a.renderValhallaInstruments());
+  const statusBefore = statusOnly(a.renderSacoroInstruments());
   assert.ok(before, 'no recovery circle at all');
 
   // Drive the engine to the opposite verdict.
@@ -179,12 +179,12 @@ test('READING: the ring says which reading, the face says what it says', () => {
     return function(){ const r = orig.apply(this, arguments); r.recovery.state = other; return r; };
   })(a.coachAnalyse);
 
-  const after = recDial(a.renderValhallaInstruments());
+  const after = recDial(a.renderSacoroInstruments());
   assert.notEqual(face(after), face(before),
     'the recovery circle says the same word for the opposite verdict — the reading is not live');
   assert.equal(accent(after), accent(before),
     'the recovery circle changed colour with the engine — the ring is meant to be its identity');
-  assert.equal(statusOnly(a.renderValhallaInstruments()), statusBefore,
+  assert.equal(statusOnly(a.renderSacoroInstruments()), statusBefore,
     'an Athlete Status fact moved when the coaching verdict moved — a fact took a tone');
 
   // The panel is still where tone is carried, so the verdict is not colourless.
@@ -439,7 +439,7 @@ test('OUTLOOK: ordinary training runs cannot move it, however fast they are', ()
 
      WHAT CHANGED, BY INSTRUCTION: this athlete has logged a whole block, and
      HQ's locked rule is that after fourteen days of usable evidence Race
-     Outlook must give Valhalla's best assessment, with race/checkpoint data
+     Outlook must give Sacoro's best assessment, with race/checkpoint data
      explicitly not mandatory. Returning 'none' to somebody who has logged
      eight weeks was the defect -- the week-7 marathon athlete with no estimate
      at all. So the band is drawn, and the honesty lives where it belongs: in
@@ -540,14 +540,14 @@ test('ACTIONS: New Block and Plan Settings moved to Settings; Checkpoint has no 
   const a = withHistory(planHQ());
   // New Block and Plan Settings are programme-management actions, not
   // day-to-day coaching or athlete evidence -- requirement 5 moved both out
-  // of the daily Valhalla page and into Settings, at Settings' own
+  // of the daily Sacoro page and into Settings, at Settings' own
   // restrained button weight rather than as prominent act-tiles. Checkpoint
   // is no longer a tile anywhere -- requirement 9 removed the standalone
   // Fitness Checkpoint popup it used to open, folding "your next checkpoint"
   // directly into Measured Fitness instead.
-  a.planhqTab = 'valhalla';
-  const valhallaTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
-  assert.equal(valhallaTiles.length, 0, 'a management tile is still on the daily Valhalla page');
+  a.planhqTab = 'sacoro';
+  const sacoroTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
+  assert.equal(sacoroTiles.length, 0, 'a management tile is still on the daily Sacoro page');
 
   a.planhqTab = 'record';
   const recordTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
@@ -556,7 +556,7 @@ test('ACTIONS: New Block and Plan Settings moved to Settings; Checkpoint has no 
   assert.equal(a.ACTION_PANELS.checkpoint, undefined, 'the standalone Fitness Checkpoint popup is still registered');
 
   const settingsHtml = a.renderSettingsHubView();
-  // 400, not 300: these rows are .ev-card.stg-nav now (VALHALLA CONSISTENCY
+  // 400, not 300: these rows are .ev-card.stg-nav now (SACORO CONSISTENCY
   // PASS -- icon, label, chevron, same shell Coach's Reading rows use), and
   // an inlined icon SVG between the tag and its label can itself run past
   // 300 characters -- see ICONS.layers, at 311.
@@ -594,7 +594,7 @@ test('TRIO: PLAN SETTINGS goes to the plan editor the product already calls that
   const a = withHistory(planHQ());
   // Plan Settings lives only in Settings now (requirement 5) -- Settings has
   // called openSetupModal() "Edit Plan Settings" all along, and there is no
-  // longer a second door onto it from the daily Valhalla page.
+  // longer a second door onto it from the daily Sacoro page.
   /* One step deeper, behind Settings' Training & Zones row, with the rest
      of the plan configuration -- Settings lists destinations now. */
   assert.match(a.renderSettingsHubView(),
@@ -604,7 +604,7 @@ test('TRIO: PLAN SETTINGS goes to the plan editor the product already calls that
     'Edit Plan Settings does not fire open-setup');
   assert.match(CODE, /case 'open-setup': openSetupModal\(\);/);
   assert.doesNotMatch(a.renderPlanHQView(), /data-action="open-setup"/,
-    'Plan Settings is still duplicated on the daily Valhalla page');
+    'Plan Settings is still duplicated on the daily Sacoro page');
 });
 
 test('CHECKPOINT: Measured Fitness names it and always has a real action, no separate popup', () => {
@@ -647,7 +647,7 @@ test('CHECKPOINT: navigates to the real session directly from Measured Fitness',
 // ===========================================================================
 // 5. THE WHOLE SCREEN
 // ===========================================================================
-test('HQ: Valhalla opens on the right question, in the right order down one page', () => {
+test('HQ: Sacoro opens on the right question, in the right order down one page', () => {
   const a = withHistory(planHQ());
   /* The three tabs are gone and the single scroll is back -- but not the one
      that was split up originally. The order is the order the athlete reads
@@ -662,15 +662,15 @@ test('HQ: Valhalla opens on the right question, in the right order down one page
      decor lines can be removed." So the same four questions are asked in the
      same sequence; they are simply no longer announced by a headed row. */
   /*
-     ---- CHANGED SIDES: VALHALLA'S CALL IS GONE ----
-     Founder: "I don't like Valhalla's call - proceed / Recovery fresh,
+     ---- CHANGED SIDES: SACORO'S CALL IS GONE ----
+     Founder: "I don't like Sacoro's call - proceed / Recovery fresh,
      trend still building. We know the user should proceed."
      The engine returns PROCEED on most days, so a band under the hero
      announcing it told the athlete what opening the app already assumed,
      and both readings in its sub-line are circles in the grid beneath it
      with panels of their own. It had already given up its dot and then its
      wash for the same reason; this is that argument reaching the block. */
-  assert.doesNotMatch(html, /class="v-call/, 'Valhalla\u2019s Call is back under the hero');
+  assert.doesNotMatch(html, /class="v-call/, 'Sacoro\u2019s Call is back under the hero');
   assert.ok(at('class="v-hero"') < at('class="b-grid"'), 'the circles are above the hero');
   assert.ok(at('class="b-grid"') < at('class="b-plates"'),
     'the plates are above the circles');
@@ -679,10 +679,10 @@ test('HQ: Valhalla opens on the right question, in the right order down one page
   assert.doesNotMatch(html, />The Reading</, 'the retired Reading heading is back');
   assert.doesNotMatch(html, />The Athlete Status</, 'the retired Athlete Status heading is back');
   assert.doesNotMatch(html, /class="act-trio/,
-    'a management action tile is still on the daily Valhalla page');
+    'a management action tile is still on the daily Sacoro page');
 });
 
-test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a destination', () => {
+test('HQ: nothing on Sacoro/Coach/Record expands inline, and every card is a destination', () => {
   const a = withHistory(planHQ());
   const html = a.renderPlanHQView();
   const circles = html.match(/<button type="button" class="b-dial[^"]*"[\s\S]*?<\/button>/g) || [];
@@ -721,7 +721,7 @@ test('HQ: the coaching that has no depth behind it stays on the page', () => {
   /* renderAthleteStatusCard() led this and has been deleted: load is the
      hero band's right-hand figure, recovery is a circle with a panel, trend
      is a row inside the Readiness panel, and the sentence it carried is
-     Valhalla's Call at the top of the screen. It was the same three readings
+     Sacoro's Call at the top of the screen. It was the same three readings
      a fourth time, directly beneath them. The REST of the coach's voice --
      the cards with no depth behind them and so nothing to tap into -- is
      what this test has always been about, and it stays on the page. */
@@ -729,7 +729,7 @@ test('HQ: the coaching that has no depth behind it stays on the page', () => {
   /* The status sentence and its surface are both gone, on instruction --
      see the order law above. What this test is about is the REST of the
      coach's voice, which is unchanged and asserted below. */
-  assert.doesNotMatch(html, /class="v-call /, 'Valhalla\u2019s Call is back');
+  assert.doesNotMatch(html, /class="v-call /, 'Sacoro\u2019s Call is back');
   assert.ok(html.indexOf(a.renderCoachPanel()) !== -1);
   assert.ok(a.renderCoachPanel().indexOf(a.renderBreakthroughCard(report)) !== -1,
     'Breakthrough Sessions left the coach panel');
@@ -738,17 +738,17 @@ test('HQ: the coaching that has no depth behind it stays on the page', () => {
      unreferenced, so this asserts its absence instead of its presence.
      WHAT IT CARRIED IS ON THE RECORD in the comment on renderCoachPanel():
      report.watch holds the coach's standing cautions, the unlogged-session
-     notice among them, and that warning now has no surface on Valhalla. */
+     notice among them, and that warning now has no surface on Sacoro. */
   assert.equal(typeof a.renderCoachWatchCard, 'undefined',
     'the Coach Watch renderer is back');
-  assert.doesNotMatch(html, />Coach Watch</, 'the Coach Watch card is back on Valhalla');
+  assert.doesNotMatch(html, />Coach Watch</, 'the Coach Watch card is back on Sacoro');
 });
 
 test('HQ: an athlete with no plan is never asked to render any of this', () => {
   const a = loadApp({ pinnedDate: PINNED });
   a.state = a.makeDefaultState();
-  assert.equal(a.renderValhallaInstruments(), '');
-  assert.equal(a.renderValhallaInstruments(), '');
+  assert.equal(a.renderSacoroInstruments(), '');
+  assert.equal(a.renderSacoroInstruments(), '');
   assert.equal(a.renderRaceOutlook(), '');
   assert.equal(a.raceOutlook(), null);
   a.openHQPanel('recovery');

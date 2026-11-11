@@ -293,7 +293,7 @@ test('the retired congratulations banner does not come back as a parallel mechan
   assert.equal(a.renderCongratsBanner, undefined,
     'renderCongratsBanner still exists -- retiring it should have removed the function, not left it unused');
   const html = a.renderWeeksList();
-  assert.doesNotMatch(html, /congrats-banner|VALHALLA AWAITS|GO KILL IT/,
+  assert.doesNotMatch(html, /congrats-banner|SACORO AWAITS|GO KILL IT/,
     'the old banner is still reachable from the real render path');
   // exactly one continuity surface at the very end of the weeks list
   const matches = html.match(/class="hub-card yr-next"/g) || [];

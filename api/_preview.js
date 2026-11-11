@@ -4,7 +4,7 @@
 //                       { distanceKey, weeks, volume, schedule, benchmark }
 //                       -> a read-only summary of the programme just built
 //
-// WHY THE ENGINE RUNS HERE. An athlete should see what Valhalla has built for
+// WHY THE ENGINE RUNS HERE. An athlete should see what Sacoro has built for
 // them before being asked to pay for it. The obvious way to do that is to hand
 // them the app and hide most of it, and that is not a boundary at all: the
 // product is one HTML file, so serving it IS giving it away, whatever the UI
@@ -21,10 +21,10 @@
 // the shape, the phases, the first week in full, and a handful of the sessions
 // that characterise the block.
 //
-// WHAT THEY DO NOT GET. Anything that makes Valhalla a coach rather than a
+// WHAT THEY DO NOT GET. Anything that makes Sacoro a coach rather than a
 // document -- TODAY, Execution Review, adaptation, athlete-state reasoning,
 // history, recalibration. Those are the product, and the preview is not
-// Valhalla Lite.
+// Sacoro Lite.
 
 'use strict';
 
@@ -75,7 +75,7 @@ function loadEngine(nowIso){
 const DISTANCES = BUILDER_SPEC.distances.order;
 const DISTANCE_ALIASES = { marathon: 'full' };
 /* Which objective the block serves. Same four the builder offers, and
-   deliberately NOT recovery: recovery is prescribed after a race Valhalla
+   deliberately NOT recovery: recovery is prescribed after a race Sacoro
    watched, never chosen from a menu, so it can never arrive here. */
 const PURPOSES = BUILDER_SPEC.purposes.order;
 /* The engine's own shaping, restated as data because the preview has no
@@ -479,7 +479,7 @@ function buildEcho(input, startDate, raceDate, weeks){
  * TWO QUESTIONS THAT LOOK LIKE ONE, and conflating them is how this went wrong
  * twice in opposite directions.
  *
- *   "does Valhalla offer a free trial?"      a fact about the OFFER
+ *   "does Sacoro offer a free trial?"      a fact about the OFFER
  *   "may THIS athlete start one?"            a fact about an ATHLETE
  *
  * The endpoint used to answer both with a hardcoded `available: true`, which is
@@ -606,7 +606,7 @@ async function handle(req, res){
     build: buildEcho(v.input, built.startDate, built.raceDate, built.weeks),
     trial: trial,
     /* Said plainly rather than implied: this is a summary, not the product. */
-    note: 'This is a preview of your programme. Valhalla itself coaches it.'
+    note: 'This is a preview of your programme. Sacoro itself coaches it.'
   });
 }
 

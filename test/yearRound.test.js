@@ -506,15 +506,15 @@ test('Athlete Status stops claiming a week number once its block has finished', 
   assert.equal(report.phase.name, 'Block Complete',
     'the phase badge still reads "Week null" or a stale week after the block ended');
   /* renderAthleteStatusCard() was deleted with the Coach tab -- its three
-     metrics each have their own surface on the single-scroll Valhalla, so it
+     metrics each have their own surface on the single-scroll Sacoro, so it
      had become a fourth telling of the same readings. The DEFECT it was
      holding is not about that card: it is that a finished block must not be
      claimed as a live week ANYWHERE. So the assertion moves to the whole
      screen, which is a wider net than the card ever was. */
   a.state.view = 'planhq';
   const html = a.renderPlanHQView();
-  assert.doesNotMatch(html, /Week null/, 'Valhalla literally rendered "Week null"');
-  assert.doesNotMatch(html, />Week 1 of/, 'Valhalla fell back to claiming week 1 of a finished block');
+  assert.doesNotMatch(html, /Week null/, 'Sacoro literally rendered "Week null"');
+  assert.doesNotMatch(html, />Week 1 of/, 'Sacoro fell back to claiming week 1 of a finished block');
 });
 
 test('This Week shows an honest empty state once the block has finished, not week 1 again', () => {

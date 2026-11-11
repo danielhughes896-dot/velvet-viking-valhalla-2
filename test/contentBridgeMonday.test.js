@@ -46,8 +46,8 @@ async function withMonday(script, fn, env) {
   };
   process.env.MONDAY_API_TOKEN = 'test-token-never-real';
   process.env.MONDAY_CONTENT_BOARD_ID = '5102476403';
-  // The destination group, "APP DATA — Valhalla Evidence". Required config.
-  process.env.MONDAY_CONTENT_GROUP_ID = 'group_test_valhalla_evidence';
+  // The destination group, "APP DATA — Sacoro Evidence". Required config.
+  process.env.MONDAY_CONTENT_GROUP_ID = 'group_test_sacoro_evidence';
   delete process.env.MONDAY_CONTENT_SOURCE_LABEL;
   process.env.VVV_CONTENT_BRIDGE_ENABLED = 'on';
   Object.assign(process.env, env || {});
@@ -233,13 +233,13 @@ test('9. the mapping uses the approved board and the exact column ids', async ()
   assert.equal(calls[1].variables.board, '5102476403');
   const cols = JSON.parse(calls[1].variables.cols);
   assert.equal(cols[CB.COL.candidateId], GOOD.candidateId);
-  // HQ's upstream mapping names this value. It was 'Founder / Valhalla' while
+  // HQ's upstream mapping names this value. It was 'Founder / Sacoro' while
   // the bridge was a manual founder export; the destination group now carries
   // that meaning and the column says which SYSTEM supplied the evidence.
-  assert.equal(cols[CB.COL.source], 'Valhalla');
-  assert.equal(CB.SOURCE_LABEL, 'Valhalla');
+  assert.equal(cols[CB.COL.source], 'Sacoro');
+  assert.equal(CB.SOURCE_LABEL, 'Sacoro');
   // And it lands in the evidence group, never the board's default editorial one.
-  assert.equal(calls[1].variables.group, 'group_test_valhalla_evidence');
+  assert.equal(calls[1].variables.group, 'group_test_sacoro_evidence');
   assert.match(calls[1].query, /group_id:\s*\$group/, 'create_item must target a group');
   assert.equal(cols[CB.COL.eventType], 'threshold_continuous');
   assert.deepEqual(cols[CB.COL.eventDate], { date: '2026-06-04' });
@@ -255,14 +255,14 @@ test('10. a new candidate is created with Workflow Status = Candidate', async ()
     () => CB.exportCandidate(GOOD, true));
   const cols = JSON.parse(calls[1].variables.cols);
   assert.deepEqual(cols[CB.COL.workflowStatus], { label: 'Candidate' });
-  // Valhalla never sets any later state.
+  // Sacoro never sets any later state.
   for (const forbidden of ['Selected', 'Preparing', 'Review', 'Approved', 'Rejected', 'Changes Requested']) {
     assert.equal(BRIDGE_SRC.indexOf("'" + forbidden + "'"), -1,
-      'Valhalla must never set status ' + forbidden);
+      'Sacoro must never set status ' + forbidden);
   }
 });
 
-test('11-14. Valhalla never writes Format, AI Content Pack, Review Feedback or Assets', async () => {
+test('11-14. Sacoro never writes Format, AI Content Pack, Review Feedback or Assets', async () => {
   assert.equal(CB.NEVER_WRITTEN.format, 'text_mm6bgw2m');
   assert.equal(CB.NEVER_WRITTEN.aiContentPack, 'long_text_mm6b1ffe');
   assert.equal(CB.NEVER_WRITTEN.reviewFeedback, 'long_text_mm6bqk4t');

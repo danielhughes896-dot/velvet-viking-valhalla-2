@@ -6,7 +6,7 @@ const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-/* VALHALLA TAKES THE SAME RULES: the instruments stay, the containers go.
+/* SACORO TAKES THE SAME RULES: the instruments stay, the containers go.
  * ===========================================================================
  * Every circle on this screen -- the confidence gauge, the Reading badges,
  * the Athlete Status dials -- is a reading of something and keeps its face.
@@ -51,20 +51,20 @@ const rule = sel => {
   return BARE.slice(i + sel.length + 1, BARE.indexOf('}', i));
 };
 
-test('Valhalla renders inside a wrapper, so its rules have somewhere to hang', () => {
+test('Sacoro renders inside a wrapper, so its rules have somewhere to hang', () => {
   /* It was the one screen returning a bare run of sections. .hub-card is
      also Today's Next Move and the post-race panel, and the comment on it
      says in as many words that it must never be restyled bare -- so without
      a wrapper there was no way to restyle it HERE. */
   assert.match(SRC, /return '<div class="view-planhq">'\+/,
-    'the Valhalla wrapper is gone, and .hub-card cannot be scoped to this screen');
+    'the Sacoro wrapper is gone, and .hub-card cannot be scoped to this screen');
 });
 
 test('the containers go and the instruments stay', () => {
   const r = rule('.view-planhq :is(.v-hero, .v-call, .hub-card)');
   ['background:none', 'border:0', 'border-radius:0', 'box-shadow:none'].forEach(d =>
-    assert.ok(r.indexOf(d) > -1, 'the Valhalla containers no longer drop ' + d));
-  /* .tile-card is the additive modifier the Valhalla consistency pass put ON
+    assert.ok(r.indexOf(d) > -1, 'the Sacoro containers no longer drop ' + d));
+  /* .tile-card is the additive modifier the Sacoro consistency pass put ON
      TOP of .hub-card rather than editing it -- it is the rule that actually
      paints the box, so it has to be named too. */
   assert.match(BARE, /\.view-planhq :is\(\.hub-card, \.hub-card\.tile-card\)\{/,
@@ -81,9 +81,9 @@ test("the call's severity is carried by the word, not by a wash", () => {
      --call-tone. That wash was itself a repair: de-boxing the call had taken
      its tinted gradient, its border, its 3px left bar and its glow, all four
      of them --call-tone, and the severity came back as ambient light.
-     Founder: "Valhalla's call - proceed. Does it offer anything? Really?
+     Founder: "Sacoro's call - proceed. Does it offer anything? Really?
      The green glow behind can deffo go."
-     IT GOES, AND THE SIGNAL DOES NOT. The call's title reads "Valhalla's
+     IT GOES, AND THE SIGNAL DOES NOT. The call's title reads "Sacoro's
      Call - Proceed", and Proceed / Watch / Ease off is the state written in
      the athlete's own language. On the state the engine returns most of the
      time the wash was a green field the width of the phone, directly under
@@ -96,7 +96,7 @@ test("the call's severity is carried by the word, not by a wash", () => {
     'the dither layer that mirrored the wash is back, over a glow that no longer exists');
   /* ---- AND THEN THE BLOCK ITSELF WENT ----
      The paragraph above argued the word was doing the work and the colour
-     was not. The founder has since read the word: "I don't like Valhalla's
+     was not. The founder has since read the word: "I don't like Sacoro's
      call - proceed / Recovery fresh, trend still building. We know the user
      should proceed." PROCEED is what the engine returns on most days, so
      the band announced an assumption; its two readings are circles in the
@@ -106,7 +106,7 @@ test("the call's severity is carried by the word, not by a wash", () => {
      call the athlete has to act on belongs. */
   const a = planHQ();
   const view = a.renderPlanHQView();
-  assert.doesNotMatch(view, /class="v-call/, 'Valhalla\u2019s Call is back on the screen');
+  assert.doesNotMatch(view, /class="v-call/, 'Sacoro\u2019s Call is back on the screen');
   assert.ok(a.coachAnalyse().decision,
     'the coaching decision itself has been lost, not just its band');
 });
@@ -361,7 +361,7 @@ test('LINES: no plain hairline separates one detail from the next', () => {
 
 /* THE LAST GLYPHS ON THIS SCREEN, AND WHAT REPLACED THEM.
  * ===========================================================================
- * Breakthrough Sessions was the one block on Valhalla still printing a
+ * Breakthrough Sessions was the one block on Sacoro still printing a
  * sparkle in front of every row -- three glyphs doing nothing the sentence
  * beside them did not already do, and holding the text 24px off the panel's
  * own left edge. They go the way the day card's went.
@@ -424,7 +424,7 @@ test('a left-aligned section rule fades away from its words', () => {
 //
 // THE WHOLE OF WHAT THESE GUARD is that the ring reports evidence the engine
 // actually has. The reference it came from put a number on every ring -- "82%
-// SCORE", "CTL 68", "HRV +6ms", "Readiness 8.4/10" -- and Valhalla computes
+// SCORE", "CTL 68", "HRV +6ms", "Readiness 8.4/10" -- and Sacoro computes
 // none of those; two would need health data the athlete may never have
 // granted. A ring that cannot be derived stays solid rather than being filled
 // with a figure nobody measured.
@@ -512,7 +512,7 @@ test('RING: no circle in the grid is drawn to a proportion, because none has one
   const moved = parseFloat(String(a.recordFacts().filter(f => f.key === 'progress')[0].big));
   assert.ok(moved > 5 && moved < 95,
     'progress is ' + moved + '% -- it has to be partial for this to discriminate');
-  const html = a.renderValhallaInstruments();
+  const html = a.renderSacoroInstruments();
   const grid = /<div class="b-grid">([\s\S]*?)<\/div>/.exec(html)[1];
   assert.equal((grid.match(/stroke-dashoffset/g) || []).length, 0,
     'a circle in the grid is drawn to a proportion again');
@@ -540,7 +540,7 @@ test('RING: nothing measured still reads as an absence, now on the plate', () =>
   const a = planHQ();
   const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
   assert.ok(facts.fitness.none, 'the fixture has a measured fitness, so this proves nothing');
-  const html = a.renderValhallaInstruments();
+  const html = a.renderSacoroInstruments();
   const fitness = /<button[^>]*data-record="fitness"[\s\S]*?<\/button>/.exec(html)[0];
   assert.match(fitness, /class="b-plate"/, 'Fitness is a circle again');
   assert.match(fitness, /class="b-plate-v rec-none"/,
@@ -549,21 +549,21 @@ test('RING: nothing measured still reads as an absence, now on the plate', () =>
   const a2 = planHQ();
   a2.state.setup.benchmark = null;
   const bench = /<button[^>]*data-record="benchmark"[\s\S]*?<\/button>/
-    .exec(a2.renderValhallaInstruments())[0];
+    .exec(a2.renderSacoroInstruments())[0];
   assert.match(bench, /class="b-plate-v rec-none"/,
     'two absences on one row are drawn two different ways');
 });
 
-test('RING: no metric Valhalla does not compute has been invented for it', () => {
+test('RING: no metric Sacoro does not compute has been invented for it', () => {
   /* The reference this was drawn from carried CTL, HRV and a readiness score
      out of ten. None is computed here and two would need health data the
      athlete may never have granted, so none of them may appear on the ring
      or in the face beside it. */
   const a = planHQ();
-  const html = a.renderValhallaInstruments();
+  const html = a.renderSacoroInstruments();
   [/\bCTL\b/, /\bHRV\b/, /\bATL\b/, /\/10\b/, /\bSCORE\b/i].forEach(re =>
     assert.doesNotMatch(html, re,
-      'an invented physiological metric has reached the Valhalla grid: ' + re));
+      'an invented physiological metric has reached the Sacoro grid: ' + re));
 });
 
 test('RING: the painted rim comes off only where the ring replaces it', () => {
@@ -594,7 +594,7 @@ test('RING: the painted rim comes off only where the ring replaces it', () => {
 // ===========================================================================
 test('SHAPE: the grid is readings only, and every Record fact is a plate', () => {
   const a = withMeasuredFitness(planHQ());
-  const html = a.renderValhallaInstruments();
+  const html = a.renderSacoroInstruments();
   const grid = /<div class="b-grid">([\s\S]*?)<\/div>/.exec(html)[1];
 
   /* NOT A COUNT OF BUTTONS -- the two sets are told apart by the action they
@@ -612,15 +612,15 @@ test('SHAPE: the grid is readings only, and every Record fact is a plate', () =>
      by accident is not mistaken for the rule. Joined rather than deep-equal
      because the app runs in its own realm: a structurally identical array
      there has a different Array prototype, and assert/strict rejects it. */
-  assert.equal([...a.VALHALLA_CIRCLES].join(','), 'evolution,adaptation,recovery,patterns');
-  assert.equal([...a.VALHALLA_PLATES].join(','), 'fitness,progress,goal,benchmark');
+  assert.equal([...a.SACORO_CIRCLES].join(','), 'evolution,adaptation,recovery,patterns');
+  assert.equal([...a.SACORO_PLATES].join(','), 'fitness,progress,goal,benchmark');
 
   /* THE PAIRS THE FOUNDER NAMED SURVIVE. "evolution - adaption" and
      "recovery - patterns" were two of the three rows of the old grid; the
      pair between them left, and the other two stayed whole rather than
      being re-paired around the gap. */
-  assert.equal([...a.VALHALLA_CIRCLES].slice(0, 2).join(','), 'evolution,adaptation');
-  assert.equal([...a.VALHALLA_CIRCLES].slice(2).join(','), 'recovery,patterns');
+  assert.equal([...a.SACORO_CIRCLES].slice(0, 2).join(','), 'evolution,adaptation');
+  assert.equal([...a.SACORO_CIRCLES].slice(2).join(','), 'recovery,patterns');
 });
 
 test('SHAPE: every fact that took a plate is a number, which is why it took one', () => {
@@ -631,7 +631,7 @@ test('SHAPE: every fact that took a plate is a number, which is why it took one'
      existing rule applied consistently and not a new one. */
   const a = withMeasuredFitness(planHQ());
   const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
-  a.VALHALLA_PLATES.forEach(k => {
+  a.SACORO_PLATES.forEach(k => {
     const big = String(facts[k].big);
     assert.ok(/\d/.test(big) || facts[k].none || big === 'A' || /^[A-C]$/.test(big),
       k + ' is on a plate but states a word rather than a figure: ' + big);
@@ -640,7 +640,7 @@ test('SHAPE: every fact that took a plate is a number, which is why it took one'
      reading ever starts reporting a figure, it belongs on a plate, and this
      is where that is noticed. */
   const sections = {}; a.readingSections(a.coachAnalyse()).forEach(x => { sections[x.key] = x; });
-  a.VALHALLA_CIRCLES.forEach(k => {
+  a.SACORO_CIRCLES.forEach(k => {
     assert.ok(/[A-Za-z]/.test(String(sections[k].value)),
       k + ' is a circle but states a bare figure: ' + sections[k].value);
   });
@@ -659,7 +659,7 @@ test('SHAPE: a plate value cannot wrap, whatever the string it is given', () => 
      the nowrap that turns a too-long run into a visible overflow instead of
      a silent second line. */
   const a = withMeasuredFitness(planHQ());
-  const html = a.renderValhallaInstruments();
+  const html = a.renderSacoroInstruments();
   const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
 
   /* THE COUNT IS THE LONGEST RUN, not the string length -- a value with a
@@ -668,7 +668,7 @@ test('SHAPE: a plate value cannot wrap, whatever the string it is given', () => 
   assert.equal(a.plateValueChars('Goal A'), 4, 'a space is not being treated as a break');
   assert.equal(a.plateValueChars(''), 1, 'an empty value divides by zero');
 
-  a.VALHALLA_PLATES.forEach(k => {
+  a.SACORO_PLATES.forEach(k => {
     const plate = new RegExp('<button[^>]*data-record="' + k + '"[\\s\\S]*?</button>').exec(html)[0];
     const ch = parseInt(/--pv-ch:(\d+)/.exec(plate)[1], 10);
     assert.equal(ch, a.plateValueChars(String(facts[k].big)),
@@ -948,7 +948,7 @@ test('MOTION: the ring has one behaviour per state the engine actually returns',
     const b = planHQ();
     const real = b.coachAnalyse;
     b.coachAnalyse = function(){ const r = real.apply(this, arguments); r.recovery.state = st; return r; };
-    const grid = /<div class="b-grid">([\s\S]*?)<\/div>/.exec(b.renderValhallaInstruments())[1];
+    const grid = /<div class="b-grid">([\s\S]*?)<\/div>/.exec(b.renderSacoroInstruments())[1];
     const rec = /<span class="b-dial-col">(?:(?!<span class="b-dial-col">)[\s\S])*?data-reading="recovery"[\s\S]*?<\/span><\/span>/.exec(grid);
     assert.ok(rec, 'recovery is not in the grid at all when the engine says ' + st);
     assert.match(rec[0], new RegExp('is-rec-' + st),

@@ -161,8 +161,8 @@ test('.modal-head is the only border left outside Settings', () => {
  *
  * The limit on it is not new either: athlete_edit_wins, the same invariant
  * renameToMatchPrescription() already applies when a distance edit changes a
- * generated name. Valhalla renames a session only while the name is still
- * Valhalla's. Theirs outranks ours.
+ * generated name. Sacoro renames a session only while the name is still
+ * Sacoro's. Theirs outranks ours.
  */
 test('a title is ours while it is still one of our own words', () => {
   const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });

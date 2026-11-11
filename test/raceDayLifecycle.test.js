@@ -139,7 +139,7 @@ test('with the outcome unanswered, the question outranks everything downstream',
 
   const fp = fullPlan(a);
   assert.ok(hasWhatsNext(fp));
-  assert.match(fp, /Tell Valhalla on Today/,
+  assert.match(fp, /Tell Sacoro on Today/,
     'Full Plan does not point at the one place that asks the question');
 });
 
@@ -316,7 +316,7 @@ test('nothing is replaced until the athlete acts', () => {
 test('THE IMPOSSIBLE CONGRATULATIONS GATE is gone', () => {
   /* It required literally every non-rest day in the block marked complete,
      future days included, so almost nobody ever saw any acknowledgement that
-     Valhalla kept coaching after the block did. */
+     Sacoro kept coaching after the block did. */
   const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   assert.ok(!/congratulat/i.test(code), 'a congratulations banner is back');
   const a = raceBlock('2026-10-26');

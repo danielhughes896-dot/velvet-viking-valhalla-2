@@ -196,7 +196,7 @@ test('one PROGRESS change rendered at all three experience levels: same decision
 // Adjusted vs Edited, and the Adjusted disclosure
 // ---------------------------------------------------------------------------
 
-test('dayStatusLabel: a Valhalla adjustment reads Adjusted, an athlete edit reads Edited, and Adjusted wins if both are present', () => {
+test('dayStatusLabel: a Sacoro adjustment reads Adjusted, an athlete edit reads Edited, and Adjusted wins if both are present', () => {
   const a = withPlan(app());
   const dd = a.state.days.find(d => d.type !== 'rest');
   dd.manualEdit = { at: new Date().toISOString(), fields: ['km'], from: { km: dd.km } };
@@ -207,7 +207,7 @@ test('dayStatusLabel: a Valhalla adjustment reads Adjusted, an athlete edit read
   dd.coachAdjust = { at: new Date().toISOString(), reason: 'test', from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc } };
   label = a.dayStatusLabel(dd).replace(/<[^>]+>/g, '');
   assert.match(label, /Adjusted/);
-  assert.doesNotMatch(label, /Edited/, 'a Valhalla change must never be described as the athlete’s own edit, or vice versa');
+  assert.doesNotMatch(label, /Edited/, 'a Sacoro change must never be described as the athlete’s own edit, or vice versa');
 });
 
 test('renderAdjustedDetail: shows What/Why/consent provenance and a working Restore for an ordinary adjustment', () => {

@@ -49,7 +49,7 @@ function planHQ(opts) {
 }
 /* A RECORD FACT IS A CIRCLE NOW, AND ITS SENTENCE IS IN THE PANEL BEHIND IT.
    The Record tab's list of headline-fact cards is gone with the tab: the
-   circles on Valhalla are the destinations, and each one opens the panel
+   circles on Sacoro are the destinations, and each one opens the panel
    that card used to open. A circle has no room for a synopsis, so the fact's
    own one-line synopsis opens the panel instead -- which means a test that
    wants to read both the value and the sentence has to look at both, and
@@ -79,7 +79,7 @@ function cardFor(html, subject, app) {
 // ===========================================================================
 // 1. THE FOUR CARDS
 // ===========================================================================
-test('RECORD: Valhalla carries exactly four Record facts, each its own tappable plate', () => {
+test('RECORD: Sacoro carries exactly four Record facts, each its own tappable plate', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   const found = cards(html);
@@ -532,9 +532,9 @@ test('HQ: the four inline components are gone from the page and live only in the
     'the old Benchmark summary bar is still on the page');
 });
 
-test('HQ: the Valhalla hero carries the gauge verbatim — a full-circle ring, approved-concept redesign', () => {
+test('HQ: the Sacoro hero carries the gauge verbatim — a full-circle ring, approved-concept redesign', () => {
   const a = planHQ();
-  a.planhqTab = 'valhalla';
+  a.planhqTab = 'sacoro';
   const html = a.renderPlanHQView();
   const gauge = a.renderConfidenceGauge();
   assert.ok(html.indexOf(gauge) !== -1, 'the confidence gauge is no longer rendered verbatim');
@@ -557,26 +557,26 @@ test('HQ: the coach panel, the checkpoint banner and Active Goal are all still r
   /* RE-HOMED TWICE NOW, AND STILL NOT LOST -- which is the only claim this
      test has ever made. New Block and Plan Settings went to Settings. The
      coach panel and the checkpoint banner were on the Coach and Record tabs
-     and are now on the one Valhalla scroll. Active Goal was the Record tab's
+     and are now on the one Sacoro scroll. Active Goal was the Record tab's
      and is now the panel the Goal circle opens, which is the move that made
      retiring the tab safe rather than lossy. */
   assert.match(a.hqPanelHtml('training'), /data-action="open-setup"/,
     'Edit Plan Settings is no longer reachable from Settings');
 
   const view = a.renderPlanHQView();
-  assert.ok(view.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Valhalla');
-  assert.ok(view.indexOf(a.renderCheckpointBanner()) !== -1, 'the checkpoint banner left Valhalla');
+  assert.ok(view.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Sacoro');
+  assert.ok(view.indexOf(a.renderCheckpointBanner()) !== -1, 'the checkpoint banner left Sacoro');
   /* THE HEADING IS GONE AND THE CONTENT IS NOT, which is all this line was
      ever checking. Founder: "the reading and the athlete status and gold
      decor lines can be removed." Asserted as the two plates, which is where
      the Athlete Status facts that are numbers now live. */
   assert.doesNotMatch(view, /The Athlete Status/,
-    'the retired heading is back on Valhalla');
-  assert.match(view, /class="b-plates"/, 'the Athlete Status plates left Valhalla');
+    'the retired heading is back on Sacoro');
+  assert.match(view, /class="b-plates"/, 'the Athlete Status plates left Sacoro');
 
   assert.ok(a.recordPanelGoal().indexOf(a.renderGoalToggle()) !== -1,
     'Active Goal is in no panel either — the decision is unreachable');
-  assert.match(view, /data-record="goal"/, 'nothing on Valhalla opens the goal panel');
+  assert.match(view, /data-record="goal"/, 'nothing on Sacoro opens the goal panel');
 });
 
 test('HQ: an athlete with no plan is never asked to render The Record', () => {

@@ -303,7 +303,7 @@ test('skipping heart rate clears the fields rather than inventing a value', () =
   assert.match(body, /el\.value = ''/, 'the skip does not blank the inputs');
   // nothing that looks like a fabricated number, an estimate or a second path
   assert.doesNotMatch(body, /2[0-9]{2}|1[0-9]{2}/,
-    'the skip writes a numeric heart rate — Valhalla has no methodology for inventing one');
+    'the skip writes a numeric heart rate — Sacoro has no methodology for inventing one');
   assert.doesNotMatch(body, /age|estimate|220|default/i,
     'the skip infers a heart rate instead of leaving it blank');
   assert.match(body, /handleBldNext\(\)/, 'the skip does not advance the journey');
@@ -602,7 +602,7 @@ test('Overview carries the approved heading and lede, and the rail starts on it'
   const { html } = buildJourney();
   /* THE CORNER LABEL IS GONE and this asked for it by name. "GOAL" sat
      top-right above a heading reading "Your goal", "REVIEW" above "What
-     Valhalla understands" -- the stage naming itself twice. What the test
+     Sacoro understands" -- the stage naming itself twice. What the test
      is about is that the flow OPENS ON STAGE ONE, so it asks the two things
      that still say so: the counter, and which rail segment is current. */
   const totalStr = String(SPEC_STAGES.length).padStart(2, '0');
@@ -648,7 +648,7 @@ test('Overview carries the approved heading and lede, and the rail starts on it'
    The founder has reversed that for the chips, against a screenshot of
    the Goal Distance stage: five distances floating on a dark modal give
    the eye no edge, and the instruction was to use the boxes Today draws
-   for Share / Session Details / Your Log / Valhalla Analysis. So the box
+   for Share / Session Details / Your Log / Sacoro Analysis. So the box
    is back, and it is .sess-tab's, not a new one.
    WHAT THIS TEST WAS REALLY PROTECTING IS UNTOUCHED and still below: the
    chosen chip is GOLD and never the cherry action colour, the pool still

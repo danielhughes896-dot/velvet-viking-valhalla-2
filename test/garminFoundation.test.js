@@ -11,7 +11,7 @@ const { buildPlan } = require('./fixtures.js');
 // Everything provider-neutral that a device integration needs, and the boundary
 // where the vendor-specific half will go. Three questions this file answers:
 //
-//   Can Valhalla say which workout belongs on which date, deterministically?
+//   Can Sacoro say which workout belongs on which date, deterministically?
 //   Can it reconcile a changed plan without duplicating an athlete's calendar?
 //   Is the Garmin half genuinely inert until Garmin's contract exists?
 //

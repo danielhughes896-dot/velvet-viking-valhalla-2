@@ -50,7 +50,7 @@ can always see where the programme goes"* and what shipped.
 During any development block in flight, Full Plan carries:
 
 > **WHAT'S NEXT**
-> When this **recovery** block finishes, Valhalla will offer you these directions:
+> When this **recovery** block finishes, Sacoro will offer you these directions:
 > - Maintain & Protect
 > - Aerobic Base
 > - Speed & Threshold

@@ -8,7 +8,7 @@ const { RUNTIME_RELATIVE } = require('./harness.js');
 /* HEAR TODAY'S PREMIUM VOICE — THE SERVER HALF
  * ===========================================================================
  * THE ARCHITECTURAL RULE THIS FILE ENFORCES: ElevenLabs is a loudspeaker, not
- * a coach. It renders words Valhalla's own deterministic engine already chose,
+ * a coach. It renders words Sacoro's own deterministic engine already chose,
  * on the athlete's device, before this route is reached. It is never asked
  * what to say.
  *

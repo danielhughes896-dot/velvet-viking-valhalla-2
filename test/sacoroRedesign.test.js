@@ -6,7 +6,7 @@ const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-/* PLAN HQ -> VALHALLA: the athlete-facing rename, the new Valhalla / Coach /
+/* PLAN HQ -> SACORO: the athlete-facing rename, the new Sacoro / Coach /
  * Record internal navigation, the completion ring, and the prescription-vs-
  * execution edit boundary. Existing planHqReading.test.js and
  * planHqRecord.test.js already prove every re-homed section is the same
@@ -40,11 +40,11 @@ function planHQ() {
 // ===========================================================================
 // 1. THE ATHLETE-FACING RENAME
 // ===========================================================================
-test('NAV: the bottom nav says Coach, never Plan HQ and never Valhalla', () => {
+test('NAV: the bottom nav says Coach, never Plan HQ and never Sacoro', () => {
   /* ---- CHANGED SIDES: THE APP TOOK THE NAME ----
      Founder: "Nav at the bottom - coach or my coach?"
-     This held the tab to "Valhalla", which was right while the top bar read
-     VELVET VIKING. The bar is the VALHALLA mark now, so that label made one
+     This held the tab to "Sacoro", which was right while the top bar read
+     VELVET VIKING. The bar is the SACORO mark now, so that label made one
      word mean the product and one of its five screens at the same time, on
      the same screen. Coach, not My Coach: the other four tabs are plain
      nouns and the app already says Ask Coach and Coach's Note.
@@ -55,14 +55,14 @@ test('NAV: the bottom nav says Coach, never Plan HQ and never Valhalla', () => {
   const nav = a.renderBottomNav();
   assert.match(nav, />Coach</);
   assert.doesNotMatch(nav, /Plan HQ/, 'the athlete-facing label was not retired');
-  assert.doesNotMatch(nav, />Valhalla</,
+  assert.doesNotMatch(nav, />Sacoro</,
     'the tab carries the app\u2019s own name again, which the top bar already states');
   assert.match(nav, /data-view="planhq"/, 'the internal route key is unchanged on purpose');
 });
 
 test('NAV: the screen does not name itself at all', () => {
   /* ---- CHANGED SIDES TWICE IN ONE DAY, AND THAT IS THE POINT ----
-     It read Valhalla, then Coach when the app took that name, and now
+     It read Sacoro, then Coach when the app took that name, and now
      nothing. Founder: "At the top remove the 3 lines of text - coach - full
      marathon - week 1 of 14."
      The lit tab names this screen, which is the same reason Today's heading
@@ -87,15 +87,15 @@ test('NAV: the screen does not name itself at all', () => {
 test('NAV: the five-tab shell is otherwise unchanged', () => {
   const a = planHQ();
   const items = (a.renderBottomNav().match(/data-action="set-view"/g) || []).length;
-  assert.equal(items, 5, 'Today / This Week / Full Plan / Valhalla / Settings');
+  assert.equal(items, 5, 'Today / This Week / Full Plan / Sacoro / Settings');
 });
 
 // ===========================================================================
-// 2. VALHALLA / COACH / RECORD
+// 2. SACORO / COACH / RECORD
 // ===========================================================================
 /* THE SUBNAV IS GONE, AND WHAT REPLACES THESE TESTS IS THE REASON IT COULD
    GO. Coach and Record existed to carry a tap the overview could not take:
-   the five Reading circles and the Record plates on Valhalla were decorative
+   the five Reading circles and the Record plates on Sacoro were decorative
    markup with no action on them, so the only route into a reading was a list
    on a second screen that restated it. The circles are buttons now and open
    the same panels, so the subnav had nothing left to reach.
@@ -105,13 +105,13 @@ test('NAV: the five-tab shell is otherwise unchanged', () => {
    is every destination the two tabs used to carry still reachable, and
    reachable from the one screen? That is a stronger guard than the one it
    replaces -- the old tests could all pass while the circles did nothing. */
-test('SUBNAV: there is no subnav, on Valhalla or anywhere else', () => {
+test('SUBNAV: there is no subnav, on Sacoro or anywhere else', () => {
   const a = planHQ();
   assert.equal(typeof a.renderPlanHQSubNav, 'undefined',
     'the subnav renderer is still here, so something can still draw it');
   assert.equal(typeof a.handleSetPlanhqTab, 'undefined');
   assert.equal(typeof a.planhqTab, 'undefined',
-    'Valhalla still carries a tab state, so it still has more than one screen');
+    'Sacoro still carries a tab state, so it still has more than one screen');
   assert.doesNotMatch(a.renderPlanHQView(), /planhq-subnav/);
   assert.doesNotMatch(a.renderBottomNavStack(), /planhq-subnav/);
   assert.doesNotMatch(CODE, /data-action="set-planhq-tab"/);
@@ -121,7 +121,7 @@ test('SUBNAV: there is no subnav, on Valhalla or anywhere else', () => {
 test('SUBNAV: every Reading is opened by the face that states it', () => {
   const a = planHQ();
   const view = a.renderPlanHQView();
-  const preview = a.renderValhallaInstruments();
+  const preview = a.renderSacoroInstruments();
   const report = a.coachAnalyse();
   const keys = a.readingSections(report).map(s => s.key);
   assert.equal(keys.length, 5);
@@ -132,7 +132,7 @@ test('SUBNAV: every Reading is opened by the face that states it', () => {
      drawing of the number the gauge was already showing. */
   keys.forEach(k => {
     assert.match(view, new RegExp('data-action="open-reading" data-reading="' + k + '"'),
-      k + ' has no way in from Valhalla, so its panel is unreachable');
+      k + ' has no way in from Sacoro, so its panel is unreachable');
   });
   // and they are real buttons, not divs with an attribute nothing listens to
   assert.equal((preview.match(/<button type="button" class="b-dial"/g) || []).length, 4);
@@ -142,17 +142,17 @@ test('SUBNAV: every Reading is opened by the face that states it', () => {
 
 test('SUBNAV: every Record fact is opened by the circle that states it', () => {
   const a = planHQ();
-  const preview = a.renderValhallaInstruments();
+  const preview = a.renderSacoroInstruments();
   a.recordFacts().forEach(f => {
     assert.match(preview, new RegExp('data-action="open-record" data-record="' + f.key + '"'),
-      f.key + ' has no way in from Valhalla');
+      f.key + ' has no way in from Sacoro');
     assert.ok(a.RECORD_PANELS[f.key], f.key + ' has a circle but no panel behind it');
   });
 });
 
 /* THE ONE DECISION THAT HAD NOWHERE ELSE TO GO. Active Goal was rendered by
    the Record tab and by nothing else in the app -- the Full Plan copy was
-   deliberately deleted because the tab carried it -- so a Valhalla without
+   deliberately deleted because the tab carried it -- so a Sacoro without
    tabs and without this panel would have taken an athlete's ability to change
    their goal away with it. */
 test('SUBNAV: Active Goal survives the tabs, in the panel the Goal circle opens', () => {
@@ -164,11 +164,11 @@ test('SUBNAV: Active Goal survives the tabs, in the panel the Goal circle opens'
   assert.ok(panel.indexOf(a.renderGoalToggle()) !== -1,
     'the panel builds its own chooser instead of using renderGoalToggle()');
   // reachable, not merely defined
-  assert.match(a.renderValhallaInstruments(), /data-record="goal"/);
+  assert.match(a.renderSacoroInstruments(), /data-record="goal"/);
   assert.ok(a.RECORD_PANELS.goal);
 });
 
-test('SUBNAV: re-tapping VALHALLA is an ordinary no-op again', () => {
+test('SUBNAV: re-tapping SACORO is an ordinary no-op again', () => {
   const a = planHQ();
   assert.equal(a.state.view, 'planhq');
   a.handleSetView('planhq');
@@ -180,18 +180,18 @@ test('SUBNAV: re-tapping VALHALLA is an ordinary no-op again', () => {
 // ===========================================================================
 test('ANCHOR: the stack is the bottom nav and nothing above it', () => {
   const a = planHQ();
-  const onValhalla = a.renderBottomNavStack();
-  assert.match(onValhalla, /^<div class="bn-stack"><nav class="bottom-nav"/);
-  assert.equal((onValhalla.match(/<nav class="bottom-nav"/g) || []).length, 1);
+  const onSacoro = a.renderBottomNavStack();
+  assert.match(onSacoro, /^<div class="bn-stack"><nav class="bottom-nav"/);
+  assert.equal((onSacoro.match(/<nav class="bottom-nav"/g) || []).length, 1);
 
   /* The stack's CONTENTS no longer vary by view -- only which bottom-nav
      pill is marked active does, which is the nav doing its job. What is
-     asserted is that no second row appears on Valhalla and nowhere else,
+     asserted is that no second row appears on Sacoro and nowhere else,
      which is the thing the subnav used to do. */
   a.handleSetView('today');
   const onToday = a.renderBottomNavStack();
   assert.match(onToday, /^<div class="bn-stack"><nav class="bottom-nav"/);
-  assert.equal(onToday.replace(/ active/g, ''), onValhalla.replace(/ active/g, ''),
+  assert.equal(onToday.replace(/ active/g, ''), onSacoro.replace(/ active/g, ''),
     'the stack carries something view-specific beyond the active pill');
 });
 
@@ -199,9 +199,9 @@ test('ANCHOR: the stack is a fixed anchor, and the subnav clearance went with th
   assert.match(CODE, /\.bn-stack\{[^}]*position\s*:\s*fixed[^}]*bottom\s*:\s*0/);
   assert.match(CODE, /\.bn-stack\{[^}]*flex-direction\s*:\s*column/);
   /* 64px of padding for a row that no longer renders would be 64px of dead
-     screen under the last card on Valhalla, and only on Valhalla. */
+     screen under the last card on Sacoro, and only on Sacoro. */
   assert.doesNotMatch(CODE, /has-subnav/,
-    'the extra Valhalla-only bottom clearance outlived the subnav it was for');
+    'the extra Sacoro-only bottom clearance outlived the subnav it was for');
 });
 
 test('SUBNAV: nothing the tabs carried is missing from the one screen', () => {
@@ -209,13 +209,13 @@ test('SUBNAV: nothing the tabs carried is missing from the one screen', () => {
   const view = a.renderPlanHQView();
   assert.ok(view.indexOf(a.renderProgrammeStatus()) !== -1, 'Programme Status missing');
   /* ONE RENDERER NOW. The two headed previews were deleted with their
-     headings; renderValhallaInstruments() emits the six circles and the two
+     headings; renderSacoroInstruments() emits the six circles and the two
      plates between them, which is every destination the two previews had. */
-  assert.ok(view.indexOf(a.renderValhallaInstruments()) !== -1, 'the instruments are missing');
+  assert.ok(view.indexOf(a.renderSacoroInstruments()) !== -1, 'the instruments are missing');
   assert.ok(view.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel missing');
   assert.ok(view.indexOf(a.renderCheckpointBanner()) !== -1, 'the checkpoint banner missing');
   // and none of it twice
-  [a.renderValhallaInstruments()].forEach(frag => {
+  [a.renderSacoroInstruments()].forEach(frag => {
     if (!frag) return;
     assert.equal(view.indexOf(frag), view.lastIndexOf(frag), 'a section renders twice');
   });
@@ -527,8 +527,8 @@ test('SAFETY: computeConfidenceScore, coachAnalyse and raceOutlook are untouched
   // Goal panel renders raceOutlook() and the goal chooser on the same
   // surface, which is exactly where a render could start deciding things.
   a.renderPlanHQView();
-  a.renderValhallaInstruments();
-  a.renderValhallaInstruments();
+  a.renderSacoroInstruments();
+  a.renderSacoroInstruments();
   Object.keys(a.RECORD_PANELS).forEach(k => a.hqPanelHtml(k));
   a.readingSections(a.coachAnalyse()).forEach(sec => a.hqPanelHtml(sec.key));
   a.renderPlanHQView();

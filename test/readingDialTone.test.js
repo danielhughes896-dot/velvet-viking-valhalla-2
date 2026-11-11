@@ -7,7 +7,7 @@ const { buildPlan } = require('./fixtures.js');
 // AUDIT REPRO (Final Full Product Audit, Part 12, finding B1), AND WHAT
 // BECAME OF IT.
 //
-// THE ORIGINAL DEFECT, IN TWO HALVES. Valhalla's Recovery and Evolution
+// THE ORIGINAL DEFECT, IN TWO HALVES. Sacoro's Recovery and Evolution
 // dials hard-coded a fixed category colour (green, gold) regardless of the
 // reading's live tone, so (a) a "Strained" Recovery rendered inside a calm
 // green circle -- a reassuring colour for a fatigue warning -- and (b) the
@@ -66,7 +66,7 @@ test('a reading\'s colour is fixed, and the engine cannot reach it', () => {
      suite failed on the stale one. Two files asserting the same five values
      is the drift it was trying to prevent, reproduced.
      WHICH colour each instrument wears is one decision and is pinned once,
-     in test/valhallaSurface ('each instrument wears its own named token').
+     in test/sacoroSurface ('each instrument wears its own named token').
      What THIS file is about is different and is unchanged: that whatever
      the identity is, the engine cannot reach it. So the expectation comes
      from the map itself, and every assertion below is about invariance. */
@@ -101,7 +101,7 @@ test('a strained recovery says so on the circle itself', () => {
      recovery was strained. The instrument must still not do that -- it
      simply says it in words rather than in hue. */
   const a = withRecovery(planHQ(), 'strained');
-  const html = a.renderValhallaInstruments();
+  const html = a.renderSacoroInstruments();
   assert.equal(faceOf(html, 'recovery'), 'Strained',
     'the recovery circle does not state the engine\'s own verdict');
   assert.doesNotMatch(faceOf(html, 'recovery'), /fresh/i);
@@ -112,7 +112,7 @@ test('the face follows the engine through every recovery state', () => {
   const seen = {};
   Object.keys(words).forEach((state) => {
     const a = withRecovery(planHQ(), state);
-    const html = a.renderValhallaInstruments();
+    const html = a.renderSacoroInstruments();
     assert.equal(faceOf(html, 'recovery'), words[state],
       'recovery "' + state + '" is not stated as "' + words[state] + '"');
     seen[state] = accentOf(html, 'recovery');

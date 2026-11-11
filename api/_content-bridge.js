@@ -17,7 +17,7 @@
  * (Format, AI Content Pack, Review Feedback, Assets, Final Caption, Content
  * Pillar) or publishing fields (Publish Status, Publish At, Publish Channel,
  * Published URL, Publish Notes) -- those belong to the monday agent, to human
- * editors and to the publisher. Valhalla's responsibility ends the moment a
+ * editors and to the publisher. Sacoro's responsibility ends the moment a
  * candidate exists with status Candidate.
  */
 
@@ -27,7 +27,7 @@
  * unknown field on a live board.
  * ------------------------------------------------------------------------- */
 const BOARD_ID = '5102476403';
-/* "APP DATA — Valhalla Evidence" on that board. A documented default rather than
+/* "APP DATA — Sacoro Evidence" on that board. A documented default rather than
  * a required variable: it is a structural fact of the destination, not a secret,
  * and a deployment that forgot to set it would otherwise fail closed for a
  * reason nobody could see. Still overridable by environment. */
@@ -43,7 +43,7 @@ const COL = {
   marketingEligible: 'boolean_mm6bmfhp'
 };
 
-/* Columns Valhalla must NEVER write. Named here so the prohibition is visible
+/* Columns Sacoro must NEVER write. Named here so the prohibition is visible
  * at the boundary rather than implied by absence, and asserted by test.
  *
  * Being on this list is belt and braces, not the mechanism: columnValues() only
@@ -66,7 +66,7 @@ const NEVER_WRITTEN = {
   contentPillar:  'dropdown_mm6c1y7x'
 };
 
-/* The publishing-authority columns, likewise read from the live board. Valhalla
+/* The publishing-authority columns, likewise read from the live board. Sacoro
  * has no publishing capability at all, so these are listed for the same reason:
  * a reader can see the whole set of fields this boundary refuses, and a future
  * mapping edit that reached one would fail rather than schedule a post. */
@@ -80,13 +80,13 @@ const PUBLISH_COLUMNS = {
 
 const INITIAL_STATUS = 'Candidate';
 
-/* HQ's upstream mapping names this value as `Valhalla`. It was `Founder /
- * Valhalla` while the bridge was a founder-only manual export; the destination
- * group now carries that meaning ("APP DATA — Valhalla Evidence") and the
+/* HQ's upstream mapping names this value as `Sacoro`. It was `Founder /
+ * Sacoro` while the bridge was a founder-only manual export; the destination
+ * group now carries that meaning ("APP DATA — Sacoro Evidence") and the
  * column says which SYSTEM supplied the evidence. Overridable by environment so
  * a downstream automation keyed to the older string can be reconciled without a
  * deploy. */
-const SOURCE_LABEL = 'Valhalla';
+const SOURCE_LABEL = 'Sacoro';
 
 /* The complete permitted payload -- ten fields, mirroring
  * CONTENT_CANDIDATE_FIELDS in the coaching runtime. A test asserts the two lists
@@ -187,7 +187,7 @@ function sanitise(c){
 /* ---------------------------------------------------------------------------
  * MAPPING. Identification, not marketing copy: the item name is assembled from
  * facts already inside the allow-listed candidate and nothing else. No hook, no
- * caption, no angle -- Valhalla does not know what those are.
+ * caption, no angle -- Sacoro does not know what those are.
  * ------------------------------------------------------------------------- */
 function itemName(c){
   const parts = [c.date, String(c.sessionKind).replace(/_/g, ' ')];
@@ -274,7 +274,7 @@ async function findExisting(cfg, candidateId, deps){
 
 async function createItem(cfg, c, deps){
   /* group_id is mandatory here, not optional: see config(). The item must land
-     in "APP DATA — Valhalla Evidence", never in the editorial group. */
+     in "APP DATA — Sacoro Evidence", never in the editorial group. */
   const query = `mutation ($board: ID!, $group: String!, $name: String!, $cols: JSON!) {
     create_item (board_id: $board, group_id: $group, item_name: $name,
                  column_values: $cols, create_labels_if_missing: false) { id } }`;

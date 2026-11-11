@@ -7,7 +7,7 @@ const path = require('path');
 // THE MONTHLY PAUSE.
 //
 // Two things that are easy to confuse and must not be: a RULE about what
-// Valhalla allows, and an INSTRUCTION to whoever is collecting the money. The
+// Sacoro allows, and an INSTRUCTION to whoever is collecting the money. The
 // rule lives in _pause.js and is pure -- it makes no network call and knows no
 // provider's field names. The instruction lives in _stripe.js. These tests keep
 // the seam honest, because the day the rule is written in Stripe's vocabulary
@@ -24,7 +24,7 @@ const T0 = new Date('2026-09-01T12:00:00Z');
 const at = (d) => new Date(T0.getTime() + d * DAY);
 
 const monthly = (over) => Object.assign({
-  id: 'sub-1', account_id: 'acc-1', provider: 'web', product_code: 'VALHALLA_STANDARD',
+  id: 'sub-1', account_id: 'acc-1', provider: 'web', product_code: 'SACORO_STANDARD',
   offer_code: 'STANDARD_MONTHLY', billing_period: 'monthly', condition: 'active',
   current_period_start: at(-10), current_period_end: at(20),
   cancel_at_period_end: false, auto_renew: true,
@@ -231,7 +231,7 @@ test('an admin grant still works while a subscription is paused', () => {
   // about a grant surviving a pause, and only a live grant can show it.
   const paused = monthly({ paused_at: at(-5), pause_resumes_at: at(25) });
   const grant = (source) => ({ id: 'g1', account_id: 'acc-1', source: source,
-    product_code: 'VALHALLA_STANDARD', revoked_at: null, expires_at: null });
+    product_code: 'SACORO_STANDARD', revoked_at: null, expires_at: null });
   const r = E.resolveStandardEntitlement({
     subscriptions: [paused], grants: [grant('admin_comp')], now: T0
   });
@@ -357,7 +357,7 @@ test('resume sends an EMPTY pause_collection, not a null one', () => {
 test('a provider failure leaves the athlete exactly where they were', () => {
   // The plan is computed and returns a patch; the caller applies the provider
   // FIRST. If Stripe refuses, no row has changed. The other order produces a
-  // subscription Valhalla believes is paused and Stripe is still charging for.
+  // subscription Sacoro believes is paused and Stripe is still charging for.
   const cfg = P.config({ STRIPE_SECRET_KEY: 'sk_test_1' });
   const before = monthly();
   const plan = Pz.planPause(before, 1, T0);

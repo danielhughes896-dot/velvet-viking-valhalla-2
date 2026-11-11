@@ -78,7 +78,7 @@ var BUILDER_SPEC = {
       lede: 'Optional heart-rate numbers, if you have them.' },
     { key: 'TARGETS',    name: 'Targets',         heading: 'Your targets',
       lede: 'The finish times you are chasing.' },
-    { key: 'REVIEW',     name: 'Review',          heading: 'What Valhalla understands',
+    { key: 'REVIEW',     name: 'Review',          heading: 'What Sacoro understands',
       lede: 'Check this reads like your training. Step back to change anything.' }
   ],
 
@@ -110,7 +110,7 @@ var BUILDER_SPEC = {
         blurb: 'Hold the fitness you have built, at a lower cost.',
         distanceLabel: 'Fitness to protect',
         distanceHint: 'The shape of running to hold on to. Volume sits below what you have been absorbing; the quality stays.',
-        weeksHint: 'Eight weeks is a review point, not a limit. Valhalla asks what is next rather than simply stopping.',
+        weeksHint: 'Eight weeks is a review point, not a limit. Sacoro asks what is next rather than simply stopping.',
         stageTitle: 'What you are protecting',
         stageLede: 'The fitness you have already built. This block holds it rather than chasing more.',
         lockDistance: null,
@@ -191,7 +191,7 @@ var BUILDER_SPEC = {
   },
 
   /* ---------- BENCHMARK ----------
-     The two distances Valhalla accepts as an honest-effort reference. */
+     The two distances Sacoro accepts as an honest-effort reference. */
   benchmarkDistances: { order: ['5k', '10k'], default: '10k' },
 
   /* ---------- TARGETS: GOAL A / B / C ----------

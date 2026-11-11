@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Velvet Viking Valhalla — Start</title>
+<title>Velvet Viking Sacoro — Start</title>
 <!--
   THE FRONT DOOR.
 
@@ -64,7 +64,7 @@
   .big div{flex:1;}
   /* NUMERIC DATA (weeks / sessions / total km), not a display moment -- the
      app's own convention for a big-figure-over-a-caption pair (e.g. the
-     Valhalla hero's .v-hero-fig) is JetBrains Mono for the number, Oswald for
+     Sacoro hero's .v-hero-fig) is JetBrains Mono for the number, Oswald for
      the caption below it. This used Cinzel, the brand/display serif reserved
      for "VELVET VIKING" itself, which is a different role. */
   .big b{display:block; font-family:var(--num-face); font-size:24px; line-height:1.1;}
@@ -364,7 +364,7 @@
   <div class="vvv-brand">
     <p class="vvv-wordmark">Velvet Viking</p>
     <img class="vvv-crest" src="/assets/velvet-viking-crest-540.png" width="540" height="568"
-         alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager" decoding="async">
+         alt="Velvet Viking crest — Sacoro Awaits, Earn Your Place" loading="eager" decoding="async">
     <p class="vvv-tagline">Earn Your Place</p>
     <div class="vvv-rule"></div>
   </div>
@@ -411,7 +411,7 @@
        surface in the app -- it is what scopes .btn-primary to Cherry
        Lacquer below, and nothing outside this container picks it up. -->
   <div id="pane-build" class="vvv-hidden builder-light">
-    <button type="button" class="vvv-btn vvv-btn-ghost" id="signin-instead" style="margin-bottom:18px;">Trained with Valhalla before? Sign in</button>
+    <button type="button" class="vvv-btn vvv-btn-ghost" id="signin-instead" style="margin-bottom:18px;">Trained with Sacoro before? Sign in</button>
     <div class="bld-progress" id="bld-rail"></div>
     <div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no"></span><span class="bld-stage-name" id="bld-stage-label"></span></div>
     <h3 class="bld-stage-h" id="bld-heading"></h3>
@@ -459,7 +459,7 @@
       <div id="pv-paces"></div>
     </div>
 
-    <p class="say" style="margin-top:20px;">Valhalla coaches this programme day by day —
+    <p class="say" style="margin-top:20px;">Sacoro coaches this programme day by day —
        telling you what today is for, reading how it actually went, and adapting only when
        a real pattern appears.</p>
 
@@ -718,7 +718,7 @@
       if (r.status >= 500){
         setAuthContext('signin');
         show('pane-auth');
-        fail('auth-err', 'Valhalla is having a moment. Your account and your training are fine — ' +
+        fail('auth-err', 'Sacoro is having a moment. Your account and your training are fine — ' +
                          'reload this page in a minute and you will go straight in.');
         return;
       }
@@ -752,7 +752,7 @@
       if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
       setAuthContext('signin');
       show('pane-auth');
-      fail('auth-err', 'We could not reach Valhalla just then. Sign in to continue.');
+      fail('auth-err', 'We could not reach Sacoro just then. Sign in to continue.');
     });
   }
 
@@ -781,7 +781,7 @@
         $('send').disabled = false;
         if (r.status === 200){ $('sent-to').textContent = email; show('pane-sent'); return; }
         if (r.status === 403){
-          fail('auth-err', 'Valhalla is not open to new accounts just yet. If you are expecting access, use the address we invited.');
+          fail('auth-err', 'Sacoro is not open to new accounts just yet. If you are expecting access, use the address we invited.');
           return;
         }
         fail('auth-err', 'We could not send that link. Try again in a moment.');
@@ -928,12 +928,12 @@
           '<span class="bor-d">We understand your running and what you’re aiming for.</span>' +
         '</div>' +
         '<div class="bld-overview-row">' +
-          '<span class="bor-t">Valhalla builds your plan</span>' +
+          '<span class="bor-t">Sacoro builds your plan</span>' +
           '<span class="bor-d">Workouts, paces and progression are created for you.</span>' +
         '</div>' +
         '<div class="bld-overview-row">' +
           '<span class="bor-t">We adapt as you go</span>' +
-          '<span class="bor-d">Log your runs and Valhalla gets smarter as the block progresses.</span>' +
+          '<span class="bor-d">Log your runs and Sacoro gets smarter as the block progresses.</span>' +
         '</div>' +
       '</div>';
   }
@@ -1100,7 +1100,7 @@
          carries a separator the athlete can actually reach. See
          parseBenchmarkTime(). */
       '<input id="bld-bench-time" type="text" inputmode="decimal" placeholder="45:00 or 45.00" value="'+Ans.benchTime+'"></div>' +
-      '<div class="field-hint">Minutes and seconds \u2014 45:00, or 45.00 if your keypad has no colon. A recent honest-effort result Valhalla builds your training paces from. You can update it any time once you have an account.</div>';
+      '<div class="field-hint">Minutes and seconds \u2014 45:00, or 45.00 if your keypad has no colon. A recent honest-effort result Sacoro builds your training paces from. You can update it any time once you have an account.</div>';
     wireOptGrid('bld-bench-dist', function(v){ Ans.benchDist = v; });
     $('bld-bench-time').addEventListener('input', function(){ Ans.benchTime = $('bld-bench-time').value; });
   }
@@ -1183,7 +1183,7 @@
         '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input id="bld-lthr" type="number" min="0" step="1" inputmode="numeric" placeholder="172"></div>' +
         '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input id="bld-maxhr" type="number" min="0" step="1" inputmode="numeric" placeholder="188"></div>' +
       '</div>' +
-      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. Valhalla works without it.</div>';
+      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. Sacoro works without it.</div>';
   }
 
   /* ---------- stage 08 TARGETS ----------
@@ -1233,7 +1233,7 @@
       '<div class="bld-review-hero"><div class="d">'+(NAME[Ans.distanceKey]||Ans.distanceKey)+'</div>' +
         '<div class="s">'+((Ans.volume || '0') + ' ' + Ans.units + ' / week · ' + days + ' running days')+'</div></div>' +
       '<div style="margin-top:14px;">' + rows + '</div>' +
-      '<p class="quiet">Using Valhalla in the private beta is covered by our ' +
+      '<p class="quiet">Using Sacoro in the private beta is covered by our ' +
       '<a href="https://velvetviking.co.uk/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and ' +
       '<a href="https://velvetviking.co.uk/beta-terms" target="_blank" rel="noopener noreferrer">Terms</a>. Both are always available from Settings once you have an account.</p>';
   }

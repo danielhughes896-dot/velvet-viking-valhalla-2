@@ -24,7 +24,7 @@ const S = require('../api/_strava.js');
  * is therefore the wrong question; "did any part of this come from Strava" is
  * the right one, and it has to stay answerable after the import.
  *
- * THE FIELD IS NOW OCCUPIED. This file used to assert that Valhalla called no
+ * THE FIELD IS NOW OCCUPIED. This file used to assert that Sacoro called no
  * AI service at all -- the strongest form of compliance with 5.3 being not to
  * have the capability -- and that was the right assertion for a product with
  * no conversational surface. The Today Voice Coach gives it one.
@@ -38,7 +38,7 @@ const S = require('../api/_strava.js');
  * site may appear anywhere in the runtime or the other server functions.
  *
  * WHAT IS NOT CLAIMED HERE. Whether operating a conversational coach at all
- * makes Valhalla an "AI Application" for the purposes of 5.3 -- such that
+ * makes Sacoro an "AI Application" for the purposes of 5.3 -- such that
  * connecting Strava becomes a question even with this fence intact -- is a
  * legal reading, not a property of the code, and it is reported to the founder
  * rather than answered by a test.
@@ -170,7 +170,7 @@ test('a Strava-derived day is never the subject of anything the coach says', () 
      defect: Ask Coach disappeared, and with it the athlete's own future
      prescription -- Sunday's intervals, their pace, their purpose -- none of
      which came from Strava. 5.4 reaches output generated USING Strava Data. It
-     does not reach a session Valhalla wrote before the import existed.
+     does not reach a session Sacoro wrote before the import existed.
 
      SO THE CLAIM IS NARROWED WHERE IT WAS TOO WIDE AND TIGHTENED WHERE IT
      MATTERS. The imported day is still refused whole -- it is never the
@@ -227,7 +227,7 @@ test('a Strava-derived day is never the subject of anything the coach says', () 
 test('nothing invites the athlete to paste their training into an AI chat', () => {
   /* A previous pass removed exactly this: a block that rendered the athlete's
      log -- Strava-derived km, pace and heart rate included -- under "Copy this
-     into any AI chat assistant". Valhalla calling no model itself would not
+     into any AI chat assistant". Sacoro calling no model itself would not
      have saved it; the feature existed to put Strava Data in front of one. */
   /* Checked against CODE, not comments. The runtime explains at length why the
      block was removed, and that explanation naturally quotes the string it is

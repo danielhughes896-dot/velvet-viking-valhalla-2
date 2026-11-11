@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-/* CONTEXT INSIGHT IS SHARED VALHALLA INFRASTRUCTURE.
+/* CONTEXT INSIGHT IS SHARED SACORO INFRASTRUCTURE.
  * ===========================================================================
  * The triggers are the same for every programme. The copy is not, and this
  * file is the guard on that: a Marathon assumption must not reach a 5K

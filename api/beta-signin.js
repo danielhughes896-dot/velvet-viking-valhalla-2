@@ -10,7 +10,7 @@
 // PRODUCT ACCESS is what is controlled.
 //
 // THE TWO ARE DIFFERENT QUESTIONS AND THE SEPARATION IS THE WHOLE MODEL.
-// Anyone may prove they own an email address; nobody reaches Valhalla without a
+// Anyone may prove they own an email address; nobody reaches Sacoro without a
 // commercial entitlement. resolveAccess() in _access.js decides the second one
 // against the entitlements row, and it refuses an authenticated account with no
 // subscription, no trial and no override whether or not that account exists.

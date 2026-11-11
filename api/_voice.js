@@ -1,7 +1,7 @@
 // Shared server-side helpers for the Voice Coach. Everything that needs the
 // model API key lives behind this module and never crosses into the browser.
 //
-// THE ONE RULE THIS FILE EXISTS TO HOLD. Valhalla's coaching engine is
+// THE ONE RULE THIS FILE EXISTS TO HOLD. Sacoro's coaching engine is
 // deterministic arithmetic over the athlete's own logged sessions, and it stays
 // the authority. The model reached from here may explain, summarise and
 // converse about what the engine has already decided. It may not decide

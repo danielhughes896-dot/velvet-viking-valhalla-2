@@ -1,4 +1,4 @@
-// Ask Coach. The one place Valhalla speaks to a language model.
+// Ask Coach. The one place Sacoro speaks to a language model.
 //
 //   POST { question, context } -> { answer, grounded, proposal? }
 //
@@ -12,7 +12,7 @@
 //   * the model returns TEXT, and optionally a flag saying it believes a plan
 //     change is warranted. It cannot name a session, a distance, a pace or a
 //     date to change anything to. The app maps that flag onto the adjustment
-//     Valhalla's OWN engine had already computed, or ignores it;
+//     Sacoro's OWN engine had already computed, or ignores it;
 //   * nothing here writes to a plan, and this endpoint has no database access
 //     of any kind. The service-role key is not read in this file.
 //
@@ -58,18 +58,18 @@ const VOICE_MAX_TOKENS = 16000;
    about what the coach may NOT do, because that is the part that has to hold
    when a question is phrased persuasively. */
 const SYSTEM = [
-  'You are the voice of Valhalla, a running coach inside the Velvet Viking training app.',
+  'You are the voice of Sacoro, a running coach inside the Velvet Viking training app.',
   'You are speaking to one athlete about their own training. Your reply will be read aloud.',
   '',
-  'WHAT YOU ARE. You explain and discuss coaching decisions that Valhalla has ALREADY made.',
+  'WHAT YOU ARE. You explain and discuss coaching decisions that Sacoro has ALREADY made.',
   'The training plan, the paces, the progression and any recommended change are computed by',
-  'Valhalla\'s own deterministic engine. You are not that engine and must never act as it.',
+  'Sacoro\'s own deterministic engine. You are not that engine and must never act as it.',
   '',
   'HARD RULES.',
   '1. Never invent a session, a distance, a pace, a heart-rate zone or a date. If it is not in',
   '   the context you were given, you do not know it. Say so plainly.',
   '2. Never tell the athlete their plan has been changed. You cannot change it. If you think a',
-  '   change is warranted, set needsPlanChange true and explain why in one sentence; Valhalla',
+  '   change is warranted, set needsPlanChange true and explain why in one sentence; Sacoro',
   '   decides whether to offer it, and the athlete decides whether to accept it.',
   '3. Never diagnose, and never give medical advice. For pain, injury or illness: be',
   '   conservative, say plainly that you are a running coach and not a doctor, and recommend',

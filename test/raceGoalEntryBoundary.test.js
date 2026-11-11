@@ -103,7 +103,7 @@ test('the boundary is closed at six, and the last refused value is just under it
 
 test('a zero or nonsense volume is refused rather than admitted', () => {
   /* A NUMBER SUPPLIED is the athlete's own account of themselves, and zero is
-     one of those -- somebody who says they are not running is telling Valhalla
+     one of those -- somebody who says they are not running is telling Sacoro
      something. Anything that is not a usable number is a value that FAILED
      rather than a field that was never asked, and routing it is the safe
      direction. */

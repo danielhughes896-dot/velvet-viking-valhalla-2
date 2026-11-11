@@ -518,7 +518,7 @@ test('a hand-edited distance keeps the structure; changing what the session IS d
 
   /* The other half is deliberate and is NOT the regression: when the athlete
      rewrites the type or the instructions they are running something else, and
-     no structure Valhalla holds describes it. Their words stand. */
+     no structure Sacoro holds describes it. Their words stand. */
   const rewritten = a.findDay(samples.steady_tempo);
   delete rewritten.prescription;
   assert.doesNotMatch(a.renderDayCard(rewritten), STRUCTURED);

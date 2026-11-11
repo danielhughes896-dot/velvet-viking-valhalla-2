@@ -208,7 +208,7 @@ test('the coaching prompt is untouched, and only its reply format moved', () => 
      format is now prose + marker + trailer, which is the one part that had to
      change and the only part that did. */
   const p = ask.SYSTEM;
-  assert.match(p, /You are the voice of Valhalla/);
+  assert.match(p, /You are the voice of Sacoro/);
   assert.match(p, /deterministic engine/);
   assert.match(p, /Never invent a session, a distance, a pace/);
   assert.match(p, /never give medical advice/);

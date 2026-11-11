@@ -190,7 +190,7 @@ test('both accepted: the result says so, with real numbers, and the goal-unchang
 
   const html = a.renderCalibrationResult(dd);
   assert.match(html, /Calibration complete/);
-  assert.match(html, /Valhalla has learned from what you just demonstrated/);
+  assert.match(html, /Sacoro has learned from what you just demonstrated/);
   assert.match(html, /171 BPM/);
   assert.match(html, /goal hasn.t changed/);
   assert.equal(html.indexOf('Measured Fitness'), -1,
@@ -227,7 +227,7 @@ test('a real recalibration shows the real stored before/after, and a confirmed r
 
   dd.calibration = Object.assign({}, dd.calibration, { lthr: 171, previousLTHR: 171 });
   html = a.renderCalibrationResult(dd);
-  assert.match(html, /Confirms what Valhalla already had/);
+  assert.match(html, /Confirms what Sacoro already had/);
   assert.equal(html.indexOf('Moved from'), -1);
 });
 
@@ -327,7 +327,7 @@ test('renderDayCard() only ever shows the calibration result on a calibration da
 });
 
 // ---------------------------------------------------------------------------
-// THE PRIMARY CURRENT FITNESS INSTRUMENT (Valhalla hero)
+// THE PRIMARY CURRENT FITNESS INSTRUMENT (Sacoro hero)
 // ---------------------------------------------------------------------------
 test('currentFitnessEvidenceState() is a truthful category from the real anchor, never a fabricated percentage', () => {
   const a = planned();

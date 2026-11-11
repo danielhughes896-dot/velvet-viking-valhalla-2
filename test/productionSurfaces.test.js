@@ -79,7 +79,7 @@ test('an already-cancelling subscription is not asked to cancel again', () => {
 });
 
 test('a card cannot contradict itself', () => {
-  /* "Active" beside "Valhalla is not charging for access yet" was a real
+  /* "Active" beside "Sacoro is not charging for access yet" was a real
      rendering: the entitlement carries a state whether or not the commercial
      gate is on. */
   const off = text(signedIn(ENT({ commercial_required: false })).renderSubscriptionCard());
@@ -402,7 +402,7 @@ test('/start routes every commercial state, and explains every failure', () => {
   assert.match(START, /r\.status >= 500/,
     'a server error is indistinguishable from "not signed in" without this');
   assert.match(START, /having a moment/, 'a 5xx must say what happened');
-  assert.match(START, /could not reach Valhalla/, 'a timeout must say what happened');
+  assert.match(START, /could not reach Sacoro/, 'a timeout must say what happened');
   assert.match(START, /otp_expired: 'That sign-in link has expired/);
   assert.match(START, /access_denied: 'That sign-in link has already been used/);
   assert.match(START, /within\(10000,/, 'a hung request must be raced against a deadline');

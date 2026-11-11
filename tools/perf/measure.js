@@ -206,7 +206,7 @@ const PAINTED = `(function(){
         return { label, ms: +((performance.now() - t) / runs).toFixed(1) };
       };
       const dd = state.days.filter(d => d.date === todayStr())[0];
-      const raw = localStorage.getItem(Object.keys(localStorage).filter(k => /vvv|valhalla/i.test(k))[0] || '');
+      const raw = localStorage.getItem(Object.keys(localStorage).filter(k => /vvv|sacoro/i.test(k))[0] || '');
       return [
         time('JSON.parse(state)', () => { if (raw) JSON.parse(raw); }),
         time('renderApp()', () => renderApp(), 3),

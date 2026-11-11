@@ -8,7 +8,7 @@ const { buildPlan } = require('./fixtures.js');
  * ===========================================================================
  * Every heart-rate figure in this product descends from state.setup.lthr. An
  * athlete who never typed one gets no HR zones at all -- correct behaviour,
- * poor outcome, because Valhalla can measure the anchor in one session.
+ * poor outcome, because Sacoro can measure the anchor in one session.
  *
  * The failure this guards against is not a missing session. It is a WRONG
  * THRESHOLD, which does not announce itself: it silently moves every zone,

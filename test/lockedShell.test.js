@@ -99,7 +99,7 @@ test('the view says what the screen needs and nothing that identifies a third pa
   assert.deepEqual(v.locked_capabilities.slice().sort(),
     ['account_delete', 'account_manage', 'data_export', 'legal']);
   assert.ok(!Object.prototype.hasOwnProperty.call(v, 'grace_days'),
-    'the shell is not told a grace length, because Valhalla does not invent one');
+    'the shell is not told a grace length, because Sacoro does not invent one');
 });
 
 test('the locked set is present even when access is fine', () => {

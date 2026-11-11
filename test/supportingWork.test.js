@@ -6,7 +6,7 @@ const { buildPlan, logAsPrescribed } = require('./fixtures.js');
 
 /* SUPPORTING WORK — STRENGTH, CONDITIONING AND MOBILITY
  * ===========================================================================
- * VALHALLA IS A RUNNING COACH, and the whole risk in this feature is that it
+ * SACORO IS A RUNNING COACH, and the whole risk in this feature is that it
  * stops behaving like one. Three things are protected here, and every one of
  * them fails silently:
  *
@@ -864,7 +864,7 @@ test('the concise copy is the week stage’s, and it still says a tick is not a 
   const week = panelBodies(journey().html).filter(x => x.stage === WEEK_STAGE)[0].body;
   assert.ok(week.indexOf('Supporting work') !== -1, 'the section is unnamed');
   assert.ok(week.indexOf('Include strength &amp; mobility work') !== -1, 'the question changed');
-  assert.match(week, /Valhalla may add strength, conditioning or mobility where it helps your running/);
+  assert.match(week, /Sacoro may add strength, conditioning or mobility where it helps your running/);
   assert.match(week, /Some weeks may have none/,
     'nothing on the screen prevents the tick being read as a guaranteed weekly session');
 });
