@@ -38606,25 +38606,97 @@ function coachDaysInWindow(from, to){
 
 /* ---------- training load: acute vs chronic ----------
    The standard acute:chronic workload ratio. Acute is the last 7 days, chronic
-   the average 7-day load across the last 28. Below ~0.8 the block is drifting
-   backwards; 0.8-1.3 is the productive band; above 1.5 is the range where
-   ramping too fast is the usual cause of breakdown. Reported, never enforced. */
+   the average 7-day load across the history there is, up to 28 days. Below
+   ~0.8 the week sits under the athlete's recent average; 0.8-1.3 is the
+   productive band; above 1.5 is the range where ramping too fast is the usual
+   cause of breakdown. Reported, never enforced.
+
+   THREE THINGS THIS USED TO GET WRONG, each measured on an athlete who ran
+   every session exactly as prescribed (audit, 16-week marathon plan):
+
+   1. THE FIRST FOUR WEEKS. Chronic was always the 28-day total divided by
+      four, so a plan one week old divided one week of running by four and
+      reported 4.00x -- "spike" -- falling to 1.77x by day 14. Five of the
+      first eight readings told a perfectly compliant athlete they were
+      overreaching. The total is now divided by the weeks of history that
+      actually exist, and no ratio is offered at all before three weeks of it
+      (LOAD_MIN_HISTORY_DAYS): one week against itself is 1.00 by
+      construction and two is barely more.
+
+      HISTORY IS MEASURED FROM THE FIRST RUN EVER LOGGED, not from the first
+      run inside the window. An athlete returning from three weeks off has a
+      long history with a real hole in it, and a full week straight back IS a
+      spike -- that reading is kept. Only an athlete with no earlier record
+      gets the shorter divisor.
+
+      THREE WEEKS IS PROVISIONAL, and says so: `provisional` is true until
+      the full 28 days exist, and every sentence built from the ratio names
+      the average it was really taken against (coachLoadAverageWords).
+
+   2. PLANNED RECOVERY WEEKS, THE TAPER AND RACE WEEK. A week the plan
+      deliberately made lighter read "low", and the athlete who ran all of it
+      was told consistency was the missing piece. Fifteen of fifty-one
+      readings across the plan. A week under the average is now only "low"
+      when the athlete ALSO fell short of what the plan asked for in it
+      (LOAD_PLAN_COMPLIANCE of the prescribed load that has fallen due).
+      Otherwise it is "easing": the same ratio, reported as what it is.
+
+   3. Nothing else moved. The bands, the factors, coachDayLoad() and the
+      spike reading are exactly what they were. */
+var LOAD_MIN_HISTORY_DAYS = 21;
+var LOAD_FULL_HISTORY_DAYS = 28;
+var LOAD_PLAN_COMPLIANCE = 0.85;
+// What the plan asked of a day, in the same units coachDayLoad() reports what
+// was done -- so the two can be compared without a second scale.
+function coachPlannedDayLoad(dd){
+  if (!dd || dd.type==='rest') return 0;
+  var ex = executionProfileOf(dd);
+  return (dd.km||0) * ((ex && ex.load!=null) ? ex.load : coachLoadFactor(dd.type));
+}
+// Days of logged history up to today, counted from the first run ever
+// completed. 0 when nothing has been logged.
+function coachLoadHistoryDays(today){
+  var first = null;
+  state.days.forEach(function(dd){
+    if (!dd.completed || dd.type==='rest' || dd.date > today) return;
+    if (first==null || dd.date < first) first = dd.date;
+  });
+  return first==null ? 0 : daysBetween(first, today) + 1;
+}
 function coachLoad(){
   var today = todayStr();
   var acuteFrom = addDays(today, -6);
   var chronicFrom = addDays(today, -27);
-  var acute = coachDaysInWindow(acuteFrom, today).reduce(function(s,dd){ return s+coachDayLoad(dd); }, 0);
+  var acuteDays = coachDaysInWindow(acuteFrom, today);
+  var acute = acuteDays.reduce(function(s,dd){ return s+coachDayLoad(dd); }, 0);
   var chronicTotal = coachDaysInWindow(chronicFrom, today).reduce(function(s,dd){ return s+coachDayLoad(dd); }, 0);
-  var chronic = chronicTotal/4;
+  var historyDays = Math.min(LOAD_FULL_HISTORY_DAYS, coachLoadHistoryDays(today));
+  var hasHistory = historyDays >= LOAD_MIN_HISTORY_DAYS;
+  var chronic = hasHistory ? chronicTotal/(historyDays/7) : chronicTotal/4;
   // Not enough history to say anything honest about a ratio yet.
-  var enough = coachDaysInWindow(chronicFrom, today).filter(function(dd){ return dd.completed && dd.type!=='rest'; }).length >= 4;
+  var enough = hasHistory &&
+    coachDaysInWindow(chronicFrom, today).filter(function(dd){ return dd.completed && dd.type!=='rest'; }).length >= 4;
   var ratio = (enough && chronic > 0) ? acute/chronic : null;
+  /* What the plan asked for in the same seven days, counting only what has
+     fallen due: a session still ahead of the athlete today is not a shortfall. */
+  var due = acuteDays.reduce(function(s,dd){
+    return s + ((dd.date < today || dd.completed) ? coachPlannedDayLoad(dd) : 0); }, 0);
+  var asPlanned = due > 0 && acute >= due * LOAD_PLAN_COMPLIANCE;
   var band = ratio==null ? 'unknown'
-    : ratio < 0.8 ? 'low'
+    : ratio < 0.8 ? (asPlanned ? 'easing' : 'low')
     : ratio <= 1.3 ? 'productive'
     : ratio <= 1.5 ? 'elevated'
     : 'spike';
-  return { acute:Math.round(acute), chronic:Math.round(chronic), ratio:ratio, band:band, enough:enough };
+  return { acute:Math.round(acute), chronic:Math.round(chronic), ratio:ratio, band:band, enough:enough,
+           historyDays:historyDays, provisional: enough && historyDays < LOAD_FULL_HISTORY_DAYS,
+           asPlanned:asPlanned };
+}
+// The average a ratio was really taken against, in the two spellings the copy
+// uses. A three-week reading never borrows the four-week name.
+function coachLoadAverageWords(load, spelled){
+  var three = !!(load && load.provisional);
+  return spelled ? (three ? 'three-week average' : 'four-week average')
+                 : (three ? '3-week average' : '4-week average');
 }
 
 /* ---------- trend: are the last few sessions going better or worse? ---------- */
@@ -39513,13 +39585,15 @@ function coachSignals(load, recovery, trend){
   var out = [];
   if (load.enough && load.ratio!=null){
     if (load.band==='spike') out.push({ key:'load', label:'Load spike', tone:'warn',
-      detail:'This week is '+load.ratio.toFixed(2)+'x your 4-week average. Above 1.5 is where injuries cluster.' });
+      detail:'This week is '+load.ratio.toFixed(2)+'x your '+coachLoadAverageWords(load)+'. Above 1.5 is where injuries cluster.' });
     else if (load.band==='elevated') out.push({ key:'load', label:'Load climbing', tone:'watch',
-      detail:'This week is '+load.ratio.toFixed(2)+'x your 4-week average — near the top of the useful range.' });
+      detail:'This week is '+load.ratio.toFixed(2)+'x your '+coachLoadAverageWords(load)+' — near the top of the useful range.' });
     else if (load.band==='low') out.push({ key:'load', label:'Load dropping', tone:'watch',
-      detail:'This week is '+load.ratio.toFixed(2)+'x your 4-week average. Fitness leaks at this level.' });
+      detail:'This week is '+load.ratio.toFixed(2)+'x your '+coachLoadAverageWords(load)+'. Fitness leaks at this level.' });
+    else if (load.band==='easing') out.push({ key:'load', label:'Load easing', tone:'good',
+      detail:'This week is '+load.ratio.toFixed(2)+'x your '+coachLoadAverageWords(load)+', and it is what the plan asked for.' });
     else out.push({ key:'load', label:'Load productive', tone:'good',
-      detail:'This week is '+load.ratio.toFixed(2)+'x your 4-week average — the range that builds fitness safely.' });
+      detail:'This week is '+load.ratio.toFixed(2)+'x your '+coachLoadAverageWords(load)+' — the range that builds fitness safely.' });
   }
   if (recovery.overRPE >= 2) out.push({ key:'rpe', label:'Effort running high', tone:'watch',
     detail:recovery.overRPE+' sessions this week felt harder than the session type should.' });
@@ -39673,7 +39747,7 @@ function coachNextMove(load, recovery, trend, status){
       km:cutKm,
       type:dd.type,
       title:dd.title,
-      reason:'Load '+(load.ratio!=null?load.ratio.toFixed(2)+'x 4-week average':'running high')+
+      reason:'Load '+(load.ratio!=null?load.ratio.toFixed(2)+'x '+coachLoadAverageWords(load):'running high')+
              (recovery.overRPE?', effort above band on '+recovery.overRPE+' session'+(recovery.overRPE===1?'':'s'):'')
     };
   } else if (painCue && quality){
@@ -39881,7 +39955,7 @@ function coachDecision(){
   if (trend.direction === 'falling') add(EVIDENCE_CONCEPT.execution,
     trend.singleOutlier ? 1 : 2,
     trend.singleOutlier ? 'One recent session dipped well below the rest' : 'Execution has been slipping across recent sessions');
-  if (load.band === 'spike') add('load', 2, 'This week is '+load.ratio.toFixed(2)+'x your four-week average');
+  if (load.band === 'spike') add('load', 2, 'This week is '+load.ratio.toFixed(2)+'x your '+coachLoadAverageWords(load, true));
 
   // ---- historical patterns, from the one place that detects them ----
   /* Grouping unchanged from before the vocabulary was unified; only the names
@@ -46724,7 +46798,7 @@ function playbookEvidence(archetype){
   var load = coachLoad();
   if (load.band!=='unknown')
     addEv('contextual','load_'+load.band, load.band==='spike'||load.band==='elevated' ? 'negative' : 'flat',
-          'Recent load is '+load.band+'.', 'coachLoad');
+          load.band==='easing' ? 'Recent load is easing, as the plan asked.' : 'Recent load is '+load.band+'.', 'coachLoad');
   var nxt = coachNextSession();
   if (nxt && isQualityType(nxt.type))
     addEv('contextual','next_is_quality','flat','The next session is '+(nxt.title||nxt.type)+'.','coachNextSession');
