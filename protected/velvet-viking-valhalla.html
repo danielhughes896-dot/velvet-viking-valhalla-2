@@ -11270,6 +11270,24 @@
   @media (prefers-reduced-transparency: reduce){
     :root{ --glass-tint:var(--glass-solid); --glass-blur:none; }
   }
+
+  /* ---------- TAP-TO-GROW (see vtMorph) ----------
+     300ms, inside the founder's 250-350; one ease for every piece so the
+     title, the distance and the card arrive together. The page behind
+     cross-fades on the same clock, dark to dark, so there is no frame
+     without a ground. The tapped thing's old picture fades out early and the
+     page's new one fades in early, so the morph reads as the circle or card
+     BECOMING the page rather than two pictures stretched over each other. */
+  ::view-transition-group(*){ animation-duration:300ms; animation-timing-function:cubic-bezier(.2,.8,.2,1); }
+  ::view-transition-old(root), ::view-transition-new(root){ animation-duration:300ms; }
+  ::view-transition-old(vt-hero){ animation:vt-out 150ms cubic-bezier(.2,.8,.2,1) both; }
+  ::view-transition-new(vt-hero){ animation:vt-in 220ms cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes vt-out{ to{ opacity:0; } }
+  @keyframes vt-in{ from{ opacity:0; } }
+  html{ background:var(--bg); }
+  @media (prefers-reduced-motion: reduce){
+    ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*){ animation:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -57186,6 +57204,135 @@ function closeModal(){
 }
 
 /* =========================================================
+   TAP-TO-GROW: THE THING YOU TAP BECOMES THE PAGE
+   =========================================================
+   Founder: "Transition first. The session title and distance remain
+   visually connected throughout the transition. What I'd insist on:
+   250-350 ms for a natural, quick transition. No white flashes or blank
+   frames. Reverse animation when closing. Preserve scroll position. Respect
+   the phone's Reduce Motion setting. Keep the existing fade fallback where
+   the browser doesn't support the effect."
+   And the three: a Coach circle into its panel, a Full Plan week row into
+   the week, a session card into Edit Session.
+
+   HOW. The browser's View Transitions: it photographs the screen, the DOM
+   changes, and it morphs between the two. Elements that carry the same
+   view-transition-name on both sides are flown from one place to the other
+   -- the circle to the panel, "Week 9" to "Week 9", "18 km" to "18 km" --
+   and everything else cross-fades. Nothing is drawn by hand, so nothing can
+   drift from what the screen really shows.
+
+   WHERE IT CANNOT RUN it is not attempted and nothing changes: a browser
+   without startViewTransition, or a phone set to reduce motion, gets the
+   change as it always came (the view's own 180ms fade, the modal's own
+   entrance). The update itself is identical either way; only the frames
+   between differ. */
+var VT_MS = 300;
+var vtReturn = null;   // how to fly back to what opened the current page
+function vtCanMorph(){
+  if (typeof document === 'undefined' || typeof document.startViewTransition !== 'function') return false;
+  try {
+    if (typeof window !== 'undefined' && window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  } catch(e){}
+  return true;
+}
+function vtTag(el, name){
+  if (!el || !el.style) return;
+  el.style.viewTransitionName = name;
+  el.setAttribute('data-vt', name);
+}
+function vtUntag(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  [].forEach.call(document.querySelectorAll('[data-vt]'), function(el){
+    el.style.viewTransitionName = ''; el.removeAttribute('data-vt');
+  });
+}
+/* A side of the morph: the hero, and named parts inside it that must stay
+   connected (title, distance, figures). */
+function vtSide(hero, parts){
+  if (!hero) return null;
+  var out = { hero:hero, parts:{} };
+  Object.keys(parts || {}).forEach(function(k){
+    var el = parts[k] ? hero.querySelector(parts[k]) : null;
+    if (el) out.parts[k] = el;
+  });
+  return out;
+}
+function vtTagSide(side){
+  if (!side) return;
+  vtTag(side.hero, 'vt-hero');
+  Object.keys(side.parts).forEach(function(k){ vtTag(side.parts[k], 'vt-' + k); });
+}
+/* from: the side on screen now; update(): the change; to(): the side after. */
+function vtMorph(from, update, to){
+  if (!vtCanMorph() || !from){ update(); return; }
+  vtUntag();
+  vtTagSide(from);
+  var t = null;
+  try {
+    t = document.startViewTransition(function(){
+      vtUntag();
+      /* The view's own fade would start the new screen at opacity 0 inside
+         the morph -- a blank first frame. The morph is the transition. */
+      pagerSuppressFade = true;
+      update();
+      pagerSuppressFade = false;
+      var dest = null;
+      try { dest = to ? to() : null; } catch(e2){ dest = null; }
+      if (dest){
+        /* A part flies only if it is on both sides; otherwise it fades. */
+        Object.keys(dest.parts).forEach(function(k){ if (!from.parts[k]) delete dest.parts[k]; });
+        vtTagSide(dest);
+      }
+    });
+  } catch(e){ vtUntag(); pagerSuppressFade = false; update(); return; }
+  if (t && t.finished && t.finished.then) t.finished.then(vtUntag, vtUntag);
+}
+function vtOpenCard(){
+  var ov = (typeof document !== 'undefined') ? document.getElementById('modal-overlay') : null;
+  return ov ? ov.querySelector('.modal-card') : null;
+}
+/* Close whatever page is open, flying it back into what opened it when that
+   is still on screen; otherwise close it as it always closed. */
+function vtCloseBack(close){
+  var back = vtReturn; vtReturn = null;
+  var card = vtOpenCard();
+  if (!back || !card || !back.card || back.card !== card){ close(); return; }
+  vtMorph(vtSide(card, back.toParts), close, function(){
+    var origin = back.find();
+    return origin ? vtSide(origin, back.fromParts) : null;
+  });
+}
+
+/* ---- 1. A Coach circle grows into its panel ---- */
+function vtOpenReading(target, key){
+  var circle = target ? (target.querySelector('.b-dial, .gauge, svg') || target) : null;
+  var sel = '[data-action="open-reading"][data-reading="' + String(key).replace(/"/g, '') + '"]';
+  vtMorph(circle ? vtSide(circle, {}) : null, function(){ openHQPanel(key); }, function(){
+    var card = vtOpenCard();
+    if (card) vtReturn = { card:card, toParts:{}, fromParts:{}, find:function(){
+      var b = document.querySelector(sel); return b ? (b.querySelector('.b-dial, .gauge, svg') || b) : null; } };
+    return card ? vtSide(card, {}) : null;
+  });
+}
+
+/* ---- 3. A session card becomes Edit Session ---- */
+var VT_CARD_PARTS = { title:'.th-hero-title, .day-title', dist:'.th-hero-title + *' };
+var VT_EDIT_PARTS = { title:'.es-sum-title', dist:'.es-sum-dist' };
+function vtOpenEdit(target, dayId){
+  var card = target && target.closest ? target.closest('.wk-overview, .day') : null;
+  vtMorph(card ? vtSide(card, VT_CARD_PARTS) : null, function(){ openEditModal(dayId); }, function(){
+    var page = vtOpenCard();
+    if (page) vtReturn = { card:page, toParts:VT_EDIT_PARTS, fromParts:VT_CARD_PARTS, find:function(){
+      var b = document.querySelector('[data-action="open-edit"][data-day="' + String(dayId).replace(/"/g, '') + '"]');
+      var c = b && b.closest ? b.closest('.wk-overview, .day') : null;
+      return (c && c.getBoundingClientRect && c.getBoundingClientRect().width > 0) ? c : null; } };
+    return page ? vtSide(page, VT_EDIT_PARTS) : null;
+  });
+}
+
+/* =========================================================
    PLAN BUILDER / SETUP MODAL
    ========================================================= */
 function openSetupModal(){
@@ -67483,24 +67630,51 @@ function renderWeekView(){
    Module-level, like expandedWeeks and weekSelectedDate: where someone has
    navigated to is not a training fact and must never reach the account row. */
 var planWeekOpen = null, planSessionOpen = null;
+/* WHERE THE ATHLETE WAS, AT EACH DEPTH. Founder: "Preserve scroll position"
+   -- tap Week 9 and come back, and the page is where Week 9 was, not at the
+   top. One remembered offset per depth: the plan behind a week, the week
+   behind a session. A depth not reached from above (a swipe that lands on a
+   week, a fresh render) has nothing remembered and opens at the top, as
+   before. */
+var planScrollMemo = { plan:null, week:null };
+function planScrollY(){ try { return window.pageYOffset || 0; } catch(e){ return 0; } }
 function handlePlanOpenWeek(w){
   var n = parseInt(w, 10);
   if (!n) return;
+  planScrollMemo.plan = planScrollY(); planScrollMemo.week = null;
   planWeekOpen = n; planSessionOpen = null;
   renderApp();
   try{ window.scrollTo(0, 0); }catch(e){}
 }
 function handlePlanOpenSession(id){
   if (!id) return;
+  planScrollMemo.week = planScrollY();
   planSessionOpen = id;
   renderApp();
   try{ window.scrollTo(0, 0); }catch(e){}
 }
 function handlePlanBack(){
-  if (planSessionOpen) planSessionOpen = null;
-  else planWeekOpen = null;
+  var y = 0;
+  if (planSessionOpen){ planSessionOpen = null; y = planScrollMemo.week || 0; planScrollMemo.week = null; }
+  else { planWeekOpen = null; y = planScrollMemo.plan || 0; planScrollMemo.plan = null; }
   renderApp();
-  try{ window.scrollTo(0, 0); }catch(e){}
+  try{ window.scrollTo(0, y); }catch(e){}
+}
+/* ---- 2. A Full Plan week row grows into the week, and back ---- */
+var VT_ROW_PARTS  = { title:'.week-phase', figs:'.week-vol .v', pct:'.week-pct' };
+var VT_WEEK_PARTS = { title:'.pv-title', figs:'.pw-vol', pct:'.pw-pct' };
+function vtOpenPlanWeek(target, w){
+  var row = target && target.closest ? target.closest('.week') : null;
+  vtMorph(row ? vtSide(row, VT_ROW_PARTS) : null, function(){ handlePlanOpenWeek(w); }, function(){
+    return vtSide(document.querySelector('.view-plan-week'), VT_WEEK_PARTS);
+  });
+}
+function vtPlanBack(){
+  var leavingWeek = planWeekOpen && !planSessionOpen ? planWeekOpen : null;
+  var page = leavingWeek ? document.querySelector('.view-plan-week') : null;
+  vtMorph(page ? vtSide(page, VT_WEEK_PARTS) : null, handlePlanBack, function(){
+    return vtSide(document.getElementById('week-' + leavingWeek), VT_ROW_PARTS);
+  });
 }
 function planBackBar(title, sub){
   return '<div class="pv-top">'+
@@ -72585,9 +72759,9 @@ document.addEventListener('click', function(e){
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'toggle-phase': handleTogglePhase(target.getAttribute('data-phase')); break;
     case 'phase-pick': handlePhasePick(target.getAttribute('data-phase')); break;
-    case 'plan-open-week': handlePlanOpenWeek(target.getAttribute('data-week')); break;
+    case 'plan-open-week': vtOpenPlanWeek(target, target.getAttribute('data-week')); break;
     case 'plan-open-session': handlePlanOpenSession(target.getAttribute('data-day')); break;
-    case 'plan-back': handlePlanBack(); break;
+    case 'plan-back': vtPlanBack(); break;
     case 'week-pick-day': handleWeekPickDay(target.getAttribute('data-date')); break;
     case 'week-open-session': handleWeekOpenSession(target.getAttribute('data-date')); break;
     case 'toggle-day': handleToggleDay(target.getAttribute('data-day')); break;
@@ -72596,7 +72770,7 @@ document.addEventListener('click', function(e){
     case 'ef-type-pick': handleEditTypePick(target.getAttribute('data-type')); break;
     case 'checkpoint-accept': handleCheckpointAccept(target.getAttribute('data-goal')); break;
     case 'checkpoint-decline': handleCheckpointDecline(); break;
-    case 'open-edit': openEditModal(target.getAttribute('data-day')); break;
+    case 'open-edit': vtOpenEdit(target, target.getAttribute('data-day')); break;
     case 'save-edit': handleSaveEdit(target.getAttribute('data-day')); break;
     case 'reset-day': handleResetDay(target.getAttribute('data-day')); break;
     case 'reset-plan': handleResetPlan(); break;
@@ -72604,7 +72778,7 @@ document.addEventListener('click', function(e){
     case 'reset-plan-confirm': handleResetPlanConfirm(); break;
     case 'check-app-update': checkForAppUpdate(); break;
     case 'apply-app-update': applyAppUpdate(); break;
-    case 'close-modal': if (!stgCloseSub()) closeModal(); break;
+    case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) closeModal(); }); break;
     /* SHARING. 'share-workout' opens the composer; the other two only ever
        change what the athlete is looking at, or hand the finished PNG to the
        device. Nothing here touches the plan or the log. */
@@ -72742,7 +72916,7 @@ document.addEventListener('click', function(e){
     case 'race-custom': handleRaceCustomStep(target.getAttribute('data-delta')); break;
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
     case 'readiness-edit': handleReadinessEdit(); break;
-    case 'open-reading': openHQPanel(target.getAttribute('data-reading')); break;
+    case 'open-reading': vtOpenReading(target, target.getAttribute('data-reading')); break;
     case 'open-new-block': openHQPanel('newblock'); break;
     case 'go-checkpoint': handleGoToCheckpoint(); break;
     case 'notes-wand': handleNotesWand(target.getAttribute('data-day')); break;
@@ -72755,7 +72929,7 @@ document.addEventListener('click', function(e){
     case 'open-restore': openRestoreModal(); break;
     case 'restore-plan': handleRestorePlan(target.getAttribute('data-key')); break;
     case 'open-record': (function(k){ stgOpenSub(function(){ openRecordPanel(k); }); })(target.getAttribute('data-record')); break;
-    case 'close-record-panel': if (!stgCloseSub()) closeRecordPanel(); break;
+    case 'close-record-panel': vtCloseBack(function(){ if (!stgCloseSub()) closeRecordPanel(); }); break;
     case 'optional-run-log': handleOptionalRunLog(target.getAttribute('data-day')); break;
     case 'optional-run-save': handleOptionalRunSave(target.getAttribute('data-day')); break;
     case 'optional-run-remove': handleOptionalRunRemove(target.getAttribute('data-day')); break;
