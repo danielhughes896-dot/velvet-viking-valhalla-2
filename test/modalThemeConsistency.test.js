@@ -201,9 +201,15 @@ test('Edit Session in particular, because it is the one that regressed', () => {
   const body = fnBody('openEditModal');
   assert.match(body, /openModal\([\s\S]{0,120}?['"][^'"]*\bmodal-themed\b/,
     'Edit Session is dark over a cream app again');
-  // A bottom sheet like every other short form -- NOT the centred builder.
-  assert.doesNotMatch(body, /\bbuilder-light\b/,
-    'Edit Session picked up the builder centring it was never given');
+  /* ---- THIS LINE CHANGED SIDES, TWICE ----
+     It first held Edit Session to a bottom sheet, then to a centred card
+     that must not take the builder's class. Founder, with a screenshot of
+     that card over Today: "the tabs inside them fully open. But when you
+     first click the edit button this pops up. Full page please."
+     So it is a page, in the shell the Coach page's panels open in. */
+  assert.match(body, /openModal\(html, 'modal-themed builder-light hq-panel hq-full rp-cherry es-full'\);/,
+    'Edit Session is a card over the screen again');
+  assert.doesNotMatch(body, /openModal\([^;]*\bmodal-centred\b/, 'Edit Session is a centred card again');
   // And the fix moved the token ramp only. Every field, id and action stays.
   ['ef-title', 'ef-type', 'ef-km', 'ef-mp', 'ef-desc', 'ef-swap']
     .forEach(id => assert.match(body, new RegExp('id="' + id + '"'),
@@ -386,14 +392,14 @@ test('theming and positioning are two separate opt-ins, both available to any su
   assert.match(fnBody('openAvailabilityOfferModal'), /\bmodal-themed\b/,
     'the availability offer lost its theme opt-in');
 
-  // Edit Session takes the geometry and NOT the builder's face: three
-  // independent opt-ins now, and this is the surface that proves they are
-  // genuinely separable.
-  assert.match(fnBody('openEditModal'), /\bmodal-centred\b/,
-    'Edit Session went back to a bottom drawer');
-  assert.doesNotMatch(fnBody('openEditModal'), /\bbuilder-light\b/,
-    'Edit Session took the builder face along with the geometry -- that is what ' +
-    '.modal-centred exists to avoid, and it would turn its Save button cherry');
+  // Edit Session was the surface that proved the geometry could be taken
+  // without the builder's face. It is a full page now, on the founder's
+  // instruction ("Full page please"), so what is held is that it is one: the
+  // Coach page's shell, full height -- which answers the keyboard worry
+  // better than centring did -- and still themed. .modal-centred stays in the
+  // stylesheet as the opt-in it is, asserted by the rule above.
+  assert.match(fnBody('openEditModal'), /\bhq-full\b/,
+    'Edit Session went back to a card or a bottom drawer');
   assert.match(fnBody('openEditModal'), /\bmodal-themed\b/,
     'Edit Session lost its theme opt-in');
 });

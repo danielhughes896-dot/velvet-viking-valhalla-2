@@ -274,15 +274,21 @@ test('the centring rule answers to both classes, so no surface already using it 
     'the card radius/height rule no longer lists both classes');
 });
 
-test('the three surfaces that were drawers are keyboard-safe: one centred, two pages', () => {
+test('the three surfaces that were drawers are keyboard-safe: all three are pages', () => {
   const callOf = (fn) => {
     const body = SRC.slice(SRC.indexOf('function ' + fn + '('));
     return body.slice(0, body.indexOf('\n}\n'));
   };
-  assert.match(callOf('openEditModal'), /'modal-themed modal-centred'/,
-    'Edit Session (openEditModal) no longer opens on the centred shell. It holds a field an ' +
-    'athlete types into, and a bottom-docked drawer has no keyboard-safe height -- ' +
-    'open the keyboard and the input is behind it.');
+  /* ---- AND NOW THE THIRD ----
+     Edit Session was held to the centred shell because it holds fields an
+     athlete types into and a docked drawer has no keyboard-safe height.
+     Founder: "when you first click the edit button this pops up. Full page
+     please." A page is the full height of the screen and scrolls, which is
+     the same worry answered better. */
+  assert.match(callOf('openEditModal'), /openModal\(html, 'modal-themed builder-light hq-panel hq-full rp-cherry es-full'\);/,
+    'Edit Session (openEditModal) does not open as a full page. It holds a field an ' +
+    'athlete types into, and a card or drawer over the screen is what the founder asked to be rid of.');
+  assert.doesNotMatch(callOf('openEditModal'), /openModal\([^;]*modal-centred/, 'Edit Session is a centred card again');
   /* ---- TWO OF THE THREE CHANGED SIDES ----
      Tools & Import and Restore a Plan were held to the centred shell for
      the reason above. Founder: "Make full-screen pages the standard for
@@ -425,7 +431,7 @@ function sheetDom(a){
     setAttribute(k, v){ this.attrs[k] = String(v); }, removeAttribute(k){ delete this.attrs[k]; } }, extra || {});
   const tabs = { 'ef-sec-reschedule': el({ attrs: { 'aria-expanded': 'false', 'aria-controls': 'ef-sec-reschedule-body' } }),
                  'ef-sec-edit': el({ attrs: { 'aria-expanded': 'false', 'aria-controls': 'ef-sec-edit-body' } }) };
-  const card = el({ classList: cl(['modal-card', 'modal-themed', 'modal-centred']), style: { transform: 'translateX(390px)' }, scrollTop: 240 });
+  const card = el({ classList: cl(['modal-card', 'hq-full', 'es-full']), style: { transform: 'translateX(390px)' }, scrollTop: 240 });
   const dom = {
     'ef-sec-reschedule': el({ attrs: { 'data-title': 'Reschedule' }, querySelector: () => tabs['ef-sec-reschedule'] }),
     'ef-sec-edit': el({ attrs: { 'data-title': 'Edit details' }, querySelector: () => tabs['ef-sec-edit'] }),
@@ -444,16 +450,18 @@ test('a tab opens as a page in the Coach page\'s shell, and closes back to the t
   const { dom, tabs, card } = sheetDom(a);
   const shut = id => 'hidden' in dom[id].attrs;
 
-  a.handleEditTab(tabs['ef-sec-reschedule']);
-  /* The same shell the coaching circles open theirs in: these are the
-     classes openHQPanel() gives a Coach panel. */
-  ['builder-light', 'hq-panel', 'hq-full', 'rp-cherry'].forEach(c =>
-    assert.ok(card.classList.contains(c), 'the page is not in the Coach page\'s shell: ' + c));
+  /* EDIT SESSION IS A PAGE BEFORE ANY TAB IS PRESSED. Founder: "when you
+     first click the edit button this pops up. Full page please." It opens in
+     the shell the coaching circles open theirs in -- the classes
+     openHQPanel() gives a Coach panel -- and a tab changes only what is put
+     away. */
+  const opened = /openModal\(html, 'modal-themed builder-light hq-panel hq-full rp-cherry es-full'\);\n\}/;
+  assert.match(SRC.slice(SRC.indexOf('\nfunction openEditModal('), SRC.indexOf('\nfunction editPageSet(')), opened, 'Edit Session does not open as a page');
   const coach = /openModal\(html, 'modal-themed builder-light hq-panel '\+\s*\(PANEL_ACCENT_CLASS\[key\] \|\| 'rp-cherry'\)\+\(coachPanel \? ' hq-full' : ''\)\);/;
   assert.match(SRC, coach, 'the Coach panels no longer open in the shell this law compares against');
-  assert.ok(card.classList.contains('es-page'));
-  assert.ok(!card.classList.contains('modal-centred'), 'the page is still a centred card');
-  assert.ok(card.classList.contains('modal-themed'), 'the sheet lost its theme');
+  assert.deepEqual(card.classList.list(), ['es-full', 'hq-full', 'modal-card'], 'the fixture is not the page as opened');
+  a.handleEditTab(tabs['ef-sec-reschedule']);
+  assert.deepEqual(card.classList.list(), ['es-full', 'es-page', 'hq-full', 'modal-card'], 'opening a tab changed the shell');
   /* Only the tab that was pressed is open, and the heading is its name. */
   assert.equal(shut('ef-sec-reschedule-body'), false);
   assert.equal(shut('ef-sec-edit-body'), true, 'the other tab opened with it');
@@ -476,7 +484,7 @@ test('a tab opens as a page in the Coach page\'s shell, and closes back to the t
   let closedWhole = 0; a.closeModal = () => { closedWhole++; };
   a.handleEditPageClose(dom['es-close']);
   assert.equal(closedWhole, 0, 'closing a page closed the whole sheet, and whatever was typed with it');
-  assert.deepEqual(card.classList.list(), ['modal-card', 'modal-centred', 'modal-themed']);
+  assert.deepEqual(card.classList.list(), ['es-full', 'hq-full', 'modal-card'], 'closing a tab did not return to the Edit Session page');
   assert.equal(card.style.transform, '', 'the card was left where the swipe pushed it');
   assert.equal(shut('ef-sec-reschedule-body'), true);
   assert.ok(!dom['ef-sec-reschedule'].classList.contains('is-page'));
@@ -499,16 +507,20 @@ test('on a page the other tab is put away, the session stays at the top and Save
   const rule = sel => { const at = CSS.indexOf(sel + '{'); assert.ok(at !== -1, sel + ' has no rule'); return CSS.slice(at, CSS.indexOf('}', at)); };
   assert.match(rule('.modal-card.es-page .es-sec:not(.is-page)'), /display:none/);
   assert.match(rule('.modal-card.es-page .es-sec.is-page > .es-tab'), /display:none/, 'the tab\'s own word is printed under the heading that now says it');
-  assert.match(rule('.modal-card.es-page .es-actions'), /position:sticky; bottom:0/);
+  /* Save is at the foot of the page whether or not a tab is open: the body
+     fills the screen and the action is pushed to the bottom of it. */
+  assert.match(rule('.modal-card.es-full .es-actions'), /position:sticky; bottom:0/);
+  assert.match(rule('.modal-card.es-full .es-actions'), /margin:auto -24px 0/, 'Save floats under the tabs instead of sitting at the foot');
+  assert.match(rule('.modal-card.es-full'), /display:flex; flex-direction:column/);
+  assert.match(rule('.modal-card.es-full > .es-body'), /flex:1 0 auto/);
   assert.doesNotMatch(CSS, /\.es-page[^{]*\.es-sum[^{]*\{[^}]*display:none/, 'the page does not say which session it is about');
   /* The list of days runs the length of the page: no box of its own to scroll. */
   assert.match(rule('.modal-card.es-page .swap-list'), /max-height:none; overflow:visible/);
   assert.match(rule('.modal-card.es-page .swap-week'), /position:static; background:none/, 'the week headings are still a bar');
   /* A name is never cut short for its date. */
   assert.match(rule('.modal-card.es-page .swap-day .swap-name'), /white-space:normal/);
-  /* The sheet itself is still opened as the card it was, with both tabs shut. */
-  assert.match(SRC, /openModal\(html, 'modal-themed modal-centred'\);\n\}\n\n\/\* Opens one of Edit Session's two tabs as a page/);
-  /* The Coach shell is put on by opening a tab and by nothing else. */
-  const opener = SRC.slice(SRC.indexOf('\nfunction openEditModal('), SRC.indexOf('\nfunction editPageSet(')).replace(/\/\*[\s\S]*?\*\//g, '');
-  assert.doesNotMatch(opener, /builder-light|hq-full/, 'the sheet itself is opened as a page');
+  /* A page is never a card on top of the screen: nothing in the sheet or
+     its tabs puts the centred shell back. */
+  const whole = SRC.slice(SRC.indexOf('\nfunction openEditModal('), SRC.indexOf('\nfunction findDay(')).replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.doesNotMatch(whole, /modal-centred/, 'Edit Session can be a centred card again');
 });

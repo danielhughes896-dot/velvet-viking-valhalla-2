@@ -6837,11 +6837,18 @@
   .modal-card.es-page .es-sec:not(.is-page){display:none;}
   .modal-card.es-page .es-sec.is-page > .es-tab{display:none;}
   .modal-card.es-page .es-tab-body{margin-top:0;}
-  .modal-card.es-page .es-body{gap:22px; padding-bottom:0;}
-  .modal-card.es-page .es-actions{position:sticky; bottom:0; z-index:2; margin:0 -24px;
+  /* THE WHOLE OF EDIT SESSION IS A PAGE (.es-full), tab open or not. Its
+     body fills the screen so Save sits at the foot of it even when the two
+     tabs above are all there is, and stays there as a longer page scrolls. */
+  .modal-card.es-full{display:flex; flex-direction:column;}
+  .modal-card.es-full > .modal-head{flex:none;}
+  .modal-card.es-full > .es-body{flex:1 0 auto; gap:22px; padding-bottom:0;}
+  .modal-card.es-full .es-actions{position:sticky; bottom:0; z-index:2; margin:auto -24px 0;
     padding:28px 24px calc(22px + env(safe-area-inset-bottom, 0px));
     background:linear-gradient(to bottom, transparent, var(--t-card) 28px);}
-  .modal-card.es-page .es-actions > .btn-primary{font-size:17px; min-height:56px;}
+  .modal-card.es-full .es-actions > .btn-primary{font-size:17px; min-height:56px;}
+  /* The tile and the two tabs sit at one interval on a page. */
+  .modal-card.es-full .es-sec + .es-sec{margin-top:0;}
   /* On a page the list of days IS the page: it runs its full length and the
      page scrolls, where the card kept it in a 310px box of its own. The week
      headings stop being a bar that sticks -- "no raised black boxes" -- and
@@ -59460,7 +59467,17 @@ function openEditModal(dayId){
      centred shell caps at 100dvh, so the card shrinks with the visual
      viewport instead. .modal-centred, not .builder-light: the geometry
      only, so no cherry primary and no builder card face follow it in. */
-  openModal(html, 'modal-themed modal-centred');
+  /* AND NOW A PAGE, FROM THE FIRST TAP. Founder, with a screenshot of this
+     sheet as a card over Today: "the tabs inside them fully open. But when
+     you first click the edit button this pops up. Full page please."
+
+     So the paragraph above is history: the sheet is opened in the Coach
+     page's own shell -- the classes openHQPanel() gives a Coach panel -- and
+     its two tabs open as pages of the same card. One surface from the edit
+     button to Save, with no card over the screen at any point. The
+     keyboard-safe height that centring was chosen for comes with the page:
+     it is the full visual viewport. es-full is what holds Save to the foot. */
+  openModal(html, 'modal-themed builder-light hq-panel hq-full rp-cherry es-full');
 }
 
 /* Opens one of Edit Session's two tabs as a page, or closes it back to the
@@ -59486,8 +59503,8 @@ function editPageSet(secId, open){
   var overlay = document.getElementById('modal-overlay');
   var card = (overlay && overlay.querySelector) ? overlay.querySelector('.modal-card') : null;
   if (card && card.classList){
-    ES_PAGE_CLASSES.forEach(function(c){ card.classList.toggle(c, !!open); });
-    card.classList.toggle('modal-centred', !open);
+    /* The shell is already the page's: all a tab changes is what is put away. */
+    card.classList.toggle('es-page', !!open);
     /* A swipe leaves the card pushed off the screen; it comes back as the
        sheet, where it was. */
     card.classList.remove('is-settling'); card.classList.remove('is-dragging');
@@ -59505,11 +59522,6 @@ function handleEditPageClose(btn){
   var id = (btn && btn.getAttribute) ? btn.getAttribute('data-sec') : '';
   if (id) editPageSet(id, false); else closeModal();
 }
-/* THE PAGE'S SHELL IS THE COACH PAGE'S, and it is put on by editPageSet()
-   when a tab is opened -- never by openEditModal(), which still opens the
-   sheet as the plain themed, centred card it was. The classes are the ones
-   openHQPanel() gives a Coach panel, plus es-page for what is put away. */
-var ES_PAGE_CLASSES = ['builder-light', 'hq-panel', 'hq-full', 'rp-cherry', 'es-page'];
 var ES_SHEET_TITLE = 'Edit Session';
 
 function findDay(dayId){
