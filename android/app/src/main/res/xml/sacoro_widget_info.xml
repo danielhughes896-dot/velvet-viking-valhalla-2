@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Medium (4x2), phase one. updatePeriodMillis is the 30-minute floor Android
+     honours; the app also redraws it on every change, and the provider once
+     just after midnight. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:minResizeWidth="250dp"
+    android:minResizeHeight="110dp"
+    android:resizeMode="horizontal"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_today"
+    android:previewLayout="@layout/widget_today"
+    android:description="@string/widget_description"
+    android:widgetCategory="home_screen" />

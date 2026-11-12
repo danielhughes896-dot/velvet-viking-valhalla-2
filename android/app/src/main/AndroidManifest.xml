@@ -27,6 +27,24 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- THE TODAY WIDGET (phase one, medium). See SacoroWidgetProvider.java.
+             Exported because the launcher, not this app, sends it updates.
+             TIME_CHANGED / TIMEZONE_CHANGED are among the broadcasts Android
+             still delivers to a manifest receiver, so travelling or a clock
+             change redraws it for the right day. -->
+        <receiver
+            android:name=".SacoroWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sacoro_widget_info" />
+        </receiver>
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"

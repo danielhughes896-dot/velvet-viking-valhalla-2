@@ -148,11 +148,19 @@ test('coming back to the app does not schedule again straight away, and two can 
   assert.equal(calls, 1, 'returning to the app scheduled again: the loop that trapped the founder');
   /* While one is still in flight, another cannot start, forced or not. */
   a.nativeScheduleLastAt = 0;
-  let release;
-  a.window.Capacitor.Plugins.LocalNotifications.schedule = () => { calls++; return new Promise(r => { release = r; }); };
+  /* Only the first schedule is held open; any second one would answer at
+     once, so a missing guard fails here as a count instead of hanging. */
+  let release = null, overlapping = 0;
+  a.window.Capacitor.Plugins.LocalNotifications.schedule = () => {
+    calls++;
+    if (release) { overlapping++; return Promise.resolve(); }
+    return new Promise(r => { release = r; });
+  };
   const first = a.nativeScheduleReminders();
   await new Promise(r => setTimeout(r, 0));
+  assert.ok(release, 'the first schedule never reached the phone');
   assert.equal(await a.nativeScheduleReminders(true), false, 'two schedules ran at once');
+  assert.equal(overlapping, 0, 'a second schedule started while the first was still in flight');
   release(); await first;
   /* The athlete's own switch is never held off. */
   a.window.Capacitor.Plugins.LocalNotifications.schedule = o => { calls++; return real(o); };

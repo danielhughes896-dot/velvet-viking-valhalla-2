@@ -23,6 +23,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(VvvSpeechPlugin.class);
+        registerPlugin(SacoroWidgetPlugin.class);   // the Today widget's link to the app
         super.onCreate(savedInstanceState);
     }
 }

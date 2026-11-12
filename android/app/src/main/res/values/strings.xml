@@ -4,4 +4,5 @@
     <string name="title_activity_main">SACORO</string>
     <string name="package_name">com.velvetviking.valhalla</string>
     <string name="custom_url_scheme">com.velvetviking.valhalla</string>
+    <string name="widget_description">Today\'s session from SACORO</string>
 </resources>
