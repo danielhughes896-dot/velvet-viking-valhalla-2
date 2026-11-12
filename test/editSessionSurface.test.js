@@ -274,19 +274,33 @@ test('the centring rule answers to both classes, so no surface already using it 
     'the card radius/height rule no longer lists both classes');
 });
 
-test('the three surfaces that were drawers open centred', () => {
+test('the three surfaces that were drawers are keyboard-safe: one centred, two pages', () => {
+  const callOf = (fn) => {
+    const body = SRC.slice(SRC.indexOf('function ' + fn + '('));
+    return body.slice(0, body.indexOf('\n}\n'));
+  };
+  assert.match(callOf('openEditModal'), /'modal-themed modal-centred'/,
+    'Edit Session (openEditModal) no longer opens on the centred shell. It holds a field an ' +
+    'athlete types into, and a bottom-docked drawer has no keyboard-safe height -- ' +
+    'open the keyboard and the input is behind it.');
+  /* ---- TWO OF THE THREE CHANGED SIDES ----
+     Tools & Import and Restore a Plan were held to the centred shell for
+     the reason above. Founder: "Make full-screen pages the standard for
+     important Settings workflows, matching the Coach design." Both are
+     reached from Settings, so both are pages now -- and a page answers the
+     same worry better than centring did: it is the full height of the
+     screen and scrolls, so there is nowhere for a field to be left behind a
+     keyboard. What is held is that they are pages and not drawers again. */
   [
-    ["openEditModal", "Edit Session"],
     ["openImportModal", "Tools & Import"],
     ["openRestoreModal", "Restore a Plan"],
   ].forEach(([fn, label]) => {
-    const body = SRC.slice(SRC.indexOf('function ' + fn + '('));
-    const call = body.slice(0, body.indexOf('\n}\n'));
-    assert.match(call, /'modal-themed modal-centred'/,
-      label + ' (' + fn + ') no longer opens on the centred shell. It holds a field an ' +
-      'athlete types into, and a bottom-docked drawer has no keyboard-safe height -- ' +
-      'open the keyboard and the input is behind it.');
+    assert.match(callOf(fn), /'modal-themed builder-light '\+STG_PAGE/,
+      label + ' (' + fn + ') is not a Settings page');
+    assert.doesNotMatch(callOf(fn), /openModal\([^;]*'modal-themed modal-centred'/, label + ' is a centred card again');
   });
+  assert.match(SRC, /var STG_PAGE = '[^']*\bhq-full\b[^']*';/,
+    'a Settings page is no longer full height, so it is a drawer with a keyboard problem again');
 });
 
 test('Edit Session does its work on the app’s 16, not a panel’s 32', () => {

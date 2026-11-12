@@ -100,9 +100,15 @@ test('.week now owns the hairline-lift recipe outright, because the control it b
   assert.doesNotMatch(toggle, /var\(--tile-sheen\)/, 'the KM/MI pill grew its surface back');
   assert.doesNotMatch(toggle, /var\(--tile-border\)/, 'the KM/MI pill grew its border back');
   assert.doesNotMatch(toggle, /box-shadow\s*:\s*0 1px 2px/, 'the KM/MI pill grew its lift back');
-  /* And it took the nav's voice instead, which is the whole point. */
+  /* And it took the nav's voice instead, which is the whole point.
+     ---- CHANGED SIDES: THE CHOSEN UNIT IS CHERRY ----
+     This held it to gold, from before the colours were given jobs. Founder,
+     on Settings: "Same cherry and gold colour language." Gold is the brand
+     and the destination; a thing the athlete has picked is cherry, which is
+     also literally the nav's voice now -- .bn-item.active is cherry. */
   const btn = ruleFor('.tb-unit-toggle button.active');
-  assert.match(btn, /color\s*:\s*var\(--gold-bright\)/, 'the selected unit is not gold');
+  assert.match(btn, /color\s*:\s*var\(--cherry-text\)/, 'the selected unit is not cherry');
+  assert.doesNotMatch(btn, /gold/, 'the selected unit is still lit in gold');
   assert.match(btn, /text-shadow/, 'the selected unit lost its illumination');
 });
 

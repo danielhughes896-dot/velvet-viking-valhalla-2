@@ -368,7 +368,9 @@ test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
     'the in-place path stopped keeping the scroll position');
   assert.match(openModalFn[0], /openRecordPanelKey = null/,
     'the in-place path skips the side effect closeModal() exists for');
-  assert.match(CODE, /openModal\(html, 'modal-themed builder-light', 'restriction'\)/,
+  /* The class list grew when the sheet became a Settings page; the key, which
+     is what this law is about, is where it was. */
+  assert.match(CODE, /openModal\(html, 'modal-themed builder-light '\+STG_PAGE, 'restriction'\)/,
     'the restriction sheet stopped asking for the in-place redraw, so every ' +
     'level and duration pick rebuilds and re-animates it again');
 });

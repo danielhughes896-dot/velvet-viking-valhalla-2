@@ -71,6 +71,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null;">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
+  /* sacoro-shell-source -- checkForAppUpdate() compares this stylesheet with
+     the one a fresh fetch serves, and finds it by these words. See
+     APP_SHELL_MARK. */
 
   /* The default, and what every unmapped type gets: the sunrise road that
      has been the card's picture since there was one. */
@@ -838,10 +841,16 @@
     text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
     transition:color .2s, text-shadow .2s, font-weight .2s;
   }
+  /* CHERRY, BECAUSE IT IS A CHOICE. This was gold -- "the gold illumination
+     is still the only thing that says which is chosen" -- written before the
+     colours were given jobs. Gold is the brand and the destination; a thing
+     the athlete has picked is cherry, and the founder asked for exactly that
+     in Settings: "Same cherry and gold colour language." .bn-item.active's
+     light, layer for layer, as the share page's own toggle already takes. */
   .tb-unit-toggle button.active{
-    color:var(--gold-bright); font-weight:700; background:none; box-shadow:none;
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);
+    color:var(--cherry-text); font-weight:700; background:none; box-shadow:none;
+    text-shadow:0 0 1.1px rgba(196,106,137,.85), 0 0 6.6px rgba(154,84,108,.78),
+                0 0 16.5px rgba(154,84,108,.42), 0 0 30.8px rgba(154,84,108,.15);
   }
   .countdown{display:flex; align-items:center; justify-content:flex-end;}
   .countdown-badge{
@@ -5424,8 +5433,9 @@
   .gl-opt{
     min-height:44px; padding:8px 6px; text-align:center; cursor:pointer;
     font-family:var(--text-face); font-size:var(--fs-support); font-weight:600; letter-spacing:.3px;
-    color:var(--ink-faint); background:var(--ctl-bg);
-    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
+    color:#FFFFFF; background:var(--tile-sheen), var(--bg-2);
+    border:1px solid var(--tile-border); border-radius:var(--tile-radius);
+    transition:border-color .2s, box-shadow .2s;
   }
   /* LIT, NOT FILLED. This was the only solid gold lozenge with dark text
      left in the product, and it sat three-across in a panel whose every
@@ -5433,8 +5443,13 @@
      way every other selected control in here shows it -- the .feel-btn.on
      treatment verbatim: the ground unchanged, a gold edge, and the glow
      that edge throws. Nothing is filled and nothing inverts. */
-  .gl-opt.active{color:var(--ink); border-color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 26%, transparent);}
+  /* AND THE LIGHT IS CHERRY. Founder: "Adaptive full concise. Cherry
+     selection rule." It was a gold edge and a gold glow, on the one control
+     in Preferences that is purely a choice. The two declarations every other
+     chosen tile makes -- .opt-grid button.active, .readiness-btn.on -- so
+     this answer is lit the way an answer is lit everywhere else. */
+  .gl-opt.active{color:#FFFFFF; border-color:var(--cherry);
+    box-shadow:0 0 16px var(--cherry-dim);}
 
   /* Inside the builder card -- see the note on #bld-review. */
   .bld-strava-offer{ margin-top:12px; padding:16px 0; }
@@ -5936,6 +5951,14 @@
      switch already sits, so it takes that slot's alignment and nothing
      else -- the toggle keeps its own look. */
   .stg-row-units{display:inline-flex; align-items:center; flex:none;}
+  /* Founder: "The KM/Mi toggle should be slightly bigger." 10.5px was the
+     header's size, from when this lived in the header; in a Settings row it
+     sits beside 15px titles. The words go up to 13.5px and each half gets a
+     wider press, so the pair is 44px tall and about 100px across. */
+  .stg-row-units .tb-unit-toggle{padding:2px 8px;}
+  .stg-row-units .tb-unit-toggle button{font-size:13.5px; padding:0 10px;}
+  /* The row that holds it goes nowhere, so it does not offer a press. */
+  .ev-card.stg-row.is-still{cursor:default;}
   /* ---- SET DATE IS AN INTERACTION, SO IT IS CHERRY ----
      Founder: "Set date button. Needs the new rules. Cherry colour."
      It inherited the base .btn-primary, which is the bronze gradient -- and
@@ -9758,12 +9781,19 @@
   .ci-body .ci-para{ color:var(--ink);
                     margin:0 0 12px;}
   .ci-body .ci-para:last-of-type{margin-bottom:4px;}
+  /* A TILE, NOT A GOLD-RIMMED CARD. .rs-pick is an .ev-card, and an .ev-card
+     wears the gold rim -- so the two choices nobody had made yet were
+     outlined in the brand colour and the one that had been made was cherry,
+     three colours for one question. Unchosen is the builder tile's plain
+     edge; chosen is cherry. */
   .rs-pick{display:flex; flex-direction:column; align-items:flex-start; gap:3px;
-           width:100%; text-align:left;}
+           width:100%; text-align:left;
+           border:1px solid var(--tile-border); background:var(--tile-sheen), var(--bg-2);
+           box-shadow:none; transition:border-color .2s, box-shadow .2s;}
   .rs-pick-label{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track);
                  font-size:13px; color:var(--ink); font-weight:var(--label-weight);}
   .rs-pick-note{ color:var(--ink-soft);}
-  .rs-pick.is-picked{box-shadow:inset 0 0 0 1.5px var(--cherry); border-color:var(--cherry);}
+  .rs-pick.is-picked{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
   .rs-pick.is-picked .rs-pick-label{color:var(--cherry-text);}
   .rs-pick-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
   .rs-pick-row .rs-pick-inline{flex:1 1 0; min-width:84px; margin:0;
@@ -10067,8 +10097,14 @@
      variant. Compound, not descendant: .hq-panel.stg-panel is (0,3,0)
      against the (0,2,0) above, so it wins on specificity and not on where
      it happens to sit. */
-  .hq-panel.stg-panel .icon-btn{
-    border:1px solid var(--line); background:var(--bg-2); color:var(--mark-dim);}
+  /* ---- AND THEN IT CHANGED SIDES ----
+     .hq-panel.stg-panel .icon-btn stood here and did what the note above
+     says. Founder, with every Settings sheet in front of him: "Make
+     full-screen pages the standard ... matching the Coach design: ... Same
+     close button position. Same cherry and gold colour language." A Settings
+     workflow is a Coach page now, so it closes with the Coach page's ring --
+     cherry, the colour of a thing the athlete presses -- and the neutral
+     exception is gone rather than kept for a card that no longer exists. */
 
   /* ---------- THE VERDICT, ENLARGED, AND THE REASON BESIDE IT ----------
      The circle the athlete pressed, at the arc's own largest size, with the
@@ -10286,6 +10322,71 @@
   .hq-full .goal-options.opt-grid .goal-opt .t{font-size:24px;}
   .hq-full .goal-options.opt-grid .goal-opt .sub{font-size:15px; margin-top:6px;}
   .hq-full .goal-options.opt-grid .goal-opt{min-height:112px;}
+
+  /* ============ A SETTINGS WORKFLOW IS A PAGE TOO ============
+     Founder: "Make full-screen pages the standard for important Settings
+     workflows, matching the Coach design ... Main action fixed near the
+     bottom where appropriate."
+     Everything above already applies -- a Settings page carries hq-full, so
+     the ground, the heading and the close ring are the Coach page's own
+     rules. What is added here is the one thing a Coach page never needed: a
+     place for the action.
+     THE FOOT IS PINNED, NOT PLACED. The card is the scroller and a column:
+     the body takes whatever height is left, so on a short page the foot
+     rests on the bottom edge, and on a long one it stays there while the
+     page moves behind it. The thumb finds the action in the same place on
+     every page. It fades in from nothing rather than drawing a line, because
+     a rule there would be a box edge and the page has none. */
+  .modal-card.hq-full{overscroll-behavior:contain;}
+  .hq-full.stg-panel{display:flex; flex-direction:column;}
+  .hq-full.stg-panel > .modal-head{flex:none;}
+  .hq-full.stg-panel > .modal-body{flex:1 0 auto;}
+  /* The foot carries the home-indicator inset itself, so the card must not
+     add it a second time underneath. */
+  .modal-overlay:has(> .hq-full) > .hq-full:has(> .page-foot){padding-bottom:0;}
+  .page-foot{position:sticky; bottom:0; z-index:2; flex:none; display:flex; gap:10px;
+    padding:28px 24px calc(22px + env(safe-area-inset-bottom, 0px));
+    background:linear-gradient(to bottom, transparent, var(--t-card) 28px);}
+  .page-foot .btn{flex:1 1 0; margin:0;}
+  /* AND THE HEADING STAYS A HEADING WHEN THE PAGE MOVES. The head is sticky
+     and, in this theme, transparent -- right for a card that never scrolls
+     far, wrong for a page: Preferences is longer than the screen, and its
+     rows ran straight through the title. It takes the page's own ground, so
+     nothing is drawn that was not there before; the words simply stop
+     showing through. Coach pages take it too -- Training Zone Paces scrolls
+     the same way. */
+  .modal-card.builder-light.hq-full .modal-head{background:var(--t-card);}
+  /* The page's own question and its own answer: Reset asks before it clears,
+     and the update check says what it found. Sentences, at the page's
+     reading size, in the one ink. */
+  .stg-ask, .stg-update-say{font-size:var(--fs-body); line-height:var(--lh-body);
+    font-weight:600; color:#FFFFFF; margin-top:28px;}
+  .stg-update-say:empty{display:none;}
+  /* ONE SCALE DOWN THE PAGE. The Coach page set its sizes through the
+     tokens, so sentences and section labels stepped up on their own. What
+     did not were the things only Settings has: a row's title was still the
+     card's 15px under a 28px heading and beside 17px explaining lines --
+     measured, the title was the smallest line in its own row. Titles take
+     the Coach page's row size, and the three stragglers that were set in
+     fixed pixels (a field's label, the voice blurb, a tile's label) take the
+     page's label and support sizes. Labels are the page's white, not the
+     form's cream. */
+  .hq-full.stg-panel .connect-row .name,
+  .hq-full.stg-panel .stg-row-title{font-size:var(--fs-panel-row);}
+  .hq-full.stg-panel .ev-card.stg-row{padding:17px 0;}
+  .hq-full.stg-panel .field label{font-size:var(--fs-label); color:#FFFFFF;}
+  .hq-full.stg-panel .cv-opt .cv-blurb{font-size:var(--fs-support); line-height:var(--lh-support);}
+  .hq-full.stg-panel .cv-preview{font-size:var(--fs-label);}
+  .hq-full.stg-panel .rs-pick-label{font-size:15px;}
+  .hq-full.stg-panel .rs-pick{padding:16px;}
+  .hq-full.stg-panel .rs-pick-row .rs-pick-inline{min-height:56px; padding:12px 8px; justify-content:center;}
+  .hq-full.stg-panel .vvcal-shown{font-size:var(--fs-support);}
+  .hq-full.stg-panel .gl-opt{min-height:56px;}
+  .hq-full.stg-panel .gl-options{gap:10px; margin:12px 0 10px;}
+  /* A page being dragged shut follows the finger exactly: no easing between
+     touch samples and no entrance replaying underneath it. */
+  .modal-card.is-dragging{animation:none; transition:none;}
+  .modal-card.is-settling{animation:none; transition:transform .2s ease;}
 
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
@@ -51565,14 +51666,14 @@ function openRestrictionModal(){
     '<div class="field" style="margin-top:8px;"><label for="rs-until">Or pick the last restricted day</label>'+
       vvCalFieldHtml('rs-until', restrictionDraft.until||'', todayStr())+'</div>'+
     '<div class="field-hint">Ends '+dShort(restrictionDraftUntil())+'. You can end it early or extend it at any time — nothing is locked in.</div>'+
-    '<div class="modal-actions">'+
-      (open ? '<button type="button" class="btn btn-ghost" data-action="restriction-end">I am back</button>' : '')+
-      '<button type="button" class="btn btn-primary" data-action="restriction-confirm">'+ICONS.check+' '+(open?'Update':'Tell Sacoro')+'</button>'+
-    '</div>'+
+  '</div>'+
+  '<div class="page-foot">'+
+    (open ? '<button type="button" class="btn btn-ghost" data-action="restriction-end">I am back</button>' : '')+
+    '<button type="button" class="btn btn-primary" data-action="restriction-confirm">'+ICONS.check+' '+(open?'Update':'Tell Sacoro')+'</button>'+
   '</div>';
   /* Keyed: every level and duration pick calls straight back in here, and
      without this each one rebuilt the sheet and replayed its entrance. */
-  openModal(html, 'modal-themed builder-light', 'restriction');
+  openModal(html, 'modal-themed builder-light '+STG_PAGE, 'restriction');
 }
 /* Whatever is typed in the date field belongs to the athlete, so it is read
    back off the DOM before the modal is redrawn under a pick. */
@@ -55670,9 +55771,9 @@ function openRecalibrateModal(){
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
     '<div class="setup-section-title">Goal A / B / C \u2014 for '+escapeHtml(profile.label)+'</div>'+
     goalRows+
-    '<div class="modal-actions">'+
-      '<button type="button" class="btn btn-primary" data-action="save-recalibrate">'+ICONS.check+' Save & Re-tailor</button>'+
-    '</div>'+
+  '</div>'+
+  '<div class="page-foot">'+
+    '<button type="button" class="btn btn-primary" data-action="save-recalibrate">'+ICONS.check+' Save & Re-tailor</button>'+
   '</div>';
   /* Follows the theme, like the builder: this is a surface the athlete works in,
      not a transient confirm. Structure, zone logic, recalibration, validation
@@ -55684,7 +55785,7 @@ function openRecalibrateModal(){
      sits and edits benchmark/goals in, the exact case builder-light exists
      for (see its own long rationale comment near the builder). Purely
      positional -- no change to what the modal contains or does. */
-  openModal(html, 'modal-themed builder-light');
+  openModal(html, 'modal-themed builder-light '+STG_PAGE);
 }
 function handleRecalibrateSuggest(){
   var benchDist = document.getElementById('rc-bench-dist').value;
@@ -57177,7 +57278,14 @@ function openSettingsModal(){
 var RESET_PLAN_HINT = 'Clears the current plan and schedule so you can build a new one. ' +
   'Your logged runs, measured results and everything Sacoro has learned about you are kept.';
 function handleResetPlan(){
-  var ok = window.confirm('Start a new training block? This clears your current plan and schedule. Your logged runs and everything Sacoro has learned about your training are kept.');
+  /* ON ITS OWN PAGE THE FIRST PRESS ASKS; it does not clear. The page's
+     second press arrives through handleResetPlanConfirm(). Any other caller
+     is still asked by the system, exactly as before. */
+  var confirmed = resetPlanConfirmedOnPage;
+  resetPlanConfirmedOnPage = false;
+  if (!confirmed && openRecordPanelKey === 'resetplan'){ handleResetPlanArm(true); return; }
+  resetPlanArmed = false;
+  var ok = confirmed || window.confirm('Start a new training block? This clears your current plan and schedule. Your logged runs and everything Sacoro has learned about your training are kept.');
   if (!ok) return;
   var id = state.setup && state.setup.blockId;
   archiveCompletedSessions(id);
@@ -57380,9 +57488,11 @@ function openBackupTextModal(payload){
     '<div class="modal-body">'+
       '<div class="field-hint" style="margin-bottom:10px;">Couldn\u2019t reach the clipboard automatically. Tap Copy below, or long-press the text and select all.</div>'+
       '<textarea id="backup-text-area" class="export-text" style="min-height:150px;" readonly>'+escapeHtml(payload)+'</textarea>'+
-      '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="copy-backup-field">'+ICONS.copy+' Copy</button>'+
+    '</div>'+
+    '<div class="page-foot">'+
+      '<button type="button" class="btn btn-primary" data-action="copy-backup-field">'+ICONS.copy+' Copy</button>'+
     '</div>',
-    'modal-themed'
+    'modal-themed builder-light '+STG_PAGE
   );
 }
 function handleCopyBackupField(){
@@ -57400,9 +57510,11 @@ function openPasteBackupModal(){
     '<div class="modal-body">'+
       '<div class="field-hint" style="margin-bottom:10px;">Paste the backup text you copied from your other install. This replaces the plan on this device.</div>'+
       '<textarea id="paste-backup-area" class="export-text" style="min-height:150px;" placeholder="Paste your backup here"></textarea>'+
-      '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="restore-pasted">'+ICONS.upload+' Restore This Backup</button>'+
+    '</div>'+
+    '<div class="page-foot">'+
+      '<button type="button" class="btn btn-primary" data-action="restore-pasted">'+ICONS.upload+' Restore This Backup</button>'+
     '</div>',
-    'modal-themed'
+    'modal-themed builder-light '+STG_PAGE
   );
 }
 function handleRestorePasted(){
@@ -57465,7 +57577,7 @@ function openPacingModal(){
      athlete opens to plan their race day no longer sits low as a bottom
      sheet while its siblings sit centred. Purely positional; the checkpoint
      table, calculations and copy are untouched. */
-  openModal(html, 'modal-themed builder-light');
+  openModal(html, 'modal-themed builder-light '+STG_PAGE);
 }
 
 /* =========================================================
@@ -62498,7 +62610,7 @@ function openImportModal(){
      dropzone and a result area is a card you read and scroll, not a confirm
      you thumb at the bottom edge. Geometry only -- the surface keeps its own
      face. */
-  openModal(html, 'modal-themed modal-centred');
+  openModal(html, 'modal-themed builder-light '+STG_PAGE);
   var dz = document.getElementById('import-dropzone');
   var fi = document.getElementById('import-file-input');
   dz.addEventListener('click', function(){ fi.click(); });
@@ -65033,7 +65145,10 @@ function recordFactByKey(key){
    not, and the cherry one was the heaviest object on a surface whose job is
    to show evidence. The X stays, because it is the control every other sheet
    in the product closes with and it does not take a line of its own. */
-function recordPanelShell(title, body, key){
+/* `foot` is the page's main action, written OUTSIDE the body so the page can
+   pin it to the bottom edge -- see .page-foot. A panel with nothing to
+   commit passes none and is unchanged. */
+function recordPanelShell(title, body, key, foot){
   var fact = key ? recordFactByKey(key) : null;
   /* An empty fact states its absence first. emptyState is each fact's OWN
      words -- "Not established yet" for a fitness nobody has measured, "Not
@@ -65059,7 +65174,8 @@ function recordPanelShell(title, body, key){
   return '<div class="modal-head"><h2 class="font-head">'+escapeHtml(title)+'</h2>'+
       '<button type="button" class="icon-btn" data-action="close-record-panel" aria-label="Close">'+ICONS.close+'</button>'+
     '</div>'+
-    '<div class="modal-body">'+lede+body+'</div>';
+    '<div class="modal-body">'+lede+body+'</div>'+
+    (foot ? '<div class="page-foot">'+foot+'</div>' : '');
 }
 /* THE GLYPH IS GONE, AND SO IS THE SECOND hqRow THAT CARRIED IT. There were
    two functions of this name in this file; this was the later one, so it was
@@ -65403,6 +65519,9 @@ function openHQPanel(key){
      pages, not cards -- see ".hq-full" in the stylesheet. The Settings
      panels share this shell and stay the cards they were: they are forms,
      and nobody asked for those to move. */
+  /* An ACTION panel reached through this door (Start a New Block is) is the
+     same Settings page it is through the other one -- see STG_PAGE. */
+  if (ACTION_PANELS[key]){ forgetPlanHQScroll(); openSettingsPanel(key); return; }
   var coachPanel = READING_KEYS.indexOf(key) !== -1 || !!RECORD_PANELS[key];
   openModal(html, 'modal-themed builder-light hq-panel '+
     (PANEL_ACCENT_CLASS[key] || 'rp-cherry')+(coachPanel ? ' hq-full' : ''));
@@ -66153,13 +66272,12 @@ function actionPanelNewBlock(){
       'what comes next yet — it makes one when this block finishes, or after you race. You can '+
       'still start a new one now.</div>';
   }
-  body += '<div class="setup-section-title">Build it yourself</div>'+
-    '<button type="button" class="btn btn-ghost btn-block" data-action="open-setup">'+
-      ICONS.target+' Build a new training block</button>'+
-    '<div class="field-hint" style="margin-top:8px;">Your completed training is kept as history '+
+  body += '<div class="field-hint">Your completed training is kept as history '+
       'and everything Sacoro has learned about you carries over. Only the remaining schedule is '+
       'replaced, and nothing changes until you choose.</div>';
-  return recordPanelShell('New Block', body);
+  return recordPanelShell('New Block', body, null,
+    '<button type="button" class="btn btn-primary" data-action="open-setup">'+
+      'Build a new training block</button>');
 }
 
 /* The standalone Fitness Checkpoint popup (actionPanelCheckpoint()) is gone
@@ -66250,17 +66368,143 @@ function settingsPanelBackup(){
       '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
     '</div>');
 }
+/* THE PAGE ASKS, SO NOTHING HAS TO POP UP OVER IT. Reset used to end in
+   window.confirm() -- a system dialog on top of a sheet on top of Settings,
+   which is the stack the founder asked to be rid of. The page itself is the
+   place the question is put: the first press arms it and the foot becomes
+   the two answers. Nothing is cleared on one tap. */
+var resetPlanArmed = false;
 function settingsPanelReset(){
   return recordPanelShell('Reset Plan',
-    '<div class="field-hint" style="margin-bottom:14px;">'+RESET_PLAN_HINT+'</div>'+
-    '<button type="button" class="btn btn-ghost btn-block" data-action="reset-plan">'+ICONS.refresh+' Reset Plan — Start Over</button>');
+    '<div class="field-hint">'+RESET_PLAN_HINT+'</div>'+
+    (resetPlanArmed ? '<div class="stg-ask" role="status">Clear your plan and schedule now?</div>' : ''),
+    null,
+    resetPlanArmed
+      ? '<button type="button" class="btn btn-ghost" data-action="reset-plan-keep">Keep my plan</button>'+
+        '<button type="button" class="btn btn-primary" data-action="reset-plan-confirm">Clear my plan</button>'
+      : '<button type="button" class="btn btn-ghost" data-action="reset-plan">Reset Plan \u2014 Start Over</button>');
+}
+function handleResetPlanArm(on){
+  resetPlanArmed = !!on;
+  refreshOpenRecordPanel();
+}
+/* One-shot, and spent by the call it is raised for: nothing else can inherit
+   an answer the athlete gave to this page. */
+var resetPlanConfirmedOnPage = false;
+function handleResetPlanConfirm(){
+  if (!resetPlanArmed) return;
+  resetPlanConfirmedOnPage = true;
+  handleResetPlan();
+}
+/* ---------- CHECK FOR UPDATES ----------
+   Two different things can be out of date and the athlete should not have to
+   know which. THE APP ITSELF is this document: it is fetched fresh on every
+   launch, so it is only ever stale if Sacoro has been left open. THE ANDROID
+   SHELL is the installed app around it, which only the store can replace.
+
+   HOW "IS THERE A NEWER ONE" IS ANSWERED WITHOUT A VERSION NUMBER. BUILD_ID
+   is edited by hand and has not moved since August, so comparing it would
+   say "up to date" for ever. Instead the document is fetched again and its
+   stylesheet and script are compared, text for text, with the ones running
+   now. A style element and a script element are raw text to the parser, so the element's
+   textContent IS the bytes that were served -- identical text is the same
+   build and anything else is not. Only the elements carrying APP_SHELL_MARK
+   are compared, so a script the Android shell injects into the page cannot
+   make every check say "update".
+
+   IT FAILS TOWARDS "COULD NOT CHECK", never towards a claim. Offline, signed
+   out and bounced to /account, or a page with nothing marked in it: none of
+   those is evidence of an update and none is evidence of there being none. */
+var APP_SHELL_MARK = 'sacoro-shell-source';
+var appUpdateState = { status:'idle' };
+var APP_UPDATE_WORDS = {
+  idle: '',
+  checking: 'Checking\u2026',
+  current: 'You have the latest version.',
+  ready: 'A new version is ready.',
+  store: 'A newer version of the app is on Google Play.',
+  failed: 'Couldn\u2019t check. Try again when you are online.'
+};
+function appShellTexts(doc){
+  var out = [];
+  try{
+    var els = doc.querySelectorAll('style, script:not([src])');
+    for (var i = 0; i < els.length; i++){
+      var t = els[i].textContent || '';
+      if (t.indexOf(APP_SHELL_MARK) !== -1) out.push(t);
+    }
+  }catch(e){}
+  return out;
+}
+/* true = a different build was served; false = the same one; null = cannot
+   tell, which is not the same as either. */
+function appShellDiffers(live, fresh){
+  if (!live.length || !fresh.length) return null;
+  if (live.length !== fresh.length) return true;
+  for (var i = 0; i < live.length; i++) if (live[i] !== fresh[i]) return true;
+  return false;
+}
+function setAppUpdateStatus(status){
+  appUpdateState.status = status;
+  if (openRecordPanelKey === 'update') refreshOpenRecordPanel();
+  return status;
+}
+function checkForAppUpdate(){
+  if (appUpdateState.status === 'checking') return Promise.resolve('checking');
+  setAppUpdateStatus('checking');
+  try{
+    var url = (window.location && window.location.pathname) || '/';
+    return window.fetch(url, { cache:'no-store', credentials:'same-origin' })
+      .then(function(res){
+        if (!res || !res.ok) throw new Error('not served');
+        return res.text();
+      })
+      .then(function(text){
+        var fresh = new window.DOMParser().parseFromString(text, 'text/html');
+        var differs = appShellDiffers(appShellTexts(document), appShellTexts(fresh));
+        if (differs === null) return setAppUpdateStatus('failed');
+        if (differs) return setAppUpdateStatus('ready');
+        return setAppUpdateStatus(nativeUpdateAvailable() ? 'store' : 'current');
+      })
+      .catch(function(){ return setAppUpdateStatus('failed'); });
+  }catch(e){
+    return Promise.resolve(setAppUpdateStatus('failed'));
+  }
+}
+function applyAppUpdate(){
+  try{ flushSave(); }catch(e){}
+  try{ window.location.reload(); }catch(e2){}
+}
+function appInstalledVersionLine(){
+  if (!isNativeApp() || !nativeAppInfo || !nativeAppInfo.version) return '';
+  var build = nativeInstalledBuild();
+  return String(nativeAppInfo.version) + (build !== null ? ' (' + build + ')' : '');
+}
+function settingsPanelUpdate(){
+  var st = appUpdateState.status;
+  var installed = appInstalledVersionLine();
+  var body =
+    (installed ? '<div class="hub-card tile-card">'+hqRow('Installed app', installed)+'</div>' : '')+
+    '<div class="stg-update-say" role="status" aria-live="polite">'+escapeHtml(APP_UPDATE_WORDS[st] || '')+'</div>'+
+    '<div class="field-hint">Sacoro updates itself each time you open it. Check here if it has been open for a while.</div>';
+  var foot;
+  if (st === 'ready')
+    foot = '<button type="button" class="btn btn-primary" data-action="apply-app-update">Update now</button>';
+  else if (st === 'store')
+    foot = '<a class="btn btn-primary" href="'+PLAY_STORE_URL+'" target="_blank" rel="noopener noreferrer">Open Google Play</a>';
+  else
+    foot = '<button type="button" class="btn btn-primary" data-action="check-app-update"'+
+      (st === 'checking' ? ' disabled' : '')+'>'+
+      (st === 'idle' || st === 'checking' ? 'Check for updates' : 'Check again')+'</button>';
+  return recordPanelShell('App Update', body, null, foot);
 }
 var ACTION_PANELS = { newblock: actionPanelNewBlock,
   prefs: settingsPanelPrefs, health: settingsPanelHealth,
   account: settingsPanelAccount, subscription: settingsPanelSubscription,
   training: settingsPanelTraining, strava: settingsPanelStrava,
   garmin: settingsPanelGarmin,
-  backup: settingsPanelBackup, resetplan: settingsPanelReset };
+  backup: settingsPanelBackup, resetplan: settingsPanelReset,
+  update: settingsPanelUpdate };
 /* openHQPanel() refuses without a plan, which is right for every panel it
    was written for -- there is no readiness to read and no record to show.
    Account, Subscription, Backup and Legal are true before a plan exists and
@@ -66278,9 +66522,40 @@ function openSettingsPanel(key){
      NAME an accent in PANEL_ACCENT_CLASS keep it -- recovery, goal and
      progress are still gold on purpose -- this only changes the ones that
      never chose. */
-  openModal(html, 'modal-themed builder-light hq-panel stg-panel '+
-    (PANEL_ACCENT_CLASS[key] || 'rp-cherry'));
+  stgPanelOpening(key);
+  html = hqPanelHtml(key);
+  openModal(html, 'modal-themed builder-light '+STG_PAGE);
   openRecordPanelKey = key;
+  stgPanelOpened(key);
+}
+/* ---------- A SETTINGS WORKFLOW IS A PAGE ----------
+   Founder: "Make full-screen pages the standard for important Settings
+   workflows, matching the Coach design: Same dark background. Same large
+   condensed heading. Same close button position. Same cherry and gold colour
+   language. Main action fixed near the bottom where appropriate. No stacked
+   pop-ups or modal-within-modal interactions."
+   They were cards floating over the dimmed list, each a different height,
+   and the things they opened -- recalibrate, pacing, restore, paste -- were
+   a third and fourth kind of card again. ONE CLASS LIST says "this is a
+   Settings page" and every one of those surfaces takes it, so a workflow
+   reached from Settings looks the same whichever row it started on. hq-full
+   is the Coach page's own class: the ground, the heading and the close ring
+   are the same rules, not a copy of them. */
+/* EACH CALLER STILL WRITES ITS OWN THEME OPT-IN ('modal-themed
+   builder-light') and adds this to it, rather than the whole string hiding
+   in here: test/modalThemeConsistency reads every openModal() call for the
+   theme it asks for, and a surface whose theme is decided somewhere else is
+   a surface that law cannot see. */
+var STG_PAGE = 'hq-panel stg-panel hq-full rp-cherry';
+/* What a page needs settled before it is drawn, and what it does once it is
+   up. Kept beside the opener so a page's own state cannot survive from the
+   last time it was open: a reset left armed, or yesterday's update answer. */
+function stgPanelOpening(key){
+  if (key === 'resetplan') resetPlanArmed = false;
+  if (key === 'update' && appUpdateState.status !== 'checking') appUpdateState.status = 'idle';
+}
+function stgPanelOpened(key){
+  if (key === 'update') checkForAppUpdate();
 }
 /* Take the athlete to the checkpoint session itself: Full Plan, its week open,
    scrolled to it. Real navigation to a real session -- no new screen. */
@@ -66512,7 +66787,7 @@ function openRestoreModal(){
     /* .modal-centred: the recover list is as long as the athlete has plans,
        and the sign-in path below it is an email field -- the keyboard case a
        docked drawer handles worst. Geometry only. */
-    'modal-themed modal-centred'
+    'modal-themed builder-light '+STG_PAGE
   );
 }
 function handleRestorePlan(key){
@@ -66626,6 +66901,13 @@ function stgRow(o){
   /* A row that goes nowhere is not a button. Garmin is "not yet available",
      and a pressable row that does nothing is worse than a stated absence. */
   if (o.muted) return '<div class="'+cls+'">'+inner+'</div>';
+  /* A ROW THAT HOLDS ITS OWN BUTTONS CANNOT BE ONE. Distance units carries
+     KM and MI in its trail, and the row was a <button>: a button may not
+     contain a button, so the parser closed the row early and put both
+     outside it -- the founder's screenshot shows an empty oval on the right
+     and "KMMI" as loose text underneath. `still` says the row itself goes
+     nowhere; its controls do the work. */
+  if (o.still) return '<div class="'+cls+' is-still">'+inner+'</div>';
   if (o.href) return '<a class="'+cls+'" href="'+o.href+'"'+
     (o.external ? ' target="_blank" rel="noopener noreferrer"' : '')+'>'+inner+'</a>';
   return '<button type="button" class="'+cls+'" '+(o.attrs||'')+'>'+inner+'</button>';
@@ -66692,6 +66974,10 @@ function renderSettingsHubView(){
         href:PLAY_STORE_URL, external:true })
     : '';
 
+  /* ALWAYS THERE, unlike the notice above it. Founder: "Add an app update
+     tab. Or search for updates." The notice appears only when this build
+     already knows the installed app is behind; this is the athlete asking. */
+  appUpdate += stgPanelRow('App Update', 'Check for updates', 'update');
   var account =
     (sub ? stgPanelRow('Subscription', subscriptionRowLine(sub),
              'subscription', subscriptionRowPill(sub), 'is-gold') : '')+
@@ -66725,7 +67011,7 @@ function renderSettingsHubView(){
        the builder shows them is already in their chosen unit. */
     stgRow({ title:'Distance units',
       sub: state.units === 'mi' ? 'Miles' : 'Kilometres',
-      chevron:false,
+      chevron:false, still:true,
       trail:'<span class="stg-row-units">'+unitsToggleHtml()+'</span>' });
 
   var connect = '<div id="stg-connect-group">'+settingsConnectRows()+'</div>';
@@ -67681,6 +67967,129 @@ function pagerTouchEnd(){
   var forward = (dx < 0) === (p.dir > 0);
   pagerFinish(!!p.to && forward && (far || fast));
 }
+/* ---------- A PAGE CLOSES ON A SWIPE ----------
+   Founder: "I would like to be able to swipe to exit not just have to press
+   the x."
+   The X is in the top corner, which is the furthest point on the screen from
+   a thumb. A full-screen page (.hq-full -- every Settings workflow and every
+   Coach panel) now also closes by being pushed away: to the right from
+   anywhere on it, the way a page that came from a row goes back, or
+   downwards when it is already at its top, the way it arrived.
+   IT FOLLOWS THE FINGER, so the gesture can be changed of mind: let go short
+   and the page settles back. Past a third of the way, or flicked, it leaves.
+   IT CLOSES THROUGH THE PAGE'S OWN X. The swipe presses the same button the
+   thumb would have, so a page that has something to do on the way out
+   (restoring the scroll, cancelling a draft) does it either way and the two
+   exits cannot drift apart.
+   WHAT IT LEAVES ALONE: a second finger, a calendar that is open over the
+   page, and anything on the page that is itself dragged sideways -- a
+   slider, a text box, a table wider than the screen. Up, left and any
+   vertical drag while the page is scrolled are never claimed, so reading a
+   long page is native scrolling exactly as it was. */
+var PAGE_SWIPE_CLAIM_PX = 12;
+var PAGE_SWIPE_AXIS_BIAS = 1.4;
+var PAGE_SWIPE_COMMIT_FRACTION = 0.3;
+var PAGE_SWIPE_FLING_V = 0.45;     /* px/ms */
+var PAGE_SWIPE_FLING_PX = 36;
+var pageSwipeState = null;
+/* Which way, if any, a drag that has just moved (dx, dy) is closing the page.
+   Pure, so the rule can be held to account without a touchscreen. */
+function pageSwipeAxis(dx, dy, atTop){
+  if (Math.abs(dx) < PAGE_SWIPE_CLAIM_PX && Math.abs(dy) < PAGE_SWIPE_CLAIM_PX) return null;
+  if (dx > 0 && Math.abs(dx) > Math.abs(dy) * PAGE_SWIPE_AXIS_BIAS) return 'x';
+  if (dy > 0 && atTop && Math.abs(dy) > Math.abs(dx) * PAGE_SWIPE_AXIS_BIAS) return 'y';
+  return 'none';
+}
+function pageSwipeCommits(dist, extent, velocity){
+  if (!(dist > 0) || !(extent > 0)) return false;
+  if (dist > extent * PAGE_SWIPE_COMMIT_FRACTION) return true;
+  return velocity > PAGE_SWIPE_FLING_V && dist > PAGE_SWIPE_FLING_PX;
+}
+function pageSwipeOwnedElsewhere(node, card){
+  while (node && node !== card){
+    try{
+      if (node.matches && node.matches('input[type="range"], textarea, [data-no-page-swipe]')) return true;
+      if (node.scrollWidth > node.clientWidth + 2 && window.getComputedStyle){
+        var ox = window.getComputedStyle(node).overflowX;
+        if (ox === 'auto' || ox === 'scroll') return true;
+      }
+    }catch(e){}
+    node = node.parentNode;
+  }
+  return false;
+}
+function pageSwipeStart(e){
+  if (pageSwipeState) return;
+  if (!e.touches || e.touches.length !== 1) return;
+  var card = (e.target && e.target.closest) ? e.target.closest('.modal-card.hq-full') : null;
+  if (!card) return;
+  if (document.querySelector('.vvcal')) return;          /* a calendar owns the screen */
+  if (pageSwipeOwnedElsewhere(e.target, card)) return;
+  var t = e.touches[0];
+  pageSwipeState = { card:card, x0:t.clientX, y0:t.clientY, axis:null, dist:0, v:0,
+    last:0, lastT:Date.now(), atTop:(card.scrollTop <= 0) };
+}
+function pageSwipeMove(e){
+  var p = pageSwipeState;
+  if (!p || !e.touches || e.touches.length !== 1) return;
+  var t = e.touches[0];
+  var dx = t.clientX - p.x0, dy = t.clientY - p.y0;
+  if (p.axis === null){
+    var axis = pageSwipeAxis(dx, dy, p.atTop);
+    if (axis === null) return;
+    if (axis === 'none'){ pageSwipeState = null; return; }
+    p.axis = axis;
+    p.card.classList.remove('is-settling');
+    p.card.classList.add('is-dragging');
+  }
+  if (e.cancelable) e.preventDefault();
+  var dist = Math.max(0, p.axis === 'x' ? dx : dy);
+  var now = Date.now();
+  if (now > p.lastT){ p.v = (dist - p.last) / (now - p.lastT); p.last = dist; p.lastT = now; }
+  p.dist = dist;
+  p.card.style.transform = p.axis === 'x' ? 'translateX('+dist+'px)' : 'translateY('+dist+'px)';
+}
+function pageSwipeEnd(){
+  var p = pageSwipeState;
+  pageSwipeState = null;
+  if (!p || !p.axis) return;
+  var card = p.card;
+  var extent = p.axis === 'x' ? (window.innerWidth || 360) : (window.innerHeight || 640);
+  var leave = pageSwipeCommits(p.dist, extent, p.v);
+  var reduced = pagerReducedMotion();
+  card.classList.remove('is-dragging');
+  if (!leave){
+    if (reduced){ card.style.transform = ''; return; }
+    card.classList.add('is-settling');
+    card.style.transform = '';
+    window.setTimeout(function(){ card.classList.remove('is-settling'); }, 220);
+    return;
+  }
+  var close = function(){
+    var x = card.querySelector('.modal-head .icon-btn');
+    if (x && x.click) x.click(); else closeModal();
+  };
+  if (reduced){ close(); return; }
+  card.classList.add('is-settling');
+  card.style.transform = p.axis === 'x' ? 'translateX('+extent+'px)' : 'translateY('+extent+'px)';
+  window.setTimeout(close, 190);
+}
+function initPageSwipe(){
+  if (typeof document === 'undefined' || !document.addEventListener) return;
+  if (initPageSwipe.done) return;
+  initPageSwipe.done = true;
+  try{
+    document.addEventListener('touchstart', pageSwipeStart, { passive:true });
+    /* Not passive, for the pager's reason: once a drag is claimed the page
+       must not also scroll under it, and only a cancelled move stops that. */
+    document.addEventListener('touchmove', pageSwipeMove, { passive:false });
+    document.addEventListener('touchend', pageSwipeEnd, { passive:true });
+    document.addEventListener('touchcancel', function(){
+      var p = pageSwipeState; pageSwipeState = null;
+      if (p && p.axis){ p.card.classList.remove('is-dragging'); p.card.style.transform = ''; }
+    }, { passive:true });
+  }catch(e){}
+}
 function initViewPager(){
   if (typeof document === 'undefined' || !document.addEventListener) return;
   if (initViewPager.done) return;
@@ -68238,6 +68647,10 @@ document.addEventListener('click', function(e){
     case 'save-edit': handleSaveEdit(target.getAttribute('data-day')); break;
     case 'reset-day': handleResetDay(target.getAttribute('data-day')); break;
     case 'reset-plan': handleResetPlan(); break;
+    case 'reset-plan-keep': handleResetPlanArm(false); break;
+    case 'reset-plan-confirm': handleResetPlanConfirm(); break;
+    case 'check-app-update': checkForAppUpdate(); break;
+    case 'apply-app-update': applyAppUpdate(); break;
     case 'close-modal': closeModal(); break;
     /* SHARING. 'share-workout' opens the composer; the other two only ever
        change what the athlete is looking at, or hand the finished PNG to the
@@ -68709,6 +69122,7 @@ function init(){
      re-attached -- and re-attaching per render is how duplicate listeners
      accumulate. */
   initViewPager();
+  initPageSwipe();
   // Deliberately last and un-awaited: the app is already painted from
   // localStorage by this point, so cloud sync can never delay startup and a
   // cloud failure can never prevent the app from opening.
