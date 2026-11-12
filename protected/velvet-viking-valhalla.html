@@ -6536,7 +6536,7 @@
   .field .bld-slide-head label{margin-bottom:0;}
   .bld-slide-val{display:inline-flex; align-items:baseline; gap:6px; flex:none;}
   .field .bld-slide-val input{
-    width:3.4ch; min-height:44px; padding:0; background:none; border:0; border-radius:0;
+    width:4.6ch; min-height:44px; padding:0; background:none; border:0; border-radius:0;
     box-shadow:none; text-align:right; font-family:var(--num-face); font-size:28px;
     font-weight:700; color:var(--cherry-text); -moz-appearance:textfield; appearance:textfield;}
   .field .bld-slide-val input::-webkit-outer-spin-button,
@@ -54511,7 +54511,7 @@ function openSetupModal(){
         '<div class="bld-slide-head"><label id="su-volume-label" for="su-volume">'+
           escapeHtml(EV_F.weeklyKm.label)+'</label>'+
           '<span class="bld-slide-val">'+
-            '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'" placeholder="\u2013">'+
+            '<input type="number" min="0" step="any" inputmode="decimal" id="su-volume" value="'+vol+'" placeholder="\u2013">'+
             '<span class="bld-slide-unit">'+(state.units==='mi'?'mi':'km')+'</span></span></div>'+
         bldRangeHtml('su-volume', { kmMax:BLD_SLIDER_KM.volume, step:5, label:EV_F.weeklyKm.label })+
         '<div class="field-hint">'+escapeHtml(EV_F.weeklyKm.hint)+'</div>'+
@@ -54546,7 +54546,7 @@ function openSetupModal(){
         '<div class="bld-slide-head"><label id="su-entry-long-label" for="su-entry-long">'+
           escapeHtml(EV_F.longestRunKm.label)+'</label>'+
           '<span class="bld-slide-val">'+
-            '<input type="number" min="0" step="1" inputmode="numeric" id="su-entry-long" value="'+entryLong+'" placeholder="\u2013">'+
+            '<input type="number" min="0" step="any" inputmode="decimal" id="su-entry-long" value="'+entryLong+'" placeholder="\u2013">'+
             '<span class="bld-slide-unit">'+(state.units==='mi'?'mi':'km')+'</span></span></div>'+
         bldRangeHtml('su-entry-long', { kmMax:BLD_SLIDER_KM.longRun, step:1, label:EV_F.longestRunKm.label })+
         '<div class="field-hint">'+escapeHtml(EV_F.longestRunKm.hint)+'</div>'+
@@ -55020,7 +55020,10 @@ function bldSyncLongDay(){
    THE FIGURE IS STILL A FIELD. Volume, longest run and block length keep
    their number input as the large figure beside the label: tap it for an
    exact entry. A typed 52 km stays 52 while the slider, which steps in 5s
-   for volume, rests on the nearest stop.
+   for volume, rests on the nearest stop. Founder: "an athlete can enter
+   47.5 km rather than fighting the slider" -- so the two distances take a
+   decimal: the keypad they raise has a point on it and the field accepts
+   any step. Block length is whole weeks and keeps the whole-number keypad.
    NO ANSWER IS NOT AN ANSWER. An empty field leaves the thumb hollow at the
    start of the track and the figure a dash -- it never reads as zero.
    The block-length range is BUILDER_SPEC.validation.weeksRange, read off the

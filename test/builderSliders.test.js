@@ -109,9 +109,35 @@ test('the figure beside each label is still a field, so an exact number can be t
   const { html } = builderHtml();
   [['f-volume', 'su-volume'], ['f-entry-long', 'su-entry-long'], ['f-weeks', 'su-weeks']].forEach(([f, id]) => {
     assert.match(field(html, f),
-      new RegExp('<span class="bld-slide-val"><input type="number"[^>]*inputmode="numeric" id="' + id + '"'),
+      new RegExp('<span class="bld-slide-val"><input type="number"[^>]*id="' + id + '"'),
       f + ': the large figure must be the number field itself');
   });
+});
+
+/* Founder: "the sliders need exact entry. Your weekly mileage and longest-run
+   values should be tappable so an athlete can enter 47.5 km rather than
+   fighting the slider." A whole-number keypad has no point on it. */
+test('the two distances take a decimal: 47.5 km can be typed', () => {
+  const { a, html } = builderHtml();
+  [['f-volume', 'su-volume'], ['f-entry-long', 'su-entry-long']].forEach(([f, id]) => {
+    const block = field(html, f);
+    assert.match(block, new RegExp('<input type="number" min="0" step="any" inputmode="decimal" id="' + id + '"'),
+      f + ': the keypad must carry a decimal point and the field must accept any step');
+  });
+  assert.match(field(html, 'f-weeks'), /step="1" inputmode="numeric" id="su-weeks"/, 'weeks are whole');
+  assert.equal(a.parseDistInput('47.5'), 47.5, 'and the builder reads the half kilometre');
+  const m = /\.field \.bld-slide-val input\{\s*width:([\d.]+)ch/.exec(CODE);
+  assert.ok(m && Number(m[1]) >= 4.5, 'four characters -- "47.5" -- have to fit in the figure');
+});
+
+test('a typed 47.5 keeps its half while the slider rests beside it', () => {
+  const a = loadApp();
+  const vol = fakeField({ id: 'su-volume', value: '47.5', kmMax: 150 });
+  wire(a, [vol], 'km');
+  a.bldSyncSliders();
+  assert.equal(vol.target.value, '47.5', 'the slider never rounds what the athlete typed');
+  assert.equal(vol.rg.value, '47.5');
+  assert.ok(!vol.classes.has('is-unset'));
 });
 
 test('the distance sliders state their ceilings in kilometres and step sensibly', () => {
