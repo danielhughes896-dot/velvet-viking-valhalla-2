@@ -40622,8 +40622,13 @@ function effortIsReadable(dd){
   var a = dd.actual || {};
   var env = coachEnvironment(a.notes, a);
   if (env.pain || env.illness) return true;
-  return !(env.heatBand==='significant' || env.heatBand==='severe' ||
-           env.humidBand==='significant' || env.humidBand==='severe');
+  if (env.heatBand==='significant' || env.heatBand==='severe' ||
+      env.humidBand==='significant' || env.humidBand==='severe') return false;
+  /* HILLS AND WIND, ON THE SAME TERMS AS HEAT. The approved rule: "Hot or
+     Hilly tile selected: a harder response is expected and is not held
+     against recovery." Wind is the same kind of fact. See sessionConditions(). */
+  var rc = sessionConditions(dd);
+  return !(rc.hills || rc.wind);
 }
 /* WHY A SESSION WAS CUT SHORT, or null when it was not. The completion half
    of the assessment and nothing else: which reps were done, how far was run,
@@ -40694,7 +40699,11 @@ function sessionFadeReading(dd){
   if (!effortIsReadable(dd)) return null;
   var out = { date:dd.date, family:fam, faded:null, basis:null, recoveries:a.recoveries || null };
   var drift = null;
-  try { drift = structuredRepFadePct(dd); } catch(e2){ drift = null; }
+  /* With the watch in doubt the rep paces cannot say the set faded; the
+     athlete's own answer still can. */
+  if (sessionConditions(dd).pace){
+    try { drift = structuredRepFadePct(dd); } catch(e2){ drift = null; }
+  }
   if (drift != null){ out.faded = drift >= FADE_CAL.measuredFadePct; out.basis = 'measured'; }
   else if (typeof a.mainSetHeld === 'number'){ out.faded = logHeldWord(a.mainSetHeld) === 'faded'; out.basis = 'reported'; }
   return (out.faded == null && !out.recoveries) ? null : out;
@@ -41367,6 +41376,72 @@ function coachSessionCues(dd){
   });
   return cues;
 }
+/* ===== WHAT THE ROUTE, THE WEATHER AND THE WATCH DID TO THE NUMBERS =====
+   Founder, asked whether Hilly, Windy and Watch data off should be shown on
+   the card: "Don't think so. I just think the app should understand that
+   learn from it and use the data."
+
+   So this is not a display. It is the one answer every reader that LEARNS
+   from a run asks before it treats that run's pace or heart rate as a fact
+   about the athlete:
+
+     hills     a hilly route, in the athlete's words: tapped Hilly or said
+               in the notes.
+     measuredClimb  15 m/km or more of measured climbing the athlete did
+               not mark as unreliable. Hill repeats are excluded: there the
+               climbing is the session, and its pace is never read as
+               fitness anyway.
+     wind      tapped Windy or said in the notes.
+     gpsDoubt  Watch data off, or GPS / watch trouble said in the notes.
+
+   WHAT EACH ONE TAKES OUT OF THE LEARNING, AND NO MORE:
+     pace  is not fitness evidence on hills, in wind, or with the GPS in
+           doubt. The route and the air moved it, or the watch did.
+     heart rate  is not fitness evidence on hills or in wind: both put it up
+           for the same pace. Watch data off does NOT take it -- the
+           founder's ruling, "unreliable GPS does not necessarily invalidate
+           reliable heart-rate readings".
+   Distance, completion, effort, how it felt and anything hurting are the
+   athlete's own and are read as always. Nothing here moves a score, a
+   prescription or a pace target; it decides what the trends, the baselines
+   and the graphs are allowed to learn from.
+
+   THE ATHLETE'S WORD GOES ONE STEP FURTHER THAN THE WATCH'S. A tapped Hilly
+   or Windy also means a hard run there is not counted as strain -- the
+   approved rule, "Hot or Hilly tile selected: a harder response is expected
+   and is not held against recovery". Measured climbing does not: it is
+   context, and the standing ruling on it is that it never reaches Recovery,
+   Confidence or a decision (test/elevationContext). */
+var COND_HILLY_BANDS = ['hilly', 'steep'];
+function sessionConditions(dd){
+  var out = { hills:false, wind:false, gpsDoubt:false, measuredClimb:null, pace:true, hr:true };
+  var a = dd && dd.actual;
+  if (!a) return out;
+  var sigs = null;
+  try { sigs = sessionSignals(a); } catch(e){ sigs = null; }
+  ((sigs && sigs.signals) || []).forEach(function(sig){
+    if (sig.id === 'hills') out.hills = true;
+    else if (sig.id === 'wind') out.wind = true;
+    else if (sig.id === 'gps_doubt' || sig.id === 'watch_issue') out.gpsDoubt = true;
+  });
+  /* Watch data off arrives here as gps_doubt: logAnswerSignals() makes it one. */
+  var climb = null;
+  try { climb = sessionElevationContext(dd); } catch(e2){ climb = null; }
+  if (climb && !climb.doubt && climb.use !== 'prescribed' && COND_HILLY_BANDS.indexOf(climb.band) !== -1){
+    out.measuredClimb = climb.band;
+  }
+  out.pace = !(out.hills || out.measuredClimb || out.wind || out.gpsDoubt);
+  out.hr = !(out.hills || out.measuredClimb || out.wind);
+  return out;
+}
+/* The same question of a memory record, which carries the answer from the
+   day it was built. A record with no answer (an archive written before this
+   existed) is read as it always was. */
+function paceIsReadable(rec){
+  if (!rec || !(rec.actualPace > 0)) return false;
+  return !(rec.runConditions && rec.runConditions.pace === false);
+}
+
 /* ===== MEASURED CLIMBING, AS CONTEXT =====
    Founder: "Use measured elevation gain to contextualise session execution,
    accounting for distance, session type and evidence quality. Do not
@@ -44818,6 +44893,7 @@ function athleteMemoryFromDays(days, from){
         notes: isPast ? (a.notes || '') : '',
         signals: isPast ? sessionSignals(a).signals.map(function(x){ return x.id; }) : [],
         environment: isPast ? (env || null) : null,
+        runConditions: (isPast && ran) ? sessionConditions(dd) : null,
         // did it happen as written
         asPlanned: !!(ran && score!=null && score>=90 && !dd.coachAdjust),
         executionScore: score,
@@ -44871,6 +44947,7 @@ function hrIsReadable(rec){
   if (rec.hr==null) return false;
   var e = rec.environment || {};
   if (e.hrDoubt) return false;
+  if (rec.runConditions && rec.runConditions.hr === false) return false;   // hills or wind
   return e.heatBand==='none' || e.heatBand==='mild' || e.heatBand==null;
 }
 function baselineFor(records, opts){
@@ -44879,7 +44956,7 @@ function baselineFor(records, opts){
                   .map(pick).filter(function(v){ return v!=null; });
   };
   var hrs   = take(function(r){ return r.hr; }, hrIsReadable);
-  var paces = take(function(r){ return r.actualPace; });
+  var paces = take(function(r){ return r.actualPace; }, paceIsReadable);
   var rpes  = take(function(r){ return r.rpe; });
   var execs = take(function(r){ return r.executionScore; });
   var enough = function(l){ return l.length >= BASELINE_MIN_SAMPLES ? l : null; };
@@ -45247,7 +45324,7 @@ function athleteTrends(){
      only heart rate moved it is the same fact `hr_cost` reports, and only when
      both moved is it an observation neither of them made. */
   (function(){
-    var readable = easy.filter(function(r){ return hrIsReadable(r) && r.actualPace!=null; });
+    var readable = easy.filter(function(r){ return hrIsReadable(r) && paceIsReadable(r); });
     var sp = trendSplit(readable);
     if (sp.base.length < BASELINE_MIN_SAMPLES || sp.recent.length < 2) return;
     var cost = function(r){ return r.hr * (r.actualPace/60); };   // beats per km
@@ -45534,6 +45611,7 @@ function comparabilityOf(x){
   var dd = isMem ? findDayByDate(x.date) : x;
   var env = isMem ? (x.environment || {})
                   : (coachEnvironment((x.actual||{}).notes, x.actual) || {});
+  var rc = isMem ? (x.runConditions || {}) : sessionConditions(x);
   var km = isMem ? (x.actualKm!=null ? x.actualKm : x.plannedKm) : (x.km!=null ? x.km : null);
   return {
     date: x.date,
@@ -45544,7 +45622,8 @@ function comparabilityOf(x){
     phase: isMem ? x.phase : trainingPhase(x.week),
     treadmill: !!env.treadmill,
     // conditions that materially alter what the session cost
-    stressed: !!env.severe || (env.heatBand!=='none' && env.heatBand!=='mild' && env.heatBand!=null)
+    stressed: !!env.severe || (env.heatBand!=='none' && env.heatBand!=='mild' && env.heatBand!=null) ||
+              !!rc.hills || !!rc.wind
   };
 }
 /* Phase is a weighting factor, not a hard filter: splitting history by phase
@@ -45905,9 +45984,13 @@ function personalDeviation(dd, model){
   /* Conditions are context, never the athlete. Where the session was run in
      real heat or on a treadmill, the metrics those conditions move are not
      read as a personal deviation at all. */
-  var conditioned = !!env.treadmill || (env.heatBand!=='none' && env.heatBand!=='mild' && env.heatBand!=null) || !!env.severe;
+  var rc = sessionConditions(dd);
+  var conditioned = !!env.treadmill || (env.heatBand!=='none' && env.heatBand!=='mild' && env.heatBand!=null) || !!env.severe ||
+                    rc.hills || rc.wind;
   if (!conditioned){
-    if (f.baselineExecution!=null){
+    /* A score made from a pace the watch got wrong says nothing about the
+       athlete; the heart rate it carried still does. */
+    if (f.baselineExecution!=null && !rc.gpsDoubt){
       var score = computeExecutionScore(dd);
       if (score!=null && f.baselineExecution - score >= 12) signals.push('execution');
     }
@@ -46111,7 +46194,7 @@ function blockDirection(records, pick, lowerIsBetter, minChange, deviationScale)
 }
 // bpm per minute-per-km: what a given easy pace is costing this athlete.
 function blockEasyCost(r){
-  return (hrIsReadable(r) && r.actualPace) ? r.hr / (r.actualPace/60) : null;
+  return (hrIsReadable(r) && paceIsReadable(r)) ? r.hr / (r.actualPace/60) : null;
 }
 
 /* ---------- the five dimensions ----------
@@ -68046,6 +68129,8 @@ function coachGraphDrift(dd){
   var plan = null;
   try { plan = assessPlan(dd); } catch(e){ plan = null; }
   if (!plan || plan.family !== 'aerobic') return null;          // prescribed as steady easy running
+  var rc = sessionConditions(dd);
+  if (!rc.pace || !rc.hr) return null;                          // the route or the watch moved the laps
   var laps = ((dd.actual && dd.actual.splits) || []).filter(function(x){ return x && x.hr != null; });
   if (laps.length < 4) return null;
   var paceOf = function(x){
@@ -68132,7 +68217,7 @@ function coachGraphEarlyPoints(rows){
                    dotted line is drawn from it. Nothing here estimates a
                    race or moves a zone. */
 function coachGraphThresholdSessions(){
-  var out = { rows:[], unpaced:0, planned:0 }, cal = COACH_GRAPH_CAL;
+  var out = { rows:[], unpaced:0, planned:0, conditioned:0 }, cal = COACH_GRAPH_CAL;
   var paces = null, goal = null;
   try { paces = getActivePaces(); goal = getGoalPaceSecPerKm(); } catch(e){ paces = null; }
   var consent = healthConsentGranted();
@@ -68146,6 +68231,7 @@ function coachGraphThresholdSessions(){
     if (!dd.completed || !dd.actual) return;
     var a = dd.actual;
     if (a.km != null && dd.km > 0 && a.km / dd.km < ASSESS_CAL.completeFraction) return;   // cut short
+    if (!sessionConditions(dd).pace){ out.conditioned++; return; }   // hills, wind or a doubted watch
     var w = 0, t = 0, hw = 0, ht = 0, paced = true, inWindow = true;
     segs.forEach(function(sg){
       var sp = structuredSplitFor(dd, sg.segId);
@@ -68178,7 +68264,7 @@ function coachGraphEasyRuns(){
   if (!healthConsentGranted()) return [];
   var out = [];
   athleteMemory(400).forEach(function(r){
-    if (!r.completed || r.type !== 'easy' || !hrIsReadable(r) || !(r.actualPace > 0)) return;
+    if (!r.completed || r.type !== 'easy' || !hrIsReadable(r) || !paceIsReadable(r)) return;
     var dd = findDayByDate(r.date);
     if (!dd || dd.week == null) return;
     out.push({ week:dd.week, date:r.date, hr:r.hr, pace:r.actualPace });
