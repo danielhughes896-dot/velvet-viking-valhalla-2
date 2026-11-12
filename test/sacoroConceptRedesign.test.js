@@ -256,8 +256,15 @@ test('PREVIEW: the Reading arc shows every section it owns, each one a destinati
       sec.key + ' is drawn but cannot be opened');
   });
   assert.equal((preview.match(/<button type="button" class="b-dial"/g) || []).length, 4);
-  assert.match(preview, /Tap any circle for the evidence/,
-    'nothing on the screen says the circles can be pressed');
+  /* ---- CHANGED SIDES: THE WHISPER GAVE ITS LINE TO THE DOTS ----
+     "Tap any circle for the evidence" sat under a grid that showed all four
+     at once. Founder, with the approved dashboard: "Rail 3 circles wrapped
+     visually. Gold dots underneath." A rail has something more pressing to
+     say under it -- that there is a fourth circle -- and the design carries
+     no sentence there. */
+  assert.doesNotMatch(preview, /Tap any circle for the evidence/, 'the whisper is back under the rail');
+  assert.equal((preview.match(/class="b-rail-dot[ "]/g) || []).length, 2,
+    'the rail does not say there is a second position');
 });
 
 /* ONE ROW, GRADUATED, AND THE MIDDLE OF IT MEANS SOMETHING. Three-over-two
@@ -270,7 +277,15 @@ test('PREVIEW: the Reading arc shows every section it owns, each one a destinati
    ranked outward from a centre the gauge occupies: 2-1-1-2. The ranks are
    asserted rather than the pixel sizes: the CSS owns the diameters, this
    owns the order and which faces are largest. */
-test('PREVIEW: the circles are a two-column grid, all one size', () => {
+test('PREVIEW: the circles are a rail of three, all one size', () => {
+  /* ---- AND THE SHAPE CHANGED SIDES ONCE MORE ----
+     Founder, with the approved dashboard: "horizontal coaching-circle rail,
+     compact Confidence hero and Aerobic Development graph ... Rail 3
+     circles wrapped visually. Gold dots underneath."
+     Two abreast and vertical filled the screen with four circles; one row
+     of three leaves room for the graph. What the note below pinned is
+     still pinned: one size for all of them, and the founder's order -- which
+     is now the order the design draws them in. */
   /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
      It required a single staggered row -- ranks 2,1,1,2 outward from the
      centre -- because the arc sized its circles against each other: one
@@ -283,11 +298,16 @@ test('PREVIEW: the circles are a two-column grid, all one size', () => {
      and that the ladder has not crept back in. */
   const a = planHQ();
   const preview = a.renderSacoroInstruments();
-  assert.match(preview, /class="b-grid"/);
+  assert.match(preview, /<div class="b-rail" data-hswipe="1"><div class="b-grid">/,
+    'the circles are not a rail, or a swipe along it would change tab');
   assert.doesNotMatch(preview, /class="b-dials-(arc|row)"/, 'the staggered arc is back');
+  assert.match(CODE, /\.b-rail > \.b-grid \.b-dial-col\{flex:0 0 calc\(\(100% - 20px\) \/ 3\);/,
+    'the rail does not show three circles');
+  assert.match(CODE, /\.b-rail\{[^}]*overflow-x:auto;[^}]*scroll-snap-type:x mandatory;/,
+    'the rail does not scroll under a thumb');
   const order = (preview.match(/data-reading="([a-z]+)"/g) || [])
     .map(m => m.replace(/.*"([a-z]+)"$/, '$1'));
-  assert.deepEqual(order, ['evolution', 'adaptation', 'recovery', 'patterns']);
+  assert.deepEqual(order, ['recovery', 'evolution', 'adaptation', 'patterns']);
   const ranks = (preview.match(/data-rank="([0-9s])"/g) || []).map(m => m.slice(-2, -1));
   assert.equal(new Set(ranks).size <= 2, true,
     'the circles are graduated again: ' + ranks.join(','));

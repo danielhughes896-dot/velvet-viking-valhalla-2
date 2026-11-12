@@ -9430,6 +9430,77 @@
     background:radial-gradient(70% 70% at 50% 42%,
       color-mix(in srgb, var(--rd-base) 13%, transparent) 0%, transparent 72%), var(--bg);}
   .b-grid .rd-cat{font-size:12px;}
+  /* ---------- THE CIRCLES ARE A RAIL OF THREE ----------
+     Founder: "Rail 3 circles wrapped visually. Gold dots underneath."
+     The browser's own scroll, snapped to a circle, so it moves under a
+     thumb the way every other list on the phone does and needs no script
+     to be usable. A third of the row each; the fourth circle is the next
+     position. The padding is the room the rings' glow needs: a scroller
+     clips at its edge, and a halo cut flat on one side reads as a fault. */
+  .b-rail{overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain; scrollbar-width:none;
+    padding:12px 8px 6px; margin:0 -8px; scroll-padding:0 8px;}
+  .b-rail::-webkit-scrollbar{display:none;}
+  /* Out-specifies the grid's own two-column track and its scale, which a
+     narrow-phone rule restates further down this sheet. */
+  .b-rail > .b-grid{display:flex; gap:10px; margin:0; --dv:.84;}
+  .b-rail > .b-grid .b-dial-col{flex:0 0 calc((100% - 20px) / 3); width:auto; min-width:0; scroll-snap-align:start;}
+  .b-rail > .b-grid .rd-cat{font-size:11px;}
+  @media (max-width:360px){ .b-rail > .b-grid{--dv:.74;} }
+  .b-rail-dots{display:flex; justify-content:center; align-items:center; gap:7px; margin-top:10px;}
+  .b-rail-dot{width:6px; height:6px; border-radius:3px; background:var(--gold); opacity:.34;
+    transition:opacity .2s ease, width .2s ease;}
+  .b-rail-dot.is-on{width:16px; opacity:1;}
+  /* ---------- AND THE HERO IS COMPACT ----------
+     The gauge was the size of the circles under it because they shared one
+     token. The circles are a third of a row now, so the gauge takes its own
+     size: still the largest ring on the screen, no longer most of it. */
+  .view-planhq .v-hero-gauge{--ring-dia:120px;}
+  .view-planhq .v-hero{padding:0 0 8px;}
+  /* ---------- THE DEVELOPMENT GRAPH ----------
+     One rimmed panel in the page's own ink: a title, five words to choose
+     between, the figure, the line and one sentence. Cherry is what was
+     measured, because it is the athlete's own running; gold is where it is
+     heading, because gold is the destination. The chosen tab is cherry for
+     the reason every chosen thing is. No fill behind the panel -- the rim
+     is the whole of the box. */
+  .cg-card{margin:22px 0 4px; padding:20px 16px 18px; min-width:0;
+    border:1.5px solid var(--cherry); border-radius:var(--tile-radius);}
+  .cg-title{font-family:var(--label-face); font-weight:var(--label-weight); font-size:19px;
+    letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
+  /* ALL FIVE ARE ON THE SCREEN. In one row the fifth sat off the right edge
+     with nothing to say it was there -- measured at 390px, "Threshold" ended
+     exactly at the rim. Three and two, each a 44px target, so no graph is a
+     swipe the athlete has to guess at. */
+  .cg-tabs{display:grid; grid-template-columns:repeat(3, auto); justify-content:start;
+    column-gap:24px; row-gap:0; margin-top:4px;}
+  .cg-tab{justify-self:start; min-height:44px; padding:0; background:none; border:0; border-radius:0;
+    border-bottom:2px solid transparent; font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:13.5px; letter-spacing:1.2px; text-transform:uppercase; color:#FFFFFF; white-space:nowrap;}
+  .cg-tab.is-on{color:var(--cherry-text); border-bottom-color:var(--cherry-text);}
+  .cg-tab:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
+  .cg-head{display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; margin-top:16px;}
+  .cg-fig{font-family:var(--text-face); font-size:28px; font-weight:700; line-height:1.15; color:#FFFFFF;}
+  .cg-fig.is-good{color:var(--ok);}
+  .cg-fig-t{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .cg-svg{display:block; width:100%; height:auto; margin-top:12px; overflow:visible;}
+  .cg-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:2 4;}
+  .cg-ylab, .cg-xlab{font-family:var(--num-face); font-size:10.5px; fill:#FFFFFF;}
+  .cg-area{fill:url(#cg-fill);}
+  .cg-line{fill:none; stroke:var(--cherry-text); stroke-width:2.6; stroke-linejoin:round; stroke-linecap:round;}
+  .cg-dot{fill:var(--cherry-text);}
+  .cg-pred{fill:none; stroke:var(--gold); stroke-width:2.4; stroke-linecap:round; stroke-dasharray:.1 6;}
+  .cg-pdot{fill:var(--gold);}
+  .cg-legend{display:flex; justify-content:center; gap:22px; margin-top:6px;
+    font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .cg-key::before{content:''; display:inline-block; vertical-align:middle; width:22px; margin-right:8px;
+    border-top:2.6px solid var(--cherry-text);}
+  .cg-key.is-predicted::before{border-top:2.6px dotted var(--gold);}
+  .cg-cap{margin-top:10px; text-align:center; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .cg-wait{padding:38px 6px 34px; text-align:center;}
+  .cg-wait-w{font-family:var(--label-face); font-weight:var(--label-weight); font-size:22px;
+    letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
+  .cg-wait-s{margin-top:10px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   /* ---------- AND THE FOUR PLATES ----------
      Even, because no one of these facts outranks another -- a measured
      fitness, a progress figure, a goal time and a benchmark time are four
@@ -66371,7 +66442,7 @@ function statusValueFontSize(text){
    the same two renderers; only the order they are laid out in, and the
    shape two of them take, is new. Every instrument opens the panel it
    always opened. */
-var SACORO_CIRCLES = ['evolution','adaptation','recovery','patterns'];
+var SACORO_CIRCLES = ['recovery','evolution','adaptation','patterns'];
 var SACORO_PLATES  = ['fitness','progress','goal','benchmark'];
 /* ---------- THE RING IS THE INSTRUMENT ----------
    The circle used to carry its colour as a painted rim and nothing else, so
@@ -66410,6 +66481,387 @@ function dialRingHtml(mode, variant){
   return '<svg class="rd-ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
     '<circle class="rd-trk" cx="50" cy="50" r="'+R+'"/>'+arc+'</svg>';
 }
+/* ===== THE COACH DASHBOARD: DEVELOPMENT GRAPHS =====
+   Founder: "Include five selectable graphs: Aerobic Efficiency, Pace at HR,
+   Cardiac Drift, Threshold Development and Recovery Response. Use real
+   athlete evidence only. Show elegant 'Learning' states where data is
+   insufficient. Solid cherry for measured trends, dotted gold for
+   defensible predictions ... Graph - use the metrics we have and know."
+
+   NOTHING HERE IS A NEW MEASURE. Each graph plots a quantity the engine
+   already computes and already reasons from:
+
+     Aerobic Efficiency     heartbeats per km on easy runs -- hr x pace, the
+                            cost athleteTrends() reads for "easy efficiency".
+     Pace at HR             easy pace at this athlete's usual easy heart
+                            rate, from the same runs.
+     Cardiac Drift          coachHRDrift(): second-half against first-half
+                            heart rate, from lap data, on steady runs.
+     Threshold Development  threshold pace from measuredPerformances() --
+                            races and Fitness Checkpoints. Training runs do
+                            not move it, here or anywhere else.
+     Recovery Response      hours back to normal after a demanding session,
+                            from athleteResponseModel()'s recovery windows.
+
+   EVIDENCE, OR THE WORD FOR ITS ABSENCE. A graph is drawn from three points
+   or more (two measured efforts for threshold, which is a measurement and
+   not a trend of runs). Below that the card says Learning, Awaiting reliable
+   evidence or Building your baseline -- the founder's words per graph -- and
+   what it is waiting for. No point is ever interpolated, smoothed or
+   estimated: a week with no qualifying run has no dot.
+   Heart rate needs consent, heat is not read as fitness (hrIsReadable, the
+   guard every other heart-rate reader uses), and a run from another block
+   is not plotted against this block's weeks.
+
+   PREDICTIONS ARE THE NARROW CASE. A dotted line is drawn only where there
+   is a rule for it that was already defensible:
+     threshold       raceGoalProjectedVdot(), the Race Goal methodology's own
+                     projection, capped at the gain actually measured.
+     the weekly      a trend of four points or more that is improving and
+     aerobic three   fits a line well, carried forward three weeks at a rate
+                     that decays each week. A decline is never projected --
+                     the same rule raceGoalProjectedVdot() states: "a decline
+                     is not projected forward either."
+   Recovery is never predicted. */
+var COACH_GRAPHS = ['efficiency', 'paceAtHR', 'drift', 'threshold', 'recovery'];
+var COACH_GRAPH_META = {
+  efficiency: { title:'Aerobic Efficiency', group:'Aerobic Development', tab:'Efficiency', waiting:'Learning',
+                need:'Easy runs with heart rate and pace, in three separate weeks.', unit:'weeks' },
+  paceAtHR:   { title:'Pace at HR', group:'Aerobic Development', tab:'Pace at HR', waiting:'Learning',
+                need:'Easy runs at your usual easy heart rate, in three separate weeks.', unit:'weeks' },
+  drift:      { title:'Cardiac Drift', group:'Aerobic Development', tab:'Drift', waiting:'Learning',
+                need:'Steady runs with lap heart rate, in three separate weeks.', unit:'weeks' },
+  threshold:  { title:'Threshold Development', group:'Threshold Development', tab:'Threshold', waiting:'Awaiting reliable evidence',
+                need:'Two measured efforts: a race or a Fitness Checkpoint.', unit:'measured efforts' },
+  recovery:   { title:'Recovery Response', group:'Recovery Response', tab:'Recovery', waiting:'Building your baseline',
+                need:'Three hard sessions with the days after them logged.', unit:'hard sessions' }
+};
+/* Display rules, not coaching: how many points make a line worth drawing and
+   when a line may be carried forward. They change nothing the engine decides. */
+var COACH_GRAPH_CAL = { minPoints:3, minMeasured:2, predictPoints:4, predictSteps:3, predictDecay:0.6,
+                        predictFit:0.6, sameHRBand:5, levelPct:0.02, levelDriftPts:1, beyond72:96 };
+var coachGraphSel = 'efficiency';
+
+function coachGraphWeekly(rows){
+  var by = {};
+  rows.forEach(function(r){ (by[r.week] = by[r.week] || []).push(r.v); });
+  return Object.keys(by).map(Number).sort(function(a, b){ return a - b; }).map(function(w){
+    return { x:w, label:'W'+w, v:median(by[w]), n:by[w].length };
+  });
+}
+/* Easy runs in this block with a heart rate that can be read as fitness. */
+function coachGraphEasyRuns(){
+  if (!healthConsentGranted()) return [];
+  var out = [];
+  athleteMemory(400).forEach(function(r){
+    if (!r.completed || r.type !== 'easy' || !hrIsReadable(r) || !(r.actualPace > 0)) return;
+    var dd = findDayByDate(r.date);
+    if (!dd || dd.week == null) return;
+    out.push({ week:dd.week, hr:r.hr, pace:r.actualPace });
+  });
+  return out;
+}
+function coachGraphPlanWeeks(){
+  return (state.days || []).reduce(function(m, d){ return Math.max(m, d.week || 0); }, 0);
+}
+/* Least squares over the points as plotted. */
+function coachGraphFit(points){
+  var n = points.length, sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+  points.forEach(function(p){ sx += p.x; sy += p.v; sxx += p.x*p.x; sxy += p.x*p.v; syy += p.v*p.v; });
+  var den = n*sxx - sx*sx;
+  if (!den) return { slope:0, r2:0 };
+  var slope = (n*sxy - sx*sy) / den;
+  var vx = sxx - sx*sx/n, vy = syy - sy*sy/n;
+  var r2 = (vx > 0 && vy > 0) ? Math.pow(sxy - sx*sy/n, 2) / (vx*vy) : 0;
+  return { slope:slope, r2:r2 };
+}
+function coachGraphProject(points, lowerIsBetter){
+  var cal = COACH_GRAPH_CAL;
+  if (points.length < cal.predictPoints) return [];
+  var fit = coachGraphFit(points);
+  var improving = lowerIsBetter ? fit.slope < 0 : fit.slope > 0;
+  if (!improving || fit.r2 < cal.predictFit) return [];
+  var last = points[points.length - 1], limit = coachGraphPlanWeeks();
+  var out = [], v = last.v;
+  for (var k = 1; k <= cal.predictSteps; k++){
+    var x = last.x + k;
+    if (limit && x > limit) break;
+    v += fit.slope * Math.pow(cal.predictDecay, k);
+    out.push({ x:x, label:'W'+x, v:v });
+  }
+  return out;
+}
+function coachGraphClock(sec){
+  return secToClock(Math.round(Math.abs(sec)));
+}
+function coachGraphSeries(key){
+  var cal = COACH_GRAPH_CAL, meta = COACH_GRAPH_META[key];
+  if (!meta) return null;
+  var mile = displayUnit() === 'mi', per = mile ? 1.609344 : 1, unit = displayUnit();
+  var s = { key:key, title:meta.title, group:meta.group, waiting:meta.waiting, need:meta.need, unitWord:meta.unit,
+            points:[], predicted:[], lowerIsBetter:true, ready:false, have:0, want:cal.minPoints,
+            figure:'', figureText:'', good:false, caption:'', ticks:null,
+            fmt:function(v){ return String(Math.round(v)); } };
+  var first, last, d;
+
+  if (key === 'efficiency'){
+    s.points = coachGraphWeekly(coachGraphEasyRuns().map(function(r){
+      return { week:r.week, v:r.hr * (r.pace/60) * per }; }));
+    s.have = s.points.length;
+    if (s.have < s.want) return s;
+    s.ready = true;
+    first = s.points[0]; last = s.points[s.have - 1]; d = last.v - first.v;
+    var levelE = Math.abs(d) / first.v < cal.levelPct;
+    s.good = !levelE && d < 0;
+    s.figure = levelE ? 'Level' : (d < 0 ? '−' : '+') + Math.round(Math.abs(d)) + ' beats';
+    s.figureText = 'per ' + unit + ' on easy runs';
+    s.caption = levelE ? 'Easy running is costing about the same heartbeats per '+unit+' as in week '+first.x+'.'
+      : 'Easy running is costing '+(d < 0 ? 'fewer' : 'more')+' heartbeats per '+unit+' than in week '+first.x+'.';
+    s.predicted = coachGraphProject(s.points, true);
+    return s;
+  }
+
+  if (key === 'paceAtHR'){
+    var runs = coachGraphEasyRuns();
+    var ref = runs.length ? Math.round(median(runs.map(function(r){ return r.hr; }))) : null;
+    s.points = coachGraphWeekly(runs.filter(function(r){ return Math.abs(r.hr - ref) <= cal.sameHRBand; })
+      .map(function(r){ return { week:r.week, v:r.pace * per }; }));
+    s.fmt = function(v){ return secToClock(Math.round(v)); };
+    s.have = s.points.length;
+    if (s.have < s.want) return s;
+    s.ready = true;
+    first = s.points[0]; last = s.points[s.have - 1]; d = last.v - first.v;
+    var levelP = Math.abs(d) / first.v < cal.levelPct;
+    s.good = !levelP && d < 0;
+    s.figure = levelP ? 'Level' : coachGraphClock(d) + (d < 0 ? ' faster' : ' slower');
+    s.figureText = 'per ' + unit + ' at around ' + ref + ' bpm';
+    s.caption = levelP ? 'Your easy pace at around '+ref+' bpm is where it was in week '+first.x+'.'
+      : 'Your easy pace at around '+ref+' bpm is '+(d < 0 ? 'quicker' : 'slower')+' than in week '+first.x+'.';
+    s.predicted = coachGraphProject(s.points, true);
+    return s;
+  }
+
+  if (key === 'drift'){
+    var rows = [];
+    if (healthConsentGranted()) athleteMemory(400).forEach(function(r){
+      if (!r.completed || (r.type !== 'easy' && r.type !== 'long') || !hrIsReadable(r)) return;
+      var dd = findDayByDate(r.date);
+      if (!dd || dd.week == null) return;
+      var drift = coachHRDrift(dd);
+      if (drift != null) rows.push({ week:dd.week, v:drift });
+    });
+    s.points = coachGraphWeekly(rows);
+    s.fmt = function(v){ return (Math.round(v*10)/10) + '%'; };
+    s.have = s.points.length;
+    if (s.have < s.want) return s;
+    s.ready = true;
+    first = s.points[0]; last = s.points[s.have - 1]; d = last.v - first.v;
+    var levelD = Math.abs(d) < cal.levelDriftPts;
+    s.good = !levelD && d < 0;
+    s.figure = s.fmt(last.v);
+    s.figureText = 'heart-rate drift on steady runs';
+    s.caption = levelD ? 'Heart rate is rising across your steady runs about as much as in week '+first.x+'.'
+      : 'Heart rate is rising '+(d < 0 ? 'less' : 'more')+' across your steady runs than in week '+first.x+'.';
+    s.predicted = coachGraphProject(s.points, true);
+    return s;
+  }
+
+  if (key === 'threshold'){
+    var perfs = measuredPerformances().filter(function(p){ return p.vdot != null && p.date; })
+      .slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    var tPace = function(vdot){
+      var t = trainingPacesFromVDOT(vdot).T;
+      return (t && t.slow != null && t.fast != null) ? ((t.slow + t.fast) / 2) * per : null;
+    };
+    var t0 = perfs.length ? perfs[0].date : null;
+    perfs.forEach(function(p){
+      var v = tPace(p.vdot);
+      if (v != null) s.points.push({ x:daysBetween(t0, p.date), label:dShort(p.date), v:v });
+    });
+    s.fmt = function(v){ return secToClock(Math.round(v)); };
+    s.want = cal.minMeasured;
+    s.have = s.points.length;
+    if (s.have < s.want) return s;
+    s.ready = true;
+    first = s.points[0]; last = s.points[s.have - 1]; d = last.v - first.v;
+    var levelT = Math.abs(d) < 1;
+    s.good = !levelT && d < 0;
+    s.figure = levelT ? 'Level' : coachGraphClock(d) + (d < 0 ? ' faster' : ' slower');
+    s.figureText = 'threshold pace per ' + unit;
+    s.caption = 'From ' + s.have + ' measured efforts. Training runs do not move it.';
+    /* The Race Goal methodology's own projection, and nothing wider. */
+    var goal = null, proj = null;
+    try {
+      var end = (state.days || []).reduce(function(m, x){ return x.date > m ? x.date : m; }, todayStr());
+      var ahead = daysBetween(todayStr(), end);
+      if (ahead > 0){ proj = raceGoalProjectedVdot(ahead); goal = end; }
+    } catch(e){ proj = null; }
+    if (proj && !proj.flat && proj.vdot != null){
+      var pv = tPace(proj.vdot);
+      if (pv != null && pv < last.v) s.predicted = [{ x:daysBetween(t0, goal), label:dShort(goal), v:pv }];
+    }
+    return s;
+  }
+
+  if (key === 'recovery'){
+    var model = null, seen = {}, wins = [];
+    try { model = athleteResponseModel(); } catch(e){ model = null; }
+    if (model && model.families) DEMANDING_FAMILIES.forEach(function(f){
+      var rec = model.families[f] && model.families[f].recovery;
+      (rec && rec.detail || []).forEach(function(w){
+        if (seen[w.date] || (w.hours == null && !w.beyond72)) return;
+        seen[w.date] = true; wins.push(w);
+      });
+    });
+    wins.sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    /* The most recent twelve: a response is about now, and sixteen dots
+       across a phone is a smear. Nothing is averaged to make room. */
+    wins = wins.slice(-12);
+    s.points = wins.map(function(w, i){
+      return { x:i, label:dShort(w.date), v:(w.hours != null ? w.hours : cal.beyond72), over:w.hours == null };
+    });
+    s.ticks = [24, 48, 72, cal.beyond72];
+    s.fmt = function(v){ return v >= cal.beyond72 ? '72h+' : Math.round(v) + 'h'; };
+    s.have = s.points.length;
+    if (s.have < s.want) return s;
+    s.ready = true;
+    var timed = wins.filter(function(w){ return w.hours != null; }).map(function(w){ return w.hours; });
+    var over = wins.length - timed.length;
+    s.figure = timed.length ? 'About ' + Math.round(median(timed)) + ' hours' : 'Over 72 hours';
+    s.figureText = 'to feel normal after a hard session';
+    s.caption = 'From ' + s.have + ' hard sessions with the days after them logged.' +
+      (over ? ' ' + (over === 1 ? 'One took' : over + ' took') + ' longer than 72 hours.' : '');
+    return s;
+  }
+  return s;
+}
+
+/* ---------- drawing it ---------- */
+function coachGraphTicks(lo, hi){
+  var span = hi - lo;
+  if (!(span > 0)){ span = Math.abs(hi) * 0.1 || 1; lo -= span/2; hi += span/2; span = hi - lo; }
+  var raw = span / 4, mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), n = raw / mag;
+  var step = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag;
+  var start = Math.floor(lo / step) * step, out = [];
+  for (var v = start; v <= hi + step*0.999; v += step) out.push(Math.round(v*1000)/1000);
+  return out;
+}
+function coachGraphSvg(s){
+  var W = 320, H = 176, L = 46, R = 308, T = 12, B = 138;
+  var all = s.points.concat(s.predicted);
+  var vals = all.map(function(p){ return p.v; });
+  var ticks = s.ticks || coachGraphTicks(Math.min.apply(null, vals), Math.max.apply(null, vals));
+  var lo = ticks[0], hi = ticks[ticks.length - 1];
+  var x0 = all[0].x, x1 = all[all.length - 1].x;
+  var px = function(x){ return x1 === x0 ? (L + R) / 2 : L + (x - x0) / (x1 - x0) * (R - L); };
+  var py = function(v){ return hi === lo ? (T + B) / 2 : B - (v - lo) / (hi - lo) * (B - T); };
+  var f = function(n){ return Math.round(n*10)/10; };
+  var xy = function(p){ return f(px(p.x)) + ',' + f(py(p.v)); };
+  var grid = ticks.map(function(t){
+    return '<line class="cg-grid" x1="'+L+'" x2="'+R+'" y1="'+f(py(t))+'" y2="'+f(py(t))+'"/>'+
+           '<text class="cg-ylab" x="'+(L-8)+'" y="'+f(py(t)+3.5)+'" text-anchor="end">'+escapeHtml(s.fmt(t))+'</text>';
+  }).join('');
+  /* Every point is drawn; labels thin out before they collide. */
+  var every = Math.ceil(all.length / 6);
+  var xlab = all.map(function(p, i){
+    if (i % every !== 0 && i !== all.length - 1) return '';
+    if (i === all.length - 1 && all.length > 1 && (all.length - 1) % every !== 0 &&
+        px(p.x) - px(all[i - (i % every)].x) < 30) return '';
+    return '<text class="cg-xlab" x="'+f(px(p.x))+'" y="'+(B+20)+'" text-anchor="middle">'+escapeHtml(p.label)+'</text>';
+  }).join('');
+  var m = s.points, lastM = m[m.length - 1];
+  var area = m.length > 1
+    ? '<polygon class="cg-area" points="'+f(px(m[0].x))+','+B+' '+m.map(xy).join(' ')+' '+f(px(lastM.x))+','+B+'"/>' : '';
+  var line = m.length > 1 ? '<polyline class="cg-line" points="'+m.map(xy).join(' ')+'"/>' : '';
+  var dots = m.map(function(p){
+    return '<circle class="cg-dot" cx="'+f(px(p.x))+'" cy="'+f(py(p.v))+'" r="3.4"/>'; }).join('');
+  var pred = s.predicted.length
+    ? '<polyline class="cg-pred" points="'+[lastM].concat(s.predicted).map(xy).join(' ')+'"/>'+
+      s.predicted.map(function(p){
+        return '<circle class="cg-pdot" cx="'+f(px(p.x))+'" cy="'+f(py(p.v))+'" r="2.8"/>'; }).join('')
+    : '';
+  var alt = s.title + ': ' + m.map(function(p){ return p.label + ' ' + s.fmt(p.v); }).join(', ') +
+    (s.predicted.length ? '. Predicted: ' + s.predicted.map(function(p){ return p.label + ' ' + s.fmt(p.v); }).join(', ') : '');
+  return '<svg class="cg-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+escapeHtml(alt)+'">'+
+    '<defs><linearGradient id="cg-fill" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0" stop-color="var(--cherry-text)" stop-opacity=".34"/>'+
+      '<stop offset="1" stop-color="var(--cherry-text)" stop-opacity="0"/></linearGradient></defs>'+
+    grid + xlab + area + pred + line + dots +
+  '</svg>';
+}
+function renderCoachGraph(){
+  if (!state.setup) return '';
+  if (COACH_GRAPHS.indexOf(coachGraphSel) === -1) coachGraphSel = COACH_GRAPHS[0];
+  var s = null;
+  try { s = coachGraphSeries(coachGraphSel); } catch(e){ s = null; }
+  if (!s) return '';
+  var tabs = COACH_GRAPHS.map(function(k){
+    var on = k === coachGraphSel;
+    return '<button type="button" role="tab" class="cg-tab'+(on ? ' is-on' : '')+'" aria-selected="'+(on ? 'true' : 'false')+'" '+
+      'data-action="coach-graph" data-graph="'+k+'">'+escapeHtml(COACH_GRAPH_META[k].tab)+'</button>';
+  }).join('');
+  var body;
+  if (s.ready){
+    body = '<div class="cg-head"><span class="cg-fig'+(s.good ? ' is-good' : '')+'">'+escapeHtml(s.figure)+'</span>'+
+        '<span class="cg-fig-t">'+escapeHtml(s.figureText)+'</span></div>'+
+      coachGraphSvg(s)+
+      '<div class="cg-legend"><span class="cg-key is-measured">Measured</span>'+
+        (s.predicted.length ? '<span class="cg-key is-predicted">Predicted</span>' : '')+'</div>'+
+      '<div class="cg-cap">'+escapeHtml(s.caption)+'</div>';
+  } else {
+    /* NOT ENOUGH YET, SAID AS THAT. The founder's word for this graph, what
+       it is waiting for, and how far along it is. No axis is drawn: an
+       empty chart is a chart of nothing. */
+    var sofar = s.have === 0 ? 'None yet.' : s.have + ' of ' + s.want + ' so far.';
+    body = '<div class="cg-wait"><div class="cg-wait-w">'+escapeHtml(s.waiting)+'</div>'+
+        '<div class="cg-wait-s">'+escapeHtml(s.need)+' '+escapeHtml(sofar)+'</div></div>';
+  }
+  return '<div class="cg-card" id="coach-graph">'+
+    '<div class="cg-title">'+escapeHtml(s.group)+'</div>'+
+    '<div class="cg-tabs" role="tablist" aria-label="Development graphs" data-hswipe="1">'+tabs+'</div>'+
+    '<div class="cg-body" role="tabpanel">'+body+'</div>'+
+  '</div>';
+}
+function handleCoachGraph(key){
+  if (COACH_GRAPHS.indexOf(key) === -1 || key === coachGraphSel) return;
+  coachGraphSel = key;
+  var el = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('coach-graph') : null;
+  if (el && el.outerHTML != null){
+    var keep = 0, tabsEl = el.querySelector ? el.querySelector('.cg-tabs') : null;
+    if (tabsEl) keep = tabsEl.scrollLeft || 0;
+    el.outerHTML = renderCoachGraph();
+    var again = document.getElementById('coach-graph');
+    var t2 = again && again.querySelector ? again.querySelector('.cg-tabs') : null;
+    if (t2) t2.scrollLeft = keep;
+  } else renderApp();
+}
+/* ---------- THE CIRCLE RAIL'S DOTS ----------
+   Three circles show and the rest are a swipe away; the dots under them say
+   how many positions there are and which one this is. Scroll events do not
+   bubble, so this listens in the capture phase and ignores every scroller
+   that is not the rail. */
+function coachRailDots(n, visible){
+  var pages = Math.max(1, n - visible + 1);
+  if (pages < 2) return '';
+  var dots = '';
+  for (var i = 0; i < pages; i++) dots += '<span class="b-rail-dot'+(i === 0 ? ' is-on' : '')+'"></span>';
+  return '<div class="b-rail-dots" aria-hidden="true">'+dots+'</div>';
+}
+function coachRailPage(scrollLeft, scrollWidth, clientWidth, pages){
+  var room = scrollWidth - clientWidth;
+  if (!(room > 0) || pages < 2) return 0;
+  return Math.max(0, Math.min(pages - 1, Math.round(scrollLeft / room * (pages - 1))));
+}
+function coachRailScrolled(e){
+  var el = e && e.target;
+  if (!el || !el.classList || !el.classList.contains('b-rail')) return;
+  var host = el.parentNode;
+  var dots = host && host.querySelectorAll ? host.querySelectorAll('.b-rail-dot') : [];
+  if (!dots.length) return;
+  var at = coachRailPage(el.scrollLeft, el.scrollWidth, el.clientWidth, dots.length);
+  for (var i = 0; i < dots.length; i++) dots[i].classList.toggle('is-on', i === at);
+}
+
 function renderSacoroInstruments(){
   var report = coachAnalyse();
   if (!report || !state.setup) return '';
@@ -66449,8 +66901,20 @@ function renderSacoroInstruments(){
     return facts[k] ? statusPlateHtml(facts[k]) : '';
   }).join('');
   if (!circles && !plates) return '';
-  return (circles ? '<div class="b-dials"><div class="b-grid">'+circles+'</div>'+
-            readingHintHtml()+'</div>' : '')+
+  /* ---------- A RAIL OF THREE, THEN THE GRAPH, THEN THE PLATES ----------
+     Founder, with the approved design: "horizontal coaching-circle rail,
+     compact Confidence hero and Aerobic Development graph ... Rail 3
+     circles wrapped visually. Gold dots underneath."
+     The circles were a two-by-two grid that filled the screen by itself.
+     They are the same four instruments, drawn by the same function and
+     opening the same panels; three show, the fourth is a swipe away, and
+     the dots say so. The "tap any circle" whisper gives its line to them.
+     .b-grid is untouched -- every rule that draws a ring is written
+     against it -- and sits inside .b-rail, which is the part that scrolls. */
+  var shown = SACORO_CIRCLES.filter(function(k){ return !!reading[k]; }).length;
+  return (circles ? '<div class="b-dials"><div class="b-rail" data-hswipe="1"><div class="b-grid">'+circles+'</div></div>'+
+            coachRailDots(shown, 3)+'</div>' : '')+
+         renderCoachGraph()+
          (plates ? '<div class="b-plates">'+plates+'</div>' : '');
 }
 /* THE LONGEST UNBREAKABLE RUN, which is what has to fit -- the same thing
@@ -70032,6 +70496,7 @@ document.addEventListener('click', function(e){
     case 'share-export': shareExport(target.getAttribute('data-mode')); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
+    case 'coach-graph': handleCoachGraph(target.getAttribute('data-graph')); break;
     case 'log-pick': handleLogPick(target.getAttribute('data-day'), target.getAttribute('data-field'), target.getAttribute('data-value')); break;
     case 'log-clear': handleLogClear(target.getAttribute('data-day'), target.getAttribute('data-field')); break;
     /* A tap on an untouched slider exactly where its thumb already sits
@@ -70501,6 +70966,7 @@ function init(){
   initPageSwipe();
   try{ document.addEventListener('input', logRangeLive); }catch(e){}
   try{ document.addEventListener('pointerup', logRangeSettle); }catch(e){}
+  try{ document.addEventListener('scroll', coachRailScrolled, true); }catch(e){}
   // Deliberately last and un-awaited: the app is already painted from
   // localStorage by this point, so cloud sync can never delay startup and a
   // cloud failure can never prevent the app from opening.

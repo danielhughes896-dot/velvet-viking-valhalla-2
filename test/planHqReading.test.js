@@ -106,7 +106,13 @@ test('READING: every interpretation the engine produces is reachable', () => {
      "plan evolution - adaption, fitness - progress, recovery - patterns".
      Fitness and Progress sit between these four in the grid and are Record
      facts, so they are checked in test/planHqRecord rather than here. */
-  assert.equal(keys.join(','), 'evolution,adaptation,recovery,patterns');
+  /* ---- AND THE ORDER CHANGED SIDES AGAIN, WITH THE SHAPE ----
+     Founder, with the approved dashboard: "horizontal coaching-circle rail
+     ... Rail 3 circles wrapped visually." The pairs were rows of a grid
+     that is now one row, and the design draws it Recovery, Evolution,
+     Adaptation -- how the athlete is, what the plan is doing about it, how
+     the body is answering -- with Patterns the next position along. */
+  assert.equal(keys.join(','), 'recovery,evolution,adaptation,patterns');
   // Readiness is still one of the engine's sections and still has to be
   // openable. Its door is the gauge that was already showing it.
   const gaugeTag = (html.match(/<button[^>]*class="gauge-wrap"[^>]*>/) || [])[0] || '';

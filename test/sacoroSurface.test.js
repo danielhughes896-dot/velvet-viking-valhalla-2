@@ -612,15 +612,19 @@ test('SHAPE: the grid is readings only, and every Record fact is a plate', () =>
      by accident is not mistaken for the rule. Joined rather than deep-equal
      because the app runs in its own realm: a structurally identical array
      there has a different Array prototype, and assert/strict rejects it. */
-  assert.equal([...a.SACORO_CIRCLES].join(','), 'evolution,adaptation,recovery,patterns');
+  assert.equal([...a.SACORO_CIRCLES].join(','), 'recovery,evolution,adaptation,patterns');
   assert.equal([...a.SACORO_PLATES].join(','), 'fitness,progress,goal,benchmark');
 
   /* THE PAIRS THE FOUNDER NAMED SURVIVE. "evolution - adaption" and
      "recovery - patterns" were two of the three rows of the old grid; the
      pair between them left, and the other two stayed whole rather than
      being re-paired around the gap. */
-  assert.equal([...a.SACORO_CIRCLES].slice(0, 2).join(','), 'evolution,adaptation');
-  assert.equal([...a.SACORO_CIRCLES].slice(2).join(','), 'recovery,patterns');
+  /* ---- CHANGED SIDES: THE PAIRS WERE ROWS, AND THERE ARE NO ROWS ----
+     Founder, with the approved dashboard: "Rail 3 circles wrapped
+     visually." The three the design shows are the three the rail opens on,
+     and Patterns is the position after them. */
+  assert.equal([...a.SACORO_CIRCLES].slice(0, 3).join(','), 'recovery,evolution,adaptation');
+  assert.equal([...a.SACORO_CIRCLES].slice(3).join(','), 'patterns');
 });
 
 test('SHAPE: every fact that took a plate is a number, which is why it took one', () => {
