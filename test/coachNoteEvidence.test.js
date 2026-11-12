@@ -15,6 +15,12 @@ const { buildPlan, logAsPrescribed } = require('./fixtures.js');
    evidence is insufficient, retain appropriate session guidance rather than
    manufacturing personalisation. Do not introduce a new AI API call."
 
+   (That last sentence was the ruling for THIS correction. The founder later
+   asked for the note to be "AI-written ... using existing Anthropic
+   integration and engine evidence" -- see coachNoteAi.test.js. What this file
+   pins has not moved: the engine writes its observation with no network, and
+   that observation is what a written note must explain and falls back to.)
+
    And the validation asked for: "Test the same prescribed session against
    contrasting athlete histories: improving, strained, missed training, pain,
    heavy legs and insufficient data. The written Coach's Note must reflect

@@ -9413,9 +9413,14 @@
   .b-rail > .b-grid .rd-cat{font-size:11px;}
   @media (max-width:360px){ .b-rail > .b-grid{--dv:.74;} }
   .b-rail-dots{display:flex; justify-content:center; align-items:center; gap:7px; margin-top:10px;}
-  .b-rail-dot{width:6px; height:6px; border-radius:3px; background:var(--gold); opacity:.34;
-    transition:opacity .2s ease, width .2s ease;}
-  .b-rail-dot.is-on{width:16px; opacity:1;}
+  /* Founder: "The gold under the circles should be the same small circles
+     used on the other rails." So these are that dot, to the pixel: six
+     across, round, faint until it is the one showing, then bright gold. No
+     dash for the current position -- no other rail has one. */
+  .b-rail-dot{width:6px; height:6px; border-radius:50%; background:var(--mark-faint); opacity:.34;
+    transition:opacity .25s ease, background-color .25s ease, box-shadow .25s ease;}
+  .b-rail-dot.is-on{background:var(--gold-bright); opacity:1;
+    box-shadow:0 0 8px color-mix(in srgb, var(--gold-bright) 60%, transparent);}
   /* ---------- AND THE HERO IS COMPACT ----------
      The gauge was the size of the circles under it because they shared one
      token. The circles are a third of a row now, so the gauge takes its own
@@ -9423,31 +9428,40 @@
   .view-planhq .v-hero-gauge{--ring-dia:120px;}
   .view-planhq .v-hero{padding:0 0 8px;}
   /* ---------- THE DEVELOPMENT GRAPH ----------
-     One rimmed panel in the page's own ink: a title, five words to choose
-     between, the figure, the line and one sentence. Cherry is what was
-     measured, because it is the athlete's own running; gold is where it is
-     heading, because gold is the destination. The chosen tab is cherry for
-     the reason every chosen thing is. No fill behind the panel -- the rim
-     is the whole of the box. */
-  .cg-card{margin:22px 0 4px; padding:20px 16px 18px; min-width:0;
-    border:1.5px solid var(--cherry); border-radius:var(--tile-radius);}
+     Founder: "The graph box. I don't think this should be in a box. It
+     should be full width." So there is no rim and no inset: a centred title,
+     five words across the page, the figure, the line and one sentence, on
+     the page itself and as wide as it. Cherry is what was measured, because
+     it is the athlete's own running; gold is where it is heading, because
+     gold is the destination. The chosen tab is cherry for the reason every
+     chosen thing is. */
+  .cg-card{margin:26px 0 8px; padding:0; min-width:0;}
   .cg-title{font-family:var(--label-face); font-weight:var(--label-weight); font-size:19px;
-    letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
-  /* ALL FIVE ARE ON THE SCREEN. In one row the fifth sat off the right edge
-     with nothing to say it was there -- measured at 390px, "Threshold" ended
-     exactly at the rim. Three and two, each a 44px target, so no graph is a
-     swipe the athlete has to guess at. */
-  .cg-tabs{display:grid; grid-template-columns:repeat(3, auto); justify-content:start;
-    column-gap:24px; row-gap:0; margin-top:4px;}
-  .cg-tab{justify-self:start; min-height:44px; padding:0; background:none; border:0; border-radius:0;
-    border-bottom:2px solid transparent; font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:13.5px; letter-spacing:1.2px; text-transform:uppercase; color:#FFFFFF; white-space:nowrap;}
-  .cg-tab.is-on{color:var(--cherry-text); border-bottom-color:var(--cherry-text);}
-  .cg-tab:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
+    letter-spacing:1.6px; text-transform:uppercase; text-align:center; color:#FFFFFF;}
+  /* FIVE IN ONE ROW, ACROSS THE WHOLE TOP. Founder: "ideally I would like
+     them across the whole top as 5 in 1 row." They did not fit when the
+     card had a rim and padding to pay for; without those they do. Each is
+     as wide as its word and the space between them is shared evenly, so the
+     first word starts at the page's left edge and the last ends at its
+     right. The target is wider than the word: it reaches half-way to its
+     neighbours and is 44px tall. */
+  .cg-tabs{display:flex; justify-content:space-between; align-items:stretch; gap:0; margin-top:8px;}
+  .cg-tab{position:relative; flex:0 0 auto; min-width:0; min-height:44px; padding:0; background:none; border:0; border-radius:0;
+    font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:13px; letter-spacing:.8px; text-transform:uppercase; color:#FFFFFF; white-space:nowrap;}
+  .cg-tab > span{display:inline-block; padding:6px 0 5px; border-bottom:2px solid transparent;}
+  .cg-tab::after{content:''; position:absolute; top:0; bottom:0; left:-7px; right:-7px;}
+  .cg-tab:first-child::after{left:0;}
+  .cg-tab:last-child::after{right:0;}
+  .cg-tab.is-on{color:var(--cherry-text);}
+  .cg-tab.is-on > span{border-bottom-color:var(--cherry-text);}
+  .cg-tab:focus-visible{outline:2px solid var(--cherry-text); outline-offset:-2px;}
+  @media (max-width:360px){ .cg-tab{font-size:11px; letter-spacing:.3px;} }
   .cg-head{display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; margin-top:16px;}
   .cg-fig{font-family:var(--text-face); font-size:28px; font-weight:700; line-height:1.15; color:#FFFFFF;}
   .cg-fig.is-good{color:var(--ok);}
   .cg-fig-t{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .cg-measure{margin-top:8px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   .cg-svg{display:block; width:100%; height:auto; margin-top:12px; overflow:visible;}
   .cg-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:2 4;}
   .cg-ylab, .cg-xlab{font-family:var(--num-face); font-size:10.5px; fill:#FFFFFF;}
@@ -9462,10 +9476,19 @@
     border-top:2.6px solid var(--cherry-text);}
   .cg-key.is-predicted::before{border-top:2.6px dotted var(--gold);}
   .cg-cap{margin-top:10px; text-align:center; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
-  .cg-wait{padding:38px 6px 34px; text-align:center;}
-  .cg-wait-w{font-family:var(--label-face); font-weight:var(--label-weight); font-size:22px;
+  /* WAITING: THE GRAPH'S OUTLINE, WITH NOTHING ON IT. Founder: "for visual
+     there should be the out line on the graph. Just no data on it." The same
+     frame the measured graph is drawn in -- its rules and its floor -- and
+     not one figure on either axis, because there is no measurement to put a
+     scale to. The word sits where the line will be, in the space between
+     two rules rather than across one. */
+  .cg-wait{position:relative; margin-top:16px;}
+  .cg-wait .cg-svg{margin-top:0;}
+  .cg-base{stroke:var(--line); stroke-width:1.2;}
+  .cg-wait-w{position:absolute; left:0; right:0; top:40%; transform:translateY(-50%); text-align:center;
+    font-family:var(--label-face); font-weight:var(--label-weight); font-size:22px;
     letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
-  .cg-wait-s{margin-top:10px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .cg-wait-s{margin-top:10px; text-align:center; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   /* ---------- AND THE FOUR PLATES ----------
      Even, because no one of these facts outranks another -- a measured
      fitness, a progress figure, a goal time and a benchmark time are four
@@ -32397,7 +32420,7 @@ function renderWhySession(dd){
      coachObservation(). Last, under the session's own words: the guidance
      is unchanged and still leads. */
   var obs = '';
-  try { obs = coachObservationInWhy(dd) ? coachObservation(dd) : ''; } catch(e) { obs = ''; }
+  try { obs = coachObservationInWhy(dd) ? coachNoteText(dd) : ''; } catch(e) { obs = ''; }
   if (!why && !shape && !obs) return '';
   return '<div class="why-session">'+
       '<span class="why-session-k font-head">Why this session</span>'+
@@ -33210,7 +33233,7 @@ function renderCoachingDepth(dd, pre, preview){
              every line in this box. */
         }
         var obs = '';
-        try { obs = coachObservationInWhy(dd) ? '' : coachObservation(dd); } catch(e) { obs = ''; }
+        try { obs = coachObservationInWhy(dd) ? '' : coachNoteText(dd); } catch(e) { obs = ''; }
         /* The gate is the one it was, to the letter; an observation is one
            more thing that can be the only thing to say. */
         if (!obs){
@@ -33922,7 +33945,7 @@ function renderSoloNote(dd){
   try { if (needsFueling(dd)) hints = fuelFacts(dd).railHints || []; } catch(e) { hints = []; }
   var parts = singleCardNoteParts(dd);
   var obs = '';
-  try { obs = coachObservation(dd); } catch(e) { obs = ''; }
+  try { obs = coachNoteText(dd); } catch(e) { obs = ''; }
   if (!parts && !hints.length && !obs) return '';
   /* ---------- THE CLEANEST IT CAN EVER BE ----------
      Founder: "Do not need the top row in the box. Remove the symbol |
@@ -40697,9 +40720,35 @@ function coachReadNotes(text){
   });
   return out;
 }
+/* A TAPPED CONDITION EXCUSES WHAT THE TYPED ONE DOES. Your Log's own rule is
+   that "nothing downstream can tell a tapped 'Hot' from a typed one", and
+   this was the place that could: it read the note's text and nothing else,
+   so an athlete who wrote "hilly" had a slow pace read in context and an
+   athlete who tapped Hilly was told nothing explained it. Heat and the
+   treadmill never showed the fault, because they reach the review through
+   coachEnvironment(); hills and wind have no other road in.
+
+   The answer is taken from sessionSignals(), so the note still wins a
+   concept it has spoken to, and each maps to the cue its typed word already
+   matches -- no new excuse exists, and none excuses more than it did. */
+var LOG_CONDITION_CUE = { heat:'heat', humidity:'heat', wind:'wind', hills:'hills', treadmill:'treadmill' };
+function coachSessionCues(dd){
+  var a = dd && dd.actual;
+  var cues = coachReadNotes(a && a.notes);
+  if (!a || !a.conditions || !a.conditions.length) return cues;
+  var sigs = null;
+  try { sigs = sessionSignals(a); } catch(e){ sigs = null; }
+  ((sigs && sigs.signals) || []).forEach(function(sig){
+    var key = sig.answered ? LOG_CONDITION_CUE[sig.id] : null;
+    if (!key || cues.some(function(c){ return c.key === key; })) return;
+    var cue = COACH_NOTE_CUES.filter(function(c){ return c.key === key; })[0];
+    if (cue) cues.push(cue);
+  });
+  return cues;
+}
 // Cues on a single day that explain away a given component being off-target.
 function coachExcuses(dd, component){
-  return coachReadNotes(dd && dd.actual && dd.actual.notes).filter(function(c){
+  return coachSessionCues(dd).filter(function(c){
     return c.excuses.indexOf(component)!==-1;
   });
 }
@@ -47706,6 +47755,228 @@ function coachObservation(dd){
    same way renderCoachingDepth asks it, so it is drawn once and never twice. */
 function coachObservationInWhy(dd){
   return hasWorkoutBlueprint(dd) && !soloNoteSession(dd);
+}
+/* ===== THE COACH'S NOTE, WRITTEN =====
+   Founder: "Upgrade Coach's Note to genuinely personalised, AI-written
+   coaching using existing Anthropic integration and engine evidence. The
+   engine retains all training decisions; AI explains, never invents data or
+   changes prescriptions. Avoid duplicate observations and provide a safe
+   fallback."
+
+   THE ENGINE'S SENTENCE IS THE NOTE UNTIL SOMETHING BETTER HAS EARNED ITS
+   PLACE. coachObservation() above is unchanged: it is drawn the moment the
+   screen is, with no network. A written note is asked for afterwards, once
+   per body of evidence, and replaces that sentence in the SAME place only if
+   it arrives and passes every check. So the fallback is not a branch that
+   has to work when things go wrong; it is what is already on the screen.
+
+   WHAT THE MODEL IS GIVEN, AND NOTHING ELSE. Not the training record. What
+   the engine concluded from it: the decision and its reasons, how recovery
+   reads, what the athlete reported this morning, and the engine's own
+   sentence. It is asked to say that well, to this athlete.
+
+   WHAT IT CAN DO. Return text. There is no proposal channel, no session id,
+   no field the app acts on. It cannot change a prescription because nothing
+   it returns is ever read as one.
+
+   WHAT STOPS IT INVENTING. coachNoteValid(), the same rules the server
+   applies before it replies: every number in the note must be a number in
+   the evidence; it may not announce or instruct a change the engine did not
+   make; no medical advice; and it may not repeat a line already beside it --
+   the session's Why, its cue, and the reason on a suggested change, which is
+   what stops the two saying the same thing twice.
+
+   WHO IT IS NOT ASKED FOR. An athlete with nothing the engine has concluded:
+   there is nothing to explain, and personalisation is not manufactured. And
+   an athlete whose record holds a Strava-derived day: the engine's
+   conclusions are worked out from the whole record, so they cannot be shown
+   to be free of it, and the standing rule is that such data does not reach a
+   model. They keep the engine's own note, which never leaves the device.
+
+   Health information goes only with consent, exactly as it does for Ask
+   Coach, and the note is kept on this device only. */
+var COACH_NOTE_KEY = 'sacoro.coachNote.v1';
+var COACH_NOTE_MAX_CHARS = 340, COACH_NOTE_MIN_CHARS = 24;
+var COACH_NOTE_DAILY = 6;            // a ceiling on asks per day, whatever happens
+var coachNoteMem = null;             // { fp, note, day, count }
+var coachNoteBusy = null;            // the evidence being asked about now
+var coachNoteFailed = {};            // evidence that produced no note, this launch
+var COACH_NOTE_CHANGE_WORDS = ['skip', 'swap', 'replace', 'shorten', 'cut short', 'extend', 'add another', 'drop the',
+  'rest day instead', 'take the day off', 'take today off', 'move the', 'postpone', 'cancel', 'do not run',
+  'don\'t run', 'instead run', 'run it tomorrow'];
+var COACH_NOTE_NEVER = [
+  [/\b(i|we)(?:'ve| have)\s+(?:changed|moved|adjusted|reduced|swapped|updated|rewritten)\b/i, 'claims_change'],
+  [/\byour (?:plan|session|schedule|programme) (?:has been|is now|was) (?:changed|adjusted|updated|moved|reduced)\b/i, 'claims_change'],
+  [/\b(?:as an ai|language model|algorithm|the engine|the data (?:shows|says)|evidence (?:shows|says|suggests))\b/i, 'mentions_machine'],
+  [/\b(?:diagnos|ibuprofen|paracetamol|anti-inflammator|medication|tablet|dose)\w*/i, 'medical'],
+  [/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'emoji'],
+  [/^\s*[-*#]|\n\s*[-*#]/, 'markup']
+];
+function coachNoteNumbers(text){
+  return (String(text == null ? '' : text).match(/\d+(?:[.:]\d+)*/g) || []);
+}
+function coachNoteNorm(t){
+  return String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+/* The check, on this side of the wire as well. A server that has been
+   changed, or a response that is not the server's, still cannot put a number
+   on the screen that the engine did not produce. */
+function coachNoteValid(raw, evidence){
+  var note = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim()
+    .replace(/^["'“‘]+|["'”’]+$/g, '').trim();
+  if (note.length < COACH_NOTE_MIN_CHARS) return { ok:false, why:'too_short' };
+  if (note.length > COACH_NOTE_MAX_CHARS) return { ok:false, why:'too_long' };
+  if (note.split(/(?<=[.!?])\s+/).filter(Boolean).length > 3) return { ok:false, why:'too_many_sentences' };
+  for (var i = 0; i < COACH_NOTE_NEVER.length; i++)
+    if (COACH_NOTE_NEVER[i][0].test(note)) return { ok:false, why:COACH_NOTE_NEVER[i][1] };
+  var ev = '';
+  try { ev = JSON.stringify(evidence == null ? {} : evidence); } catch(e){ ev = ''; }
+  var known = {};
+  coachNoteNumbers(ev).forEach(function(n){ known[n] = true; });
+  if (coachNoteNumbers(note).some(function(n){ return !known[n]; })) return { ok:false, why:'invented_number' };
+  var evLower = ev.toLowerCase(), noteLower = note.toLowerCase();
+  for (var c = 0; c < COACH_NOTE_CHANGE_WORDS.length; c++){
+    var w = COACH_NOTE_CHANGE_WORDS[c];
+    if (noteLower.indexOf(w) !== -1 && evLower.indexOf(w) === -1) return { ok:false, why:'changes_prescription' };
+  }
+  if (evidence && evidence.decision === 'recover' && !/recover/i.test(note)) return { ok:false, why:'softens_recover' };
+  var shown = (evidence && Array.isArray(evidence.alreadyOnScreen)) ? evidence.alreadyOnScreen : [];
+  var noteNorm = coachNoteNorm(note);
+  for (var s = 0; s < shown.length; s++){
+    var parts = String(shown[s] == null ? '' : shown[s]).split(/(?<=[.!?])\s+/);
+    for (var p = 0; p < parts.length; p++){
+      var line = coachNoteNorm(parts[p]);
+      if (line.length >= 24 && noteNorm.indexOf(line) !== -1) return { ok:false, why:'duplicate' };
+    }
+  }
+  return { ok:true, note:note };
+}
+function coachNoteHash(str){
+  var h = 5381;
+  for (var i = 0; i < str.length; i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return 'cn'+h.toString(36);
+}
+/* What is already beside the note, so it is not said again. */
+function coachNoteAlreadyOnScreen(dd){
+  var out = [];
+  try { var gd = coachingDisclosureFor(dd, athleteExperience()); if (gd && gd.why) out.push(resolveDesc(gd.why)); } catch(e){}
+  try { var ce = coachingEntryFor(dd); if (ce && ce.cue) out.push(ce.cue); } catch(e){}
+  try { var pe = planEvolution(); if (evolutionProposalVisible(pe) && pe.reasons[0]) out.push(pe.reasons[0]); } catch(e){}
+  return out.filter(Boolean).map(function(t){ return String(t); });
+}
+/* THE EVIDENCE: what the engine concluded, in the engine's own terms. Null
+   whenever a written note is not to be asked for at all. */
+function coachNoteEvidence(dd){
+  var engineNote = coachObservation(dd);
+  if (!engineNote) return null;                       // nothing concluded, nothing to explain
+  if (voiceHasStravaEvidence()) return null;          // conclusions cannot be shown Strava-free
+  if (!voiceDayEligible(dd)) return null;
+  var dec = coachDecision(), rec = coachRecovery(), load = coachLoad(), trend = coachTrend();
+  var miss = null;
+  try { miss = missPattern(); } catch(e){ miss = null; }
+  var ev = {
+    units: displayUnit(),
+    guidanceLevel: guidanceLevel(),
+    session: { title: dd.title, type: dd.type, plannedDistance: fmtDist(dd.km), isToday: dd.date === todayStr() },
+    decision: dec ? dec.state : 'proceed',
+    reasons: dec ? dec.reasons.slice(0, 3) : [],
+    recovery: { state: rec.state, hardDaysInARow: rec.hardStreak },
+    trend: trend.enough ? trend.direction : 'not established',
+    load: load.band || 'unknown',
+    missedTraining: (miss && miss.tier !== 'isolated') ? { ran: miss.ran, planned: miss.planned } : null,
+    engineNote: engineNote,
+    alreadyOnScreen: coachNoteAlreadyOnScreen(dd)
+  };
+  if (healthConsentGranted()){
+    ev.recovery.sessionsEffortAboveBand = rec.overRPE;
+    ev.recovery.sessionsHeartRateAboveZone = rec.overHR;
+    if (rec.morning && rec.morning.flags.length) ev.reportedThisMorning = rec.morning.flags.slice();
+  } else ev.healthInformation = 'withheld';
+  return ev;
+}
+function coachNoteLoad(){
+  if (coachNoteMem) return coachNoteMem;
+  coachNoteMem = {};
+  try {
+    var raw = window.localStorage.getItem(COACH_NOTE_KEY);
+    var got = raw ? JSON.parse(raw) : null;
+    if (got && typeof got === 'object') coachNoteMem = got;
+  } catch(e){ coachNoteMem = {}; }
+  return coachNoteMem;
+}
+function coachNoteStore(patch){
+  var c = coachNoteLoad();
+  Object.keys(patch).forEach(function(k){ c[k] = patch[k]; });
+  try { window.localStorage.setItem(COACH_NOTE_KEY, JSON.stringify(c)); } catch(e){}
+}
+/* The written note for this session, if one is held for exactly this
+   evidence and still passes. Anything else is the empty string. */
+function coachNoteWritten(dd){
+  var ev = null;
+  try { ev = coachNoteEvidence(dd); } catch(e){ ev = null; }
+  if (!ev) return '';
+  var c = coachNoteLoad();
+  if (!c.note || c.fp !== coachNoteHash(JSON.stringify(ev))) return '';
+  var v = coachNoteValid(c.note, ev);
+  return v.ok ? v.note : '';
+}
+/* WHAT IS DRAWN. One line, in one place: the written note where there is
+   one, the engine's sentence where there is not. Never both. */
+function coachNoteText(dd){
+  var written = '';
+  try { written = coachNoteWritten(dd); } catch(e){ written = ''; }
+  return written || coachObservation(dd);
+}
+function coachNoteBudget(){
+  var c = coachNoteLoad(), today = todayStr();
+  if (c.day !== today) return true;
+  return (c.count || 0) < COACH_NOTE_DAILY;
+}
+/* ASK, IF THERE IS ANYTHING TO ASK AND ANY POINT ASKING. Called after a
+   render; returns at once in every case but one. Nothing waits on it and
+   every failure leaves the screen exactly as it was. */
+function coachNoteMaybeFetch(){
+  if (typeof fetch !== 'function' || typeof window === 'undefined') return null;
+  if (!voiceCoachAvailable || !cloudSignedIn() || askDeviceOffline()) return null;
+  if (!state || !state.setup || state.view !== 'today') return null;
+  var dd = null;
+  try { dd = coachNextSession(); } catch(e){ dd = null; }
+  if (!dd) return null;
+  var ev = null;
+  try { ev = coachNoteEvidence(dd); } catch(e){ ev = null; }
+  if (!ev) return null;
+  var fp = coachNoteHash(JSON.stringify(ev));
+  var c = coachNoteLoad();
+  if (c.fp === fp && c.note) return null;                 // already written for this evidence
+  if (coachNoteBusy === fp || coachNoteFailed[fp]) return null;
+  if (!coachNoteBudget()) return null;
+  coachNoteBusy = fp;
+  var today = todayStr();
+  coachNoteStore({ day: today, count: (c.day === today ? (c.count || 0) : 0) + 1 });
+  return cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) throw { code:'not_signed_in' };
+    return fetch('/api/voice-note', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'accept':'application/json',
+                'Authorization':'Bearer '+cloudSession.access_token },
+      body: JSON.stringify({ evidence: ev })
+    });
+  }).then(function(resp){
+    return (resp && resp.ok) ? resp.json() : null;
+  }).then(function(d){
+    coachNoteBusy = null;
+    var v = (d && d.note) ? coachNoteValid(d.note, ev) : { ok:false };
+    if (!v.ok){ coachNoteFailed[fp] = true; return null; }
+    coachNoteStore({ fp: fp, note: v.note });
+    /* Redrawn only if the card is on the screen; coachNoteText() checks the
+       evidence again, so a note that arrives after the athlete has logged
+       something new is simply not used. */
+    try { if (document.getElementById('day-'+dd.id)) replaceCard(dd); } catch(e){}
+    return v.note;
+  }).catch(function(){
+    coachNoteBusy = null; coachNoteFailed[fp] = true;
+    return null;
+  });
 }
 var COACH_GENERIC_CLOSERS = [
   'Everything landed on the numbers it was set to hit.',
@@ -61201,6 +61472,9 @@ function voiceSetAvailable(on){
   var was = voiceCoachAvailable;
   voiceCoachAvailable = !!on;
   if (was !== voiceCoachAvailable) patchVoiceCard();
+  /* Availability is learned after the first render, so the note is asked
+     for here as well as there. Once per body of evidence either way. */
+  if (voiceCoachAvailable){ try { coachNoteMaybeFetch(); } catch(e){} }
 }
 /* ---------- ASKING, ONCE, WHICHEVER WAY TODAY WAS REACHED ----------
 
@@ -66532,7 +66806,7 @@ var COACH_GRAPH_META = {
   paceAtHR:   { title:'Pace at HR', group:'Aerobic Development', tab:'Pace at HR', waiting:'Learning',
                 need:'Easy runs at your usual easy heart rate, in three separate weeks.', unit:'weeks' },
   drift:      { title:'Cardiac Drift', group:'Aerobic Development', tab:'Drift', waiting:'Learning',
-                need:'Steady runs with lap heart rate, in three separate weeks.', unit:'weeks' },
+                need:'Steady easy or long runs of 40 minutes with lap pace and heart rate, in three separate weeks.', unit:'weeks' },
   threshold:  { title:'Threshold Development', group:'Threshold Development', tab:'Threshold', waiting:'Awaiting reliable evidence',
                 need:'Two measured efforts: a race or a Fitness Checkpoint.', unit:'measured efforts' },
   recovery:   { title:'Recovery Response', group:'Recovery Response', tab:'Recovery', waiting:'Building your baseline',
@@ -66541,7 +66815,70 @@ var COACH_GRAPH_META = {
 /* Display rules, not coaching: how many points make a line worth drawing and
    when a line may be carried forward. They change nothing the engine decides. */
 var COACH_GRAPH_CAL = { minPoints:3, minMeasured:2, predictPoints:4, predictSteps:3, predictDecay:0.6,
-                        predictFit:0.6, sameHRBand:5, levelPct:0.02, levelDriftPts:1, beyond72:96 };
+                        predictFit:0.6, sameHRBand:5, levelPct:0.02, levelDriftPts:1, beyond72:96,
+                        driftMinSec:2400, driftSteadyPct:0.03 };
+/* ---------- VERIFIED: WHAT EACH LINE IS, AND WHAT IT IS NOT ----------
+   Founder: "verify all five development graphs use valid physiological
+   evidence and accurately labelled measurements."
+   Each graph now prints, under its figure, the measurement it plots and how
+   the points were made -- so the title is a name and the line is a stated
+   quantity. Reviewed one by one:
+
+   AEROBIC EFFICIENCY. Heartbeats per km: average heart rate x average pace.
+   A real cost-of-running measure, lower is better, and only like-for-like:
+   easy runs, never in heat, never with a doubted sensor. It is not VO2 and
+   is not called that.
+
+   PACE AT HR. Easy pace on runs within 5 bpm of the athlete's usual easy
+   heart rate. The band is what makes two weeks comparable; a run outside
+   it is a different effort and is left out, not adjusted.
+
+   CARDIAC DRIFT. THIS ONE WAS WRONG AND IS CORRECTED. It plotted
+   coachHRDrift() -- second-half against first-half heart rate -- for every
+   easy and long run with lap data. Drift is a rise in heart rate AT A HELD
+   PACE. A long run that finishes at goal pace, or simply speeds up, raises
+   heart rate by running faster, and that was being plotted as drift. A run
+   now qualifies only if it was prescribed as steady easy running, its laps
+   carry pace as well as heart rate, it lasted 40 minutes, and its second
+   half was within 3% of the pace of its first. The number is unchanged;
+   which runs are allowed to produce one is not.
+
+   THRESHOLD DEVELOPMENT. Threshold pace is ESTIMATED from each race or
+   Fitness Checkpoint through the same equivalence the training paces use.
+   It is not a lactate measurement and the graph now says "estimated".
+
+   RECOVERY RESPONSE. The day, of the three after a hard session, on which
+   the athlete's own reports and easy heart rate first read normal -- so it
+   moves in 24-hour steps, and the graph says what it is read from. */
+var COACH_GRAPH_MEASURE = {
+  efficiency: function(u){ return 'Heartbeats per '+u+' \u00b7 easy runs \u00b7 weekly median'; },
+  paceAtHR:   function(u, ref){ return 'Pace per '+u+' \u00b7 easy runs within 5 bpm of '+ref+' \u00b7 weekly median'; },
+  drift:      function(){ return 'Heart-rate rise, second half against first \u00b7 steady runs at a held pace'; },
+  threshold:  function(u){ return 'Threshold pace per '+u+' \u00b7 estimated from races and Fitness Checkpoints'; },
+  recovery:   function(){ return 'Hours until you read as normal \u00b7 from your reports and easy heart rate'; }
+};
+/* Was this run steady enough for a rise in heart rate to be drift? */
+function coachGraphDrift(dd){
+  var cal = COACH_GRAPH_CAL;
+  var plan = null;
+  try { plan = assessPlan(dd); } catch(e){ plan = null; }
+  if (!plan || plan.family !== 'aerobic') return null;          // prescribed as steady easy running
+  var laps = ((dd.actual && dd.actual.splits) || []).filter(function(x){ return x && x.hr != null; });
+  if (laps.length < 4) return null;
+  var paceOf = function(x){
+    if (x.paceSec > 0) return x.paceSec;
+    return (x.km > 0 && x.sec > 0) ? x.sec / x.km : null;
+  };
+  if (laps.some(function(x){ return paceOf(x) == null; })) return null;   // no pace, no way to know it was held
+  var total = laps.reduce(function(t, x){ return t + (x.sec > 0 ? x.sec : (x.km > 0 ? paceOf(x) * x.km : 0)); }, 0);
+  if (total < cal.driftMinSec) return null;
+  var half = Math.floor(laps.length / 2);
+  var mean = function(list){ return list.reduce(function(t, x){ return t + paceOf(x); }, 0) / list.length; };
+  var first = mean(laps.slice(0, half)), second = mean(laps.slice(half));
+  if (!(first > 0) || Math.abs(second - first) / first > cal.driftSteadyPct) return null;
+  return coachHRDrift(dd);
+}
+var COACH_GRAPH_TREND_NOTE = 'Dotted: where this trend points if it continues, slowing each week.';
 var coachGraphSel = 'efficiency';
 
 function coachGraphWeekly(rows){
@@ -66602,7 +66939,7 @@ function coachGraphSeries(key){
   var mile = displayUnit() === 'mi', per = mile ? 1.609344 : 1, unit = displayUnit();
   var s = { key:key, title:meta.title, group:meta.group, waiting:meta.waiting, need:meta.need, unitWord:meta.unit,
             points:[], predicted:[], lowerIsBetter:true, ready:false, have:0, want:cal.minPoints,
-            figure:'', figureText:'', good:false, caption:'', ticks:null,
+            figure:'', figureText:'', good:false, caption:'', ticks:null, measure:'', predictNote:'',
             fmt:function(v){ return String(Math.round(v)); } };
   var first, last, d;
 
@@ -66620,6 +66957,8 @@ function coachGraphSeries(key){
     s.caption = levelE ? 'Easy running is costing about the same heartbeats per '+unit+' as in week '+first.x+'.'
       : 'Easy running is costing '+(d < 0 ? 'fewer' : 'more')+' heartbeats per '+unit+' than in week '+first.x+'.';
     s.predicted = coachGraphProject(s.points, true);
+    s.measure = COACH_GRAPH_MEASURE.efficiency(unit);
+    if (s.predicted.length) s.predictNote = COACH_GRAPH_TREND_NOTE;
     return s;
   }
 
@@ -66640,6 +66979,8 @@ function coachGraphSeries(key){
     s.caption = levelP ? 'Your easy pace at around '+ref+' bpm is where it was in week '+first.x+'.'
       : 'Your easy pace at around '+ref+' bpm is '+(d < 0 ? 'quicker' : 'slower')+' than in week '+first.x+'.';
     s.predicted = coachGraphProject(s.points, true);
+    s.measure = COACH_GRAPH_MEASURE.paceAtHR(unit, ref);
+    if (s.predicted.length) s.predictNote = COACH_GRAPH_TREND_NOTE;
     return s;
   }
 
@@ -66649,7 +66990,7 @@ function coachGraphSeries(key){
       if (!r.completed || (r.type !== 'easy' && r.type !== 'long') || !hrIsReadable(r)) return;
       var dd = findDayByDate(r.date);
       if (!dd || dd.week == null) return;
-      var drift = coachHRDrift(dd);
+      var drift = coachGraphDrift(dd);
       if (drift != null) rows.push({ week:dd.week, v:drift });
     });
     s.points = coachGraphWeekly(rows);
@@ -66661,10 +67002,12 @@ function coachGraphSeries(key){
     var levelD = Math.abs(d) < cal.levelDriftPts;
     s.good = !levelD && d < 0;
     s.figure = s.fmt(last.v);
-    s.figureText = 'heart-rate drift on steady runs';
+    s.figureText = 'heart-rate rise across a steady run';
     s.caption = levelD ? 'Heart rate is rising across your steady runs about as much as in week '+first.x+'.'
       : 'Heart rate is rising '+(d < 0 ? 'less' : 'more')+' across your steady runs than in week '+first.x+'.';
     s.predicted = coachGraphProject(s.points, true);
+    s.measure = COACH_GRAPH_MEASURE.drift();
+    if (s.predicted.length) s.predictNote = COACH_GRAPH_TREND_NOTE;
     return s;
   }
 
@@ -66689,8 +67032,9 @@ function coachGraphSeries(key){
     var levelT = Math.abs(d) < 1;
     s.good = !levelT && d < 0;
     s.figure = levelT ? 'Level' : coachGraphClock(d) + (d < 0 ? ' faster' : ' slower');
-    s.figureText = 'threshold pace per ' + unit;
-    s.caption = 'From ' + s.have + ' measured efforts. Training runs do not move it.';
+    s.figureText = 'estimated threshold pace per ' + unit;
+    s.caption = 'Estimated from ' + s.have + ' measured efforts. Training runs do not move it.';
+    s.measure = COACH_GRAPH_MEASURE.threshold(unit);
     /* The Race Goal methodology's own projection, and nothing wider. */
     var goal = null, proj = null;
     try {
@@ -66700,7 +67044,10 @@ function coachGraphSeries(key){
     } catch(e){ proj = null; }
     if (proj && !proj.flat && proj.vdot != null){
       var pv = tPace(proj.vdot);
-      if (pv != null && pv < last.v) s.predicted = [{ x:daysBetween(t0, goal), label:dShort(goal), v:pv }];
+      if (pv != null && pv < last.v){
+        s.predicted = [{ x:daysBetween(t0, goal), label:dShort(goal), v:pv }];
+        s.predictNote = 'Dotted: the goal-day projection, capped at the gain already measured.';
+      }
     }
     return s;
   }
@@ -66733,6 +67080,7 @@ function coachGraphSeries(key){
     s.figureText = 'to feel normal after a hard session';
     s.caption = 'From ' + s.have + ' hard sessions with the days after them logged.' +
       (over ? ' ' + (over === 1 ? 'One took' : over + ' took') + ' longer than 72 hours.' : '');
+    s.measure = COACH_GRAPH_MEASURE.recovery();
     return s;
   }
   return s;
@@ -66748,8 +67096,28 @@ function coachGraphTicks(lo, hi){
   for (var v = start; v <= hi + step*0.999; v += step) out.push(Math.round(v*1000)/1000);
   return out;
 }
+/* The frame both states share: where the rules sit and where the floor is. */
+/* R stops short of W by half a date label, so the last one ("Dec 27") ends
+   inside the page instead of in its gutter. */
+var COACH_GRAPH_BOX = { W:340, H:176, L:42, R:320, T:12, B:138, rules:4 };
+/* THE OUTLINE, AND NOTHING ELSE. Drawn while a graph is still waiting for
+   its evidence. Rules and a floor, in the positions the measured graph will
+   use; no tick figure, no week, no point, no line -- a scale with numbers on
+   it would be a claim, and there is nothing yet to claim. With no figures to
+   make room for, the rules run the full width of the page. */
+function coachGraphFrameSvg(s){
+  var g = COACH_GRAPH_BOX, rules = '';
+  for (var i = 0; i < g.rules; i++){
+    var y = Math.round((g.T + (g.B - g.T) * i / g.rules) * 10) / 10;
+    rules += '<line class="cg-grid" x1="0" x2="'+g.W+'" y1="'+y+'" y2="'+y+'"/>';
+  }
+  return '<svg class="cg-svg cg-frame" viewBox="0 0 '+g.W+' '+(g.B + 10)+'" role="img" aria-label="'+
+      escapeHtml(s.title + ': no measurements yet.')+'">'+
+    rules + '<line class="cg-base" x1="0" x2="'+g.W+'" y1="'+g.B+'" y2="'+g.B+'"/>'+
+  '</svg>';
+}
 function coachGraphSvg(s){
-  var W = 320, H = 176, L = 46, R = 308, T = 12, B = 138;
+  var g0 = COACH_GRAPH_BOX, W = g0.W, H = g0.H, L = g0.L, R = g0.R, T = g0.T, B = g0.B;
   var all = s.points.concat(s.predicted);
   var vals = all.map(function(p){ return p.v; });
   var ticks = s.ticks || coachGraphTicks(Math.min.apply(null, vals), Math.max.apply(null, vals));
@@ -66800,23 +67168,26 @@ function renderCoachGraph(){
   var tabs = COACH_GRAPHS.map(function(k){
     var on = k === coachGraphSel;
     return '<button type="button" role="tab" class="cg-tab'+(on ? ' is-on' : '')+'" aria-selected="'+(on ? 'true' : 'false')+'" '+
-      'data-action="coach-graph" data-graph="'+k+'">'+escapeHtml(COACH_GRAPH_META[k].tab)+'</button>';
+      'data-action="coach-graph" data-graph="'+k+'"><span>'+escapeHtml(COACH_GRAPH_META[k].tab)+'</span></button>';
   }).join('');
   var body;
   if (s.ready){
     body = '<div class="cg-head"><span class="cg-fig'+(s.good ? ' is-good' : '')+'">'+escapeHtml(s.figure)+'</span>'+
         '<span class="cg-fig-t">'+escapeHtml(s.figureText)+'</span></div>'+
+      '<div class="cg-measure">'+escapeHtml(s.measure)+'</div>'+
       coachGraphSvg(s)+
       '<div class="cg-legend"><span class="cg-key is-measured">Measured</span>'+
         (s.predicted.length ? '<span class="cg-key is-predicted">Predicted</span>' : '')+'</div>'+
-      '<div class="cg-cap">'+escapeHtml(s.caption)+'</div>';
+      '<div class="cg-cap">'+escapeHtml(s.caption)+
+        (s.predictNote ? ' '+escapeHtml(s.predictNote) : '')+'</div>';
   } else {
-    /* NOT ENOUGH YET, SAID AS THAT. The founder's word for this graph, what
-       it is waiting for, and how far along it is. No axis is drawn: an
-       empty chart is a chart of nothing. */
+    /* NOT ENOUGH YET, SAID AS THAT. The founder's word for this graph over
+       the graph's own outline, then what it is waiting for and how far along
+       it is. The outline carries no figure: see coachGraphFrameSvg(). */
     var sofar = s.have === 0 ? 'None yet.' : s.have + ' of ' + s.want + ' so far.';
-    body = '<div class="cg-wait"><div class="cg-wait-w">'+escapeHtml(s.waiting)+'</div>'+
-        '<div class="cg-wait-s">'+escapeHtml(s.need)+' '+escapeHtml(sofar)+'</div></div>';
+    body = '<div class="cg-wait">'+coachGraphFrameSvg(s)+
+          '<div class="cg-wait-w">'+escapeHtml(s.waiting)+'</div></div>'+
+        '<div class="cg-wait-s">'+escapeHtml(s.need)+' '+escapeHtml(sofar)+'</div>';
   }
   return '<div class="cg-card" id="coach-graph">'+
     '<div class="cg-title">'+escapeHtml(s.group)+'</div>'+
@@ -69518,6 +69889,8 @@ function renderApp(){
   animateConfidenceGauge();
   wireCoachingRails();
   wireWeekDayPager();
+  /* Last, and never waited for: the screen above is already complete. */
+  try { coachNoteMaybeFetch(); } catch(e){}
 }
 /* ---------- THE COACHING RAIL ----------
    scroll-snap already does the swipe; nothing here touches the gesture. Two

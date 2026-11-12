@@ -3,6 +3,7 @@
 //   /api/voice-ask       Ask Coach                POST
 //   /api/voice-enabled   availability probe       GET, HEAD
 //   /api/voice-tts       ElevenLabs speech        POST
+//   /api/voice-note      Coach's Note, written    POST
 //
 // WHY A ROUTER FOR TWO ROUTES. Vercel turns every non-underscore file in /api
 // into its own Serverless Function, and the Hobby plan allows twelve per
@@ -24,7 +25,11 @@ const ROUTES = {
   /* The cloud voice the comment above predicted. It is speech synthesis and
      nothing else: it renders the briefing the engine already composed, and it
      shares this function rather than spending one of the twelve. */
-  'voice-tts':     require('./_voice-tts.js')
+  'voice-tts':     require('./_voice-tts.js'),
+  /* The written Coach's Note. Text in, text out, through the model call site
+     in _voice-ask.js: it shares this function and adds no endpoint of its
+     own. */
+  'voice-note':    require('./_voice-note.js')
 };
 
 /* Resolved from the request rather than trusted from a body -- the same three

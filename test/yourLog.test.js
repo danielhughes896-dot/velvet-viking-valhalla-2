@@ -460,3 +460,60 @@ test('the answers are words and controls: no symbols, and the tiles are the buil
   assert.match(css, /\.yl-clear\{[^}]*min-height:44px/, 'Clear is not a 44px target');
   assert.ok(!/#[0-9A-Fa-f]{6}/.test(css.replace(/#FFFFFF/g, '')), 'a colour that is not white or a token is used');
 });
+
+// ---------------------------------------------------------------------------
+// A TAPPED CONDITION IS READ AS THE TYPED ONE IS
+// ---------------------------------------------------------------------------
+
+/* Found by auditing every input through to the coaching: "Hilly" and "Windy"
+   were stored, drawn and counted as signals, and then the one function that
+   decides whether a slow pace has an explanation read the note's text and
+   nothing else. Typing "hilly" put the pace in context; tapping Hilly did
+   not. The screen's own rule is that nothing downstream can tell the two
+   apart. */
+test('a tapped condition excuses a slow pace exactly as the same word typed in the notes does', () => {
+  const slowed = () => {
+    const a = app(), dd = session(a, 'sustained');
+    const sec = a.actualPaceSecPerKm(dd) * 1.12;
+    dd.actual.pace = Math.floor(sec / 60) + ':' + String(Math.round(sec % 60)).padStart(2, '0');
+    return { a, dd };
+  };
+  const read = (a, dd) => {
+    delete dd.coachReview; a.coachPersistReview(dd);
+    const b = a.computeExecutionBreakdown(dd), env = a.coachEnvironment(dd.actual.notes, dd.actual);
+    return { pace: Array.from(a.coachExcuses(dd, 'pace')).map(c => c.key),
+             hr: Array.from(a.coachExcuses(dd, 'hr')).map(c => c.key),
+             verdict: a.coachVerdict(dd, b, env) };
+  };
+  const bare = slowed(), nothing = read(bare.a, bare.dd);
+  assert.deepEqual(nothing.pace, []);
+  assert.match(nothing.verdict, /nothing in the notes to explain it/, 'the fixture is not a slow session');
+
+  [['hilly', 'a very hilly route', 'hills', true], ['windy', 'brutal headwind all the way', 'wind', false]].forEach(([tile, note, cue, excusesHr]) => {
+    const t = slowed(); t.a.handleLogPick(t.dd.id, 'conditions', tile);
+    const tapped = read(t.a, t.dd);
+    const n = slowed(); n.dd.actual.notes = note;
+    const typed = read(n.a, n.dd);
+    assert.deepEqual(tapped.pace, [cue], tile + ': the tile explains nothing');
+    assert.deepEqual(tapped.pace, typed.pace, tile + ': tapped and typed disagree about pace');
+    assert.deepEqual(tapped.hr, typed.hr, tile + ': tapped and typed disagree about heart rate');
+    assert.deepEqual(tapped.hr, excusesHr ? [cue] : []);
+    assert.ok(!/nothing in the notes to explain it/.test(tapped.verdict), tile + ': the athlete said why and was told they had not');
+    assert.equal(tapped.verdict, typed.verdict, tile + ': the two are read differently');
+  });
+  /* Tapped twice is untapped, and the explanation goes with it. */
+  const u = slowed(); u.a.handleLogPick(u.dd.id, 'conditions', 'hilly'); u.a.handleLogPick(u.dd.id, 'conditions', 'hilly');
+  assert.deepEqual(read(u.a, u.dd).pace, []);
+  /* Both said: one explanation, not two. */
+  const both = slowed(); both.a.handleLogPick(both.dd.id, 'conditions', 'hilly'); both.dd.actual.notes = 'hilly';
+  assert.deepEqual(read(both.a, both.dd).pace, ['hills']);
+  /* Hot and Humid are one explanation -- heat -- however many tiles say it. */
+  const hh = slowed(); hh.a.handleLogPick(hh.dd.id, 'conditions', 'hot'); hh.a.handleLogPick(hh.dd.id, 'conditions', 'humid');
+  assert.deepEqual(read(hh.a, hh.dd).pace, ['heat']);
+  /* And no tile excuses more than its word did. */
+  Object.keys(bare.a.LOG_CONDITION_CUE).forEach(id => {
+    const cueKey = bare.a.LOG_CONDITION_CUE[id];
+    assert.ok(Array.from(bare.a.COACH_NOTE_CUES).some(c => c.key === cueKey), id + ' maps to a cue that does not exist');
+    assert.ok(Array.from(bare.a.LOG_CONDITIONS).some(row => row[2] === id), id + ' is not a condition the screen offers');
+  });
+});

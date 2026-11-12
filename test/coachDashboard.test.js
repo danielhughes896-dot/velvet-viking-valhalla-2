@@ -108,7 +108,21 @@ test('the circles are a rail: three show, gold dots count the positions, a swipe
   assert.match(rule('.b-rail > .b-grid .b-dial-col'), /flex:0 0 calc\(\(100% - 20px\) \/ 3\)/, 'not three to a row');
   assert.match(rule('.b-rail > .b-grid .b-dial-col'), /scroll-snap-align:start/);
   assert.match(rule('.b-rail'), /overflow-x:auto;[^}]*scroll-snap-type:x mandatory/);
-  assert.match(rule('.b-rail-dot'), /background:var\(--gold\)/, 'the dots are not gold');
+  /* Founder: "The gold under the circles should be the same small circles
+     used on the other rails." The same dot, to the pixel: round, six across,
+     faint until it is the one showing, then bright gold. No dash. */
+  const dot = rule('.b-rail-dot'), on = rule('.b-rail-dot.is-on');
+  const other = CSS.slice(CSS.indexOf(' .how-dot{'), CSS.indexOf('}', CSS.indexOf(' .how-dot{')));
+  const otherOn = CSS.slice(CSS.indexOf(' .how-dot.is-on{'), CSS.indexOf('}', CSS.indexOf(' .how-dot.is-on{')));
+  ['width:6px; height:6px; border-radius:50%; background:var(--mark-faint)', 'opacity:.34'].forEach(bit => {
+    assert.ok(dot.indexOf(bit) !== -1, 'the rail dot is not ' + bit);
+    assert.ok(other.replace(/\s+/g, ' ').indexOf(bit) !== -1, 'the other rails changed: ' + bit);
+  });
+  ['background:var(--gold-bright); opacity:1', 'box-shadow:0 0 8px color-mix(in srgb, var(--gold-bright) 60%, transparent)'].forEach(bit => {
+    assert.ok(on.indexOf(bit) !== -1, 'the current dot is not ' + bit);
+    assert.ok(otherOn.replace(/\s+/g, ' ').indexOf(bit) !== -1, 'the other rails changed: ' + bit);
+  });
+  assert.ok(!/width:/.test(on), 'the current position is a dash, not a dot');
   assert.ok(!/Tap any circle/.test(html));
 });
 
@@ -163,7 +177,15 @@ test('there are five graphs, in the founder\'s order, each with the founder\'s w
     assert.match(card, new RegExp('<div class="cg-wait-w">' + want[k][1] + '</div>'));
     assert.match(card, /None yet\./);
     assert.ok(card.indexOf(s.need) !== -1, k + ' does not say what it is waiting for');
-    assert.ok(!/<svg|cg-fig|cg-legend/.test(card), k + ' drew a chart of nothing');
+    /* Founder: "there should be the out line on the graph. Just no data on
+       it." The frame, and not one thing a measurement would put there. */
+    assert.equal((card.match(/<svg class="cg-svg cg-frame"/g) || []).length, 1, k + ' has no outline');
+    assert.equal((card.match(/<line class="cg-grid"/g) || []).length, a.COACH_GRAPH_BOX.rules);
+    assert.equal((card.match(/<line class="cg-base"/g) || []).length, 1);
+    assert.ok(!/<text|<circle|<polyline|<polygon|cg-ylab|cg-xlab|cg-line|cg-dot|cg-pred|cg-fig|cg-legend|cg-measure/.test(card),
+      k + ' put data, a scale or a legend on an empty graph');
+    assert.ok(!/\d/.test(card.slice(card.indexOf('<svg'), card.indexOf('</svg>')).replace(/(x1|x2|y1|y2|viewBox)="[^"]*"/g, '')),
+      k + ': a figure is drawn on the outline');
   });
   /* The design's own heading sits over the three aerobic graphs. */
   ['efficiency', 'paceAtHR', 'drift'].forEach(k => assert.equal(series(a, k).group, 'Aerobic Development'));
@@ -188,15 +210,24 @@ test('all five can be chosen with a thumb, and choosing one redraws the card', (
   const a = evidenced();
   a.coachGraphSel = 'efficiency';
   const card = a.renderCoachGraph();
-  const tabs = [...card.matchAll(/<button type="button" role="tab" class="cg-tab( is-on)?" aria-selected="(true|false)" data-action="coach-graph" data-graph="([A-Za-z]+)">([^<]+)<\/button>/g)];
+  const tabs = [...card.matchAll(/<button type="button" role="tab" class="cg-tab( is-on)?" aria-selected="(true|false)" data-action="coach-graph" data-graph="([A-Za-z]+)"><span>([^<]+)<\/span><\/button>/g)];
   assert.deepEqual(tabs.map(m => m[3]), Array.from(a.COACH_GRAPHS));
   assert.deepEqual(tabs.map(m => m[4]), ['Efficiency', 'Pace at HR', 'Drift', 'Threshold', 'Recovery']);
   assert.deepEqual(tabs.filter(m => m[2] === 'true').map(m => m[3]), ['efficiency']);
   assert.match(rule('.cg-tab'), /min-height:44px/, 'a tab is not a 44px target');
-  /* All five are on the screen: three and two, not a row with one off its edge. */
-  assert.match(rule('.cg-tabs'), /display:grid; grid-template-columns:repeat\(3, auto\)/);
-  assert.ok(!/overflow-x/.test(rule('.cg-tabs')), 'a graph is hidden behind a sideways scroll');
+  /* Founder: "ideally I would like them across the whole top as 5 in 1 row."
+     One row, edge to edge, under a centred title. (They were three and two
+     while the card had a rim and padding; measured at 320, 360 and 390px
+     without those, all five fit.) */
+  assert.match(rule('.cg-tabs'), /display:flex; justify-content:space-between/);
+  assert.ok(!/flex-wrap|grid|overflow-x/.test(rule('.cg-tabs')), 'the tabs wrap, or one is hidden behind a sideways scroll');
+  assert.match(rule('.cg-tab'), /flex:0 0 auto/, 'a tab is not the width of its word');
+  assert.match(rule('.cg-tab'), /white-space:nowrap/);
+  assert.match(rule('.cg-tab::after'), /position:absolute; top:0; bottom:0; left:-7px; right:-7px/, 'the target is only as wide as the word');
+  assert.match(rule('.cg-title'), /text-align:center/, 'the title is not centred');
+  assert.ok(card.indexOf('class="cg-title"') < card.indexOf('class="cg-tabs"'), 'the tabs are not under the title');
   assert.match(rule('.cg-tab.is-on'), /color:var\(--cherry-text\)/, 'the chosen tab is not cherry');
+  assert.match(rule('.cg-tab.is-on > span'), /border-bottom-color:var\(--cherry-text\)/);
   assert.match(SRC, /case 'coach-graph': handleCoachGraph\(target\.getAttribute\('data-graph'\)\); break;/);
 
   let drawn = 0; a.renderApp = () => { drawn++; };
@@ -283,18 +314,53 @@ test('Pace at HR compares like with like: only runs near the athlete\'s usual ea
   assert.equal(s.fmt(325), '5:25');
 });
 
-test('Cardiac Drift is coachHRDrift, from lap data, on steady runs only', () => {
+/* Founder: "verify all five development graphs use valid physiological
+   evidence and accurately labelled measurements." Drift is a rise in heart
+   rate at a HELD pace. It was being read from any long run with lap data,
+   including ones that finish at goal pace -- where the heart rate rises
+   because the athlete is running faster. */
+test('Cardiac Drift is read only from a run that held its pace', () => {
   const a = evidenced();
   const s = series(a, 'drift');
   assert.equal(s.ready, true);
+  const steady = d => a.assessPlan(d).family === 'aerobic';
   pts(s).forEach(p => {
-    const want = median(past(a).filter(d => d.type === 'long' && d.week === p.x).map(d => a.coachHRDrift(d)));
-    assert.ok(Math.abs(p.v - want) < 0.06, 'W' + p.x + ' is not that week\'s measured drift');
+    const runs = past(a).filter(d => d.type === 'long' && d.week === p.x && steady(d));
+    assert.ok(runs.length, 'W' + p.x + ' is plotted and no steady long run was run that week');
+    assert.ok(Math.abs(p.v - median(runs.map(d => a.coachHRDrift(d)))) < 0.06, 'W' + p.x + ' is not that week\'s measured drift');
   });
+  /* A long run with goal-pace work in it has lap heart rate too, and is not drift. */
+  const staged = past(a).filter(d => d.type === 'long' && !steady(d));
+  assert.ok(staged.length, 'the fixture has no staged long run to exclude');
+  staged.forEach(d => {
+    assert.ok(a.coachHRDrift(d) != null, 'the staged run has no lap heart rate, so this proves nothing');
+    assert.equal(a.coachGraphDrift(d), null, d.title + ' was read as drift');
+    assert.ok(pts(s).map(p => p.x).indexOf(d.week) === -1 || past(a).some(x => x.type === 'long' && x.week === d.week && steady(x)));
+  });
+  const one = past(a).filter(d => d.type === 'long' && steady(d))[0];
+  const keep = JSON.stringify(one.actual.splits), drift = a.coachGraphDrift(one);
+  assert.equal(drift, a.coachHRDrift(one), 'the number is not the engine\'s own');
+  /* It sped up: the second half is 8% quicker. Not drift. */
+  one.actual.splits = one.actual.splits.map((x, i) => Object.assign({}, x, { sec: Math.round(x.sec * (i < 4 ? 1 : 0.92)) }));
+  assert.equal(a.coachGraphDrift(one), null, 'a run that sped up was read as drift');
+  /* Laps with heart rate and no pace: there is no way to know the pace was held. */
+  one.actual.splits = JSON.parse(keep).map(x => ({ hr: x.hr }));
+  assert.ok(a.coachHRDrift(one) != null);
+  assert.equal(a.coachGraphDrift(one), null, 'drift was read with nothing to say the pace was held');
+  /* One lap in each half without a pace: the halves still match on the laps
+     that have one, which is exactly why a gap cannot be waved through. */
+  one.actual.splits = JSON.parse(keep).map((x, i) => (i === 1 || i === 5) ? { hr: x.hr, sec: x.sec } : x);
+  assert.ok(a.coachHRDrift(one) != null);
+  assert.equal(a.coachGraphDrift(one), null, 'drift was read across laps whose pace is unknown');
+  /* Twenty minutes is not long enough to drift. */
+  one.actual.splits = JSON.parse(keep).map(x => Object.assign({}, x, { km: 0.4, sec: 136 }));
+  assert.equal(a.coachGraphDrift(one), null, 'a short run was read as drift');
+  one.actual.splits = JSON.parse(keep);
+  assert.equal(a.coachGraphDrift(one), drift);
   /* A session of reps drifts by design and is not read. */
   const rep = past(a).filter(d => d.type === 'interval')[0];
   rep.actual.hr = 160; rep.actual.splits = [1, 2, 3, 4, 5, 6].map(i => ({ km: 1, sec: 300, hr: 140 + i * 8 }));
-  assert.deepEqual(pts(series(a, 'drift')).map(p => p.v), pts(s).map(p => p.v), 'an interval session was read as drift');
+  assert.equal(a.coachGraphDrift(rep), null, 'an interval session was read as drift');
   /* No laps, no drift. */
   const b = evidenced();
   past(b).forEach(d => { if (d.actual) delete d.actual.splits; });
@@ -309,7 +375,8 @@ test('Threshold Development moves only with measured efforts', () => {
   assert.ok(pts(s).length >= 2);
   const t = a.trainingPacesFromVDOT(perfs[0].vdot).T;
   assert.ok(Math.abs(pts(s)[0].v - (t.slow + t.fast) / 2) < 1e-6, 'the point is not the threshold pace that effort implies');
-  assert.match(s.caption, /measured efforts\. Training runs do not move it\./);
+  assert.match(s.caption, /^Estimated from \d+ measured efforts\. Training runs do not move it\./);
+  assert.match(s.figureText, /^estimated threshold pace per km$/, 'a threshold pace worked out from a race is presented as measured');
   /* Faster training changes nothing here. */
   past(a).filter(d => d.type === 'tempo').forEach(d => { d.actual.pace = '3:40'; });
   assert.deepEqual(pts(series(a, 'threshold')).map(p => p.v), pts(s).map(p => p.v), 'a training run moved threshold');
@@ -416,8 +483,8 @@ test('the threshold prediction is the Race Goal methodology\'s own, or there is 
 
 test('measured is solid cherry, predicted is dotted gold, and every point drawn is a point measured', () => {
   const a = evidenced();
-  a.coachGraphSel = 'drift';
-  const s = series(a, 'drift');
+  a.coachGraphSel = 'threshold';
+  const s = series(a, 'threshold');
   assert.ok(Array.from(s.predicted).length > 0, 'the fixture has no prediction to draw');
   const card = a.renderCoachGraph();
   assert.equal((card.match(/class="cg-dot"/g) || []).length, pts(s).length);
@@ -447,7 +514,7 @@ test('measured is solid cherry, predicted is dotted gold, and every point drawn 
   assert.match(rec, /<span class="cg-key is-measured">Measured<\/span>/);
 });
 
-test('the card is SACORO\'s: white type, tokens for colour, no pill, no icon, no filled box', () => {
+test('the graph is SACORO\'s: white type, tokens for colour, no pill, no icon, no box', () => {
   const a = evidenced();
   a.coachGraphSel = 'efficiency';
   const card = a.renderCoachGraph();
@@ -456,8 +523,10 @@ test('the card is SACORO\'s: white type, tokens for colour, no pill, no icon, no
   const css = CSS.slice(CSS.indexOf('.cg-card{'), CSS.indexOf('.b-plates{'));
   assert.ok(!/#[0-9A-Fa-f]{3,6}/.test(css.replace(/#FFFFFF/g, '')), 'a colour that is not white or a token is used');
   assert.ok(!/var\(--ink-(dim|faint)\)/.test(css), 'grey type');
-  assert.ok(!/background:/.test(rule('.cg-card')), 'the card is a filled box');
-  assert.match(rule('.cg-card'), /border:1\.5px solid var\(--cherry\)/);
+  /* Founder: "I don't think this should be in a box. It should be full
+     width." No fill, no rim, no inset. */
+  assert.ok(!/background:|border|box-shadow/.test(rule('.cg-card')), 'the graph is in a box');
+  assert.match(rule('.cg-card'), /padding:0;/, 'the graph is inset from the page');
   assert.match(rule('.cg-fig.is-good'), /color:var\(--ok\)/, 'an improvement is not green');
   ['.cg-cap', '.cg-fig-t', '.cg-wait-s', '.cg-legend'].forEach(sel =>
     assert.match(rule(sel), /font-size:var\(--fs-support\); line-height:var\(--lh-support\)/, sel + ' is off the type scale'));
@@ -493,3 +562,32 @@ test('the graphs read the engine and are read by nothing', () => {
   ['coachGraphSeries', 'renderCoachGraph', 'coachGraphProject'].forEach(n =>
     assert.ok(!/fetch\(|\/api\//.test(fnBody(n)), n + ' reaches the network'));
 });
+
+test('every graph says what it plots, in the units it plots it in', () => {
+  const a = evidenced();
+  const want = {
+    efficiency: /^Heartbeats per km \u00b7 easy runs \u00b7 weekly median$/,
+    paceAtHR: /^Pace per km \u00b7 easy runs within 5 bpm of \d+ \u00b7 weekly median$/,
+    drift: /^Heart-rate rise, second half against first \u00b7 steady runs at a held pace$/,
+    threshold: /^Threshold pace per km \u00b7 estimated from races and Fitness Checkpoints$/,
+    recovery: /^Hours until you read as normal \u00b7 from your reports and easy heart rate$/,
+  };
+  Object.keys(want).forEach(k => {
+    const s = series(a, k);
+    assert.equal(s.ready, true, k + ' is not drawn in the fixture');
+    assert.match(s.measure, want[k], k + ' does not state its measurement');
+    a.coachGraphSel = k;
+    const card = a.renderCoachGraph();
+    assert.ok(card.indexOf('<div class="cg-measure">' + a.escapeHtml(s.measure) + '</div>') !== -1, k + ': the measurement is not on the card');
+    assert.ok(card.indexOf('class="cg-measure"') < card.indexOf('<svg'), k + ': the measurement is under the chart, not over it');
+    /* A dotted line is explained wherever one is drawn, and nowhere else. */
+    assert.equal(/Dotted: /.test(card), Array.from(s.predicted).length > 0, k + ': the prediction note and the prediction disagree');
+  });
+  /* Nothing here is called something it is not. */
+  const all = Object.keys(want).map(k => { a.coachGraphSel = k; return a.renderCoachGraph(); }).join(' ');
+  assert.doesNotMatch(all, /VO2|lactate|decoupling|fitness score/i, 'a graph claims a measurement the app does not make');
+  a.state.units = 'mi';
+  assert.match(series(a, 'efficiency').measure, /^Heartbeats per mi /);
+  assert.match(series(a, 'threshold').measure, /^Threshold pace per mi /);
+});
+

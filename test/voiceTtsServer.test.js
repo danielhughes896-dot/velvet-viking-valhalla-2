@@ -438,7 +438,11 @@ test('no log line can carry the briefing, the key or the athlete', async () => {
 // ---------------------------------------------------------------------------
 test('the voice router serves speech alongside Ask Coach, on one function', () => {
   const r = require('../api/voice.js');
-  assert.deepEqual(r.ROUTES.slice().sort(), ['voice-ask','voice-enabled','voice-tts']);
+  /* 'voice-note' joined on the founder's instruction: "Upgrade Coach's Note
+     to genuinely personalised, AI-written coaching using existing Anthropic
+     integration." A route behind this same function, not a function of its
+     own -- see coachNoteAi.test.js for everything that bounds it. */
+  assert.deepEqual(r.ROUTES.slice().sort(), ['voice-ask','voice-enabled','voice-note','voice-tts']);
   assert.equal(r.resolveRoute({ url:'/api/voice?route=voice-tts', query:{} }), 'voice-tts');
   assert.equal(r.resolveRoute({ url:'/api/voice-tts', query:{} }), 'voice-tts');
   const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
