@@ -11263,6 +11263,49 @@
     -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
     box-shadow:var(--glass-rim), 0 0 16px var(--cherry-dim), var(--shadow);
   }
+  /* ---------- ASK COACH, UNDER THE HOUSE RULES ----------
+     Founder, of the open Ask Coach panel: "Ask coach needs the new rules."
+     It was the last place still drawn the old way: a raised black box, a
+     grey placeholder and grey questions in pills, a gold Ask, and a
+     microphone glyph. Now: the panel is the same glass as Hear Today and Ask
+     Coach above it; the box you type in is glass with a cherry rim while you
+     type (cherry is the active thing); Ask is cherry, because asking is an
+     interaction and gold is for the brand; every word is white; the three
+     questions are plain lines; Speak instead and Close are a row of words. */
+  .ask-panel{
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    border:1px solid rgba(255,255,255,.08); box-shadow:var(--glass-rim);
+  }
+  .ask-form input{
+    min-height:44px; font-size:var(--fs-body); color:#fff;
+    background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.12); border-radius:22px; padding:8px 16px;
+  }
+  .ask-form input::placeholder{ color:#fff; opacity:.9; }
+  .ask-form input:focus{ outline:none; border-color:var(--cherry); box-shadow:0 0 12px var(--cherry-dim); }
+  .ask-go{
+    min-height:44px; padding:0 20px; border-radius:22px;
+    background:var(--cherry); border:1px solid var(--cherry); color:var(--cherry-btn-ink);
+    font-weight:700; box-shadow:0 0 14px var(--cherry-dim);
+  }
+  .ask-suggest{ display:block; margin:6px 0 2px; }
+  .ask-chip{
+    display:block; width:100%; text-align:left; min-height:44px; padding:10px 4px;
+    color:#fff; font-size:var(--fs-body); line-height:1.3;
+    background:none; border:0; border-radius:0;
+  }
+  .ask-links{ display:flex; justify-content:center; gap:28px; margin-top:6px; }
+  .ask-link{
+    min-height:44px; padding:0 6px; background:none; border:0; cursor:pointer;
+    color:#fff; font-family:var(--label-face); font-size:var(--label-size);
+    font-weight:var(--label-weight); letter-spacing:var(--label-track); text-transform:uppercase;
+  }
+  .ask-k, .ask-v, .ask-thinking, .ask-incomplete, .ask-source, .ask-stt-note, .ask-prop-head{ color:#fff; }
+  .ask-v{ font-style:normal; }
+  .ask-proposal{
+    background:var(--glass-sheen), var(--glass-tint);
+    border:1px solid rgba(255,255,255,.08); box-shadow:var(--glass-rim);
+  }
   /* Where glass cannot be drawn, each pane is near solid, never clear. */
   @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
     :root{ --glass-tint:var(--glass-solid); }
@@ -63080,19 +63123,19 @@ function askAnnounceAnswer(text){
 var VOICE_ERROR_COPY = {
   voice_disabled:       'Your coach is not switched on for this account yet',
   not_signed_in:        'Sign in to talk to your coach',
-  coach_unavailable:    'Your coach is not responding — try again shortly',
+  coach_unavailable:    'Your coach is not responding. Try again shortly',
   /* WITHOUT THIS ROW a 503 from an unconfigured deployment fell through to
      "not responding", which describes a passing outage rather than a server
      that was never finished being set up -- and sends whoever is diagnosing it
      looking in the wrong place. */
   voice_not_configured: 'Your coach is not set up on this server yet',
-  coach_busy:           'Your coach is busy — try again in a moment',
+  coach_busy:           'Your coach is busy. Try again in a moment',
   no_plan:              'Build a plan first and your coach will have something to talk about',
   context_refused:      'Your coach cannot discuss sessions imported from Strava',
-  mic_denied:           'Microphone access is off — allow it in your browser settings, or type your question instead',
-  mic_failed:           'Could not hear that — try again, or type it instead',
-  mic_timeout:          'Didn’t catch anything — type your question instead',
-  mic_busy:             'Something else is using the microphone — try again in a moment',
+  mic_denied:           'Microphone access is off. Allow it in your browser settings, or type your question instead',
+  mic_failed:           'Could not hear that. Try again, or type it instead',
+  mic_timeout:          'Didn’t catch anything. Type your question instead',
+  mic_busy:             'Something else is using the microphone. Try again in a moment',
   declined:             'Your coach cannot answer that one'
 };
 
@@ -63195,10 +63238,10 @@ function voiceSttAvailable(){ return !voiceSttUnsupportedReason(); }
 var VOICE_STT_COPY = {
   /* Said in product language. No API names, no permission jargon, no mention of
      recognisers or providers -- each one names what the athlete can do next. */
-  no_on_device:       'This phone can only transcribe speech by sending it away, so SACORO doesn’t use it — type your question instead.',
-  native_unavailable: 'Speaking isn’t available on this phone — type your question instead.',
-  insecure:           'Speaking needs a secure connection — type your question instead.',
-  no_api:             'This browser can’t listen — type your question instead.'
+  no_on_device:       'This phone can only transcribe speech by sending it away, so SACORO doesn’t use it. Type your question instead.',
+  native_unavailable: 'Speaking isn’t available on this phone. Type your question instead.',
+  insecure:           'Speaking needs a secure connection. Type your question instead.',
+  no_api:             'This browser can’t listen. Type your question instead.'
 };
 
 /* A LISTENING STATE THAT CANNOT END IS WORSE THAN NO MICROPHONE. Some platforms
@@ -64518,7 +64561,7 @@ function renderVoiceCardBody(dd){
        looking at the screen. */
     if (silent)
       html += '<div class="voice-silent" role="status" aria-live="polite">'+
-        'Voice unavailable \u2014 the words are here.'+
+        'Voice unavailable. The words are here.'+
       '</div>';
   }
   html += renderAskPanel(dd);
@@ -64550,7 +64593,7 @@ function renderAskPanel(dd){
         '<span class="ask-pulse" aria-hidden="true"></span>'+
         '<span>Listening…</span>'+
       '</div>'+
-      '<button type="button" class="btn btn-sm btn-ghost btn-block" data-action="voice-ask-cancel">Cancel</button>';
+      '<div class="ask-links"><button type="button" class="ask-link" aria-label="Stop listening" data-action="voice-ask-cancel">Cancel</button></div>';
   } else {
     if (askState.heard){
       body += '<div class="ask-heard"><span class="ask-k">You asked</span>'+
@@ -64580,7 +64623,7 @@ function renderAskPanel(dd){
         /* Case B, made visible AND announced: the words above are real, but
            this was not a finished answer and nothing was proposed from it. */
         body += '<div class="ask-incomplete" role="status" aria-live="polite">'+
-                'That answer stopped early — ask again to get the whole of it.</div>';
+                'That answer stopped early. Ask again to get the whole of it.</div>';
       }
       /* WHERE THIS CAME FROM, SAID QUIETLY. Subordinate to the answer, not a
          banner above it, and not an error state: there is useful guidance on
@@ -64619,16 +64662,16 @@ function renderAskPanel(dd){
       body += '<div class="ask-form">'+
           '<input type="text" id="ask-input" autocomplete="off" '+
             'placeholder="Ask about your training…" aria-label="Ask your coach a question">'+
-          '<button type="button" class="btn btn-sm btn-primary" data-action="voice-ask-submit">Ask</button>'+
+          '<button type="button" class="btn btn-sm ask-go" data-action="voice-ask-submit">Ask</button>'+
         '</div>';
       /* NEVER A MICROPHONE THAT CANNOT LISTEN. Where speech input cannot work
          the control is not drawn at all and one line says why -- the same rule
          the Garmin card and the Strava card already follow. Typing is always
          there either way, so nothing is lost but the false promise. */
-      var sttWhy = voiceSttUnsupportedReason();
+      var sttWhy = voiceSttUnsupportedReason(), speakBtn = '';
       if (!sttWhy){
-        body += '<button type="button" class="btn btn-sm btn-ghost btn-block" '+
-          'data-action="voice-ask-speak">'+ICONS.voiceMic+' Speak instead</button>';
+        speakBtn = '<button type="button" class="ask-link" aria-label="Speak your question instead" '+
+          'data-action="voice-ask-speak">Speak instead</button>';
       } else {
         body += '<div class="ask-stt-note">'+escapeHtml(VOICE_STT_COPY[sttWhy] ||
                 VOICE_STT_COPY.no_api)+'</div>';
@@ -64640,8 +64683,13 @@ function renderAskPanel(dd){
                  'data-q="'+escapeHtml(q)+'">'+escapeHtml(q)+'</button>'; }).join('')+'</div>';
       }
     }
-    body += '<button type="button" class="btn btn-sm btn-ghost btn-block" '+
-            'data-action="voice-ask-close">Close</button>';
+    /* ASK COACH UNDER THE HOUSE RULES. Founder: "Ask coach needs the new
+       rules." Speaking and closing are the two ways on from the box, so they
+       share one quiet row of white words beneath it rather than being two
+       more raised boxes; the microphone glyph went with the box ("no
+       symbols"). The questions above are lines, not pills. */
+    body += '<div class="ask-links">'+(typeof speakBtn === 'string' ? speakBtn : '')+
+            '<button type="button" class="ask-link" aria-label="Close Ask Coach" data-action="voice-ask-close">Close</button></div>';
   }
   return '<div class="ask-panel">'+body+'</div>';
 }
@@ -64657,7 +64705,7 @@ function renderAskProposal(){
   if (!nxt) return '';
   return '<div class="ask-proposal">'+
     '<div class="ask-prop-head">Suggested change</div>'+
-    '<div class="ask-prop-line">'+escapeHtml(nxt.title)+' → run it easy instead</div>'+
+    '<div class="ask-prop-line">'+escapeHtml(nxt.title)+': run it easy instead</div>'+
     '<div class="coach-actions">'+
       '<button type="button" class="btn btn-primary btn-block" data-action="coach-accept" data-day="'+nxt.id+'">Accept change</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="coach-keep" data-day="'+nxt.id+'">Keep original</button>'+
