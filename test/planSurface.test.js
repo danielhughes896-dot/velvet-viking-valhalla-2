@@ -245,8 +245,16 @@ test('the current week is lit again after the de-boxing took its ring', () => {
      always meant is a drawn edge. */
   assert.doesNotMatch(body, /0 0 0 1px|border(?!-radius)/,
     'the gold ring came back around the current week');
-  assert.doesNotMatch(body, /background/,
-    'the current week row grew a fill, which is the box this was de-boxed out of');
+  /* ---- THIS ONE CHANGED SIDES: THE FILL IS GLASS ----
+     It forbade any background, because the fill that used to be here was
+     the solid black box the row was de-boxed out of. Founder, choosing where
+     the tab bar's glass goes next: "Liquid Glass current-week highlight in
+     Full Plan", and on the photo: "full plan week selection ... I'm happy
+     with". So the row may carry the shared glass and nothing else -- never a
+     solid colour, which is still the box. */
+  const bg = /background:([^;]+);/.exec(body);
+  assert.ok(!bg || bg[1].trim() === 'var(--glass-sheen), var(--glass-tint)',
+    'the current week row grew a solid fill, which is the box this was de-boxed out of: ' + (bg && bg[1]));
 });
 
 test('the lit week has air at its sides without leaving the column', () => {

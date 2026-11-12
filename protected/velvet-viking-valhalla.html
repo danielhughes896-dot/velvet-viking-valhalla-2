@@ -8305,7 +8305,11 @@
      phase and quietly stop holding on every other. */
   .view-plan .pp-body .week.is-now{
     border-radius:var(--radius); 
-    box-shadow:0 0 26px 2px color-mix(in srgb, var(--cherry) 26%, transparent);
+    /* Glass: see GLASS, BEYOND THE TAB BAR at the end of this sheet. The
+       tokens are declared there; this row keeps its one rule. */
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    box-shadow:0 0 26px 2px color-mix(in srgb, var(--cherry) 26%, transparent), var(--glass-rim);
     padding-left:10px; padding-right:10px;
     margin-left:-10px; margin-right:-10px;}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
@@ -11207,7 +11211,66 @@
   .cf-goal-sub,
   .ws-h-presc{
     font-size:var(--fs-support); line-height:var(--lh-support);
- }}}</style>
+ }
+  /* =======================================================
+     GLASS, BEYOND THE TAB BAR
+     =======================================================
+     Founder, with the glass tab bar on his phone: "O I like it." Then the
+     places to carry it: "Liquid Glass X buttons on full-page screens.
+     Liquid Glass current-week highlight in Full Plan. Possibly the Hear
+     Today / Ask Coach buttons", with the Save foot and the pop-up notice.
+     ONE MATERIAL. Every pane below is drawn from the same five tokens as
+     the tab bar (.bn-stack), so nothing is "nearly" the same glass. What
+     each control already says in colour is kept: the cherry rims, glows
+     and icon colours are untouched; only the ground under them turns from
+     a solid into glass. */
+  :root{
+    --glass-tint:rgba(8,8,11,.26);
+    --glass-sheen:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,0) 55%);
+    --glass-blur:blur(18px) saturate(150%);
+    --glass-rim:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.06);
+    --glass-solid:rgba(18,19,22,.94);
+  }
+  /* The X on every full page: a small glass disc, still ringed and drawn in
+     the page's own accent. */
+  .modal-card:is(.hq-full, .es-full) .modal-head .icon-btn{
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    box-shadow:var(--glass-rim);
+  }
+  /* This week in Full Plan is glass too, declared in its own single rule
+     (.view-plan .pp-body .week.is-now) because test/planSurface holds that
+     row to one rule. */
+  /* Hear Today and Ask Coach: glass inside the cherry rim. */
+  .voice-btn,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row .voice-btn{
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    box-shadow:var(--glass-rim), 0 0 16px var(--cherry-dim);
+  }
+  /* The Save foot on a full page: a strip of glass the page scrolls under,
+     one line of light along its top edge instead of a fade. */
+  .page-foot,
+  .modal-card.es-full .es-actions{
+    padding-top:16px;
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  /* The notice that pops up: glass inside its cherry rim. */
+  .toast{
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    box-shadow:var(--glass-rim), 0 0 16px var(--cherry-dim), var(--shadow);
+  }
+  /* Where glass cannot be drawn, each pane is near solid, never clear. */
+  @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+    :root{ --glass-tint:var(--glass-solid); }
+  }
+  @media (prefers-reduced-transparency: reduce){
+    :root{ --glass-tint:var(--glass-solid); --glass-blur:none; }
+  }
+</style>
 </head>
 <body>
 <div id="app" class="app-root"></div>
