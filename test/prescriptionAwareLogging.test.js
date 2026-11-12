@@ -570,7 +570,7 @@ test('the sections are the plan\'s own: warm-up, the reps in the main set, cool-
   // 5 x 1000m: warm-up + 5 reps + 4 recoveries + cool-down = 11 rows.
   assert.equal(plan.rows.length, 11);
   const html = a.renderYourLogAnswers(dd);
-  const part = p => (new RegExp('data-part="' + p + '">([\\s\\S]*?)(?=<div class="yl-sec|<div class="yl-box|<div id="splits-total)').exec(html) || [,''])[1];
+  const part = p => (new RegExp('data-part="' + p + '">([\\s\\S]*?)(?=<div class="yl-sec|<div class="yl-box|<div class="yl-grp|<div id="splits-total)').exec(html) || [,''])[1];
   assert.equal((part('warmup').match(/class="slog-row/g) || []).length, 1);
   assert.equal((part('cooldown').match(/class="slog-row/g) || []).length, 1);
   assert.deepEqual([...part('main').matchAll(/<span class="slog-label">([^<]+)</g)].map(m => m[1]),

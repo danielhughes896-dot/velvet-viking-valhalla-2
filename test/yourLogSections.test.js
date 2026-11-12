@@ -58,7 +58,7 @@ const section = (html, p) => {
   const at = html.indexOf('data-part="' + p + '"');
   if (at === -1) return '';
   const rest = html.slice(at + 12);
-  const next = rest.search(/data-part="|<div id="splits-total-|data-field="rpe"/);
+  const next = rest.search(/data-part="|data-group="|<div id="splits-total-|data-field="rpe"/);
   return next === -1 ? rest : rest.slice(0, next);
 };
 const rowLabels = html => [...html.matchAll(/<span class="slog-label">([^<]+)</g)].map(m => m[1]);
@@ -112,7 +112,9 @@ test('an ordinary easy run, a long run and a shakeout stay simple', () => {
     assert.doesNotMatch(html, />Warm-up<|>Cool-down<|>Main set<|Reps completed|Recoveries|Did your (pace|effort) hold/, k + ' is asked a multi-part question');
     assert.match(html, /<div class="yl-title">The run<\/div>/, k + ' was given a heading it has no section for');
     assert.deepEqual([...html.matchAll(/class="yl-q-t">([^<]+)</g)].map(m => m[1]),
-      ['How did it feel?', 'Overall effort', 'Conditions', 'Anything hurting?'], k + ' is asked something else');
+      ['How did it feel?', 'Overall effort', 'Anything hurting?'], k + ' is asked something else');
+    /* Conditions is still asked: its heading is the group's now, not a second label. */
+    assert.match(html, /role="group" aria-label="Conditions"/, k + ' is not asked the conditions');
   });
 });
 
@@ -220,8 +222,13 @@ test('heart rate, elevation and notes are on every log, once, with nothing to op
     /* And the order is the order the form is filled in. */
     const at = s => { const i = html.indexOf(s); assert.ok(i !== -1, c.arch + ': ' + s); return i; };
     assert.ok(at('data-field="pace"') < at('class="actual-field full yl"'));
-    assert.ok(at('data-field="rpe"') < at('data-action="actual-field" data-field="hr"'), c.arch + ': heart rate is above the answers');
-    assert.ok(at('data-action="actual-field" data-field="hr"') < at('data-field="notes"'));
+    /* Average heart rate is the third whole-session figure and sits with
+       the other two, above the sections. (It was below every question,
+       between Anything hurting and Elevation.) */
+    assert.ok(at('data-action="actual-field" data-field="pace"') < at('data-action="actual-field" data-field="hr"'));
+    assert.ok(at('data-action="actual-field" data-field="hr"') < at('class="actual-field full yl"'), c.arch + ': heart rate is not with distance and pace');
+    assert.ok(at('data-group="conditions"') < at('data-action="actual-field" data-field="elevationGainM"'));
+    assert.ok(at('data-action="actual-field" data-field="elevationGainM"') < at('data-field="notes"'));
     assert.ok(at('data-field="notes"') < at('data-action="clear-actual"'));
   });
 });
@@ -369,7 +376,7 @@ test('no field anywhere on a log is a bare "m:ss", "km" or "HR"', () => {
     if (!rows){ assert.doesNotMatch(html, /class="yl-opt"/, c.arch + ': "Optional" with nothing optional under it'); return; }
     const named = count(html, /<span class="slog-k">Average pace<\/span>/g) + count(html, /<div class="slog-cols"[^>]*><span>Average pace<\/span>/g);
     assert.ok(named >= 1, c.arch + ': the pace fields are not named');
-    [...html.matchAll(/data-part="[a-z]+"[\s\S]*?(?=data-part="|data-field="rpe")/g)].forEach(p => {
+    [...html.matchAll(/data-part="[a-z]+"[\s\S]*?(?=data-part="|data-group="|data-field="rpe")/g)].forEach(p => {
       const n = count(p[0], /class="slog-row/g);
       if (n === 1) assert.match(p[0], /<span class="slog-k">Average pace<\/span>/, c.arch + ': a single row is not labelled');
       if (n > 1) assert.equal(count(p[0], /<span>Average pace<\/span>/g), 1, c.arch + ': a list of rows repeats or lacks its labels');
@@ -455,4 +462,94 @@ test('the placeholders can be read, and the tiles are not bigger than the job', 
   assert.doesNotMatch(CSS, /\.actual-field input::placeholder\{color:var\(--ink-quiet\)/);
   assert.match(CSS, /\.yl \.opt-grid button\{min-height:48px/);
   assert.match(CSS, /\.yl \.slog-in\{width:100%; min-height:44px/);
+});
+
+// ---------------------------------------------------------------------------
+// THE ORDER OF THE LOG
+// ---------------------------------------------------------------------------
+
+/* Founder, with two mock-ups: "how I would like the session log to look.
+   Keep everything we currently have just a restructure. Visuals we already
+   have should stay."
+
+   Warm-up, Main set, Cool-down, Session feedback, Conditions and health,
+   then elevation and the notes. Nothing asked that was not asked before and
+   nothing dropped. */
+test('every log runs in the founder\'s order, whatever the session', () => {
+  Object.values(everyStructure()).forEach(c => {
+    const html = log(c);
+    const at = s => html.indexOf(s);
+    const order = ['data-part="warmup"', 'data-part="main"', 'data-part="cooldown"', 'data-group="feedback"',
+                   'data-group="conditions"', 'data-field="elevationGainM"', 'data-field="notes"', 'data-action="clear-actual"']
+      .filter(m => at(m) !== -1);
+    assert.deepEqual(order.slice().sort((x, y) => at(x) - at(y)), order, c.arch + ': the sections are out of order');
+    assert.ok(at('data-group="feedback"') !== -1 && at('data-group="conditions"') !== -1, c.arch + ': a group is missing');
+    assert.equal(count(html, /<div class="yl-title">Session feedback<\/div>/g), 1, c.arch);
+    assert.equal(count(html, /<div class="yl-title">Conditions &amp; health<\/div>/g), 1, c.arch);
+    /* Overall effort, then the conditions, then whether anything hurts. */
+    assert.ok(at('data-group="feedback"') < at('data-field="rpe"') && at('data-field="rpe"') < at('data-group="conditions"'), c.arch + ': effort is not in Session feedback');
+    assert.ok(at('data-group="conditions"') < at('data-field="conditions"'), c.arch);
+    assert.ok(at('data-field="conditions"') < at('data-field="hurting"'), c.arch);
+  });
+});
+
+test('the main set shows its fields first, then what is asked about the set', () => {
+  const all = everyStructure();
+  Object.values(all).forEach(c => {
+    const html = log(c), shape = c.a.logShape(c.dd);
+    const main = section(html, 'main');
+    const fb = html.slice(html.indexOf('data-group="feedback"'), html.indexOf('data-group="conditions"'));
+    const rowAt = main.indexOf('class="slog-row'), qAt = main.indexOf('class="yl-q"');
+    if (rowAt !== -1 && qAt !== -1) assert.ok(rowAt < qAt, c.arch + ': a question sits above the main set\'s fields');
+    if (shape.reps){
+      /* Reps and hills: the box holds the reps; how it felt and whether it
+         held are Session feedback, as the hill-sprint mock-up draws them. */
+      assert.match(main, /data-field="repsDone"/, c.arch + ': reps completed is not in the main set');
+      assert.doesNotMatch(main, /data-field="mainSetFelt"|data-field="mainSetHeld"/, c.arch);
+      assert.match(fb, /data-field="mainSetFelt"/, c.arch);
+      assert.match(fb, /data-field="mainSetHeld"/, c.arch);
+      assert.ok(fb.indexOf('data-field="mainSetHeld"') < fb.indexOf('data-field="rpe"'), c.arch);
+    } else {
+      /* One sustained effort, or a plain run: both questions are about it. */
+      assert.match(main, /data-field="mainSetFelt"/, c.arch + ': how it felt left the main set');
+      assert.doesNotMatch(fb, /data-field="mainSetFelt"|data-field="mainSetHeld"|data-field="repsDone"/, c.arch);
+      if (shape.main) assert.match(main, /data-field="mainSetHeld"/, c.arch);
+    }
+    /* Recoveries are Session feedback's, after effort, on the sessions that have them. */
+    assert.doesNotMatch(main, /data-field="recoveries"/, c.arch + ': recoveries are still in the main set');
+    assert.equal(/data-field="recoveries"/.test(fb), !!shape.recoveries, c.arch);
+    if (shape.recoveries) assert.ok(fb.indexOf('data-field="rpe"') < fb.indexOf('data-field="recoveries"'), c.arch);
+  });
+  /* Both shapes are in the fixture, so neither branch above is vacuous. */
+  assert.ok(Object.values(all).some(c => c.a.logShape(c.dd).reps) && Object.values(all).some(c => !c.a.logShape(c.dd).reps));
+});
+
+test('a session cut short is asked why in Session feedback, and nothing is asked twice', () => {
+  const c = everyStructure().track_reps;
+  c.a.handleLogAnswer(c.dd.id, 'repsDone', '3');
+  const html = log(c);
+  const fb = html.slice(html.indexOf('data-group="feedback"'), html.indexOf('data-group="conditions"'));
+  assert.match(fb, /Why did you stop\?/);
+  ['repsDone', 'mainSetFelt', 'mainSetHeld', 'rpe', 'recoveries'].forEach(f =>
+    assert.equal(count(html, new RegExp('<input type="range"[^>]*data-field="' + f + '"', 'g')) +
+                 (f === 'recoveries' ? 1 : 0) >= 1, true, f + ' is gone'));
+  ['conditions', 'hurting', 'stopReason', 'recoveries'].forEach(f =>
+    assert.equal(count(html, new RegExp('role="group" aria-label="[^"]*"><button[^>]*data-field="' + f + '"', 'g')), 1, f + ' is asked ' +
+      count(html, new RegExp('role="group" aria-label="[^"]*"><button[^>]*data-field="' + f + '"', 'g')) + ' times'));
+});
+
+test('the restructure added no control and no look: same sliders, same tiles, same fields', () => {
+  const css = SRC.slice(SRC.indexOf('  .yl{'), SRC.indexOf('  .yl .opt-grid button .t{'));
+  const grp = css.slice(css.indexOf('.yl-grp{'), css.indexOf('}', css.indexOf('.yl-grp{')));
+  assert.ok(!/border|background|box-shadow|border-radius/.test(grp), 'the new groups were given a box');
+  const body = SRC.slice(SRC.indexOf('\nfunction renderYourLogAnswers('), SRC.indexOf('\n}\n', SRC.indexOf('\nfunction renderYourLogAnswers(')));
+  assert.equal((body.match(/logRangeHtml\(/g) || []).length, 4, 'a slider was added or dropped');
+  assert.equal((body.match(/logTilesHtml\(/g) || []).length, 4, 'a tile group was added or dropped');
+  assert.ok(!/<svg|<img|class="[^"]*pill|type="checkbox"|stepper/.test(body), 'an icon, pill or new control was added');
+  /* Without consent the heading does not promise a health question. */
+  const c = everyStructure().easy_run, was = c.a.healthConsentGranted;
+  c.a.healthConsentGranted = () => false;
+  const html = log(c); c.a.healthConsentGranted = was;
+  assert.match(html, /<div class="yl-title">Conditions<\/div>/);
+  assert.doesNotMatch(html, /Conditions &amp; health|data-field="hurting"|data-field="mainSetFelt"/);
 });

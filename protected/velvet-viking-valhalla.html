@@ -8782,7 +8782,12 @@
   .yl > .yl-sec:first-child{margin-top:10px;}
   .yl-sec + .yl-box{margin-top:30px;}
   .yl-part .slog-row{margin:14px 0 0; padding:0; border:0; opacity:1;}
-  .yl-rows{margin-top:30px;}
+  .yl-rows{margin-top:18px;}
+  /* The two groups under the sections: a heading, then questions in the
+     voice they have inside the main set's box. */
+  .yl-grp{margin-top:40px;}
+  .yl-grp > .yl-title + .yl-q{margin-top:18px;}
+  .yl-sec + .yl-grp, .yl-box + .yl-grp{margin-top:40px;}
   .yl-rows .slog-row{margin:0 0 16px; padding:0; border:0; opacity:1;}
   .yl-rows .slog-row:last-child{margin-bottom:0;}
   .yl .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px;}
@@ -34482,7 +34487,7 @@ function logRangeHtml(dd, o){
 function logTilesHtml(dd, o){
   var on = function(id){ return Array.isArray(o.value) ? o.value.indexOf(id) !== -1 : o.value === id; };
   return '<div class="yl-q">'+
-    '<div class="yl-q-head"><span class="yl-q-t">'+escapeHtml(o.label)+'</span></div>'+
+    (o.unlabelled ? '' : '<div class="yl-q-head"><span class="yl-q-t">'+escapeHtml(o.label)+'</span></div>')+
     (o.note ? '<div class="yl-note">'+escapeHtml(o.note)+'</div>' : '')+
     '<div class="opt-grid yl-tiles" role="group" aria-label="'+escapeHtml(o.label)+'">'+
       o.options.map(function(x){
@@ -34567,55 +34572,84 @@ function logPartHtml(dd, title, part, rows){
     logRowsHtml(dd, rows)+
   '</div>';
 }
+/* ---------- THE ORDER OF THE LOG ----------
+   Founder, with two mock-ups: "how I would like the session log to look.
+   Keep everything we currently have just a restructure. Visuals we already
+   have should stay."
+
+   So nothing here is a new control and nothing is a new look. The same
+   sliders, tiles and fields, in the order the session was run and then the
+   order it is thought about afterwards:
+
+     Warm-up            where the prescription has one
+     Main set           its fields first, then what is asked about the set
+     Cool-down          where the prescription has one
+     Session feedback   how the whole thing went
+     Conditions and     what it was run in, and whether anything hurts --
+       health           with elevation and the notes directly beneath
+
+   WHERE "HOW DID IT FEEL?" SITS follows the mock-ups: on a sustained main
+   set (threshold, tempo, a progression) it is inside the main set with
+   whether the pace held, because both are about that one effort; on reps
+   and hills the main set holds the reps -- how many, and each one's
+   figures -- and the two questions move down to Session feedback. An easy
+   run has no sections at all and keeps its one box.
+
+   Recoveries leave the main set's box for Session feedback, where both
+   mock-ups draw them. */
 function renderYourLogAnswers(dd){
   if (!dd || dd.type === 'rest') return '';
   var a = dd.actual || {}, shape = logShape(dd), health = healthConsentGranted();
   var parts = logPlanRows(dd);
-  var box = '';
-  if (shape.reps)
-    box += logRangeHtml(dd, { field:'repsDone', label:'Reps completed', min:0, max:shape.reps,
-      value:(typeof a.repsDone === 'number' ? a.repsDone : null), start:shape.reps, of:shape.reps });
-  if (health)
-    box += logRangeHtml(dd, { field:'mainSetFelt', label:'How did it feel?', min:1, max:5,
-      value:(typeof a.mainSetFelt === 'number' ? a.mainSetFelt : null), start:3,
-      words:LOG_FELT_WORDS, ends:['Much easier', 'Much harder'] });
-  if (shape.main)
-    box += logRangeHtml(dd, { field:'mainSetHeld',
-      label:(shape.hills ? 'Did your effort hold?' : 'Did your pace hold?'), min:1, max:5,
-      value:(typeof a.mainSetHeld === 'number' ? a.mainSetHeld : null), start:3,
-      words:(shape.hills ? LOG_HELD_EFFORT : LOG_HELD_PACE),
-      ends:[(shape.hills ? 'Got stronger' : 'Got faster'), 'Faded'] });
-  if (shape.recoveries)
-    box += logTilesHtml(dd, { field:'recoveries', label:'Recoveries', options:LOG_RECOVERIES, value:a.recoveries });
+  var repsQ = shape.reps
+    ? logRangeHtml(dd, { field:'repsDone', label:'Reps completed', min:0, max:shape.reps,
+        value:(typeof a.repsDone === 'number' ? a.repsDone : null), start:shape.reps, of:shape.reps })
+    : '';
+  var feltQ = health
+    ? logRangeHtml(dd, { field:'mainSetFelt', label:'How did it feel?', min:1, max:5,
+        value:(typeof a.mainSetFelt === 'number' ? a.mainSetFelt : null), start:3,
+        words:LOG_FELT_WORDS, ends:['Much easier', 'Much harder'] })
+    : '';
+  var heldQ = shape.main
+    ? logRangeHtml(dd, { field:'mainSetHeld',
+        label:(shape.hills ? 'Did your effort hold?' : 'Did your pace hold?'), min:1, max:5,
+        value:(typeof a.mainSetHeld === 'number' ? a.mainSetHeld : null), start:3,
+        words:(shape.hills ? LOG_HELD_EFFORT : LOG_HELD_PACE),
+        ends:[(shape.hills ? 'Got stronger' : 'Got faster'), 'Faded'] })
+    : '';
+  var effortQ = logRangeHtml(dd, { field:'rpe', label:'Overall effort', min:1, max:10,
+    value:(typeof a.rpe === 'number' ? a.rpe : null), start:5, of:10, ends:['Very easy', 'All out'] });
+  var recoveriesQ = shape.recoveries
+    ? logTilesHtml(dd, { field:'recoveries', label:'Recoveries', options:LOG_RECOVERIES, value:a.recoveries })
+    : '';
   var conditions = LOG_CONDITIONS.map(function(x){ return [x[0], x[1]]; }).concat([['watch', 'Watch data off']]);
   var chosen = (a.conditions || []).slice();
   if (a.watchDataOff) chosen.push('watch');
   var stops = LOG_STOP.filter(function(x){ return health || LOG_STOP_HEALTH.indexOf(x[0]) === -1; });
-  /* The reps and stages of the main set, under the answers about it. */
+  var stopQ = logCutShort(dd, shape)
+    ? logTilesHtml(dd, { field:'stopReason', label:'Why did you stop?', options:stops, value:a.stopReason })
+    : '';
+  /* Reps and hills: the set's own box holds the reps. Everything else: it
+     holds how the one effort felt and whether it held. */
+  var inBox = shape.reps ? repsQ : (feltQ + heldQ);
+  var feedback = (shape.reps ? feltQ + heldQ : '') + effortQ + recoveriesQ + stopQ;
   var mainRows = logRowsHtml(dd, parts.main);
   var boxBase = shape.family === 'race' ? 'The race' : (shape.main ? 'Main set' : 'The run');
   var boxTitle = escapeHtml(parts.main.length ? logPartTitle(boxBase, parts.main) : boxBase);
   /* Said once, where the founder drew it: under the main set's fields. */
-  var optional = parts.structured ? '<div class="yl-opt">Optional \u2014 enter what you know.</div>' : '';
+  var optional = parts.structured ? '<div class="yl-opt">Optional — enter what you know.</div>' : '';
   return '<div class="actual-field full yl">'+
     logPartHtml(dd, 'Warm-up', 'warmup', parts.warm)+
-    ((box || mainRows) ? '<div class="yl-box" data-part="main"><div class="yl-title">'+boxTitle+'</div>'+
-        box+(mainRows ? '<div class="yl-rows">'+mainRows+'</div>' : '')+optional+'</div>' : '')+
+    ((inBox || mainRows) ? '<div class="yl-box" data-part="main"><div class="yl-title">'+boxTitle+'</div>'+
+        (mainRows ? '<div class="yl-rows">'+mainRows+'</div>' : '')+optional+inBox+'</div>' : '')+
     logPartHtml(dd, 'Cool-down', 'cooldown', parts.cool)+
-    '<div class="yl-sec">'+
-      logRangeHtml(dd, { field:'rpe', label:'Overall effort', min:1, max:10,
-        value:(typeof a.rpe === 'number' ? a.rpe : null), start:5, of:10, ends:['Very easy', 'All out'] })+
-    '</div>'+
-    '<div class="yl-sec">'+
-      logTilesHtml(dd, { field:'conditions', label:'Conditions', note:'Only what affected the run.',
+    '<div class="yl-grp" data-group="feedback"><div class="yl-title">Session feedback</div>'+feedback+'</div>'+
+    '<div class="yl-grp" data-group="conditions">'+
+      '<div class="yl-title">'+(health ? 'Conditions &amp; health' : 'Conditions')+'</div>'+
+      logTilesHtml(dd, { field:'conditions', label:'Conditions', unlabelled:true, note:'Only what affected the run.',
         options:conditions, value:chosen })+
+      (health ? logTilesHtml(dd, { field:'hurting', label:'Anything hurting?', options:LOG_HURTING, value:a.hurting }) : '')+
     '</div>'+
-    (health ? '<div class="yl-sec">'+
-      logTilesHtml(dd, { field:'hurting', label:'Anything hurting?', options:LOG_HURTING, value:a.hurting })+
-    '</div>' : '')+
-    (logCutShort(dd, shape) ? '<div class="yl-sec">'+
-      logTilesHtml(dd, { field:'stopReason', label:'Why did you stop?', options:stops, value:a.stopReason })+
-    '</div>' : '')+
   '</div>';
 }
 /* What the answers add up to, in the session's own analysis. Words only: how
@@ -34810,9 +34844,18 @@ function renderCompletedPanel(dd, detailHtml){
         (logTabOpen(dd) ? '<div class="log-body">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
-      /* THE ANSWERS, BEFORE ANYTHING THAT HAS TO BE TYPED. Distance and pace
-         above are the two numbers a watch gives; everything the athlete
-         knows that the watch does not is answered here with a thumb. See
+      /* THE WHOLE SESSION'S THREE FIGURES, TOGETHER. Average heart rate sat
+         below every question, between Anything hurting and Elevation; it is
+         the third number a watch gives and belongs with the other two.
+         Same field, same handler, moved. */
+      (healthConsentGranted()
+        ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
+        : '')+
+      /* THE ANSWERS, BEFORE ANYTHING ELSE THAT HAS TO BE TYPED. The figures
+         above are what a watch gives; everything the athlete knows that the
+         watch does not is answered here with a thumb. The block ends with
+         Conditions and health, so the elevation and the notes that follow
+         it read as the rest of that section, as the founder drew them. See
          renderYourLogAnswers(). */
       renderYourLogAnswers(dd)+
       /* One control, in the same quiet voice the session breakdown already
@@ -34826,9 +34869,6 @@ function renderCompletedPanel(dd, detailHtml){
          Heart rate, elevation and notes sat behind "+ Add detail" and, once
          opened, under a gold "Hide detail". Three fields are not a
          disclosure. They are the last three things on the form, each once. */
-      (healthConsentGranted()
-        ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
-        : '')+
       /* THE TYPED RPE BOX IS GONE: Overall effort is a slider in the answers
          above and writes the same field. */
       /* ELEVATION IS OPTIONAL AND BLANK MEANS UNKNOWN. A flat run and an
