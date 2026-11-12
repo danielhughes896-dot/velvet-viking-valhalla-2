@@ -46,6 +46,25 @@
   --gold-text:var(--gold); --bronze-text:var(--bronze);
   --gold-bright:#F5D061; --modal-active:#c5a059;
   --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
+  /* CHERRY, WHICH THIS FILE DID NOT HAVE, AND THAT WAS THE WHOLE PROBLEM.
+     The palette here predates the move that made cherry the interaction
+     colour -- "Gold = brand/destination/milestone. Cherry = active/training/
+     interaction." The app and /start both got it, because both declare their
+     own :root. /get, /privacy, /terms and the account shell reach the
+     product's tokens ONLY through this file, exactly as the note at the top
+     of this block says, so cherry never arrived and their buttons kept
+     falling back to the bronze gradient. A reader tapping DOWNLOAD THE APP on
+     /get met the brand colour where every other surface in the product paints
+     the action.
+     The values are the app's own, character for character -- the point of a
+     shared shell is that there is one set, not a second set that agrees for
+     now. --cherry-ink and --cherry-btn-ink are both here and both white
+     because the app distinguishes them, and a page reaching for either
+     through this file should not have to know which one the app happened to
+     use. */
+  --cherry:#9A546C; --cherry-fill:#7A2E42; --cherry-soft:#9A546C;
+  --cherry-line:rgba(154,84,108,0.45); --cherry-dim:rgba(154,84,108,0.50);
+  --cherry-text:#C46A89; --cherry-ink:#FFFFFF; --cherry-btn-ink:#FFFFFF;
   /* Controls. Dark keeps the app's fixed dark-Viking ramp character for
      character, so nothing about the dark theme moves. */
   --ctl-bg:#24201c; --ctl-border:#3d352b; --ctl-text:#e6dfd5;

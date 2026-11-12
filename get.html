@@ -48,16 +48,35 @@
     color:var(--bronze); margin:0 0 12px; display:flex; align-items:center; gap:8px;
   }
   .card h2 svg{width:15px; height:15px; flex:none;}
+  /* CHERRY, NOT THE BRONZE GRADIENT, and flat rather than a gradient.
+     Founder: "it needs to have the same visuals as the app. Cherry boards
+     ect." This button was the last gold primary action in the product. Every
+     other surface moved under the rule -- "Gold = brand/destination/
+     milestone. Cherry = active/training/interaction" -- and a download button
+     is interaction by definition; the app's own builder paints Continue in
+     exactly these values. This page did not move with them because the
+     tokens were not reachable from here: vvv-shell.css carried no cherry at
+     all until now, so `var(--bronze)` was the only fill available.
+     FLAT, because a gradient reads as a surface with a sheen rather than one
+     deliberate colour -- the same reasoning that took the gradient off the
+     app's own primary. The 1px rim is what gives a dark fill an edge against
+     a dark card without lightening its face back into rose. */
   .btn{
     display:flex; align-items:center; justify-content:center; gap:9px; width:100%;
-    background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);
-    border:none; border-radius:var(--radius-sm); padding:15px 18px; cursor:pointer;
+    background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    border:none; box-shadow:inset 0 0 0 1px var(--cherry);
+    border-radius:var(--radius-sm); padding:15px 18px; cursor:pointer;
     font-family:var(--text-face); font-size:14px; font-weight:600; letter-spacing:1px;
     text-transform:uppercase; text-decoration:none;
   }
   .btn:active{filter:brightness(.93);}
   .btn svg{width:18px; height:18px; flex:none;}
-  .btn-ghost{background:none; border:1px solid var(--line); color:var(--ink);}
+  /* box-shadow:none IS THE LOAD-BEARING LINE. .btn now carries an inset 1px
+     cherry rim, and .btn-ghost only ever overrode background, border and
+     colour -- so the secondary action came out ringed in the accent and
+     competed with the primary directly above it. A ghost is quiet by
+     definition: neutral border, no rim. */
+  .btn-ghost{background:none; border:1px solid var(--line); color:var(--ink); box-shadow:none;}
   .note{font-size:11.5px; line-height:1.55; color:var(--ink-faint); margin:11px 0 0;}
   .note b{color:var(--ink-dim); font-weight:600;}
   ol{margin:0; padding-left:19px; color:var(--ink-dim); font-size:13px; line-height:1.85;}
@@ -66,7 +85,11 @@
     margin-top:6px; padding-top:16px; border-top:1px solid var(--line);
     font-size:11.5px; color:var(--ink-faint); line-height:1.6;
   }
-  .other a{color:var(--bronze); text-decoration:underline;}
+  /* The iPhone switch is an action too, so it takes the interaction colour
+     rather than the brand one. --cherry-text, not --cherry: the fill is far
+     too dark to read as type on this ground, which is why the app keeps a
+     separate token for cherry as text. */
+  .other a{color:var(--cherry-text); text-decoration:underline;}
   .foot{font-size:10.5px; color:var(--ink-faint); opacity:.65; margin-top:22px; line-height:1.6;}
   .foot a{color:var(--ink-faint); text-decoration:underline;}
   [hidden]{display:none !important;}
