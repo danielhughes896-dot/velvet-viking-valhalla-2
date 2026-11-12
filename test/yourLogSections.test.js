@@ -178,7 +178,7 @@ test('every prescribed rep has one mark, and no pace or heart-rate box of its ow
     const m = /(\d+)\s?x\s?\d/.exec(c.dd.title);
     if (m && !/twice/.test(c.dd.title)) assert.equal(shape.reps, +m[1], c.arch + ': "' + c.dd.title + '" is counted as ' + shape.reps);
     /* The words are the session's: a pace for reps run to one, effort up a hill. */
-    assert.match(html, shape.hills ? /Tap a rep: on effort, easier or harder\./ : /Tap a rep: on pace, slower or faster\./, c.arch);
+    assert.match(html, shape.hills ? /Tap a rep: on target, too easy or too hard\./ : /Tap a rep: on pace, slower or faster\./, c.arch);
     assert.equal(/Average pace/.test(main), false, c.arch + ': the main set of a rep session asks for a pace');
   });
   assert.ok(seen >= 4, 'the fixture has too few rep sessions for this to mean anything');

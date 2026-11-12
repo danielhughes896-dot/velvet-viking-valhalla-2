@@ -95,13 +95,44 @@ test('a tap moves a rep on one step: on target, short of it, beyond it, then unm
   assert.match(SRC, /case 'log-mark': handleLogMark\(target\.getAttribute\('data-day'\), target\.getAttribute\('data-rep'\)\); break;/);
 });
 
+/* Founder: "I've selected 4/5 reps but can select all tabs. The tabs should
+   be locked to the slider selection." */
+test('only the reps that were run can be marked: the tiles are locked to the slider', () => {
+  const { a, dd } = fresh('hill_repeats');
+  const n = a.logShape(dd).reps;
+  const tiles = () => [...log(a, dd).matchAll(/data-action="log-mark" data-rep="(\d+)"/g)].map(m => +m[1]);
+  /* Until the slider is answered: the prescribed number. */
+  assert.deepEqual(tiles(), Array.from({ length: n }, (_, i) => i + 1));
+  for (let i = 1; i <= n; i++) tap(a, dd, i);
+  assert.equal(marks(dd).filter(Boolean).length, n);
+  /* Four of five completed: four tiles, and the fifth rep's mark goes with it. */
+  a.handleLogAnswer(dd.id, 'repsDone', String(n - 1));
+  assert.deepEqual(tiles(), Array.from({ length: n - 1 }, (_, i) => i + 1), 'a rep that was not run can still be marked');
+  assert.equal(marks(dd).length, n - 1, 'a mark is kept for a rep that was not run');
+  tap(a, dd, n);
+  assert.equal(marks(dd).length, n - 1, 'a rep beyond the slider was marked');
+  assert.equal(a.logRepMarkSummary(dd).of, n - 1);
+  assert.match(a.sessionReadoutHtml(dd), new RegExp((n - 1) + ' of ' + (n - 1) + ' reps on target'));
+  /* None completed: nothing to mark, and nothing left stored. */
+  a.handleLogAnswer(dd.id, 'repsDone', '0');
+  assert.deepEqual(tiles(), []);
+  assert.equal(dd.actual.repMarks, undefined);
+  /* The slider cleared: back to the prescribed number, unmarked. */
+  a.handleLogClear(dd.id, 'repsDone');
+  assert.deepEqual(tiles(), Array.from({ length: n }, (_, i) => i + 1));
+});
+
 test('hill reps are marked by effort, never by pace', () => {
   const { a, dd } = fresh('hill_repeats');
   tap(a, dd, 1); tap(a, dd, 2, 2); tap(a, dd, 3, 3);
   const html = log(a, dd);
   assert.deepEqual([...html.matchAll(/data-action="log-mark"[^>]*><span class="n">\d+<\/span><span class="t">([^<]+)</g)].map(m => m[1]).slice(0, 3),
-    ['On effort', 'Easier', 'Harder']);
+    ['On target', 'Too easy', 'Too hard']);
   assert.doesNotMatch(html, /On pace|Slower|Faster/, 'a hill rep is judged by pace');
+  /* Founder: "I'm not clear on what easier on effort or harder is." Easier
+     than what was the missing half, so the words carry it. */
+  assert.doesNotMatch(html, /On effort|>Easier<|>Harder</, 'the unclear words are back');
+  assert.match(html, /Tap a rep: on target, too easy or too hard\. Leave any you are not sure of\./);
   /* Stored as the same three words as any other rep, so one reader serves both. */
   assert.deepEqual(marks(dd).slice(0, 3), ['on', 'under', 'over']);
   assert.match(log(a, dd), /Did your effort hold\?/);
@@ -167,7 +198,7 @@ test('the marks are read by the session\'s own assessment: how much was on targe
   assert.equal(ex.basis, 'reported');
   assert.equal(ex.level, 'mixed');
   assert.equal(ex.score, null, 'a tap was turned into a score');
-  assert.match(hill.a.sessionReadoutHtml(hill.dd), new RegExp('0 of ' + hn + ' reps on effort'));
+  assert.match(hill.a.sessionReadoutHtml(hill.dd), new RegExp('0 of ' + hn + ' reps on target'));
 });
 
 test('a mark is never turned into a pace, a split or a score', () => {
@@ -376,4 +407,24 @@ test('the log is shorter by its gaps alone: every thumb target is the size it wa
   /* The rep tiles are thumb-sized and four to a row. */
   assert.match(rule('.yl .yl-marks'), /grid-template-columns:repeat\(4, minmax\(0, 1fr\)\)/);
   assert.ok(!/min-height/.test(rule('.yl .yl-marks button')), 'the rep tile overrides the 48px every tile has');
+});
+
+// ---------------------------------------------------------------------------
+// CHERRY, NOT GOLD, ROUND WHAT IS BEING USED
+// ---------------------------------------------------------------------------
+
+/* Founder: "Check all boxes in the log session as they're coming up gold on
+   selection. Cherry please." And of the tabs: "It shouldn't be gold around
+   these boxes when selected." */
+test('nothing on the log, and no tab, takes a gold rim when it is selected', () => {
+  assert.match(rule('.log-body :focus-visible'), /outline-color:var\(--cherry-text\)/);
+  /* It comes after, and outranks, the product's one global ring -- which is left as it is. */
+  assert.match(CSS, /\n  :focus-visible\{outline:2px solid var\(--gold\); outline-offset:2px; border-radius:4px;\}/);
+  assert.ok(CSS.indexOf('.log-body :focus-visible{') > CSS.indexOf('\n  :focus-visible{'));
+  /* No rule scoped to the log puts gold round a focused or chosen control. */
+  const logRules = [...CSS.matchAll(/\n  ([^{}\n]*(?:\.log-body|\.yl|\.slog|\.log-totals)[^{}\n]*(?::focus|:hover|\.active)[^{}\n]*)\{([^}]*)\}/g)];
+  logRules.forEach(m => assert.ok(!/(outline|border)[^;]*var\(--(gold|bronze)[^)]*\)/.test(m[2]), m[1] + ' is gold when selected'));
+  /* The tabs: Share, Session Details, Your Log, and Edit Session's two. */
+  assert.equal(rule('.sess-tab:hover, .sess-tab:focus-visible'), '.sess-tab:hover, .sess-tab:focus-visible{border-color:var(--cherry);');
+  assert.doesNotMatch(CSS, /\.sess-tab:hover\{border-color:var\(--bronze\)/);
 });

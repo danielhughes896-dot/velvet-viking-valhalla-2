@@ -1393,7 +1393,12 @@
      saying separately -- list-style alone does not do it in WebKit. */
   .sess-tab::-webkit-details-marker{display:none;}
   .sess-tab::marker{content:'';}
-  .sess-tab:hover{border-color:var(--bronze);}
+  /* CHERRY WHEN IT IS THE ONE BEING USED. Founder: "It shouldn't be gold
+     around these boxes when selected. Cherry please." Gold is the brand and
+     the destination; a tab under the thumb is an interaction, and on a phone
+     the rim stays on the tab last tapped. Keyboard focus takes the same rim. */
+  .sess-tab:hover, .sess-tab:focus-visible{border-color:var(--cherry);}
+  .sess-tab:focus-visible{outline:none;}
   /* CENTRED IN THE ROW, NOT IN WHAT IS LEFT OF IT. The chevron sits at the
      end and is 19px of asymmetry; a title centred in the remaining space
      lands 19px left of the row's middle, which reads as almost-centred --
@@ -6248,6 +6253,15 @@
   .log-totals input{width:100%; min-width:0;}
   .log-totals-note{grid-column:1/-1; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   .log-totals-note:not(:empty){margin-top:8px;}
+  /* CHERRY ROUND WHATEVER IS BEING FILLED IN. Founder: "Check all boxes in
+     the log session as they're coming up gold on selection. Cherry please."
+     The gold was the product's one global focus ring, which every field,
+     tile and slider on the log inherited. Gold is the brand and the
+     destination; a box under the thumb is an interaction. The global ring is
+     left alone -- it is the fallback for everything that has no opinion --
+     and the log states its own, the way the sliders and the graph tabs
+     already do. */
+  .log-body :focus-visible{outline-color:var(--cherry-text);}
   .sess-details-mount{grid-column:1/-1;}
   .exec-review-mount{grid-column:1/-1;}
   .exec-review-mount:empty{display:none;}
@@ -9507,6 +9521,10 @@
   .cg-tab.is-on > span{border-bottom-color:var(--cherry-text);}
   .cg-tab:focus-visible{outline:2px solid var(--cherry-text); outline-offset:-2px;}
   @media (max-width:360px){ .cg-tab{font-size:11px; letter-spacing:.3px;} }
+  /* The graph answers a sideways drag itself, so the page may still be
+     scrolled up and down from on top of it. */
+  .cg-body[data-hswipe]{touch-action:pan-y pinch-zoom;}
+  .cg-body.is-settling{transition:transform var(--pager-settle, .24s) ease;}
   .cg-head{display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; margin-top:16px;}
   .cg-fig{font-family:var(--text-face); font-size:28px; font-weight:700; line-height:1.15; color:#FFFFFF;}
   .cg-fig.is-good{color:var(--ok);}
@@ -34613,8 +34631,17 @@ function logPlanRows(dd){
 
    THE WORDS ARE THE SESSION'S. Reps run to a pace are on pace, slower or
    faster. Hill reps have no pace to be held to -- "hill sessions assess
-   effort rather than relying on pace" -- so they are on effort, easier or
-   harder. The stored value is the same three words either way.
+   effort rather than relying on pace" -- so they are on target, too easy or
+   too hard. (They were "on effort, easier, harder", and the founder said so:
+   "I'm not clear on what easier on effort or harder is." Easier than what
+   was the missing half; "too easy" and "too hard" carry it.) The stored
+   value is the same three words either way.
+
+   ONLY THE REPS THAT WERE RUN. Founder: "I've selected 4/5 reps but can
+   select all tabs. The tabs should be locked to the slider selection." So
+   the tiles are the reps completed -- four of five is four tiles -- and a
+   mark on a rep the slider no longer includes is dropped with it. Until the
+   slider is answered they are the prescribed number, as before.
 
    WHERE THEY GO. assessExecution() reads them as the athlete's report of
    the set: how much of it was on target, and whether it faded or built.
@@ -34625,11 +34652,14 @@ function logPlanRows(dd){
 var LOG_MARKS = ['on', 'under', 'over'];
 var LOG_MARK_WORDS = {
   pace:   { on:'On pace',   under:'Slower', over:'Faster' },
-  effort: { on:'On effort', under:'Easier', over:'Harder' }
+  effort: { on:'On target', under:'Too easy', over:'Too hard' }
 };
 function logRepMarks(dd){
   var n = 0;
   try { var sh = logShape(dd); n = sh.light ? 0 : sh.reps; } catch(e){ n = 0; }
+  /* Locked to the slider: a rep that was not run cannot be marked. */
+  var done = dd && dd.actual ? dd.actual.repsDone : null;
+  if (typeof done === 'number' && isFinite(done)) n = clamp(Math.round(done), 0, n);
   var src = (dd && dd.actual && Array.isArray(dd.actual.repMarks)) ? dd.actual.repMarks : [];
   var out = [];
   for (var i = 0; i < n; i++) out.push(LOG_MARKS.indexOf(src[i]) !== -1 ? src[i] : null);
@@ -34960,6 +34990,13 @@ function handleLogAnswer(dayId, field, raw){
     var reps = logShape(dd).reps;
     if (!reps || n < 0 || n > reps || a.repsDone === n) return;
     a.repsDone = n;
+    /* A mark on a rep that is no longer among the ones completed goes with
+       it: logRepMarks() already reads only that many, and what is stored
+       should not hold more than is shown. */
+    if (Array.isArray(a.repMarks)){
+      var kept = logRepMarks(dd);
+      if (kept.some(Boolean)) a.repMarks = kept; else delete a.repMarks;
+    }
   } else if (field === 'mainSetFelt'){
     if (!healthConsentGranted() || n < 1 || n > 5 || a.mainSetFelt === n) return;
     a.mainSetFelt = n;
@@ -67154,23 +67191,29 @@ function dialRingHtml(mode, variant){
                      is not projected forward either."
    Recovery is never predicted. */
 var COACH_GRAPHS = ['efficiency', 'paceAtHR', 'drift', 'threshold', 'recovery'];
+/* `hello` is what a graph says before it has a single reading: what Sacoro
+   reads it from, and that the first one starts it. Founder: "the current
+   'None yet' wording is rather cold. I'd prefer SACORO to acknowledge
+   whatever valid evidence it has, even when confidence remains low." So it
+   is never a count of what is missing. */
 var COACH_GRAPH_META = {
   efficiency: { title:'Aerobic Efficiency', group:'Aerobic Development', tab:'Efficiency', waiting:'Learning',
-                need:'Easy runs with heart rate and pace, in three separate weeks.', unit:'weeks' },
+                hello:'Sacoro reads this from easy runs logged with heart rate and pace. Your first one starts it.' },
   paceAtHR:   { title:'Pace at HR', group:'Aerobic Development', tab:'Pace at HR', waiting:'Learning',
-                need:'Easy runs at your usual easy heart rate, in three separate weeks.', unit:'weeks' },
+                hello:'Sacoro reads this from easy runs at your usual easy heart rate. Your first easy run with heart rate starts it.' },
   drift:      { title:'Cardiac Drift', group:'Aerobic Development', tab:'Drift', waiting:'Learning',
-                need:'Steady easy or long runs of 40 minutes with lap pace and heart rate, in three separate weeks.', unit:'weeks' },
+                hello:'Sacoro reads this from steady runs of 40 minutes with lap pace and heart rate. Your first one starts it.' },
   threshold:  { title:'Threshold Development', group:'Threshold Development', tab:'Threshold', waiting:'Awaiting reliable evidence',
-                need:'Two measured efforts: a race or a Fitness Checkpoint.', unit:'measured efforts' },
+                hello:'Sacoro reads this from threshold sessions logged with the main set\u2019s average pace. Your first one starts it.' },
   recovery:   { title:'Recovery Response', group:'Recovery Response', tab:'Recovery', waiting:'Building your baseline',
-                need:'Three hard sessions with the days after them logged.', unit:'hard sessions' }
+                hello:'Sacoro reads this from the days after a hard session: your check-ins and easy runs. The first hard session you follow up starts it.' }
 };
 /* Display rules, not coaching: how many points make a line worth drawing and
    when a line may be carried forward. They change nothing the engine decides. */
 var COACH_GRAPH_CAL = { minPoints:3, minMeasured:2, predictPoints:4, predictSteps:3, predictDecay:0.6,
                         predictFit:0.6, sameHRBand:5, levelPct:0.02, levelDriftPts:1, beyond72:96,
-                        driftMinSec:2400, driftSteadyPct:0.03 };
+                        driftMinSec:2400, driftSteadyPct:0.03,
+                        earlyRuns:8, similarPacePct:0.03, thresholdBandPct:0.05 };
 /* ---------- VERIFIED: WHAT EACH LINE IS, AND WHAT IT IS NOT ----------
    Founder: "verify all five development graphs use valid physiological
    evidence and accurately labelled measurements."
@@ -67197,9 +67240,10 @@ var COACH_GRAPH_CAL = { minPoints:3, minMeasured:2, predictPoints:4, predictStep
    half was within 3% of the pace of its first. The number is unchanged;
    which runs are allowed to produce one is not.
 
-   THRESHOLD DEVELOPMENT. Threshold pace is ESTIMATED from each race or
-   Fitness Checkpoint through the same equivalence the training paces use.
-   It is not a lactate measurement and the graph now says "estimated".
+   THRESHOLD DEVELOPMENT. The pace of the main set in threshold sessions
+   that were run to plan -- training evidence, session by session. It is
+   not a lactate measurement, it is not a race result, and it moves no
+   training pace: see coachGraphThresholdSessions().
 
    RECOVERY RESPONSE. The day, of the three after a hard session, on which
    the athlete's own reports and easy heart rate first read normal -- so it
@@ -67208,7 +67252,7 @@ var COACH_GRAPH_MEASURE = {
   efficiency: function(u){ return 'Heartbeats per '+u+' \u00b7 easy runs \u00b7 weekly median'; },
   paceAtHR:   function(u, ref){ return 'Pace per '+u+' \u00b7 easy runs within 5 bpm of '+ref+' \u00b7 weekly median'; },
   drift:      function(){ return 'Heart-rate rise, second half against first \u00b7 steady runs at a held pace'; },
-  threshold:  function(u){ return 'Threshold pace per '+u+' \u00b7 estimated from races and Fitness Checkpoints'; },
+  threshold:  function(u){ return 'Main-set pace per '+u+' \u00b7 threshold sessions run to plan'; },
   recovery:   function(){ return 'Hours until you read as normal \u00b7 from your reports and easy heart rate'; }
 };
 /* Was this run steady enough for a rise in heart rate to be drift? */
@@ -67233,6 +67277,108 @@ function coachGraphDrift(dd){
   return coachHRDrift(dd);
 }
 var COACH_GRAPH_TREND_NOTE = 'Dotted: where this trend points if it continues, slowing each week.';
+/* ---------- EVIDENCE FROM THE FIRST VALID SESSION ----------
+   Founder: "The five graphs should progressively become useful as evidence
+   arrives, rather than staying blank until a fixed requirement is met ...
+   after two comparable easy runs, SACORO could already say: 'Your heart
+   rate was 4 bpm lower at a similar pace. Early evidence -- more runs
+   needed to establish a trend.' That's useful coaching without pretending
+   two runs prove improved fitness."
+
+   So a graph has three states, not two:
+
+     nothing yet   the outline, and what Sacoro reads this from
+     early         every valid reading so far is DRAWN and DESCRIBED -- one
+                   is a starting point, two or more are compared -- and it
+                   is called early evidence in so many words. Never green,
+                   never carried forward: no dotted line is drawn from it.
+     trend         three separate weeks (or three sessions), as before
+
+   What counts as a valid reading has not been loosened to get here. The
+   same runs qualify as qualified before; the only change is that Sacoro
+   says what it has instead of what it lacks. Drift is the proof: "Two runs
+   with only overall averages cannot produce a genuine drift measurement",
+   so they produce none -- and the graph says that is why. */
+function coachGraphEarlyNote(what){
+  return 'Early evidence \u2014 more '+what+' needed to establish a trend.';
+}
+/* An athlete with easy runs logged and none of them usable here is told
+   which thing is missing, rather than that nothing has happened. */
+function coachGraphEasyHello(fallback){
+  var easy = (state.days || []).filter(function(d){ return d && d.completed && d.type === 'easy'; });
+  if (!easy.length) return fallback;
+  if (!healthConsentGranted())
+    return 'Heart rate is health information, and Sacoro only reads it if you have said it may. Settings \u2192 Health & Readiness.';
+  var bare = easy.filter(function(d){ return !d.actual || d.actual.hr == null; }).length;
+  if (!bare) return fallback;
+  return (bare === 1 ? 'One easy run is' : bare + ' easy runs are') +
+    ' logged without a heart rate. Add the average heart rate in Your Log and ' + (bare === 1 ? 'it counts' : 'they count') + ' here.';
+}
+/* The readings themselves, oldest first, as points: the most recent few. */
+function coachGraphEarlyPoints(rows){
+  return rows.slice().sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); })
+    .slice(-COACH_GRAPH_CAL.earlyRuns)
+    .map(function(r, i){ return { x:i, label:dShort(r.date), v:r.v, row:r }; });
+}
+/* ---------- THRESHOLD SESSIONS, AS TRAINING EVIDENCE ----------
+   Founder: "Measured Fitness: A completed race or valid Fitness Checkpoint
+   establishes a performance measurement. Keep that authority. Threshold
+   Development: Use comparable, well-executed threshold sessions to track
+   pace, HR, execution and response over time, with appropriate confidence.
+   Threshold prediction: Require stronger validated evidence before
+   estimating race performance or adjusting training zones. A threshold
+   session is useful evidence of training development, but it isn't
+   automatically a measured lactate threshold or race result."
+
+   So this graph is drawn from training and from nothing else, and it is
+   read by nothing else:
+
+   COMPARABLE      the work the plan set at threshold intensity, and only
+                   that -- its main-set pace, not the average of a session
+                   that also holds a warm-up and a cool-down
+   WELL EXECUTED   the session was completed, and that pace was inside the
+                   threshold window (give or take thresholdBandPct). A main
+                   set run at tempo pace or raced is a different session and
+                   is not plotted as threshold
+   PACE AND HR     the main set's average heart rate rides with it where the
+                   athlete gave one, and how the set felt where they said
+   NOT A MEASURE   measuredPerformances(), the Fitness plate, the training
+                   paces and the goal projection do not read this, and no
+                   dotted line is drawn from it. Nothing here estimates a
+                   race or moves a zone. */
+function coachGraphThresholdSessions(){
+  var out = { rows:[], unpaced:0, planned:0 }, cal = COACH_GRAPH_CAL;
+  var paces = null, goal = null;
+  try { paces = getActivePaces(); goal = getGoalPaceSecPerKm(); } catch(e){ paces = null; }
+  var consent = healthConsentGranted();
+  (state.days || []).forEach(function(dd){
+    if (!dd || dd.type === 'rest') return;
+    var plan = null;
+    try { plan = assessPlan(dd); } catch(e){ plan = null; }
+    var segs = plan ? plan.work.filter(function(x){ return x.intensity === 'threshold'; }) : [];
+    if (!segs.length) return;
+    out.planned++;                                   // in the block, run or not
+    if (!dd.completed || !dd.actual) return;
+    var a = dd.actual;
+    if (a.km != null && dd.km > 0 && a.km / dd.km < ASSESS_CAL.completeFraction) return;   // cut short
+    var w = 0, t = 0, hw = 0, ht = 0, paced = true, inWindow = true;
+    segs.forEach(function(sg){
+      var sp = structuredSplitFor(dd, sg.segId);
+      var pace = (sp && sp.paceSec > 0) ? sp.paceSec : null;
+      if (!pace){ paced = false; return; }
+      var band = paces ? segmentPaceBand(sg, paces, goal) : null;
+      if (band && (pace < band.fast * (1 - cal.thresholdBandPct) || pace > band.slow * (1 + cal.thresholdBandPct))) inWindow = false;
+      var km = sp.km > 0 ? sp.km : sg.km > 0 ? sg.km : sg.m > 0 ? sg.m / 1000 : sg.sec > 0 ? sg.sec / pace : 1;
+      w += km; t += pace * km;
+      if (consent && sp.hr > 0){ hw += km; ht += sp.hr * km; }
+    });
+    if (!paced){ out.unpaced++; return; }
+    if (!inWindow || !(w > 0)) return;
+    out.rows.push({ date:dd.date, pace:t / w, hr:(hw > 0 ? Math.round(ht / hw) : null),
+                    felt:(consent && typeof a.mainSetFelt === 'number') ? a.mainSetFelt : null });
+  });
+  return out;
+}
 var coachGraphSel = 'efficiency';
 
 function coachGraphWeekly(rows){
@@ -67250,7 +67396,7 @@ function coachGraphEasyRuns(){
     if (!r.completed || r.type !== 'easy' || !hrIsReadable(r) || !(r.actualPace > 0)) return;
     var dd = findDayByDate(r.date);
     if (!dd || dd.week == null) return;
-    out.push({ week:dd.week, hr:r.hr, pace:r.actualPace });
+    out.push({ week:dd.week, date:r.date, hr:r.hr, pace:r.actualPace });
   });
   return out;
 }
@@ -67291,17 +67437,47 @@ function coachGraphSeries(key){
   var cal = COACH_GRAPH_CAL, meta = COACH_GRAPH_META[key];
   if (!meta) return null;
   var mile = displayUnit() === 'mi', per = mile ? 1.609344 : 1, unit = displayUnit();
-  var s = { key:key, title:meta.title, group:meta.group, waiting:meta.waiting, need:meta.need, unitWord:meta.unit,
-            points:[], predicted:[], lowerIsBetter:true, ready:false, have:0, want:cal.minPoints,
+  var s = { key:key, title:meta.title, group:meta.group, waiting:meta.waiting, hello:meta.hello,
+            points:[], predicted:[], lowerIsBetter:true, ready:false, early:false, have:0, want:cal.minPoints,
             figure:'', figureText:'', good:false, caption:'', ticks:null, measure:'', predictNote:'',
             fmt:function(v){ return String(Math.round(v)); } };
   var first, last, d;
 
   if (key === 'efficiency'){
-    s.points = coachGraphWeekly(coachGraphEasyRuns().map(function(r){
+    var eRuns = coachGraphEasyRuns();
+    s.points = coachGraphWeekly(eRuns.map(function(r){
       return { week:r.week, v:r.hr * (r.pace/60) * per }; }));
     s.have = s.points.length;
-    if (s.have < s.want) return s;
+    if (s.have < s.want){
+      /* Fewer than three weeks: the runs themselves, as far as they go. */
+      var eE = coachGraphEarlyPoints(eRuns.map(function(r){
+        return { date:r.date, v:r.hr * (r.pace/60) * per, hr:r.hr, pace:r.pace }; }));
+      s.points = eE;
+      if (!eE.length){ s.hello = coachGraphEasyHello(s.hello); return s; }
+      s.early = true;
+      s.measure = 'Heartbeats per '+unit+' \u00b7 each easy run';
+      var eF = eE[0], eL = eE[eE.length - 1];
+      if (eE.length === 1){
+        s.figure = Math.round(eL.v) + ' beats';
+        s.figureText = 'per '+unit+' on your first easy run';
+        s.caption = 'One easy run with heart rate so far, and that is the starting point. The next one gives it something to be compared with.';
+        return s;
+      }
+      var dHr = Math.round(eL.row.hr - eF.row.hr), dBeats = Math.round(eL.v - eF.v);
+      if (Math.abs(eL.row.pace - eF.row.pace) / eF.row.pace <= cal.similarPacePct){
+        /* The founder's own sentence, when the two runs allow it. */
+        s.figure = dHr === 0 ? 'Same heart rate' : Math.abs(dHr) + ' bpm ' + (dHr < 0 ? 'lower' : 'higher');
+        s.figureText = 'at a similar pace';
+        s.caption = (dHr === 0 ? 'Your heart rate was the same at a similar pace.'
+          : 'Your heart rate was '+Math.abs(dHr)+' bpm '+(dHr < 0 ? 'lower' : 'higher')+' at a similar pace.')+' '+coachGraphEarlyNote('runs');
+      } else {
+        s.figure = dBeats === 0 ? 'Level' : (dBeats < 0 ? '\u2212' : '+') + Math.abs(dBeats) + ' beats';
+        s.figureText = 'per '+unit+' between easy runs';
+        s.caption = (dBeats === 0 ? 'Your latest easy run cost the same heartbeats per '+unit+' as your first.'
+          : 'Your latest easy run cost '+Math.abs(dBeats)+' '+(dBeats < 0 ? 'fewer' : 'more')+' heartbeats per '+unit+' than your first.')+' '+coachGraphEarlyNote('runs');
+      }
+      return s;
+    }
     s.ready = true;
     first = s.points[0]; last = s.points[s.have - 1]; d = last.v - first.v;
     var levelE = Math.abs(d) / first.v < cal.levelPct;
@@ -67323,7 +67499,33 @@ function coachGraphSeries(key){
       .map(function(r){ return { week:r.week, v:r.pace * per }; }));
     s.fmt = function(v){ return secToClock(Math.round(v)); };
     s.have = s.points.length;
-    if (s.have < s.want) return s;
+    if (s.have < s.want){
+      var pE = coachGraphEarlyPoints(runs.filter(function(r){ return Math.abs(r.hr - ref) <= cal.sameHRBand; })
+        .map(function(r){ return { date:r.date, v:r.pace * per, hr:r.hr }; }));
+      s.points = pE;
+      if (!pE.length){
+        /* Runs there are, and none close enough in heart rate to set one
+           pace beside another. Said, not hidden. */
+        if (runs.length) s.hello = (runs.length === 1 ? 'One easy run is' : runs.length + ' easy runs are') +
+          ' logged with heart rate, but not close enough in heart rate to compare pace like for like yet.';
+        else s.hello = coachGraphEasyHello(s.hello);
+        return s;
+      }
+      s.early = true;
+      s.measure = 'Pace per '+unit+' \u00b7 easy runs within 5 bpm of '+ref+' \u00b7 each run';
+      var pF = pE[0], pL = pE[pE.length - 1], dP = pL.v - pF.v;
+      if (pE.length === 1){
+        s.figure = s.fmt(pL.v);
+        s.figureText = 'per '+unit+' at around '+ref+' bpm';
+        s.caption = 'One easy run at around '+ref+' bpm so far, and that is the starting point. The next one at that heart rate gives it something to be compared with.';
+        return s;
+      }
+      s.figure = Math.abs(dP) < 1 ? 'Level' : coachGraphClock(dP) + (dP < 0 ? ' faster' : ' slower');
+      s.figureText = 'per '+unit+' at around '+ref+' bpm';
+      s.caption = (Math.abs(dP) < 1 ? 'Your easy pace at around '+ref+' bpm was the same as on your first such run.'
+        : 'Your easy pace at around '+ref+' bpm was '+coachGraphClock(dP)+' '+(dP < 0 ? 'quicker' : 'slower')+' than on your first such run.')+' '+coachGraphEarlyNote('runs');
+      return s;
+    }
     s.ready = true;
     first = s.points[0]; last = s.points[s.have - 1]; d = last.v - first.v;
     var levelP = Math.abs(d) / first.v < cal.levelPct;
@@ -67339,18 +67541,39 @@ function coachGraphSeries(key){
   }
 
   if (key === 'drift'){
-    var rows = [];
+    var rows = [], averagesOnly = 0;
     if (healthConsentGranted()) athleteMemory(400).forEach(function(r){
       if (!r.completed || (r.type !== 'easy' && r.type !== 'long') || !hrIsReadable(r)) return;
       var dd = findDayByDate(r.date);
       if (!dd || dd.week == null) return;
       var drift = coachGraphDrift(dd);
-      if (drift != null) rows.push({ week:dd.week, v:drift });
+      if (drift != null) rows.push({ week:dd.week, date:r.date, v:drift });
+      else averagesOnly++;
     });
     s.points = coachGraphWeekly(rows);
     s.fmt = function(v){ return (Math.round(v*10)/10) + '%'; };
     s.have = s.points.length;
-    if (s.have < s.want) return s;
+    if (s.have < s.want){
+      var dE = coachGraphEarlyPoints(rows);
+      s.points = dE;
+      if (!dE.length){
+        /* Founder: "Two runs with only overall averages cannot produce a
+           genuine drift measurement." So they are acknowledged for what
+           they are, and no figure is made of them. */
+        if (averagesOnly) s.hello = (averagesOnly === 1 ? 'One run is' : averagesOnly + ' runs are') +
+          ' logged with heart rate. Drift is the rise within a run, so it needs a steady run of 40 minutes with lap pace and heart rate: an average cannot show it.';
+        return s;
+      }
+      s.early = true;
+      s.measure = COACH_GRAPH_MEASURE.drift();
+      var dF = dE[0], dL = dE[dE.length - 1];
+      s.figure = s.fmt(dL.v);
+      s.figureText = 'heart-rate rise across a steady run';
+      s.caption = dE.length === 1
+        ? 'One steady run with lap heart rate so far, and that is the starting point. The next one gives it something to be compared with.'
+        : 'Heart rate rose '+s.fmt(dL.v)+' across your latest steady run, against '+s.fmt(dF.v)+' on your first. '+coachGraphEarlyNote('runs');
+      return s;
+    }
     s.ready = true;
     first = s.points[0]; last = s.points[s.have - 1]; d = last.v - first.v;
     var levelD = Math.abs(d) < cal.levelDriftPts;
@@ -67366,43 +67589,55 @@ function coachGraphSeries(key){
   }
 
   if (key === 'threshold'){
-    var perfs = measuredPerformances().filter(function(p){ return p.vdot != null && p.date; })
-      .slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; });
-    var tPace = function(vdot){
-      var t = trainingPacesFromVDOT(vdot).T;
-      return (t && t.slow != null && t.fast != null) ? ((t.slow + t.fast) / 2) * per : null;
-    };
-    var t0 = perfs.length ? perfs[0].date : null;
-    perfs.forEach(function(p){
-      var v = tPace(p.vdot);
-      if (v != null) s.points.push({ x:daysBetween(t0, p.date), label:dShort(p.date), v:v });
-    });
+    /* Training evidence, and only that: see coachGraphThresholdSessions().
+       A race or a Fitness Checkpoint is Measured Fitness and is not here. */
+    var th = coachGraphThresholdSessions();
+    var tP = coachGraphEarlyPoints(th.rows.map(function(r){ return { date:r.date, v:r.pace * per, hr:r.hr, felt:r.felt }; }));
     s.fmt = function(v){ return secToClock(Math.round(v)); };
-    s.want = cal.minMeasured;
-    s.have = s.points.length;
-    if (s.have < s.want) return s;
-    s.ready = true;
-    first = s.points[0]; last = s.points[s.have - 1]; d = last.v - first.v;
-    var levelT = Math.abs(d) < 1;
-    s.good = !levelT && d < 0;
-    s.figure = levelT ? 'Level' : coachGraphClock(d) + (d < 0 ? ' faster' : ' slower');
-    s.figureText = 'estimated threshold pace per ' + unit;
-    s.caption = 'Estimated from ' + s.have + ' measured efforts. Training runs do not move it.';
+    s.points = tP;
+    s.have = tP.length;
     s.measure = COACH_GRAPH_MEASURE.threshold(unit);
-    /* The Race Goal methodology's own projection, and nothing wider. */
-    var goal = null, proj = null;
-    try {
-      var end = (state.days || []).reduce(function(m, x){ return x.date > m ? x.date : m; }, todayStr());
-      var ahead = daysBetween(todayStr(), end);
-      if (ahead > 0){ proj = raceGoalProjectedVdot(ahead); goal = end; }
-    } catch(e){ proj = null; }
-    if (proj && !proj.flat && proj.vdot != null){
-      var pv = tPace(proj.vdot);
-      if (pv != null && pv < last.v){
-        s.predicted = [{ x:daysBetween(t0, goal), label:dShort(goal), v:pv }];
-        s.predictNote = 'Dotted: the goal-day projection, capped at the gain already measured.';
-      }
+    if (!tP.length){
+      if (th.unpaced) s.hello = (th.unpaced === 1
+        ? 'One threshold session is logged without its main-set pace. Add it in Your Log and it counts here.'
+        : th.unpaced + ' threshold sessions are logged without a main-set pace. Add it in Your Log and they count here.');
+      /* A block with no threshold work in it has nothing to wait for, and
+         saying "your first one starts it" would be a promise about a
+         session that is not coming. */
+      else if (!th.planned) s.hello = 'This block has no threshold sessions in it, so there is nothing for Sacoro to read here.';
+      return s;
     }
+    /* Said on every state of this graph, because it is the distinction the
+       graph exists to keep. */
+    var stays = ' A race or Fitness Checkpoint is still what sets your training paces.';
+    var tF = tP[0], tL = tP[tP.length - 1], dT = tL.v - tF.v;
+    if (tP.length === 1){
+      s.early = true;
+      s.figure = s.fmt(tL.v);
+      s.figureText = 'per '+unit+' in your first threshold session';
+      s.caption = 'One threshold session with a main-set pace so far, and that is the starting point.' + stays;
+      return s;
+    }
+    var levelT = Math.abs(dT) < 1;
+    var dTh = (tF.row.hr != null && tL.row.hr != null) ? tL.row.hr - tF.row.hr : null;
+    var atHr = dTh == null ? '' : dTh === 0 ? ' at the same heart rate' : ' at '+Math.abs(dTh)+' bpm '+(dTh < 0 ? 'lower' : 'higher');
+    var felt = tL.row.felt != null ? ' The latest felt ' + LOG_FELT_WORDS[tL.row.felt - 1].toLowerCase() + '.' : '';
+    var said = (levelT ? 'Your threshold main set was run at the same pace as in your first session'
+      : 'Your threshold main set was '+coachGraphClock(dT)+' per '+unit+' '+(dT < 0 ? 'quicker' : 'slower')+' than in your first session') + atHr + '.' + felt;
+    s.figure = levelT ? 'Level' : coachGraphClock(dT) + (dT < 0 ? ' faster' : ' slower');
+    s.figureText = 'main-set pace per ' + unit;
+    if (tP.length < s.want){
+      s.early = true;
+      s.caption = said + ' ' + coachGraphEarlyNote('sessions') + stays;
+      return s;
+    }
+    s.ready = true;
+    s.good = !levelT && dT < 0;
+    s.caption = said + ' From ' + tP.length + ' threshold sessions run to plan.' + stays;
+    /* NO DOTTED LINE. "Threshold prediction: Require stronger validated
+       evidence before estimating race performance or adjusting training
+       zones." Training sessions are not that evidence, so nothing is
+       carried forward from them. */
     return s;
   }
 
@@ -67426,7 +67661,18 @@ function coachGraphSeries(key){
     s.ticks = [24, 48, 72, cal.beyond72];
     s.fmt = function(v){ return v >= cal.beyond72 ? '72h+' : Math.round(v) + 'h'; };
     s.have = s.points.length;
-    if (s.have < s.want) return s;
+    s.measure = COACH_GRAPH_MEASURE.recovery();
+    if (s.have < s.want){
+      if (!s.have) return s;
+      s.early = true;
+      var rT = wins.filter(function(w){ return w.hours != null; }).map(function(w){ return w.hours; });
+      s.figure = rT.length ? 'About ' + Math.round(median(rT)) + ' hours' : 'Over 72 hours';
+      s.figureText = 'to feel normal after a hard session';
+      s.caption = s.have === 1
+        ? 'One hard session with the days after it logged so far, and that is the starting point.'
+        : 'From your first ' + s.have + ' hard sessions with the days after them logged. ' + coachGraphEarlyNote('sessions');
+      return s;
+    }
     s.ready = true;
     var timed = wins.filter(function(w){ return w.hours != null; }).map(function(w){ return w.hours; });
     var over = wins.length - timed.length;
@@ -67525,28 +67771,34 @@ function renderCoachGraph(){
       'data-action="coach-graph" data-graph="'+k+'"><span>'+escapeHtml(COACH_GRAPH_META[k].tab)+'</span></button>';
   }).join('');
   var body;
-  if (s.ready){
-    body = '<div class="cg-head"><span class="cg-fig'+(s.good ? ' is-good' : '')+'">'+escapeHtml(s.figure)+'</span>'+
+  if (s.ready || s.early){
+    /* A trend and early evidence are drawn the same way -- the athlete's
+       readings, in cherry -- and told apart by what is said under them.
+       Early evidence is never green and never has a dotted line. */
+    body = '<div class="cg-head"><span class="cg-fig'+(s.good && s.ready ? ' is-good' : '')+'">'+escapeHtml(s.figure)+'</span>'+
         '<span class="cg-fig-t">'+escapeHtml(s.figureText)+'</span></div>'+
       '<div class="cg-measure">'+escapeHtml(s.measure)+'</div>'+
       coachGraphSvg(s)+
       '<div class="cg-legend"><span class="cg-key is-measured">Measured</span>'+
-        (s.predicted.length ? '<span class="cg-key is-predicted">Predicted</span>' : '')+'</div>'+
+        (s.ready && s.predicted.length ? '<span class="cg-key is-predicted">Predicted</span>' : '')+'</div>'+
       '<div class="cg-cap">'+escapeHtml(s.caption)+
-        (s.predictNote ? ' '+escapeHtml(s.predictNote) : '')+'</div>';
+        (s.ready && s.predictNote ? ' '+escapeHtml(s.predictNote) : '')+'</div>';
   } else {
-    /* NOT ENOUGH YET, SAID AS THAT. The founder's word for this graph over
-       the graph's own outline, then what it is waiting for and how far along
-       it is. The outline carries no figure: see coachGraphFrameSvg(). */
-    var sofar = s.have === 0 ? 'None yet.' : s.have + ' of ' + s.want + ' so far.';
+    /* NOTHING YET, SAID KINDLY. The founder's word for this graph over the
+       graph's own outline, then what Sacoro reads it from -- and, where the
+       athlete has logged something that cannot be used here, exactly that.
+       Never "None yet", never a count of what is missing. The outline
+       carries no figure: see coachGraphFrameSvg(). */
     body = '<div class="cg-wait">'+coachGraphFrameSvg(s)+
           '<div class="cg-wait-w">'+escapeHtml(s.waiting)+'</div></div>'+
-        '<div class="cg-wait-s">'+escapeHtml(s.need)+' '+escapeHtml(sofar)+'</div>';
+        '<div class="cg-wait-s">'+escapeHtml(s.hello)+'</div>';
   }
+  /* data-hswipe on the body: a sideways drag across the graph is the
+     graph's -- see wireCoachGraph() -- and the view pager stands down. */
   return '<div class="cg-card" id="coach-graph">'+
     '<div class="cg-title">'+escapeHtml(s.group)+'</div>'+
-    '<div class="cg-tabs" role="tablist" aria-label="Development graphs" data-hswipe="1">'+tabs+'</div>'+
-    '<div class="cg-body" role="tabpanel">'+body+'</div>'+
+    '<div class="cg-tabs" role="tablist" aria-label="Development graphs">'+tabs+'</div>'+
+    '<div class="cg-body" role="tabpanel" data-hswipe="1">'+body+'</div>'+
   '</div>';
 }
 function handleCoachGraph(key){
@@ -67560,7 +67812,65 @@ function handleCoachGraph(key){
     var again = document.getElementById('coach-graph');
     var t2 = again && again.querySelector ? again.querySelector('.cg-tabs') : null;
     if (t2) t2.scrollLeft = keep;
+    wireCoachGraph();                       // the card is new, so its swipe is
   } else renderApp();
+}
+/* ---------- SWIPE THE GRAPH ----------
+   Founder: "allow the athlete to swipe horizontally across the graph itself.
+   Swipe left/right to change the graph. Tapping Efficiency, Pace at HR,
+   Drift, Threshold or Recovery still works. The selected heading and graph
+   update together. The three coaching circles above remain independent. No
+   arrows, extra buttons or new page."
+
+   One step along COACH_GRAPHS, and the ends stop: the same rule the week
+   and the plan's phases follow. It goes through handleCoachGraph(), the
+   function a tapped heading calls, so the heading and the graph cannot
+   disagree -- there is one selection and one place it is changed.
+
+   The graph leans a little with the finger so the drag reads as taken, and
+   settles back if it was not far enough to mean it. The circles' rail is a
+   separate scroller above this card and never sees the gesture. */
+function coachGraphStep(dir){
+  var to = COACH_GRAPHS[COACH_GRAPHS.indexOf(coachGraphSel) + dir];
+  if (!to) return false;
+  handleCoachGraph(to);
+  return true;
+}
+function wireCoachGraph(){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  var card = document.getElementById('coach-graph');
+  var body = card && card.querySelector ? card.querySelector('.cg-body') : null;
+  if (!body || body.__vvSwipe || !body.addEventListener) return;
+  body.__vvSwipe = true;
+  var g = null;
+  var rest = function(){ body.classList.add('is-settling'); body.style.transform = ''; };
+  body.addEventListener('touchstart', function(e){
+    if (!e.touches || e.touches.length !== 1){ g = null; return; }
+    g = { x:e.touches[0].clientX, y:e.touches[0].clientY, dx:0, axis:null };
+    body.classList.remove('is-settling');
+  }, { passive:true });
+  body.addEventListener('touchmove', function(e){
+    if (!g || !e.touches || e.touches.length !== 1) return;
+    var dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
+    if (!g.axis){
+      if (Math.abs(dx) < RAIL_CLAIM_PX && Math.abs(dy) < RAIL_CLAIM_PX) return;
+      if (Math.abs(dx) > Math.abs(dy) * RAIL_AXIS_BIAS) g.axis = 'x';
+      else { g = null; return; }
+    }
+    g.dx = dx;
+    var at = COACH_GRAPHS.indexOf(coachGraphSel);
+    var atEnd = (dx > 0 && at === 0) || (dx < 0 && at === COACH_GRAPHS.length - 1);
+    body.style.transform = 'translate3d(' + Math.round(dx * (atEnd ? 0.1 : 0.35)) + 'px,0,0)';
+    if (e.cancelable && e.preventDefault) e.preventDefault();
+  }, { passive:false });
+  body.addEventListener('touchend', function(){
+    var p = g; g = null;
+    if (!p || p.axis !== 'x') return;
+    var w = body.clientWidth || 1;
+    if (Math.abs(p.dx) > w * PAGER_COMMIT_FRACTION && coachGraphStep(p.dx < 0 ? 1 : -1)) return;
+    rest();
+  });
+  body.addEventListener('touchcancel', function(){ g = null; rest(); });
 }
 /* ---------- THE CIRCLE RAIL'S DOTS ----------
    Three circles show and the rest are a swipe away; the dots under them say
@@ -70681,6 +70991,7 @@ function wireWeekDayPager(){
     for (var k=0; k<phases.length; k++) wirePhaseRail(phases[k]);
     var opens = document.querySelectorAll('.wk-session.is-open');
     for (var j=0; j<opens.length; j++) wireWeekFullSwipe(opens[j]);
+    wireCoachGraph();
   }catch(e){}
 }
 /* ---------- SWIPING THE WEEK MOVES THE DAY ----------

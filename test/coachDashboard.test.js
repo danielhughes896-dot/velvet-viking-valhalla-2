@@ -185,8 +185,13 @@ test('there are five graphs, in the founder\'s order, each with the founder\'s w
     a.coachGraphSel = k;
     const card = a.renderCoachGraph();
     assert.match(card, new RegExp('<div class="cg-wait-w">' + want[k][1] + '</div>'));
-    assert.match(card, /None yet\./);
-    assert.ok(card.indexOf(s.need) !== -1, k + ' does not say what it is waiting for');
+    /* Founder: "the current 'None yet' wording is rather cold." What Sacoro
+       reads this from, and that the first one starts it. Never a count of
+       what is missing. */
+    assert.match(s.hello, /^Sacoro reads this from /, k + ' does not say what it is read from');
+    assert.match(s.hello, /starts it\.$/, k);
+    assert.ok(card.indexOf('<div class="cg-wait-s">' + a.escapeHtml(s.hello) + '</div>') !== -1, k + ' does not say it on the card');
+    assert.doesNotMatch(card, /None yet|so far\.|\d+ of \d+/, k + ' counts what is missing');
     /* Founder: "there should be the out line on the graph. Just no data on
        it." The frame, and not one thing a measurement would put there. */
     assert.equal((card.match(/<svg class="cg-svg cg-frame"/g) || []).length, 1, k + ' has no outline');
@@ -201,19 +206,129 @@ test('there are five graphs, in the founder\'s order, each with the founder\'s w
   ['efficiency', 'paceAtHR', 'drift'].forEach(k => assert.equal(series(a, k).group, 'Aerobic Development'));
 });
 
-test('logging without heart rate leaves the aerobic graphs learning, and says how far along each is', () => {
+/* ---------------------------------------------------------------------------
+ * EVIDENCE FROM THE FIRST VALID SESSION
+ * Founder: "The five graphs should progressively become useful as evidence
+ * arrives, rather than staying blank until a fixed requirement is met ...
+ * after two comparable easy runs, SACORO could already say: 'Your heart rate
+ * was 4 bpm lower at a similar pace. Early evidence -- more runs needed to
+ * establish a trend.' That's useful coaching without pretending two runs
+ * prove improved fitness."
+ * ------------------------------------------------------------------------- */
+const EARLY = /Early evidence \u2014 more (runs|sessions) needed to establish a trend\./;
+/* The first n easy runs, logged; `hr(i)` gives each a heart rate, or none. */
+function easyLogged(n, hr, pace){
+  const a = athlete();
+  const runs = past(a).filter(d => d.type === 'easy').slice(0, n);
+  runs.forEach((d, i) => {
+    logAsPrescribed(a, d, { quality: 1 });
+    if (hr) d.actual.hr = hr(i);
+    if (pace) d.actual.pace = a.secToClock(paceSec(d.actual.pace) + pace(i));
+    delete d.coachReview; a.coachPersistReview(d);
+  });
+  return { a, runs };
+}
+const drawn = (a, k) => { a.coachGraphSel = k; return a.renderCoachGraph(); };
+
+test('runs logged without heart rate are acknowledged for what they are', () => {
+  const { a } = easyLogged(2);
+  ['efficiency', 'paceAtHR'].forEach(k => {
+    const s = series(a, k);
+    assert.equal(s.ready || s.early, false, k + ' was drawn without heart rate');
+    assert.equal(s.hello, '2 easy runs are logged without a heart rate. Add the average heart rate in Your Log and they count here.');
+    assert.ok(drawn(a, k).indexOf(a.escapeHtml(s.hello)) !== -1);
+  });
+  /* And without consent, it is said that way rather than as missing data. */
+  a.healthConsentGranted = () => false;
+  assert.match(series(a, 'efficiency').hello, /^Heart rate is health information, and Sacoro only reads it if you have said it may\./);
+});
+
+test('one valid run is a starting point: it is drawn, and nothing is claimed from it', () => {
+  const { a } = easyLogged(1, () => 150);
+  ['efficiency', 'paceAtHR'].forEach(k => {
+    const s = series(a, k), card = drawn(a, k);
+    assert.equal(s.early, true, k + ' ignores the one reading it has');
+    assert.equal(s.ready, false);
+    assert.equal(pts(s).length, 1);
+    assert.match(s.caption, /so far, and that is the starting point\./, k);
+    assert.doesNotMatch(s.caption, EARLY, k + ' calls one run evidence of a trend');
+    assert.equal((card.match(/class="cg-dot"/g) || []).length, 1, k + ' does not draw its one reading');
+    assert.ok(!/cg-wait|cg-frame|cg-line|cg-pred|is-good|Predicted/.test(card), k);
+  });
+  assert.match(series(a, 'efficiency').figure, /^\d+ beats$/);
+});
+
+test('two comparable runs are compared, in the founder\'s words, and called early evidence', () => {
+  /* The same pace, four beats lower. */
+  const { a } = easyLogged(2, i => 150 - i * 4);
+  const s = series(a, 'efficiency');
+  assert.equal(s.early, true); assert.equal(s.ready, false);
+  assert.equal(s.caption, 'Your heart rate was 4 bpm lower at a similar pace. Early evidence \u2014 more runs needed to establish a trend.');
+  assert.equal(s.figure, '4 bpm lower'); assert.equal(s.figureText, 'at a similar pace');
+  assert.equal(pts(s).length, 2);
+  /* It is what the two runs measured: the points are their own heartbeats per km. */
+  pts(s).forEach(p => assert.ok(Math.abs(p.v - p.row.hr * p.row.pace / 60) < 1e-6));
+  /* Drawn, and not dressed as more than it is: no green, no dotted line, no "Predicted". */
+  const card = drawn(a, 'efficiency');
+  assert.equal((card.match(/class="cg-dot"/g) || []).length, 2);
+  assert.equal(s.good, false);
+  assert.equal(Array.from(s.predicted).length, 0);
+  assert.ok(!/is-good|cg-pred|Predicted|Dotted/.test(card), 'early evidence is presented as a trend');
+  assert.match(card, /<div class="cg-measure">Heartbeats per km \u00b7 each easy run<\/div>/);
+
+  /* Higher is said as plainly as lower. */
+  const up = easyLogged(2, i => 146 + i * 5);
+  assert.match(series(up.a, 'efficiency').caption, /^Your heart rate was 5 bpm higher at a similar pace\. /);
+  /* Runs at different paces are not "a similar pace": the cost per km is compared instead. */
+  const diff = easyLogged(2, () => 150, i => -i * 30);
+  const sd = series(diff.a, 'efficiency');
+  assert.doesNotMatch(sd.caption, /similar pace/);
+  assert.match(sd.caption, /^Your latest easy run cost \d+ fewer heartbeats per km than your first\. Early evidence/);
+  /* Pace at HR says its own. */
+  assert.match(series(a, 'paceAtHR').caption, EARLY);
+  /* Two runs too far apart in heart rate are not set side by side. */
+  const far = easyLogged(2, i => 138 + i * 16);
+  const sf = series(far.a, 'paceAtHR');
+  assert.equal(sf.early, false);
+  assert.equal(sf.hello, '2 easy runs are logged with heart rate, but not close enough in heart rate to compare pace like for like yet.');
+});
+
+test('three separate weeks make a trend, and only then', () => {
   const a = athlete();
   past(a).forEach(d => logAsPrescribed(a, d, { quality: 1 }));
-  ['efficiency', 'paceAtHR', 'drift'].forEach(k => assert.equal(series(a, k).ready, false, k + ' was drawn without heart rate'));
-  /* Two weeks of evidence is still not three. */
   const easy = past(a).filter(d => d.type === 'easy');
-  [1, 2].forEach(w => easy.filter(d => d.week === w).forEach(d => { d.actual.hr = 150; }));
-  const s = series(a, 'efficiency');
-  assert.equal(s.have, 2); assert.equal(s.want, 3); assert.equal(s.ready, false);
-  a.coachGraphSel = 'efficiency';
-  assert.match(a.renderCoachGraph(), /2 of 3 so far\./);
-  easy.filter(d => d.week === 3).forEach(d => { d.actual.hr = 150; });
-  assert.equal(series(a, 'efficiency').ready, true);
+  [1, 2].forEach(w => easy.filter(d => d.week === w).forEach(d => { d.actual.hr = 150; delete d.coachReview; a.coachPersistReview(d); }));
+  let s = series(a, 'efficiency');
+  assert.equal(s.have, 2); assert.equal(s.want, 3);
+  assert.equal(s.ready, false); assert.equal(s.early, true, 'two weeks of runs are not shown');
+  assert.match(s.caption, EARLY);
+  easy.filter(d => d.week === 3).forEach(d => { d.actual.hr = 150; delete d.coachReview; a.coachPersistReview(d); });
+  s = series(a, 'efficiency');
+  assert.equal(s.ready, true); assert.equal(s.early, false);
+  assert.doesNotMatch(s.caption, /Early evidence/);
+  assert.match(s.measure, /weekly median$/);
+});
+
+test('Cardiac Drift says why an average cannot show it, and reads the first run that can', () => {
+  /* Founder: "Two runs with only overall averages cannot produce a genuine
+     drift measurement." */
+  const { a } = easyLogged(2, () => 150);
+  let s = series(a, 'drift');
+  assert.equal(s.early || s.ready, false, 'drift was made out of averages');
+  assert.equal(pts(s).length, 0);
+  assert.equal(s.hello, '2 runs are logged with heart rate. Drift is the rise within a run, so it needs a steady run of 40 minutes with lap pace and heart rate: an average cannot show it.');
+  /* One steady long run with lap pace and heart rate is a first reading. */
+  const b = athlete();
+  const long = past(b).filter(d => d.type === 'long' && b.assessPlan(d).family === 'aerobic')[0];
+  logAsPrescribed(b, long, { quality: 1 });
+  long.actual.hr = 150;
+  long.actual.splits = [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ km: long.km / 8, sec: Math.round(long.km / 8 * 345), hr: i < 4 ? 146 : 151 }));
+  delete long.coachReview; b.coachPersistReview(long);
+  s = series(b, 'drift');
+  assert.equal(s.early, true);
+  assert.equal(pts(s).length, 1);
+  assert.equal(pts(s)[0].v, b.coachHRDrift(long), 'the reading is not the engine\'s own');
+  assert.match(s.caption, /^One steady run with lap heart rate so far, and that is the starting point\./);
 });
 
 test('all five can be chosen with a thumb, and choosing one redraws the card', () => {
@@ -304,8 +419,13 @@ test('without health consent no heart-rate graph is drawn', () => {
     assert.equal(s.ready, false, k + ' read heart rate without consent');
     assert.equal(pts(s).length, 0);
   });
-  /* Threshold comes from race results, which are not health data. */
-  assert.equal(series(a, 'threshold').ready, true);
+  /* A main-set pace is not health data: Threshold is still read, without its heart rate. */
+  const t = thresholded(3);
+  t.a.healthConsentGranted = () => false;
+  const s = series(t.a, 'threshold');
+  assert.equal(s.ready, true);
+  assert.ok(pts(s).every(p => p.row.hr == null && p.row.felt == null), 'a heart rate or a feeling was read without consent');
+  assert.doesNotMatch(s.caption, /bpm|felt/);
 });
 
 test('Pace at HR compares like with like: only runs near the athlete\'s usual easy heart rate', () => {
@@ -377,34 +497,111 @@ test('Cardiac Drift is read only from a run that held its pace', () => {
   assert.equal(series(b, 'drift').ready, false);
 });
 
-test('Threshold Development moves only with measured efforts', () => {
-  const a = evidenced();
+/* Founder: "Measured Fitness: A completed race or valid Fitness Checkpoint
+   establishes a performance measurement. Keep that authority. Threshold
+   Development: Use comparable, well-executed threshold sessions to track
+   pace, HR, execution and response over time, with appropriate confidence.
+   Threshold prediction: Require stronger validated evidence before
+   estimating race performance or adjusting training zones. A threshold
+   session is useful evidence of training development, but it isn't
+   automatically a measured lactate threshold or race result."
+   (This law used to hold the graph to races and checkpoints alone.) */
+function thresholded(n, tweak){
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  a.patchExecutionUI = () => {}; a.patchSplitsTotal = () => {}; a.patchDerivedStats = () => {}; a.replaceCard = () => {};
+  buildPlan(a, { distanceKey: 'full', volume: 45, weeks: 12, lthr: 172, maxHR: 188, startDate: '2026-10-06' });
+  const th = a.state.days.filter(d => d.type !== 'rest' && d.date < TODAY &&
+    a.assessPlan(d).work.some(x => x.intensity === 'threshold'));
+  assert.ok(th.length >= 3, 'the fixture has too few threshold sessions');
+  const band = a.getActivePaces().T, mid = Math.round((band.fast + band.slow) / 2);
+  th.slice(0, n).forEach((d, i) => {
+    logAsPrescribed(a, d, { quality: 1 });
+    const main = Array.from(a.loggingModeFor(d).plan.rows).filter(r => r.role === 'work');
+    main.forEach(r => {
+      a.handleStructuredSplitChange(d.id, r.segId, 'pace', a.secToPace(mid - i * 3));
+      a.handleStructuredSplitChange(d.id, r.segId, 'hr', String(170 - i * 2));
+    });
+    a.handleLogAnswer(d.id, 'mainSetFelt', '3');
+    if (tweak) tweak(a, d, i, main, mid);
+  });
+  return { a, th, mid, band };
+}
+
+test('Threshold Development is drawn from threshold sessions run to plan', () => {
+  const { a, th, mid } = thresholded(3);
   const s = series(a, 'threshold');
-  const perfs = Array.from(a.measuredPerformances());
-  assert.equal(pts(s).length, perfs.length);
-  assert.ok(pts(s).length >= 2);
-  const t = a.trainingPacesFromVDOT(perfs[0].vdot).T;
-  assert.ok(Math.abs(pts(s)[0].v - (t.slow + t.fast) / 2) < 1e-6, 'the point is not the threshold pace that effort implies');
-  assert.match(s.caption, /^Estimated from \d+ measured efforts\. Training runs do not move it\./);
-  assert.match(s.figureText, /^estimated threshold pace per km$/, 'a threshold pace worked out from a race is presented as measured');
-  /* Faster training changes nothing here. */
-  past(a).filter(d => d.type === 'tempo').forEach(d => { d.actual.pace = '3:40'; });
-  assert.deepEqual(pts(series(a, 'threshold')).map(p => p.v), pts(s).map(p => p.v), 'a training run moved threshold');
-  /* One measurement is a fact, not a development. */
-  const b = evidenced();
-  b.athlete().performances = b.athlete().performances.slice(0, 1);
-  b.state.days.forEach(d => { if (d.type === 'checkpoint'){ d.completed = false; d.actual = null; } });
-  const one = series(b, 'threshold');
-  if (Array.from(b.measuredPerformances()).length === 1){
-    assert.equal(one.ready, false);
-    b.coachGraphSel = 'threshold';
-    assert.match(b.renderCoachGraph(), /Awaiting reliable evidence[\s\S]*1 of 2 so far\./);
-  }
-  /* An effort the athlete marked as not maximal is not a measurement. */
-  const c = evidenced();
-  const n = pts(series(c, 'threshold')).length;
-  c.disqualifyMeasuredPerformance(c.athlete().performances[0].date, 'not_maximal');
-  assert.equal(pts(series(c, 'threshold')).length, n - 1);
+  assert.equal(s.ready, true);
+  assert.deepEqual(pts(s).map(p => Math.round(p.v)), [mid, mid - 3, mid - 6], 'the points are not the main sets\' own paces');
+  assert.deepEqual(pts(s).map(p => p.label), Array.from(th).slice(0, 3).map(d => a.dShort(d.date)));
+  assert.equal(s.figure, '0:06 faster');
+  assert.equal(s.figureText, 'main-set pace per km');
+  /* Pace, heart rate and response, said together. */
+  assert.equal(s.caption, 'Your threshold main set was 0:06 per km quicker than in your first session at 4 bpm lower. ' +
+    'The latest felt as intended. From 3 threshold sessions run to plan. A race or Fitness Checkpoint is still what sets your training paces.');
+  assert.match(s.measure, /^Main-set pace per km \u00b7 threshold sessions run to plan$/);
+  assert.equal(s.good, true);
+  /* It is not the session's overall pace, which runs through the warm-up and cool-down. */
+  assert.notEqual(Math.round(pts(s)[0].v), a.actualPaceSecPerKm(th[0]));
+});
+
+test('a threshold reading builds from the first session, with the confidence it has earned', () => {
+  const one = series(thresholded(1).a, 'threshold');
+  assert.equal(one.early, true); assert.equal(one.ready, false);
+  assert.equal(pts(one).length, 1);
+  assert.equal(one.caption, 'One threshold session with a main-set pace so far, and that is the starting point. A race or Fitness Checkpoint is still what sets your training paces.');
+  const two = series(thresholded(2).a, 'threshold');
+  assert.equal(two.early, true); assert.equal(two.ready, false);
+  assert.match(two.caption, /^Your threshold main set was 0:03 per km quicker than in your first session at 2 bpm lower\. The latest felt as intended\. Early evidence \u2014 more sessions needed to establish a trend\. A race or Fitness Checkpoint is still what sets your training paces\.$/);
+  assert.equal(two.good, false, 'two sessions are shown as an established gain');
+  /* Nothing logged with a main-set pace: said, with what would fix it. */
+  const bare = thresholded(0);
+  bare.th.slice(0, 2).forEach(d => logAsPrescribed(bare.a, d, { quality: 1 }));
+  const sb = series(bare.a, 'threshold');
+  assert.equal(sb.early || sb.ready, false);
+  assert.equal(sb.hello, '2 threshold sessions are logged without a main-set pace. Add it in Your Log and they count here.');
+  /* A block with no threshold work in it is not told its first session starts anything. */
+  const k5 = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  k5.showToast = () => {}; k5.renderApp = () => {}; k5.flushSave = () => {}; k5.scheduleSave = () => {};
+  buildPlan(k5, { distanceKey: '5k', volume: 45, weeks: 12, lthr: 172, maxHR: 188, startDate: '2026-10-06' });
+  assert.equal(series(k5, 'threshold').hello, 'This block has no threshold sessions in it, so there is nothing for Sacoro to read here.');
+});
+
+test('only comparable, well-executed threshold sessions are plotted', () => {
+  /* A main set run far off threshold pace is a different session. */
+  const slow = thresholded(3, (a, d, i, main, mid) => { if (i === 1) main.forEach(r => a.handleStructuredSplitChange(d.id, r.segId, 'pace', a.secToPace(mid + 60))); });
+  assert.equal(pts(series(slow.a, 'threshold')).length, 2, 'a main set a minute off threshold pace was plotted as threshold');
+  /* A session cut short is not a completed threshold session. */
+  const cut = thresholded(3, (a, d, i) => { if (i === 2) d.actual.km = d.km * 0.6; });
+  assert.equal(pts(series(cut.a, 'threshold')).length, 2, 'a session cut short was plotted');
+  /* Tempo and interval sessions are not threshold sessions, however fast. */
+  const mixed = thresholded(3);
+  const before = pts(series(mixed.a, 'threshold')).map(p => p.v);
+  mixed.a.state.days.filter(d => d.date < TODAY && ['tempo', 'interval', 'easy', 'long'].indexOf(d.type) !== -1).forEach(d => {
+    logAsPrescribed(mixed.a, d, { quality: 1 }); d.actual.pace = '3:40';
+  });
+  assert.deepEqual(pts(series(mixed.a, 'threshold')).map(p => p.v), before, 'another kind of session moved the threshold graph');
+});
+
+test('a threshold session is not a measurement: it predicts nothing and moves no training pace', () => {
+  const { a } = thresholded(3);
+  const paces = JSON.stringify(a.getActivePaces()), perfs = JSON.stringify(Array.from(a.measuredPerformances()));
+  const s = series(a, 'threshold'), card = drawn(a, 'threshold');
+  /* "Threshold prediction: Require stronger validated evidence": nothing is carried forward. */
+  assert.equal(Array.from(s.predicted).length, 0);
+  assert.ok(!/cg-pred|Predicted|Dotted/.test(card), 'a prediction is drawn from training sessions');
+  /* Measured Fitness keeps its authority, and is kept separate. */
+  assert.equal(JSON.stringify(a.getActivePaces()), paces, 'a training session moved the training paces');
+  assert.equal(JSON.stringify(Array.from(a.measuredPerformances())), perfs, 'a training session became a measured performance');
+  const perf = { date: a.addDays(TODAY, -5), km: 5, timeSec: 22 * 60, source: 'checkpoint', qualified: true, vdot: a.vdotFromPerformance(5000, 22 * 60) };
+  a.athlete().performances = [perf];
+  assert.deepEqual(pts(series(a, 'threshold')).map(p => Math.round(p.v)), pts(s).map(p => Math.round(p.v)), 'a checkpoint was plotted on the training graph');
+  const body = fnBody('coachGraphSeries') + fnBody('coachGraphThresholdSessions');
+  assert.ok(!/measuredPerformances\(|raceGoalProjectedVdot\(|trainingPacesFromVDOT\(|vdotFromPerformance\(/.test(body),
+    'the development graph reads, or writes into, the measured-fitness path');
+  ['measuredPerformances', 'getActivePaces', 'raceGoalProjectedVdot', 'computeConfidenceScore', 'planEvolution', 'coachDecision'].forEach(n =>
+    assert.ok(!/coachGraphThresholdSessions|coachGraphSeries/.test(fnBody(n)), n + ' reads the threshold graph'));
+  assert.doesNotMatch(card, /lactate|VO2|race time|predicted finish/i);
 });
 
 test('Recovery Response is the response model\'s own windows, the latest twelve', () => {
@@ -462,39 +659,16 @@ test('a line is carried forward only when it is improving, consistent, and four 
   assert.match(fnBody('coachGraphProject'), /if \(!improving \|\| fit\.r2 < cal\.predictFit\) return \[\];/);
 });
 
-test('the threshold prediction is the Race Goal methodology\'s own, or there is none', () => {
-  const a = evidenced();
-  const s = series(a, 'threshold');
-  const end = a.state.days.reduce((m, d) => d.date > m ? d.date : m, TODAY);
-  const proj = a.raceGoalProjectedVdot(a.daysBetween(TODAY, end));
-  const pred = Array.from(s.predicted);
-  if (proj && !proj.flat){
-    assert.equal(pred.length, 1);
-    const t = a.trainingPacesFromVDOT(proj.vdot).T;
-    assert.ok(Math.abs(pred[0].v - (t.slow + t.fast) / 2) < 1e-6, 'the prediction is not the engine\'s projection');
-    assert.equal(pred[0].label, a.dShort(end));
-    assert.ok(pred[0].v < pts(s).slice(-1)[0].v);
-  } else assert.equal(pred.length, 0);
-  /* Slower at the second measurement: nothing is projected. */
-  const b = evidenced();
-  const ps = b.athlete().performances;
-  b.state.days.forEach(d => { if (d.type === 'checkpoint'){ d.completed = false; d.actual = null; } });
-  b.athlete().performances = [ps[ps.length - 1], Object.assign({}, ps[0], { date: b.addDays(TODAY, -2) })]
-    .sort((x, y) => x.date < y.date ? -1 : 1);
-  const sb = series(b, 'threshold');
-  if (sb.ready && pts(sb).slice(-1)[0].v > pts(sb)[0].v)
-    assert.equal(Array.from(sb.predicted).length, 0, 'a decline in measured fitness was projected');
-  assert.match(fnBody('coachGraphSeries'), /proj = raceGoalProjectedVdot\(ahead\)/);
-});
-
 // ---------------------------------------------------------------------------
 // THE DRAWING
 // ---------------------------------------------------------------------------
 
 test('measured is solid cherry, predicted is dotted gold, and every point drawn is a point measured', () => {
+  /* Easy running that costs a little less every week: a trend the app will carry forward. */
   const a = evidenced();
-  a.coachGraphSel = 'threshold';
-  const s = series(a, 'threshold');
+  past(a).filter(d => d.type === 'easy').forEach(d => { d.actual.pace = '5:40'; d.actual.hr = 158 - d.week * 2; delete d.coachReview; a.coachPersistReview(d); });
+  a.coachGraphSel = 'efficiency';
+  const s = series(a, 'efficiency');
   assert.ok(Array.from(s.predicted).length > 0, 'the fixture has no prediction to draw');
   const card = a.renderCoachGraph();
   assert.equal((card.match(/class="cg-dot"/g) || []).length, pts(s).length);
@@ -549,7 +723,9 @@ test('miles are miles', () => {
   const mi = series(a, 'efficiency');
   assert.match(mi.figureText, /^per mi on easy runs$/);
   assert.ok(Math.abs(pts(mi)[0].v / pts(km)[0].v - 1.609344) < 1e-3, 'a mile of heartbeats is not 1.609 km of them');
-  assert.match(series(a, 'threshold').figureText, /per mi$/);
+  const t = thresholded(3); t.a.state.units = 'mi';
+  assert.match(series(t.a, 'threshold').figureText, /per mi$/);
+  assert.match(series(t.a, 'threshold').caption, /per mi quicker/);
 });
 
 // ---------------------------------------------------------------------------
@@ -579,25 +755,109 @@ test('every graph says what it plots, in the units it plots it in', () => {
     efficiency: /^Heartbeats per km \u00b7 easy runs \u00b7 weekly median$/,
     paceAtHR: /^Pace per km \u00b7 easy runs within 5 bpm of \d+ \u00b7 weekly median$/,
     drift: /^Heart-rate rise, second half against first \u00b7 steady runs at a held pace$/,
-    threshold: /^Threshold pace per km \u00b7 estimated from races and Fitness Checkpoints$/,
+    threshold: /^Main-set pace per km \u00b7 threshold sessions run to plan$/,
     recovery: /^Hours until you read as normal \u00b7 from your reports and easy heart rate$/,
   };
+  const th = thresholded(3).a;
   Object.keys(want).forEach(k => {
-    const s = series(a, k);
+    const app = k === 'threshold' ? th : a;
+    const s = series(app, k);
     assert.equal(s.ready, true, k + ' is not drawn in the fixture');
     assert.match(s.measure, want[k], k + ' does not state its measurement');
-    a.coachGraphSel = k;
-    const card = a.renderCoachGraph();
+    app.coachGraphSel = k;
+    const card = app.renderCoachGraph();
     assert.ok(card.indexOf('<div class="cg-measure">' + a.escapeHtml(s.measure) + '</div>') !== -1, k + ': the measurement is not on the card');
     assert.ok(card.indexOf('class="cg-measure"') < card.indexOf('<svg'), k + ': the measurement is under the chart, not over it');
     /* A dotted line is explained wherever one is drawn, and nowhere else. */
     assert.equal(/Dotted: /.test(card), Array.from(s.predicted).length > 0, k + ': the prediction note and the prediction disagree');
   });
   /* Nothing here is called something it is not. */
-  const all = Object.keys(want).map(k => { a.coachGraphSel = k; return a.renderCoachGraph(); }).join(' ');
+  const all = Object.keys(want).map(k => { a.coachGraphSel = k; return a.renderCoachGraph(); }).join(' ') + drawn(th, 'threshold');
   assert.doesNotMatch(all, /VO2|lactate|decoupling|fitness score/i, 'a graph claims a measurement the app does not make');
   a.state.units = 'mi';
   assert.match(series(a, 'efficiency').measure, /^Heartbeats per mi /);
-  assert.match(series(a, 'threshold').measure, /^Threshold pace per mi /);
+  th.state.units = 'mi';
+  assert.match(series(th, 'threshold').measure, /^Main-set pace per mi /);
 });
 
+
+// ---------------------------------------------------------------------------
+// SWIPE BETWEEN GRAPHS
+// ---------------------------------------------------------------------------
+
+/* Founder: "allow the athlete to swipe horizontally across the graph itself.
+   Swipe left/right to change the graph. Tapping Efficiency, Pace at HR,
+   Drift, Threshold or Recovery still works. The selected heading and graph
+   update together. The three coaching circles above remain independent. No
+   arrows, extra buttons or new page." */
+test('a swipe across the graph moves one graph along, and the ends stop', () => {
+  const a = evidenced();
+  let drew = 0; a.renderApp = () => { drew++; };
+  a.coachGraphSel = 'efficiency';
+  assert.equal(a.coachGraphStep(1), true); assert.equal(a.coachGraphSel, 'paceAtHR');
+  assert.equal(a.coachGraphStep(1), true); assert.equal(a.coachGraphSel, 'drift');
+  assert.equal(a.coachGraphStep(-1), true); assert.equal(a.coachGraphSel, 'paceAtHR');
+  a.coachGraphSel = 'recovery';
+  assert.equal(a.coachGraphStep(1), false, 'the last graph swiped on to something');
+  assert.equal(a.coachGraphSel, 'recovery');
+  a.coachGraphSel = 'efficiency';
+  assert.equal(a.coachGraphStep(-1), false, 'the first graph swiped back to something');
+  assert.equal(a.coachGraphSel, 'efficiency');
+  /* One selection, changed in one place: the function a tapped heading calls. */
+  assert.match(fnBody('coachGraphStep'), /handleCoachGraph\(to\)/);
+  assert.ok(!/coachGraphSel\s*=/.test(fnBody('coachGraphStep') + fnBody('wireCoachGraph')), 'the swipe keeps a selection of its own');
+  /* So the heading and the graph cannot disagree. */
+  a.coachGraphSel = 'drift'; a.coachGraphStep(1);
+  const card = a.renderCoachGraph();
+  assert.match(card, /class="cg-tab is-on" aria-selected="true" data-action="coach-graph" data-graph="threshold"/);
+  assert.match(card, /<div class="cg-title">Threshold Development<\/div>/);
+});
+
+test('the gesture is the graph\'s own: sideways changes it, up and down still scrolls the page', () => {
+  const a = evidenced();
+  a.coachGraphSel = 'paceAtHR';
+  const card = a.renderCoachGraph();
+  /* The graph carries the mark that makes the view pager stand down; the headings and the circles do not share it. */
+  assert.match(card, /<div class="cg-body" role="tabpanel" data-hswipe="1">/);
+  assert.match(card, /<div class="cg-tabs" role="tablist" aria-label="Development graphs">/);
+  assert.match(rule('.cg-body[data-hswipe]'), /touch-action:pan-y pinch-zoom/, 'the page cannot be scrolled from on top of the graph');
+  /* No arrows, no extra buttons: five headings are the only controls. */
+  assert.equal((card.match(/<button/g) || []).length, 5);
+  assert.ok(!/chevron|arrow|&lsaquo;|&rsaquo;|\u2039|\u203a|\u2190|\u2192/i.test(card), 'an arrow was added');
+  /* The circles' rail is another element and is not touched by any of this. */
+  assert.ok(!/b-rail|scrollLeft/.test(fnBody('wireCoachGraph') + fnBody('coachGraphStep')), 'the swipe reaches the circle rail');
+
+  /* Driven: a body that records its listeners, and touches fed to them. */
+  const L = {}, cls = new Set();
+  const body = { style: { transform: '' }, clientWidth: 358,
+    classList: { add: c => cls.add(c), remove: c => cls.delete(c) },
+    addEventListener: (t, f) => { L[t] = f; } };
+  a.document.getElementById = id => id === 'coach-graph' ? { querySelector: sel => sel === '.cg-body' ? body : null, outerHTML: null } : null;
+  let picked = [];
+  a.handleCoachGraph = k => { picked.push(k); a.coachGraphSel = k; };
+  a.wireCoachGraph();
+  assert.deepEqual(Object.keys(L).sort(), ['touchcancel', 'touchend', 'touchmove', 'touchstart']);
+  const drag = (dx, dy) => {
+    L.touchstart({ touches: [{ clientX: 200, clientY: 300 }] });
+    [0.25, 0.5, 0.75, 1].forEach(f => L.touchmove({ touches: [{ clientX: 200 + dx * f, clientY: 300 + dy * f }], cancelable: true, preventDefault: () => {} }));
+    L.touchend({});
+  };
+  drag(-120, 6);  assert.deepEqual(picked, ['drift'], 'a swipe left did not move to the next graph');
+  drag(120, -4);  assert.deepEqual(picked, ['drift', 'paceAtHR'], 'a swipe right did not move back');
+  drag(-20, 2);   assert.equal(picked.length, 2, 'a short drag changed the graph');
+  assert.equal(body.style.transform, '', 'a drag that was not far enough left the graph displaced');
+  drag(-8, -160); assert.equal(picked.length, 2, 'scrolling the page changed the graph');
+  /* A scroll that drifts sideways as it goes is still a scroll: far enough
+     across to commit, but mostly down, so the graph never claims it. */
+  drag(-150, -420); assert.equal(picked.length, 2, 'a mostly vertical drag was taken for a swipe');
+  assert.equal(body.style.transform, '', 'a scroll moved the graph sideways');
+  /* At the end there is nothing that way, and the graph settles back. */
+  a.coachGraphSel = 'recovery';
+  drag(-150, 0);  assert.equal(picked.length, 2);
+  assert.equal(body.style.transform, '');
+  /* Wired once per card, and again for the card a change of graph draws. */
+  const before = L.touchstart; a.wireCoachGraph();
+  assert.equal(L.touchstart, before, 'the same card was wired twice');
+  assert.match(fnBody('handleCoachGraph'), /wireCoachGraph\(\);/);
+  assert.match(fnBody('wireWeekDayPager'), /wireCoachGraph\(\);/);
+});
