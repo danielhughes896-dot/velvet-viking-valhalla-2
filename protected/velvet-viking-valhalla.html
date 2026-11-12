@@ -6971,10 +6971,25 @@
   }
 
   /* ---------- toast ---------- */
-  #toast-mount{position:fixed; bottom:18px; left:0; right:0; display:flex; justify-content:center; z-index:200; pointer-events:none;}
+  /* Raised clear of the tab bar. At 18px the notice sat on top of the tabs:
+     the gold slab hid that by covering them outright, and a notice drawn on
+     the card's own ground would have had tab labels showing round its edge. */
+  #toast-mount{position:fixed; bottom:calc(96px + env(safe-area-inset-bottom, 0px)); left:0; right:0; display:flex; justify-content:center; z-index:200; pointer-events:none;}
+  /* ---------- THE NOTICE THAT POPS UP, IN THE CURRENT LANGUAGE ----------
+     Founder, on Your Targets: "When they're selected. The old gold style box
+     pops up." It was the last gold slab in the product: a bronze pill with
+     near-black text, the old primary-button look, appearing over screens
+     that have since given up slabs, pills and gold for anything the athlete
+     did. A notice answers something the athlete just pressed, so it wears
+     what a chosen thing wears: the card's ground, the cherry rim and glow,
+     white words. The tile radius, not a pill. Wide enough to read and never
+     wider than the screen. */
   .toast{
-    background:var(--bronze); color:var(--bronze-ink); font-size:13px; font-weight:600;
-    padding:10px 18px; border-radius:99px; box-shadow:var(--shadow); animation:toastin .25s ease, toastout .25s ease 2.4s forwards;
+    background:var(--bg-2); color:var(--ink); border:1px solid var(--cherry);
+    font-size:var(--fs-support); font-weight:600; line-height:var(--lh-support); text-align:center;
+    max-width:calc(100vw - 32px);
+    padding:12px 18px; border-radius:var(--tile-radius);
+    box-shadow:0 0 16px var(--cherry-dim), var(--shadow); animation:toastin .25s ease, toastout .25s ease 2.4s forwards;
   }
   @keyframes toastin{from{transform:translateY(12px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   @keyframes toastout{to{opacity:0; transform:translateY(8px);}}
@@ -8674,12 +8689,21 @@
   .readiness-head{color:var(--ink); margin-bottom:2px;}
   .readiness-row{display:block; margin-top:22px;}
   .readiness-label{display:block; font-size:13px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink); margin-bottom:10px;}
-  /* One row of equal tiles whether a question has three answers or two. */
-  .readiness-opts{display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:8px;}
+  /* Founder: "The boxes can be wrapped smaller slightly. I like the bigness
+     of them. But they're too wide. Centre the text vertically."
+     So the height stays and the width comes in: three columns capped at
+     104px, and a question with two answers uses two of the same columns
+     rather than splitting the row in half -- which is what made Health's
+     pair twice the width of everything above it. They shrink below the cap
+     on a narrow phone instead of overflowing. */
+  .readiness-opts{display:grid; grid-template-columns:repeat(3, minmax(0,104px)); gap:10px;}
   .readiness-btn{
-    /* A tile, answered with the thumb: 60px tall like the builder's, with
-       the room under the label that the tick needs once it is chosen. */
-    position:relative; min-height:60px; padding:12px 6px 26px;
+    /* A tile, answered with the thumb: 60px tall like the builder's. The
+       label is centred in it both ways and stays centred when chosen,
+       because the tick has moved to the corner and no longer needs room
+       held under the words. */
+    position:relative; display:flex; align-items:center; justify-content:center;
+    min-height:60px; padding:8px 6px;
     font-family:var(--label-face); font-weight:var(--label-weight); font-size:14px;
     letter-spacing:1.2px; text-transform:uppercase; line-height:1.15; text-align:center;
     border:1px solid var(--tile-border); border-radius:var(--tile-radius); cursor:pointer;
@@ -8694,8 +8718,8 @@
     border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);
   }
   .readiness-btn.on::after{
-    content:''; position:absolute; left:50%; bottom:8px; margin-left:-7px;
-    width:14px; height:14px; pointer-events:none;
+    content:''; position:absolute; right:8px; top:8px;
+    width:12px; height:12px; pointer-events:none;
     background-color:var(--cherry-text);
     -webkit-mask:var(--tick-mask) center/contain no-repeat;
     mask:var(--tick-mask) center/contain no-repeat;}
@@ -8822,7 +8846,9 @@
     border:1.5px dashed var(--bronze-2); border-radius:var(--radius-lg); padding:26px 20px; margin:18px 0;
     background:var(--c-gold-soft); text-align:center;
   }
-  .setup-cta h2{font-family:var(--text-face); font-size:19px; margin:0 0 8px; color:var(--gold-text); text-transform:uppercase; letter-spacing:.03em;}
+  /* Founder: "Build your training block title. White please." Titles are
+     white in this product; gold is the brand mark and the destination. */
+  .setup-cta h2{font-family:var(--text-face); font-size:19px; margin:0 0 8px; color:var(--ink); text-transform:uppercase; letter-spacing:.03em;}
   .setup-cta p{ color:var(--ink-dim); margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
 
   /* THE DOOR TO THE BUILDER, in the builder's own visual language.

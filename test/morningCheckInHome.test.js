@@ -257,3 +257,23 @@ test('a morning with every answer fine changes nothing at all', () => {
   assert.equal(report.decision.state, 'proceed');
   assert.ok(!report.nextMove.adjustment);
 });
+
+/* ---------- the tiles: big, not wide, and centred ----------
+   Founder: "The boxes can be wrapped smaller slightly. I like the bigness of
+   them. But they're too wide. Centre the text vertically." */
+
+test('the answer tiles keep their height and lose their width', () => {
+  assert.match(cssRule('  .readiness-opts'), /grid-template-columns:repeat\(3, minmax\(0,104px\)\)/,
+    'three capped columns: a two-answer question must not split the row in half');
+  const tile = cssRule('  .readiness-btn');
+  const m = tile.match(/min-height:(\d+)px/);
+  assert.ok(m && Number(m[1]) >= 60, 'the bigness stays');
+});
+
+test('the words sit in the middle of the tile, chosen or not', () => {
+  const tile = cssRule('  .readiness-btn');
+  assert.match(tile, /display:flex; align-items:center; justify-content:center;/);
+  assert.doesNotMatch(tile, /padding:\d+px \d+px 26px/, 'room held under the label pushes it off centre');
+  const tick = cssRule('  .readiness-btn.on::after');
+  assert.match(tick, /right:8px; top:8px;/, 'the tick is in the corner, so choosing an answer does not move its words');
+});

@@ -167,3 +167,27 @@ test('the goal is chosen on the builder\u2019s tiles, not under a gold glow', ()
   assert.equal(CSS.indexOf('.goal-opt.active'), -1, 'the goal selector has a chosen style of its own');
   assert.doesNotMatch(CSS, /\.goal-opt[^{]*\{[^}]*(227,177,90|245,208,97)/, 'the gold glow is back on the goal selector');
 });
+
+/* Founder, on Your Targets: "When they're selected. The old gold style box
+   pops up." -- the notice. And: "Build your training block title. White
+   please." */
+test('the pop-up notice is not the old gold slab', () => {
+  const CODE = require('fs').readFileSync(require('path').join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  const i = CODE.indexOf('  .toast{');
+  assert.ok(i > 0);
+  const body = CODE.slice(i, CODE.indexOf('}', i));
+  assert.doesNotMatch(body, /--bronze|--gold/, 'a bronze fill with near-black text is the old primary-button look');
+  assert.doesNotMatch(body, /border-radius:99px/, 'and it was a pill');
+  assert.match(body, /background:var\(--bg-2\)/);
+  assert.match(body, /color:var\(--ink\)/);
+  assert.match(body, /border:1px solid var\(--cherry\)/);
+  assert.match(body, /max-width:calc\(100vw - 32px\)/, 'a long notice must not run off the screen');
+});
+
+test('the Build Your Training Block title is white', () => {
+  const CODE = require('fs').readFileSync(require('path').join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  const i = CODE.indexOf('  .setup-cta h2{');
+  const body = CODE.slice(i, CODE.indexOf('}', i));
+  assert.match(body, /color:var\(--ink\)/);
+  assert.doesNotMatch(body, /gold/);
+});
