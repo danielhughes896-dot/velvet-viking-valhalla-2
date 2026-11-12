@@ -169,27 +169,36 @@ test('the transition tracks the finger rather than queueing', () => {
 });
 
 test('the commit is confirmed by a haptic, and it is the right one', () => {
-  const h = fn('pagerHaptic');
+  /* ---- REWRITTEN WITH THE FOUNDER'S HAPTIC TABLE ----
+     "Swipe between main tabs: Very light tick." The tick now lives in the one
+     haptic helper every confirmation uses; pagerHaptic() is that tick. */
+  assert.match(fn('pagerHaptic'), /sacoroHaptic\('tick'\)/);
+  const h = fn('sacoroHaptic');
   // iOS has no navigator.vibrate at all, so without the native path there
   // would be no haptic on the platform most likely to expect one.
   assert.ok(h.indexOf("nativePlugin('Haptics')") < h.indexOf('navigator.vibrate'),
     'the web vibrate is tried before the native haptic');
-  /* A tab landing is a SELECTION changing, which is the exact thing
-     selectionChanged() models -- on iOS it maps to
-     UISelectionFeedbackGenerator, the lightest tick the platform has and the
-     one a picker uses. impact() is a knock: heavier, and a different event. */
-  assert.ok(h.indexOf('selectionChanged') > -1 && h.indexOf('selectionChanged') < h.indexOf('h.impact'),
-    'the tab landing fires a knock before it tries the selection tick');
-  /* AND THE ENUM STRING. @capacitor/haptics declares ImpactStyle.Light as
-     'LIGHT'; 'Light' does not match on the native side and resolves to the
-     default, which is HEAVY -- so the one place the brief asked for a small
-     haptic fired the largest one the plugin has. */
-  assert.match(h, /style: 'LIGHT'/, "the impact style is not the string the plugin declares");
-  assert.doesNotMatch(h, /style: 'Light'/, "the impact style is back to a value that resolves to HEAVY");
+  /* THE TICK, PER PLATFORM, from @capacitor/haptics 8's own source. iOS's
+     selection tick (UISelectionFeedbackGenerator, the lightest the platform
+     has) only plays inside a started selection, so start/changed/end go
+     together. On Android selectionChanged() is SILENT unless a selection was
+     started, and when it does play it is a 100ms buzz -- so the old tab tick
+     never played there at all. Android's tick is an 8ms vibrate. */
+  const tick = h.slice(h.indexOf("kind === 'tick'"), h.indexOf("kind === 'light'"));
+  const at = k => tick.indexOf('quiet(h.' + k);
+  assert.ok(at('selectionStart') > -1 && at('selectionStart') < at('selectionChanged') && at('selectionChanged') < at('selectionEnd'),
+    'the iOS tick is not inside a started selection');
+  assert.match(tick, /nativePlatform\(\) === 'ios'/);
+  assert.match(tick, /h\.vibrate\(\{ duration: 8 \}\)/, 'Android has no very light tick');
+  /* AND THE ENUM STRINGS. @capacitor/haptics declares 'LIGHT', 'MEDIUM' and
+     'SUCCESS'; 'Light' does not match natively and resolves to HEAVY. */
+  assert.match(h, /style:'LIGHT'/); assert.match(h, /style:'MEDIUM'/); assert.match(h, /type:'SUCCESS'/);
+  assert.doesNotMatch(h, /'Light'|'Medium'|'Success'/, 'a style is back to a value the plugin does not match');
   // These return promises; a rejection from a plugin that is present but
   // unavailable must not surface on a gesture nobody can see failing.
-  assert.equal((h.match(/\.catch\(function\(\)\{\}\)/g) || []).length, 2,
-    'a haptic promise is left unhandled');
+  assert.match(h, /var quiet = function\(p\)\{ if \(p && p\.catch\) p\.catch\(function\(\)\{\}\); \};/);
+  assert.equal((h.match(/h\.(?:selectionStart|selectionChanged|selectionEnd|vibrate|impact|notification)\(/g) || []).length,
+    (h.match(/quiet\(h\./g) || []).length, 'a haptic promise is left unhandled');
   assert.match(fn('pagerFinish'), /pagerHaptic\(\)/, 'the commit stopped confirming itself');
 });
 

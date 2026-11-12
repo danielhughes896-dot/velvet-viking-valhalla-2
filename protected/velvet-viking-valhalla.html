@@ -48193,6 +48193,7 @@ function handleAcceptEvolution(shownId){
                       answeredMissed:evolutionUsefulMissedIds() };
   flushSave();
   renderApp();
+  sacoroHaptic('firm');
   showToast(applied.length===1 ? 'Plan evolved — one session changed'
                                : 'Plan evolved — '+applied.length+' sessions changed');
 }
@@ -49107,6 +49108,7 @@ function handleCoachAccept(dayId){
   else rescaleOrDropPrescription(dd, adj.km);
   flushSave();
   renderApp();
+  sacoroHaptic('firm');
   showToast('Session adjusted — the original is kept and can be restored');
 }
 // Keep the written session but restate its distance, so the card text and the
@@ -49149,7 +49151,10 @@ function handleSetReadiness(key, value){
      that should feel like finishing. Amending an already-complete check-in
      never trips this, so a reopened panel stays open under the athlete's hand
      while they change their mind. */
-  if (!wasComplete && readinessIsComplete(coachReadinessToday())) readinessEditOpen[today] = false;
+  if (!wasComplete && readinessIsComplete(coachReadinessToday())){
+    readinessEditOpen[today] = false;
+    sacoroHaptic('light');            // the check-in is finished: once, on the answer that finishes it
+  }
   flushSave();
   renderApp();
 }
@@ -51328,6 +51333,7 @@ function handleAcceptPlaybook(shownId){
   recordPlaybookDecision(prop, 'accepted');
   flushSave();
   renderApp();
+  sacoroHaptic('firm');
   showToast(prop.decision==='PROGRESS' ? 'Plan evolved — one session progressed'
                                        : 'Plan evolved — one session eased');
 }
@@ -60286,9 +60292,11 @@ function handleSaveEdit(dayId){
       showToast('Can’t swap — a logged session can’t move onto a future date.');
     } else if (other && confirmSwapIfLogged(dd, other) && confirmSwapIfStacksQuality(dd, other)){
       swapWorkoutFields(dd, other);
+      sacoroHaptic('success');
       showToast('Swapped '+dow(dd.date)+' '+dShort(dd.date)+' with '+dow(other.date)+' '+dShort(other.date));
     }
   } else {
+    sacoroHaptic('success');
     showToast('Session updated');
   }
   closeModal();
@@ -71861,22 +71869,52 @@ function pagerReducedMotion(){
    Every call is wrapped: these return promises, and a rejected one from a
    plugin that is present but unavailable would otherwise surface as an
    unhandled rejection on a gesture the athlete cannot even see failing. */
-function pagerHaptic(){
+/* ---------- SACORO'S HAPTICS: FOUR, AND ONLY FOUR ----------
+   Founder's table:
+     Swipe between main tabs          very light tick
+     Complete daily check-in          light confirmation
+     Save session                     success pulse
+     Accept coaching recommendation   firm confirmation
+     Close full-page screen           none
+     Scroll through content           none
+   Each answers something the athlete DID, and only when it worked: a save
+   that was refused, or an accept the engine turned down, is silent.
+
+   WHAT EACH PLATFORM IS ASKED FOR, from @capacitor/haptics 8 itself:
+     tick     iOS: selectionStart / selectionChanged / selectionEnd -- the
+              picker tick, which iOS only plays inside a started selection.
+              Android: an 8ms vibrate. The plugin's Android "selection" is a
+              100ms buzz at amplitude 100, and it is silent unless a
+              selection was started first -- the old tab tick never played.
+     light    impact LIGHT
+     success  notification SUCCESS (two short pulses)
+     firm     impact MEDIUM
+   Strings as the plugin declares them ('LIGHT', 'SUCCESS'); 'Light' is not
+   matched natively and falls back to HEAVY. A browser with vibrate gets a
+   short buzz; anything else gets nothing. Every call is wrapped: a haptic is
+   never worth an error. */
+var HAPTIC_WEB_MS = { tick:8, light:12, success:[14,50,14], firm:22 };
+function sacoroHaptic(kind){
   try{
     var h = nativePlugin('Haptics');
+    var quiet = function(p){ if (p && p.catch) p.catch(function(){}); };
     if (h){
-      if (typeof h.selectionChanged === 'function'){
-        try{ var r = h.selectionChanged(); if (r && r.catch) r.catch(function(){}); }catch(e){}
+      if (kind === 'tick'){
+        if (nativePlatform() === 'ios' && typeof h.selectionChanged === 'function'){
+          quiet(h.selectionStart && h.selectionStart()); quiet(h.selectionChanged()); quiet(h.selectionEnd && h.selectionEnd());
+        } else if (typeof h.vibrate === 'function') quiet(h.vibrate({ duration: 8 }));
         return;
       }
-      if (typeof h.impact === 'function'){
-        try{ var i = h.impact({ style: 'LIGHT' }); if (i && i.catch) i.catch(function(){}); }catch(e){}
-        return;
-      }
+      if (kind === 'light' && h.impact){ quiet(h.impact({ style:'LIGHT' })); return; }
+      if (kind === 'success' && h.notification){ quiet(h.notification({ type:'SUCCESS' })); return; }
+      if (kind === 'firm' && h.impact){ quiet(h.impact({ style:'MEDIUM' })); return; }
+      return;
     }
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(8);
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function' && HAPTIC_WEB_MS[kind])
+      navigator.vibrate(HAPTIC_WEB_MS[kind]);
   }catch(e){}
 }
+function pagerHaptic(){ sacoroHaptic('tick'); }
 /* Does any ancestor of the touched node scroll sideways RIGHT NOW? */
 function pagerOwnedElsewhere(node){
   var el = node, hops = 0;

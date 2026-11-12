@@ -300,7 +300,13 @@ test('the diagnostic adds no dependency and no new require', () => {
      @capacitor/local-notifications was added for the daily reminder. Founder:
      "Daily alarm - doesn't work." A web page cannot wake a phone at 08:00 with
      the app closed; only the operating system can, and this plugin is how a
-     Capacitor app asks it to. */
+     Capacitor app asks it to.
+
+     @capacitor/haptics was added for the founder's haptic table: "Swipe
+     between main tabs: very light tick. Complete daily check-in: light
+     confirmation. Save session: success pulse. Accept coaching
+     recommendation: firm confirmation." The WebView has no vibration of its
+     own on iOS, and Android's WebView ignores navigator.vibrate. */
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.deepEqual(Object.keys(pkg.dependencies || {}).sort(), [
     '@capacitor-community/media',
@@ -309,6 +315,7 @@ test('the diagnostic adds no dependency and no new require', () => {
     '@capacitor/app',
     '@capacitor/core',
     '@capacitor/filesystem',
+    '@capacitor/haptics',
     '@capacitor/local-notifications',
     '@capacitor/share'
   ], 'the dependency list changed');
