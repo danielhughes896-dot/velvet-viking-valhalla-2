@@ -52,8 +52,12 @@ test('arriving at THIS WEEK returns it to today, however you arrived', () => {
      change answers the gesture the founder described AND the tab tap. If
      the pager ever stops calling handleSetView, this reset silently stops
      applying to swipes and nothing else would say so. */
+  /* One step removed since a swipe inside Full Plan can mean "back" rather
+     than "another tab": pagerFinish() commits through pagerCommitTo(), and a
+     tab change still goes through handleSetView(). */
   const commit = fn('pagerFinish');
-  assert.match(commit, /handleSetView\(/,
+  assert.match(commit, /pagerCommitTo\(/, 'the pager no longer commits through pagerCommitTo');
+  assert.match(fn('pagerCommitTo'), /handleSetView\(p\.to\)/,
     'the pager no longer routes through handleSetView, so swiping skips every arrival reset');
   assert.ok(typeof a.weekSelectedDay === 'function', 'the fallback-to-today reader is gone');
 });
@@ -194,7 +198,7 @@ test('reduced motion gets the destination, not the journey', () => {
   assert.match(move, /if \(p\.to && !p\.reduced\)\{\s*p\.peek = pagerBuildPeek/,
     'a reduced-motion reader now gets a sliding peek built for them');
   const finish = fn('pagerFinish');
-  assert.match(finish, /if \(p\.reduced\)\{[\s\S]*?handleSetView/,
+  assert.match(finish, /if \(p\.reduced\)\{[\s\S]*?pagerCommitTo\(p\)/,
     'reduced motion no longer takes the direct path');
   assert.match(CSS, /prefers-reduced-motion: reduce\)\{\s*\.view-pager\.is-settling/,
     'the settle transition is not disabled under reduced motion');
@@ -256,7 +260,7 @@ test('a committed swipe does not then fade the destination in', () => {
   assert.match(cls, /pagerSuppressFade = false;\s*return cls;/,
     'the suppression is no longer one-shot, so an unrelated render can inherit it');
   const finish = fn('pagerFinish');
-  assert.match(finish, /pagerSuppressFade = true;\s*\n\s*handleSetView\(to\);/,
+  assert.match(finish, /pagerSuppressFade = true;\s*\n\s*pagerCommitTo\(\{ to:to, back:back \}\);/,
     'the commit no longer suppresses the redundant fade');
 });
 
@@ -291,7 +295,7 @@ test('a committed RAIL swipe does not fade either, for the same reason', () => {
 test('the destination renders under the peek, then the peek lifts', () => {
   /* Reversing these two paints the outgoing page back at centre for a frame. */
   const finish = fn('pagerFinish');
-  const render = finish.indexOf('handleSetView(to);');
+  const render = finish.indexOf('pagerCommitTo({ to:to, back:back });');
   const clean = finish.indexOf('pagerCleanup();', render);
   assert.ok(render > -1 && clean > render,
     'pagerCleanup() now runs before the destination is rendered');
@@ -361,4 +365,118 @@ test('a committed swipe costs a fraction of the screen, not most of it', () => {
      a drag back past the start would commit the screen it was leaving. */
   assert.match(end, /forward && \(far \|\| fast\)/,
     'a swipe that reverses past its start can now commit the wrong view');
+});
+
+/* A WEEK SWIPES BACK TO THE PLAN.
+ * ===========================================================================
+ * Founder: "When viewing a week on full plan you cannot swipe out of it back
+ * to the previous screen."
+ * A week and a session are screens inside Full Plan with a back arrow; a
+ * sideways swipe on them used to be read as "the tab before Full Plan".
+ */
+function planApp(){
+  const { buildPlan } = require('./fixtures.js');
+  const a = loadApp({ pinnedDate: '2026-11-12T09:00:00Z' });
+  a.renderApp = () => {}; a.showToast = () => {};
+  buildPlan(a, { distanceKey: 'half', volume: 45, weeks: 12, startDate: '2026-11-02' });
+  return a;
+}
+/* One swipe through the pager's own handlers, under reduced motion so no
+   peek is built and the commit is immediate. */
+function drag(a, dx, dy){
+  const calls = [];
+  a.handlePlanBack = () => calls.push('back');
+  a.handleSetView = v => calls.push('view:' + v);
+  a.pagerState = { x0: 100, y0: 300, t0: 0, axis: null, claimed: false,
+    mount: { classList: { add(){}, remove(){} }, style: {} }, peek: null, dir: 0, to: null,
+    w: 390, reduced: true, lastX: 100, lastT: -1, vx: 0 };
+  a.pagerTouchMove({ touches: [{ clientX: 100 + dx, clientY: 300 + (dy || 0) }], cancelable: true, preventDefault(){} });
+  a.pagerTouchEnd();
+  return calls;
+}
+test('inside Full Plan a swipe right is back one level, and a swipe left goes nowhere', () => {
+  const a = planApp();
+  a.state.view = 'full';
+  a.planWeekOpen = 3; a.planSessionOpen = null;
+  assert.equal(a.planSubScreenOpen(), true);
+  assert.deepEqual(drag(a, 150), ['back'], 'a swipe right on a week went somewhere other than back');
+  assert.deepEqual(drag(a, -150), [], 'a swipe left on a week left the tab');
+  assert.deepEqual(drag(a, 20), [], 'a drag short of the threshold went back');
+  assert.deepEqual(drag(a, 20, 200), [], 'a scroll went back');
+  /* A session is a level deeper, and goes back the same way -- whether it
+     was reached through its week or straight from the plan. */
+  a.planSessionOpen = a.state.days.filter(d => d.week === 3 && d.type !== 'rest')[0].id;
+  assert.deepEqual(drag(a, 150), ['back']);
+  a.planWeekOpen = null;
+  assert.equal(a.planSubScreenOpen(), true, 'a session opened from the plan is not a screen inside it');
+  assert.deepEqual(drag(a, 150), ['back']);
+  assert.deepEqual(drag(a, -150), []);
+  /* On the plan itself, and on every other tab, a swipe is still a tab change. */
+  a.planWeekOpen = null; a.planSessionOpen = null;
+  assert.equal(a.planSubScreenOpen(), false);
+  assert.deepEqual(drag(a, 150), ['view:week']);
+  assert.deepEqual(drag(a, -150), ['view:planhq']);
+  a.state.view = 'week'; a.planWeekOpen = 3;
+  assert.equal(a.planSubScreenOpen(), false, 'an open plan week leaked onto This Week');
+  assert.deepEqual(drag(a, 150), ['view:today']);
+});
+
+test('the animated swipe goes back too, not only the reduced-motion one', () => {
+  const a = planApp();
+  a.state.view = 'full'; a.planWeekOpen = 3;
+  const calls = [];
+  a.handlePlanBack = () => calls.push('back');
+  a.handleSetView = v => calls.push('view:' + v);
+  a.window.setTimeout = f => f(); a.window.scrollTo = () => {};
+  const el = () => ({ classList: { add(){}, remove(){} }, style: {}, offsetWidth: 1 });
+  a.pagerState = { claimed: true, peek: el(), mount: el(), dir: -1, w: 390, to: 'full', back: true, reduced: false };
+  a.pagerFinish(true);
+  assert.deepEqual(calls, ['back'], 'the sliding commit changed tab instead of going back');
+  a.pagerState = { claimed: true, peek: el(), mount: el(), dir: -1, w: 390, to: 'week', back: false, reduced: false };
+  a.pagerFinish(true);
+  assert.deepEqual(calls, ['back', 'view:week'], 'the sliding commit no longer changes tab');
+});
+
+test('back is the arrow: one level, session to week to plan', () => {
+  const a = planApp();
+  a.state.view = 'full';
+  const s = a.state.days.filter(d => d.week === 3 && d.type !== 'rest')[0].id;
+  a.handlePlanOpenWeek(3); a.handlePlanOpenSession(s);
+  const real = a.handlePlanBack;
+  assert.deepEqual(drag(a, 150), ['back']);
+  real(); assert.deepEqual([a.planWeekOpen, a.planSessionOpen], [3, null], 'back from a session left the week');
+  assert.deepEqual(drag(a, 150), ['back']);
+  real(); assert.deepEqual([a.planWeekOpen, a.planSessionOpen], [null, null]);
+  assert.match(fn('pagerCommitTo'), /if \(p\.back\)\{ handlePlanBack\(\); return; \}/, 'the swipe and the arrow are two different doors');
+});
+
+test('the screen revealed underneath is the one the swipe returns to, and nothing is left changed', () => {
+  const a = planApp();
+  a.state.view = 'full';
+  const s = a.state.days.filter(d => d.week === 3 && d.type !== 'rest')[0].id;
+  a.planWeekOpen = 3; a.planSessionOpen = s;
+  const under = a.pagerPlanParentHtml();
+  assert.match(under, /class="view-plan-week view-week"/, 'a session did not reveal its week');
+  assert.deepEqual([a.planWeekOpen, a.planSessionOpen], [3, s], 'drawing the screen underneath moved the athlete');
+  a.planSessionOpen = null;
+  const plan = a.pagerPlanParentHtml();
+  assert.doesNotMatch(plan, /view-plan-week|view-plan-session/, 'a week did not reveal the plan');
+  assert.equal(a.planWeekOpen, 3);
+  assert.match(fn('pagerTouchMove'), /p\.peek = pagerBuildPeek\(p\.to, p\.dir, p\.back \? pagerPlanParentHtml\(\) : null\);/);
+});
+
+test('Android\'s back is the arrow too, inside Full Plan', () => {
+  const a = planApp();
+  let listener = null, minimised = 0, back = 0;
+  a.nativeAppPlugin = () => ({ addListener: (n, f) => { if (n === 'backButton') listener = f; }, minimizeApp: () => { minimised++; } });
+  a.window.__vvvBackButtonBound = false;
+  a.handlePlanBack = () => { back++; };
+  a.initHardwareBackButton();
+  assert.ok(listener, 'no back listener was registered');
+  a.state.view = 'full'; a.planWeekOpen = 3;
+  listener();
+  assert.deepEqual([back, minimised], [1, 0], 'back inside a plan week sent the app to the background');
+  a.planWeekOpen = null;
+  listener();
+  assert.deepEqual([back, minimised], [1, 1], 'back on the plan itself no longer minimises');
 });

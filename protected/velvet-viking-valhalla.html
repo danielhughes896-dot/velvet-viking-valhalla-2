@@ -27909,6 +27909,10 @@ function initHardwareBackButton(){
   try{
     App.addListener('backButton', function(){
       if (document.getElementById('modal-overlay')){ closeModal(); return; }
+      /* A week or a session inside Full Plan has a back arrow, and the
+         system's back is that arrow -- on Android it is also the edge swipe.
+         It used to send the app to the background from inside a week. */
+      if (planSubScreenOpen()){ handlePlanBack(); return; }
       if (App.minimizeApp) App.minimizeApp();
     });
   }catch(e){}
@@ -71419,7 +71423,38 @@ function pagerNeighbourHtml(view){
   catch(e){ return ''; }
   finally{ state.view = was; }
 }
-function pagerBuildPeek(view, dir){
+/* ---------- A WEEK SWIPES BACK TO THE PLAN ----------
+   Founder: "When viewing a week on full plan you cannot swipe out of it back
+   to the previous screen."
+   A week and a session are screens INSIDE Full Plan, reached by tapping in,
+   with a back arrow -- but a sideways swipe on them was read as "the tab
+   before Full Plan" and took the athlete to This Week. So on those screens a
+   swipe to the right is back, one level, exactly as the arrow is: session to
+   week, week to the plan. It follows the finger the way the tab swipe does,
+   with the screen it returns to drawn underneath, and lets go short to stay.
+   A swipe to the left goes nowhere: there is no "forward" from a screen you
+   came back out of, and leaving the tab from inside a week was the fault.
+   The session card's own day swipe, the coaching rails and the sliders keep
+   their gestures -- pagerOwnedElsewhere() already gives those away. */
+function planSubScreenOpen(){
+  return !!(state && state.view === 'full' && (planSessionOpen || planWeekOpen));
+}
+/* The screen one level up, from the same renderer, with the one level taken
+   off for the length of the call. Nothing is left changed. */
+function pagerPlanParentHtml(){
+  var s = planSessionOpen, w = planWeekOpen;
+  try{
+    if (planSessionOpen) planSessionOpen = null; else planWeekOpen = null;
+    return renderMainContent();
+  } catch(e){ return ''; }
+  finally{ planSessionOpen = s; planWeekOpen = w; }
+}
+/* Where a committed swipe goes: one level back, or another tab. */
+function pagerCommitTo(p){
+  if (p.back){ handlePlanBack(); return; }
+  handleSetView(p.to);
+}
+function pagerBuildPeek(view, dir, html){
   var pager = document.getElementById('view-pager');
   if (!pager) return null;
   var bar = document.querySelector('.topbar');
@@ -71431,7 +71466,7 @@ function pagerBuildPeek(view, dir){
   /* .view-host: the peek is a second place a view gets mounted, and the
      view-scoped rules key off that class rather than #view-mount so the
      neighbour looks identical to the page it is about to become. */
-  peek.innerHTML = '<div class="wrap view-host">' + pagerNeighbourHtml(view) + '</div>';
+  peek.innerHTML = '<div class="wrap view-host">' + (html != null ? html : pagerNeighbourHtml(view)) + '</div>';
   peek.style.transform = 'translate3d(' + (dir > 0 ? '100%' : '-100%') + ',0,0)';
   document.body.appendChild(peek);
   /* See body.vv-paging in the sheet: the in-flow mount is about to be
@@ -71464,10 +71499,10 @@ function pagerFinish(commit){
   var p = pagerState;
   if (!p) return;
   if (commit) swipeMarkLearned('pager');
-  if (!p.claimed || !p.peek){ pagerCleanup(); if (commit && p.to) handleSetView(p.to); return; }
+  if (!p.claimed || !p.peek){ pagerCleanup(); if (commit && p.to) pagerCommitTo(p); return; }
   if (p.reduced){
     pagerCleanup();
-    if (commit && p.to) { handleSetView(p.to); pagerHaptic(); }
+    if (commit && p.to) { pagerCommitTo(p); pagerHaptic(); }
     return;
   }
   var end = commit ? (p.dir > 0 ? -p.w : p.w) : 0;
@@ -71477,7 +71512,7 @@ function pagerFinish(commit){
      start value to interpolate from; without it the settle jumps. */
   void p.mount.offsetWidth;
   pagerSetOffset(end);
-  var to = p.to;
+  var to = p.to, back = !!p.back;
   window.setTimeout(function(){
     /* ORDER MATTERS: render the destination while the peek still covers the
        screen, then remove the peek. Both run in one task so nothing is painted
@@ -71485,7 +71520,7 @@ function pagerFinish(commit){
        -- so the swap is invisible instead of a blink back to the old page. */
     if (commit && to){
       pagerSuppressFade = true;
-      handleSetView(to);
+      pagerCommitTo({ to:to, back:back });
       /* THE PEEK ALWAYS SHOWED THE DESTINATION FROM ITS TOP, because it is a
          fixed box anchored under the header -- so that is where the
          destination has to land, or the slide ends somewhere other than
@@ -71528,11 +71563,17 @@ function pagerTouchMove(e){
     if (p.axis === 'y'){ pagerState = null; return; }
     var i = pagerIndex();
     p.dir = dx < 0 ? 1 : -1;                 /* 1 = moving forward through the tabs */
-    var next = i + p.dir;
-    p.to = (next >= 0 && next < PAGER_VIEWS.length) ? PAGER_VIEWS[next] : null;
+    if (planSubScreenOpen()){
+      /* Inside Full Plan: right is back one level, left is nothing. */
+      p.back = p.dir < 0;
+      p.to = p.back ? 'full' : null;
+    } else {
+      var next = i + p.dir;
+      p.to = (next >= 0 && next < PAGER_VIEWS.length) ? PAGER_VIEWS[next] : null;
+    }
     p.claimed = true;
     if (p.to && !p.reduced){
-      p.peek = pagerBuildPeek(p.to, p.dir);
+      p.peek = pagerBuildPeek(p.to, p.dir, p.back ? pagerPlanParentHtml() : null);
       p.mount.classList.add('is-paging');
     }
   }
