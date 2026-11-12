@@ -275,8 +275,17 @@ const FLOOR = 0.55;    // below this the content is a speck in the tile
    brighter than some of the content, and no single brightness threshold can
    tell them apart. Colour can. The surface is a neutral blue-grey; the content
    is either near-white (the S) or distinctly warm (gold dots, cherry type). */
+/* ---- AND THE S IS PORCELAIN NOW ----
+   Founder, shown the S in gold, glass and porcelain: "Porcelain!! By a long
+   shot." Same shape, same dots, same tile; only the material changed, and a
+   lit, raised S is not flat white: measured on the new master its face sits
+   near (182, 177, 168) and its shaded side lower still, so "brighter than 185
+   on every channel" found barely a seventh of it. What still tells it from the
+   tile is warmth: every tile pixel has red no higher than blue plus one (it is
+   blue-grey), and the porcelain face runs eight to twenty warmer. */
 function isInk(r, g, b){
-  if (Math.min(r, g, b) > 185) return true;                 /* the S */
+  if (Math.min(r, g, b) > 185) return true;                 /* a white S */
+  if ((r + g + b) / 3 > 110 && r - b >= 6) return true;     /* the porcelain S */
   return r > 120 && (r - Math.min(g, b)) > 50;              /* gold, cherry */
 }
 
