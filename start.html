@@ -141,6 +141,52 @@
     color:var(--ctl-text); padding:10px 11px; font-size:14px; min-height:44px;
   }
   .field input::placeholder{color:var(--ctl-placeholder); opacity:1;}
+  /* ---------- FOUR ANSWERS GIVEN WITH THE THUMB ----------
+     The app's builder gave these four to a slider -- founder: "Change build
+     a plan to have this 4 areas as the slider options" -- and this is the
+     same questionnaire asked before there is an account, so it asks them
+     the same way. The rules are the app's, selector for selector: label
+     left, the answer right and large in cherry, one track under them. */
+  .bld-slide-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px;}
+  .field .bld-slide-head label{margin-bottom:0;}
+  .bld-slide-val{display:inline-flex; align-items:baseline; gap:6px; flex:none;}
+  .field .bld-slide-val input{
+    width:4.6ch; min-height:44px; padding:0; background:none; border:0; border-radius:0;
+    box-shadow:none; text-align:right; font-family:var(--num-face); font-size:28px;
+    font-weight:700; color:var(--cherry-text); -moz-appearance:textfield; appearance:textfield;}
+  .field .bld-slide-val input::-webkit-outer-spin-button,
+  .field .bld-slide-val input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  .field .bld-slide-val input::placeholder{color:var(--cherry-text); opacity:1;}
+  .field .bld-slide-val input:focus{box-shadow:none;}
+  .bld-slide-unit, .bld-slide-fig{font-family:var(--num-face); font-weight:700; color:var(--cherry-text);}
+  .bld-slide-unit{font-size:17px;}
+  .bld-slide-fig{font-size:28px; line-height:44px; min-width:1.2ch; text-align:right;}
+  .field input.bld-range{
+    -webkit-appearance:none; appearance:none; display:block; width:100%;
+    height:44px; min-height:44px; margin:0; padding:0; background:transparent;
+    border:0; border-radius:0; box-shadow:none; cursor:pointer; --p:0%;}
+  .bld-range::-webkit-slider-runnable-track{
+    height:4px; border-radius:2px;
+    background:linear-gradient(to right, var(--cherry-text) var(--p), var(--line) var(--p));}
+  .bld-range::-moz-range-track{
+    height:4px; border-radius:2px;
+    background:linear-gradient(to right, var(--cherry-text) var(--p), var(--line) var(--p));}
+  .bld-range::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:26px; height:26px; margin-top:-11px;
+    border:0; border-radius:50%; background:var(--cherry-ink);
+    box-shadow:0 0 0 3px var(--cherry-text), 0 0 18px var(--cherry-dim);}
+  .bld-range::-moz-range-thumb{
+    width:26px; height:26px; border:0; border-radius:50%; background:var(--cherry-ink);
+    box-shadow:0 0 0 3px var(--cherry-text), 0 0 18px var(--cherry-dim);}
+  .bld-range.is-unset::-webkit-slider-thumb{background:var(--bg-2); box-shadow:0 0 0 2px var(--ink);}
+  .bld-range.is-unset::-moz-range-thumb{background:var(--bg-2); box-shadow:0 0 0 2px var(--ink);}
+  .bld-range:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
+  .bld-range-ends, .bld-range-ticks{
+    display:flex; justify-content:space-between; font-family:var(--num-face);
+    font-size:13px; color:var(--ink);}
+  .bld-range-ticks{padding:0 6px;}
+  .bld-range-ticks span{width:14px; text-align:center;}
+  .bld-slide .field-hint{margin-top:10px;}
   .field input:focus, .field select:focus{outline:none; border-color:var(--ctl-accent); box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);}
   .field.invalid input, .field.invalid select{border-color:var(--c-threshold);}
   .field.invalid .opt-grid button{border-color:var(--c-threshold);}
@@ -896,6 +942,53 @@
 
   /* Grid -> mirrored answer. One delegated listener per rendered grid, the
      same pattern openSetupModal() uses for its own opt-grids. */
+  /* ---------- THE BUILDER'S SLIDERS, AS IN THE APP ----------
+     A slider stands in front of the field that holds the answer, writes its
+     value into it and raises the input event the field's own listener was
+     already waiting for -- so Ans is updated by the same line it always was.
+     The figure beside the label is that field: tap it for an exact number.
+     An empty field leaves the thumb hollow at the start and the figure a
+     dash; it never reads as zero. */
+  var SLIDER_KM = { volume:150, longRun:50 };
+  function sliderMax(km){ return Ans.units === 'mi' ? Math.round(km * 0.621371) : km; }
+  function rangeHtml(forId, o){
+    var min = o.min != null ? o.min : 0, max = o.max, unit = o.unit || '';
+    var foot = o.ticks
+      ? '<div class="bld-range-ticks" aria-hidden="true">' +
+          o.ticks.map(function(n){ return '<span>'+n+'</span>'; }).join('') + '</div>'
+      : '<div class="bld-range-ends" aria-hidden="true"><span>'+min+(unit?' '+unit:'')+'</span>' +
+          '<span>'+max+(unit?' '+unit:'')+'</span></div>';
+    return '<input type="range" class="bld-range" data-for="'+forId+'" min="'+min+'" max="'+max+'" ' +
+      'step="'+(o.step || 1)+'" value="'+min+'" aria-label="'+(o.label || '')+'">' + foot;
+  }
+  function paintRange(rg){
+    var t = $(rg.getAttribute('data-for'));
+    if (!t) return;
+    var min = parseFloat(rg.min), max = parseFloat(rg.max);
+    var raw = String(t.value == null ? '' : t.value).trim();
+    var v = raw === '' ? NaN : parseFloat(raw);
+    var has = isFinite(v);
+    var shown = has ? Math.max(min, Math.min(max, v)) : min;
+    rg.value = String(shown);
+    rg.classList.toggle('is-unset', !has);
+    rg.style.setProperty('--p', (max > min ? (shown - min) / (max - min) * 100 : 0) + '%');
+    var field = rg.closest('.field');
+    var fig = field && field.querySelector('.bld-slide-fig');
+    if (fig) fig.textContent = has ? String(v) : '\u2013';
+  }
+  function wireRanges(){
+    Array.prototype.forEach.call(document.querySelectorAll('#bld-stage-body .bld-range'), function(rg){
+      var t = $(rg.getAttribute('data-for'));
+      if (!t) return;
+      rg.addEventListener('input', function(){
+        t.value = rg.value;
+        t.dispatchEvent(new Event('input', { bubbles:true }));
+        paintRange(rg);
+      });
+      t.addEventListener('input', function(){ paintRange(rg); });
+      paintRange(rg);
+    });
+  }
   function wireOptGrid(containerId, onPick){
     var el = $(containerId);
     el.addEventListener('click', function(e){
@@ -1015,8 +1108,12 @@
           ? '<div class="field bld-date" id="f-racedate"><label>Event date</label>' +
             vvCalFieldHtml('bld-racedate', Ans.raceDate, todayStrLocal()) +
             '<div class="field-hint">Progression and taper anchor to this day.</div></div>'
-          : '<div class="field" id="f-weeks"><label>Training block length (weeks)</label>' +
-            '<input id="bld-weeks" type="number" min="'+weeksRange[0]+'" max="'+weeksRange[1]+'" step="1" inputmode="numeric" value="'+Ans.weeks+'">' +
+          : '<div class="field bld-slide" id="f-weeks">' +
+            '<div class="bld-slide-head"><label for="bld-weeks">Training block length</label>' +
+              '<span class="bld-slide-val">' +
+                '<input id="bld-weeks" type="number" min="'+weeksRange[0]+'" max="'+weeksRange[1]+'" step="1" inputmode="numeric" value="'+Ans.weeks+'">' +
+                '<span class="bld-slide-unit">weeks</span></span></div>' +
+            rangeHtml('bld-weeks', { min:weeksRange[0], max:weeksRange[1], unit:'weeks', label:'Training block length in weeks' }) +
             '<div class="field-hint">'+purposeMeta().weeksHint+'</div></div>') +
       '</div>';
     if (isRace){
@@ -1026,6 +1123,7 @@
     if (rd) rd.addEventListener('input', function(){ Ans.raceDate = rd.value; });
     var wk = $('bld-weeks');
     if (wk) wk.addEventListener('input', function(){ Ans.weeksTouched = true; Ans.weeks = Number(wk.value); });
+    wireRanges();
   }
 
   /* ---------- stage 04 YOU ---------- */
@@ -1059,21 +1157,32 @@
          screen and the app's stage 05 cannot drift -- which they already had,
          this surface asking for weekly volume on a Race Goal while the app
          skipped it and refusing a zero the app would have accepted. */
-      '<div class="field" id="f-volume"><label>'+EVF.weeklyKm.label+' ('+Ans.units+')</label>' +
-      '<input id="bld-volume" type="number" min="0" step="1" inputmode="numeric" value="'+Ans.volume+'">' +
+      '<div class="field bld-slide" id="f-volume">' +
+      '<div class="bld-slide-head"><label for="bld-volume">'+EVF.weeklyKm.label+'</label>' +
+        '<span class="bld-slide-val">' +
+          '<input id="bld-volume" type="number" min="0" step="any" inputmode="decimal" value="'+Ans.volume+'" placeholder="\u2013">' +
+          '<span class="bld-slide-unit">'+Ans.units+'</span></span></div>' +
+      rangeHtml('bld-volume', { max:sliderMax(SLIDER_KM.volume), step:5, unit:Ans.units, label:EVF.weeklyKm.label }) +
       '<div class="field-hint">'+EVF.weeklyKm.hint+'</div></div>' +
-      '<div class="field" id="f-entry-days"><label>'+EVF.runDaysPerWeek.label+'</label>' +
-      '<div class="opt-grid cols-4" id="bld-entry-days" role="group" aria-label="'+EVF.runDaysPerWeek.label+'">' +
-        optGrid(EV_DAYS, Ans.entryDays) + '</div>' +
+      '<div class="field bld-slide" id="f-entry-days">' +
+      '<div class="bld-slide-head"><label>'+EVF.runDaysPerWeek.label+'</label>' +
+        '<span class="bld-slide-fig" aria-hidden="true">'+(Ans.entryDays === '' ? '\u2013' : Ans.entryDays)+'</span></div>' +
+      rangeHtml('bld-entry-days', { min:EV_DAYS[0].value, max:EV_DAYS[EV_DAYS.length-1].value,
+        ticks:EV_DAYS.map(function(d){ return d.label; }), label:EVF.runDaysPerWeek.label }) +
+      '<input type="hidden" id="bld-entry-days" value="'+Ans.entryDays+'">' +
       '<div class="field-hint">'+EVF.runDaysPerWeek.hint+'</div></div>' +
-      '<div class="field" id="f-entry-long"><label>'+EVF.longestRunKm.label+' ('+Ans.units+')</label>' +
-      '<input id="bld-entry-long" type="number" min="0" step="1" inputmode="numeric" value="'+Ans.entryLong+'">' +
+      '<div class="field bld-slide" id="f-entry-long">' +
+      '<div class="bld-slide-head"><label for="bld-entry-long">'+EVF.longestRunKm.label+'</label>' +
+        '<span class="bld-slide-val">' +
+          '<input id="bld-entry-long" type="number" min="0" step="any" inputmode="decimal" value="'+Ans.entryLong+'" placeholder="\u2013">' +
+          '<span class="bld-slide-unit">'+Ans.units+'</span></span></div>' +
+      rangeHtml('bld-entry-long', { max:sliderMax(SLIDER_KM.longRun), step:1, unit:Ans.units, label:EVF.longestRunKm.label }) +
       '<div class="field-hint">'+EVF.longestRunKm.hint+'</div></div>' +
       '<div class="field" id="f-entry-long-date"'+
         (parseFloat(Ans.entryLong) > 0 ? '' : ' hidden')+'><label>'+EVF.longestRunDate.label+'</label>' +
       vvCalFieldHtml('bld-entry-long-date', Ans.entryLongDate||'', '') +
       '<div class="field-hint">'+EVF.longestRunDate.hint+'</div></div>';
-    wireOptGrid('bld-entry-days', function(v){ Ans.entryDays = v; });
+    $('bld-entry-days').addEventListener('input', function(){ Ans.entryDays = $('bld-entry-days').value; });
     $('bld-volume').addEventListener('input', function(){ Ans.volume = $('bld-volume').value; });
     /* dependsOnPositive, honoured here as in the app: no run, no date to ask
        for. submitBuild() already drops the date unless the distance is above
@@ -1086,6 +1195,7 @@
       Ans.entryLong = $('bld-entry-long').value; syncEntryLongDate(); });
     syncEntryLongDate();
     $('bld-entry-long-date').addEventListener('input', function(){ Ans.entryLongDate = $('bld-entry-long-date').value; });
+    wireRanges();
   }
 
   /* ---------- stage 05 BENCHMARK ---------- */

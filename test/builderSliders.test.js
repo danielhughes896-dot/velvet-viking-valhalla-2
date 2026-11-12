@@ -286,3 +286,71 @@ test('the track is cherry up to the thumb, and the answer is cherry and large', 
   assert.match(fig, /min-height:44px/, 'still a field a thumb can land in');
   assert.doesNotMatch(cssRule('  .bld-range-ends, .bld-range-ticks'), /--ink-faint|--ink-dim|opacity/);
 });
+
+/* ---------- the same four on the public sign-up page ---------- */
+
+const START = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
+const startFn = (name) => {
+  const i = START.indexOf('function ' + name + '(');
+  assert.ok(i > 0, 'no function ' + name + ' on /start');
+  return START.slice(i, START.indexOf('\n  function ', i + 10));
+};
+
+test('/start asks the same four answers with sliders', () => {
+  const you = startFn('renderYouStage');
+  ['bld-volume', 'bld-entry-days', 'bld-entry-long'].forEach((id) =>
+    assert.match(you, new RegExp("rangeHtml\\('" + id + "'"), id + ' has no slider on /start'));
+  assert.match(startFn('renderEventStage'), /rangeHtml\('bld-weeks', \{ min:weeksRange\[0\], max:weeksRange\[1\]/,
+    'block length runs over the programme\'s own range there too');
+  assert.doesNotMatch(you, /opt-grid cols-4/, 'the eight day-count tiles are back on /start');
+  assert.match(you, /wireRanges\(\);/);
+  assert.match(startFn('renderEventStage'), /wireRanges\(\);/);
+});
+
+test('/start takes a decimal for the two distances and keeps the field as the figure', () => {
+  const you = startFn('renderYouStage');
+  ['bld-volume', 'bld-entry-long'].forEach((id) =>
+    assert.match(you, new RegExp('<span class="bld-slide-val">\' \\+\\s*\'<input id="' + id + '" type="number" min="0" step="any" inputmode="decimal"')));
+  assert.match(START, /var SLIDER_KM = \{ volume:150, longRun:50 \};/);
+});
+
+test('/start draws the slider with the app\'s own rules', () => {
+  const rules = ['  .field input.bld-range', '  .bld-range::-webkit-slider-thumb', '  .bld-range::-webkit-slider-runnable-track',
+    '  .bld-range.is-unset::-webkit-slider-thumb', '  .field .bld-slide-val input', '  .bld-range-ends, .bld-range-ticks'];
+  const grab = (src, sel) => { const i = src.indexOf(sel + '{'); assert.ok(i > 0, sel); return src.slice(i, src.indexOf('}', i)).replace(/\s+/g, ' '); };
+  rules.forEach((sel) => assert.equal(grab(START, sel), grab(CODE, sel), sel + ' has drifted between the two builders'));
+});
+
+test('on /start a slider writes the field its listener already reads, and an empty one is unset', () => {
+  const wire = startFn('wireRanges');
+  assert.match(wire, /t\.value = rg\.value;\s*t\.dispatchEvent\(new Event\('input', \{ bubbles:true \}\)\);/);
+  const paint = startFn('paintRange');
+  assert.match(paint, /var v = raw === '' \? NaN : parseFloat\(raw\);/);
+  assert.match(paint, /rg\.classList\.toggle\('is-unset', !has\);/);
+  assert.match(paint, /fig\.textContent = has \? String\(v\) : '\\u2013';/);
+  assert.match(startFn('renderYouStage'),
+    /\$\('bld-entry-days'\)\.addEventListener\('input', function\(\)\{ Ans\.entryDays = \$\('bld-entry-days'\)\.value; \}\);/);
+});
+
+/* ---------- and the fault found while testing them ----------
+   Nobody could get past Experience on /start. The rules were numbered by
+   position (`i === 4` for YOU) and Experience was inserted at 4 without
+   renumbering them, so Continue on Experience checked a weekly volume that
+   was not on the screen and was still blank. */
+test('/start keys its validation rules by stage, never by position', () => {
+  const v = startFn('bldValidateStage');
+  assert.doesNotMatch(v, /i === \d/, 'a rule keyed by position moves onto its neighbour the next time a stage is inserted');
+  ['EVENT', 'YOU', 'BENCHMARK', 'WEEK'].forEach((k) => assert.match(v, new RegExp('i === STAGE_AT\\.' + k + '\\)')));
+  assert.match(START, /var STAGE_AT = BLD_STAGES\.reduce\(function\(m, st, idx\)\{ m\[st\.key\] = idx; return m; \}, \{\}\);/);
+});
+
+test('every stage /start has a rule for exists in the shared spec, and Experience is not YOU', () => {
+  const keys = BS.stages.map((s) => s.key);
+  ['EVENT', 'EXPERIENCE', 'YOU', 'BENCHMARK', 'WEEK'].forEach((k) => assert.ok(keys.indexOf(k) !== -1, k + ' is not a stage'));
+  assert.equal(keys.indexOf('YOU'), keys.indexOf('EXPERIENCE') + 1,
+    'the weekly-volume rule belongs to the screen after Experience');
+  const v = startFn('bldValidateStage');
+  const youRule = v.slice(v.indexOf('i === STAGE_AT.YOU'), v.indexOf('i === STAGE_AT.BENCHMARK'));
+  assert.match(youRule, /bldFail\('f-volume'/, 'the volume rule sits under YOU, the screen that asks it');
+  assert.doesNotMatch(v.slice(0, v.indexOf('i === STAGE_AT.YOU')), /f-volume/);
+});

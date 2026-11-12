@@ -152,11 +152,11 @@ test('a worded grid never asks for columns, on either surface', () => {
      This is the whole list; anything else appearing in it is a worded
      grid that has just been given narrow cells. */
   const EXPECTED = {
-    /* The app's eight day counts are a slider now -- founder: "Change build
-       a plan to have this 4 areas as the slider options" -- so only the
-       weekday codes ask for columns there. /start still draws the tiles. */
+    /* The eight day counts are a slider on both surfaces now -- founder:
+       "Change build a plan to have this 4 areas as the slider options" --
+       so only the weekday codes ask for columns. */
     app: ['bld-longday-grid'],
-    '/start': ['bld-entry-days', 'bld-longday'],
+    '/start': ['bld-longday'],
   };
   SURFACES.forEach(([name, src]) => {
     const found = [];
