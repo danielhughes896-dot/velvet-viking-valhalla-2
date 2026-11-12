@@ -72983,20 +72983,44 @@ function nativeNotifyPlan(now){
     if (at.getTime() <= t.getTime()) continue;
     var msg = buildDayNotificationText(findDayByDate(date));
     out.push({ id: NOTIFY_NATIVE_BASE_ID + i, title: msg.title, body: msg.body,
-               schedule: { at: at, allowWhileIdle: true } });
+               schedule: { at: at, allowWhileIdle: true },
+               /* NOT EXACT. The plugin treats every reminder as exact unless
+                  told otherwise, and on Android 12+ an app that may not set
+                  exact alarms is sent to "Alarms and reminders" by every
+                  schedule() call. SACORO deliberately does not hold that
+                  permission (see AndroidManifest.xml), so the screen could
+                  never be satisfied -- and coming back from it fired the
+                  resume handler, which scheduled again and reopened it.
+                  Founder: "I cannot use SACORO. it's literally stuck in this
+                  and won't let me go back." An 08:00 nudge does not need the
+                  second it lands on; Android delivers it within minutes. */
+               isExactNotification: false });
   }
   return out;
 }
-function nativeScheduleReminders(){
+/* AND NEVER IN A LOOP. Scheduling is triggered by the app opening and by it
+   coming back to the foreground; anything native that leaves the app and
+   returns (a permission screen, a share sheet) is itself a "coming back".
+   So the automatic path runs at most once per NATIVE_SCHEDULE_MIN_MS and
+   never while a schedule is still in flight. The athlete's own switch
+   passes force and always runs. */
+var NATIVE_SCHEDULE_MIN_MS = 10 * 60 * 1000;
+var nativeScheduleInFlight = false, nativeScheduleLastAt = 0;
+function nativeScheduleReminders(force){
   var LN = nativeNotifier();
   if (!LN || !LN.schedule) return Promise.resolve(false);
+  if (nativeScheduleInFlight) return Promise.resolve(false);
+  var now = Date.now();
+  if (!force && nativeScheduleLastAt && now - nativeScheduleLastAt < NATIVE_SCHEDULE_MIN_MS) return Promise.resolve(false);
+  nativeScheduleInFlight = true; nativeScheduleLastAt = now;
+  var done = function(v){ nativeScheduleInFlight = false; return v; };
   var clear = LN.cancel ? LN.cancel({ notifications: nativeNotifyIds() }) : Promise.resolve();
   return Promise.resolve(clear).catch(function(){}).then(function(){
     if (!state.notifyEnabled || !state.setup || nativeNotifyPerm !== 'granted') return false;
     var list = nativeNotifyPlan();
     if (!list.length) return false;
     return LN.schedule({ notifications: list }).then(function(){ return true; }, function(){ return false; });
-  });
+  }).then(done, function(){ return done(false); });
 }
 /* The phone's answer, read once at start so the switch is drawn truthfully. */
 function nativeReadNotifyPermission(){
@@ -73050,7 +73074,7 @@ function handleToggleNotifyNative(){
   if (currentlyOn){
     state.notifyEnabled = false;
     scheduleSave();
-    nativeScheduleReminders();
+    nativeScheduleReminders(true);
     patchNotifyToggle();
     showToast('Daily reminder turned off');
     return;
@@ -73065,7 +73089,7 @@ function handleToggleNotifyNative(){
       showToast('Notifications are blocked. Allow them for SACORO in your phone\u2019s settings');
       return false;
     }
-    return nativeScheduleReminders().then(function(ok){
+    return nativeScheduleReminders(true).then(function(ok){
       showToast('Daily 08:00 reminder on');
       return ok;
     });

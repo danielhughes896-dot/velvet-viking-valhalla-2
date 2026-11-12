@@ -112,3 +112,52 @@ test('the Android app carries the plugin and a version that can go to Play', () 
   const gradle = fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8');
   assert.ok(+(/versionCode (\d+)/.exec(gradle)[1]) >= 6, 'the versionCode was not raised for the new native build');
 });
+
+// ---------------------------------------------------------------------------
+// NEVER THE EXACT-ALARM SCREEN, AND NEVER IN A LOOP
+// ---------------------------------------------------------------------------
+/* Founder, with the phone stuck on Android's "Alarms and reminders" page:
+   "I cannot use SACORO. it's literally stuck in this and won't let me go
+   back." @capacitor/local-notifications treats a reminder as exact unless it
+   says isExactNotification:false, and on Android 12+ every schedule() of an
+   exact reminder by an app without the exact-alarm permission opens that
+   page. SACORO removes the permission on purpose, so the page could never be
+   satisfied; coming back from it fired the resume handler, which scheduled
+   again. */
+test('no reminder asks for an exact alarm, so Android never opens Alarms and reminders', async () => {
+  const { a, ln } = phone('2026-11-12T07:00:00Z');
+  await a.handleToggleNotify();
+  assert.equal(ln.scheduled.length, 7);
+  ln.scheduled.forEach(n => assert.equal(n.isExactNotification, false,
+    'reminder ' + n.id + ' is exact: on Android 12+ scheduling it opens the exact-alarm screen'));
+  /* The permission that page grants is still deliberately absent. */
+  const manifest = fs.readFileSync(path.join(ROOT, 'android/app/src/main/AndroidManifest.xml'), 'utf8');
+  assert.match(manifest, /android\.permission\.SCHEDULE_EXACT_ALARM"\s+tools:node="remove"/);
+});
+
+test('coming back to the app does not schedule again straight away, and two can never overlap', async () => {
+  const { a, ln } = phone('2026-11-12T07:00:00Z', 'granted');
+  a.state.notifyEnabled = true;
+  await a.nativeReadNotifyPermission();
+  let calls = 0;
+  const real = a.window.Capacitor.Plugins.LocalNotifications.schedule;
+  a.window.Capacitor.Plugins.LocalNotifications.schedule = o => { calls++; return real(o); };
+  assert.equal(await a.nativeScheduleReminders(), true);                 // the app opens
+  /* Every "came back" afterwards -- including from any native screen -- is held off. */
+  for (let i = 0; i < 5; i++) assert.equal(await a.nativeScheduleReminders(), false);
+  assert.equal(calls, 1, 'returning to the app scheduled again: the loop that trapped the founder');
+  /* While one is still in flight, another cannot start, forced or not. */
+  a.nativeScheduleLastAt = 0;
+  let release;
+  a.window.Capacitor.Plugins.LocalNotifications.schedule = () => { calls++; return new Promise(r => { release = r; }); };
+  const first = a.nativeScheduleReminders();
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(await a.nativeScheduleReminders(true), false, 'two schedules ran at once');
+  release(); await first;
+  /* The athlete's own switch is never held off. */
+  a.window.Capacitor.Plugins.LocalNotifications.schedule = o => { calls++; return real(o); };
+  const before = calls;
+  assert.equal(await a.nativeScheduleReminders(true), true);
+  assert.equal(calls, before + 1);
+  assert.match(SRC, /nativeScheduleReminders\(true\)\.then\(function\(ok\)\{\s*showToast\('Daily 08:00 reminder on'\)/);
+});
