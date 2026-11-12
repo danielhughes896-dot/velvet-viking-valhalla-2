@@ -105,7 +105,17 @@ test('the circles are a rail: three show, gold dots count the positions, a swipe
   assert.equal((html.match(/class="b-rail-dot is-on"/g) || []).length, 1);
   assert.equal(a.coachRailDots(3, 3), '', 'dots under a rail with nowhere to go');
   assert.equal((a.coachRailDots(5, 3).match(/b-rail-dot[ "]/g) || []).length, 3);
-  assert.match(rule('.b-rail > .b-grid .b-dial-col'), /flex:0 0 calc\(\(100% - 20px\) \/ 3\)/, 'not three to a row');
+  /* Founder: "The fresh tab can be seen a little when [swiped] to see the
+     4th circle." Three columns and two gaps fill the row; the gap clears a
+     ring's glow past the 8px the rail shows at each side; and the rail is
+     given those 8px after its last circle, so the last position mirrors the
+     first instead of stopping short with the previous circle still in it. */
+  const gap = +/gap:(\d+)px/.exec(rule('.b-rail > .b-grid'))[1];
+  const pad = +/padding:12px (\d+)px/.exec(rule('.b-rail'))[1];
+  assert.match(rule('.b-rail > .b-grid .b-dial-col'), new RegExp('flex:0 0 calc\\(\\(100% - ' + (2 * gap) + 'px\\) / 3\\)'), 'not three to a row');
+  assert.ok(gap >= pad + 8, 'a ' + gap + 'px gap leaves the previous circle\'s glow inside the rail');
+  assert.equal(rule('.b-rail > .b-grid::after'), ".b-rail > .b-grid::after{content:''; flex:0 0 " + pad + 'px; height:1px; margin-left:-' + gap + 'px;',
+    'the rail stops short of its last snap point');
   assert.match(rule('.b-rail > .b-grid .b-dial-col'), /scroll-snap-align:start/);
   assert.match(rule('.b-rail'), /overflow-x:auto;[^}]*scroll-snap-type:x mandatory/);
   /* Founder: "The gold under the circles should be the same small circles

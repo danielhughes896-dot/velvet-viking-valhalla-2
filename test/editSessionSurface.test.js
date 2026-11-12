@@ -341,16 +341,74 @@ test('no section head in the sheet leads with a glyph', () => {
     'product, and with the panel flat it would be the only thing between the title and the gutter.');
   const helper = /var section = function\(([^)]*)\)/.exec(SRC);
   assert.ok(helper, 'the section() helper is gone');
-  /* `open` is gone from the signature and that is the point: the sections
-     do not open any more. Founder: "remove them all please." The positional
-     hazard this guards is unchanged -- two call sites still pass these by
-     position, so a parameter added or dropped still shifts a title into a
-     subtitle silently. */
+  /* The signature has held through every shape these sections have had --
+     <details>, flat, and now tabs -- because the positional hazard it guards
+     is the same in all three: two call sites pass these by position, so a
+     parameter added or dropped still shifts a title into a subtitle
+     silently. */
   assert.equal(helper[1].replace(/\s/g, ''), 'id,title,sub,body',
     'section() signature changed. Its arguments are positional and two call sites pass ' +
     'them, so a parameter added or dropped here silently shifts a title into a subtitle. ' +
     'Found: (' + helper[1] + ')');
   assert.ok(!/<details class="es-sec"/.test(SRC),
-    'the sheet is behind disclosures again -- Reschedule was shut by default, ' +
-    'which is the thing most athletes open this sheet to do');
+    'the sections are browser <details> again. They are the completed session\'s tabs: ' +
+    'a button, so the state is ours and survives the sheet being touched.');
+});
+
+/* ---------------------------------------------------------------------------
+ * TWO CLOSED TABS
+ * Founder: "Edit session has regressed. The reschedule and edit session type
+ * have merged together. So separate black closed tabs same as we have when a
+ * session is ticked as complete. And then it drops down to what we have in
+ * those fields now."
+ *
+ * (This reverses "Reschedule -- has tabs!! Remove them all." Flat, the swap
+ * list ran straight into the title field and the two jobs read as one form.)
+ * ------------------------------------------------------------------------- */
+test('Reschedule and Edit details are two closed tabs, the completed session\'s own', () => {
+  const { loadApp } = require('./harness.js');
+  const { buildPlan } = require('./fixtures.js');
+  const a = loadApp({ pinnedDate: '2026-11-12T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { distanceKey: 'half', volume: 45, weeks: 12, startDate: '2026-11-09' });
+  let html = '';
+  a.openModal = h => { html = h; };
+  const dd = a.state.days.filter(d => d.type !== 'rest' && d.date > '2026-11-12')[0];
+  a.openEditModal(dd.id);
+
+  const tabs = [...html.matchAll(/<button type="button" class="sess-tab sess-tab-btn es-tab" data-action="es-tab" aria-expanded="(true|false)" aria-controls="([a-z-]+)">([\s\S]*?)<\/button>/g)];
+  assert.equal(tabs.length, 2, 'not two tabs');
+  assert.deepEqual(tabs.map(m => m[2]), ['ef-sec-reschedule-body', 'ef-sec-edit-body']);
+  assert.deepEqual(tabs.map(m => m[1]), ['false', 'false'], 'a tab is open before it is asked for');
+  /* The same component as Share, Session Details and Your Log on a completed card. */
+  assert.equal(tabs[0][3], a.sessionTabHtml('Reschedule'));
+  assert.equal(tabs[1][3], a.sessionTabHtml('Edit details'));
+  assert.ok(!/>Edit session</i.test(tabs[1][3]), 'the second tab repeats the sheet\'s own heading');
+
+  /* Each drops down to exactly what was there: the swap list under one, every field under the other. */
+  const body = id => { const at = html.indexOf('<div class="es-tab-body" id="' + id + '" hidden>'); assert.ok(at !== -1, id + ' is not shut, or is gone'); return at; };
+  const r = body('ef-sec-reschedule-body'), e = body('ef-sec-edit-body');
+  const at = s => { const i = html.indexOf(s); assert.ok(i !== -1, s + ' is gone from the sheet'); return i; };
+  assert.ok(r < at('Move or swap this session with another day.') && at('Move or swap this session with another day.') < e, 'the swap list is not under Reschedule');
+  ['id="ef-title"', 'id="ef-km"', 'id="ef-mp"', 'id="ef-completed"', 'id="ef-desc"', 'data-action="reset-day"'].forEach(f =>
+    assert.ok(at(f) > e, f + ' is not under Edit details'));
+  assert.ok(at('data-action="save-edit"') > at('id="ef-desc"'), 'Save is not at the foot');
+  assert.ok(at('class="es-sum') < r || /es-sum/.test(html.slice(0, r)), 'the session\'s own tile is not above the tabs');
+
+  /* Opening one draws nothing: the body is already there and is only shown. */
+  const fn = SRC.slice(SRC.indexOf('\nfunction handleEditTab('), SRC.indexOf('\n}\n', SRC.indexOf('\nfunction handleEditTab(')));
+  assert.ok(!/renderApp|openEditModal|innerHTML|openModal/.test(fn), 'opening a tab redraws the sheet, which would lose a half-typed title');
+  assert.match(SRC, /case 'es-tab': handleEditTab\(target\); break;/);
+  const attrs = {}; let shown = null;
+  const btn = { getAttribute: k => (k in attrs ? attrs[k] : (k === 'aria-controls' ? 'x-body' : 'false')), setAttribute: (k, v) => { attrs[k] = v; } };
+  a.document.getElementById = () => ({ removeAttribute: () => { shown = true; }, setAttribute: () => { shown = false; } });
+  a.handleEditTab(btn);
+  assert.equal(attrs['aria-expanded'], 'true'); assert.equal(shown, true);
+  a.handleEditTab(btn);
+  assert.equal(attrs['aria-expanded'], 'false'); assert.equal(shown, false);
+  assert.match(CSS, /\.es-tab-body\[hidden\]\{display:none;\}/, 'a shut tab can be shown by another rule');
+
+  /* A session that has already happened can still be moved: the tab is there, shut, like the other. */
+  const past = a.state.days.filter(d => d.type !== 'rest' && d.date < '2026-11-12')[0];
+  if (past){ a.openEditModal(past.id); assert.match(html, /id="ef-sec-reschedule"/); assert.match(html, /aria-controls="ef-sec-reschedule-body"/); }
 });

@@ -301,7 +301,7 @@ test('PREVIEW: the circles are a rail of three, all one size', () => {
   assert.match(preview, /<div class="b-rail" data-hswipe="1"><div class="b-grid">/,
     'the circles are not a rail, or a swipe along it would change tab');
   assert.doesNotMatch(preview, /class="b-dials-(arc|row)"/, 'the staggered arc is back');
-  assert.match(CODE, /\.b-rail > \.b-grid \.b-dial-col\{flex:0 0 calc\(\(100% - 20px\) \/ 3\);/,
+  assert.match(CODE, /\.b-rail > \.b-grid \.b-dial-col\{flex:0 0 calc\(\(100% - 36px\) \/ 3\);/,
     'the rail does not show three circles');
   assert.match(CODE, /\.b-rail\{[^}]*overflow-x:auto;[^}]*scroll-snap-type:x mandatory;/,
     'the rail does not scroll under a thumb');

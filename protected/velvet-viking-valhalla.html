@@ -6766,6 +6766,10 @@
   .es-body .field > label,
   .es-body legend{color:var(--ink); font-weight:var(--label-weight);}
   .es-sec .setup-section-title{color:var(--ink); margin-top:0;}
+  /* What a tab drops down to: the section exactly as it was drawn flat,
+     held off the tab by the body's own gap. */
+  .es-tab-body{margin-top:14px;}
+  .es-tab-body[hidden]{display:none;}
   .es-reset{margin-top:14px; padding-top:13px;}
   /* One action, full width, at the foot -- Reset moved in beside the fields
      it undoes, so nothing destructive sits next to the confirm. */
@@ -9413,8 +9417,19 @@
   .b-rail::-webkit-scrollbar{display:none;}
   /* Out-specifies the grid's own two-column track and its scale, which a
      narrow-phone rule restates further down this sheet. */
-  .b-rail > .b-grid{display:flex; gap:10px; margin:0; --dv:.84;}
-  .b-rail > .b-grid .b-dial-col{flex:0 0 calc((100% - 20px) / 3); width:auto; min-width:0; scroll-snap-align:start;}
+  /* THE LAST POSITION IS THE FIRST ONE'S MIRROR. Founder: "The fresh tab can
+     be seen a little when [swiped] to see the 4th circle."
+     Two causes, both measured at 390px. The rail shows 8px either side of
+     its columns so the three in view keep their glow, but a scroller does
+     not count that 8px after its last child: fully swiped, the rail stopped
+     8px short, the three circles sat 8px right of where the first three sit,
+     and the circle that had just left was still inside the rail. The spacer
+     gives the rail its last 8px, so the swipe ends where the snap point is.
+     And the gap was 10px against a ring that glows about 8 beyond itself; at
+     18 the departed ring ends 10px outside the rail and its glow with it. */
+  .b-rail > .b-grid{display:flex; gap:18px; margin:0; --dv:.84;}
+  .b-rail > .b-grid::after{content:''; flex:0 0 8px; height:1px; margin-left:-18px;}
+  .b-rail > .b-grid .b-dial-col{flex:0 0 calc((100% - 36px) / 3); width:auto; min-width:0; scroll-snap-align:start;}
   .b-rail > .b-grid .rd-cat{font-size:11px;}
   @media (max-width:360px){ .b-rail > .b-grid{--dv:.74;} }
   .b-rail-dots{display:flex; justify-content:center; align-items:center; gap:7px; margin-top:10px;}
@@ -58689,21 +58704,37 @@ function openEditModal(dayId){
      product and these two were the last section heads carrying one -- and
      with the panel flattened above, an icon here would be the only thing
      standing between the title and the gutter. */
-  /* ---- NO TABS. Founder: "Reschedule -- has tabs!! Remove them all."
-     These were two <details>: a chevron, a summary and a body each, with
-     Reschedule shut by default. Two consequences and both were wrong. The
-     thing most athletes open this sheet to do was behind a tap, and the
-     second section's title was the word already printed in the modal head,
-     so the sheet said EDIT SESSION twice forty pixels apart -- the same
-     fault the build pages were just cleared of.
-     The id survives the <details> it used to be on: sacoroRedesign uses
-     #ef-sec-reschedule to assert a locked session can still be moved, and
-     that is still exactly what it tests. */
+  /* ---- TWO CLOSED TABS, THE COMPLETED SESSION'S OWN ----
+     Founder: "Edit session has regressed. The reschedule and edit session
+     type have merged together. So separate black closed tabs same as we have
+     when a session is ticked as complete. And then it drops down to what we
+     have in those fields now."
+
+     This has been both ways. The sections were first two <details>, and came
+     out on "Reschedule -- has tabs!! Remove them all"; flat, the swap list
+     ran straight into the title field with one heading between them, and the
+     two jobs read as one long form. So they are apart again, and this time
+     as the component the product already uses for "a thing you open": the
+     .sess-tab a completed session's Share, Session Details and Your Log are
+     drawn with. Same box, same word, same chevron.
+
+     SHUT UNTIL ASKED, AND NOTHING IS RE-DRAWN TO OPEN ONE. The body is in
+     the sheet from the start and is only hidden, so a title half-typed in
+     one tab is still there after the other has been opened and closed, and
+     Save reads every field whether its tab is open or not.
+
+     The second tab is "Edit details", not "Edit session": that is the
+     sheet's own heading, forty pixels above.
+     The id survives every shape this has had: sacoroRedesign uses
+     #ef-sec-reschedule to assert a locked session can still be moved. */
   var section = function(id, title, sub, body){
     return '<div class="es-sec" id="'+id+'">'+
-      (title ? '<div class="setup-section-title">'+escapeHtml(title)+'</div>' : '')+
-      (sub ? '<div class="es-sec-sub">'+escapeHtml(sub)+'</div>' : '')+
-      body+
+      '<button type="button" class="sess-tab sess-tab-btn es-tab" data-action="es-tab" '+
+        'aria-expanded="false" aria-controls="'+id+'-body">'+sessionTabHtml(title)+'</button>'+
+      '<div class="es-tab-body" id="'+id+'-body" hidden>'+
+        (sub ? '<div class="es-sec-sub">'+escapeHtml(sub)+'</div>' : '')+
+        body+
+      '</div>'+
     '</div>';
   };
   var fields =
@@ -58732,7 +58763,7 @@ function openEditModal(dayId){
     summary+
     section('ef-sec-reschedule', 'Reschedule',
             'Move or swap this session with another day.', reschedule)+
-    section('ef-sec-edit', '', '', fields)+
+    section('ef-sec-edit', 'Edit details', '', fields)+
     '<div class="modal-actions es-actions">'+
       '<button type="button" class="btn btn-primary btn-block" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
     '</div>'+
@@ -58761,6 +58792,18 @@ function openEditModal(dayId){
      viewport instead. .modal-centred, not .builder-light: the geometry
      only, so no cherry primary and no builder card face follow it in. */
   openModal(html, 'modal-themed modal-centred');
+}
+
+/* Opens or shuts one of Edit Session's two tabs. The DOM is toggled and
+   nothing is rendered: see section() in openEditModal(). */
+function handleEditTab(btn){
+  if (!btn || !btn.getAttribute) return;
+  var open = btn.getAttribute('aria-expanded') !== 'true';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  var body = (typeof document !== 'undefined' && document.getElementById)
+    ? document.getElementById(btn.getAttribute('aria-controls')) : null;
+  if (!body) return;
+  if (open) body.removeAttribute('hidden'); else body.setAttribute('hidden', '');
 }
 
 function findDay(dayId){
@@ -70912,6 +70955,7 @@ document.addEventListener('click', function(e){
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
     case 'coach-graph': handleCoachGraph(target.getAttribute('data-graph')); break;
+    case 'es-tab': handleEditTab(target); break;
     case 'log-pick': handleLogPick(target.getAttribute('data-day'), target.getAttribute('data-field'), target.getAttribute('data-value')); break;
     case 'log-clear': handleLogClear(target.getAttribute('data-day'), target.getAttribute('data-field')); break;
     /* A tap on an untouched slider exactly where its thumb already sits
