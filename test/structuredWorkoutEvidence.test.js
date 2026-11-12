@@ -366,8 +366,9 @@ test('a run with no imported laps shows no lap block, and its editor is untouche
   dd.actual = { km: dd.km, pace: '5:00', paceUnit: 'km', hr: 160, rpe: 6, feel: null, notes: '' };
   const html = a.renderSplitsBlock(dd);
   assert.doesNotMatch(html, /dlap-card/, 'an empty recorded-laps card appeared');
-  assert.match(html, /data-action="toggle-splits"|splits-summary/,
-    'the ordinary logging control was disturbed');
+  /* The ordinary logging rows are Your Log's own sections now, not this
+     block's -- with no recorded laps there is nothing for it to draw. */
+  assert.doesNotMatch(html, /toggle-splits|splits-summary/, 'a retired control is back');
 });
 
 test('manual logging is entirely unaffected by any of this', () => {

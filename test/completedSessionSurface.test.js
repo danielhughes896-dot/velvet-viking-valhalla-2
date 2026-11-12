@@ -203,23 +203,24 @@ test('clearing a log comes last inside the log it would undo', () => {
     'Clear log drifted back to the edge of the screen');
 });
 
-test('both disclosures are a label with its explanation under it', () => {
+/* ---- CHANGED SIDES ----
+   Founder: "Remove redundant 'Hide Detail', 'Add Laps / Splits' and
+   unnecessary gold subheadings. Keep Avg HR, elevation and notes directly
+   visible, with no duplicate inputs." And: "multi-part sessions
+   automatically show separate Warm-up, Main Set and Cool-down inputs,
+   including appropriate interval/rep details, while easy runs remain
+   simple ... three sections should appear only when the prescription
+   actually contains them." */
+test('the log has no disclosures left, and no gold subheading', () => {
   const a = app();
   const html = a.renderDayCard(completedDayWithLogOpen(a));
-  assert.match(html, /<span class="st-k">\+ Add detail<\/span><span class="st-sub">/,
-    'Add detail is one long sentence wearing a plus sign again');
-  /* Chrome that repeats on every card is excluded by name in copyRepetition
-     by a leading "+ Add detail" -- the plus has to stay inside the text, not
-     become a CSS pseudo-element. */
-  assert.match(html.replace(/<[^>]+>/g, ''), /\+ Add detail/,
-    'the stripped text no longer reads as the chrome it is');
-  /* A STRUCTURED session renders a breakdown summary card here rather than a
-     toggle, so the laps and breakdown disclosures are checked against the
-     templates: there is no fixture on which both can be rendered at once. */
-  assert.match(SRC, /<span class="st-k">\+ Add laps \/ splits<\/span><span class="st-sub">Optional</,
-    'the unstructured laps disclosure lost its structure');
-  assert.match(SRC, /<span class="st-k">\+ Log the session breakdown<\/span><span class="st-sub">Optional</,
-    'the structured breakdown disclosure lost its structure');
+  const log = html.slice(html.indexOf('class="log-body"'), html.indexOf('class="exec-review-mount"'));
+  assert.ok(log.length > 500, 'the log is not open in this fixture');
+  assert.doesNotMatch(log, /st-k|st-sub|splits-toggle|splits-summary|Add detail|Hide detail/,
+    'a disclosure is back in the log');
+  ['+ Add laps / splits', '+ Log the session breakdown', 'Hide session breakdown', 'Hide laps / splits', '+ Add detail', 'Hide detail']
+    .forEach(t => assert.ok(SRC.indexOf('>' + t + '<') === -1, '"' + t + '" is still in the product'));
+  assert.doesNotMatch(CSS, /\.splits-toggle|\.splits-summary|\.st-k\b/, 'the rules for the retired controls are still shipped');
 });
 
 test('pace is still offered as optional on the completed surface', () => {
@@ -354,35 +355,11 @@ test('the mark is SACORO with one gold dot each side, and nothing else', () => {
     'the decorative rule under the mark is back');
 });
 
-test('the breakdown disclosure is not the one tile left on the page', () => {
-  /* A structured session renders its breakdown as an .ev-card summary rather
-     than a plain toggle, so two controls doing the same job -- open a
-     disclosure -- sat three lines apart drawn as different species. Boxes
-     are not banned (Hear Today and Ask Coach are deliberately obvious), but
-     those are outlined pills; this was the filled, rimmed, shadowed tile the
-     focused session removed everywhere else. */
-  const r = rule(F + ' .splits-summary');
-  assert.match(r, /background:none/, 'the breakdown card has its fill back');
-  assert.match(r, /border:0/, 'the breakdown card has its rim back');
-  assert.match(r, /box-shadow:none/, 'the breakdown card is lifted again');
-  assert.match(r, /border-radius:0/, 'the breakdown card has its corners back');
-  assert.match(rule(F + ' .splits-summary-title'), /var\(--label-face\)/,
-    'the breakdown eyebrow is no longer on the label tier with its sibling');
-});
-
-test('de-tiling the breakdown did not delete its press feedback', () => {
-  /* .ev-card:hover is two classes; the focused-session rule is four, so
-     box-shadow:none would have beaten it and silently removed the state --
-     the one thing test/themeSystem says must never happen to it. It comes
-     back as illumination alone, with no tile shadow to sit beside. */
-  ['hover', 'active'].forEach(state => {
-    const r = rule(F + ' .splits-summary:' + state);
-    assert.match(r, /box-shadow:0 0 \d+px color-mix\(in srgb, var\(--gold\)/,
-      '.splits-summary:' + state + ' gives no feedback on a focused session');
-    assert.doesNotMatch(r, /--tile-shadow/,
-      'the tile shadow came back with the press state');
-  });
-});
+/* The two laws that stood here were about the Session Breakdown card: that
+   it was not a filled tile, and that de-tiling it kept its press feedback.
+   The card is gone -- its rows are Your Log's own sections -- so there is
+   no tile and no press state to protect; that it IS gone is asserted with
+   the disclosures above. */
 
 /* FEEL WAS THE LAST CONTROL BUILT OUT OF BOXES AND FILLS.
  * ===========================================================================

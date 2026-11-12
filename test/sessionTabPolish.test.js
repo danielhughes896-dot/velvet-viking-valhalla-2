@@ -359,16 +359,19 @@ function F(){
  * 6. A CONTROL THAT COULD NEVER DO WHAT IT SAID
  * ==================================================================== */
 
-test('Hide laps / splits actually hides the laps', () => {
-  /* Reported from the phone as "the hide does nothing", and it did nothing:
-     isSplitsOpen() read `flag || the day has laps`, and the close path
-     DELETED the flag -- so on a day with laps the derived clause answered
-     true on its own and the editor re-rendered open. The control is only
-     ever drawn when laps exist, so it never worked on a single day it
-     appeared on.
-     Asserted through the handler rather than on the source, because the
-     defect was in how two expressions combined, which no amount of reading
-     either one of them would have shown. */
+/* ---- CHANGED SIDES ----
+   Founder: "Remove redundant 'Hide Detail', 'Add Laps / Splits' and
+   unnecessary gold subheadings. Keep Avg HR, elevation and notes directly
+   visible, with no duplicate inputs." And: "multi-part sessions
+   automatically show separate Warm-up, Main Set and Cool-down inputs,
+   including appropriate interval/rep details, while easy runs remain
+   simple ... three sections should appear only when the prescription
+   actually contains them." */
+test('laps an athlete typed are shown, and there is no Hide control left to do nothing', () => {
+  /* The control this section was written about -- "Hide laps / splits",
+     which could never hide anything -- is gone with the toggle it belonged
+     to. What it protected is still protected: laps that exist are on the
+     screen, and a day without any is not given an editor unasked. */
   const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {};
   a.scheduleSave = () => {}; a.flushSave = () => {}; a.replaceCard = () => {};
@@ -380,30 +383,18 @@ test('Hide laps / splits actually hides the laps', () => {
   withLaps.completed = true;
   withLaps.actual = { km: withLaps.km,
     splits: [{ km:1, sec:312 }, { km:1, sec:304 }, { km:1, sec:292 }] };
+  const shown = a.renderSplitsBlock(withLaps);
+  assert.equal((shown.match(/class="split-row"/g) || []).length, 3, 'the laps are not all shown');
+  assert.doesNotMatch(shown, /Hide laps|toggle-splits/);
 
-  assert.equal(a.isSplitsOpen(withLaps), true, 'a day with laps opens showing them');
-  a.handleToggleSplits(withLaps.id);
-  assert.equal(a.isSplitsOpen(withLaps), false,
-    'Hide laps / splits still does nothing on the only days it is shown on');
-  a.handleToggleSplits(withLaps.id);
-  assert.equal(a.isSplitsOpen(withLaps), true, 'and it cannot be reopened');
-
-  /* The derived default is untouched: a day with no laps still starts shut,
-     which is the whole reason the second clause existed. */
-  const noLaps = a.state.days.filter(d => d.type !== 'rest')[1];
+  const noLaps = a.state.days.filter(d => d.type === 'easy')[0];
   noLaps.completed = true; noLaps.actual = { km: noLaps.km };
-  assert.equal(a.isSplitsOpen(noLaps), false, 'a day with no laps opens the editor unasked');
+  assert.equal(a.renderSplitsBlock(noLaps), '', 'a day with no laps was given an editor unasked');
 });
 
-test('closing is recorded, never un-recorded', () => {
-  /* The fix is only a fix because the closed state is WRITTEN. Delete it
-     again and the derived default answers, which is exactly the bug. */
-  const i = SRC.indexOf('function handleToggleSplits');
-  const fn = SRC.slice(i, SRC.indexOf('\n}', i));
-  assert.doesNotMatch(fn, /delete splitsEditorOpen/,
-    'the closed state is being deleted again, which hands the answer back ' +
-    'to the derived default -- on a day with laps that default is OPEN');
-  assert.match(fn, /splitsEditorOpen\[dd\.id\] = !isSplitsOpen\(dd\)/);
+test('the open-and-closed state of the lap editor is gone with its toggle', () => {
+  assert.ok(!/function handleToggleSplits|function isSplitsOpen|splitsEditorOpen/.test(SRC),
+    'state for a control that no longer exists is still being kept');
 });
 
 /* ======================================================================

@@ -207,7 +207,6 @@ test('how it felt takes over every job the Feel buttons had', () => {
     assert.equal(dd.actual.feel, want[n], 'position ' + n + ' does not write the feel the engine reads');
     assert.ok(a.FEEL_META[dd.actual.feel], 'it wrote a feel the engine has no meaning for');
   });
-  a.handleToggleDetail(dd.id);
   a.logOpenFor[dd.id] = true;
   const html = a.renderCompletedPanel(dd, '');
   assert.equal((html.match(/data-field="mainSetFelt"/g) || []).filter(Boolean).length >= 1, true, 'how it felt is not asked');
@@ -430,7 +429,6 @@ test('lifting a finger from an untouched slider where its thumb sits is the answ
 test('the old effort box and Feel buttons are gone, and effort is asked once', () => {
   const a = app();
   const dd = session(a, 'reps');
-  a.handleToggleDetail(dd.id);
   a.logOpenFor[dd.id] = true;
   const html = a.renderCompletedPanel(dd, '');
   assert.equal((html.match(/data-field="rpe"/g) || []).length, 1, 'effort is asked more than once');
@@ -438,8 +436,7 @@ test('the old effort box and Feel buttons are gone, and effort is asked once', (
   assert.ok(!/feel-btn|data-action="set-feel"/.test(html), 'the Feel buttons are still drawn');
   assert.ok(html.indexOf('data-field="pace"') < html.indexOf('class="actual-field full yl"'),
     'the answers come before the two numbers a watch gives');
-  assert.ok(html.indexOf('class="actual-field full yl"') < html.indexOf('data-action="toggle-detail"'),
-    'the answers are behind Add detail');
+  assert.ok(!/toggle-detail|toggle-splits/.test(html), 'something in the log is behind a toggle again');
 });
 
 test('the answers are words and controls: no symbols, and the tiles are the builder\'s', () => {

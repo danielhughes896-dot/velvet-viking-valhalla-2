@@ -3474,41 +3474,6 @@
      in, under a rule belonging to the column beside it, with the grid
      visibly broken. The grid gap is the separation. */
 
-  /* The two disclosures, on the label tier with their explanation beneath. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-toggle{
-    background:none; border:0; border-radius:0; padding:16px 0 0;
-    text-align:left; width:100%; display:block;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-toggle .st-k{font-family:var(--label-face); font-size:var(--label-size);
-    letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold);}
-
-  /* THE BREAKDOWN DISCLOSURE, IN THE SAME VOICE AS THE ONE ABOVE IT. A
-     structured session renders its breakdown as an .ev-card summary instead
-     of a plain toggle, so two controls doing the same job -- open a
-     disclosure -- sat three lines apart drawn as different species: a gold
-     text label, then the only lifted tile left on the screen. Boxes are not
-     banned here (Hear Today and Ask Coach are deliberately obvious), but
-     those are OUTLINED PILLS; this was the filled, rimmed, shadowed tile the
-     focused session removed everywhere else, and it out-shouted the
-     Execution Review underneath it. The content stays -- it says more than
-     the plain toggles do -- and only the tile goes. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary{
-    background:none; border:0; border-radius:0; box-shadow:none;
-    padding:16px 0 0; margin:0;}
-  /* THE PRESS FEEDBACK HAS TO BE PUT BACK BY HAND. .ev-card:hover is two
-     classes; this rule is four, so box-shadow:none above would have beaten
-     it and silently deleted the state -- the one thing test/themeSystem
-     says must never happen to it. It returns as illumination alone, with no
-     tile shadow to sit beside, which is the language the rest of the
-     focused session presses in. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary:hover{box-shadow:0 0 14px color-mix(in srgb, var(--gold) 16%, transparent);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary:active{box-shadow:0 0 10px color-mix(in srgb, var(--gold) 24%, transparent);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary-icon{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary-title{
-    font-family:var(--label-face); font-size:var(--label-size);
-    letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary-detail{padding-left:0; margin-top:3px; color:var(--ink-faint);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary .rs-chev{opacity:.42;}
-
   /* EXECUTION REVIEW, de-boxed and lit in Cherry Lacquer -- the coaching
      judgement on what was run, which is the same kind of thing the Coach's
      Note is, so it is treated the same way and kept below it in intensity. */
@@ -4504,13 +4469,8 @@
   .actual-done-i svg{width:11px; height:11px;}
   .actual-done-k{font-family:var(--label-face); font-size:var(--fs-meta); font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase;}
-  /* A disclosure is a label and the line that explains it, not one long
-     sentence wearing a plus sign. */
-  .splits-toggle .st-k{display:inline; font-family:var(--label-face); font-weight:var(--label-weight);
+
     text-transform:uppercase;}
-  .splits-toggle .st-sub{display:block; margin-top:3px; color:var(--ink-faint);
-    font-family:var(--text-face); font-weight:400; text-transform:none; letter-spacing:0;
-    font-size:var(--fs-support); line-height:var(--lh-support);}
   .field-hint{ color:var(--ink-faint); margin-top:2px;}
   /* Notes Wand: sits inside the textarea's corner so it reads as part of the
      field rather than another control competing with it. */
@@ -4614,33 +4574,6 @@
   .actual-clear{text-align:right;}
   .actual-clear button{background:none; border:none; color:var(--ink-faint); font-size:11px; text-decoration:underline; padding:2px;}
 
-  /* Manual laps/splits: a quiet, closed-by-default control inside the same
-     whole-session log, not a spreadsheet or a second card. */
-  .splits-toggle{
-    background:none; border:none; padding:6px 0; font-size:11px; font-weight:600;
-    color:var(--bronze-text); cursor:pointer; text-align:left; min-height:44px;
-    -webkit-tap-highlight-color:transparent;
-  }
-  /* SESSION BREAKDOWN -- collapsed summary card. .ev-card supplies the whole
-     shell (background/border/radius/shadow, hover/active feedback) exactly
-     as Coach/Settings' tappable rows already use it; .rs-chev is the same
-     shared chevron. Only the two-line label/detail layout below is new, and
-     it borrows .setup-section-title's eyebrow face and the 11px/1.4
-     --ink-faint supporting line the Reading cards used, rather than
-     inventing a fourth typographic voice. (That rule was .rs-syn until the
-     Reading list was retired with the Coach tab; the voice it set is the
-     one described here, and .splits-summary-detail below is now the only
-     place it is written down.) */
-  .splits-summary{padding:12px 14px; margin:2px 0 0;}
-  .splits-summary-head{display:flex; align-items:center; gap:9px;}
-  .splits-summary-icon{flex:none; display:flex; color:var(--bronze-text);}
-  .splits-summary-icon svg{width:15px; height:15px;}
-  .splits-summary-title{
-    flex:1 1 auto; min-width:0; font-family:var(--label-face); font-size:11px;
-    letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text);
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  .splits-summary-detail{ color:var(--ink-faint); margin-top:4px; padding-left:24px;}
   .splits-body{margin-top:2px;}
   .split-row{display:grid; grid-template-columns:16px 1fr 1fr 46px 32px; gap:5px; align-items:center; margin-bottom:6px;}
   .split-head{font-size:8.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:1px;}
@@ -4663,7 +4596,6 @@
   /* Structured logging: one compact block per prescribed segment. Two lines
      rather than a wide table, because a phone is narrow and an 18-row hill
      session must still be thumb-usable. */
-  .slog-hint{ color:var(--ink-faint); margin:2px 0 8px;}
   .slog-row{margin-bottom:7px; padding-left:8px; border-left:2px solid var(--line);}
   .slog-row.is-rec{border-left-color:var(--line-soft); opacity:.86;}
   .slog-row.is-flank{border-left-color:var(--line-soft);}
@@ -8839,6 +8771,25 @@
   .yl-clear{display:block; min-height:44px; margin:2px auto 0; padding:0 12px;
     font-size:var(--fs-support); line-height:var(--lh-support); color:var(--cherry-text);
     background:none; border:0;}
+  /* ---------- THE SECTIONS AND THEIR ROWS ----------
+     Warm-up and Cool-down are a white heading and one line of inputs; the
+     reps sit in the main set's own box, under the answers about it. The row
+     is the structured log's -- same inputs, same handler -- re-dressed for
+     this column: no left rule, no dimming, white type, 44px fields. */
+  .yl > .yl-sec:first-child{margin-top:10px;}
+  .yl-sec + .yl-box{margin-top:30px;}
+  .yl-part .slog-row{margin:12px 0 0; padding:0; border:0; opacity:1;}
+  .yl-rows{margin-top:30px;}
+  .yl-rows .slog-row{margin:0 0 16px; padding:0; border:0; opacity:1;}
+  .yl-rows .slog-row:last-child{margin-bottom:0;}
+  .yl .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px;}
+  .yl .slog-label{font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; letter-spacing:0; color:#FFFFFF;}
+  .yl .slog-presc{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .yl .slog-ins{display:flex; gap:8px;}
+  .yl .slog-in{min-height:44px; font-size:16px; padding:8px 10px;}
+  .yl .slog-in.slog-hr{flex:0 0 84px;}
+  .yl .splits-total{margin-top:16px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .yl .splits-total .font-mono{color:#FFFFFF;}
   .yl .opt-grid{margin-top:14px;}
   /* THREE ACROSS, ON ITS OWN TRACK. The builder's .cols-N is for grids of
      short tokens: on a grid of words a bare 1fr track is widened by a label
@@ -10926,7 +10877,6 @@
   .how-row-heading,
   .ws-head,
   .exec-review-head,
-  .splits-summary-title,
   .note-chips-head,
   .actual-field label,
   .field label,
@@ -11045,8 +10995,6 @@
   .coach-adjust-why,
   .coach-adjusted-note,
   .coach-metric .cm-s,
-  .splits-summary-detail,
-  .slog-hint,
   .dlap-note,
   .share-note,
   .es-sec-sub,
@@ -34390,7 +34338,7 @@ var LOG_RECOVERIES = [['shorter','Shorter'], ['as-set','As set'], ['longer','Lon
 function logShape(dd){
   var plan = assessPlan(dd);
   var rep = plan.family === 'hills' || plan.family === 'reps';
-  return { family:plan.family, reps: rep ? plan.work.length : 0,
+  return { family:plan.family, reps: rep ? plan.reps.length : 0,
            main: plan.family !== 'aerobic' && plan.family !== 'race',
            hills: plan.family === 'hills', recoveries: plan.family === 'reps' };
 }
@@ -34509,9 +34457,53 @@ function logTilesHtml(dd, o){
     '</div>'+
   '</div>';
 }
+/* ---------- WARM-UP, MAIN SET, COOL-DOWN: ONLY WHERE THE SESSION HAS THEM ----
+   Founder: "Confirm multi-part sessions automatically show separate
+   Warm-up, Main Set and Cool-down inputs, including appropriate
+   interval/rep details, while easy runs remain simple ... three sections
+   should appear only when the prescription actually contains them. We don't
+   want SACORO forcing warm-up and cooldown fields onto an ordinary easy
+   run."
+   The rows are the structured log's own -- structuredLoggingPlan(), one row
+   per prescribed segment, saved by the same handler into the same
+   dd.actual.splits every reader already uses. They used to be behind a
+   "Session breakdown" card that had to be found and opened. They are drawn
+   where they belong now, and split by the role the prescription gives each
+   segment, so a section exists exactly when a segment of that role does:
+   an easy run has no plan and gets none; a strides session has no warm-up
+   and is not given one; a threshold run has all three.
+   A RECOVERY IS ASKED ABOUT ONCE. Shorter / As set / Longer answers it for
+   the whole set; a numeric row per jog would ask it again five times. A
+   recovery row is drawn only where it already holds a number, so nothing
+   an athlete entered or a watch supplied is ever hidden. */
+function logPlanRows(dd){
+  var m = null;
+  try { m = loggingModeFor(dd); } catch(e){ m = null; }
+  var rows = (m && m.mode === 'structured' && m.plan) ? m.plan.rows : [];
+  var held = function(r){
+    var s = structuredSplitFor(dd, r.segId);
+    return !!(s && (s.km != null || s.hr != null || (s.sec != null && !s.secSeeded)));
+  };
+  return {
+    structured: rows.length > 0,
+    warm: rows.filter(function(r){ return r.role === 'warmup'; }),
+    cool: rows.filter(function(r){ return r.role === 'cooldown'; }),
+    main: rows.filter(function(r){
+      if (r.role === 'warmup' || r.role === 'cooldown') return false;
+      return r.kind !== 'recovery' || held(r);
+    })
+  };
+}
+function logPartHtml(dd, title, part, rows){
+  if (!rows.length) return '';
+  return '<div class="yl-sec yl-part" data-part="'+part+'"><div class="yl-title">'+title+'</div>'+
+    rows.map(function(r){ return renderStructuredRow(dd, r, rows.length === 1); }).join('')+
+  '</div>';
+}
 function renderYourLogAnswers(dd){
   if (!dd || dd.type === 'rest') return '';
   var a = dd.actual || {}, shape = logShape(dd), health = healthConsentGranted();
+  var parts = logPlanRows(dd);
   var box = '';
   if (shape.reps)
     box += logRangeHtml(dd, { field:'repsDone', label:'Reps completed', min:0, max:shape.reps,
@@ -34532,8 +34524,15 @@ function renderYourLogAnswers(dd){
   var chosen = (a.conditions || []).slice();
   if (a.watchDataOff) chosen.push('watch');
   var stops = LOG_STOP.filter(function(x){ return health || LOG_STOP_HEALTH.indexOf(x[0]) === -1; });
+  /* The reps and stages of the main set, under the answers about it. */
+  var mainRows = parts.main.map(function(r){ return renderStructuredRow(dd, r, false); }).join('');
+  var boxTitle = shape.family === 'race' ? 'The race' : (shape.main ? 'Main set' : 'The run');
   return '<div class="actual-field full yl">'+
-    (box ? '<div class="yl-box"><div class="yl-title">'+(shape.main ? 'Main set' : 'The run')+'</div>'+box+'</div>' : '')+
+    logPartHtml(dd, 'Warm-up', 'warmup', parts.warm)+
+    ((box || mainRows) ? '<div class="yl-box" data-part="main"><div class="yl-title">'+boxTitle+'</div>'+
+        box+(mainRows ? '<div class="yl-rows">'+mainRows+'</div>' : '')+'</div>' : '')+
+    logPartHtml(dd, 'Cool-down', 'cooldown', parts.cool)+
+    (parts.structured ? '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>' : '')+
     '<div class="yl-sec">'+
       logRangeHtml(dd, { field:'rpe', label:'Overall effort', min:1, max:10,
         value:(typeof a.rpe === 'number' ? a.rpe : null), start:5, of:10, ends:['Very easy', 'All out'] })+
@@ -34689,7 +34688,6 @@ function logRangeSettle(e){
 
 function renderCompletedPanel(dd, detailHtml){
     var a = dd.actual || {};
-    var detailOpen = isDetailOpen(dd);
     /* THE TWO THE ENGINE GRADES AGAINST, always visible. Distance alone is a
        real rung of the evidence ladder -- it earns a completion assessment on
        its own -- and pace is what turns that into a whole-session execution
@@ -34752,21 +34750,13 @@ function renderCompletedPanel(dd, detailHtml){
          uses. Open when the athlete asks, and open by default whenever this
          day already carries any of it -- a record can never be made less
          visible than it was. */
-      '<div class="actual-field full">'+
-        '<button type="button" class="splits-toggle" data-action="toggle-detail" data-day="'+dd.id+'" aria-expanded="'+(detailOpen?'true':'false')+'">'+
-          (detailOpen ? '<span class="st-k">Hide detail</span>'
-                      : '<span class="st-k">+ Add detail</span>'+
-                        '<span class="st-sub">Heart rate \u00b7 elevation \u00b7 notes</span>')+
-        '</button>'+
-      '</div>'+
-      (detailOpen ? (
-      /* HEART RATE AND FEEL ARE THE TWO COVERED BOXES IN THIS PANEL. Without
-         consent they are not shown, because inviting somebody to type a
-         resting-heart-rate figure Sacoro is not allowed to read is worse
-         than not asking. Distance, pace, RPE and the athlete's own notes are
-         ordinary training data and are unchanged. One line says why the two
-         are missing and where the choice lives; it is an explanation attached
-         to an absent control, not a standing request. */
+      /* ---------- NOTHING TO OPEN ----------
+         Founder: "Remove redundant 'Hide Detail', 'Add Laps / Splits' and
+         unnecessary gold subheadings. Keep Avg HR, elevation and notes
+         directly visible, with no duplicate inputs."
+         Heart rate, elevation and notes sat behind "+ Add detail" and, once
+         opened, under a gold "Hide detail". Three fields are not a
+         disclosure. They are the last three things on the form, each once. */
       (healthConsentGranted()
         ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
         : '')+
@@ -34798,14 +34788,9 @@ function renderCompletedPanel(dd, detailHtml){
         '</div>'+
         '<span class="field-hint">Anything the numbers don\u2019t show \u2014 tired legs, poor sleep, heat, wind, hills, illness, pain, treadmill, HR sensor trouble.</span>'+
         renderNoteSignalChips(dd)+
-      '</div>'
-      ) : '')+
-      /* THE THIRD RUNG, and it already lived behind its own disclosure -- a
-         quiet one-line control that opens on tap or when the day carries real
-         lap data. Left exactly as it was: warm-up, quality, recoveries and
-         cool-down are still logged segment by segment, and nothing about the
-         simplified surface above flattens what a watch or a connected service
-         supplied. */
+      '</div>'+
+      /* What the watch recorded, and any lap list the athlete already typed
+         on an unstructured day. See renderSplitsBlock. */
       renderSplitsBlock(dd)+
       /* LAST, UNDER THE JUDGEMENT -- and now inside the tab with the log it
          undoes, rather than loose at the foot of the card where it would be
@@ -36857,7 +36842,17 @@ function assessPlan(dd){
   try { var p = prescriptionOf(dd); segs = p ? (orderedSegments(p) || []) : []; } catch(e){ segs = []; }
   var work = segs.filter(function(s){ return s.role === 'work'; });
   var hills = work.some(function(s){ return s.terrain === 'uphill'; });
-  var repeated = work.filter(function(s){ return s.inRepeat; }).length >= 2;
+  /* WHAT THE ATHLETE WOULD CALL A REP. This counted every work segment, so
+     a strides session -- an easy run and then 6 x 100m -- asked for "reps
+     completed" out of SEVEN, the easy run being the seventh; and it looked
+     only at segments inside a repeat, so a ladder (500-1000-1500-1000-500,
+     five reps by anyone's count, written as five separate rungs) was a
+     "sustained" session with no reps to ask about at all.
+     orderedSegments() already marks both: inRepeat for a repeated set,
+     grouped for work of one intensity that occurs more than once, which is
+     what makes the log call a row "Rep 3". A rep is either. */
+  var reps = work.filter(function(s){ return s.inRepeat || s.grouped; });
+  var repeated = reps.length >= 2;
   var allEasy = work.length > 0 && work.every(function(s){ return s.intensity === 'easy'; });
   var family = dd.type === 'race' ? 'race'
              : hills ? 'hills'
@@ -36871,7 +36866,7 @@ function assessPlan(dd){
       judged.push({ seg:s, kind:'easy', work:false });
     }
   });
-  return { family:family, segs:segs, work:work, judged:judged };
+  return { family:family, segs:segs, work:work, reps:reps, judged:judged };
 }
 
 function assessEvidence(dd, plan, env){
@@ -36923,12 +36918,12 @@ function assessCompletion(dd, plan, ev, env){
   var out = { fraction:null, done:null, of:null, basis:null, short:false, over:false,
               reason:null, approximate:false };
   var repFamily = plan.family === 'hills' || plan.family === 'reps';
-  var total = plan.work.length;
+  var total = plan.reps.length;
   var done = null;
   if (repFamily && total > 0){
     if (a.repsDone != null && isFinite(a.repsDone)) done = clamp(Math.round(a.repsDone), 0, total);
     else {
-      var entered = plan.work.filter(function(s){
+      var entered = plan.reps.filter(function(s){
         var r = ev.bySeg[s.segId];
         return !!(r && (r.km != null || r.paceSec != null || (r.sec != null && !r.secSeeded)));
       }).length;
@@ -37457,77 +37452,11 @@ function segmentLabel(s){
   if (s.grouped) return 'Rep' + (s.repIndex ? ' ' + s.repIndex : '');
   return INTENSITY_SEGMENT_LABEL[s.intensity] || 'Work';
 }
-/* THE COLLAPSED SUMMARY CARD'S TWO LINES, computed from the plan the
-   detailed editor already renders -- never a second description of the
-   workout, so this can never drift from what expanding it actually shows.
-
-   A segment-sourced plan (the common case: warm-up / reps / recoveries /
-   cool-down) partitions cleanly on role/kind -- every row is exactly one of
-   the four buckets below by construction, so the parts always sum to the
-   total. A phase-sourced plan (a long run's Settle/Hold/Commit) has none of
-   that vocabulary, so it gets its own reading: a count of phases and their
-   names, not an invented "reps" count for something that was never reps. */
-function splitsBreakdownSummary(plan){
-  if (!plan || !plan.rows || !plan.rows.length) return null;
-  var rows = plan.rows, total = rows.length;
-  if (plan.source === 'phases'){
-    return {
-      eyebrow: 'Session breakdown · ' + total + (total===1 ? ' phase' : ' phases'),
-      detail: listPhrase(rows.map(function(r){ return r.label; }))
-    };
-  }
-  var hasWarmup = rows.some(function(r){ return r.role==='warmup'; });
-  var hasCooldown = rows.some(function(r){ return r.role==='cooldown'; });
-  var recCount = rows.filter(function(r){ return r.kind==='recovery'; }).length;
-  var repCount = total - recCount - (hasWarmup?1:0) - (hasCooldown?1:0);
-  var parts = [];
-  if (hasWarmup) parts.push('Warm-up');
-  if (repCount > 0) parts.push(repCount + (repCount===1 ? ' rep' : ' reps'));
-  if (recCount > 0) parts.push(recCount + (recCount===1 ? ' recovery' : ' recoveries'));
-  if (hasCooldown) parts.push('cool-down');
-  return {
-    eyebrow: 'Session breakdown · ' + total + (total===1 ? ' lap' : ' laps'),
-    detail: parts.join(' · ')
-  };
-}
-function renderSplitsSummaryCard(dd, plan){
-  var s = splitsBreakdownSummary(plan);
-  if (!s) return null;
-  return '<button type="button" class="ev-card splits-summary" data-action="toggle-splits" '+
-      'data-day="'+dd.id+'" aria-expanded="false">'+
-    '<div class="splits-summary-head">'+
-      '<span class="splits-summary-icon">'+ICONS.layers+'</span>'+
-      '<span class="splits-summary-title">'+escapeHtml(s.eyebrow)+'</span>'+
-      '<span class="rs-chev">'+ICONS.chevronRight+'</span>'+
-    '</div>'+
-    '<div class="splits-summary-detail">'+escapeHtml(s.detail)+'</div>'+
-  '</button>';
-}
-
-// Ephemeral like dayExpandOverride -- deliberately not persisted, so a
-// closed editor stays closed on the next launch rather than the app
-// remembering which days someone happened to expand.
-var splitsEditorOpen = {};
 /* Per-day, in memory only: an optional run that has not been logged is not a
    fact about the plan and nothing about it is persisted. */
 var optionalLogOpen = {};
-/* ---------- "HIDE LAPS / SPLITS" COULD NEVER HIDE ANYTHING ----------
-   This read `flag || the day has laps`, and handleToggleSplits closed the
-   editor by DELETING the flag. On a day with laps the second clause then
-   answered true on its own, the card re-rendered open, and nothing moved --
-   and the control is only ever drawn when there ARE laps, so the button
-   never worked on a single day it appeared on. Reported from the phone as
-   "the hide does nothing", which is exactly what it did.
-   Same shape as isLogOpen() and isDetailOpen(): an explicit choice always
-   wins and the default is derived from the day, so closing it records a
-   real false rather than removing the only thing holding it shut. */
 function splitsHaveRows(dd){
   return !!(dd && dd.actual && dd.actual.splits && dd.actual.splits.length);
-}
-function isSplitsOpen(dd){
-  if (!dd) return false;
-  if (Object.prototype.hasOwnProperty.call(splitsEditorOpen, dd.id)) return !!splitsEditorOpen[dd.id];
-  return splitsHaveRows(dd);
 }
 // Sum of the athlete's OWN entered lap distances -- null (not 0) until at
 // least one lap carries a distance, same "unknown stays unknown" rule
@@ -37674,7 +37603,9 @@ function segKmToDisplay(km){
   if (km == null) return '';
   return round2(state.units === 'mi' ? km * 0.621371 : km);
 }
-function renderStructuredRow(dd, row){
+/* `bare` is a row sitting under a heading that already says what it is --
+   Warm-up, Cool-down -- so the name is not printed a second time. */
+function renderStructuredRow(dd, row, bare){
   var s = structuredSplitFor(dd, row.segId) || {};
   var unit = displayUnit();
   var inputs = '';
@@ -37697,7 +37628,7 @@ function renderStructuredRow(dd, row){
             (row.role==='warmup'||row.role==='cooldown' ? ' is-flank' : '');
   return '<div class="'+cls+'">'+
     '<div class="slog-head">'+
-      '<span class="slog-label">'+escapeHtml(row.label)+'</span>'+
+      (bare ? '' : '<span class="slog-label">'+escapeHtml(row.label)+'</span>')+
       /* Only where a prescribed value genuinely exists. A fartlek warm-up, a
          hill-repeat descent and a ladder recovery are prescribed as rules,
          not numbers, and printing one here would invent a target the athlete
@@ -37705,13 +37636,6 @@ function renderStructuredRow(dd, row){
       (row.prescribed ? '<span class="slog-presc font-mono">'+escapeHtml(row.prescribed)+'</span>' : '')+
     '</div>'+
     '<div class="slog-ins">'+inputs+'</div>'+
-  '</div>';
-}
-function renderStructuredBody(dd, plan){
-  return '<div class="splits-body">'+
-    '<div class="slog-hint">Prescribed values are already filled in — just add what you actually ran. Every field is optional.</div>'+
-    plan.rows.map(function(r){ return renderStructuredRow(dd, r); }).join('')+
-    '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>'+
   '</div>';
 }
 /* Quiet by default: a closed one-line control, not another card. It opens
@@ -37774,34 +37698,25 @@ function renderDeviceLaps(dd){
     '</div>'+
   '</details>';
 }
+/* ---------- WHAT IS LEFT OF THE BREAKDOWN BLOCK ----------
+   It used to be three things behind two toggles: the watch's own laps, the
+   structured editor behind a "Session breakdown" card, and a flat lap list
+   behind "+ Add laps / splits". The structured rows are in Your Log's own
+   sections now -- see renderYourLogAnswers -- and the invitation to type an
+   unstructured run out lap by lap is gone with its toggle: an easy run is
+   distance, pace and how it felt.
+   Two things remain, and only when they exist. What the watch recorded,
+   read-only. And a lap list an athlete ALREADY typed on a day with no
+   structure to file it under: that is their record, it is never converted
+   or guessed at, and it stays where they can see and correct it. */
 function renderSplitsBlock(dd){
-  var open = isSplitsOpen(dd);
   var m = loggingModeFor(dd);
-  /* Collapsed + structured gets the soft-raised summary card; every other
-     state (open, or a flat legacy lap list) keeps the plain quiet toggle
-     it always had -- this pass is scoped to the one presentation the brief
-     named, not a rewrite of the flat/open states too. */
-  var summaryCard = (!open && m.mode === 'structured') ? renderSplitsSummaryCard(dd, m.plan) : null;
-  var toggle = summaryCard ? summaryCard : (function(){
-    var label = m.mode === 'structured'
-      ? (open ? '<span class="st-k">Hide session breakdown</span>'
-              : '<span class="st-k">+ Log the session breakdown</span><span class="st-sub">Optional</span>')
-      : (open ? '<span class="st-k">Hide laps / splits</span>'
-              : '<span class="st-k">+ Add laps / splits</span><span class="st-sub">Optional</span>');
-    return '<button type="button" class="splits-toggle" data-action="toggle-splits" data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-        label+
-      '</button>';
-  })();
-  return '<div class="actual-field full splits-block">'+
-    /* The device's account first and closed, the athlete's own editor after it
-       and unchanged. Recorded evidence is not an alternative to the athlete
-       logging their session, and it must not look like one. */
-    renderDeviceLaps(dd)+
-    toggle+
-    (open ? (m.mode === 'structured' ? renderStructuredBody(dd, m.plan) : renderSplitsBody(dd)) : '')+
-  '</div>';
+  var laps = renderDeviceLaps(dd);
+  var own = (m.mode !== 'structured' && splitsHaveRows(dd))
+    ? '<div class="yl-title">Laps</div>'+renderSplitsBody(dd) : '';
+  if (!laps && !own) return '';
+  return '<div class="actual-field full splits-block">'+laps+own+'</div>';
 }
-
 /* HOW HARD THIS FELT RELATIVE TO WHAT IT WAS SUPPOSED TO FEEL LIKE.
    Zero means the session landed exactly where its own prescription expected;
    positive means it cost more than that session type should.
@@ -39620,8 +39535,8 @@ function logHasFigures(dd){
    them to press for the box they obviously want is a tap for nothing. Every
    other time -- reopening a logged session, glancing at a past week -- the
    log is a CORRECTION, and shut is right.
-   Same shape as isDetailOpen(): an explicit choice always wins, and the
-   default is derived from the day. */
+   An explicit choice always wins, and the default is derived from the
+   day. */
 function isLogOpen(dd){
   if (!dd) return false;
   if (Object.prototype.hasOwnProperty.call(logOpenFor, dd.id)) return !!logOpenFor[dd.id];
@@ -64274,13 +64189,32 @@ function patchDerivedStats(){
    them and every one of them has the same problem. wireCoachingRails()
    skips a rail it has already wired, so this costs nothing on cards that
    had no rail or were already live. */
+/* ---------- THE PAGE STAYS WHERE THE THUMB LEFT IT ----------
+   Founder: "When you open your log it goes straight to the bottom it
+   shouldn't." Measured on Today: tap Your Log at 597px and the page is at
+   2,387px -- the very bottom -- before the next frame. Nothing here scrolls;
+   the browser does. Swapping the card removes the element it was using as
+   its scroll anchor, it picks another further down the page, and when the
+   new card turns out 1,700px taller it "keeps that element still" by moving
+   everything else. With overflow-anchor off the same tap leaves the page at
+   597.
+   The same thing happened, by a smaller amount, on any answer that changed
+   the card's height -- a "Why did you stop?" question appearing nudged the
+   page by its own height.
+   So the position is taken before the swap and put back after it. Reading
+   it afterwards is what makes the browser apply its adjustment, which is
+   why the comparison is not an optimisation: it is the step that lets the
+   correction be undone in the same frame, before anything is painted. */
 function replaceCard(dd){
   var cardEl = document.getElementById('day-'+dd.id);
   if (!cardEl) return;
+  var hasWin = typeof window !== 'undefined' && typeof window.scrollTo === 'function';
+  var y = hasWin ? (window.pageYOffset || 0) : 0;
   var wrapper = document.createElement('div');
   wrapper.innerHTML = renderDayCard(dd);
   cardEl.parentNode.replaceChild(wrapper.firstChild, cardEl);
   wireCoachingRails();
+  if (hasWin){ try { if ((window.pageYOffset || 0) !== y) window.scrollTo(0, y); } catch(e){} }
 }
 
 /* =========================================================
@@ -64516,32 +64450,10 @@ function handleClearActual(dayId){
    carries any of those four opens showing them -- exactly the rule the session
    breakdown already uses for real lap data. An existing record can never be
    made less visible than it was, and no migration touches a stored value. */
-var detailEditorOpen = {};
 function dayHasDetail(dd){
   var a = (dd && dd.actual) || {};
   return a.hr != null || a.rpe != null || !!a.feel || a.elevationGainM != null ||
          !!(a.notes && String(a.notes).trim());
-}
-function isDetailOpen(dd){
-  if (!dd) return false;
-  if (Object.prototype.hasOwnProperty.call(detailEditorOpen, dd.id)) return !!detailEditorOpen[dd.id];
-  /* Default: closed, unless this day already has something to show. */
-  return dayHasDetail(dd);
-}
-function handleToggleDetail(dayId){
-  var dd = findDay(dayId);
-  if (!dd) return;
-  detailEditorOpen[dd.id] = !isDetailOpen(dd);
-  replaceCard(dd);
-}
-
-function handleToggleSplits(dayId){
-  var dd = findDay(dayId);
-  if (!dd) return;
-  /* Written, never deleted. Deleting handed the answer back to the derived
-     default, which on a day with laps is open -- so "close" reopened it. */
-  splitsEditorOpen[dd.id] = !isSplitsOpen(dd);
-  replaceCard(dd);
 }
 function handleAddSplit(dayId){
   var dd = findDay(dayId);
@@ -64554,7 +64466,6 @@ function handleAddSplit(dayId){
   // common case and saves a tap; the athlete can still change it.
   if (prev && prev.km!=null) row.km = prev.km;
   dd.actual.splits.push(row);
-  splitsEditorOpen[dd.id] = true;
   coachPersistReview(dd);
   replaceCard(dd);
   patchDerivedStats();
@@ -70507,8 +70418,6 @@ document.addEventListener('click', function(e){
       if (target.classList && target.classList.contains('is-unset'))
         handleLogAnswer(target.getAttribute('data-day'), target.getAttribute('data-field'), target.value);
       break;
-    case 'toggle-splits': handleToggleSplits(target.getAttribute('data-day')); break;
-    case 'toggle-detail': handleToggleDetail(target.getAttribute('data-day')); break;
     case 'add-split': handleAddSplit(target.getAttribute('data-day')); break;
     case 'delete-split': handleDeleteSplit(target.getAttribute('data-day'), parseInt(target.getAttribute('data-index'),10)); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
