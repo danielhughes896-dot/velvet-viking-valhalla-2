@@ -368,7 +368,11 @@ test('the dispatcher sends each source to its own handler', () => {
   const fs = require('fs'), path = require('path');
   const src = fs.readFileSync(
     path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-  assert.match(src, /data-source'\)==='playbook'\) handleAcceptPlaybook\(shownA\);\s*\n\s*else handleAcceptEvolution\(shownA\)/);
+  /* Accept now runs inside the morph (vtAccept: "the old prescription
+     smoothly transitions into the new one"), so the source is read first and
+     the same two handlers are chosen inside it. */
+  assert.match(src, /var pbA = target\.getAttribute\('data-source'\)==='playbook';/);
+  assert.match(src, /if \(pbA\) handleAcceptPlaybook\(shownA\); else handleAcceptEvolution\(shownA\);/);
   assert.match(src, /data-source'\)==='playbook'\) handleDeclinePlaybook\(shownD\);\s*\n\s*else handleDeclineEvolution\(shownD\)/);
 });
 
