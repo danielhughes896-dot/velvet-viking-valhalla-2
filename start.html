@@ -1249,9 +1249,20 @@
      No rule here is looser than the app's, because nothing built here could
      otherwise survive adoptPendingBuildIfAny()'s own re-check once the
      athlete authenticates. */
+  /* ---------- THE RULES ARE KEYED BY THE STAGE, NOT BY WHERE IT SITS ----------
+     They were `i === 3`, `i === 4`, `i === 5`, `i === 6`, and Athlete
+     experience was then inserted at position 4. Nothing renumbered them, so
+     every rule from YOU onwards ran one screen early: pressing Continue on
+     Experience checked the weekly volume, which is not on that screen and
+     was still blank. The check failed, its message was attached to a field
+     that did not exist, and the button did nothing. Nobody could get past
+     Experience on this page.
+     The app keys its rules through BLD_STAGE for exactly this reason. So
+     does this, now: the next stage to be inserted moves these with it. */
+  var STAGE_AT = BLD_STAGES.reduce(function(m, st, idx){ m[st.key] = idx; return m; }, {});
   function bldValidateStage(i){
     bldClearErrors();
-    if (i === 3){ // EVENT
+    if (i === STAGE_AT.EVENT){
       if (Ans.purpose === 'race' && Ans.eventMode === 'event'){
         if (!Ans.raceDate){ bldFail('f-racedate', 'Pick an event date.'); return false; }
         if (Ans.raceDate <= todayStrLocal()){ bldFail('f-racedate', 'Event date needs to be in the future.'); return false; }
@@ -1262,7 +1273,7 @@
       }
       return true;
     }
-    if (i === 4){ // YOU
+    if (i === STAGE_AT.YOU){
       /* ---- ANSWERED, NOT POSITIVE ---- A zero is a real answer and the one
          this question most needs: `<= volumeMustExceed` refused it outright,
          so an athlete who is not running yet could not finish this builder at
@@ -1279,14 +1290,14 @@
         bldFail('f-entry-long-date', 'Roughly when did you run it?'); return false; }
       return true;
     }
-    if (i === 5){ // BENCHMARK
+    if (i === STAGE_AT.BENCHMARK){
       var bSec = parseBenchmarkTime(Ans.benchTime);
       var br = BS.validation.benchmarkSecondsRange;
       if (!isFinite(bSec) || bSec < br[0] || bSec > br[1]){
         bldFail('f-bench-time', 'Give your benchmark time as minutes and seconds, like 45:00 or 45.00.'); return false; }
       return true;
     }
-    if (i === 6){ // WEEK
+    if (i === STAGE_AT.WEEK){
       var dr = BS.validation.daysRange;
       var chosen = Object.keys(Ans.activeDays).filter(function(d){ return Ans.activeDays[d]; }).length;
       if (chosen < dr[0] || chosen > dr[1]){
