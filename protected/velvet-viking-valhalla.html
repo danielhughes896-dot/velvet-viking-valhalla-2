@@ -3257,6 +3257,11 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-s{
     font-family:var(--text-face); font-size:var(--fs-support); line-height:1.45;
     color:var(--ink-dim); max-width:34ch;}
+  /* What the coach sees in this athlete: the same white sentence as the
+     reason above it, a line clear of it. No label, no box, no mark. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-o{
+    font-family:var(--text-face); font-size:var(--fs-body); line-height:var(--lh-body);
+    color:#FFFFFF; max-width:34ch; margin-top:10px;}
   /* The rail is .ws-block at order 2 and the coaching card at 3; this is a
      footnote to the rail, so it takes the rail's slot and follows it in
      source. */
@@ -3342,6 +3347,9 @@
      the numeral face they read as a printout pasted into a sentence. The
      first stands a line clear of the sentence above it and the caveat a
      line clear of the last. */
+  .how-note[data-solo] .hn-obs{
+    font-family:var(--text-face); font-size:var(--fs-body); line-height:var(--lh-body);
+    color:#FFFFFF; margin-top:14px;}
   .how-note[data-solo] .hn-fuel{color:var(--ink);}
   .how-note[data-solo] :not(.hn-fuel) + .hn-fuel{margin-top:14px;}
   .how-note[data-solo] .hn-fuel + .how-note-aside{margin-top:14px;}
@@ -32352,11 +32360,17 @@ function renderWhySession(dd){
      with the note. */
   var shape = '';
   try { shape = descMovesToNote(dd) || ''; } catch(e) { shape = ''; }
-  if (!why && !shape) return '';
+  /* AND WHAT THE COACH SEES IN THIS ATHLETE, where there is anything -- see
+     coachObservation(). Last, under the session's own words: the guidance
+     is unchanged and still leads. */
+  var obs = '';
+  try { obs = coachObservationInWhy(dd) ? coachObservation(dd) : ''; } catch(e) { obs = ''; }
+  if (!why && !shape && !obs) return '';
   return '<div class="why-session">'+
       '<span class="why-session-k font-head">Why this session</span>'+
       (why ? '<span class="why-session-v">'+escapeHtml(why)+'</span>' : '')+
       (shape ? '<span class="why-session-s">'+escapeHtml(shape)+'</span>' : '')+
+      (obs ? '<span class="why-session-o">'+escapeHtml(obs)+'</span>' : '')+
     '</div>';
 }
 function renderStructuredWorkoutSteps(steps, extra, dd){
@@ -33162,7 +33176,13 @@ function renderCoachingDepth(dd, pre, preview){
              description) and they arrive punctuated. One rule, one place,
              every line in this box. */
         }
-        if (!noteCue && !hints.length && !caps && !soloHow && !cols.length && !shape) return '';
+        var obs = '';
+        try { obs = coachObservationInWhy(dd) ? '' : coachObservation(dd); } catch(e) { obs = ''; }
+        /* The gate is the one it was, to the letter; an observation is one
+           more thing that can be the only thing to say. */
+        if (!obs){
+          if (!noteCue && !hints.length && !caps && !soloHow && !cols.length && !shape) return '';
+        }
         return '<div class="how-note"><span class="k font-head">Coach\u2019s Note</span>'+
           (shape ? '<span class="v how-note-row"><b>Session</b> '+escapeHtml(shape)+'</span>' : '')+
           cols.map(function(r){
@@ -33171,6 +33191,7 @@ function renderCoachingDepth(dd, pre, preview){
           (noteCue ? '<span class="v">'+escapeHtml(noteCue)+'</span>' : '')+
           (soloHow ? '<span class="v">'+escapeHtml(soloHow)+'</span>' : '')+
           caps+
+          (obs ? '<span class="v how-note-obs">'+escapeHtml(obs)+'</span>' : '')+
           hints.map(function(t){ return '<span class="v how-note-aside">'+t+'</span>'; }).join('')+
         '</div>';
       })()+
@@ -33867,7 +33888,9 @@ function renderSoloNote(dd){
   var hints = [];
   try { if (needsFueling(dd)) hints = fuelFacts(dd).railHints || []; } catch(e) { hints = []; }
   var parts = singleCardNoteParts(dd);
-  if (!parts && !hints.length) return '';
+  var obs = '';
+  try { obs = coachObservation(dd); } catch(e) { obs = ''; }
+  if (!parts && !hints.length && !obs) return '';
   /* ---------- THE CLEANEST IT CAN EVER BE ----------
      Founder: "Do not need the top row in the box. Remove the symbol |
      coaches note. Move the keep it easy up drop the . From both lines.
@@ -33883,6 +33906,9 @@ function renderSoloNote(dd){
     ((parts && parts.subs) || []).map(function(t){
       return '<span class="v hn-sub">'+escapeHtml(unpunct(t))+'</span>';
     }).join('')+
+    /* What the coach sees in this athlete, under the two lines that are the
+       session. Its own sentences, so it keeps its own punctuation. */
+    (obs ? '<span class="v hn-obs">'+escapeHtml(obs)+'</span>' : '')+
     /* ---------- AND THE FUEL FIGURES, WHICH HAD NOWHERE TO BE ----------
        Taking the rail off a plain long run took the numbers with it: the
        caveats survived in this box and the amounts did not, on runs of two
@@ -40067,13 +40093,29 @@ function coachRecovery(){
     var z = executionHRTarget(dd);
     if (a.hr!=null && z && z.hi!=null && a.hr > z.hi && readable) overHR++;
   });
-  // hard days back to back, in plan order
+  /* HARD DAYS BACK TO BACK -- IN THE WEEK RECOVERY IS READING.
+     This walked the whole programme and kept the longest run it had ever
+     seen, so three hard days in week two were still "3 quality days in a row
+     without an easy day" in week eleven, and still a point of strain.
+     Founder: "Recovery's hard-streak assessment must reflect the current
+     relevant training period, not the longest streak anywhere in the
+     programme."
+     The period is the seven days every other figure on this reading already
+     uses. A run of hard days counts when it reaches into them, and counts in
+     full -- one that began eight days ago and ended five days ago was a
+     four-day run, not a two-day one.
+     AND IT IS MADE OF DAYS THAT WERE RUN. A hard session that went unlogged
+     is not a hard day in the legs; it breaks the run exactly as a rest day
+     does. Today's own session counts while it is still ahead, as it always
+     did: it is the day the athlete is about to add. */
   var ordered = state.days.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  var weekFrom = addDays(today, -6);
   var streak = 0, worstStreak = 0;
   ordered.forEach(function(dd){
     if (dd.date > today) return;
-    if (dd.type==='rest' || isRecoveryWorkoutType(dd.type)) streak = 0;
-    else { streak++; worstStreak = Math.max(worstStreak, streak); }
+    var ran = dd.completed || dd.date === today;
+    if (dd.type==='rest' || isRecoveryWorkoutType(dd.type) || !ran) streak = 0;
+    else { streak++; if (dd.date >= weekFrom) worstStreak = Math.max(worstStreak, streak); }
   });
   var strain = overRPE + overHR + (worstStreak>=3 ? 1 : 0);
   /* ---- AND WHAT THE ATHLETE SAID THIS MORNING ----
@@ -40118,6 +40160,35 @@ function recoveryStrainSentence(rec){
   if (m && m.flags.length) parts.push((parts.length ? 'you' : 'You')+' reported '+m.flags.join(' and ')+' this morning');
   if (!parts.length) return 'Your recovery signals have been elevated this week.';
   return parts.join(', and ')+'.';
+}
+
+/* ---------- WATCH, SAID AS WHAT WAS ACTUALLY SEEN ----------
+   Recovery reaches "watch" three ways: effort or heart rate above target in
+   the week's runs, hard days in a row, or what the athlete answered this
+   morning. One sentence used to speak for all three -- "There is a bit more
+   fatigue in the last few runs than usual" -- so an athlete whose runs were
+   clean and who had tapped Heavy legs was told about fatigue in runs that
+   showed none. Founder: "Heavy legs reported this morning must not be
+   described as fatigue detected in previous runs unless that evidence
+   independently exists."
+   So the evidence clause is built from what is there, and the advice after
+   it is the advice it always was. Where the runs do show it, the sentence is
+   unchanged to the letter. */
+function recoveryWatchSentence(rec, quality){
+  var runs = rec.overRPE > 0 || rec.overHR > 0;
+  var streak = !runs && rec.hardStreak >= 3;
+  var said = (rec.morning && rec.morning.flags.length) ? rec.morning.flags.join(' and ') : '';
+  if (runs && !said)
+    return quality
+      ? 'There is a bit more fatigue in the last few runs than usual. Do not force the closing reps if the effort starts climbing.'
+      : 'A bit more fatigue than usual in the last few runs — worth knowing rather than worth worrying about.';
+  var lead = runs ? 'There is a bit more fatigue in the last few runs than usual'
+           : streak ? 'That is '+rec.hardStreak+' hard days in a row without an easy one'
+           : '';
+  if (said) lead = lead ? lead+', and you reported '+said+' this morning' : 'You reported '+said+' this morning';
+  if (!lead) lead = 'Recovery is worth watching this week';
+  return lead+'. '+(quality ? 'Do not force the pace if the effort starts climbing.'
+                            : 'Worth knowing rather than worth worrying about.');
 }
 
 /* ---------- notes / context analysis ----------
@@ -45451,6 +45522,38 @@ function blockEffectivenessCompute(){
     read: blockCoachRead(st, phase)
   };
 }
+/* ---------- WHY NOTHING IS BEING ADDED, IN THE ATHLETE'S TERMS ----------
+   The progression gate used to answer with the block's label: "The block
+   reads as Plateau, which is not yet evidence recent training is being
+   absorbed." Said to an athlete who has run every session as written, that
+   reads as a verdict on them, and it is not one -- Plateau means two of the
+   block's measures are level and none has risen, which is what steady,
+   compliant training looks like before it shows.
+   Founder: "Correct the misleading Plateau message for athletes completing
+   their prescribed training."
+   So the sentence says what was measured and what follows from it, and it
+   credits the training only where the engine's own count of sessions run
+   supports that: missPattern() is the existing measure, and it is silent or
+   "isolated" when the prescribed sessions are being done. The block state,
+   the gate and the decision are untouched; only these words changed. */
+function blockHoldSentence(block){
+  var st = block ? block.state : 'LEARNING';
+  var miss = null, compliant = false;
+  try {
+    miss = missPattern();
+    compliant = plannedSessionWindow().length >= PATTERN_MIN_PLANNED && (!miss || miss.tier === 'isolated');
+  } catch(e){ compliant = false; }
+  var done = compliant ? 'You are completing your training as prescribed' : '';
+  if (st === 'PLATEAU')
+    return (done ? done+', and your' : 'Your')+
+      ' results are holding steady rather than improving yet, so the plan stays as it is for now.';
+  if (st === 'RESPONDING')
+    return 'Early signs are pointing the right way. The plan stays as it is until they are confirmed.';
+  if (st === 'STRAINED')
+    return 'Recent training has been costing more than it should, so nothing is added for now.';
+  return (done ? done+'. There is not enough of it yet' : 'There is not enough recent training yet')+
+    ' to show how you are responding, so the plan stays as it is for now.';
+}
 /* Direct, specific, and honest about what it does and does not justify.
    Never motivational, never a diagnosis. */
 function blockCoachRead(st, phase){
@@ -46555,8 +46658,12 @@ function planEvolution(){
        coach = recover/modify  ->  the Playbook never adds
        playbook = HOLD         ->  no proposal is manufactured
        playbook = PROGRESS     ->  only reachable from a clean coach state */
-  var evidenceSig = evolutionEvidenceSignature(dec);
-  var settled = evolutionSettledOn(evidenceSig);
+  var evidenceSig = evolutionEvidenceSignature();
+  var settledWhy = evolutionSettledWhy(evidenceSig);
+  var settled = !!settledWhy;
+  var settledReason = settledWhy === 'declined' ? EVOLUTION_KEPT_REASON : EVOLUTION_SETTLED_REASON;
+  var answeredMissed = settled ? evolutionAnsweredMissed() : [];
+  var newlyMissed = settled && recoverable.some(function(m){ return answeredMissed.indexOf(m.dayId) === -1; });
   var pb = null;
   if (!settled && (stateName==='HOLD' || stateName==='MONITOR')){
     pb = playbookProposal();
@@ -46601,10 +46708,17 @@ function planEvolution(){
   }
   if (pb && pb.held && stateName==='HOLD') reasons = (pb.reason ? [pb.reason] : []).concat(reasons).slice(0,3);
 
-  if (settled){
-    reasons = [EVOLUTION_SETTLED_REASON].concat(reasons).slice(0,3);
+  if (settled && !newlyMissed){
+    reasons = [settledReason].concat(reasons).slice(0,3);
   } else if (stateName==='ADAPT' || stateName==='RECOVER'){
     changes = evolutionChanges(stateName, phase, pending, recoverable);
+    /* On settled evidence the only thing a newly missed session can earn is
+       its own recovery. A reduction here would be the old evidence again. */
+    if (settled){
+      changes = changes.filter(function(c){ return c.kind === 'reschedule'; });
+      if (changes.length) settled = false;
+      else reasons = [settledReason].concat(reasons).slice(0,3);
+    }
     protectedSessions = pending.filter(function(dd){
       // ANY change kind disqualifies "protected", not just downgrade/drop.
       // evolutionChanges()'s last-resort ADAPT step can shorten the biggest
@@ -46845,24 +46959,74 @@ function applyChangesToCopy(pending, changes){
    This is the evidence alone: what the decision concluded, why, and how
    many sessions had been logged when it did. Once a change is accepted on
    it, nothing further is proposed until it differs -- a session logged, a
-   note written, a new morning. That is also the first half of what the
+   note written, a check-in answered. That is also the first half of what the
    founder asked of an adjustment: it has to be allowed to show its effect
    before the next one is argued for. */
-function evolutionEvidenceSignature(dec){
-  var done = (state.days || []).filter(function(d){ return d.completed; }).length;
-  var str = [dec ? dec.state : 'none',
-             dec ? (dec.reasons || []).join('|') : '',
-             done, todayStr()].join('#');
+/* ---- AND THE CALENDAR IS NOT EVIDENCE ----
+   The signature above used to be what the decision concluded, its reasons
+   as prose, the number of sessions logged -- and today's date. So an
+   answered proposal was back the next morning with nothing new logged.
+   Measured before this changed, on an athlete with a strained week: accept
+   the eased threshold, wake up, and a second reduction is offered through
+   the Playbook on the same four sessions; decline it instead, and it is
+   offered again every morning. The prose made it worse: "4 sessions this
+   week" becomes "3 sessions this week" by the passing of a day.
+   Founder: "Do not allow the same underlying evidence to repeatedly trigger
+   reductions merely because the date changes. A new proposal requires
+   materially new evidence or a genuine change in circumstances."
+   So this is a fingerprint of what the athlete has actually given Sacoro,
+   and of nothing Sacoro concluded from it: every logged session with what
+   was logged, and every morning check-in. A run logged, a log corrected, a
+   note written or a check-in answered changes it. A new day does not.
+   An answer either way settles it -- an acceptance, and equally a decline,
+   which used to be remembered against a hash of the next few days' sessions
+   and so expired at midnight too. */
+function evolutionEvidenceSignature(){
+  var parts = [healthConsentGranted() ? 'h1' : 'h0'];
+  (state.days || []).forEach(function(d){
+    if (d.completed){
+      var a = d.actual || {};
+      parts.push(['s', d.id, a.km, a.pace, a.rpe, a.hr, a.feel, a.hurting, a.stopReason, a.repsDone,
+                  a.mainSetFelt, a.mainSetHeld, a.recoveries, (a.conditions || []).join('+'),
+                  a.watchDataOff ? 1 : 0, a.tempC, a.humidity, String(a.notes || '')].join(':'));
+    }
+    var r = d.readiness;
+    if (r && (r.legs || r.sleep || r.health)) parts.push(['r', d.id, r.legs, r.sleep, r.health].join(':'));
+  });
+  var legacy = state.readiness;
+  if (legacy && legacy.date && (legacy.legs || legacy.sleep || legacy.health))
+    parts.push(['r', legacy.date, legacy.legs, legacy.sleep, legacy.health].join(':'));
+  var str = parts.join('#');
   var h = 5381;
   for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
   return 'es'+h.toString(36);
 }
-function evolutionSettledOn(sig){
+/* Which answer settled this evidence, if either did. */
+function evolutionSettledWhy(sig){
+  if (!sig) return null;
   var e = state.evolution || {}, pbk = state.playbook || {};
-  return (!!e.acceptedEvidence && e.acceptedEvidence === sig) ||
-         (pbk.status === 'accepted' && !!pbk.acceptedEvidence && pbk.acceptedEvidence === sig);
+  if (e.acceptedEvidence === sig || (pbk.status === 'accepted' && pbk.acceptedEvidence === sig)) return 'accepted';
+  if (e.declinedEvidence === sig || pbk.declinedEvidence === sig) return 'declined';
+  return null;
+}
+function evolutionSettledOn(sig){
+  return !!evolutionSettledWhy(sig);
+}
+/* THE ONE THING A DAY CAN GENUINELY CHANGE: a key session that has now been
+   missed. That is a new circumstance, and recovering it is not a reduction,
+   so it may still be offered on settled evidence -- once. These are the
+   missed sessions the athlete had already been asked about. */
+function evolutionUsefulMissedIds(){
+  var out = [];
+  try { out = missedStimulus().filter(function(m){ return m.stimulusStillUseful; })
+                              .map(function(m){ return m.dayId; }); } catch(e){ out = []; }
+  return out;
+}
+function evolutionAnsweredMissed(){
+  return ((state.evolution || {}).answeredMissed || []).concat((state.playbook || {}).answeredMissed || []);
 }
 var EVOLUTION_SETTLED_REASON = 'You accepted a change on this evidence. Sacoro will look again when there is something new to go on.';
+var EVOLUTION_KEPT_REASON = 'You kept your plan on this evidence. Sacoro will look again when there is something new to go on.';
 function evolutionProposalVisible(ev){
   if (!ev || !ev.changes.length) return false;
   var st = state.evolution || {};
@@ -46971,7 +47135,8 @@ function handleAcceptEvolution(shownId){
   if (!applied.length){ renderApp(); return; }
   recordEvolution(ev, true, applied);
   state.evolution = { declinedHash:null, lastAcceptedHash:ev.evidenceHash,
-                      acceptedEvidence:ev.evidenceSignature || null };
+                      acceptedEvidence:ev.evidenceSignature || null, declinedEvidence:null,
+                      answeredMissed:evolutionUsefulMissedIds() };
   flushSave();
   renderApp();
   showToast(applied.length===1 ? 'Plan evolved — one session changed'
@@ -46989,8 +47154,15 @@ function handleDeclineEvolution(shownId){
   }
   // Respected until materially new evidence appears -- never asked again for
   // the same reasons, and never counted against the athlete.
+  /* The decline is remembered against the evidence as well as against the
+     proposal: declinedHash is built from the days ahead, so on its own it
+     stopped matching the next morning. Only a proposal that was actually
+     there to decline is recorded this way. */
   state.evolution = { declinedHash:ev.evidenceHash, lastAcceptedHash:(state.evolution||{}).lastAcceptedHash||null,
-                      acceptedEvidence:(state.evolution||{}).acceptedEvidence||null };
+                      acceptedEvidence:(state.evolution||{}).acceptedEvidence||null,
+                      declinedEvidence:ev.changes.length ? (ev.evidenceSignature || null)
+                                                         : ((state.evolution||{}).declinedEvidence || null),
+                      answeredMissed:evolutionUsefulMissedIds() };
   recordEvolution(ev, false, []);
   flushSave();
   renderApp();
@@ -47156,15 +47328,23 @@ function coachReadinessLine(dd){
                           : 'Recovery comes before this session.';
   if (rec.state === 'strained')
     return recoveryStrainSentence(rec).replace(/\.$/, '')+', so the legs are carrying something. Stop if the effort climbs out of proportion to the pace.';
-  if (rec.state === 'watch')
-    return quality
-      ? 'There is a bit more fatigue in the last few runs than usual. Do not force the closing reps if the effort starts climbing.'
-      : 'A bit more fatigue than usual in the last few runs — worth knowing rather than worth worrying about.';
+  if (rec.state === 'watch') return recoveryWatchSentence(rec, quality);
   if (load.band === 'spike')
     return 'This week is already well above your recent average. Today is not the day to add anything to it.';
   // the evidence, without repeating the decision it did not change
   if (dec && dec.state === 'check' && dec.reasons.length)
     return sentence(dec.reasons[0])+' Worth knowing before you start.';
+  /* TRAINING THAT WAS NOT RUN IS HOW THIS ATHLETE COMES INTO THE SESSION.
+     The engine has counted it all along -- missPattern() -- and said so on
+     the Coach page; here it said nothing, so an athlete five sessions short
+     was briefed in the same words as one who had run them all. The sentence
+     is the engine's own, unchanged. One missed session is not a pattern and
+     stays unsaid; and with nothing logged at all there is no athlete to
+     describe yet, only an empty log. */
+  var miss = null;
+  try { miss = missPattern(); } catch(e){ miss = null; }
+  if (miss && miss.tier !== 'isolated' && state.days.some(function(d){ return d.completed; }))
+    return missPatternSentence(miss);
   if (!quality) return '';
   var trend = coachTrend();
   /* A positive claim, made only where there is positive evidence to make it
@@ -47430,6 +47610,51 @@ function coachBrief(dd){
   }
   paras = paras.slice(0, COACH_DEPTH_PARAGRAPHS[depth]);
   return paras.length ? { when:'before', depth:depth, paragraphs:paras } : null;
+}
+/* ---------- WHAT THE WRITTEN NOTE SAYS ABOUT THIS ATHLETE ----------
+   The written Coach's Note was a fixed library: the same words for a
+   session whoever was about to run it. The sentence that does know the
+   athlete -- recent strain, pain, a missed fortnight, this morning's
+   check-in, a rising trend -- was already being produced, by coachBrief(),
+   and reached nobody who did not press Hear Today.
+   Founder: "Surface the evidence-aware coaching observations already
+   produced by SACORO ... Do not invent observations or imply evidence that
+   does not exist. When evidence is insufficient, retain appropriate session
+   guidance rather than manufacturing personalisation."
+   So nothing is written here. This returns coachBrief()'s own leading
+   paragraph, minus the three things in a brief that are not about the
+   athlete: the session's generic purpose (already the Why), the fuelling
+   cue (already the fuel card), and a labelled status line. What is left is
+   one sentence, or nothing -- and nothing is a correct answer, drawn as no
+   line at all.
+   ONLY FOR THE SESSION THE DECISION IS ABOUT. coachDecision() reads the
+   athlete as they are now and speaks about their next session; printing
+   its sentence under a session three weeks out would be a claim about a
+   day nobody has evidence for.
+   One voice: the written note and the spoken briefing now lead with the
+   same sentence, from the same call. */
+function coachObservation(dd){
+  if (!dd || dd.completed || dd.type === 'rest') return '';
+  var nxt = null;
+  try { nxt = coachNextSession(); } catch(e){ nxt = null; }
+  if (!nxt || nxt.id !== dd.id) return '';
+  var brief = null;
+  try { brief = coachBrief(dd); } catch(e){ brief = null; }
+  if (!brief) return '';
+  var generic = [];
+  try { generic.push(coachIntentLine(dd)); } catch(e){}
+  try { generic.push(fuelPrepareCue(dd)); } catch(e){}
+  var said = brief.paragraphs.filter(function(p){
+    return p && generic.indexOf(p) === -1 && !voiceIsLabelled(p);
+  });
+  return said[0] || '';
+}
+/* Where it is drawn. A session whose coaching was handed to the rail has no
+   note box -- its whole-session words are the Why under the rail -- so the
+   observation goes there; every other session still has its note. Asked the
+   same way renderCoachingDepth asks it, so it is drawn once and never twice. */
+function coachObservationInWhy(dd){
+  return hasWorkoutBlueprint(dd) && !soloNoteSession(dd);
 }
 var COACH_GENERIC_CLOSERS = [
   'Everything landed on the numbers it was set to hit.',
@@ -48280,8 +48505,7 @@ function playbookAssess(archetype){
         /* The LABEL, not the enum. This sentence is athlete-facing and was
            printing the internal state token: "The block is PLATEAU". BLOCK_META
            has carried the athlete's word for each state all along. */
-        why:'The block reads as '+((BLOCK_META[block?block.state:'LEARNING']||BLOCK_META.LEARNING).label)+
-            ', which is not yet evidence recent training is being absorbed.' },
+        why:blockHoldSentence(block) },
       { ok: trend.direction!=='falling', why:'Execution is trending down.' },
       { ok: rec.state==='fresh', why:'Recovery state is '+rec.state+'.' },
       { ok: load.band!=='spike' && load.band!=='elevated', why:'Recent load is '+load.band+'.' },
@@ -49821,7 +50045,8 @@ function handleAcceptPlaybook(shownId){
     lastDecision:prop.decision, lastDecisionAt:new Date().toISOString(),
     lastDayId:prop.change.dayId, evidenceHash:prop.evidenceHash,
     sessionsAtDecision:prop.sessionsAtDecision, declinedHash:null, status:'accepted',
-    acceptedEvidence: evolutionEvidenceSignature(coachDecision())
+    acceptedEvidence: evolutionEvidenceSignature(), declinedEvidence:null,
+    answeredMissed: evolutionUsefulMissedIds()
   };
   recordPlaybookDecision(prop, 'accepted');
   flushSave();
@@ -49847,7 +50072,9 @@ function handleDeclinePlaybook(shownId){
     lastDecision:st.lastDecision||null, lastDecisionAt:st.lastDecisionAt||null,
     lastDayId:st.lastDayId||null, evidenceHash:st.evidenceHash||null,
     sessionsAtDecision:st.sessionsAtDecision!=null?st.sessionsAtDecision:null,
-    declinedHash:prop.evidenceHash, status:'declined'
+    declinedHash:prop.evidenceHash, status:'declined',
+    acceptedEvidence:st.acceptedEvidence||null, declinedEvidence:evolutionEvidenceSignature(),
+    answeredMissed: evolutionUsefulMissedIds()
   };
   recordPlaybookDecision(prop, 'declined');
   flushSave();
@@ -53620,7 +53847,7 @@ function readingSections(report){
     hqRow('HR above zone', report.recovery.overHR+' this week')+
     /* "1 days" is the kind of thing an athlete reads as the app not paying
        attention, and it is one character to get right. */
-    hqRow('Longest hard streak', nDays(report.recovery.hardStreak))+
+    hqRow('Hard days in a row', nDays(report.recovery.hardStreak)+' this week')+
     hqRow('This morning', (function(){
       var m = report.recovery.morning;
       if (!m || (!m.answered && !m.flags.length)) return 'not answered';
