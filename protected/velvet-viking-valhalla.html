@@ -3453,7 +3453,10 @@
     border-radius:0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input{
     padding:2px 0 8px; font-size:var(--fs-title); color:var(--ink);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input::placeholder{color:var(--ink-quiet); opacity:.7;}
+  /* Founder: "The m:ss and HR placeholders are too subtle." They were a
+     quiet grey at 70%; they are white, set back, and still not a value. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input::placeholder,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea::placeholder{color:#FFFFFF; opacity:.6;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea{padding:4px 0 8px;}
   /* ---------- THE NOTES BOX KEEPS NO RULE UNDER IT ----------
      The underline on every other field in this log marks where a figure
@@ -8778,18 +8781,27 @@
      this column: no left rule, no dimming, white type, 44px fields. */
   .yl > .yl-sec:first-child{margin-top:10px;}
   .yl-sec + .yl-box{margin-top:30px;}
-  .yl-part .slog-row{margin:12px 0 0; padding:0; border:0; opacity:1;}
+  .yl-part .slog-row{margin:14px 0 0; padding:0; border:0; opacity:1;}
   .yl-rows{margin-top:30px;}
   .yl-rows .slog-row{margin:0 0 16px; padding:0; border:0; opacity:1;}
   .yl-rows .slog-row:last-child{margin-bottom:0;}
   .yl .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px;}
   .yl .slog-label{font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; letter-spacing:0; color:#FFFFFF;}
   .yl .slog-presc{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
-  .yl .slog-ins{display:flex; gap:8px;}
-  .yl .slog-in{min-height:44px; font-size:16px; padding:8px 10px;}
-  .yl .slog-in.slog-hr{flex:0 0 84px;}
-  .yl .splits-total{margin-top:16px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
-  .yl .splits-total .font-mono{color:#FFFFFF;}
+  /* Two fields, each under its own name. Equal columns, so "Average pace"
+     and "Average heart rate" line up down a list of reps. */
+  .yl .slog-ins, .yl .slog-cols{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .yl .slog-f{display:block; min-width:0;}
+  .yl .slog-k, .yl .slog-cols span{display:block; font-size:var(--fs-support); line-height:var(--lh-support);
+    color:#FFFFFF; margin-bottom:4px;}
+  .yl .slog-cols{margin-bottom:10px;}
+  .yl .slog-in{width:100%; min-height:44px; font-size:16px; padding:8px 10px;}
+  .yl .slog-in.slog-hr{flex:none;}
+  .yl-opt{margin-top:16px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  /* A PLACEHOLDER YOU CAN READ. They were the dimmest thing on the form and
+     were being asked to do a label's job. The labels do that now; the
+     example under them is white, set back, and still plainly not a value. */
+  .log-body input::placeholder, .log-body textarea::placeholder{color:#FFFFFF; opacity:.6;}
   .yl .opt-grid{margin-top:14px;}
   /* THREE ACROSS, ON ITS OWN TRACK. The builder's .cols-N is for grids of
      short tokens: on a grid of words a bare 1fr track is widened by a label
@@ -8797,13 +8809,15 @@
      words, so the track is minmax(0,1fr) -- it cannot be widened by what is
      in it -- and the result is measured at 320px rather than assumed. */
   .yl .yl-tiles{grid-template-columns:repeat(3, minmax(0, 1fr));}
-  .yl .opt-grid button{min-height:56px; padding-left:6px; padding-right:6px;}
+  /* 48px, not 56: beside 44px fields the tiles read as the biggest things
+     on the form, and they are the smallest decisions on it. */
+  .yl .opt-grid button{min-height:48px; padding-left:6px; padding-right:6px;}
   .yl .opt-grid button .t{font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:14px; letter-spacing:1.2px; text-transform:uppercase;}
+    font-size:13px; letter-spacing:1.1px; text-transform:uppercase;}
   /* The narrowest phone: three tiles inside the rimmed box leave 56px a word. */
   @media (max-width:360px){
     .yl-box{padding-left:14px; padding-right:14px;}
-    .yl .opt-grid button .t{font-size:13px; letter-spacing:.5px;}
+    .yl .opt-grid button .t{font-size:12.5px; letter-spacing:.4px;}
   }
   .today-proposal{margin:34px 0 34px;}
   .today-proposal-k{font-family:var(--label-face); font-weight:var(--label-weight);
@@ -34482,7 +34496,7 @@ function logPlanRows(dd){
   var rows = (m && m.mode === 'structured' && m.plan) ? m.plan.rows : [];
   var held = function(r){
     var s = structuredSplitFor(dd, r.segId);
-    return !!(s && (s.km != null || s.hr != null || (s.sec != null && !s.secSeeded)));
+    return !!(s && (s.km != null || s.hr != null || s.paceEntered || (s.sec != null && !s.secSeeded)));
   };
   return {
     structured: rows.length > 0,
@@ -34494,10 +34508,40 @@ function logPlanRows(dd){
     })
   };
 }
+/* "5km" as the heading prints it. */
+function logSpaced(t){
+  return String(t == null ? '' : t).replace(/(\d)(km|mi)\b/, '$1 $2');
+}
+/* WARM-UP · 2 KM, MAIN SET · THRESHOLD · 5 KM, MAIN SET · 7 × 700M. What the
+   section is and what was asked, from the plan's own rows, so the fields
+   under it need no second label saying which segment they are. */
+function logPartTitle(base, rows){
+  var bits = [base];
+  var reps = rows.filter(function(r){ return /^Rep( \d+)?$/.test(r.label || ''); });
+  if (rows.length === 1){
+    if (base === 'Main set' && rows[0].label) bits.push(rows[0].label);
+    if (rows[0].prescribed) bits.push(logSpaced(rows[0].prescribed));
+  } else if (reps.length >= 2){
+    var same = reps.every(function(r){ return r.prescribed && r.prescribed === reps[0].prescribed; });
+    bits.push(same ? reps.length + ' \u00d7 ' + reps[0].prescribed : reps.length + ' reps');
+  }
+  return bits.join(' \u00b7 ');
+}
+/* One row is its section: the heading names it and the two labels sit on
+   its fields. Several rows are a list: each is named, and the two labels
+   are printed once above them rather than once per rep. */
+function logRowsHtml(dd, rows){
+  if (!rows.length) return '';
+  if (rows.length === 1) return renderStructuredRow(dd, rows[0], true, false);
+  return '<div class="slog-cols" aria-hidden="true"><span>Average pace</span>'+
+      (healthConsentGranted() ? '<span>Average heart rate</span>' : '')+'</div>'+
+    rows.map(function(r){ return renderStructuredRow(dd, r, false, true); }).join('');
+}
 function logPartHtml(dd, title, part, rows){
   if (!rows.length) return '';
-  return '<div class="yl-sec yl-part" data-part="'+part+'"><div class="yl-title">'+title+'</div>'+
-    rows.map(function(r){ return renderStructuredRow(dd, r, rows.length === 1); }).join('')+
+  return '<div class="yl-sec yl-part" data-part="'+part+'">'+
+    '<div class="yl-title">'+escapeHtml(logPartTitle(title, rows))+'</div>'+
+    logRowsHtml(dd, rows)+
   '</div>';
 }
 function renderYourLogAnswers(dd){
@@ -34525,14 +34569,16 @@ function renderYourLogAnswers(dd){
   if (a.watchDataOff) chosen.push('watch');
   var stops = LOG_STOP.filter(function(x){ return health || LOG_STOP_HEALTH.indexOf(x[0]) === -1; });
   /* The reps and stages of the main set, under the answers about it. */
-  var mainRows = parts.main.map(function(r){ return renderStructuredRow(dd, r, false); }).join('');
-  var boxTitle = shape.family === 'race' ? 'The race' : (shape.main ? 'Main set' : 'The run');
+  var mainRows = logRowsHtml(dd, parts.main);
+  var boxBase = shape.family === 'race' ? 'The race' : (shape.main ? 'Main set' : 'The run');
+  var boxTitle = escapeHtml(parts.main.length ? logPartTitle(boxBase, parts.main) : boxBase);
+  /* Said once, where the founder drew it: under the main set's fields. */
+  var optional = parts.structured ? '<div class="yl-opt">Optional \u2014 enter what you know.</div>' : '';
   return '<div class="actual-field full yl">'+
     logPartHtml(dd, 'Warm-up', 'warmup', parts.warm)+
     ((box || mainRows) ? '<div class="yl-box" data-part="main"><div class="yl-title">'+boxTitle+'</div>'+
-        box+(mainRows ? '<div class="yl-rows">'+mainRows+'</div>' : '')+'</div>' : '')+
+        box+(mainRows ? '<div class="yl-rows">'+mainRows+'</div>' : '')+optional+'</div>' : '')+
     logPartHtml(dd, 'Cool-down', 'cooldown', parts.cool)+
-    (parts.structured ? '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>' : '')+
     '<div class="yl-sec">'+
       logRangeHtml(dd, { field:'rpe', label:'Overall effort', min:1, max:10,
         value:(typeof a.rpe === 'number' ? a.rpe : null), start:5, of:10, ends:['Very easy', 'All out'] })+
@@ -37603,38 +37649,57 @@ function segKmToDisplay(km){
   if (km == null) return '';
   return round2(state.units === 'mi' ? km * 0.621371 : km);
 }
-/* `bare` is a row sitting under a heading that already says what it is --
-   Warm-up, Cool-down -- so the name is not printed a second time. */
-function renderStructuredRow(dd, row, bare){
+/* ---------- A ROW IS TWO NAMED FIELDS ----------
+   Founder: "The m:ss and HR placeholders are too subtle ... The labels
+   should be explicit. Athletes shouldn't have to work out whether m:ss
+   means total time, average pace or something else." And the shape they
+   drew: MAIN SET · THRESHOLD · 5 KM, then "Average pace" and "Average heart
+   rate" over their fields, then "Optional — enter what you know."
+   A row used to ask for whichever number the prescription left open -- a
+   time where it gave a distance, a distance where it gave a time -- behind
+   a placeholder that said only "m:ss" or "km". That is the right evidence
+   and the wrong question: the athlete had to work out which of the two was
+   wanted, and what the field would do with it.
+   So every row asks one thing, the same thing, by name: the average pace.
+   It is the number a watch shows for a lap whatever the lap was, and with
+   the half the prescription already fixes it IS the old evidence -- pace
+   and distance give the time, pace and duration give the distance. See
+   handleStructuredSplitChange.
+   `bare` is a row under a heading that already names it, so the name is
+   not printed twice. `quiet` is a row in a list whose two labels are
+   printed once above it; the inputs keep their own aria-labels. */
+function logPaceExample(){
+  return (displayUnit() === 'mi' ? '8:00' : '5:00') + ' /' + displayUnit();
+}
+function renderStructuredRow(dd, row, bare, quiet){
   var s = structuredSplitFor(dd, row.segId) || {};
   var unit = displayUnit();
-  var inputs = '';
-  if (row.asks.dist)
-    inputs += '<input type="number" step="0.01" min="0" inputmode="decimal" class="slog-in" '+
-      'placeholder="'+unit+'" aria-label="'+escapeHtml(row.label)+' distance" '+
-      'value="'+segKmToDisplay(s.km)+'" data-action="slog-field" data-field="km" '+
-      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
-  if (row.asks.time)
-    inputs += '<input type="text" class="slog-in" placeholder="m:ss" '+
-      'aria-label="'+escapeHtml(row.label)+' time" '+
-      'value="'+(s.sec!=null?secToPace(s.sec):'')+'" data-action="slog-field" data-field="sec" '+
-      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+  var field = function(cls, label, input){
+    return '<label class="slog-f'+cls+'">'+(quiet ? '' : '<span class="slog-k">'+label+'</span>')+input+'</label>';
+  };
+  var inputs = field('', 'Average pace',
+    '<input type="text" class="slog-in" placeholder="'+logPaceExample()+'" '+
+      'aria-label="'+escapeHtml(row.label)+' average pace per '+unit+'" '+
+      'value="'+(s.paceSec != null ? secToPace(paceSecToDisplay(s.paceSec)) : '')+'" '+
+      'data-action="slog-field" data-field="pace" '+
+      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">');
   if (healthConsentGranted())
-    inputs += '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="HR" '+
+    inputs += field(' slog-f-hr', 'Average heart rate',
+      '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="155 bpm" '+
       'aria-label="'+escapeHtml(row.label)+' average heart rate" '+
       'value="'+(s.hr!=null?s.hr:'')+'" data-action="slog-field" data-field="hr" '+
-      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">');
   var cls = 'slog-row' + (row.kind==='recovery' ? ' is-rec' : '') +
             (row.role==='warmup'||row.role==='cooldown' ? ' is-flank' : '');
   return '<div class="'+cls+'">'+
-    '<div class="slog-head">'+
-      (bare ? '' : '<span class="slog-label">'+escapeHtml(row.label)+'</span>')+
+    (bare ? '' : '<div class="slog-head">'+
+      '<span class="slog-label">'+escapeHtml(row.label)+'</span>'+
       /* Only where a prescribed value genuinely exists. A fartlek warm-up, a
          hill-repeat descent and a ladder recovery are prescribed as rules,
          not numbers, and printing one here would invent a target the athlete
          was never given. */
       (row.prescribed ? '<span class="slog-presc font-mono">'+escapeHtml(row.prescribed)+'</span>' : '')+
-    '</div>'+
+    '</div>')+
     '<div class="slog-ins">'+inputs+'</div>'+
   '</div>';
 }
@@ -64532,10 +64597,36 @@ function handleStructuredSplitChange(dayId, segId, field, value){
     var km = (value==='' || isNaN(raw)) ? null
            : round2(state.units==='mi' ? raw/0.621371 : raw);
     s.km = (km!=null && km>0) ? km : null;
+    delete s.paceEntered;
   } else if (field === 'sec'){
     var sec = parseElapsedInput(value);
     s.sec = (sec!=null && sec>0) ? sec : null;
     delete s.secSeeded;                      // an entered time is not a seeded one
+    delete s.paceEntered;
+  } else if (field === 'pace'){
+    /* THE AVERAGE PACE, WHICH IS WHAT THE ROW NOW ASKS FOR. It is stored as
+       the athlete gave it -- per km, whatever unit they read it in -- and
+       the other half of the evidence is filled from the prescription, which
+       is the instruction they were given:
+         a prescribed DISTANCE  -> the time that pace takes to cover it
+         a prescribed DURATION  -> the distance that pace covers in it
+         a rule with no number  -> the pace alone, and nothing invented
+       paceEntered keeps the number exactly as typed: recomputing it from a
+       rounded time would hand 3:45 back as 3:46. */
+    var shown = parseElapsedInput(value);
+    var perKm = (shown != null && shown > 0)
+      ? (state.units === 'mi' ? Math.round(shown / 1.60934 * 10) / 10 : shown) : null;
+    if (perKm == null){
+      delete s.paceEntered; s.paceSec = null; s.km = null;
+      s.sec = (row.presSec != null && !row.asks.time) ? row.presSec : null;
+      s.secSeeded = (s.sec != null) || undefined;
+    } else {
+      s.paceEntered = true;
+      s.paceSec = perKm;
+      if (row.presKm > 0){ s.km = null; s.sec = Math.round(perKm * row.presKm); delete s.secSeeded; }
+      else if (row.presSec != null){ s.sec = row.presSec; s.secSeeded = true; s.km = round2(row.presSec / perKm); }
+      else { s.km = null; s.sec = null; delete s.secSeeded; }
+    }
   } else if (field === 'hr'){
     // The per-segment column, same rule as the per-lap one above.
     var hr = (value!=='' && healthConsentGranted()) ? parseInt(value,10) : null;
@@ -64555,13 +64646,13 @@ function handleStructuredSplitChange(dayId, segId, field, value){
   var paceKm = (s.km!=null && s.km>0) ? s.km
              : (!row.asks.dist && row.presKm > 0) ? row.presKm : null;
   s.kmFromPrescription = (s.km==null && paceKm!=null) ? true : undefined;
-  s.paceSec = (paceKm!=null && s.sec!=null) ? Math.round(s.sec/paceKm) : null;
+  if (!s.paceEntered) s.paceSec = (paceKm!=null && s.sec!=null) ? Math.round(s.sec/paceKm) : null;
   /* A row the athlete emptied again leaves no trace: an all-null segment is
      not evidence, and keeping it would let coachSplitMetrics count rows that
      say nothing. A time seeded from the prescription does not count as
      something the athlete entered -- otherwise every rep they merely tapped
      would survive as a phantom row carrying only its own instruction back. */
-  if (s.km==null && s.hr==null && (s.sec==null || s.secSeeded)){
+  if (s.km==null && s.hr==null && (s.sec==null || s.secSeeded) && !s.paceEntered){
     var at = dd.actual.splits.indexOf(s);
     if (at !== -1) dd.actual.splits.splice(at, 1);
   }

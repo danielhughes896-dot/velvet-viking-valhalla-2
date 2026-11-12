@@ -454,7 +454,9 @@ test('the answers are words and controls: no symbols, and the tiles are the buil
   assert.match(css, /\.yl \.yl-tiles\{grid-template-columns:repeat\(3, minmax\(0, 1fr\)\);\}/,
     'the tiles\' track can be widened by a long word');
   assert.match(css, /\.yl-range\{[^}]*height:44px/, 'the slider is not a 44px target');
-  assert.match(css, /\.yl \.opt-grid button\{min-height:56px/, 'the tiles are not thumb height');
+  /* Founder: "The current buttons feel slightly oversized relative to the
+     inputs." 48px beside 44px fields; still a thumb's height. */
+  assert.match(css, /\.yl \.opt-grid button\{min-height:48px/, 'the tiles are not thumb height, or are oversized again');
   assert.match(css, /\.yl-clear\{[^}]*min-height:44px/, 'Clear is not a 44px target');
   assert.ok(!/#[0-9A-Fa-f]{6}/.test(css.replace(/#FFFFFF/g, '')), 'a colour that is not white or a token is used');
 });

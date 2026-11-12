@@ -279,12 +279,21 @@ test('a time-prescribed rep logged by distance alone still yields a pace', () =>
   assert.equal(s.paceSec, Math.round(120 / 0.58));
 });
 
-test('rep distance round-trips at rep precision, not session precision', () => {
+/* ---- CHANGED SIDES ----
+   Founder: "The m:ss and HR placeholders are too subtle ... The labels
+   should be explicit. Athletes shouldn't have to work out whether m:ss
+   means total time, average pace or something else." A row asks for the
+   average pace, by name, and the prescription supplies the other half. */
+test('a rep distance is stored at rep precision, and shown as the pace it implies', () => {
   const a = app();
   const dd = fartlekDay(a);
   a.handleStructuredSplitChange(dd.id, REP_IDS[0], 'km', '0.55');
   assert.equal(dd.actual.splits[0].km, 0.55, 'one decimal would make this 0.6 -- a 9% error');
-  assert.match(a.renderYourLogAnswers(dd), /value="0\.55"/, 'and it must redisplay as entered');
+  /* Two minutes over 0.55km is 3:38 per km: the row shows the pace, which is
+     what it asks for, and the distance behind it is untouched. */
+  assert.match(a.renderYourLogAnswers(dd), /value="3:38"[^>]*data-field="pace"[^>]*data-seg="s\.1\.0\.0\.0"/,
+    'the stored rep is not shown as its pace');
+  assert.equal(dd.actual.splits[0].km, 0.55);
 });
 
 test('invalid values are refused without creating a phantom segment', () => {
@@ -593,23 +602,32 @@ test('the per-segment rows are there without being opened, and no summary card s
   a.state.days.pop();
 });
 
-test('a partial structured log is not reported as a discrepancy', () => {
+test('the sections total nothing, because no distance is typed in them', () => {
+  /* "Logged so far" and "Lap total" compared the distances an athlete typed
+     row by row with the session's own. A row asks for a pace now, so there
+     is nothing typed to add up, and a total of distances nobody entered
+     would be a number the athlete never gave. */
   const a = app();
   const dd = loggedFartlek(a, [0.58, 0.57, 0.56, 0.55, 0.54]);   // reps only
   assert.equal(dd.actual.km, 8, 'the whole-session distance is still 8km');
   const html = a.renderYourLogAnswers(dd);
-  assert.match(html, /Logged so far/, 'five reps out of eleven segments is normal use');
-  assert.doesNotMatch(html, /correct whichever is off/,
-    'the athlete has contradicted nothing by leaving recoveries blank');
+  assert.doesNotMatch(html, /Logged so far|Lap total|correct whichever is off/,
+    'the athlete is shown a total of distances they were not asked for');
 });
 
-test('a complete structured log that really disagrees still says so', () => {
+test('a flat lap list that really disagrees with the session still says so', () => {
+  /* The check itself is not gone: where an athlete DID type distances lap
+     by lap -- a list from before sections existed -- a material gap is
+     still named, and neither number overwrites the other. */
   const a = app();
-  const dd = fartlekDay(a);
-  const plan = a.structuredLoggingPlan(dd);
-  plan.rows.forEach(r => a.handleStructuredSplitChange(dd.id, r.segId, 'km', '0.2'));
-  const html = a.renderYourLogAnswers(dd);
+  const dd = { id:'2026-05-26', date:'2026-05-26', week:1, type:'easy', title:'Hand written',
+               km:8, completed:true, actual:a.emptyActual() };
+  dd.actual.km = 8;
+  dd.actual.splits = [{ km:1, sec:300 }, { km:1, sec:302 }];
+  a.state.days.push(dd);
+  assert.equal(a.loggingModeFor(dd).mode, 'flat');
+  const html = a.renderSplitsBlock(dd);
   assert.match(html, /Lap total/);
-  assert.match(html, /correct whichever is off/,
-    'every segment answered and the total is 2.2km against a logged 8km');
+  assert.match(html, /correct whichever is off/, 'two laps totalling 2km against a logged 8km');
+  a.state.days.pop();
 });

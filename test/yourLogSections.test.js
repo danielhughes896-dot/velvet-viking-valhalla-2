@@ -110,7 +110,7 @@ test('an ordinary easy run, a long run and a shakeout stay simple', () => {
     assert.deepEqual(parts(html), ['main'], k + ' was given sections');
     assert.equal(count(html, /class="slog-row/g), 0, k + ' is asked for segments');
     assert.doesNotMatch(html, />Warm-up<|>Cool-down<|>Main set<|Reps completed|Recoveries|Did your (pace|effort) hold/, k + ' is asked a multi-part question');
-    assert.match(html, /<div class="yl-title">The run<\/div>/);
+    assert.match(html, /<div class="yl-title">The run<\/div>/, k + ' was given a heading it has no section for');
     assert.deepEqual([...html.matchAll(/class="yl-q-t">([^<]+)</g)].map(m => m[1]),
       ['How did it feel?', 'Overall effort', 'Conditions', 'Anything hurting?'], k + ' is asked something else');
   });
@@ -122,8 +122,8 @@ test('a session with all three shows all three, with the main set between them',
    'progressive_tempo', 'goal_pace_block', 'time_trial', 'long_run_goal_insert', 'long_run_goal_broken'].forEach(k => {
     const html = log(all[k]);
     assert.deepEqual(parts(html), ['warmup', 'main', 'cooldown'], k);
-    assert.match(section(html, 'warmup'), /<div class="yl-title">Warm-up<\/div>/);
-    assert.match(section(html, 'cooldown'), /<div class="yl-title">Cool-down<\/div>/);
+    assert.match(section(html, 'warmup'), /<div class="yl-title">Warm-up( \u00b7 [^<]+)?<\/div>/);
+    assert.match(section(html, 'cooldown'), /<div class="yl-title">Cool-down( \u00b7 [^<]+)?<\/div>/);
     /* Under its own heading a single row is not named a second time. */
     assert.doesNotMatch(section(html, 'warmup') + section(html, 'cooldown'), /class="slog-label"/, k + ': "Warm up" is printed under "Warm-up"');
     assert.match(section(html, 'warmup'), /data-action="slog-field"/, k + ': the warm-up has nothing to fill in');
@@ -139,7 +139,7 @@ test('a session with no warm-up or cool-down in it is not given one', () => {
     assert.ok(count(html, /class="slog-row/g) >= 2, k + ' lost its own rows');
   });
   assert.deepEqual(rowLabels(log(all.long_run_goal_finish)).filter(l => /Rep|Warm|Cool/.test(l)), []);
-  assert.match(log(all.race), /<div class="yl-title">The race<\/div>/);
+  assert.match(log(all.race), /<div class="yl-title">The race[^<]*<\/div>/);
 });
 
 // ---------------------------------------------------------------------------
@@ -263,7 +263,8 @@ test('a row filled in is saved where every reader already looks, and still score
   reps.forEach(r => assert.ok(onScreen.has(r.segId), r.label + ' has no input on the screen'));
   assert.match(SRC, /action === 'slog-field'\) handleStructuredSplitChange\(/, 'the row inputs are not wired to the structured handler');
   const before = a.computeExecutionBreakdown(dd);
-  reps.forEach((r, i) => a.handleStructuredSplitChange(dd.id, r.segId, r.asks.time ? 'sec' : 'km', r.asks.time ? String(200 + i * 2) : '0.6'));
+  /* Typed the way the screen now asks: an average pace per rep. */
+  reps.forEach((r, i) => a.handleStructuredSplitChange(dd.id, r.segId, 'pace', '3:' + (40 + i)));
   const saved = dd.actual.splits.filter(s => s.role === 'work');
   assert.equal(saved.length, reps.length, 'the reps were not saved as structured splits');
   assert.ok(saved.every(s => s.paceSec != null), 'a rep was saved without a pace');
@@ -273,8 +274,9 @@ test('a row filled in is saved where every reader already looks, and still score
   assert.ok(a.computeExecutionBreakdown(dd), 'the session stopped scoring');
   assert.ok(before, 'the fixture session was not scoring to begin with');
   assert.equal(a.assessSession(dd).completion.done, reps.length, 'the assessment does not count the reps that were entered');
-  /* And they come back on the next draw. */
-  assert.equal(count(log(c), /data-field="sec"[^>]*|value="3:2\d"/g) > 0, true);
+  /* And they come back on the next draw, exactly as typed. */
+  const shown = [...section(log(c), 'main').matchAll(/value="([^"]*)"\s+data-action="slog-field" data-field="pace"/g)].map(m => m[1]);
+  assert.deepEqual(shown, reps.map((r, i) => '3:' + (40 + i)), 'a pace came back different from how it was typed');
   dd.actual.splits = [];
 });
 
@@ -323,4 +325,134 @@ test('redrawing a card puts the page back where the thumb left it', () => {
   assert.deepEqual(calls, []);
   /* Opening the log goes through it. */
   assert.match(/function handleToggleLog\(dayId\)\{[\s\S]*?\n\}/.exec(SRC)[0], /replaceCard\(dd\)/);
+});
+
+// ---------------------------------------------------------------------------
+// THE FIELDS SAY WHAT THEY ARE
+// ---------------------------------------------------------------------------
+
+/* Founder: "The m:ss and HR placeholders are too subtle. On the threshold
+   workout, I'd want something like: MAIN SET · THRESHOLD · 5 KM / Average
+   pace  Average heart rate / Optional — enter what you know. The labels
+   should be explicit. Athletes shouldn't have to work out whether m:ss means
+   total time, average pace or something else ... the warm-up and cooldown
+   should use the same field-label pattern." */
+
+test('a threshold session reads the way the founder drew it', () => {
+  const c = everyStructure().threshold_continuous;
+  const html = log(c);
+  const main = section(html, 'main');
+  assert.match(main, /<div class="yl-title">Main set \u00b7 Threshold \u00b7 \d+(\.\d+)? km<\/div>/, 'the heading does not say what the main set is');
+  assert.match(main, /<span class="slog-k">Average pace<\/span><input type="text" class="slog-in" placeholder="5:00 \/km"/);
+  assert.match(main, /<span class="slog-k">Average heart rate<\/span><input type="number"[^>]*placeholder="155 bpm"/);
+  assert.match(main, /<div class="yl-opt">Optional \u2014 enter what you know\.<\/div>/);
+  /* The same pattern either side of it. */
+  ['warmup', 'cooldown'].forEach(p => {
+    const sec = section(html, p);
+    assert.match(sec, new RegExp('<div class="yl-title">' + (p === 'warmup' ? 'Warm-up' : 'Cool-down') + ' \u00b7 \\d+(\\.\\d+)? km</div>'), p + ' heading');
+    assert.match(sec, /<span class="slog-k">Average pace<\/span>/, p + ' does not name its pace field');
+    assert.match(sec, /<span class="slog-k">Average heart rate<\/span>/, p + ' does not name its heart-rate field');
+  });
+  assert.equal(count(html, /class="yl-opt"/g), 1, 'the reassurance is said more than once');
+});
+
+test('no field anywhere on a log is a bare "m:ss", "km" or "HR"', () => {
+  Object.values(everyStructure()).forEach(c => {
+    const html = log(c);
+    [...html.matchAll(/<input[^>]*data-action="slog-field"[^>]*>/g)].forEach(m => {
+      assert.doesNotMatch(m[0], /placeholder="(m:ss|km|mi|HR)"/, c.arch + ': an unexplained placeholder: ' + m[0].slice(0, 120));
+      assert.match(m[0], /aria-label="[^"]+ average (pace per (km|mi)|heart rate)"/, c.arch + ': a field with no name');
+      assert.match(m[0], /data-field="(pace|hr)"/, c.arch + ': a row asks for something other than pace and heart rate');
+    });
+    /* Every row's two fields are named: on the row, or once above a list. */
+    const rows = count(html, /class="slog-row/g);
+    if (!rows){ assert.doesNotMatch(html, /class="yl-opt"/, c.arch + ': "Optional" with nothing optional under it'); return; }
+    const named = count(html, /<span class="slog-k">Average pace<\/span>/g) + count(html, /<div class="slog-cols"[^>]*><span>Average pace<\/span>/g);
+    assert.ok(named >= 1, c.arch + ': the pace fields are not named');
+    [...html.matchAll(/data-part="[a-z]+"[\s\S]*?(?=data-part="|data-field="rpe")/g)].forEach(p => {
+      const n = count(p[0], /class="slog-row/g);
+      if (n === 1) assert.match(p[0], /<span class="slog-k">Average pace<\/span>/, c.arch + ': a single row is not labelled');
+      if (n > 1) assert.equal(count(p[0], /<span>Average pace<\/span>/g), 1, c.arch + ': a list of rows repeats or lacks its labels');
+    });
+  });
+});
+
+test('the heading says what the section is: the effort, the reps, the distance', () => {
+  const all = everyStructure();
+  const title = (k, p) => (new RegExp('<div class="yl-title">([^<]*)</div>').exec(section(log(all[k]), p)) || [,''])[1];
+  assert.match(title('track_reps', 'main'), /^Main set \u00b7 \d+ \u00d7 \d+m$/);
+  assert.equal(title('track_reps', 'main').match(/(\d+) \u00d7/)[1], String(all.track_reps.a.logShape(all.track_reps.dd).reps));
+  assert.equal(title('ladder', 'main'), 'Main set \u00b7 5 reps', 'a ladder was given one distance for five different reps');
+  assert.match(title('easy_strides', 'main'), /^Main set \u00b7 6 \u00d7 100m$/);
+  assert.match(title('hill_repeats', 'main'), /^Main set \u00b7 \d+ \u00d7 \d+s$/);
+  assert.equal(title('long_run_goal_finish', 'main'), 'Main set', 'stages were given a rep count');
+  assert.equal(title('easy_run', 'main'), 'The run');
+  /* A warm-up prescribed as a rule has no number to print, and is given none. */
+  assert.equal(title('fartlek', 'warmup'), 'Warm-up');
+});
+
+test('an average pace is kept as typed, and the prescription supplies the other half', () => {
+  const all = everyStructure();
+  /* A prescribed distance: the time that pace takes to cover it. */
+  const t = all.threshold_continuous, plan = t.a.loggingModeFor(t.dd).plan;
+  const main = Array.from(plan.rows).filter(r => r.role === 'work')[0];
+  assert.ok(main.presKm > 0);
+  t.a.handleStructuredSplitChange(t.dd.id, main.segId, 'pace', '4:47');
+  let s = t.dd.actual.splits.filter(x => x.segId === main.segId)[0];
+  assert.equal(s.paceSec, 287);
+  assert.equal(s.sec, Math.round(287 * main.presKm), 'the time is not the pace over the prescribed distance');
+  assert.equal(s.km, null, 'a distance the athlete never typed was written');
+  assert.match(section(log(t), 'main'), /value="4:47"\s+data-action="slog-field" data-field="pace"/);
+  /* Entering heart rate afterwards does not round the pace. */
+  t.a.handleStructuredSplitChange(t.dd.id, main.segId, 'hr', '168');
+  s = t.dd.actual.splits.filter(x => x.segId === main.segId)[0];
+  assert.equal(s.paceSec, 287, 'the pace moved when the heart rate was entered'); assert.equal(s.hr, 168);
+  /* A pace on a 700m rep comes back as typed, not as its rounded time. */
+  const r = all.track_reps, rep = Array.from(r.a.loggingModeFor(r.dd).plan.rows).filter(x => x.role === 'work')[0];
+  r.a.handleStructuredSplitChange(r.dd.id, rep.segId, 'pace', '3:45');
+  assert.match(section(log(r), 'main'), /value="3:45"\s+data-action="slog-field" data-field="pace"/, '3:45 came back as something else');
+  /* Digits from a keypad with no colon mean the same thing. */
+  r.a.handleStructuredSplitChange(r.dd.id, rep.segId, 'pace', '350');
+  assert.equal(r.dd.actual.splits.filter(x => x.segId === rep.segId)[0].paceSec, 230);
+  /* A prescribed duration: the distance that pace covers in it. */
+  const f = all.fartlek, frep = Array.from(f.a.loggingModeFor(f.dd).plan.rows).filter(x => x.role === 'work')[0];
+  assert.ok(frep.presSec > 0 && !(frep.presKm > 0));
+  f.a.handleStructuredSplitChange(f.dd.id, frep.segId, 'pace', '4:00');
+  s = f.dd.actual.splits.filter(x => x.segId === frep.segId)[0];
+  assert.equal(s.sec, frep.presSec); assert.equal(s.secSeeded, true);
+  assert.equal(s.km, Math.round(frep.presSec / 240 * 100) / 100, 'the distance is not what that pace covers in the time');
+  /* A rule with no number: the pace alone, and it is kept. */
+  const fw = Array.from(f.a.loggingModeFor(f.dd).plan.rows).filter(x => x.role === 'warmup')[0];
+  assert.ok(!(fw.presKm > 0) && fw.presSec == null, 'the fixture warm-up has a number after all');
+  f.a.handleStructuredSplitChange(f.dd.id, fw.segId, 'pace', '5:50');
+  s = f.dd.actual.splits.filter(x => x.segId === fw.segId)[0];
+  assert.ok(s, 'a pace on a rule-prescribed segment was thrown away');
+  assert.equal(s.paceSec, 350); assert.equal(s.km, null); assert.equal(s.sec, null);
+  assert.match(section(log(f), 'warmup'), /value="5:50"/);
+  /* Cleared, it leaves nothing behind. */
+  f.a.handleStructuredSplitChange(f.dd.id, fw.segId, 'pace', '');
+  assert.equal(f.dd.actual.splits.filter(x => x.segId === fw.segId).length, 0, 'an emptied row left a phantom');
+  [t, r, f].forEach(c => { c.dd.actual.splits = []; });
+});
+
+test('miles are typed as miles and stored the way the engine reads them', () => {
+  const c = everyStructure().threshold_continuous, a = c.a;
+  const main = Array.from(a.loggingModeFor(c.dd).plan.rows).filter(r => r.role === 'work')[0];
+  a.state.units = 'mi';
+  assert.match(log(c), /placeholder="8:00 \/mi"/);
+  a.handleStructuredSplitChange(c.dd.id, main.segId, 'pace', '7:40');
+  const s = c.dd.actual.splits.filter(x => x.segId === main.segId)[0];
+  assert.ok(Math.abs(s.paceSec - 460 / 1.60934) < 0.06, 'a pace per mile was stored as a pace per km');
+  assert.match(section(log(c), 'main'), /value="7:40"\s+data-action="slog-field" data-field="pace"/, 'it did not come back as typed');
+  a.state.units = 'km'; c.dd.actual.splits = [];
+});
+
+test('the placeholders can be read, and the tiles are not bigger than the job', () => {
+  const CSS = SRC.slice(SRC.indexOf('<style>'), SRC.indexOf('</style>')).replace(/\/\*[\s\S]*?\*\//g, ' ');
+  assert.match(CSS, /\.actual-field input::placeholder,\s*:is\([^)]*\) \.actual-field textarea::placeholder\{color:#FFFFFF; opacity:\.6;\}/,
+    'the placeholders on the session screens are dim again');
+  assert.match(CSS, /\.log-body input::placeholder, \.log-body textarea::placeholder\{color:#FFFFFF; opacity:\.6;\}/);
+  assert.doesNotMatch(CSS, /\.actual-field input::placeholder\{color:var\(--ink-quiet\)/);
+  assert.match(CSS, /\.yl \.opt-grid button\{min-height:48px/);
+  assert.match(CSS, /\.yl \.slog-in\{width:100%; min-height:44px/);
 });
