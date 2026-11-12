@@ -617,7 +617,8 @@ test('TRIO: PLAN SETTINGS goes to the plan editor the product already calls that
   assert.match(a.hqPanelHtml('training'),
     /data-action="open-setup"[^>]*>[\s\S]{0,600}?Edit Plan Settings/,
     'Edit Plan Settings does not fire open-setup');
-  assert.match(CODE, /case 'open-setup': openSetupModal\(\);/);
+  /* Through stgOpenSub(), so closing the editor returns to Training & Zones. */
+  assert.match(CODE, /case 'open-setup': stgOpenSub\(openSetupModal\);/);
   assert.doesNotMatch(a.renderPlanHQView(), /data-action="open-setup"/,
     'Plan Settings is still duplicated on the daily Sacoro page');
 });

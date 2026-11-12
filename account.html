@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Sacoro — Account</title>
+<title>SACORO — Account</title>
 <!--
   THE PUBLIC SHELL.
 
@@ -50,14 +50,14 @@
 <body>
 <div class="vvv-shell">
   <div class="vvv-brand">
-    <div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"></span><p class="vvv-wordmark">Sacoro</p><span class="vvv-dot" aria-hidden="true"></span></div>
+    <div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"></span><p class="vvv-wordmark">SACORO</p><span class="vvv-dot" aria-hidden="true"></span></div>
     <p class="vvv-by">By Velvet Viking</p>
     <div class="vvv-rule"></div>
   </div>
 
   <div id="pane-signin">
-    <h1 id="headline">Sign in to Sacoro</h1>
-    <p id="lede">Sacoro now needs an account so your training block is tied to you and can follow you between devices. We email you a sign-in link, so there is no password for you to create or remember.</p>
+    <h1 id="headline">Sign in to SACORO</h1>
+    <p id="lede">SACORO now needs an account so your training block is tied to you and can follow you between devices. We email you a sign-in link, so there is no password for you to create or remember.</p>
     <label for="email">Email</label>
     <input type="email" id="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
     <button type="button" id="send" class="vvv-btn">Email me a sign-in link</button>
@@ -275,7 +275,7 @@
        continues until the 20th is the screen contradicting itself, and it is
        the sort of thing that turns a card retry into a cancellation. */
     var grace = !!(v && v.state === 'grace');
-    $('locked-title').textContent = hasAccess ? 'Your Sacoro account'
+    $('locked-title').textContent = hasAccess ? 'Your SACORO account'
       : grace ? 'There is a problem with your payment'
       : 'Your access has ended';
     $('locked-lede').textContent = hasAccess
@@ -447,7 +447,7 @@
       });
     }).catch(function(){
       cb.disabled = false; cb.checked = false;
-      say('msg3', 'We could not reach Sacoro. Check your connection and try again.', 'err');
+      say('msg3', 'We could not reach SACORO. Check your connection and try again.', 'err');
     });
   }
 
@@ -487,7 +487,7 @@
       });
     }).catch(function(){
       if (button) button.disabled = false;
-      say('msg3', 'We could not reach Sacoro. Check your connection and try again.', 'err');
+      say('msg3', 'We could not reach SACORO. Check your connection and try again.', 'err');
     });
   }
 
@@ -558,10 +558,10 @@
         return loadSubscription().then(function(v){ showLocked(v || { access:false }); });
       }
       show('signin');
-      say('msg', 'We signed you in but could not open Sacoro. Please try again.', 'err');
+      say('msg', 'We signed you in but could not open SACORO. Please try again.', 'err');
     }); }).catch(function(){
       show('signin');
-      say('msg', 'We signed you in but could not reach Sacoro. Check your connection and try again.', 'err');
+      say('msg', 'We signed you in but could not reach SACORO. Check your connection and try again.', 'err');
     });
   } else {
     /* Already holding a Supabase session from a previous visit? Try to trade it
@@ -584,7 +584,7 @@
 
   $('send').addEventListener('click', function(){
     var email = ($('email').value || '').trim();
-    if (!email || email.indexOf('@') < 1){ say('msg', 'Enter the email address you use for Sacoro.', 'err'); return; }
+    if (!email || email.indexOf('@') < 1){ say('msg', 'Enter the email address you use for SACORO.', 'err'); return; }
     $('send').disabled = true;
     say('msg', 'Sending…');
     fetch('/api/beta-signin', {
@@ -599,11 +599,11 @@
     }).then(function(r){
       $('send').disabled = false;
       if (r.status === 200){ say('msg', 'Check your email for the sign-in link.', 'ok'); return; }
-      if (r.status === 403){ say('msg', 'That address is not on the Sacoro list yet.', 'err'); return; }
+      if (r.status === 403){ say('msg', 'That address is not on the SACORO list yet.', 'err'); return; }
       say('msg', 'We could not send the link just now. Please try again shortly.', 'err');
     }).catch(function(){
       $('send').disabled = false;
-      say('msg', 'We could not reach Sacoro. Check your connection and try again.', 'err');
+      say('msg', 'We could not reach SACORO. Check your connection and try again.', 'err');
     });
   });
 
@@ -660,7 +660,7 @@
       });
     }).catch(function(){
       $('export').disabled = false;
-      say('msg3', 'We could not reach Sacoro. Check your connection and try again.', 'err');
+      say('msg3', 'We could not reach SACORO. Check your connection and try again.', 'err');
     });
   });
 
@@ -697,7 +697,7 @@
   // account_delete. Two confirmations, because it is irreversible and because
   // the athlete reaching this screen did not come here intending to.
   $('delete').addEventListener('click', function(){
-    if (!window.confirm('Delete your Sacoro account? This erases your account and everything stored in it. It cannot be undone.')) return;
+    if (!window.confirm('Delete your SACORO account? This erases your account and everything stored in it. It cannot be undone.')) return;
     if (!window.confirm('Last check — export your training first if you want to keep it. Delete permanently?')) return;
     $('delete').disabled = true;
     say('msg3', 'Deleting your account…');
@@ -715,7 +715,7 @@
       say('msg', 'Your account has been deleted. The training block on this device is still here.', 'ok');
     }).catch(function(){
       $('delete').disabled = false;
-      say('msg3', 'We could not reach Sacoro. Check your connection and try again.', 'err');
+      say('msg3', 'We could not reach SACORO. Check your connection and try again.', 'err');
     });
   });
 })();

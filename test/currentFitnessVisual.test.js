@@ -190,7 +190,7 @@ test('both accepted: the result says so, with real numbers, and the goal-unchang
 
   const html = a.renderCalibrationResult(dd);
   assert.match(html, /Calibration complete/);
-  assert.match(html, /Sacoro has learned from what you just demonstrated/);
+  assert.match(html, /SACORO has learned from what you just demonstrated/);
   assert.match(html, /171 BPM/);
   assert.match(html, /goal hasn.t changed/);
   assert.equal(html.indexOf('Measured Fitness'), -1,
@@ -227,7 +227,7 @@ test('a real recalibration shows the real stored before/after, and a confirmed r
 
   dd.calibration = Object.assign({}, dd.calibration, { lthr: 171, previousLTHR: 171 });
   html = a.renderCalibrationResult(dd);
-  assert.match(html, /Confirms what Sacoro already had/);
+  assert.match(html, /Confirms what SACORO already had/);
   assert.equal(html.indexOf('Moved from'), -1);
 });
 

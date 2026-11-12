@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Sacoro — Training Block Generator</title>
+<title>SACORO — Training Block Generator</title>
 <link rel="icon" href="/assets/favicon.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="Sacoro">
+<meta name="apple-mobile-web-app-title" content="SACORO">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#151417">
@@ -10103,6 +10103,13 @@
   /* The section label stops being a card's head and becomes what it is: the
      name of the group, in the one label voice, over the rows it names. */
   .view-settings .stg-group .setup-section-title{padding:0 0 4px;}
+  /* WHITE. Founder: "All titles are gold? White please." */
+  .view-settings .stg-group .setup-section-title,
+  .hq-panel.stg-panel .setup-section-title{color:#FFFFFF;}
+  .view-settings .stg-solo{margin-top:-4px;}
+  .view-settings .build-tag .legal-link{background:none; border:0; padding:8px 6px; font:inherit; color:inherit;
+    text-decoration:underline; cursor:pointer;}
+
 
   /* BETWEEN ROWS, NOT ABOVE EACH ONE -- the .coach-signal lesson applied
      before it could bite again. Cancelling the first row's border by naming
@@ -11179,7 +11186,7 @@
 <div id="boot-splash" class="pe" aria-hidden="true">
   <div class="pe-mountains" role="presentation" aria-hidden="true"></div>
   <div class="pe-brand">
-    <div class="pe-lockup"><span class="pe-dot" aria-hidden="true"></span><div class="pe-name">Sacoro</div><span class="pe-dot" aria-hidden="true"></span></div>
+    <div class="pe-lockup"><span class="pe-dot" aria-hidden="true"></span><div class="pe-name">SACORO</div><span class="pe-dot" aria-hidden="true"></span></div>
     <div class="pe-by">By Velvet Viking</div>
   </div>
   <div class="pe-athlete"></div>
@@ -27588,7 +27595,7 @@ function saveImageLabel(){
    THE NAME GOES IN WITHOUT ITS EXTENSION. The plugin appends the type's own
    extension to whatever it is given, so "run.png" was on its way to being
    saved as "run.png.png". */
-var NATIVE_PHOTO_ALBUM = 'Sacoro';
+var NATIVE_PHOTO_ALBUM = 'SACORO';
 function nativePlatform(){
   try{ return (window.Capacitor && window.Capacitor.getPlatform) ? window.Capacitor.getPlatform() : null; }
   catch(e){ return null; }
@@ -27627,7 +27634,7 @@ function saveImageToPhotos(o){
       .catch(function(err){
         var msg = (err && (err.message || err.errorMessage)) || '';
         if (/cancel|denied|permission/i.test(msg)){
-          showToast('Sacoro needs permission to save to your photos');
+          showToast('SACORO needs permission to save to your photos');
           return;
         }
         showToast('Could not save to your photos — try again');
@@ -27716,17 +27723,17 @@ function authRedirectTarget(){
    The codes below are the server's own, never a raw error, and carry nothing
    about the athlete, the allowlist or any credential. */
 var SIGNIN_ERROR_COPY = {
-  not_in_beta:  'Sacoro is in private beta — this email address is not on the tester list yet',
+  not_in_beta:  'SACORO is in private beta — this email address is not on the tester list yet',
   bad_email:    'That doesn’t look like an email address — check it and try again',
-  unavailable:  'Sacoro can’t reach its sign-in service right now — please try again shortly',
+  unavailable:  'SACORO can’t reach its sign-in service right now — please try again shortly',
   send_failed:  'The sign-in email couldn’t be sent just now — please try again in a moment',
   /* The three ways the email provider can refuse. Each needs a different thing
      from whoever reads it, so each says a different thing: wait, or tell us.
      None of them names a provider, a project or an address. */
   rate_limited:     'Too many sign-in emails have been requested — wait a few minutes, then try again',
-  request_rejected: 'Sacoro couldn’t request that sign-in link — please let us know',
+  request_rejected: 'SACORO couldn’t request that sign-in link — please let us know',
   provider_error:   'The sign-in email service isn’t responding — please try again shortly',
-  offline:      'Couldn’t reach Sacoro — check your connection',
+  offline:      'Couldn’t reach SACORO — check your connection',
   method_not_allowed: 'The sign-in email couldn’t be sent just now — please try again in a moment',
   default:      'Couldn’t send the sign-in link — please try again in a moment'
 };
@@ -27908,7 +27915,7 @@ function initHardwareBackButton(){
   window.__vvvBackButtonBound = true;
   try{
     App.addListener('backButton', function(){
-      if (document.getElementById('modal-overlay')){ closeModal(); return; }
+      if (document.getElementById('modal-overlay')){ if (!stgCloseSub()) closeModal(); return; }
       /* A week or a session inside Full Plan has a back arrow, and the
          system's back is that arrow -- on Android it is also the edge swipe.
          It used to send the app to the background from inside a week. */
@@ -28944,8 +28951,10 @@ function renderSubscriptionCard(){
   var sentence = subscriptionSentence(info);
   var head = '<div class="programme-status-head">'+
       '<div class="setup-section-title">Subscription</div>'+
-      (pill ? '<span class="sub-pill '+pill.cls+'">'+escapeHtml(pill.label)+'</span>' : '')+
     '</div>';
+  /* No pill here either: the sentence under the heading says the same
+     thing, in words. See stgRow(). */
+  void pill;
 
   /* An override is not a subscription. Saying "Active \u2014 \u00a311.99 a month" to
      somebody who is not being charged would be a straightforward lie.
@@ -28954,7 +28963,7 @@ function renderSubscriptionCard(){
      actually has rather than a programme that has ended. */
   if (info.override === 'owner' || info.override === 'promo'){
     return '<div class="hub-card tile-card" id="subscription-card">'+head+
-      '<div class="sub-line">Your Sacoro access is active.</div>'+
+      '<div class="sub-line">Your SACORO access is active.</div>'+
       '<div class="field-hint">'+escapeHtml(sentence || 'Access granted')+
       '. Nothing is being charged for this account.</div>'+
     '</div>';
@@ -28966,7 +28975,7 @@ function renderSubscriptionCard(){
        make -- but silence in a card headed "Subscription" reads as broken, so
        it says what is actually true. */
     return '<div class="hub-card tile-card" id="subscription-card">'+head+
-      '<div class="field-hint">Sacoro is not charging for access yet. '+
+      '<div class="field-hint">SACORO is not charging for access yet. '+
       'You will be told before that changes.</div>'+
     '</div>';
   }
@@ -28984,7 +28993,7 @@ function renderSubscriptionCard(){
       'Your plan and history are safe either way.</div>';
   } else if (info.state === 'expired'){
     body += '<div class="field-hint">Your plan, your logged training and everything '+
-      'Sacoro has learned about you are still here and still yours.</div>';
+      'SACORO has learned about you are still here and still yours.</div>';
   }
 
   body += renderPlanPricing(info);
@@ -29065,7 +29074,7 @@ function renderSubscriptionActions(info){
        and the address that reaches a human is the honest answer -- not a
        missing button and not a broken one. */
     out += '<a class="btn btn-ghost btn-block" style="margin-top:8px;" '+
-      'href="mailto:'+LEGAL_URLS.support+'?subject=Cancel%20my%20Sacoro%20subscription">'+
+      'href="mailto:'+LEGAL_URLS.support+'?subject=Cancel%20my%20SACORO%20subscription">'+
       ICONS.link+' Cancel my subscription</a>'+
       '<div class="field-hint" style="margin-top:8px;">Email us and we will cancel it. '+
       'You keep access until the end of the period you have already paid for.</div>';
@@ -29206,6 +29215,11 @@ function loadState(){
              actually qualifies; this only says "this is a cold start". */
           if (parsed.setup && parsed.days && parsed.days.length) programmeEntryPending = true;
           if (parsed.notifyEnabled==null) parsed.notifyEnabled = false;
+          /* ONE LEVEL OF COACHING DETAIL FOR EVERYONE. Founder: "Coach
+             detail - should be the same for everyone - remove." The choice
+             is gone from Preferences, so a save that still carries Full or
+             Concise is brought back to the one level everybody gets. */
+          parsed.guidanceLevel = GUIDANCE_LEVEL_DEFAULT;
           migrateThemePreference(parsed);
           migrateActualPaceUnits(parsed);
           state = parsed;
@@ -29372,12 +29386,12 @@ var HEALTH_CONSENT_VERSION = 'health_data_consent_v1';
 var HEALTH_CONSENT_COPY = {
   title:   'Use my health and readiness information',
   what:    'If you choose to share things like heart rate, sleep, aches, pain, '+
-           'illness or how a session felt, Sacoro can read how you are '+
+           'illness or how a session felt, SACORO can read how you are '+
            'responding to training and adjust your programme around it.',
-  optional:'Sacoro works without any of it. Your paces, distances and '+
+  optional:'SACORO works without any of it. Your paces, distances and '+
            'sessions are enough to run your programme.',
   change:  'You can change your mind at any time in Settings.',
-  withdraw:'Withdrawing stops Sacoro using this information from that moment '+
+  withdraw:'Withdrawing stops SACORO using this information from that moment '+
            'on. It does not undo anything it was lawfully used for before.'
 };
 
@@ -29546,13 +29560,16 @@ function renderHealthConsentSettings(){
     '<div class="connect-row" id="health-consent-row">'+
       '<div><div class="name">'+escapeHtml(HEALTH_CONSENT_COPY.title)+'</div>'+
         '<div class="desc">'+healthConsentStateLabel()+
-        (on ? ' — used to adjust your programme' : ' — not used')+'</div></div>'+
+        (on ? '. Used to adjust your programme' : '. Not used')+'</div></div>'+
       '<label class="switch"><input type="checkbox" data-action="toggle-health-consent" '+
         (on?'checked':'')+'><span class="switch-track"></span></label>'+
     '</div>'+
-    '<div class="field-hint" style="margin-top:10px;">'+escapeHtml(HEALTH_CONSENT_COPY.what)+'</div>'+
-    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(HEALTH_CONSENT_COPY.optional)+'</div>'+
-    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(HEALTH_CONSENT_COPY.withdraw)+'</div>'+
+    /* ROOM BETWEEN THE THREE. Founder: "Health and readiness more space
+       between sentences." Each is its own point -- what it is for, that it
+       is optional, how to withdraw -- and they read as one block at 6px. */
+    '<div class="field-hint hc-para" style="margin-top:22px;">'+escapeHtml(HEALTH_CONSENT_COPY.what)+'</div>'+
+    '<div class="field-hint hc-para" style="margin-top:18px;">'+escapeHtml(HEALTH_CONSENT_COPY.optional)+'</div>'+
+    '<div class="field-hint hc-para" style="margin-top:18px;">'+escapeHtml(HEALTH_CONSENT_COPY.withdraw)+'</div>'+
   '</div>';
 }
 
@@ -30328,7 +30345,7 @@ function renderTopbar(){
   var titleHtml = '<div class="brandmark">'+
     '<span class="bm-name">'+
       '<span class="bm-dot" aria-hidden="true"></span>'+
-      '<span class="bm-word">Sacoro</span>'+
+      '<span class="bm-word">SACORO</span>'+
       '<span class="bm-dot" aria-hidden="true"></span>'+
     '</span>'+
   '</div>';
@@ -35253,7 +35270,7 @@ function renderCompletedPanel(dd, detailHtml){
          health questions stays for an athlete who has not given consent. */
       (healthConsentGranted() ? ''
         : '<div class="actual-field full"><div class="field-hint">Heart rate, how the session felt and whether '+
-          'anything hurts are health information, and Sacoro only records them if you have said it may. '+
+          'anything hurts are health information, and SACORO only records them if you have said it may. '+
           'Settings \u2192 Health &amp; Readiness.</div></div>')+
       '<div class="actual-field full notes-field"><label>Notes \u2014 optional</label>'+
         '<div class="notes-wrap">'+
@@ -36162,7 +36179,7 @@ var RACE_STRATEGIES = {
   },
   custom: {
     key:'custom', label:'Custom',
-    blurb:'Your own opening restraint. Sacoro keeps the finish time honest.',
+    blurb:'Your own opening restraint. SACORO keeps the finish time honest.',
     differential: function(){ return raceCustomDifferential(); }
   }
 };
@@ -38220,7 +38237,7 @@ function renderDeviceLaps(dd){
   return '<details class="fuel-card dlap-card">'+
     '<summary>'+ICONS.layers+'<span>Recorded laps · '+laps.length+' from your watch</span></summary>'+
     '<div class="fuel-body">'+
-      '<div class="dlap-note">Exactly as your watch recorded them. Sacoro is not told which lap '+
+      '<div class="dlap-note">Exactly as your watch recorded them. SACORO is not told which lap '+
         'was a rep and which was a recovery, so it does not say.</div>'+
       '<div class="dlap-rows">'+rows+'</div>'+
     '</div>'+
@@ -39544,12 +39561,12 @@ function shareComposerHtml(){
   var st = shareState, d = st.data;
   var withheldNote = d.withheld.length
     ? '<div class="share-note"><div><strong>Imported numbers stay off the image.</strong> '+
-      'This session was brought in from Strava, so Sacoro is leaving '+
+      'This session was brought in from Strava, so SACORO is leaving '+
       escapeHtml(shareWithheldPhrase(d.withheld))+' off the graphic'+
       (d.withheld.indexOf('verdict') !== -1
         ? ' \u2014 and the verdict with them, because it is read off those numbers'
         : '')+
-      '. Your programme, phase and week are Sacoro\u2019s own and still appear.</div></div>'
+      '. Your programme, phase and week are SACORO\u2019s own and still appear.</div></div>'
     : '';
   var seg = function(name, val, opts){
     return '<div class="share-seg" role="group">'+opts.map(function(o){
@@ -39584,7 +39601,7 @@ function shareComposerHtml(){
       '<div class="share-controls">'+
         '<div class="share-group"><div class="share-k">Overlay</div>'+overlays+'</div>'+
         '<div class="share-group"><div class="share-k">Picture</div>'+
-          seg('source', st.source, [['sacoro','Sacoro'],['photo','My photos']])+
+          seg('source', st.source, [['sacoro','SACORO'],['photo','My photos']])+
           (st.source === 'sacoro'
             ? '<div class="share-bds">'+backdrops+'</div>'
             : '<label class="btn btn-ghost btn-block share-pick">'+ICONS.sparkles+
@@ -39744,7 +39761,7 @@ function shareExport(mode){
     var name = 'sacoro-' + stamp + '.png';
     if (mode === 'save') saveImageToPhotos({ blob:blob, filename:name });
     else saveBinaryFile({ blob:blob, mime:'image/png', filename:name,
-                          title:'Sacoro', dialog:'Share workout',
+                          title:'SACORO', dialog:'Share workout',
                           done:'Image ready to share' });
   }, 'image/png');
 }
@@ -39814,7 +39831,7 @@ function analysisTab(dd, body, vLine){
   return '<div class="wc-review">'+
     '<button type="button" class="sess-tab sess-tab-btn'+(scored ? '' : ' is-quiet')+'" data-action="view-analysis" '+
       'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      sessionTabHtml('Sacoro Analysis')+
+      sessionTabHtml('SACORO Analysis')+
     '</button>'+
     /* ---- THE ANALYSIS IS ONE BOX, AND IT IS THE COACH'S NOTE'S BOX ----
        Founder: "SACORO analysis! Needs to be updated. Same as coaches note
@@ -42053,8 +42070,8 @@ function coachDecision(){
   var openRestr = openRestriction();
   if (openRestr) add('illness', 10,
     todayStr() <= openRestr.until
-      ? 'You have told Sacoro you cannot train normally until ' + dShort(openRestr.until)
-      : 'You have not told Sacoro you are back yet', true);
+      ? 'You have told SACORO you cannot train normally until ' + dShort(openRestr.until)
+      : 'You have not told SACORO you are back yet', true);
   var ill = recent.filter(function(dd){ return coachEnvironment((dd.actual||{}).notes, dd.actual).illness; });
   if (ill.length) add('illness', 10, 'Illness reported '+(ill.length>1?'in '+ill.length+' recent sessions':'in your last session'), true);
   if (ready && ready.health==='under') add('illness', 10, 'You reported feeling under the weather this morning', true);
@@ -42946,7 +42963,7 @@ var CALIBRATION_REASON_TEXT = {
 function calibrationReasonText(reason){
   if (reason && reason.indexOf('implausible_shift_vs_') === 0)
     return 'That pace is too far from '+reason.slice('implausible_shift_vs_'.length)+' evidence to trust from one session \u2014 your existing paces stand.';
-  return CALIBRATION_REASON_TEXT[reason] || 'That result did not pass Sacoro\u2019s checks and was not used.';
+  return CALIBRATION_REASON_TEXT[reason] || 'That result did not pass SACORO\u2019s checks and was not used.';
 }
 /* THE COMPLETION MOMENT (Part 5/6): dd.calibration is written once, by
    applyCalibrationFromDay(), the instant the session is logged, and is only
@@ -42968,7 +42985,7 @@ function calibrationReasonText(reason){
    and HR gets the real number -- never a fabricated pace history. */
 function calibrationHRChangeNote(c){
   if (c.previousLTHR == null) return 'Established for the first time.';
-  if (c.previousLTHR === c.lthr) return 'Confirms what Sacoro already had.';
+  if (c.previousLTHR === c.lthr) return 'Confirms what SACORO already had.';
   return 'Moved from '+c.previousLTHR+' to '+c.lthr+' BPM.';
 }
 function calibrationPaceChangeNote(c){
@@ -43006,7 +43023,7 @@ function renderCalibrationResult(dd){
     '<span>'+(learned ? 'Calibration complete' : 'Calibration not used')+'</span></div>';
   var body = '<div class="hub-card tile-card cal-result">'+head;
   if (learned){
-    body += '<div class="field-hint" style="margin:-4px 0 12px;">Sacoro has learned from what you just demonstrated.</div>';
+    body += '<div class="field-hint" style="margin:-4px 0 12px;">SACORO has learned from what you just demonstrated.</div>';
   }
   if (paceOk){
     body += hqRow('Threshold pace', fmtPaceFromSecPerKm(c.thresholdPaceSecPerKm))+
@@ -43484,7 +43501,7 @@ function applyRestrictionToPlan(level, from, until){
     dd.restricted.from = prior || workoutSnapshot(dd);
     if (level === 'none'){
       dd.type = 'rest'; dd.km = 0; dd.title = 'Rest';
-      dd.desc = 'Rest — you have told Sacoro you cannot run at the moment.';
+      dd.desc = 'Rest — you have told SACORO you cannot run at the moment.';
       delete dd.prescription;
       delete dd.mpSegment;
       out.rested++;
@@ -43496,7 +43513,7 @@ function applyRestrictionToPlan(level, from, until){
        and that deletion is what lets the readiness term below see that this
        day no longer delivers the race-specific work it was prescribed. */
     delete dd.mpSegment;
-    downgradeToEasyRun(dd, 'Easy running only — you have told Sacoro you cannot train normally at the moment.');
+    downgradeToEasyRun(dd, 'Easy running only — you have told SACORO you cannot train normally at the moment.');
     out.eased++;
   });
   return out;
@@ -44031,7 +44048,7 @@ function measuredFitnessEstimate(distanceKey){
              // and the number that withheld it cannot disagree
              spanDays: ev.usableSpanDays, needDays: FITNESS_EVIDENCE_MIN_DAYS,
              reason: ev.sessions
-               ? 'Sacoro needs about two weeks of logged training before it will estimate a marathon honestly.'
+               ? 'SACORO needs about two weeks of logged training before it will estimate a marathon honestly.'
                : 'Nothing logged yet, so there is nothing to estimate a marathon from.' };
   }
   var spread = distanceKey === 'full' ? 0.05 : distanceKey === 'half' ? 0.035 : 0.025;
@@ -44412,7 +44429,7 @@ function currentFitnessEstimate(distanceKey){
              // and the number that withheld it cannot disagree
              spanDays: ev.usableSpanDays, needDays: FITNESS_EVIDENCE_MIN_DAYS,
              reason: ev.sessions
-               ? 'Sacoro needs about two weeks of logged training before it will estimate a marathon honestly.'
+               ? 'SACORO needs about two weeks of logged training before it will estimate a marathon honestly.'
                : 'Nothing logged yet, so there is nothing to estimate a marathon from.' };
   }
   var spread = distanceKey === 'full' ? 0.05 : distanceKey === 'half' ? 0.035 : 0.025;
@@ -44602,7 +44619,7 @@ function nextBlockRecommendation(){
   if (dest && raceDestinationDue()){
     var lbl = (DISTANCE_PROFILES[dest.distanceKey] || {}).label || 'race';
     return { kind:'block', purpose:'race', raceDestination:dest,
-      why:'Your ' + lbl + ' preparation window is here. Finish this block and Sacoro '
+      why:'Your ' + lbl + ' preparation window is here. Finish this block and SACORO '
         + 'will build your race programme from what you have shown it since.' };
   }
   if (!nearEnd && !goalPassed) return null;
@@ -46499,14 +46516,14 @@ var SESSION_IMPORTANCE = { KEY:'KEY', SUPPORT:'SUPPORT', RECOVERY:'RECOVERY', OP
    means, and what it does not commit them to. */
 var SUPPORT_COPY = {
   title: 'Include strength & mobility work',
-  what: 'Sacoro adds supporting sessions where they help the running \u2014 strength, conditioning or mobility, chosen for the phase you are in.',
+  what: 'SACORO adds supporting sessions where they help the running \u2014 strength, conditioning or mobility, chosen for the phase you are in.',
   optional: 'Optional, and never a fixed number of sessions. Some weeks will have none. You can change this any time in Settings.',
   /* THE WEEK STAGE'S OWN LINE. Shorter than the Review copy it replaces,
      because it now sits beside the training-day and long-run choices rather
      than alone on a screen -- and it still has to say the two things that stop
      a tick being read as a quota: Sacoro decides where it helps, and some
      weeks get none. */
-  weekHint: 'Sacoro may add strength, conditioning or mobility where it helps your running. Some weeks may have none.',
+  weekHint: 'SACORO may add strength, conditioning or mobility where it helps your running. Some weeks may have none.',
   /* What Review states back. A confirmation of a decision already made, not
      the place the decision is offered. */
   reviewKey: 'Strength & mobility',
@@ -47859,8 +47876,8 @@ function evolutionUsefulMissedIds(){
 function evolutionAnsweredMissed(){
   return ((state.evolution || {}).answeredMissed || []).concat((state.playbook || {}).answeredMissed || []);
 }
-var EVOLUTION_SETTLED_REASON = 'You accepted a change on this evidence. Sacoro will look again when there is something new to go on.';
-var EVOLUTION_KEPT_REASON = 'You kept your plan on this evidence. Sacoro will look again when there is something new to go on.';
+var EVOLUTION_SETTLED_REASON = 'You accepted a change on this evidence. SACORO will look again when there is something new to go on.';
+var EVOLUTION_KEPT_REASON = 'You kept your plan on this evidence. SACORO will look again when there is something new to go on.';
 function evolutionProposalVisible(ev){
   if (!ev || !ev.changes.length) return false;
   var st = state.evolution || {};
@@ -48660,7 +48677,7 @@ function coachNoteWritten(dd){
 function coachNoteText(dd){
   var written = '';
   try { written = coachNoteWritten(dd); } catch(e){ written = ''; }
-  return written || coachObservation(dd);
+  return written ? brandCase(written) : coachObservation(dd);
 }
 function coachNoteBudget(){
   var c = coachNoteLoad(), today = todayStr();
@@ -52474,7 +52491,7 @@ function sessionInterpretation(dd){
 
   /* 3. The coaching interpretation: why it happened, in the engine's terms. */
   if (c.short && a.stopReason === 'fatigue')
-    out.coaching = 'Fatigue limited completion today. Sacoro weighs this with your recent training and recovery before recommending any change.';
+    out.coaching = 'Fatigue limited completion today. SACORO weighs this with your recent training and recovery before recommending any change.';
   else if (c.short && a.stopReason === 'illness')
     out.coaching = 'Illness stopped this session. That outranks anything else here: recover before the next hard session.';
   else if (c.short && a.stopReason === 'injury')
@@ -52482,7 +52499,7 @@ function sessionInterpretation(dd){
   else if (c.short && a.stopReason)
     out.coaching = 'Stopping for that reason says nothing about your fitness. It is counted as partly done and nothing more.';
   else if (c.short)
-    out.coaching = 'Say why you stopped and Sacoro can read this properly.';
+    out.coaching = 'Say why you stopped and SACORO can read this properly.';
   else {
     /* Finished in full, with nothing measured: what the athlete said of the
        set is stated as exactly that -- their account, of one session. */
@@ -53022,7 +53039,7 @@ function renderPostRaceRecoverCard(report){
   return '<div class="hub-card coach-next">'+
     '<div class="coach-next-head">'+'<span class="coach-next-title">Next Move</span>'+
       '<span class="coach-state '+meta.cls+'"><span class="coach-state-dot"></span>'+meta.label+'</span></div>'+
-    '<div class="coach-next-rec">Nothing to prove today. Recover first. Tell Sacoro how Race Day '+
+    '<div class="coach-next-rec">Nothing to prove today. Recover first. Tell SACORO how Race Day '+
       'went when you’re ready, and we’ll take it from there.</div>'+
   '</div>';
 }
@@ -53332,7 +53349,7 @@ function renderDevelopingFrequencyCard(){
     return '<div class="hub-card prep-limited">' +
       head('Still on ' + dayWord(p.now != null ? p.now : p.open)) +
       '<div class="prep-limited-body">' + escapeHtml(held) + '</div>' +
-      '<div class="prep-limited-foot">Sacoro is holding your running days where ' +
+      '<div class="prep-limited-foot">SACORO is holding your running days where ' +
         'they are until that settles, rather than adding another. Your plan is still ' +
         'built around ' + dayWord(p.destination) + '.</div>' +
     '</div>';
@@ -53350,10 +53367,10 @@ function renderDevelopingFrequencyCard(){
      becomes routine, and the week builds toward four. */
   var opening = dayWord(p.now != null ? p.now : p.open);
   var body = (p.entryDays != null && p.entryDays >= MARATHON_MIN_PRESCRIBED_DAYS)
-    ? 'Sacoro is starting you on ' + opening + ' a week, because that is what ' +
+    ? 'SACORO is starting you on ' + opening + ' a week, because that is what ' +
       'your recent running shows you are used to. Your marathon plan is built ' +
       'around ' + dayWord(p.destination) + '.'
-    : 'Sacoro is starting you on ' + opening + ' a week and keeping the ' +
+    : 'SACORO is starting you on ' + opening + ' a week and keeping the ' +
       'opening workload controlled while running regularly becomes routine' +
       (p.entryDays === 0 ? ' \u2014 you told us you are not running at the moment'
         : p.entryDays != null ? ' \u2014 you told us you are running ' +
@@ -53365,7 +53382,7 @@ function renderDevelopingFrequencyCard(){
     head('Your running days') +
     '<div class="prep-limited-body">' + body + '</div>' +
     '<div class="prep-limited-foot">The next day is added ' + whenever +
-      ' \u2014 Sacoro adds it once your runs are landing and your recovery ' +
+      ' \u2014 SACORO adds it once your runs are landing and your recovery ' +
       'supports it, and will tell you when it does.</div>' +
   '</div>';
 }
@@ -53381,13 +53398,13 @@ function renderPreparationLimitedCard(){
       '<div class="coach-next-head">'+
         '<span class="coach-next-title">Preparation standard</span></div>'+
       '<div class="prep-limited-body">You have '+pl.weeksToRace+' weeks to your '+
-        escapeHtml(lbl.toLowerCase())+'. Sacoro asks for '+
+        escapeHtml(lbl.toLowerCase())+'. SACORO asks for '+
         (pl.minWeeks != null ? pl.minWeeks : MARATHON_MIN_WEEKS)+
         ' to build its full preparation standard, so this block is working with '+
         'less runway than that.</div>'+
       '<div class="prep-limited-foot">This is the safest useful programme the time '+
         'allows, and it takes you as far toward the standard as can safely be '+
-        'achieved. Sacoro will keep telling you where the preparation stands.</div>'+
+        'achieved. SACORO will keep telling you where the preparation stands.</div>'+
     '</div>';
   }
   if (!short.length) return '';
@@ -53400,11 +53417,11 @@ function renderPreparationLimitedCard(){
     '<div class="coach-next-head">'+
       '<span class="coach-next-title">Preparation standard</span></div>'+
     '<div class="prep-limited-body">Your '+escapeHtml(lbl.toLowerCase())+
-      ' preparation is not expected to reach Sacoro\u2019s full standard in the '+
+      ' preparation is not expected to reach SACORO\u2019s full standard in the '+
       'time available \u2014 '+say+'.</div>'+
     '<div class="prep-limited-foot">This is the safest useful programme your current '+
       'capacity and runway allow, and it takes you as far toward the standard as can '+
-      'safely be achieved. Sacoro will keep telling you where the preparation stands.</div>'+
+      'safely be achieved. SACORO will keep telling you where the preparation stands.</div>'+
   '</div>';
 }
 function renderRaceOutcomePrompt(){
@@ -53415,7 +53432,7 @@ function renderRaceOutcomePrompt(){
     '<div class="coach-next-head">'+
       '<span class="coach-next-title">How did it go?</span></div>'+
     '<div class="yr-outcome-q">Your '+escapeHtml(profile ? profile.label : 'goal')+
-      ' was '+dShort(su.raceDate)+'. What Sacoro learns from it depends on this answer.</div>'+
+      ' was '+dShort(su.raceDate)+'. What SACORO learns from it depends on this answer.</div>'+
     '<div class="yr-choices">'+
       RACE_OUTCOME_CHOICES.map(function(c){
         return '<button type="button" class="btn '+(c.k==='raced'?'btn-primary':'btn-ghost')+' btn-block" '+
@@ -53457,9 +53474,9 @@ function restrictionViabilityLine(){
   var said = !a || a.verdict === 'withheld'
     ? 'There is not yet enough evidence to say what that means for your goal.'
     : a.verdict === 'current_goal_supported'
-      ? 'On the evidence Sacoro has, your current target still stands.'
+      ? 'On the evidence SACORO has, your current target still stands.'
       : a.verdict === 'different_goal_recommended'
-        ? 'On the evidence Sacoro has, a different target is the honest one — Active Goal in Plan HQ is where you change it, and nothing changes until you do.'
+        ? 'On the evidence SACORO has, a different target is the honest one — Active Goal in Plan HQ is where you change it, and nothing changes until you do.'
         : a.verdict === 'preparation_short'
           ? 'The programme is short of what this event asks for. Nothing has been changed for you.'
           : 'None of your current targets is supported by the evidence yet. Nothing has been changed for you.';
@@ -54219,14 +54236,14 @@ function renderRestrictionCard(){
     return '<div class="hub-card yr-outcome">'+
       '<div class="coach-next-head">'+
         '<span class="coach-next-title">Are you back?</span></div>'+
-      '<div class="yr-outcome-q">You told Sacoro you could not train normally until '+
+      '<div class="yr-outcome-q">You told SACORO you could not train normally until '+
         dShort(r.until)+'. Nothing resumes until you say so — the days since are '+
         'restricted too, and none of them is counted against you.</div>'+
       '<div class="yr-choices">'+
         '<button type="button" class="btn btn-primary btn-block" data-action="restriction-end">Yes, I am back</button>'+
         '<button type="button" class="btn btn-ghost btn-block" data-action="restriction-open">Not yet — still restricted</button>'+
       '</div>'+
-      '<div class="yr-foot">Nothing you missed is made up. Sacoro does not yet decide how quickly you come back — if you are not ready, say so rather than resuming.</div>'+
+      '<div class="yr-foot">Nothing you missed is made up. SACORO does not yet decide how quickly you come back — if you are not ready, say so rather than resuming.</div>'+
     '</div>';
   }
 
@@ -54291,18 +54308,18 @@ function openRestrictionModal(){
   '<div class="modal-head"><h2 class="font-head">'+(open?'Change restriction':'Injury or illness')+'</h2>'+
     '<button type="button" class="icon-btn" data-action="restriction-cancel" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="field-hint" style="margin-bottom:12px;">Tell Sacoro you cannot train normally and it will adapt the plan, stop counting these days against you and make nothing up afterwards. It does not ask what the problem is and does not record one — if you are hurt or unwell, see a clinician.</div>'+
+    '<div class="field-hint" style="margin-bottom:12px;">Tell SACORO you cannot train normally and it will adapt the plan, stop counting these days against you and make nothing up afterwards. It does not ask what the problem is and does not record one. If you are hurt or unwell, see a clinician.</div>'+
     '<div class="setup-section-title">What can you do right now?</div>'+
     '<div role="radiogroup" aria-label="What can you do right now?">'+levelBtns+'</div>'+
     '<div class="setup-section-title">For how long?</div>'+
     '<div class="rs-pick-row" role="radiogroup" aria-label="For how long?">'+durBtns+'</div>'+
     '<div class="field" style="margin-top:8px;"><label for="rs-until">Or pick the last restricted day</label>'+
       vvCalFieldHtml('rs-until', restrictionDraft.until||'', todayStr())+'</div>'+
-    '<div class="field-hint">Ends '+dShort(restrictionDraftUntil())+'. You can end it early or extend it at any time — nothing is locked in.</div>'+
+    '<div class="field-hint">Ends '+dShort(restrictionDraftUntil())+'. You can end it early or extend it at any time. Nothing is locked in.</div>'+
   '</div>'+
   '<div class="page-foot">'+
     (open ? '<button type="button" class="btn btn-ghost" data-action="restriction-end">I am back</button>' : '')+
-    '<button type="button" class="btn btn-primary" data-action="restriction-confirm">'+ICONS.check+' '+(open?'Update':'Tell Sacoro')+'</button>'+
+    '<button type="button" class="btn btn-primary" data-action="restriction-confirm">'+ICONS.check+' '+(open?'Update':'Tell SACORO')+'</button>'+
   '</div>';
   /* Keyed: every level and duration pick calls straight back in here, and
      without this each one rebuilt the sheet and replayed its entrance. */
@@ -54571,7 +54588,7 @@ function handleRaceOutcome(outcome){
   if (outcome === 'later'){
     /* Explicitly deferred. Nothing is recorded, because nothing is known --
        the question stays pending and the card comes back tomorrow. */
-    showToast('No problem — log the run and Sacoro will ask again');
+    showToast('No problem — log the run and SACORO will ask again');
     return;
   }
   var res = recordRaceOutcome(outcome);
@@ -54599,7 +54616,7 @@ function handleStartBlock(purpose, weeks){
   if (!isBlockPurpose(purpose)) return;
   var label = blockPurposeLabel(purpose);
   if (!window.confirm('Start your ' + label + ' block?\n\n' +
-      'Your completed training is kept as history and everything Sacoro has ' +
+      'Your completed training is kept as history and everything SACORO has ' +
       'learned about you carries over. Only the remaining schedule is replaced.')) return;
   var block = startDevelopmentBlock(purpose, (weeks > 0) ? { weeks: weeks } : undefined);
   if (!block){ showToast('That block could not be built from your current settings'); return; }
@@ -55957,7 +55974,7 @@ function renderContinuityCard(){
     return '<div class="hub-card yr-next">'+
       '<div class="coach-next-head">'+
         '<span class="coach-next-title">What’s next</span></div>'+
-      '<div class="yr-why"><b>Race day has passed.</b> Tell Sacoro on Today how it went, '+
+      '<div class="yr-why"><b>Race day has passed.</b> Tell SACORO on Today how it went, '+
         'and we’ll guide you from there.</div>'+
     '</div>';
   }
@@ -55984,7 +56001,7 @@ function renderContinuityCard(){
     return '<div class="hub-card yr-next">'+
       '<div class="coach-next-head">'+
         '<span class="coach-next-title">What’s next</span></div>'+
-      '<div class="yr-why">Finish this block first. Once <b>Race Day</b> passes, Sacoro will '+
+      '<div class="yr-why">Finish this block first. Once <b>Race Day</b> passes, SACORO will '+
         'guide your recovery and help you choose what comes next.</div>'+
     '</div>';
   }
@@ -56012,7 +56029,7 @@ function renderContinuityCard(){
       '<div class="coach-next-head">'+
         '<span class="coach-next-title">What’s next</span></div>'+
       '<div class="yr-why">When this <b>'+escapeHtml(String(label).toLowerCase())+'</b> block '+
-        'finishes, Sacoro will offer you these directions:</div>'+
+        'finishes, SACORO will offer you these directions:</div>'+
       '<ul class="yr-preview">'+preview.options.map(function(o){
         return '<li>'+escapeHtml(o === 'race' ? 'Build a race block' : blockPurposeLabel(o))+'</li>';
       }).join('')+'</ul>'+
@@ -56775,7 +56792,7 @@ function raceGoalEntryHtml(entry, distanceKey, hasEvent){
     '<div class="modal-body">'+
       '<p>You are running ' + escapeHtml(fmtDist(entry.statedKm)) + ' a week. A ' +
         escapeHtml(lbl) + ' programme builds from ' + escapeHtml(fmtDist(entry.minKm)) +
-        ' a week upward — below that there is not yet enough running for Sacoro to '+
+        ' a week upward — below that there is not yet enough running for SACORO to '+
         'shape race-specific work around.</p>'+
       '<p>So the first block is ' + escapeHtml(baseLabel) + ': steady, sustainable running '+
         'that builds the foundation the ' + escapeHtml(lbl) + ' programme starts from.</p>'+
@@ -56787,7 +56804,7 @@ function raceGoalEntryHtml(entry, distanceKey, hasEvent){
       '</div>'+
       '<div class="yr-foot">' +
         (hasEvent
-          ? 'Sacoro keeps your ' + escapeHtml(lbl) + ' date and brings it back to you when '+
+          ? 'SACORO keeps your ' + escapeHtml(lbl) + ' date and brings it back to you when '+
             'your running can carry the programme.'
           : 'Your ' + escapeHtml(lbl) + ' goal stays on record — this is the way round to it.') +
       '</div>'+
@@ -56874,7 +56891,7 @@ function raceGoalPreparationHtml(adm, distanceKey){
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
     '<div class="modal-body modal-decision-body">'+
       '<p>Across ' + adm.weeksToRace + ' weeks, ' + gap + '. Your current running '+
-        'capacity and the time available mean Sacoro does not expect you to '+
+        'capacity and the time available mean SACORO does not expect you to '+
         'safely reach the full preparation standard for this event.</p>'+
       '<div class="decision-rec">'+
         '<div class="decision-rec-tag">Recommended \u2014 Build ' + escapeHtml(purposeLabel) + '</div>'+
@@ -56888,7 +56905,7 @@ function raceGoalPreparationHtml(adm, distanceKey){
         '<button type="button" class="btn btn-ghost btn-block" data-action="prep-continue">'+
           'Continue ' + escapeHtml(lbl) + '</button>'+
       '</div>'+
-      '<div class="yr-foot">Continue and Sacoro will build the safest useful ' +
+      '<div class="yr-foot">Continue and SACORO will build the safest useful ' +
         escapeHtml(lbl) + ' programme from where you are, and take your preparation as '+
         'far toward the standard as can safely be achieved.</div>'+
     '</div>';
@@ -56900,7 +56917,7 @@ function runwayOfferHtml(plan, distanceKey){
   var why = prep.reason === 'aerobic_gap'
     ? 'Your weekly running is below what a ' + lbl.toLowerCase() +
       ' programme builds from, so aerobic development comes first.'
-    : 'Your aerobic base is there. What you have not shown Sacoro is how you absorb '
+    : 'Your aerobic base is there. What you have not shown SACORO is how you absorb '
       + 'faster work, and that is what these weeks are for.';
   return '<div class="modal-head"><h2 class="font-head">You have ' + plan.weeksToRace + ' weeks</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
@@ -56916,7 +56933,7 @@ function runwayOfferHtml(plan, distanceKey){
         '<button type="button" class="btn btn-ghost btn-block" data-action="runway-continue">'+
           'Build the ' + escapeHtml(lbl) + ' programme now</button>'+
       '</div>'+
-      '<div class="yr-foot">Either way Sacoro keeps your race date and brings you back '+
+      '<div class="yr-foot">Either way SACORO keeps your race date and brings you back '+
         'to it when the ' + plan.dedicatedWeeks + '-week window opens.</div>'+
     '</div>';
 }
@@ -56933,7 +56950,7 @@ function availabilityOfferHtml(rec){
           'Keep my current days</button>'+
       '</div>'+
       '<div class="yr-foot">Saying no costs you nothing — no streak, no score, and '+
-        'Sacoro solves the programme around the days you have.</div>'+
+        'SACORO solves the programme around the days you have.</div>'+
     '</div>';
 }
 /* THE SCREEN FLASHED BECAUSE THE MODAL WAS BEING REBUILT, NOT REDRAWN.
@@ -57198,12 +57215,12 @@ function openSetupModal(){
           '<span class="bor-d">We understand your running and what you’re aiming for.</span>'+
         '</div>'+
         '<div class="bld-overview-row">'+
-          '<span class="bor-t">Sacoro builds your plan</span>'+
+          '<span class="bor-t">SACORO builds your plan</span>'+
           '<span class="bor-d">Workouts, paces and progression are created for you.</span>'+
         '</div>'+
         '<div class="bld-overview-row">'+
           '<span class="bor-t">We adapt as you go</span>'+
-          '<span class="bor-d">Log your runs and Sacoro gets smarter as the block progresses.</span>'+
+          '<span class="bor-d">Log your runs and SACORO gets smarter as the block progresses.</span>'+
         '</div>'+
       '</div>'+
       bldStravaOffer()+
@@ -57416,7 +57433,7 @@ function openSetupModal(){
       '<div class="field"><label>Time</label>'+
         '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
       '<div class="field-hint">Minutes and seconds, like 23:25 or 23.25.</div>'+
-      '<div class="field-hint">A reference you give Sacoro, not a measurement of your fitness. Plan HQ measures that from the races and checkpoints you actually run, and you can change this any time in Re-calibrate.</div>'+
+      '<div class="field-hint">A reference you give SACORO, not a measurement of your fitness. Plan HQ measures that from the races and checkpoints you actually run, and you can change this any time in Re-calibrate.</div>'+
       navBtns(6)+
     '</section>'+
 
@@ -57461,13 +57478,13 @@ function openSetupModal(){
        neither number without it. */
     '<section class="bld-panel" data-stage="8" hidden>'+
       stageHead(8)+
-      '<p class="bld-lede">Lactate Threshold Heart Rate (LTHR) is roughly the highest heart rate you can hold for a hard, controlled effort of about an hour. Give it and Sacoro adds target heart-rate ranges alongside your paces.</p>'+
+      '<p class="bld-lede">Lactate Threshold Heart Rate (LTHR) is roughly the highest heart rate you can hold for a hard, controlled effort of about an hour. Give it and SACORO adds target heart-rate ranges alongside your paces.</p>'+
       '<div class="benchmark-row">'+
         '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
         '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
       '</div>'+
       '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip, I don’t know these</button>'+
-      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. Sacoro works without it.</div>'+
+      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. SACORO works without it.</div>'+
       navBtns(8)+
     '</section>'+
 
@@ -57520,12 +57537,14 @@ function openSetupModal(){
       (state.setup
         ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history. Only untouched future days are replaced.</div>'
         : '<div class="field-hint" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
-          '<a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and '+
-          '<a href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(legalTermsLabel())+'</a>. '+
+          '<a href="'+LEGAL_URLS.privacy+'" data-action="open-external" data-href="'+LEGAL_URLS.privacy+'">Privacy Policy</a> and '+
+          '<a href="'+LEGAL_URLS.terms+'" data-action="open-external" data-href="'+LEGAL_URLS.terms+'">'+escapeHtml(legalTermsLabel())+'</a>. '+
           'Both are always in Settings.</div>')+
     '</section>'+
   '</div>';
-  openModal(html, 'modal-themed builder-light bld-modal');
+  /* A PAGE, LIKE EVERY OTHER SETTINGS WORKFLOW. Founder: "Training zones.
+     Build your training block full page." */
+  openModal(html, 'modal-themed builder-light bld-modal '+STG_PAGE);
 
   /* Grid -> mirrored select. Delegated on the card so the three grids share one
      listener, and a grid rebuilt later (the long-run day) needs no rebinding. */
@@ -57627,7 +57646,7 @@ function openSetupModal(){
     var shown = units === 'mi'
       ? round2(entry.minKm * 0.621371) + 'mi'
       : round1(entry.minKm) + 'km';
-    note.textContent = 'Below ' + shown + ' a week Sacoro builds your Aerobic Base first. '
+    note.textContent = 'Below ' + shown + ' a week SACORO builds your Aerobic Base first. '
       + 'Your race goal stays on record.';
     note.hidden = false;
   }
@@ -60047,7 +60066,7 @@ function openSettingsModal(){
    account is a separate, genuinely destructive action, described in its own
    place, and nothing here should read like it. */
 var RESET_PLAN_HINT = 'Clears the current plan and schedule so you can build a new one. ' +
-  'Your logged runs, measured results and everything Sacoro has learned about you are kept.';
+  'Your logged runs, measured results and everything SACORO has learned about you are kept.';
 function handleResetPlan(){
   /* ON ITS OWN PAGE THE FIRST PRESS ASKS; it does not clear. The page's
      second press arrives through handleResetPlanConfirm(). Any other caller
@@ -60056,7 +60075,7 @@ function handleResetPlan(){
   resetPlanConfirmedOnPage = false;
   if (!confirmed && openRecordPanelKey === 'resetplan'){ handleResetPlanArm(true); return; }
   resetPlanArmed = false;
-  var ok = confirmed || window.confirm('Start a new training block? This clears your current plan and schedule. Your logged runs and everything Sacoro has learned about your training are kept.');
+  var ok = confirmed || window.confirm('Start a new training block? This clears your current plan and schedule. Your logged runs and everything SACORO has learned about your training are kept.');
   if (!ok) return;
   var id = state.setup && state.setup.blockId;
   archiveCompletedSessions(id);
@@ -60148,7 +60167,7 @@ function applyBackupText(text){
   return decodeBackup(text).then(applyBackupJson, function(err){
     var why = err && err.message;
     if (why==='truncated') showToast('That backup looks cut off \u2014 copy it again, or use Export Full Backup');
-    else showToast('That doesn\u2019t look like a Sacoro backup');
+    else showToast('That doesn\u2019t look like a SACORO backup');
     return false;
   });
 }
@@ -60184,7 +60203,7 @@ function applyBackupJson(text){
     // off in transit" -- the second one is fixable and the user needs to know.
     if (t.charAt(0)==='{' && t.charAt(t.length-1)!=='}')
       showToast('That backup looks cut off at ' + t.length + ' characters \u2014 copy it again');
-    else showToast('That doesn\u2019t look like a Sacoro backup');
+    else showToast('That doesn\u2019t look like a SACORO backup');
     return false;
   }
   /* Backup import is the same contamination shape as the sign-in path, but
@@ -60200,7 +60219,7 @@ function applyBackupJson(text){
   var backupOwner = (parsed && typeof parsed.ownerUid === 'string') ? parsed.ownerUid : null;
   if (me && backupOwner && backupOwner !== me){
     var accept = window.confirm(
-      'This backup belongs to a different Sacoro account.\n\n'+
+      'This backup belongs to a different SACORO account.\n\n'+
       'Importing it will make this plan yours on this device and in your account.\n\n'+
       'Continue?');
     if (!accept){ showToast('Import cancelled — nothing was changed'); return false; }
@@ -60400,7 +60419,7 @@ var GUIDANCE_LEVELS = ['adaptive', 'full', 'concise'];
 var GUIDANCE_LEVEL_DEFAULT = 'adaptive';
 var GUIDANCE_LEVEL_META = {
   adaptive: { label: 'Adaptive',
-              blurb: 'Sacoro decides how much to say, session by session. Recommended.' },
+              blurb: 'SACORO decides how much to say, session by session. Recommended.' },
   full:     { label: 'Full',
               blurb: 'The full explanation every time — purpose, execution, feel and what to watch for.' },
   concise:  { label: 'Concise',
@@ -60520,8 +60539,8 @@ function renderAthleteNameRow(){
   return '<div id="athlete-name-row" class="connect-row">'+
     '<div><div class="name">Your name</div>'+
     '<div class="desc">'+(n
-      ? 'Sacoro greets you as '+escapeHtml(n)+'.'
-      : 'Add a first name and Sacoro will greet you by it.')+'</div></div>'+
+      ? 'SACORO greets you as '+escapeHtml(n)+'.'
+      : 'Add a first name and SACORO will greet you by it.')+'</div></div>'+
     '<input id="athlete-name" class="stg-name-input" type="text" '+
       'autocomplete="given-name" maxlength="80" '+
       'value="'+escapeHtml(n || '')+'" placeholder="First name" '+
@@ -60541,7 +60560,7 @@ function handleSetAthleteName(){
   }
   scheduleSave();
   renderApp();
-  showToast('Sacoro will call you ' + athleteFirstName());
+  showToast('SACORO will call you ' + athleteFirstName());
 }
 function renderSupportWorkRow(){
   var on = supportWorkEnabled();
@@ -60559,7 +60578,7 @@ function handleSetSupportWork(on){
   state.setup.supportWork = on ? 'on' : 'off';
   scheduleSave();
   renderApp();
-  showToast(on ? 'Strength & mobility work is on \u2014 Sacoro will add it where it helps'
+  showToast(on ? 'Strength & mobility work is on \u2014 SACORO will add it where it helps'
                : 'Strength & mobility work is off');
 }
 
@@ -60693,7 +60712,7 @@ function optionalRunRecordHtml(dd){
   var parts = [fmtDist(a.km)];
   if (paceSec) parts.push(fmtPaceFromSecPerKm(paceSec));
   return '<div class="optional-line font-mono">'+escapeHtml(parts.join(' · '))+'</div>'+
-    '<div class="optional-note">Logged — Sacoro will take this into account.</div>'+
+    '<div class="optional-note">Logged — SACORO will take this into account.</div>'+
     (canEditOptionalRun(dd)
       ? '<div class="optional-actions">'+
           '<button type="button" class="btn btn-sm btn-ghost" data-action="optional-run-log" '+
@@ -61765,7 +61784,7 @@ function voiceResolveVoice(){
 var COACH_VOICES = ['molly', 'joanna', 'harry', 'andrew'];
 var COACH_VOICE_DEFAULT = 'molly';
 var COACH_VOICE_META = {
-  molly:  { label:'Molly',  blurb:'Warm and measured. The Sacoro default.' },
+  molly:  { label:'Molly',  blurb:'Warm and measured. The SACORO default.' },
   joanna: { label:'Joanna', blurb:'Bright and even.' },
   harry:  { label:'Harry',  blurb:'Low and steady.' },
   andrew: { label:'Andrew', blurb:'Calm and matter-of-fact.' }
@@ -62213,8 +62232,22 @@ function voiceStop(){
    the press when a neural voice is reachable, and every failure inside it ends
    at voiceSpeakNative() below -- the same function, unchanged, that has always
    done this job. Nothing was removed to add a vendor. */
+/* THE NAME IS WRITTEN IN CAPITALS AND SAID AS A WORD. Founder: "Saroco
+   should be SACORO check the whole app every place the end user can reach!"
+   A speech engine given SACORO may spell it out letter by letter, so what
+   is spoken is the word, whatever the screen shows. */
+function voiceSayName(text){
+  return String(text).replace(/\bSACORO\b/g, 'Sacoro');
+}
+/* AND WHAT A LANGUAGE MODEL WRITES IS SHOWN IN THE SAME CAPITALS. The Coach's
+   Note and Ask Coach answers are written by a model told about "Sacoro", so
+   the name is put into SACORO where the athlete reads it. */
+function brandCase(text){
+  return String(text == null ? '' : text).replace(/\bSacoro\b/g, 'SACORO');
+}
 function voiceSpeak(text, opts){
   if (!text) return false;
+  text = voiceSayName(text);
   /* localOnly: THE CALLER ALREADY KNOWS THERE IS NO NETWORK. Offline guidance
      asks for this, because the premium path would open a request to
      /api/voice-tts and spend TTS_CLIENT_TIMEOUT_MS of silence discovering what
@@ -62622,7 +62655,7 @@ function askSet(status, extra){
   askState = {
     status: status,
     heard:  (extra && extra.heard  != null) ? extra.heard  : askState.heard,
-    answer: (extra && extra.answer != null) ? extra.answer : askState.answer,
+    answer: (extra && extra.answer != null) ? brandCase(extra.answer) : askState.answer,
     message:(extra && extra.message)|| '',
     proposalDayId: (extra && extra.proposalDayId !== undefined)
       ? extra.proposalDayId : askState.proposalDayId,
@@ -62682,9 +62715,9 @@ function askStreamChunk(text){
   askSpeechFeed(text, false);
   /* State is kept in step so any re-render for another reason paints the same
      words -- but the render is not what puts them on screen. */
-  askState.answer = askStreamBuf;
+  askState.answer = brandCase(askStreamBuf);
   var el = document.getElementById('ask-answer-live');
-  if (el) el.textContent = askStreamBuf;
+  if (el) el.textContent = askState.answer;
   else patchVoiceCard();
 }
 /* ONE ANNOUNCEMENT, AFTER THE WORDS HAVE STOPPED MOVING. The growing node is
@@ -62820,7 +62853,7 @@ function voiceSttAvailable(){ return !voiceSttUnsupportedReason(); }
 var VOICE_STT_COPY = {
   /* Said in product language. No API names, no permission jargon, no mention of
      recognisers or providers -- each one names what the athlete can do next. */
-  no_on_device:       'This phone can only transcribe speech by sending it away, so Sacoro doesn’t use it — type your question instead.',
+  no_on_device:       'This phone can only transcribe speech by sending it away, so SACORO doesn’t use it — type your question instead.',
   native_unavailable: 'Speaking isn’t available on this phone — type your question instead.',
   insecure:           'Speaking needs a secure connection — type your question instead.',
   no_api:             'This browser can’t listen — type your question instead.'
@@ -65630,14 +65663,38 @@ function patchDerivedStats(){
    it afterwards is what makes the browser apply its adjustment, which is
    why the comparison is not an optimisation: it is the step that lets the
    correction be undone in the same frame, before anything is painted. */
+/* ---------- AND THE COPY THE ATHLETE IS ACTUALLY LOOKING AT ----------
+   Founder: "A completed session on this week doesn't allow you to open your
+   log."
+   On This Week, and on a Full Plan week, the session on screen is the day's
+   SLIDE -- weekSlideHtml() carries the finished session's tabs -- while the
+   canonical card sits hidden behind the carousel with the id. replaceCard()
+   redrew the hidden one only, so tapping Your Log on the slide changed the
+   state and drew nothing, and every answer given inside an open log would
+   have gone the same way. Every slide for this day is redrawn with it, at
+   its own index so its per-slide ids stay its own. */
+function replaceWeekSlides(dd){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var slides = document.querySelectorAll('.wk-slide[data-date="'+dd.date+'"]');
+  for (var i = 0; i < slides.length; i++){
+    var el = slides[i], track = el.parentNode;
+    if (!track) continue;
+    var idx = Array.prototype.indexOf.call(track.querySelectorAll('.wk-slide'), el);
+    var w = document.createElement('div');
+    w.innerHTML = weekSlideHtml(dd, idx < 0 ? 0 : idx);
+    if (w.firstChild) track.replaceChild(w.firstChild, el);
+  }
+}
 function replaceCard(dd){
-  var cardEl = document.getElementById('day-'+dd.id);
-  if (!cardEl) return;
   var hasWin = typeof window !== 'undefined' && typeof window.scrollTo === 'function';
   var y = hasWin ? (window.pageYOffset || 0) : 0;
-  var wrapper = document.createElement('div');
-  wrapper.innerHTML = renderDayCard(dd);
-  cardEl.parentNode.replaceChild(wrapper.firstChild, cardEl);
+  replaceWeekSlides(dd);
+  var cardEl = document.getElementById('day-'+dd.id);
+  if (cardEl){
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML = renderDayCard(dd);
+    cardEl.parentNode.replaceChild(wrapper.firstChild, cardEl);
+  }
   wireCoachingRails();
   if (hasWin){ try { if ((window.pageYOffset || 0) !== y) window.scrollTo(0, y); } catch(e){} }
 }
@@ -66182,8 +66239,8 @@ function applyHealthConsentDecision(rec, was, opts){
   if (opts && opts.quiet) return;
   showToast(granted
     ? 'Health and readiness information is on — you can turn it off in Settings'
-    : (was ? 'Turned off — Sacoro will stop using it from now on'
-           : 'Left off — Sacoro will run your programme without it'));
+    : (was ? 'Turned off — SACORO will stop using it from now on'
+           : 'Left off — SACORO will run your programme without it'));
   renderApp();
 }
 /* The durable audit copy. One append-only row per decision, so "what did they
@@ -67926,15 +67983,15 @@ var COACH_GRAPHS = ['efficiency', 'paceAtHR', 'drift', 'threshold', 'recovery'];
    is never a count of what is missing. */
 var COACH_GRAPH_META = {
   efficiency: { title:'Aerobic Efficiency', group:'Aerobic Development', tab:'Efficiency', waiting:'Learning',
-                hello:'Sacoro reads this from easy runs logged with heart rate and pace. Your first one starts it.' },
+                hello:'SACORO reads this from easy runs logged with heart rate and pace. Your first one starts it.' },
   paceAtHR:   { title:'Pace at HR', group:'Aerobic Development', tab:'Pace at HR', waiting:'Learning',
-                hello:'Sacoro reads this from easy runs at your usual easy heart rate. Your first easy run with heart rate starts it.' },
+                hello:'SACORO reads this from easy runs at your usual easy heart rate. Your first easy run with heart rate starts it.' },
   drift:      { title:'Cardiac Drift', group:'Aerobic Development', tab:'Drift', waiting:'Learning',
-                hello:'Sacoro reads this from steady runs of 40 minutes with lap pace and heart rate. Your first one starts it.' },
+                hello:'SACORO reads this from steady runs of 40 minutes with lap pace and heart rate. Your first one starts it.' },
   threshold:  { title:'Threshold Development', group:'Threshold Development', tab:'Threshold', waiting:'Awaiting reliable evidence',
-                hello:'Sacoro reads this from threshold sessions logged with the main set\u2019s average pace. Your first one starts it.' },
+                hello:'SACORO reads this from threshold sessions logged with the main set\u2019s average pace. Your first one starts it.' },
   recovery:   { title:'Recovery Response', group:'Recovery Response', tab:'Recovery', waiting:'Building your baseline',
-                hello:'Sacoro reads this from the days after a hard session: your check-ins and easy runs. The first hard session you follow up starts it.' }
+                hello:'SACORO reads this from the days after a hard session: your check-ins and easy runs. The first hard session you follow up starts it.' }
 };
 /* Display rules, not coaching: how many points make a line worth drawing and
    when a line may be carried forward. They change nothing the engine decides. */
@@ -68036,7 +68093,7 @@ function coachGraphEasyHello(fallback){
   var easy = (state.days || []).filter(function(d){ return d && d.completed && d.type === 'easy'; });
   if (!easy.length) return fallback;
   if (!healthConsentGranted())
-    return 'Heart rate is health information, and Sacoro only reads it if you have said it may. Settings \u2192 Health & Readiness.';
+    return 'Heart rate is health information, and SACORO only reads it if you have said it may. Settings \u2192 Health & Readiness.';
   var bare = easy.filter(function(d){ return !d.actual || d.actual.hr == null; }).length;
   if (!bare) return fallback;
   return (bare === 1 ? 'One easy run is' : bare + ' easy runs are') +
@@ -68332,7 +68389,7 @@ function coachGraphSeries(key){
       /* A block with no threshold work in it has nothing to wait for, and
          saying "your first one starts it" would be a promise about a
          session that is not coming. */
-      else if (!th.planned) s.hello = 'This block has no threshold sessions in it, so there is nothing for Sacoro to read here.';
+      else if (!th.planned) s.hello = 'This block has no threshold sessions in it, so there is nothing for SACORO to read here.';
       return s;
     }
     /* Said on every state of this graph, because it is the distinction the
@@ -68863,7 +68920,7 @@ function recordPanelBenchmark(){
      figure in the circle to carry it. */
   var body = (b ? '' : '<div class="hub-card tile-card">'+
       '<div class="hq-empty">No benchmark set yet.</div></div>')+
-    '<div class="field-hint">A benchmark is a recent performance you have told Sacoro about. '+
+    '<div class="field-hint">A benchmark is a recent performance you have told SACORO about. '+
       'It is the number Suggest Goals works from, and the number to update when your fitness moves.</div>'+
     /* WHAT ACTUALLY SETS THEM, from the same accessor the paces use. Until
        the current-fitness change this paragraph said "from your active goal,
@@ -68995,7 +69052,7 @@ function zonePaceSourceSentence(goal, profile){
   if (anchor.source === 'calibration')
     return 'Calculated from your Threshold Calibration'+
            (anchor.date ? ' on '+dShort(anchor.date) : '')+
-           ' — the threshold pace Sacoro measured you at.';
+           ' — the threshold pace SACORO measured you at.';
   if (anchor.source === 'benchmark')
     return 'Calculated from the benchmark time you gave at setup. Run a Threshold '+
            'Calibration, a race or a Fitness Checkpoint and these are recalculated '+
@@ -69674,7 +69731,7 @@ function renderCurrentFitnessInstrument(){
       escapeHtml(currentFitnessSourcePhrase())+(anchor.date ? ' · '+dShort(anchor.date) : '')+'</div>';
   } else {
     var why = est && est.withheld ? est.reason
-      : 'Set a goal distance and Sacoro will show what your current fitness suggests for it.';
+      : 'Set a goal distance and SACORO will show what your current fitness suggests for it.';
     valueHtml = '<div class="cf-value cf-value-empty">—</div>';
     capHtml = '<div class="cf-value-cap">'+escapeHtml(why)+'</div>';
   }
@@ -69862,12 +69919,12 @@ function actionPanelNewBlock(){
     /* nextBlockRecommendation() returns nothing while a block is still
        running, which is the common case here. Saying so is better than an
        empty space where a recommendation would have been. */
-    body += '<div class="field-hint" style="margin-top:10px;">Sacoro has no recommendation for '+
+    body += '<div class="field-hint" style="margin-top:10px;">SACORO has no recommendation for '+
       'what comes next yet — it makes one when this block finishes, or after you race. You can '+
       'still start a new one now.</div>';
   }
   body += '<div class="field-hint">Your completed training is kept as history '+
-      'and everything Sacoro has learned about you carries over. Only the remaining schedule is '+
+      'and everything SACORO has learned about you carries over. Only the remaining schedule is '+
       'replaced, and nothing changes until you choose.</div>';
   return recordPanelShell('New Block', body, null,
     '<button type="button" class="btn btn-primary" data-action="open-setup">'+
@@ -69892,7 +69949,7 @@ function settingsPanelPrefs(){
   return recordPanelShell('Preferences',
     renderAthleteNameRow()+
     renderNotifyToggleRow()+
-    renderGuidanceLevelRow()+
+
     renderSupportWorkRow()+
     renderCoachVoiceRow());
 }
@@ -69915,6 +69972,52 @@ function settingsPanelSubscription(){
     'the period you have already paid for, and nothing further is charged. '+
     'Cancelling never deletes your training.</div>');
 }
+/* ---------- BACK FROM A PAGE GOES TO THE PAGE IT CAME FROM ----------
+   Founder: "Training zones. When you click 1 of the 3 pages but then swipe
+   out it takes all the way back to settings not the training zone page."
+   Re-calibrate, Zone Paces, the builder and the pacing strategy each open
+   in place of Training & Zones, so closing one -- the ring, a swipe, or
+   Android's back -- closed everything. Opened from that page, closing one
+   now returns to it.
+   ONLY THAT CARD. What is remembered is the card the sub-page was drawn
+   in; if the sub-page has since been replaced (a save, a result screen),
+   closing it is an ordinary close, so a stale return can never reopen
+   Training & Zones over something else. */
+var stgReturn = null;
+function stgOpenSub(open){
+  var from = openRecordPanelKey;
+  open();
+  var ov = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('modal-overlay') : null;
+  var card = ov && ov.querySelector ? ov.querySelector('.modal-card') : null;
+  stgReturn = (from === 'training' && card) ? { key:from, card:card } : null;
+}
+function stgCloseSub(){
+  var r = stgReturn;
+  stgReturn = null;
+  if (!r) return false;
+  var ov = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('modal-overlay') : null;
+  var card = ov && ov.querySelector ? ov.querySelector('.modal-card') : null;
+  if (!card || card !== r.card) return false;
+  openSettingsPanel(r.key);
+  return true;
+}
+/* ---------- A LINK OUT OF THE APP, THAT GOES SOMEWHERE ----------
+   Founder: "Legal and support. Currently the 3 options go nowhere."
+   They were plain links opening a new window (target="_blank"), and a new
+   window is not something the installed app's WebView reliably makes. A
+   navigation of the page itself is: Capacitor hands any address that is not
+   the app's own to the system, so the website opens in the browser and an
+   email address opens the mail app. In a browser tab the link still opens a
+   new tab, as it did. One door for every link that leaves the app. */
+function openExternal(url){
+  if (!url) return;
+  try {
+    if (isNativeApp() || /^mailto:/i.test(url)){ window.location.href = url; return; }
+    var w = window.open(url, '_blank', 'noopener');
+    if (!w) window.location.href = url;
+  } catch(e){}
+}
+function openContact(){ openExternal('mailto:'+LEGAL_URLS.support); }
 function settingsPanelTraining(){
   return recordPanelShell('Training & Zones',
     '<button type="button" class="btn btn-primary btn-recal btn-block" style="margin-bottom:10px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
@@ -70080,12 +70183,12 @@ function settingsPanelUpdate(){
   var body =
     (installed ? '<div class="hub-card tile-card">'+hqRow('Installed app', installed)+'</div>' : '')+
     '<div class="stg-update-say" role="status" aria-live="polite">'+escapeHtml(APP_UPDATE_WORDS[st] || '')+'</div>'+
-    '<div class="field-hint">Sacoro updates itself each time you open it. Check here if it has been open for a while.</div>';
+    '<div class="field-hint">SACORO updates itself each time you open it. Check here if it has been open for a while.</div>';
   var foot;
   if (st === 'ready')
     foot = '<button type="button" class="btn btn-primary" data-action="apply-app-update">Update now</button>';
   else if (st === 'store')
-    foot = '<a class="btn btn-primary" href="'+PLAY_STORE_URL+'" target="_blank" rel="noopener noreferrer">Open Google Play</a>';
+    foot = '<button type="button" class="btn btn-primary" data-action="open-external" data-href="'+PLAY_STORE_URL+'">Open Google Play</button>';
   else
     foot = '<button type="button" class="btn btn-primary" data-action="check-app-update"'+
       (st === 'checking' ? ' disabled' : '')+'>'+
@@ -70228,12 +70331,18 @@ function renderPlanHQView(){
 // the stored flag alone -- a stale "on" after the user revoked permission
 // elsewhere would otherwise look enabled but silently never fire.
 function renderNotifyToggleRow(){
-  var supported = typeof Notification!=='undefined';
-  var revoked = supported && Notification.permission==='denied';
-  var on = state.notifyEnabled && supported && Notification.permission==='granted';
-  var desc = !supported ? 'Not supported in this browser'
-    : revoked ? 'Blocked — enable notifications for this site in your browser/device settings'
-    : on ? 'On — fires once today’s workout is ready' : 'Off';
+  var native = !!nativeNotifier();
+  var supported = native || typeof Notification!=='undefined';
+  var perm = native ? nativeNotifyPerm : (typeof Notification!=='undefined' ? Notification.permission : null);
+  var revoked = supported && perm==='denied';
+  var on = !!state.notifyEnabled && supported && perm==='granted';
+  /* An installed app from before the reminder was native says so, rather
+     than "not supported", which would be untrue of the app it will become. */
+  var desc = !supported ? (isNativeApp() ? 'Needs the latest version of the app' : 'Not supported in this browser')
+    : revoked ? (native ? 'Blocked. Allow notifications for SACORO in your phone\u2019s settings'
+                        : 'Blocked. Allow notifications for this site in your browser settings')
+    : on ? (native ? 'On. Every morning at 08:00, with that day\u2019s session' : 'On. When today\u2019s session is ready')
+    : 'Off';
   return '<div class="connect-row" id="notify-toggle-row">'+
     '<div><div class="name">Daily 08:00 Workout Reminder</div><div class="desc">'+desc+'</div></div>'+
     '<label class="switch"><input type="checkbox" data-action="toggle-notify" '+(on?'checked':'')+(supported?'':' disabled')+'><span class="switch-track"></span></label>'+
@@ -70289,7 +70398,7 @@ function renderCloudCard(){
         '<div><div class="name">'+escapeHtml(cloudSession.email||'Signed in')+'</div><div class="desc">'+label+'</div></div>'+
         '<button type="button" class="btn btn-sm btn-ghost" data-action="cloud-sign-out">Sign out</button>'+
       '</div>'+
-      (revoked ? '<div class="field-hint" style="margin-top:8px;">This account no longer has access to Sacoro. Your plan and history are unaffected and remain on this device.</div>' : '')+
+      (revoked ? '<div class="field-hint" style="margin-top:8px;">This account no longer has access to SACORO. Your plan and history are unaffected and remain on this device.</div>' : '')+
       /* DELETE ACCOUNT AND RESET PLAN MUST NOT LOOK ALIKE.
          Both were btn-danger, so Settings offered two identical red buttons:
          one clears a schedule and explicitly keeps everything, the other
@@ -70301,7 +70410,7 @@ function renderCloudCard(){
       '<div class="danger-zone">'+
         '<div class="dz-title">Permanent</div>'+
         '<button type="button" class="btn btn-danger btn-block" data-action="cloud-delete-account">'+ICONS.trash+' Delete Account &amp; Cloud Data</button>'+
-        '<div class="field-hint" style="margin-top:8px;">Erases your Sacoro account and everything stored on our server, for good. '+
+        '<div class="field-hint" style="margin-top:8px;">Erases your SACORO account and everything stored on our server, for good. '+
         'This is not the same as resetting your plan. Your training on this device is left alone.</div>'+
       '</div>';
   } else {
@@ -70456,7 +70565,7 @@ function cloudRowLine(){
   if (!cloudConfigured()) return '';
   return cloudSignedIn()
     ? 'Saved on this device and backed up to your account'
-    : 'Saved on this device — sign in to back it up';
+    : 'Saved on this device. Sign in to back it up';
 }
 function stravaSettingsVisible(){ return !!stravaAvailable; }
 function stravaRowLine(){
@@ -70488,7 +70597,11 @@ function stgRow(o){
       '<span class="stg-row-title">'+escapeHtml(o.title)+'</span>'+
       (o.sub ? '<span class="stg-row-sub">'+escapeHtml(o.sub)+'</span>' : '')+
     '</span>'+
-    (o.pill ? '<span class="stg-pill '+(o.pillTone||'')+'">'+escapeHtml(o.pill)+'</span>' : '')+
+    /* NO PILLS ON A SETTINGS ROW. Founder: "If my subscription tab says
+       owner in a pill ... do we need the pill?" The line under each title
+       already says it -- "Owner access", "Connected as ...", "A newer
+       version of the app is available" -- so the pill was the same fact a
+       second time, in the one shape this product has retired. */
     (o.trail || '')+
     (o.chevron === false ? '' : '<span class="rs-chev">'+ICONS.chevronRight+'</span>');
   var cls = 'ev-card stg-nav stg-row'+(o.muted ? ' is-muted' : '');
@@ -70502,8 +70615,8 @@ function stgRow(o){
      and "KMMI" as loose text underneath. `still` says the row itself goes
      nowhere; its controls do the work. */
   if (o.still) return '<div class="'+cls+' is-still">'+inner+'</div>';
-  if (o.href) return '<a class="'+cls+'" href="'+o.href+'"'+
-    (o.external ? ' target="_blank" rel="noopener noreferrer"' : '')+'>'+inner+'</a>';
+  if (o.href && o.external) return '<button type="button" class="'+cls+'" data-action="open-external" data-href="'+escapeHtml(o.href)+'">'+inner+'</button>';
+  if (o.href) return '<a class="'+cls+'" href="'+o.href+'">'+inner+'</a>';
   return '<button type="button" class="'+cls+'" '+(o.attrs||'')+'>'+inner+'</button>';
 }
 function stgPanelRow(title, sub, panelKey, pill, pillTone){
@@ -70562,7 +70675,7 @@ function renderSettingsHubView(){
      need its own handling and buys nothing over an App Link the store
      already claims. */
   var appUpdate = nativeUpdateAvailable()
-    ? stgRow({ title:'Update Sacoro',
+    ? stgRow({ title:'Update SACORO',
         sub:'A newer version of the app is available',
         pill:'UPDATE AVAILABLE', pillTone:'is-gold',
         href:PLAY_STORE_URL, external:true })
@@ -70580,19 +70693,19 @@ function renderSettingsHubView(){
       : '');
 
   var training =
-    stgPanelRow('Preferences', 'Coaching detail, notifications, strength & mobility',
+    stgPanelRow('Preferences', 'Your name, reminder, strength & mobility, coach voice',
       'prefs')+
     /* THE SWITCH IS IN THE ROW, because withdrawing consent must cost one
        tap, and the row also opens the panel that explains what the switch
        does. Two targets, one row -- the label goes to the explanation, the
        switch is the decision. */
     stgRow({ title:'Health & Readiness',
-      sub: healthOn ? 'On — used to adjust your programme' : 'Use my health and readiness information',
+      sub: healthOn ? 'On. Used to adjust your programme' : 'Use my health and readiness information',
       chevron:false,
       attrs:'data-action="open-settings-panel" data-panel="health"',
       trail:'<span class="stg-row-switch">'+healthConsentSwitchHtml()+'</span>' })+
     (hasPlan ? stgRow({ title:'Training Availability',
-      sub: openRestriction() ? 'Injury or illness — restriction open' : 'Injured or ill? Tell Sacoro',
+      sub: openRestriction() ? 'Injury or illness: restriction open' : 'Injured or ill? Tell SACORO',
       attrs:'data-action="restriction-open"' }) : '')+
     (hasPlan ? stgPanelRow('Training & Zones', 'Paces, recalibrate and race day strategy',
       'training') : '')+
@@ -70610,22 +70723,28 @@ function renderSettingsHubView(){
 
   var connect = '<div id="stg-connect-group">'+settingsConnectRows()+'</div>';
 
+  /* ONE WAY TO START AGAIN. Founder: "Is start a new block needed? We have
+     that, reset plan and update plan." Asked which should stay: "Keep New
+     Block, drop Reset." New Block keeps the finished weeks as history and
+     carries everything learned; Reset did the second half of that and not
+     the first. Edit Plan Settings, in Training & Zones, still changes the
+     plan you are in. The Reset page itself is untouched and unlinked. */
   var data =
     (hasPlan ? stgRow({ title:'Start a New Block',
+      sub:'Keeps your history and everything learned',
       attrs:'data-action="open-new-block"' }) : '')+
     stgPanelRow('Export / Import Backup', 'Move or keep a copy of your training',
-      'backup')+
-    (hasPlan ? stgPanelRow('Reset Plan — Start Over',
-      'Clear your current plan and schedule (keeps your data)',
-      'resetplan') : '');
+      'backup');
 
-  var legal =
-    stgRow({ title:'Privacy Policy',
-      href:LEGAL_URLS.privacy, external:true })+
-    stgRow({ title:legalTermsLabel(),
-      href:LEGAL_URLS.terms, external:true })+
-    stgRow({ title:'Contact Support',
-      href:'mailto:'+LEGAL_URLS.support });
+  /* CONTACT, ON ITS OWN. Founder: "Legal and support. Currently the 3
+     options go nowhere. And we have the 2 greyed out options at the bottom
+     so they can be removed from there and delete the legal title. Contact
+     should then be a standalone option."
+     The address is on the row, so the athlete has it whether or not the
+     phone has a mail app set up to open. */
+  var contact =
+    stgRow({ title:'Contact', sub:LEGAL_URLS.support,
+      attrs:'data-action="open-contact"' });
 
   /* A WRAPPER, FOR THE REASON SACORO NEEDED ONE. This screen returned a
      bare run of sections, and .stg-group is a .hub-card -- the same class
@@ -70638,12 +70757,13 @@ function renderSettingsHubView(){
     stgGroup('Account', account)+
     stgGroup('Training', training)+
     stgGroup('Connect', connect)+
-    stgGroup('Data & Reset', data)+
-    stgGroup('Legal & Support', legal)+
+    stgGroup('Data', data)+
+    '<div class="hub-card tile-card stg-group stg-solo">'+contact+'</div>'+
   '<div class="build-tag">Build '+BUILD_ID+'</div>'+
     /* padded rather than merely coloured: an 11px line of text is a link a
        thumb misses, and these two are the only route to the legal pages. */
-    '<div class="build-tag"><a class="legal-link" href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy</a> &middot; <a class="legal-link" href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer">Terms</a></div>'+
+    '<div class="build-tag"><button type="button" class="legal-link" data-action="open-legal" data-doc="privacy">Privacy</button> &middot; '+
+      '<button type="button" class="legal-link" data-action="open-legal" data-doc="terms">Terms</button></div>'+
   '</div>';
 }
 function renderBottomNav(){
@@ -71109,7 +71229,7 @@ function renderProgrammeEntry(){
     '<div class="pe-brand">'+
       '<div class="pe-lockup">'+
         '<span class="pe-dot" aria-hidden="true"></span>'+
-        '<div class="pe-name">Sacoro</div>'+
+        '<div class="pe-name">SACORO</div>'+
         '<span class="pe-dot" aria-hidden="true"></span>'+
       '</div>'+
       '<div class="pe-by">By Velvet Viking</div>'+
@@ -71155,7 +71275,7 @@ function renderProgrammeEntry(){
 function renderSignedOutLanding(st){
   var back = st === 'signed-out-local-plan';
   return '<div class="hero hero-setup"><div class="setup-cta">'+
-    '<h2 class="font-display">'+(back ? 'Welcome back' : 'Sacoro')+'</h2>'+
+    '<h2 class="font-display">'+(back ? 'Welcome back' : 'SACORO')+'</h2>'+
     (back
       ? '<button type="button" class="btn btn-primary btn-block" data-action="landing-continue">Continue this device’s training block</button>'
       : '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>')+
@@ -71627,9 +71747,13 @@ var PAGE_SWIPE_FLING_PX = 36;
 var pageSwipeState = null;
 /* Which way, if any, a drag that has just moved (dx, dy) is closing the page.
    Pure, so the rule can be held to account without a touchscreen. */
+/* AND TO THE LEFT. Founder, of the Settings pages: "Swipe - only down and
+   right at the minute", asked whether that should be right only: "Right,
+   down and left." A page is pushed off in whichever sideways direction the
+   finger goes. */
 function pageSwipeAxis(dx, dy, atTop){
   if (Math.abs(dx) < PAGE_SWIPE_CLAIM_PX && Math.abs(dy) < PAGE_SWIPE_CLAIM_PX) return null;
-  if (dx > 0 && Math.abs(dx) > Math.abs(dy) * PAGE_SWIPE_AXIS_BIAS) return 'x';
+  if (Math.abs(dx) > Math.abs(dy) * PAGE_SWIPE_AXIS_BIAS) return 'x';
   if (dy > 0 && atTop && Math.abs(dy) > Math.abs(dx) * PAGE_SWIPE_AXIS_BIAS) return 'y';
   return 'none';
 }
@@ -71657,6 +71781,12 @@ function pageSwipeStart(e){
   var card = (e.target && e.target.closest) ? e.target.closest('.modal-card.hq-full') : null;
   if (!card) return;
   if (document.querySelector('.vvcal')) return;          /* a calendar owns the screen */
+  /* THE BUILDER, ONCE IT HOLDS ANSWERS. It became a page (founder: "Build
+     your training block full page") and pages swipe away -- but the builder
+     keeps no draft, so a sideways flick while choosing a tile would throw
+     every answer away. On its first screen it swipes like any page; after
+     that the ring is the way out. */
+  if (card.classList.contains('bld-modal') && typeof bldCurrentStage === 'number' && bldCurrentStage > 0) return;
   if (pageSwipeOwnedElsewhere(e.target, card)) return;
   var t = e.touches[0];
   pageSwipeState = { card:card, x0:t.clientX, y0:t.clientY, axis:null, dist:0, v:0,
@@ -71672,15 +71802,16 @@ function pageSwipeMove(e){
     if (axis === null) return;
     if (axis === 'none'){ pageSwipeState = null; return; }
     p.axis = axis;
+    p.sign = (axis === 'x' && dx < 0) ? -1 : 1;
     p.card.classList.remove('is-settling');
     p.card.classList.add('is-dragging');
   }
   if (e.cancelable) e.preventDefault();
-  var dist = Math.max(0, p.axis === 'x' ? dx : dy);
+  var dist = Math.max(0, p.axis === 'x' ? dx * p.sign : dy);
   var now = Date.now();
   if (now > p.lastT){ p.v = (dist - p.last) / (now - p.lastT); p.last = dist; p.lastT = now; }
   p.dist = dist;
-  p.card.style.transform = p.axis === 'x' ? 'translateX('+dist+'px)' : 'translateY('+dist+'px)';
+  p.card.style.transform = p.axis === 'x' ? 'translateX('+(dist * p.sign)+'px)' : 'translateY('+dist+'px)';
 }
 function pageSwipeEnd(){
   var p = pageSwipeState;
@@ -71704,7 +71835,7 @@ function pageSwipeEnd(){
   };
   if (reduced){ close(); return; }
   card.classList.add('is-settling');
-  card.style.transform = p.axis === 'x' ? 'translateX('+extent+'px)' : 'translateY('+extent+'px)';
+  card.style.transform = p.axis === 'x' ? 'translateX('+(extent * (p.sign || 1))+'px)' : 'translateY('+extent+'px)';
   window.setTimeout(close, 190);
 }
 function initPageSwipe(){
@@ -72285,7 +72416,7 @@ document.addEventListener('click', function(e){
     case 'reset-plan-confirm': handleResetPlanConfirm(); break;
     case 'check-app-update': checkForAppUpdate(); break;
     case 'apply-app-update': applyAppUpdate(); break;
-    case 'close-modal': closeModal(); break;
+    case 'close-modal': if (!stgCloseSub()) closeModal(); break;
     /* SHARING. 'share-workout' opens the composer; the other two only ever
        change what the athlete is looking at, or hand the finished PNG to the
        device. Nothing here touches the plan or the log. */
@@ -72432,18 +72563,23 @@ document.addEventListener('click', function(e){
     case 'open-settings': openSettingsModal(); break;
     case 'open-settings-panel': openSettingsPanel(target.getAttribute('data-panel')); break;
     case 'open-import': openImportModal(); break;
-    case 'open-setup': openSetupModal(); break;
+    case 'open-setup': stgOpenSub(openSetupModal); break;
     case 'open-restore': openRestoreModal(); break;
     case 'restore-plan': handleRestorePlan(target.getAttribute('data-key')); break;
-    case 'open-record': openRecordPanel(target.getAttribute('data-record')); break;
-    case 'close-record-panel': closeRecordPanel(); break;
+    case 'open-record': (function(k){ stgOpenSub(function(){ openRecordPanel(k); }); })(target.getAttribute('data-record')); break;
+    case 'close-record-panel': if (!stgCloseSub()) closeRecordPanel(); break;
     case 'optional-run-log': handleOptionalRunLog(target.getAttribute('data-day')); break;
     case 'optional-run-save': handleOptionalRunSave(target.getAttribute('data-day')); break;
     case 'optional-run-remove': handleOptionalRunRemove(target.getAttribute('data-day')); break;
-    case 'open-recalibrate': openRecalibrateModal(); break;
+    case 'open-recalibrate': stgOpenSub(openRecalibrateModal); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
-    case 'open-pacing': openPacingModal(); break;
+    case 'open-pacing': stgOpenSub(openPacingModal); break;
+    case 'open-legal': openExternal(target.getAttribute('data-doc') === 'terms' ? LEGAL_URLS.terms : LEGAL_URLS.privacy); break;
+    case 'open-external':
+      if (e.preventDefault) e.preventDefault();
+      openExternal(target.getAttribute('data-href')); break;
+    case 'open-contact': openContact(); break;
     case 'bld-next': handleBldNext(); break;
     case 'bld-back': handleBldBack(); break;
     case 'bld-skip-hr': handleBldSkipHR(); break;
@@ -72601,16 +72737,20 @@ function registerServiceWorker(){
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.register('/sw.js').then(function(reg){ swRegistration = reg; }).catch(function(){});
 }
+/* WHAT A DAY'S REMINDER SAYS. The title is the name and the body is the
+   session, in the words the card uses. No emoji and no dash: "no symbols". */
 function buildTodayNotificationText(){
-  var title = '🛡️ Sacoro — Today’s Workout';
-  var dd = state.setup ? findDayByDate(todayStr()) : null;
+  return buildDayNotificationText(state.setup ? findDayByDate(todayStr()) : null);
+}
+function buildDayNotificationText(dd){
+  var title = 'SACORO';
   /* THE PUSH IS A SURFACE LIKE ANY OTHER, and it was the last place a day
      could still arrive under a name the card had stopped using. */
   if (dd && isOptionalRunDay(dd))
-    return { title:title, body:'Today: Optional Run. No run needed \u2014 rest, or run if you feel like it.' };
-  if (!dd || dd.type==='rest') return { title:title, body:'Today: Rest Day. Full rest & recovery.' };
+    return { title:title, body:'Today: Optional Run. No run needed. Rest, or run if you feel like it.' };
+  if (!dd || dd.type==='rest') return { title:title, body:'Today: Rest Day. Full rest and recovery.' };
   var targets = getDayTargets(dd);
-  var body = 'Today: '+fmtDist(dd.km)+' '+dd.title+(targets.pace?(' @ '+targets.pace):'')+'. Earn your place!';
+  var body = 'Today: '+displayCardTitle(dd)+', '+fmtDist(dd.km)+(targets.pace?(' at '+targets.pace):'')+'.';
   return { title:title, body:body };
 }
 function showDailyNotification(){
@@ -72628,9 +72768,64 @@ function maybeFireDailyNotification(){
   showDailyNotification();
   if (storageAvailable) window.localStorage.setItem(NOTIFY_LAST_FIRED_KEY, today);
 }
+/* ---------- THE REMINDER, SCHEDULED ON THE PHONE ----------
+   Founder: "Daily alarm - doesn't work." It was the browser's notification
+   system, which the installed app's WebView does not have, and it could only
+   fire while the app was open. In the installed app the reminder is now
+   scheduled with the phone itself (Capacitor Local Notifications): the next
+   seven mornings at 08:00, each naming that day's session, so it arrives
+   with the app closed. Scheduled again every time the app is opened or comes
+   back to the front, so a moved or edited session is never announced under
+   its old name for long. In a browser the old path is unchanged. */
+var NOTIFY_NATIVE_BASE_ID = 8000, NOTIFY_NATIVE_DAYS = 7;
+var nativeNotifyPerm = null;          // 'granted' | 'denied' | 'prompt' once asked of the phone
+function nativeNotifier(){ return nativePlugin('LocalNotifications'); }
+function nativeNotifyIds(){
+  var ids = [];
+  for (var i = 0; i < NOTIFY_NATIVE_DAYS; i++) ids.push({ id: NOTIFY_NATIVE_BASE_ID + i });
+  return ids;
+}
+/* What would be scheduled now: one per morning still ahead, at 08:00 local. */
+function nativeNotifyPlan(now){
+  var out = [], t = now || new Date();
+  for (var i = 0; i < NOTIFY_NATIVE_DAYS; i++){
+    var date = addDays(todayStr(), i);
+    var p = date.split('-');
+    var at = new Date(+p[0], +p[1] - 1, +p[2], 8, 0, 0, 0);
+    if (at.getTime() <= t.getTime()) continue;
+    var msg = buildDayNotificationText(findDayByDate(date));
+    out.push({ id: NOTIFY_NATIVE_BASE_ID + i, title: msg.title, body: msg.body,
+               schedule: { at: at, allowWhileIdle: true } });
+  }
+  return out;
+}
+function nativeScheduleReminders(){
+  var LN = nativeNotifier();
+  if (!LN || !LN.schedule) return Promise.resolve(false);
+  var clear = LN.cancel ? LN.cancel({ notifications: nativeNotifyIds() }) : Promise.resolve();
+  return Promise.resolve(clear).catch(function(){}).then(function(){
+    if (!state.notifyEnabled || !state.setup || nativeNotifyPerm !== 'granted') return false;
+    var list = nativeNotifyPlan();
+    if (!list.length) return false;
+    return LN.schedule({ notifications: list }).then(function(){ return true; }, function(){ return false; });
+  });
+}
+/* The phone's answer, read once at start so the switch is drawn truthfully. */
+function nativeReadNotifyPermission(){
+  var LN = nativeNotifier();
+  if (!LN || !LN.checkPermissions) return Promise.resolve(null);
+  return LN.checkPermissions().then(function(r){
+    nativeNotifyPerm = (r && r.display) || null;
+    return nativeNotifyPerm;
+  }, function(){ return null; });
+}
 var notifyTimer = null;
 function startNotificationScheduler(){
   if (notifyTimer) clearInterval(notifyTimer);
+  if (nativeNotifier()){
+    nativeReadNotifyPermission().then(function(){ patchNotifyToggle(); return nativeScheduleReminders(); });
+    return;
+  }
   maybeFireDailyNotification();
   notifyTimer = setInterval(maybeFireDailyNotification, 60000);
 }
@@ -72644,7 +72839,7 @@ document.addEventListener('visibilitychange', function(){
   var awayMs = stravaHiddenSince ? (Date.now() - stravaHiddenSince) : 0;
   stravaHiddenSince = 0;
   checkDateRollover();
-  maybeFireDailyNotification();
+  if (nativeNotifier()) nativeScheduleReminders(); else maybeFireDailyNotification();
   /* Coming back to the foreground is the other moment a staged run can be
      waiting. The webhook stages it while VVV is in the background, and on
      Android resuming does NOT re-run init() -- the WebView is still alive --
@@ -72661,7 +72856,35 @@ document.addEventListener('visibilitychange', function(){
   try{ revalidateDeliverySession(); }catch(e){}
 });
 window.addEventListener('pagehide', flushSave);
+function handleToggleNotifyNative(){
+  var LN = nativeNotifier();
+  var currentlyOn = !!state.notifyEnabled && nativeNotifyPerm === 'granted';
+  if (currentlyOn){
+    state.notifyEnabled = false;
+    scheduleSave();
+    nativeScheduleReminders();
+    patchNotifyToggle();
+    showToast('Daily reminder turned off');
+    return;
+  }
+  var ask = LN.requestPermissions ? LN.requestPermissions() : Promise.resolve({ display:'granted' });
+  return ask.then(function(r){
+    nativeNotifyPerm = (r && r.display) || 'denied';
+    state.notifyEnabled = nativeNotifyPerm === 'granted';
+    scheduleSave();
+    patchNotifyToggle();
+    if (!state.notifyEnabled){
+      showToast('Notifications are blocked. Allow them for SACORO in your phone\u2019s settings');
+      return false;
+    }
+    return nativeScheduleReminders().then(function(ok){
+      showToast('Daily 08:00 reminder on');
+      return ok;
+    });
+  }, function(){ patchNotifyToggle(); return false; });
+}
 function handleToggleNotify(){
+  if (nativeNotifier()) return handleToggleNotifyNative();
   // Mirror renderNotifyToggleRow's own on/off logic (state flag AND live
   // permission) rather than trusting the stored flag alone, so a click on a
   // toggle that's rendering as off (e.g. permission revoked externally while
@@ -72823,7 +73046,7 @@ function init(){
 }
 try{ init(); }
 catch(err){
-  console.error('Sacoro init failed', err);
+  console.error('SACORO init failed', err);
   /* Before the message is written, not after: the arrival is fixed and above
      the app, so a message written underneath it would never be seen. */
   try{ clearBootSplash(); }catch(e2){}

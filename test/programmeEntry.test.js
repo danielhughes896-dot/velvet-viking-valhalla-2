@@ -78,9 +78,9 @@ test('S1. the lockup is the name between two dots, signed by the company', () =>
     'the V chevron is back above the name; the mark is the name and the dots');
   assert.equal(html.indexOf('valhalla-v-256'), -1,
     'the splash is loading the retired chevron artwork again');
-  assert.ok(at('>Sacoro<') > -1, 'the splash no longer says the app\u2019s name');
+  assert.ok(at('>SACORO<') > -1, 'the splash no longer says the app\u2019s name');
   assert.ok(at('>By Velvet Viking<') > -1, 'the company no longer signs the splash');
-  assert.ok(at('>Sacoro<') < at('>By Velvet Viking<'), 'the byline is above the name');
+  assert.ok(at('>SACORO<') < at('>By Velvet Viking<'), 'the byline is above the name');
   /* ONE DOT EACH SIDE, AND NEITHER IS READ ALOUD. Two bullets announced
      around the name is the mark made worse for the athletes most likely to
      need it plain -- the same rule the header's dots follow. */
@@ -89,9 +89,9 @@ test('S1. the lockup is the name between two dots, signed by the company', () =>
   assert.equal((html.match(/class="pe-dot" aria-hidden="true"/g) || []).length, 2,
     'a decorative dot is exposed to a screen reader');
   /* The dots sit either side of the NAME, not loose in the lockup. */
-  assert.match(html, /<div class="pe-lockup">\s*<span class="pe-dot"[^>]*><\/span>\s*<div class="pe-name">Sacoro<\/div>\s*<span class="pe-dot"[^>]*><\/span>\s*<\/div>/,
+  assert.match(html, /<div class="pe-lockup">\s*<span class="pe-dot"[^>]*><\/span>\s*<div class="pe-name">SACORO<\/div>\s*<span class="pe-dot"[^>]*><\/span>\s*<\/div>/,
     'the dots are no longer either side of the name');
-  assert.doesNotMatch(html, /Sacoro Awaits/,
+  assert.doesNotMatch(html, /SACORO Awaits/,
     'the retired crest\u2019s wording is back on the screen');
 });
 
@@ -881,7 +881,7 @@ test('ARRIVAL: the document paints it before a line of script runs', () => {
     assert.ok(live.indexOf(cls) > -1,
       'the rendered arrival has no .' + cls + ' any more, so the two have drifted apart');
   });
-  ['Sacoro', 'By Velvet Viking', 'Earn your place', 'Built around the climb'].forEach(w => {
+  ['SACORO', 'By Velvet Viking', 'Earn your place', 'Built around the climb'].forEach(w => {
     assert.ok(splash.indexOf(w) > -1, 'the pre-script arrival stopped saying "' + w + '"');
     assert.ok(live.indexOf(w) > -1, 'the rendered arrival stopped saying "' + w + '"');
   });
@@ -907,7 +907,7 @@ test('ARRIVAL: the pre-script screen is taken down, and cannot strand anyone', (
   const clear = RUNTIME_SRC.indexOf('clearBootSplash();', render);
   assert.ok(clear > -1 && clear < bind,
     'renderApp() no longer clears the pre-script arrival after writing #app');
-  const failed = RUNTIME_SRC.indexOf("console.error('Sacoro init failed'");
+  const failed = RUNTIME_SRC.indexOf("console.error('SACORO init failed'");
   assert.ok(failed > -1, 'the startup catch moved; this law cannot see it');
   assert.ok(RUNTIME_SRC.indexOf('clearBootSplash();', failed) > -1 &&
             RUNTIME_SRC.indexOf('clearBootSplash();', failed) <

@@ -147,7 +147,7 @@ test('every settings row still opens its own panel', () => {
   }
   for (const [panel, needle] of [
       ['account', 'Account'], ['prefs', 'Preferences'], ['health', 'Health'],
-      ['training', 'Training &amp; Zones'], ['backup', 'Export'], ['resetplan', 'Reset Plan']]){
+      ['training', 'Training &amp; Zones'], ['backup', 'Export']]){
     assert.ok(pairs[panel], 'the ' + panel + ' row is gone from Settings');
     assert.ok(pairs[panel].indexOf(needle) > -1,
       'the ' + panel + ' panel is now behind "' + pairs[panel] + '" -- an argument has shifted');

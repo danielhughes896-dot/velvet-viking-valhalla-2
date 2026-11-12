@@ -188,7 +188,7 @@ test('there are five graphs, in the founder\'s order, each with the founder\'s w
     /* Founder: "the current 'None yet' wording is rather cold." What Sacoro
        reads this from, and that the first one starts it. Never a count of
        what is missing. */
-    assert.match(s.hello, /^Sacoro reads this from /, k + ' does not say what it is read from');
+    assert.match(s.hello, /^SACORO reads this from /, k + ' does not say what it is read from');
     assert.match(s.hello, /starts it\.$/, k);
     assert.ok(card.indexOf('<div class="cg-wait-s">' + a.escapeHtml(s.hello) + '</div>') !== -1, k + ' does not say it on the card');
     assert.doesNotMatch(card, /None yet|so far\.|\d+ of \d+/, k + ' counts what is missing');
@@ -240,7 +240,7 @@ test('runs logged without heart rate are acknowledged for what they are', () => 
   });
   /* And without consent, it is said that way rather than as missing data. */
   a.healthConsentGranted = () => false;
-  assert.match(series(a, 'efficiency').hello, /^Heart rate is health information, and Sacoro only reads it if you have said it may\./);
+  assert.match(series(a, 'efficiency').hello, /^Heart rate is health information, and SACORO only reads it if you have said it may\./);
 });
 
 test('one valid run is a starting point: it is drawn, and nothing is claimed from it', () => {
@@ -564,7 +564,7 @@ test('a threshold reading builds from the first session, with the confidence it 
   const k5 = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   k5.showToast = () => {}; k5.renderApp = () => {}; k5.flushSave = () => {}; k5.scheduleSave = () => {};
   buildPlan(k5, { distanceKey: '5k', volume: 45, weeks: 12, lthr: 172, maxHR: 188, startDate: '2026-10-06' });
-  assert.equal(series(k5, 'threshold').hello, 'This block has no threshold sessions in it, so there is nothing for Sacoro to read here.');
+  assert.equal(series(k5, 'threshold').hello, 'This block has no threshold sessions in it, so there is nothing for SACORO to read here.');
 });
 
 test('only comparable, well-executed threshold sessions are plotted', () => {

@@ -244,9 +244,17 @@ test('Settings carries the whole legal and support surface', () => {
   const a = signedIn(ENT({}));
   buildPlan(a, { weeks: 10, startDate: '2026-08-01', distanceKey: '10k' });
   const settings = a.renderSettingsHubView();
-  assert.match(settings, new RegExp(a.LEGAL_URLS.privacy.replace(/[/.]/g, '\\$&')));
-  assert.match(settings, new RegExp(a.LEGAL_URLS.terms.replace(/[/.]/g, '\\$&')));
-  assert.match(settings, /mailto:support@velvetviking\.co\.uk/);
+  /* The documents are reached from the footer and leave the app through
+     openExternal(), which opens the canonical addresses; Contact is its own
+     row and opens the mail app. See betaLegalDiscoverability. */
+  assert.match(settings, /data-action="open-legal" data-doc="privacy"/);
+  assert.match(settings, /data-action="open-legal" data-doc="terms"/);
+  assert.match(settings, /data-action="open-contact"[\s\S]*?support@velvetviking\.co\.uk/);
+  const went = [];
+  a.isNativeApp = () => false;
+  a.window.open = u => { went.push(u); return {}; };
+  a.openExternal(a.LEGAL_URLS.privacy); a.openExternal(a.LEGAL_URLS.terms);
+  assert.deepEqual(went, ['https://velvetviking.co.uk/privacy', a.LEGAL_URLS.terms]);
   /* The cancellation paragraph travels with the Subscription it describes,
      which is where an athlete looking for how to stop paying actually goes
      -- it used to sit at the foot of Legal & Support, three cards away from
@@ -402,7 +410,7 @@ test('/start routes every commercial state, and explains every failure', () => {
   assert.match(START, /r\.status >= 500/,
     'a server error is indistinguishable from "not signed in" without this');
   assert.match(START, /having a moment/, 'a 5xx must say what happened');
-  assert.match(START, /could not reach Sacoro/, 'a timeout must say what happened');
+  assert.match(START, /could not reach SACORO/, 'a timeout must say what happened');
   assert.match(START, /otp_expired: 'That sign-in link has expired/);
   assert.match(START, /access_denied: 'That sign-in link has already been used/);
   assert.match(START, /within\(10000,/, 'a hung request must be raced against a deadline');

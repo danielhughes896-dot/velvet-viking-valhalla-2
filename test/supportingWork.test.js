@@ -864,7 +864,7 @@ test('the concise copy is the week stage’s, and it still says a tick is not a 
   const week = panelBodies(journey().html).filter(x => x.stage === WEEK_STAGE)[0].body;
   assert.ok(week.indexOf('Supporting work') !== -1, 'the section is unnamed');
   assert.ok(week.indexOf('Include strength &amp; mobility work') !== -1, 'the question changed');
-  assert.match(week, /Sacoro may add strength, conditioning or mobility where it helps your running/);
+  assert.match(week, /SACORO may add strength, conditioning or mobility where it helps your running/);
   assert.match(week, /Some weeks may have none/,
     'nothing on the screen prevents the tick being read as a guaranteed weekly session');
 });

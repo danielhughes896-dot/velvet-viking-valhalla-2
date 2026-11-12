@@ -212,7 +212,7 @@ test('the review says what happened, why, and what the evidence supports -- in t
     'Although the total distance matched the plan, the main set was incomplete.',
     'The warm-up and cool-down were logged. There is no measured pace for the hill efforts, so their quality rests on your own marks: 2 on target, 1 too hard.'
   ]);
-  assert.equal(it.coaching, 'Fatigue limited completion today. Sacoro weighs this with your recent training and recovery before recommending any change.');
+  assert.equal(it.coaching, 'Fatigue limited completion today. SACORO weighs this with your recent training and recovery before recommending any change.');
   /* No marks: the founder's own sentence. */
   const bare = founders({ noMarks: true });
   assert.equal(Array.from(bare.a.sessionInterpretation(bare.dd).evidence)[1],
@@ -276,7 +276,7 @@ test('each reason for stopping is read for what it is', () => {
   /* No reason given: none is invented, and the athlete is asked. */
   const none = said(null);
   assert.equal(Array.from(none.it.what)[0], 'You completed 3 of 5 prescribed hill efforts.');
-  assert.equal(none.it.coaching, 'Say why you stopped and Sacoro can read this properly.');
+  assert.equal(none.it.coaching, 'Say why you stopped and SACORO can read this properly.');
 });
 
 test('a set finished in full is read from its marks, and said to be the athlete\'s own account', () => {

@@ -62,7 +62,7 @@ test('get.html: the shared crest DELIVERY asset is used and exists on disk', () 
      download and can be renamed. */
   assert.equal(HTML.indexOf('velvet-viking-crest'), -1, 'the sign-up page is serving the crest again');
   assert.equal(HTML.indexOf('class="medallion"'), -1);
-  assert.match(HTML, /<h1 class="vvv-wordmark">Sacoro<\/h1>/,
+  assert.match(HTML, /<h1 class="vvv-wordmark">SACORO<\/h1>/,
     'the page lost its one heading, or the heading stopped being the name');
 });
 

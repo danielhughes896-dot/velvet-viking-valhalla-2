@@ -198,16 +198,46 @@ test('Reset: any other caller is still asked by the system, and opening the page
 
 /* ---------- swipe to exit ---------- */
 
-test('a page closes on a push to the right, or downwards from its top', () => {
+/* Founder: "Swipe - only down and right at the minute." Asked whether that
+   should be right only: "Right, down and left." */
+test('a page closes on a push to the right or the left, or downwards from its top', () => {
   const a = athlete();
   assert.equal(a.pageSwipeAxis(4, 3, true), null, 'a twitch was treated as a gesture');
   assert.equal(a.pageSwipeAxis(40, 6, false), 'x', 'a push to the right is not a close');
+  assert.equal(a.pageSwipeAxis(-40, 6, false), 'x', 'a push to the left is not a close');
   assert.equal(a.pageSwipeAxis(6, 40, true), 'y', 'a pull down from the top is not a close');
   /* What it must never take: */
   assert.equal(a.pageSwipeAxis(6, 40, false), 'none', 'pulling down while scrolled closed the page instead of scrolling it');
   assert.equal(a.pageSwipeAxis(6, -40, true), 'none', 'scrolling up was claimed');
-  assert.equal(a.pageSwipeAxis(-40, 6, true), 'none', 'a push to the left was claimed');
   assert.equal(a.pageSwipeAxis(30, 28, true), 'none', 'a diagonal drag was claimed');
+  assert.equal(a.pageSwipeAxis(-30, 28, true), 'none', 'a diagonal drag to the left was claimed');
+});
+
+test('a page follows the finger the way it was pushed, and leaves that way', () => {
+  const a = athlete();
+  const card = { style: {}, classList: { add(){}, remove(){} }, querySelector: () => ({ click(){ clicked++; } }) };
+  let clicked = 0;
+  a.window.setTimeout = f => f();
+  a.pagerReducedMotion = () => false;
+  const drag = dx => {
+    a.pageSwipeState = { card, x0: 200, y0: 300, axis: null, dist: 0, v: 0, last: 0, lastT: -1, atTop: true };
+    a.pageSwipeMove({ touches: [{ clientX: 200 + dx, clientY: 302 }], cancelable: true, preventDefault(){} });
+    const during = card.style.transform;
+    a.pageSwipeEnd();
+    return during;
+  };
+  assert.equal(drag(-200), 'translateX(-200px)', 'a push to the left did not follow the finger left');
+  assert.equal(card.style.transform, 'translateX(-' + (a.window.innerWidth || 360) + 'px)', 'it did not leave to the left');
+  assert.equal(clicked, 1, 'a push to the left did not close the page');
+  assert.equal(drag(200), 'translateX(200px)');
+  assert.equal(clicked, 2);
+});
+
+test('the builder swipes away only before it holds an answer', () => {
+  /* It became a page (founder: "Build your training block full page"), and
+     it keeps no draft, so a stray flick on step three would lose the lot. */
+  const start = fnBody('pageSwipeStart');
+  assert.match(start, /card\.classList\.contains\('bld-modal'\) && typeof bldCurrentStage === 'number' && bldCurrentStage > 0\) return;/);
 });
 
 test('it can be changed of mind: short and slow settles back, far or flicked leaves', () => {
@@ -329,7 +359,8 @@ test('an Android app behind the store is sent there; a stale page is reloaded fi
   behind.Capacitor = { isNativePlatform: () => true };
   behind.nativeAppInfo = { build: String(behind.LATEST_NATIVE_BUILD - 1), version: '1.0' };
   assert.equal(await behind.checkForAppUpdate(), 'store');
-  assert.match(behind.hqPanelHtml('update'), /<a class="btn btn-primary" href="https:\/\/play\.google\.com[^"]*"[^>]*target="_blank"[^>]*>Open Google Play<\/a>/);
+  /* Through openExternal(): a new window is what went nowhere in the app. */
+  assert.match(behind.hqPanelHtml('update'), /<button type="button" class="btn btn-primary" data-action="open-external" data-href="https:\/\/play\.google\.com[^"]*">Open Google Play<\/button>/);
   /* The page being newer comes first: the fresh one knows the store's latest. */
   const both = checker(['s', 'j'], ['s', 'j2']);
   both.Capacitor = behind.Capacitor; both.nativeAppInfo = behind.nativeAppInfo;

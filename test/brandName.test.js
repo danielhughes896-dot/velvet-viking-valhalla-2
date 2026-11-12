@@ -145,13 +145,13 @@ test('the name is on the surfaces that carry it', () => {
   /* The counterpart. A rename that emptied the wordmark instead of changing
      it would satisfy the law above perfectly. */
   const a = planned();
-  assert.match(a.renderProgrammeEntry(), /Sacoro/,
+  assert.match(a.renderProgrammeEntry(), /SACORO/,
     'the splash no longer names the product');
   const NEW = 'SACORO';
-  assert.ok(SRC.indexOf('<span class="bm-word">Sacoro</span>') > -1 ||
-            SRC.indexOf('>Sacoro<') > -1,
+  assert.ok(SRC.indexOf('<span class="bm-word">SACORO</span>') > -1 ||
+            SRC.indexOf('>SACORO<') > -1,
     'the top bar wordmark no longer says the product name');
-  assert.ok(SRC.indexOf(NEW) > -1 || SRC.indexOf('Sacoro') > -1,
+  assert.ok(SRC.indexOf(NEW) > -1 || SRC.indexOf('SACORO') > -1,
     'the product name appears nowhere in the runtime at all');
 });
 
@@ -328,7 +328,7 @@ test('no public page calls the product by the company name', () => {
     if (at > -1){
       assert.fail(p + ' calls the product Velvet Viking: "' +
         s.slice(Math.max(0, at - 50), at + 60).replace(/\s+/g, ' ').trim() +
-        '". The company signs the work; the product the athlete opens is Sacoro');
+        '". The company signs the work; the product the athlete opens is SACORO');
     }
   });
 });
@@ -345,7 +345,9 @@ test('no screen inside the app calls the product by the company name', () => {
   }
 });
 
-test('every title and launcher label says Sacoro', () => {
+test('every title and launcher label says SACORO', () => {
+  /* Founder: "Saroco should be SACORO check the whole app every place the
+     end user can reach!" The name is set in capitals wherever it is read. */
   /* The name under the icon, the name in the tab, the name in a share card. */
   const titled = [['protected/velvet-viking-valhalla.html', /<title>([^<]*)<\/title>/],
                   ['start.html', /<title>([^<]*)<\/title>/],
@@ -357,17 +359,17 @@ test('every title and launcher label says Sacoro', () => {
   titled.forEach(([f, re]) => {
     const m = re.exec(fs.readFileSync(path.join(ROOT, f), 'utf8'));
     assert.ok(m, f + ' has no title');
-    assert.ok(/Sacoro/.test(m[1]), f + ' is titled "' + m[1] + '"');
+    assert.ok(/SACORO/.test(m[1]), f + ' is titled "' + m[1] + '"');
   });
 
   const strings = fs.readFileSync(path.join(ROOT,
     'android/app/src/main/res/values/strings.xml'), 'utf8');
-  assert.match(strings, /<string name="app_name">Sacoro<\/string>/,
+  assert.match(strings, /<string name="app_name">SACORO<\/string>/,
     'the name under the Android launcher icon is not the product name');
-  assert.match(strings, /<string name="title_activity_main">Sacoro<\/string>/);
+  assert.match(strings, /<string name="title_activity_main">SACORO<\/string>/);
 
   const cap = JSON.parse(fs.readFileSync(path.join(ROOT, 'capacitor.config.json'), 'utf8'));
-  assert.equal(cap.appName, 'Sacoro', 'the native shell still ships under the company name');
+  assert.equal(cap.appName, 'SACORO', 'the native shell still ships under the company name');
   /* And the one next to it that must NOT follow, for the reason given above. */
   assert.equal(cap.appId, 'com.velvetviking.valhalla',
     'the package id was renamed; every existing install is now orphaned');

@@ -331,7 +331,7 @@ test('the imported-data rule holds on every overlay, not just the default', () =
         assert.ok(!new RegExp(leak.replace('.', '\\.'), 'i').test(said),
           key + '/' + fmt + ' published an imported value: ' + leak);
       }
-      assert.ok(/week 1/i.test(said), key + '/' + fmt + ' lost Sacoro\'s own facts');
+      assert.ok(/week 1/i.test(said), key + '/' + fmt + ' lost SACORO\'s own facts');
     }
   }
 });
@@ -589,8 +589,8 @@ test('the editor offers overlay, picture source and format as three choices', ()
      attribute from its argument -- so the literal never appears in source and
      the control is asserted at the call that creates it. */
   assert.match(body, /data-k="overlay"/, 'overlay picker');
-  assert.match(body, /seg\('source'[\s\S]{0,120}Sacoro[\s\S]{0,60}My photos/,
-    'Sacoro / My photos');
+  assert.match(body, /seg\('source'[\s\S]{0,120}SACORO[\s\S]{0,60}My photos/,
+    'SACORO / My photos');
   assert.match(body, /seg\('format'[\s\S]{0,120}Story[\s\S]{0,40}Post/, 'Story / Post');
   assert.match(body, /data-action="share-export" data-mode="share"/);
   assert.match(body, /data-action="share-export" data-mode="save"/);
@@ -605,7 +605,7 @@ test('changing the overlay changes nothing but the overlay', () => {
   const st = app.shareState;
   assert.ok(st, 'the editor opened');
   assert.equal(st.overlay, 'frame', 'defaults to the frame');
-  assert.equal(st.source, 'sacoro', 'and to a Sacoro backdrop');
+  assert.equal(st.source, 'sacoro', 'and to a SACORO backdrop');
 
   st.transform = { scale: 2.2, x: -0.3, y: 0.1 };
   const dataBefore = JSON.stringify(st.data);

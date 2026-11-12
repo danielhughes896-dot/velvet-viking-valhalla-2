@@ -139,7 +139,7 @@ test('with the outcome unanswered, the question outranks everything downstream',
 
   const fp = fullPlan(a);
   assert.ok(hasWhatsNext(fp));
-  assert.match(fp, /Tell Sacoro on Today/,
+  assert.match(fp, /Tell SACORO on Today/,
     'Full Plan does not point at the one place that asks the question');
 });
 

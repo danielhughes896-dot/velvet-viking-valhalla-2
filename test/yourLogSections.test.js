@@ -371,8 +371,14 @@ test('redrawing a card puts the page back where the thumb left it', () => {
   const win = { pageYOffset: 597, scrollTo: (x, y) => { calls.push([x, y]); win.pageYOffset = y; } };
   const card = { parentNode: { replaceChild: () => { win.pageYOffset = 2387; } } };
   const doc = { getElementById: () => card, createElement: () => ({ set innerHTML(v){ this.firstChild = {}; } }) };
-  const run = new Function('window', 'document', 'renderDayCard', 'wireCoachingRails', real + '; return replaceCard;')(win, doc, () => '<div></div>', () => {});
+  /* The week slide is redrawn inside the same window, before the page is put
+     back, so a slide swap the browser anchors on is restored as well. */
+  const slides = [];
+  const run = new Function('window', 'document', 'renderDayCard', 'wireCoachingRails', 'replaceWeekSlides', real + '; return replaceCard;')(win, doc, () => '<div></div>', () => {}, (d) => slides.push([d, win.pageYOffset]));
   run(dd);
+  assert.deepEqual(slides, [[dd, 597]], 'the week slide was not redrawn with the card, before the page was put back');
+  assert.ok(real.indexOf('replaceWeekSlides(dd)') < real.indexOf('window.scrollTo(0, y)'),
+    'the slide is redrawn after the position is restored, so its swap can still throw the page');
   assert.deepEqual(calls, [[0, 597]], 'the page was left where the browser threw it');
   assert.equal(win.pageYOffset, 597);
   /* Nothing moved: nothing is touched. */

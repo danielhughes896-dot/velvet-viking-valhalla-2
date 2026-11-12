@@ -55,7 +55,7 @@ function shell(platform, opts) {
   a.showToast = (m) => { calls.toasts.push(m); };
   return { a, calls };
 }
-const SACORO = { name: 'Sacoro', identifier: '/storage/emulated/0/Android/media/com.velvetviking.valhalla/Sacoro' };
+const SACORO = { name: 'SACORO', identifier: '/storage/emulated/0/Android/media/com.velvetviking.valhalla/SACORO' };
 
 test('on Android a save names the app\'s album, so it is no longer refused', async () => {
   const { a, calls } = shell('android', { albums: [{ name: 'Camera', identifier: '/dcim/Camera' }, SACORO] });
@@ -69,9 +69,9 @@ test('on Android a save names the app\'s album, so it is no longer refused', asy
 test('the first save on a phone makes the album, then saves into it', async () => {
   const { a, calls } = shell('android', { albums: [] });
   await a.saveImageToPhotos({ blob: {}, filename: 'run.png' });
-  assert.deepEqual(calls.createAlbum.map((x) => x.name), ['Sacoro']);
+  assert.deepEqual(calls.createAlbum.map((x) => x.name), ['SACORO']);
   assert.equal(calls.savePhoto.length, 1);
-  assert.match(calls.savePhoto[0].albumIdentifier, /\/Sacoro$/);
+  assert.match(calls.savePhoto[0].albumIdentifier, /\/SACORO$/);
   assert.deepEqual(calls.toasts, ['Saved to your photos']);
 });
 

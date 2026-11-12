@@ -157,7 +157,7 @@ test('the shell carries the mark, and the mark is the name between two dots', ()
     const html = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.equal(html.indexOf('velvet-viking-crest'), -1, f + ' is serving the crest again');
     assert.match(html,
-      /<div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"><\/span><(p|h1) class="vvv-wordmark">Sacoro<\/\1><span class="vvv-dot" aria-hidden="true"><\/span><\/div>/,
+      /<div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"><\/span><(p|h1) class="vvv-wordmark">SACORO<\/\1><span class="vvv-dot" aria-hidden="true"><\/span><\/div>/,
       f + ' does not carry the name between two dots that a reader is not told about');
     assert.match(html, /<p class="vvv-by">By Velvet Viking<\/p>/,
       f + ' is where someone first meets the product, and the company is not signing it');

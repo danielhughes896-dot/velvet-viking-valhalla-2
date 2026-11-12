@@ -94,7 +94,7 @@ const OFFERS = {
 const PRODUCTS = {
   [STANDARD]: {
     code: STANDARD,
-    name: 'Sacoro Standard',
+    name: 'SACORO Standard',
     offers: ['STANDARD_MONTHLY', 'STANDARD_YEARLY']
   }
 };

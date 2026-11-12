@@ -361,11 +361,18 @@ test('the Android release document matches the manifest and the gradle build', (
      the drift worth failing on. RECORD_AUDIO joined it for the Ask Coach
      microphone -- runtime-requested, on-device recognition only, no audio
      retained or transmitted. */
-  const perms = (manifest.match(/uses-permission android:name="([^"]+)"/g) || [])
+  /* The daily reminder joined it: POST_NOTIFICATIONS (runtime-requested when
+     the athlete turns the reminder on), RECEIVE_BOOT_COMPLETED and WAKE_LOCK.
+     SCHEDULE_EXACT_ALARM, which the plugin asks for, is removed -- Play keeps
+     it for alarm-clock apps -- and a removal is not a request. */
+  const perms = (manifest.match(/uses-permission android:name="([^"]+)"(?! tools:node="remove")/g) || [])
     .map(x => x.replace(/.*name="|"$/g, '')).sort();
-  assert.deepEqual(perms, ['android.permission.INTERNET', 'android.permission.RECORD_AUDIO'],
+  assert.deepEqual(perms, ['android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS',
+    'android.permission.RECEIVE_BOOT_COMPLETED', 'android.permission.RECORD_AUDIO', 'android.permission.WAKE_LOCK'],
     'the manifest permissions changed -- update ANDROID-RELEASE.md and this list together');
-  assert.match(doc, /`INTERNET`, and `RECORD_AUDIO`/,
+  assert.match(manifest, /<uses-permission android:name="android\.permission\.SCHEDULE_EXACT_ALARM" tools:node="remove" \/>/,
+    'the exact-alarm permission Play restricts is no longer removed');
+  assert.match(doc, /`INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED` and `WAKE_LOCK`/,
     'the document no longer states the permissions the manifest asks for');
   assert.match(doc, /requested \*\*at runtime\*\*/, 'the document must say the microphone is runtime-requested');
   assert.match(doc, /on-device/, 'the document must state which recogniser is used');

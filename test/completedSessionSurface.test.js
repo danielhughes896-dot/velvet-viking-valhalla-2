@@ -319,7 +319,7 @@ test('the mark is SACORO with one gold dot each side, and nothing else', () => {
   const a = app();
   a.state.view = 'today';
   const bar = a.renderTopbar();
-  assert.match(bar, />Sacoro</, 'the app name is not in the mark');
+  assert.match(bar, />SACORO</, 'the app name is not in the mark');
   assert.equal(bar.indexOf('By Velvet Viking'), -1,
     'the company is signing every screen again; the byline belongs to the ' +
     'splash and the share image, where it is introduced or passed on');
@@ -450,12 +450,12 @@ test('a finished session leads with what you did, then the two tabs', () => {
   const done   = at(/actual-done-k">Session complete/,        'the completion statement');
   const share  = at(/sess-tab-k">Share</,                     'the Share tab');
   const detail = at(/sess-tab-k">Session Details</,           'the Session Details tab');
-  const anal   = at(/sess-tab-k">Sacoro Analysis</,         'the Sacoro Analysis tab');
+  const anal   = at(/sess-tab-k">SACORO Analysis</,         'the SACORO Analysis tab');
   const log    = at(/sess-tab-k">Your Log</,                  'the Your Log tab');
   assert.ok(done < share,   'Share no longer follows the completion statement');
   assert.ok(share < detail, 'Session Details no longer follows Share');
   assert.ok(detail < log,   'Your Log no longer follows Session Details');
-  assert.ok(log < anal,     'Sacoro Analysis no longer comes last');
+  assert.ok(log < anal,     'SACORO Analysis no longer comes last');
 
   /* NOTHING IS LOOSE. Everything on a finished session is one of the four
      tabs: the fields, the verdict line and Clear log are all behind one, so
@@ -478,8 +478,8 @@ test('all four tabs are the same object, drawn from one helper', () => {
     'the shared session tab is gone');
   assert.match(src, /sessionTabHtml\('Session Details'/,
     'Session Details is no longer drawn from the shared tab');
-  assert.match(src, /sessionTabHtml\('Sacoro Analysis'/,
-    'Sacoro Analysis is no longer drawn from the shared tab');
+  assert.match(src, /sessionTabHtml\('SACORO Analysis'/,
+    'SACORO Analysis is no longer drawn from the shared tab');
   assert.match(src, /sessionTabHtml\('Share'/,
     'Share is no longer drawn from the shared tab');
   assert.match(src, /sessionTabHtml\('Your Log'/,
@@ -573,14 +573,14 @@ const tabsOn = (a, d) => [...a.renderDayCard(d).matchAll(/sess-tab-k">([^<]*)</g
    BODY: the panel is where scored and unscored now differ. */
 const analysisBody = (a, d) => {
   const c = a.renderDayCard(d);
-  const i = c.indexOf('Sacoro Analysis');
+  const i = c.indexOf('SACORO Analysis');
   return i < 0 ? '' : c.slice(i).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 };
 
 test('every finished session gets all four tabs, however little is logged', () => {
   const a = app();
   const ds = a.state.days.filter(x => x.type !== 'rest');
-  const WANT = ['Share', 'Session Details', 'Your Log', 'Sacoro Analysis'];
+  const WANT = ['Share', 'Session Details', 'Your Log', 'SACORO Analysis'];
 
   const nothing = ds[0];
   nothing.completed = true; nothing.actual = a.emptyActual();
@@ -664,7 +664,7 @@ test('the week slide carries a finished session’s tabs, in the founder’s ord
   assert.match(slide, /actual-done-k">Session complete/,
     'the week slide does not say the session is complete');
   const tabs = slideTabs(slide);
-  assert.deepEqual(tabs, ['Share', 'Session Details', 'Your Log', 'Sacoro Analysis'],
+  assert.deepEqual(tabs, ['Share', 'Session Details', 'Your Log', 'SACORO Analysis'],
     'the week slide does not carry the finished session’s four tabs in order: ' +
     JSON.stringify(tabs));
 
@@ -695,7 +695,7 @@ test('every shape of finished session gets the same four tabs on the slide', () 
      So every completed day in the block is asked, and the shapes are
      counted to make sure the sweep contains the one that broke. */
   const a = slideApp();
-  const want = ['Share', 'Session Details', 'Your Log', 'Sacoro Analysis'];
+  const want = ['Share', 'Session Details', 'Your Log', 'SACORO Analysis'];
   let solo = 0, blueprint = 0, other = 0, fuelledStages = 0;
   a.state.days.forEach(d => {
     if (d.type === 'rest' || !(d.km > 0) || d.type === 'race') return;

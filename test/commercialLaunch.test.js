@@ -374,7 +374,7 @@ test('a grandfathered athlete is never sent to checkout and is offered nothing t
   assert.ok(!/No subscription yet/.test(html),
     'a complimentary athlete was told they have no subscription, as though access had lapsed');
   /* What they DO see: an accurate state, and not a claim to be paying. */
-  assert.match(html, /Your Sacoro access is active/);
+  assert.match(html, /Your SACORO access is active/);
   assert.match(html, /Complimentary/);
   assert.match(html, /Nothing is being charged/);
   assert.ok(!/Subscription active until/.test(html),

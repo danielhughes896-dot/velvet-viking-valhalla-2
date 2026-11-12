@@ -256,7 +256,7 @@ test('no restricted session is ever offered back', () => {
 // 4. HISTORY IS PROTECTED
 // =====================================================================
 
-test('what Sacoro prescribed is kept, restored ahead, and left standing behind', () => {
+test('what SACORO prescribed is kept, restored ahead, and left standing behind', () => {
   const a = app();
   const until = a.addDays(TODAY, 20);
   // protected sessions are deliberately never snapshotted -- see the test above
@@ -331,7 +331,7 @@ test('no return ramp is invented, and RECOVERY_PROFILE is not consulted for one'
     'a day ahead of the athlete is still restricted after they said they were back');
 });
 
-test('the programme that comes back is the one Sacoro wrote, intensity included', () => {
+test('the programme that comes back is the one SACORO wrote, intensity included', () => {
   const a = app();
   const until = a.addDays(TODAY, 20);
   const ahead = a.state.days.filter(d => d.date >= TODAY && d.date <= until);
@@ -394,7 +394,7 @@ test('restricted days are neither evidence nor the absence of it', () => {
   assert.ok(e.sessions > 0, 'the training that did happen was discarded');
 });
 
-test('an interruption cannot lengthen the window that decides how much Sacoro claims to know', () => {
+test('an interruption cannot lengthen the window that decides how much SACORO claims to know', () => {
   const a = app();
   // ten days of real training, then ten days restricted: a twenty-day span
   logObjective(a, 20, a.addDays(TODAY, -10));
@@ -515,10 +515,10 @@ test('the card renders nothing until there is something to say', () => {
   a.state.setup.restriction.from = a.addDays(TODAY, -12);   // twelve days out
   a.endRestriction();
   assert.equal(a.renderRestrictionCard(), '',
-    'a card is still claiming a return Sacoro does not manage');
+    'a card is still claiming a return SACORO does not manage');
 });
 
-test('nothing on screen promises a return Sacoro does not size', () => {
+test('nothing on screen promises a return SACORO does not size', () => {
   const a = app();
   a.declareRestriction('easy', a.addDays(TODAY, 3));
   a.state.setup.restriction.from = a.addDays(TODAY, -18);
@@ -632,7 +632,7 @@ test('applying a restriction twice cannot eat the session it is protecting', () 
     'the original prescription was lost on a later pass'));
   a.endRestriction();
   assert.equal(ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|'), original,
-    'the programme that came back is not the one Sacoro wrote');
+    'the programme that came back is not the one SACORO wrote');
 });
 
 test('the coach does not say proceed over an unanswered "are you back?"', () => {
@@ -647,7 +647,7 @@ test('the coach does not say proceed over an unanswered "are you back?"', () => 
   assert.ok(dec, 'no decision at all');
   assert.equal(dec.state, 'recover',
     'Next Move reads ' + dec.state + ' beneath a card saying nothing resumes until you say so');
-  assert.ok(dec.reasons.some(r => /not told Sacoro you are back/.test(r)),
+  assert.ok(dec.reasons.some(r => /not told SACORO you are back/.test(r)),
     JSON.stringify(dec.reasons));
   assert.equal(a.supportSafetyBlocked(), true);
 });
@@ -1046,7 +1046,7 @@ test('durability is still not modified, and the bands and scope are unchanged', 
   });
 });
 
-test('no surface anywhere promises a return Sacoro does not size', () => {
+test('no surface anywhere promises a return SACORO does not size', () => {
   /* Caught by a screenshot, not by a test: the ramp was removed and two
      field hints went on saying "eases you back in". Pinned here so the next
      reader of this copy has to mean it. */
@@ -1103,7 +1103,7 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
     'only the answered check-in may follow the signpost');
   assert.equal((tail.match(/<div class="today-checkin/g) || []).length, 1);
   // the two surfaces this screen no longer carries, held so they cannot creep back
-  assert.equal(html.indexOf('pace-ref-card'), -1, 'the Pace Reference belongs to Sacoro -> Coach');
+  assert.equal(html.indexOf('pace-ref-card'), -1, 'the Pace Reference belongs to SACORO -> Coach');
   assert.equal(html.indexOf('coach-next-title'), -1, 'Next Move is not on Today');
 });
 

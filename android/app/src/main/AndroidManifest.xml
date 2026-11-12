@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
       allowBackup=false, and it is not caution for its own sake. The shell is a
@@ -138,4 +139,22 @@
     -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!--
+      THE DAILY 08:00 REMINDER, scheduled on the device by the Local
+      Notifications plugin so it fires with the app closed. Founder: "Daily
+      alarm - doesn't work" - it was the browser's notification system, which
+      the WebView does not have.
+        POST_NOTIFICATIONS      asked for at runtime, when the athlete turns
+                                the reminder on in Preferences, and only then.
+        RECEIVE_BOOT_COMPLETED  so a scheduled reminder survives a restart.
+        WAKE_LOCK               so it is delivered while the phone sleeps.
+      SCHEDULE_EXACT_ALARM, which the plugin also asks for, is REMOVED: Play
+      restricts it to alarm-clock and calendar apps, and a training reminder
+      a few minutes either side of 08:00 does not need it.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 </manifest>

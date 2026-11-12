@@ -186,8 +186,19 @@ test('Coach Voice sits in Settings with the other presentation preferences', () 
     'Settings has no Preferences destination');
   const panel = a.hqPanelHtml('prefs');
   assert.ok(panel.indexOf('coach-voice-row') !== -1, 'Coach Voice is not in Preferences');
-  ['notify-toggle-row', 'guidance-level-row'].forEach(id =>
-    assert.ok(panel.indexOf(id) !== -1, id + ' left Preferences'));
+  assert.ok(panel.indexOf('notify-toggle-row') !== -1, 'the reminder left Preferences');
+  /* COACHING DETAIL IS GONE. Founder: "Coach detail - should be the same for
+     everyone - remove." Everyone gets the one level, Adaptive, and a save
+     still carrying Full or Concise is brought back to it when it loads. */
+  assert.ok(panel.indexOf('guidance-level-row') === -1, 'the Coaching detail choice is back in Preferences');
+  assert.ok(panel.indexOf('Coaching detail') === -1);
+  const b = loadApp({ pinnedDate: '2026-09-10T09:00:00Z' });
+  const saved = JSON.parse(JSON.stringify(a.state)); saved.guidanceLevel = 'concise'; saved.units = 'mi';
+  assert.ok(saved.setup && saved.days && saved.days.length, 'the fixture has no plan, so the save would not load');
+  b.window.localStorage.setItem(b.STORAGE_KEY, JSON.stringify(saved));
+  b.loadState();
+  assert.equal(b.state.units, 'mi', 'the save did not load, so this proves nothing');
+  assert.equal(b.guidanceLevel(), 'adaptive', 'a save carrying Concise kept it');
   assert.ok(panel.indexOf('Training &amp; Zones') === -1,
     'Preferences swallowed the training configuration too');
 });

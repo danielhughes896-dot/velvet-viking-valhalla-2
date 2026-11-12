@@ -23,7 +23,7 @@ release is small: there is almost no native surface.
 | Backup | `allowBackup=false` |
 | Cleartext | `usesCleartextTraffic=false` (also the platform default at target 36) |
 | Debuggable | not set; the release build type leaves it false |
-| Permissions | `INTERNET`, and `RECORD_AUDIO` for the Ask Coach microphone — nothing else |
+| Permissions | `INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED` and `WAKE_LOCK`: the Ask Coach microphone, and the daily 08:00 reminder (runtime-requested when the athlete turns it on; `SCHEDULE_EXACT_ALARM` is removed) — nothing else |
 
 ### The microphone permission, and what to declare for it
 

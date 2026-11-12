@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sacoro — Start</title>
+<title>SACORO — Start</title>
 <!--
   THE FRONT DOOR.
 
@@ -409,7 +409,7 @@
 <body>
 <div class="vvv-shell">
   <div class="vvv-brand">
-    <div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"></span><p class="vvv-wordmark">Sacoro</p><span class="vvv-dot" aria-hidden="true"></span></div>
+    <div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"></span><p class="vvv-wordmark">SACORO</p><span class="vvv-dot" aria-hidden="true"></span></div>
     <p class="vvv-by">By Velvet Viking</p>
     <div class="vvv-rule"></div>
   </div>
@@ -456,7 +456,7 @@
        surface in the app -- it is what scopes .btn-primary to Cherry
        Lacquer below, and nothing outside this container picks it up. -->
   <div id="pane-build" class="vvv-hidden builder-light">
-    <button type="button" class="vvv-btn vvv-btn-ghost" id="signin-instead" style="margin-bottom:18px;">Trained with Sacoro before? Sign in</button>
+    <button type="button" class="vvv-btn vvv-btn-ghost" id="signin-instead" style="margin-bottom:18px;">Trained with SACORO before? Sign in</button>
     <div class="bld-progress" id="bld-rail"></div>
     <div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no"></span><span class="bld-stage-name" id="bld-stage-label"></span></div>
     <h3 class="bld-stage-h" id="bld-heading"></h3>
@@ -504,7 +504,7 @@
       <div id="pv-paces"></div>
     </div>
 
-    <p class="say" style="margin-top:20px;">Sacoro coaches this programme day by day —
+    <p class="say" style="margin-top:20px;">SACORO coaches this programme day by day —
        telling you what today is for, reading how it actually went, and adapting only when
        a real pattern appears.</p>
 
@@ -763,7 +763,7 @@
       if (r.status >= 500){
         setAuthContext('signin');
         show('pane-auth');
-        fail('auth-err', 'Sacoro is having a moment. Your account and your training are fine — ' +
+        fail('auth-err', 'SACORO is having a moment. Your account and your training are fine — ' +
                          'reload this page in a minute and you will go straight in.');
         return;
       }
@@ -797,7 +797,7 @@
       if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
       setAuthContext('signin');
       show('pane-auth');
-      fail('auth-err', 'We could not reach Sacoro just then. Sign in to continue.');
+      fail('auth-err', 'We could not reach SACORO just then. Sign in to continue.');
     });
   }
 
@@ -826,7 +826,7 @@
         $('send').disabled = false;
         if (r.status === 200){ $('sent-to').textContent = email; show('pane-sent'); return; }
         if (r.status === 403){
-          fail('auth-err', 'Sacoro is not open to new accounts just yet. If you are expecting access, use the address we invited.');
+          fail('auth-err', 'SACORO is not open to new accounts just yet. If you are expecting access, use the address we invited.');
           return;
         }
         fail('auth-err', 'We could not send that link. Try again in a moment.');
@@ -1020,12 +1020,12 @@
           '<span class="bor-d">We understand your running and what you’re aiming for.</span>' +
         '</div>' +
         '<div class="bld-overview-row">' +
-          '<span class="bor-t">Sacoro builds your plan</span>' +
+          '<span class="bor-t">SACORO builds your plan</span>' +
           '<span class="bor-d">Workouts, paces and progression are created for you.</span>' +
         '</div>' +
         '<div class="bld-overview-row">' +
           '<span class="bor-t">We adapt as you go</span>' +
-          '<span class="bor-d">Log your runs and Sacoro gets smarter as the block progresses.</span>' +
+          '<span class="bor-d">Log your runs and SACORO gets smarter as the block progresses.</span>' +
         '</div>' +
       '</div>';
   }
@@ -1209,7 +1209,7 @@
          carries a separator the athlete can actually reach. See
          parseBenchmarkTime(). */
       '<input id="bld-bench-time" type="text" inputmode="decimal" placeholder="45:00 or 45.00" value="'+Ans.benchTime+'"></div>' +
-      '<div class="field-hint">Minutes and seconds \u2014 45:00, or 45.00 if your keypad has no colon. A recent honest-effort result Sacoro builds your training paces from. You can update it any time once you have an account.</div>';
+      '<div class="field-hint">Minutes and seconds \u2014 45:00, or 45.00 if your keypad has no colon. A recent honest-effort result SACORO builds your training paces from. You can update it any time once you have an account.</div>';
     wireOptGrid('bld-bench-dist', function(v){ Ans.benchDist = v; });
     $('bld-bench-time').addEventListener('input', function(){ Ans.benchTime = $('bld-bench-time').value; });
   }
@@ -1292,7 +1292,7 @@
         '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input id="bld-lthr" type="number" min="0" step="1" inputmode="numeric" placeholder="172"></div>' +
         '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input id="bld-maxhr" type="number" min="0" step="1" inputmode="numeric" placeholder="188"></div>' +
       '</div>' +
-      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. Sacoro works without it.</div>';
+      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. SACORO works without it.</div>';
   }
 
   /* ---------- stage 08 TARGETS ----------
@@ -1342,7 +1342,7 @@
       '<div class="bld-review-hero"><div class="d">'+(NAME[Ans.distanceKey]||Ans.distanceKey)+'</div>' +
         '<div class="s">'+((Ans.volume || '0') + ' ' + Ans.units + ' / week · ' + days + ' running days')+'</div></div>' +
       '<div style="margin-top:14px;">' + rows + '</div>' +
-      '<p class="quiet">Using Sacoro in the private beta is covered by our ' +
+      '<p class="quiet">Using SACORO in the private beta is covered by our ' +
       '<a href="https://velvetviking.co.uk/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and ' +
       '<a href="https://velvetviking.co.uk/beta-terms" target="_blank" rel="noopener noreferrer">Terms</a>. Both are always available from Settings once you have an account.</p>';
   }
@@ -1836,7 +1836,7 @@
       fail('trial-err', 'We could not record that just now — nothing has changed. Please try again.');
     }).catch(function(){
       cb.disabled = false; cb.checked = false;
-      fail('trial-err', 'We could not reach Sacoro. Check your connection and try again.');
+      fail('trial-err', 'We could not reach SACORO. Check your connection and try again.');
     });
   }
 

@@ -606,7 +606,7 @@ async function handle(req, res){
     build: buildEcho(v.input, built.startDate, built.raceDate, built.weeks),
     trial: trial,
     /* Said plainly rather than implied: this is a summary, not the product. */
-    note: 'This is a preview of your programme. Sacoro itself coaches it.'
+    note: 'This is a preview of your programme. SACORO itself coaches it.'
   });
 }
 
