@@ -204,3 +204,56 @@ test('every word in the check-in is white: no grey, no bronze', () => {
   ['  .readiness-head', '  .readiness-label', '  .readiness-btn', '  .readiness-done-head', '  .readiness-done-line']
     .forEach((sel) => assert.match(cssRule(sel), /color:var\(--ink\)/, sel + ' must be white'));
 });
+
+/* ---------- what an answer is allowed to do ----------
+   Founder: "morning check-in needs a clear safety interpretation. Heavy legs
+   alone shouldn't automatically downgrade a workout. Heavy legs plus poor
+   sleep plus illness symptoms should be interpreted differently."
+   This is what the engine already did; these laws hold it there now that the
+   question is asked every morning and so is answered far more often. */
+
+function ordinaryMorning(answers) {
+  const app = concernedMorning();
+  app.state.days.forEach((d) => { if (d.actual) d.actual.notes = ''; });
+  Object.keys(answers || {}).forEach((k) => app.handleSetReadiness(k, answers[k]));
+  const report = app.coachAnalyse();
+  const today = app.state.days.filter((d) => d.date === app.todayStr())[0];
+  return { app, report, today, typeBefore: today.type, kmBefore: today.km };
+}
+
+test('heavy legs alone are watched: no change to the session is offered', () => {
+  const { report, app } = ordinaryMorning({ legs: 'heavy' });
+  assert.equal(report.decision.state, 'check');
+  assert.ok(!report.nextMove.adjustment, 'a downgrade was offered for heavy legs on their own');
+  assert.deepEqual(Array.from((app.planEvolution() || {}).changes || []), []);
+});
+
+test('heavy legs and poor sleep together are still only watched', () => {
+  const { report, app } = ordinaryMorning({ legs: 'heavy', sleep: 'poor' });
+  assert.equal(report.decision.state, 'check');
+  assert.ok(!report.nextMove.adjustment);
+  assert.deepEqual(Array.from((app.planEvolution() || {}).changes || []), []);
+  assert.match(report.decision.reasons.join(' | '), /heavy legs/i);
+  assert.match(report.decision.reasons.join(' | '), /poor sleep/i);
+});
+
+test('feeling under the weather is a safety reading: recovery comes first and a change is offered', () => {
+  const { report, app } = ordinaryMorning({ legs: 'heavy', sleep: 'poor', health: 'under' });
+  assert.equal(report.decision.state, 'recover');
+  const evo = app.planEvolution();
+  assert.equal(evo.state, 'RECOVER');
+  assert.ok(evo.changes.length >= 1, 'illness before quality work must put a lighter day on the table');
+});
+
+test('and that change is offered, never applied: the session is untouched until the athlete accepts', () => {
+  const { today, typeBefore, kmBefore } = ordinaryMorning({ health: 'under' });
+  assert.equal(today.type, typeBefore);
+  assert.equal(today.km, kmBefore);
+  assert.ok(!today.coachAdjust, 'nothing may rewrite the day on the strength of a check-in alone');
+});
+
+test('a morning with every answer fine changes nothing at all', () => {
+  const { report } = ordinaryMorning({ legs: 'fresh', sleep: 'good', health: 'good' });
+  assert.equal(report.decision.state, 'proceed');
+  assert.ok(!report.nextMove.adjustment);
+});
