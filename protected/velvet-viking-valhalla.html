@@ -36111,6 +36111,410 @@ function computeExecutionBreakdown(dd){
     paceResolution: executionPaceResolution(dd, parts[1])
   };
 }
+/* ===== SESSION ASSESSMENT: THREE READINGS THAT DO NOT CONTAMINATE EACH OTHER =====
+   Founder, approving the architecture:
+     "Execution: How well the athlete performed the work they actually
+      completed, relative to the intended session.
+      Response: How the athlete tolerated that work, using subjective effort,
+      physiological response and personal baselines.
+      Completion: How much of the prescribed session was completed, including
+      the reason for stopping early."
+     "The three outputs must remain genuinely independent."
+
+   WHY IT IS A SECOND ENGINE AND NOT AN EDIT TO THE FIRST. The score above
+   folds distance, pace, heart rate and effort into one number, so a run cut
+   short reads as a run done badly and a fitter heart reads as a fault.
+   Separating them is not a re-weighting; the three questions have different
+   evidence and different answers.
+
+   IT RUNS BESIDE computeExecutionBreakdown() AND REPLACES NOTHING YET.
+   "Architecture approved. Numerical calibration remains subject to testing
+   and review." Confidence, the trend and every proposal still read the score
+   above. Nothing outside this block calls into it; test/sessionAssessment
+   holds that line until the calibration has been reviewed.
+
+   EVIDENCE IS THREE QUESTIONS, NOT ONE GRADE:
+     coverage     what was recorded at all
+     reliability  whether a recorded thing can be trusted (a watch can be
+                  wrong; "measured" is not "true")
+     report       what the athlete said
+   An unreliable measurement is set aside on its own. A GPS fault does not
+   take the heart rate, the effort or the completion with it.
+
+   IT READS FIELDS THE LOG DOES NOT ASK FOR YET. repsDone, stopReason,
+   mainSetFelt, mainSetHeld, recoveries and watchDataOff are the answers the
+   approved Your Log design collects; that screen is not built. Each is used
+   when present and never assumed when absent, so the engine is ready for
+   the screen and correct without it.
+
+   PURE: it reads the day and the current paces, writes nothing, and returns
+   a new object every call. */
+
+/* CALIBRATION HYPOTHESES, every one. None is a scientific constant and none
+   is pinned by a test: the laws compare sessions with each other, so these
+   can be moved by review without a law changing sides. */
+var ASSESS_CAL = {
+  /* How far outside its target band a section may be before it counts,
+     per cent, by what the section is. GPS and terrain live in here. */
+  targetTolerancePct: { goal_pace:2, threshold:2, tempo:2, steady:3, hard_effort:3, vo2:3 },
+  targetToleranceDefault: 2.5,
+  targetPenaltyPerPct: 6,
+  /* Past this the section was not a worse version of the session; it was a
+     different one, and it is described rather than scored. */
+  differentSessionPct: 8,
+  /* Easy running: slow is free a long way, fast is not. */
+  easySlowFreePct: 12, easySlowPenaltyPerPct: 2,
+  easyFastTolerancePct: 3, easyFastPenaltyPerPct: 5, easyDifferentPct: 15,
+  completeFraction: 0.95,
+  levelHigh: 85, levelMixed: 65,
+  /* A structured session known only by its totals is read against the
+     whole-run window this loosely. */
+  coarseTolerancePct: 4,
+  /* First third of a set against the last third, in points of deviation. */
+  patternDriftPct: 3,
+  hrHighMarginPct: 2,
+  /* An effort reported as normal with a heart rate this far over the band is
+     not "a bit harder than it felt"; one of the two is wrong. */
+  hrContradictionPct: 8,
+  /* Readings no runner produces: a device fault, whatever else is true. */
+  plausiblePaceSec: [150, 900], plausibleHR: [70, 225]
+};
+var ASSESS_STOP_REASONS = ['illness','injury','fatigue','time','rest','other'];
+
+function assessSectionVerdict(paceSec, band, kind, intensity){
+  if (paceSec == null || !band || band.slow == null || band.fast == null) return null;
+  var fast = band.fast, slow = band.slow;
+  if (slow - fast < MIN_PACE_WINDOW_SEC){
+    var mid = (fast + slow) / 2;
+    fast = mid - MIN_PACE_WINDOW_SEC / 2; slow = mid + MIN_PACE_WINDOW_SEC / 2;
+  }
+  /* Signed distance outside the band, in per cent: + slower, - faster. */
+  var dev = paceSec > slow ? (paceSec - slow) / slow * 100
+          : paceSec < fast ? -(fast - paceSec) / fast * 100 : 0;
+  var out = { devPct: Math.round(dev * 10) / 10, score: 100, different: false,
+              verdict: dev > 0 ? 'slow' : dev < 0 ? 'fast' : 'in-band' };
+  var beyond;
+  if (kind === 'easy'){
+    if (dev > 0){
+      beyond = dev - ASSESS_CAL.easySlowFreePct;
+      if (beyond > 0) out.score = clamp(100 - beyond * ASSESS_CAL.easySlowPenaltyPerPct, 0, 100);
+      else out.verdict = 'in-band';             /* slow easy running is easy running */
+    } else if (dev < 0){
+      beyond = -dev - ASSESS_CAL.easyFastTolerancePct;
+      if (beyond > 0) out.score = clamp(100 - beyond * ASSESS_CAL.easyFastPenaltyPerPct, 0, 100);
+      else out.verdict = 'in-band';
+      if (-dev >= ASSESS_CAL.easyDifferentPct) out.different = true;
+    }
+    return out;
+  }
+  var tol = ASSESS_CAL.targetTolerancePct[intensity];
+  if (tol == null) tol = ASSESS_CAL.targetToleranceDefault;
+  beyond = Math.abs(dev) - tol;
+  if (beyond > 0) out.score = clamp(100 - beyond * ASSESS_CAL.targetPenaltyPerPct, 0, 100);
+  else out.verdict = 'in-band';
+  if (Math.abs(dev) >= ASSESS_CAL.differentSessionPct) out.different = true;
+  return out;
+}
+
+/* THE SHAPE OF A SET, which an average hides. Six reps on target and six
+   that start fast and fall away can share a mean; they are not the same
+   session. The last third is compared with the first: slower by more than
+   the tolerance is 'faded', faster is 'built'. Needs three reps to say
+   anything, and says nothing about a single block. */
+function assessRepPattern(workScored){
+  if (!workScored || workScored.length < 3) return null;
+  var n = Math.max(1, Math.round(workScored.length / 3));
+  var mean = function(list){ return list.reduce(function(t, x){ return t + x.devPct; }, 0) / list.length; };
+  var drift = mean(workScored.slice(-n)) - mean(workScored.slice(0, n));
+  return drift > ASSESS_CAL.patternDriftPct ? 'faded' : drift < -ASSESS_CAL.patternDriftPct ? 'built' : 'held';
+}
+
+/* What the session asks for, as the sections it will be judged by.
+   A long run with race-specific work is judged BY SECTION: the goal-pace
+   block against goal pace and the running either side of it as easy
+   running -- "Otherwise, the scorer will penalise an athlete for correctly
+   executing the workout." */
+function assessPlan(dd){
+  var segs = [];
+  try { var p = prescriptionOf(dd); segs = p ? (orderedSegments(p) || []) : []; } catch(e){ segs = []; }
+  var work = segs.filter(function(s){ return s.role === 'work'; });
+  var hills = work.some(function(s){ return s.terrain === 'uphill'; });
+  var repeated = work.filter(function(s){ return s.inRepeat; }).length >= 2;
+  var allEasy = work.length > 0 && work.every(function(s){ return s.intensity === 'easy'; });
+  var family = dd.type === 'race' ? 'race'
+             : hills ? 'hills'
+             : allEasy ? 'aerobic'
+             : (dd.type === 'long' ? 'staged-long' : (repeated ? 'reps' : 'sustained'));
+  var judged = [];
+  segs.forEach(function(s){
+    if (s.role === 'work'){
+      judged.push({ seg:s, kind:(s.intensity === 'easy' ? 'easy' : 'target'), work:true });
+    } else if (family === 'staged-long' && (s.role === 'warmup' || s.role === 'cooldown') && s.intensity === 'easy'){
+      judged.push({ seg:s, kind:'easy', work:false });
+    }
+  });
+  return { family:family, segs:segs, work:work, judged:judged };
+}
+
+function assessEvidence(dd, plan, env){
+  var a = dd.actual || {};
+  var splits = a.splits || [];
+  var bySeg = {};
+  splits.forEach(function(x){ if (x && x.segId) bySeg[x.segId] = x; });
+  var avg = null;
+  try { avg = actualPaceSecPerKm(dd); } catch(e){ avg = null; }
+  var measuredWork = plan.work.filter(function(s){
+    var r = bySeg[s.segId];
+    return !!(r && r.paceSec != null && !(r.secSeeded && r.km == null));
+  }).length;
+  var sigs = (env && env.signals && env.signals.signals) || [];
+  var said = function(id){ return sigs.some(function(x){ return x.id === id; }); };
+  var paceOk = function(v){ return v >= ASSESS_CAL.plausiblePaceSec[0] && v <= ASSESS_CAL.plausiblePaceSec[1]; };
+  var paceSeen = avg != null || measuredWork > 0;
+  var paceImplausible = (avg != null && !paceOk(avg)) ||
+    splits.some(function(r){ return r && r.paceSec != null && !paceOk(r.paceSec); });
+  var paceSuspect = paceSeen && (a.watchDataOff === true || said('gps_doubt') || said('watch_issue') || paceImplausible);
+  var hrSeen = a.hr != null;
+  var hrSuspect = hrSeen && (!!(env && env.hrDoubt) ||
+    a.hr < ASSESS_CAL.plausibleHR[0] || a.hr > ASSESS_CAL.plausibleHR[1]);
+  var effort = a.rpe != null || a.mainSetFelt != null;
+  var report = !!(a.notes && String(a.notes).trim()) || a.mainSetFelt != null || a.mainSetHeld != null ||
+               a.recoveries != null || a.stopReason != null;
+  var excluded = [];
+  if (paceSuspect) excluded.push('pace');
+  if (hrSuspect) excluded.push('hr');
+  var usableSections = !paceSuspect && measuredWork > 0;
+  var grade = usableSections ? 'measured'
+            : (!paceSuspect && avg != null) ? (plan.family === 'aerobic' ? 'measured' : 'totals')
+            : (effort || report) ? 'reported'
+            : 'distance-only';
+  if (plan.family === 'hills') grade = (effort || report) ? 'reported' : 'distance-only';
+  return {
+    coverage: { distance: a.km != null, pace: paceSeen, sections: measuredWork, sectionsOf: plan.work.length,
+                hr: hrSeen, effort: effort, report: report },
+    reliability: { pace: !paceSeen ? 'none' : (paceSuspect ? 'suspect' : 'ok'),
+                   hr: !hrSeen ? 'none' : (hrSuspect ? 'suspect' : 'ok') },
+    excluded: excluded, grade: grade, bySeg: bySeg, avgPaceSec: avg
+  };
+}
+
+/* HOW MUCH of the session was done, and why it stopped if it did. Nothing
+   here looks at how well anything was run. */
+function assessCompletion(dd, plan, ev, env){
+  var a = dd.actual || {};
+  var out = { fraction:null, done:null, of:null, basis:null, short:false, over:false,
+              reason:null, approximate:false };
+  var repFamily = plan.family === 'hills' || plan.family === 'reps';
+  var total = plan.work.length;
+  var done = null;
+  if (repFamily && total > 0){
+    if (a.repsDone != null && isFinite(a.repsDone)) done = clamp(Math.round(a.repsDone), 0, total);
+    else {
+      var entered = plan.work.filter(function(s){
+        var r = ev.bySeg[s.segId];
+        return !!(r && (r.km != null || r.paceSec != null || (r.sec != null && !r.secSeeded)));
+      }).length;
+      if (entered > 0) done = entered;
+    }
+  }
+  if (done != null){
+    out.done = done; out.of = total; out.basis = 'reps'; out.fraction = done / total;
+    out.short = done < total;
+  } else if (a.km != null && dd.km > 0){
+    out.basis = 'distance'; out.fraction = Math.round(a.km / dd.km * 100) / 100;
+    out.short = out.fraction < ASSESS_CAL.completeFraction;
+    out.over = out.fraction > 1.1;
+    out.approximate = ev.reliability.pace === 'suspect';
+  }
+  /* THE REASON IS WHAT THE ATHLETE SAID, OR NOTHING. A chosen reason
+     outranks anything the notes could be read to mean; with neither, there
+     is no reason -- "never invent a reason". Pain and illness are named
+     even on a completed session, because the safety pathway needs them. */
+  if (a.stopReason && ASSESS_STOP_REASONS.indexOf(a.stopReason) !== -1) out.reason = a.stopReason;
+  else if (env && env.pain) out.reason = 'pain';
+  else if (env && env.illness) out.reason = 'illness';
+  else if (out.short && env && env.fatigue) out.reason = 'fatigue';
+  if (!out.short && out.reason !== 'pain' && out.reason !== 'illness') out.reason = null;
+  return out;
+}
+
+/* HOW WELL the work that was actually done was done. Sections that were not
+   run are not here to be scored; that is Completion's business. */
+function assessExecution(dd, plan, ev){
+  var a = dd.actual || {};
+  var out = { score:null, level:null, basis:'none', interpretation:null, pattern:null, sections:[], fullDose:false };
+  var paces = getActivePaces(), goalPace = getGoalPaceSecPerKm();
+  var paceUsable = ev.reliability.pace === 'ok';
+
+  /* Effort-based work -- hill reps -- has no pace to hold it to. It is
+     described from what the athlete reported, and never given a number. */
+  if (plan.family === 'hills' || (!paceUsable && ev.coverage.effort)){
+    if (!ev.coverage.effort && a.mainSetHeld == null) return out;
+    out.basis = 'reported';
+    var band = null;
+    try { band = expectedRPEBand(dd); } catch(e){ band = null; }
+    var tooEasy = (a.mainSetFelt != null && a.mainSetFelt <= 1) ||
+                  (a.mainSetFelt == null && a.rpe != null && band && a.rpe < band[0] - 1);
+    out.level = tooEasy ? 'low' : (a.mainSetHeld === 'faded' ? 'mixed' : 'high');
+    return out;
+  }
+  if (!paceUsable) return out;
+
+  var scored = [];
+  plan.judged.forEach(function(j){
+    var row = ev.bySeg[j.seg.segId];
+    var pace = (row && row.paceSec != null && !(row.secSeeded && row.km == null)) ? row.paceSec : null;
+    if (pace == null) return;
+    var v = assessSectionVerdict(pace, segmentPaceBand(j.seg, paces, goalPace), j.kind, j.seg.intensity);
+    if (!v) return;
+    var w = null;
+    try { w = (row.km != null && row.km > 0) ? row.km : segmentWeightKm(j.seg, paces, goalPace); } catch(e2){ w = null; }
+    scored.push({ segId:j.seg.segId, role:j.seg.role, kind:j.kind, work:j.work, km:(w > 0 ? w : 1),
+                  devPct:v.devPct, verdict:v.verdict, score:v.score, different:v.different });
+  });
+  var workScored = scored.filter(function(x){ return x.work; });
+
+  if (workScored.length){
+    out.basis = 'sections'; out.sections = scored;
+    out.pattern = assessRepPattern(workScored);
+    var wKm = 0, diffKm = 0, km = 0, acc = 0;
+    workScored.forEach(function(x){ wKm += x.km; if (x.different) diffKm += x.km; });
+    if (wKm > 0 && diffKm / wKm >= 0.5){ out.interpretation = 'different-session'; return out; }
+    scored.forEach(function(x){ km += x.km; acc += x.score * x.km; });
+    out.score = clamp(Math.round(acc / km), 0, 100);
+  } else if (plan.family === 'aerobic' && ev.avgPaceSec != null && plan.work.length){
+    /* One section, so the whole run IS the section. */
+    var only = assessSectionVerdict(ev.avgPaceSec, segmentPaceBand(plan.work[0], paces, goalPace), 'easy', 'easy');
+    if (!only) return out;
+    out.basis = 'whole-run';
+    out.sections = [{ segId:plan.work[0].segId, role:'work', kind:'easy', work:true, km:(a.km || dd.km || 1),
+                      devPct:only.devPct, verdict:only.verdict, score:only.score, different:only.different }];
+    if (only.different){ out.interpretation = 'different-session'; return out; }
+    out.score = clamp(Math.round(only.score), 0, 100);
+  } else if (ev.avgPaceSec != null){
+    /* A structured session known only by its totals. The average runs
+       through the warm-up, the work and the recoveries, so it is compared
+       loosely with the whole-run window and DESCRIBED; scoring it would
+       claim to know how the work went. */
+    var win = null;
+    try { win = executionPaceTarget(dd); } catch(e3){ win = null; }
+    if (!win || win.slow == null) return out;
+    out.basis = 'totals';
+    var over = ev.avgPaceSec > win.slow ? (ev.avgPaceSec - win.slow) / win.slow * 100
+             : ev.avgPaceSec < win.fast ? (win.fast - ev.avgPaceSec) / win.fast * 100 : 0;
+    out.level = over <= ASSESS_CAL.coarseTolerancePct ? 'high' : 'mixed';
+    return out;
+  } else return out;
+
+  out.level = out.score >= ASSESS_CAL.levelHigh ? 'high' : out.score >= ASSESS_CAL.levelMixed ? 'mixed' : 'low';
+  return out;
+}
+
+/* HOW IT WAS TOLERATED. Heart rate lives here and only here: above the band
+   it is a sign the work cost more than intended; BELOW it is never a fault
+   ("the new scorer should stop penalising HR below the existing band").
+   Conditions are kept as the explanation and change no reading -- "Context
+   should explain fatigue, not erase it." */
+function assessResponse(dd, ev, env){
+  var a = dd.actual || {};
+  var out = { reading:'unknown', signals:[], context:[], contradiction:false, safety:null };
+  var band = null;
+  try { band = expectedRPEBand(dd); } catch(e){ band = null; }
+  var subjective = null;
+  if (a.mainSetFelt != null){
+    subjective = a.mainSetFelt >= 4 ? 'harder' : a.mainSetFelt <= 2 ? 'easier' : 'as-intended';
+  } else if (a.rpe != null && band){
+    subjective = a.rpe > band[1] ? 'harder' : a.rpe < band[0] ? 'easier' : 'as-intended';
+  }
+  if (subjective === 'harder') out.signals.push('effort-high');
+  if (subjective === 'easier') out.signals.push('effort-low');
+  var objective = null, hrOverPct = 0;
+  if (ev.reliability.hr === 'ok' && healthConsentGranted()){
+    var z = null;
+    try { z = executionHRTarget(dd); } catch(e2){ z = null; }
+    if (z && z.lo != null){
+      var hi = z.hi != null ? z.hi : Infinity;
+      if (a.hr > hi * (1 + ASSESS_CAL.hrHighMarginPct / 100)){
+        objective = 'harder'; out.signals.push('hr-high');
+        hrOverPct = (a.hr - hi) / hi * 100;
+      }
+      else if (a.hr < z.lo){ objective = 'easier'; out.signals.push('hr-low'); }
+      else objective = 'as-intended';
+    }
+  }
+  if (env){
+    if (env.fatigue) out.signals.push('fatigue');
+    if (env.pain) out.safety = 'pain';
+    else if (env.illness) out.safety = 'illness';
+    if (env.heatBand && env.heatBand !== 'none') out.context.push('heat');
+    if (env.humidBand && env.humidBand !== 'none') out.context.push('humidity');
+    if (env.treadmill) out.context.push('treadmill');
+  }
+  if (a.recoveries === 'longer') out.signals.push('recoveries-longer');
+  if (a.recoveries === 'shorter') out.signals.push('recoveries-shorter');
+
+  /* TWO SIGNALS THAT DISAGREE ARE A QUESTION ABOUT THE EVIDENCE, not a
+     verdict for whichever is louder. Only real contradictions count: it
+     felt easy and the heart says hard; it felt normal and the heart is far
+     over; or it felt hard and the heart says easy. A low heart rate with an
+     easy effort is simply a good day, and a slightly raised one with a
+     normal effort is a harder day, not a disagreement. */
+  if ((subjective === 'easier' && objective === 'harder') ||
+      (subjective === 'as-intended' && hrOverPct >= ASSESS_CAL.hrContradictionPct) ||
+      (subjective === 'harder' && objective === 'easier' && out.signals.indexOf('fatigue') === -1)){
+    out.contradiction = true; out.reading = 'unclear';
+    return out;
+  }
+  var felt = subjective || (out.signals.indexOf('fatigue') !== -1 ? 'harder' : null);
+  if (felt === 'as-intended' && (objective === 'harder' || out.signals.indexOf('fatigue') !== -1)) felt = 'harder';
+  if (out.signals.indexOf('recoveries-longer') !== -1 && felt === 'as-intended') felt = 'harder';
+  out.reading = felt || objective || 'unknown';
+  if (out.reading === 'easier' && objective == null && subjective == null) out.reading = 'unknown';
+  return out;
+}
+
+function assessSession(dd){
+  if (!dd || !dd.completed || !dd.actual) return null;
+  var plan = assessPlan(dd);
+  var env = null;
+  try { env = coachEnvironment(dd.actual.notes, dd.actual); } catch(e){ env = null; }
+  var ev = assessEvidence(dd, plan, env);
+  var completion = assessCompletion(dd, plan, ev, env);
+  var execution = assessExecution(dd, plan, ev);
+  var response = assessResponse(dd, ev, env);
+  /* THE DOSE IS A SEPARATE FACT FROM THE QUALITY. "High execution quality
+     on a partially completed workout must never be interpreted as
+     successful completion of the full prescribed training dose." */
+  execution.fullDose = !completion.short && completion.fraction != null &&
+                       execution.interpretation == null && execution.basis !== 'none';
+  return { version:1, family:plan.family, completion:completion, execution:execution,
+           response:response,
+           evidence:{ coverage:ev.coverage, reliability:ev.reliability, excluded:ev.excluded, grade:ev.grade } };
+}
+
+/* THE ONLY WAY TO PUT AN ASSESSMENT INTO WORDS. There is deliberately no
+   function that returns the execution figure by itself: "a 100/100 Execution
+   score must never be displayed on its own when only 60% of the workout was
+   completed." On a partial session the execution line carries the part it
+   covers, and the sentence says how much was done before it says how well. */
+function assessmentReadout(as){
+  if (!as) return null;
+  var c = as.completion, x = as.execution, r = as.response;
+  var part = c.basis === 'reps' ? (c.done + ' of ' + c.of + ' reps')
+           : c.fraction != null ? (Math.round(c.fraction * 100) + '% of the session') : null;
+  var completion = !c.short ? 'Session completed' : (part || 'Session cut short');
+  var how = x.interpretation === 'different-session' ? 'Not the session that was set'
+          : x.score != null ? ('Execution ' + x.score)
+          : x.level === 'high' ? 'Run as intended'
+          : x.level === 'mixed' ? 'Partly as intended'
+          : x.level === 'low' ? 'Not as intended' : 'Execution not measured';
+  var execution = (c.short && part) ? (how + ' on the ' + part + ' you did') : how;
+  var RESPONSE_WORDS = { harder:'Harder than intended', easier:'Easier than intended',
+    'as-intended':'Felt as intended', unclear:'Effort and heart rate disagree', unknown:'' };
+  var response = RESPONSE_WORDS[r.reading] || '';
+  var line = [completion, execution, response].filter(function(s){ return !!s; }).join(' · ');
+  return { completion:completion, execution:execution, response:response, line:line };
+}
 
 /* 'direct' when the prescription has a single intensity and the average IS the
    thing prescribed, null when pace was not scored at all, and otherwise one of
