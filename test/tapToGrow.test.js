@@ -163,20 +163,64 @@ test('Full Plan keeps your place: back lands where you were, at each depth', () 
   assert.equal(scrolls.pop(), 0);
 });
 
-test('the clock: 300ms, inside 250-350, one curve for every piece, on a dark ground', () => {
+/* ---- CHANGED SIDES: THE CLOCK ----
+   The founder first asked for "250-350 ms for a natural, quick transition",
+   and it shipped at 300ms. Seen in the app: "The transitions seem a little
+   too quick? The premium feeling comes from knowing when to animate and
+   when to get out of the user's way ... make them slower but not stupidly
+   slow." So: slower going in, quicker coming back, an accepted change in
+   between, all under half a second, on the even curve rather than one that
+   does its moving in the first third. */
+test('the clock: in slower than back, a change between, all under half a second, one curve, on a dark ground', () => {
   const group = /::view-transition-group\(\*\)\{ animation-duration:(\d+)ms; animation-timing-function:([^;]+); \}/.exec(CSS);
   assert.ok(group, 'the morph has no duration of its own');
-  const ms = +group[1];
-  assert.ok(ms >= 250 && ms <= 350, ms + 'ms is outside the founder’s 250-350');
-  assert.match(CSS, new RegExp('::view-transition-old\\(root\\), ::view-transition-new\\(root\\)\\{ animation-duration:' + ms + 'ms; \\}'),
+  const open = +group[1];
+  assert.equal(group[2].trim(), 'cubic-bezier(.4,0,.2,1)', 'the curve that reads as quick is back');
+  const back = +/html\.vt-back::view-transition-group\(\*\), html\.vt-back::view-transition-old\(root\), html\.vt-back::view-transition-new\(root\)\{ animation-duration:(\d+)ms; \}/.exec(CSS)[1];
+  const change = +/html\.vt-change::view-transition-group\(\*\), html\.vt-change::view-transition-old\(root\), html\.vt-change::view-transition-new\(root\)\{ animation-duration:(\d+)ms; \}/.exec(CSS)[1];
+  assert.ok(open > 350 && open < 500, open + 'ms going in: slower than before, not stupidly slow');
+  assert.ok(back < open && back > 300, back + 'ms coming back: quicker than going in');
+  assert.ok(change < open && change > back, change + 'ms for a change: between the two');
+  assert.match(CSS, new RegExp('::view-transition-old\\(root\\), ::view-transition-new\\(root\\)\\{ animation-duration:' + open + 'ms; \\}'),
     'the page behind cross-fades on a different clock from the thing that grows');
-  /* The tapped thing's own picture gives way within the transition. */
+  /* The tapped thing's own picture gives way within the transition, both ways. */
   const out = +/::view-transition-old\(vt-hero\)\{ animation:vt-out (\d+)ms/.exec(CSS)[1];
   const inn = +/::view-transition-new\(vt-hero\)\{ animation:vt-in (\d+)ms/.exec(CSS)[1];
-  assert.ok(out < ms && inn < ms);
+  assert.ok(out < open && inn < open);
+  const bout = +/html\.vt-back::view-transition-old\(vt-hero\)\{ animation-duration:(\d+)ms; \}/.exec(CSS)[1];
+  const binn = +/html\.vt-back::view-transition-new\(vt-hero\)\{ animation-duration:(\d+)ms; \}/.exec(CSS)[1];
+  assert.ok(bout < back && binn < back);
+  /* Each way back says it is a way back; nothing else does. */
+  assert.match(SRC, /return origin \? vtSide\(origin, back\.fromParts\) : null;\n  \}, 'back'\);/);
+  assert.match(SRC, /return vtSide\(document\.getElementById\('week-' \+ leavingWeek\), VT_ROW_PARTS\);\n  \}, 'back'\);/);
+  assert.equal((SRC.match(/\}, 'back'\);/g) || []).length, 2);
   /* No white: the root behind every frame is the app's own ground. */
   assert.match(CSS, /\n  html\{ background:var\(--bg\); \}/);
   assert.equal(SRC.split('<style').length - 1, 1);
+});
+
+test('the direction is on <html> for exactly one transition, then gone', () => {
+  const a = loadApp({ pinnedDate: '2026-11-12T07:00:00Z' });
+  const cls = new Set();
+  a.document.documentElement = { classList: { add: c => cls.add(c), remove: (...c) => c.forEach(x => cls.delete(x)) } };
+  a.window.matchMedia = () => ({ matches: false });
+  let finish;
+  const seen = [];
+  a.document.startViewTransition = cb => { cb(); seen.push([...cls].join(' ')); return { finished: { then(f){ finish = f; } } }; };
+  a.document.querySelectorAll = () => [];
+  const side = { hero: { style: {}, setAttribute(){}, removeAttribute(){} }, parts: {} };
+  a.vtMorph(side, () => {}, () => null, 'back');
+  assert.deepEqual(seen, ['vt-back']);
+  finish();
+  assert.equal(cls.size, 0, 'the way-back clock outlived its transition');
+  a.vtMorph(side, () => {}, () => null);
+  assert.deepEqual(seen, ['vt-back', ''], 'going in ran on the way-back clock');
+  finish();
+  a.document.getElementById = () => null;
+  a.vtAccept('x', () => {});
+  assert.deepEqual(seen, ['vt-back', '', 'vt-change']);
+  finish();
+  assert.equal(cls.size, 0);
 });
 
 test('the three doors, and their ways back, go through the morph', () => {

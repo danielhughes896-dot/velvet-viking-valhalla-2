@@ -104,8 +104,8 @@ test('2. ticking the session off is felt once, as success; un-ticking is not fel
 });
 
 test('2. the animation lands on what says it, and stops for Reduce Motion', () => {
-  assert.match(CSS, /\.is-completing \.actual-done\{ animation:done-rise 420ms/);
-  assert.match(CSS, /\.is-completing \.actual-done::before\{ animation:done-light 900ms/);
+  assert.match(CSS, /\.is-completing \.actual-done\{ animation:done-rise 520ms/);
+  assert.match(CSS, /\.is-completing \.actual-done::before\{ animation:done-light 1100ms/);
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)\{\s*\.is-completing \.actual-done, \.is-completing \.actual-done::before,\s*\.is-completing \.actual-done-i, \.is-completing \.day-check input:checked\{ animation:none; \}/);
   assert.match(fnBody('renderApp'), /doneArrivals\(\)/);
   assert.match(fnBody('replaceCard'), /doneArrivals\(\)/);
@@ -170,7 +170,7 @@ test('4. the same week with more done: the total counts and the bar slides from 
   assert.equal(a.weekRise(), true);
   assert.equal(h.fill.style.width, '69%');
   assert.deepEqual(h.fill.widths, ['55%', '69%'], 'the bar did not slide from where it was to where it is');
-  assert.match(h.fill.style.transition, /^width 700ms/);
+  assert.match(h.fill.style.transition, /^width 900ms/);
   assert.equal(h.vol.textContent, '32', 'it should start from what was last shown');
   assert.equal(h.pc.textContent, '55%');
   /* Run the frames: halfway it is between, at the end it is exactly the page's own words. */

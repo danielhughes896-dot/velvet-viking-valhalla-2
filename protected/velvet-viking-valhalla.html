@@ -4852,7 +4852,7 @@
   .modal-overlay{
     position:fixed; inset:0; background:rgba(10,8,6,0.65); z-index:100;
     display:flex; align-items:flex-end; justify-content:center; padding:0;
-    animation:fadein .18s ease;
+    animation:fadein .26s ease;
   }
   @keyframes fadein{from{opacity:0;} to{opacity:1;}}
   @media (min-width:640px){ .modal-overlay{align-items:center; padding:20px;} }
@@ -4867,7 +4867,9 @@
   .modal-card{
     background:var(--modal-surface); border:1px solid var(--t-tile-rim); width:100%; max-width:560px;
     border-radius:20px 20px 0 0; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow);
-    animation:slideup .22s ease; color-scheme:dark;
+    /* A sheet rises a little slower than it used to (220ms), on a curve that
+       settles rather than stops: see TAP-TO-GROW for the founder's words. */
+    animation:slideup .34s cubic-bezier(.2,.8,.2,1); color-scheme:dark;
     /* A modal is a lit stage in both themes -- that was already true and stays
        true. Pinning the control tokens back to the fixed ramp HERE, rather
        than leaving the controls hard-coded to it, is what lets the same
@@ -5079,7 +5081,7 @@
     border-radius:var(--radius-lg);
     max-height:calc(100vh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    animation:fadein .2s ease;
+    animation:fadein .28s ease;
   }
   .modal-themed .modal-head{background:var(--bg); border-bottom-color:var(--line);}
   .modal-themed .modal-head h2{color:var(--ink);}
@@ -8435,7 +8437,9 @@
     font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-faint);
     text-align:center; margin:18px 0 4px;
   }
-  .view-fade{ animation:fadein .18s ease; }
+  /* Changing tab is the most frequent thing the athlete does, so it stays
+     the quickest fade in the app; 180ms read as a flicker, 220ms as a turn. */
+  .view-fade{ animation:fadein .22s ease; }
   /* ---------- WHAT EACH SCREEN IS FOR ----------
      Today = DO. This Week = MANAGE. Full Plan = PLAN. Sacoro = UNDERSTAND.
      Settings = CONFIGURE. A screen should only offer the actions that serve
@@ -11315,16 +11319,31 @@
   }
 
   /* ---------- TAP-TO-GROW (see vtMorph) ----------
-     300ms, inside the founder's 250-350; one ease for every piece so the
-     title, the distance and the card arrive together. The page behind
-     cross-fades on the same clock, dark to dark, so there is no frame
-     without a ground. The tapped thing's old picture fades out early and the
-     page's new one fades in early, so the morph reads as the circle or card
-     BECOMING the page rather than two pictures stretched over each other. */
-  ::view-transition-group(*){ animation-duration:300ms; animation-timing-function:cubic-bezier(.2,.8,.2,1); }
-  ::view-transition-old(root), ::view-transition-new(root){ animation-duration:300ms; }
-  ::view-transition-old(vt-hero){ animation:vt-out 150ms cubic-bezier(.2,.8,.2,1) both; }
-  ::view-transition-new(vt-hero){ animation:vt-in 220ms cubic-bezier(.2,.8,.2,1) both; }
+     ---- CHANGED SIDES: SLOWER, AND NOT THE SAME BOTH WAYS ----
+     It was 300ms on a curve that did most of its moving in the first third,
+     so it read as half that. Founder: "The transitions seem a little too
+     quick? The premium feeling comes from knowing when to animate and when
+     to get out of the user's way ... make them slower but not stupidly
+     slow."
+     So the curve is the even one (ease in a little, settle a lot) and the
+     clock depends on the direction:
+       going in    440ms  the athlete chose to look closer; let them see it grow
+       a change    400ms  an accepted coaching change, morphing in place
+       coming back 360ms  they are done with it; get out of the way
+     One ease for every piece so the title, the distance and the card arrive
+     together. The page behind cross-fades on the same clock, dark to dark,
+     so there is no frame without a ground. The tapped thing's old picture
+     fades out early and the page's new one fades in early, so the morph
+     reads as the circle or card BECOMING the page rather than two pictures
+     stretched over each other. */
+  ::view-transition-group(*){ animation-duration:440ms; animation-timing-function:cubic-bezier(.4,0,.2,1); }
+  ::view-transition-old(root), ::view-transition-new(root){ animation-duration:440ms; }
+  ::view-transition-old(vt-hero){ animation:vt-out 200ms cubic-bezier(.4,0,.2,1) both; }
+  ::view-transition-new(vt-hero){ animation:vt-in 300ms cubic-bezier(.4,0,.2,1) both; }
+  html.vt-change::view-transition-group(*), html.vt-change::view-transition-old(root), html.vt-change::view-transition-new(root){ animation-duration:400ms; }
+  html.vt-back::view-transition-group(*), html.vt-back::view-transition-old(root), html.vt-back::view-transition-new(root){ animation-duration:360ms; }
+  html.vt-back::view-transition-old(vt-hero){ animation-duration:160ms; }
+  html.vt-back::view-transition-new(vt-hero){ animation-duration:250ms; }
   @keyframes vt-out{ to{ opacity:0; } }
   @keyframes vt-in{ from{ opacity:0; } }
   html{ background:var(--bg); }
@@ -11353,10 +11372,10 @@
      arrived from Strava while the app was closed. "Session complete" rises
      into place, its circle settles with a small give, and the green light
      under it comes up rather than being there already. Green is complete. */
-  .is-completing .actual-done{ animation:done-rise 420ms cubic-bezier(.2,.8,.2,1) both; }
-  .is-completing .actual-done::before{ animation:done-light 900ms cubic-bezier(.22,.61,.36,1) both; }
+  .is-completing .actual-done{ animation:done-rise 520ms cubic-bezier(.4,0,.2,1) both; }
+  .is-completing .actual-done::before{ animation:done-light 1100ms cubic-bezier(.4,0,.2,1) both; }
   .is-completing .actual-done-i,
-  .is-completing .day-check input:checked{ animation:done-pop 360ms cubic-bezier(.2,.8,.2,1) 90ms both; }
+  .is-completing .day-check input:checked{ animation:done-pop 440ms cubic-bezier(.2,.8,.2,1) 120ms both; }
   @keyframes done-rise{ from{ opacity:0; translate:0 10px; } to{ opacity:1; translate:0 0; } }
   @keyframes done-light{ 0%{ opacity:0; } 45%{ opacity:1; filter:brightness(1.35); } 100%{ opacity:1; filter:none; } }
   @keyframes done-pop{ 0%{ scale:.6; } 60%{ scale:1.14; } 100%{ scale:1; } }
@@ -57316,7 +57335,7 @@ function closeModal(){
    change as it always came (the view's own 180ms fade, the modal's own
    entrance). The update itself is identical either way; only the frames
    between differ. */
-var VT_MS = 300;
+var VT_MS = 440;   // going in; see the TAP-TO-GROW CSS for the other two clocks
 var vtReturn = null;   // how to fly back to what opened the current page
 function vtCanMorph(){
   if (typeof document === 'undefined' || typeof document.startViewTransition !== 'function') return false;
@@ -57353,11 +57372,23 @@ function vtTagSide(side){
   vtTag(side.hero, 'vt-hero');
   Object.keys(side.parts).forEach(function(k){ vtTag(side.parts[k], 'vt-' + k); });
 }
-/* from: the side on screen now; update(): the change; to(): the side after. */
-function vtMorph(from, update, to){
+/* Which clock the CSS runs: going in (none), a change, or coming back. Set
+   on <html> for the life of one transition, because the transition's own
+   pseudo-elements hang off <html> and can be told apart no other way. */
+function vtKind(kind){
+  var root = (typeof document !== 'undefined') ? document.documentElement : null;
+  if (!root || !root.classList) return function(){};
+  root.classList.remove('vt-back', 'vt-change');
+  if (kind) root.classList.add('vt-' + kind);
+  return function(){ root.classList.remove('vt-back', 'vt-change'); };
+}
+/* from: the side on screen now; update(): the change; to(): the side after;
+   kind: 'back' when returning to where the athlete came from. */
+function vtMorph(from, update, to, kind){
   if (!vtCanMorph() || !from){ update(); return; }
   vtUntag();
   vtTagSide(from);
+  var done = vtKind(kind);
   var t = null;
   try {
     t = document.startViewTransition(function(){
@@ -57375,8 +57406,9 @@ function vtMorph(from, update, to){
         vtTagSide(dest);
       }
     });
-  } catch(e){ vtUntag(); pagerSuppressFade = false; update(); return; }
-  if (t && t.finished && t.finished.then) t.finished.then(vtUntag, vtUntag);
+  } catch(e){ vtUntag(); done(); pagerSuppressFade = false; update(); return; }
+  var end = function(){ vtUntag(); done(); };
+  if (t && t.finished && t.finished.then) t.finished.then(end, end); else done();
 }
 /* ---- A coaching change, accepted: the old prescription becomes the new ----
    Founder: "If the coach recommends changing a session and the athlete
@@ -57397,6 +57429,7 @@ function vtAccept(dayId, apply){
   var from = vtCardSide(dayId);
   vtUntag();
   if (from) vtTagSide(from);
+  var done = vtKind('change');
   var t = null;
   try {
     t = document.startViewTransition(function(){
@@ -57410,8 +57443,9 @@ function vtAccept(dayId, apply){
         vtTagSide(to);
       }
     });
-  } catch(e){ vtUntag(); pagerSuppressFade = false; apply(); return; }
-  if (t && t.finished && t.finished.then) t.finished.then(vtUntag, vtUntag);
+  } catch(e){ vtUntag(); done(); pagerSuppressFade = false; apply(); return; }
+  var end = function(){ vtUntag(); done(); };
+  if (t && t.finished && t.finished.then) t.finished.then(end, end); else done();
 }
 
 /* ---- Completion, seen once ----
@@ -57479,7 +57513,7 @@ function vtCloseBack(close){
   vtMorph(vtSide(card, back.toParts), close, function(){
     var origin = back.find();
     return origin ? vtSide(origin, back.fromParts) : null;
-  });
+  }, 'back');
 }
 
 /* ---- 1. A Coach circle grows into its panel ---- */
@@ -67883,7 +67917,7 @@ function vtPlanBack(){
   var page = leavingWeek ? document.querySelector('.view-plan-week') : null;
   vtMorph(page ? vtSide(page, VT_WEEK_PARTS) : null, handlePlanBack, function(){
     return vtSide(document.getElementById('week-' + leavingWeek), VT_ROW_PARTS);
-  });
+  }, 'back');
 }
 function planBackBar(title, sub){
   return '<div class="pv-top">'+
@@ -72912,7 +72946,7 @@ function animateSessionRing(){
    they are, together, in 700ms. A new week, or a first look, fills as it
    always did. Kept on the device only: it is where the screen was. */
 var WEEK_SEEN_KEY = 'vvv_week_seen';
-var WEEK_RISE_MS = 700;
+var WEEK_RISE_MS = 900;
 function weekSeenRead(){
   try {
     var raw = storageAvailable ? window.localStorage.getItem(WEEK_SEEN_KEY) : null;
