@@ -6828,6 +6828,32 @@
     font-family:var(--text-face); font-size:14.5px; font-weight:600;
     letter-spacing:.01em; padding:11px 16px; text-shadow:none;}
   .es-actions .btn-primary svg{width:16px; height:16px;}
+  /* ---- A TAB, OPEN, IS A PAGE ----
+     The card takes the Coach page's shell (.hq-full) and this puts the rest
+     of the sheet away: the other tab, and the tab that was pressed, whose
+     word is now the page's heading. The session's own tile stays at the top
+     -- it is what is being moved or edited -- and Save stays at the foot,
+     held to the bottom edge the way a Settings page holds its action. */
+  .modal-card.es-page .es-sec:not(.is-page){display:none;}
+  .modal-card.es-page .es-sec.is-page > .es-tab{display:none;}
+  .modal-card.es-page .es-tab-body{margin-top:0;}
+  .modal-card.es-page .es-body{gap:22px; padding-bottom:0;}
+  .modal-card.es-page .es-actions{position:sticky; bottom:0; z-index:2; margin:0 -24px;
+    padding:28px 24px calc(22px + env(safe-area-inset-bottom, 0px));
+    background:linear-gradient(to bottom, transparent, var(--t-card) 28px);}
+  .modal-card.es-page .es-actions > .btn-primary{font-size:17px; min-height:56px;}
+  /* On a page the list of days IS the page: it runs its full length and the
+     page scrolls, where the card kept it in a 310px box of its own. The week
+     headings stop being a bar that sticks -- "no raised black boxes" -- and
+     read as headings on the page's own ground. */
+  .modal-card.es-page .swap-list{max-height:none; overflow:visible; gap:8px; margin:0 0 6px; padding:0;}
+  .modal-card.es-page .swap-week{position:static; background:none; padding:20px 2px 4px;}
+  .modal-card.es-page .swap-week:first-child{padding-top:4px;}
+  /* A name is never cut short to make room for its date: on a narrow phone
+     the date drops beneath it. Measured at 320px, "Threshold: 6km" read
+     "Threshold: ..." with the day beside it. */
+  .modal-card.es-page .swap-day .swap-line{flex-wrap:wrap; row-gap:2px;}
+  .modal-card.es-page .swap-day .swap-name{overflow:visible; text-overflow:clip; white-space:normal;}
   /* ---- RESET IS A BRIGHTER RED ----
      Founder: "rest session is good as it's red danger haha maybe make it a
      brighter red so it stands out?" --c-threshold is the SEMANTIC threshold
@@ -8827,7 +8853,11 @@
   .yl .slog-presc{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   /* Two fields, each under its own name. Equal columns, so "Average pace"
      and "Average heart rate" line up down a list of reps. */
-  .yl .slog-ins, .yl .slog-cols{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .yl .slog-ins, .yl .slog-cols{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px;}
+  .yl .slog-ins.has-hr, .yl .slog-cols.has-hr{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px;}
+  /* The three figures inside The Run card sit under its title like any
+     other row of the card. */
+  .yl .yl-box > .log-totals{margin:14px 0 4px;}
   .yl .slog-f{display:block; min-width:0;}
   .yl .slog-k, .yl .slog-cols span{display:block; font-size:var(--fs-support); line-height:var(--lh-support);
     color:#FFFFFF; margin-bottom:4px;}
@@ -34715,50 +34745,43 @@ function handleLogMark(dayId, rep){
    data where possible, without duplicating inputs or assuming prescribed
    distances were completed. Manual correction remains available."
 
-   WHAT CAN HONESTLY BE ADDED UP, and nothing else is:
+   And then, of the rule that also averaged stage paces over the PLAN's
+   distances whenever the athlete's total came within 3% of them:
 
-   measured   every stage carries a distance and a time the athlete or the
-              watch gave. The session is their sum: distance and pace.
-   stages     every stage carries an average pace, and the distance the
-              ATHLETE entered for the whole session agrees with what the
-              plan's stages come to (within LOG_TOTALS_MATCH). The stages
-              were then run at the size they were set, on the athlete's own
-              evidence rather than our assumption, and the average pace is
-              the stage paces weighted by those sizes.
+     "Calculate multi-stage totals from measured distances and times without
+      an arbitrary 3% restriction; never invent missing data."
 
-   A stage pace on its own does not say how far the stage went, so a
-   distance is never worked out from paces: it stays the one number the
-   athlete gives. A session cut short, or with a stage left blank, is not
-   added up at all.
+   So there is one basis and it is measurement. A stage counts when it
+   carries a distance the athlete or the watch gave AND a time that follows
+   from it -- typed, or the distance at the average pace they entered. A
+   distance filled in from the prescription is not a measurement and neither
+   is a time seeded from one, so a stage resting on either stops the sum.
+   When every stage counts, the session is their total: distance, average
+   pace, and -- where every stage also has a heart rate -- the average heart
+   rate, weighted by the time spent in each. One stage missing and nothing
+   is added up at all; the three boxes stay the athlete's to fill.
 
-   A FIGURE WORKED OUT IS MARKED AS SUCH (kmDerived / paceDerived) and gives
-   way the moment the athlete types their own. It is written into the same
-   fields the athlete would have typed into, so every reader of the session
-   -- the score, the review, the graphs -- gets it with no second path. */
-var LOG_TOTALS_MATCH = 0.03;
+   A FIGURE WORKED OUT IS MARKED AS SUCH (kmDerived / paceDerived /
+   hrDerived) and gives way the moment the athlete types their own. It is
+   written into the same fields the athlete would have typed into, so every
+   reader of the session -- the score, the review, the graphs -- gets it with
+   no second path. */
 function logStageTotals(dd){
-  var out = { km:null, paceSec:null, basis:null };
+  var out = { km:null, paceSec:null, hr:null, basis:null };
   var m = null;
   try { m = loggingModeFor(dd); } catch(e){ m = null; }
   if (!m || m.mode !== 'structured' || !m.plan || !m.plan.rows || !m.plan.rows.length) return out;
-  var a = dd.actual || {};
-  var km = 0, sec = 0, measured = true, pKm = 0, pSec = 0, paced = true;
+  var km = 0, sec = 0, hrSec = 0, measured = true, hearted = true;
   m.plan.rows.forEach(function(r){
     var s = structuredSplitFor(dd, r.segId);
-    if (s && s.km > 0 && s.sec > 0 && !s.secSeeded && !s.kmFromPrescription){ km += s.km; sec += s.sec; }
-    else measured = false;
-    var pace = (s && s.paceSec > 0) ? s.paceSec : null;
-    if (pace && r.presKm > 0){ pKm += r.presKm; pSec += pace * r.presKm; }
-    else if (pace && r.presSec > 0){ pKm += r.presSec / pace; pSec += r.presSec; }
-    else paced = false;
+    if (s && s.km > 0 && s.sec > 0 && !s.secSeeded && !s.kmFromPrescription){
+      km += s.km; sec += s.sec;
+      if (s.hr > 0) hrSec += s.hr * s.sec; else hearted = false;
+    } else measured = false;
   });
   if (measured && km > 0){
     out.km = round2(km); out.paceSec = Math.round(sec / km); out.basis = 'measured';
-    return out;
-  }
-  var own = (a.km > 0 && !a.kmDerived) ? a.km : null;
-  if (paced && own && pKm > 0 && Math.abs(pKm - own) / own <= LOG_TOTALS_MATCH){
-    out.paceSec = Math.round(pSec / pKm); out.basis = 'stages';
+    if (hearted && healthConsentGranted()) out.hr = Math.round(hrSec / sec);
   }
   return out;
 }
@@ -34775,15 +34798,22 @@ function logApplyStageTotals(dd){
   } else if (a.paceDerived && t.paceSec == null){
     a.pace = null; delete a.paceUnit; delete a.paceDerived;
   }
+  if (t.hr != null && (a.hr == null || a.hrDerived)){ a.hr = t.hr; a.hrDerived = true; }
+  else if (a.hrDerived && t.hr == null){ a.hr = null; delete a.hrDerived; }
 }
 /* The one line under the three figures that says where a worked-out one
    came from. Empty when the athlete typed them. */
 function logTotalsNote(dd){
   var a = (dd && dd.actual) || {};
-  if (a.kmDerived && a.paceDerived) return 'Distance and average pace worked out from your stages. Type over either to correct it.';
-  if (a.paceDerived) return 'Average pace worked out from your stages. Type over it to correct it.';
-  if (a.kmDerived) return 'Distance worked out from your stages. Type over it to correct it.';
-  return '';
+  var made = [];
+  if (a.kmDerived) made.push('distance');
+  if (a.paceDerived) made.push('average pace');
+  if (a.hrDerived) made.push('average heart rate');
+  if (!made.length) return '';
+  var list = made.length === 1 ? made[0]
+           : made.slice(0, -1).join(', ')+' and '+made[made.length - 1];
+  return list.charAt(0).toUpperCase()+list.slice(1)+' worked out from your stages. Type over '+
+         (made.length === 1 ? 'it' : made.length === 2 ? 'either' : 'any of them')+' to correct it.';
 }
 /* A stage or the distance was just typed: put what that makes of the totals
    into the boxes, without redrawing the card and without touching the box
@@ -34799,6 +34829,7 @@ function logPatchTotals(dd){
   };
   put('km', a.km != null ? String(kmToDisplay(a.km)) : '');
   put('pace', actualPaceDisplayStr(dd));
+  put('hr', a.hr != null ? String(a.hr) : '');
   var note = card.querySelector('[data-log-totals-note]');
   if (note) note.textContent = logTotalsNote(dd);
 }
@@ -34829,8 +34860,8 @@ function logRowsHtml(dd, rows, named){
   /* `named`: a row kept only because it holds figures -- one rep or one
      recovery out of several -- is not its section, so it keeps its name. */
   if (rows.length === 1 && !named) return renderStructuredRow(dd, rows[0], true, false);
-  return '<div class="slog-cols" aria-hidden="true"><span>Average pace</span>'+
-      (healthConsentGranted() ? '<span>Average heart rate</span>' : '')+'</div>'+
+  return '<div class="slog-cols'+(healthConsentGranted() ? ' has-hr' : '')+'" aria-hidden="true"><span>Distance</span><span>Avg pace</span>'+
+      (healthConsentGranted() ? '<span>Avg HR</span>' : '')+'</div>'+
     rows.map(function(r){ return renderStructuredRow(dd, r, false, true); }).join('');
 }
 function logPartHtml(dd, title, part, rows){
@@ -34839,6 +34870,36 @@ function logPartHtml(dd, title, part, rows){
     '<div class="yl-title">'+escapeHtml(logPartTitle(title, rows))+'</div>'+
     logRowsHtml(dd, rows)+
   '</div>';
+}
+/* ---------- THE RUN IS ONE CARD ----------
+   Founder: "Easy runs use one primary 'The Run' card containing actual
+   distance, average pace and HR. No duplicated generic fields."
+
+   An easy run, a shakeout and a plain long run have no stages, so the three
+   figures any watch gives ARE the run. They used to sit loose above a box
+   headed "The run" that held one slider -- the run described twice, once as
+   numbers and once as a heading. The figures are the card now.
+
+   A session with stages keeps them where they were: the stages are the
+   session, and the three figures above them are its total -- worked out
+   from the stages when they are measured, typed when they are not. */
+function logTotalsInBox(dd){
+  var parts = null;
+  try { parts = logPlanRows(dd); } catch(e){ parts = null; }
+  var shape = logShape(dd);
+  if (shape.family === 'race') return false;
+  return !parts || !(parts.warm.length || parts.cool.length || parts.main.length);
+}
+function logTotalsHtml(dd){
+  var a = dd.actual || {};
+  return '<div class="actual-field full log-totals'+(healthConsentGranted() ? ' has-hr' : '')+'">'+
+        '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
+        '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="optional" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+        (healthConsentGranted()
+          ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" placeholder="optional" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
+          : '')+
+        '<div class="log-totals-note" data-log-totals-note>'+escapeHtml(logTotalsNote(dd))+'</div>'+
+      '</div>';
 }
 /* ---------- THE ORDER OF THE LOG ----------
    Founder, with two mock-ups: "how I would like the session log to look.
@@ -34900,14 +34961,19 @@ function renderYourLogAnswers(dd){
   /* Reps and hills: the set's own box holds the reps -- how many, and each
      one marked. Everything else: it holds how the one effort felt and
      whether it held. */
-  var inBox = shape.reps ? (repsQ + logRepMarksHtml(dd, shape)) : (feltQ + heldQ);
-  var feedback = (shape.reps ? feltQ + heldQ : '') + effortQ + recoveriesQ + stopQ;
+  /* An easy run with strides is still the run: its card carries the three
+     figures and how it felt, and then how many strides were done. */
+  var whole = logTotalsInBox(dd);
+  var feltInBox = !shape.reps || (whole && shape.light);
+  var inBox = (whole ? logTotalsHtml(dd) : '') +
+              (shape.reps ? ((feltInBox ? feltQ : '') + repsQ + logRepMarksHtml(dd, shape)) : (feltQ + heldQ));
+  var feedback = (feltInBox ? '' : feltQ) + (shape.reps ? heldQ : '') + effortQ + recoveriesQ + stopQ;
   var mainRows = logRowsHtml(dd, parts.main, !!shape.reps);
-  var boxBase = shape.family === 'race' ? 'The race' : shape.light ? 'Strides' : (shape.main ? 'Main set' : 'The run');
+  var boxBase = shape.family === 'race' ? 'The race' : whole ? 'The Run' : shape.light ? 'Strides' : (shape.main ? 'Main set' : 'The Run');
   /* The heading is the prescription's -- "Main set · 7 × 700m" -- whether
      or not a rep has a row of its own on screen. */
   var named = shape.reps ? parts.work.filter(function(r){ return r.repIndex != null; }) : parts.work;
-  var boxTitle = escapeHtml(named.length ? logPartTitle(boxBase, named) : boxBase);
+  var boxTitle = escapeHtml((named.length && !whole) ? logPartTitle(boxBase, named) : boxBase);
   /* Said once, under the main set's fields -- and only where it has fields. */
   var optional = mainRows ? '<div class="yl-opt">Optional \u2014 enter what you know.</div>' : '';
   return '<div class="actual-field full yl">'+
@@ -35136,14 +35202,7 @@ function renderCompletedPanel(dd, detailHtml){
          label, which is what lets three labels fit across a phone.
          The line beneath is empty unless Sacoro worked a figure out from the
          stages: see logStageTotals(). */
-      '<div class="actual-field full log-totals'+(healthConsentGranted() ? ' has-hr' : '')+'">'+
-        '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
-        '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="optional" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
-        (healthConsentGranted()
-          ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" placeholder="optional" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
-          : '')+
-        '<div class="log-totals-note" data-log-totals-note>'+escapeHtml(logTotalsNote(dd))+'</div>'+
-      '</div>'+
+      (logTotalsInBox(dd) ? '' : logTotalsHtml(dd))+
       /* THE ANSWERS, BEFORE ANYTHING ELSE THAT HAS TO BE TYPED. The figures
          above are what a watch gives; everything the athlete knows that the
          watch does not is answered here with a thumb. The block ends with
@@ -38053,14 +38112,27 @@ function renderStructuredRow(dd, row, bare, quiet){
   var field = function(cls, label, input){
     return '<label class="slog-f'+cls+'">'+(quiet ? '' : '<span class="slog-k">'+label+'</span>')+input+'</label>';
   };
-  var inputs = field('', 'Average pace',
+  /* THE DISTANCE THE STAGE ACTUALLY WENT. Shown only when it is the
+     athlete's or the watch's: a distance Sacoro filled in from a prescribed
+     duration is its own arithmetic and is not handed back as an entry. */
+  var ownKm = (s.km != null && (s.kmEntered || !s.secSeeded)) ? kmToDisplay(s.km) : '';
+  var inputs = field(' slog-f-km', 'Distance',
+    '<input type="number" step="0.01" min="0" inputmode="decimal" class="slog-in slog-km" '+
+      'placeholder="'+(unit === 'mi' ? '1.2 mi' : '2.0 km')+'" '+
+      'aria-label="'+escapeHtml(row.label)+' distance in '+unit+'" '+
+      'value="'+ownKm+'" data-action="slog-field" data-field="km" '+
+      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">');
+  /* Three across a phone, so the two averages are named as the whole
+     session's are directly above them: Avg pace, Avg HR. The inputs keep
+     their full names for a screen reader. */
+  inputs += field('', 'Avg pace',
     '<input type="text" class="slog-in" placeholder="'+logPaceExample()+'" '+
       'aria-label="'+escapeHtml(row.label)+' average pace per '+unit+'" '+
       'value="'+(s.paceSec != null ? secToPace(paceSecToDisplay(s.paceSec)) : '')+'" '+
       'data-action="slog-field" data-field="pace" '+
       'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">');
   if (healthConsentGranted())
-    inputs += field(' slog-f-hr', 'Average heart rate',
+    inputs += field(' slog-f-hr', 'Avg HR',
       '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="155 bpm" '+
       'aria-label="'+escapeHtml(row.label)+' average heart rate" '+
       'value="'+(s.hr!=null?s.hr:'')+'" data-action="slog-field" data-field="hr" '+
@@ -38076,7 +38148,7 @@ function renderStructuredRow(dd, row, bare, quiet){
          was never given. */
       (row.prescribed ? '<span class="slog-presc font-mono">'+escapeHtml(row.prescribed)+'</span>' : '')+
     '</div>')+
-    '<div class="slog-ins">'+inputs+'</div>'+
+    '<div class="slog-ins'+(healthConsentGranted() ? ' has-hr' : '')+'">'+inputs+'</div>'+
   '</div>';
 }
 /* Quiet by default: a closed one-line control, not another card. It opens
@@ -38261,6 +38333,10 @@ function shareVerdictLabel(dd){
   if (!dd || !dd.completed) return null;
   var r = dd.coachReview;
   if (!r) return null;                                  // no review, no verdict
+  /* A review with no score behind it is the athlete's account of a session,
+     and a share label is a claim about a measured one. It had no label when
+     it had no review, and it has none now. */
+  if (r.scored === false) return null;
   if (r.trainingSignal === 'monitor_fatigue' ||
       r.trainingSignal === 'recovery_priority') return null;
   if (dd.type === 'calibration')
@@ -39719,7 +39795,7 @@ function analysisTab(dd, body, vLine){
      NOT aria-anything. Quiet is a hint, not a state a screen reader needs
      restating: the panel it opens says the same thing in a sentence. */
   var scored = false;
-  try { scored = !!computeExecutionBreakdown(dd); } catch(e) { scored = false; }
+  try { scored = !!computeExecutionBreakdown(dd) || !!sessionInterpretation(dd); } catch(e) { scored = false; }
   return '<div class="wc-review">'+
     '<button type="button" class="sess-tab sess-tab-btn'+(scored ? '' : ' is-quiet')+'" data-action="view-analysis" '+
       'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
@@ -39751,6 +39827,23 @@ function renderExecutionReview(dd){
     /* THE BOTTOM RUNG, drawn before the prompt. A logged distance is evidence
        and gets a real -- deliberately broad -- assessment; only an athlete who
        has logged nothing usable is asked for more. */
+    /* WHAT WAS REPORTED IS READ BEFORE THE DISTANCE-ONLY LINE IS REACHED.
+       That line says "Distance is all that was recorded", which is true of a
+       log with a distance and nothing else and was being said to an athlete
+       who had answered every question on the screen. */
+    var it = null;
+    try { it = sessionInterpretation(dd); } catch(e){ it = null; }
+    if (it){
+      return analysisTab(dd,
+        '<div class="exec-review-card">'+
+          '<div class="exec-review-head"><span>Execution Review</span></div>'+
+          '<div class="exec-review-summary">'+escapeHtml(it.head)+'</div>'+
+          it.what.concat(it.evidence).map(function(line){
+            return '<div class="exec-review-more">'+escapeHtml(line)+'</div>'; }).join('')+
+          (it.coaching ? '<div class="cr-sec"><div class="cr-k">Coaching interpretation</div>'+
+            '<div class="cr-v">'+escapeHtml(it.coaching)+'</div></div>' : '')+
+        '</div>', '', false);
+    }
     var c = computeCompletionAssessment(dd);
     return analysisTab(dd,
       '<div class="exec-review-card">'+
@@ -40500,11 +40593,31 @@ function effortIsReadable(dd){
   return !(env.heatBand==='significant' || env.heatBand==='severe' ||
            env.humidBand==='significant' || env.humidBand==='severe');
 }
+/* WHY A SESSION WAS CUT SHORT, or null when it was not. The completion half
+   of the assessment and nothing else: which reps were done, how far was run,
+   and the reason the athlete chose. No score is read. */
+function sessionCutShortFor(dd){
+  if (!dd || !dd.completed || !dd.actual || dd.type === 'rest') return null;
+  try {
+    var plan = assessPlan(dd);
+    var env = coachEnvironment(dd.actual.notes, dd.actual);
+    var c = assessCompletion(dd, plan, assessEvidence(dd, plan, env), env);
+    return c.short ? (c.reason || 'unsaid') : null;
+  } catch(e){ return null; }
+}
 function coachRecovery(){
   var today = todayStr();
   var week = coachDaysInWindow(addDays(today,-6), today).filter(function(dd){ return dd.completed; });
-  var overRPE = 0, overHR = 0, counted = 0;
+  var overRPE = 0, overHR = 0, counted = 0, stoppedTired = 0;
   week.forEach(function(dd){
+    /* A SESSION ABANDONED TO FATIGUE IS RECOVERY EVIDENCE, and was the one
+       piece of it this reading could not see: it counted effort above the
+       band and heart rate above the zone, so an athlete who stopped at three
+       hill efforts of five because they were tired -- at an effort inside the
+       band, because they stopped -- was shown Fresh. Counted before the
+       checkpoint exemption on purpose: a race is meant to hurt, but stopping
+       one for fatigue is not the race going to plan. */
+    if (sessionCutShortFor(dd) === 'fatigue') stoppedTired++;
     // Time trials and races are meant to exceed threshold heart rate and to
     // feel maximal, so counting them as strain made every checkpoint week look
     // like overreaching.
@@ -40544,7 +40657,11 @@ function coachRecovery(){
     if (dd.type==='rest' || isRecoveryWorkoutType(dd.type) || !ran) streak = 0;
     else { streak++; if (dd.date >= weekFrom) worstStreak = Math.max(worstStreak, streak); }
   });
-  var strain = overRPE + overHR + (worstStreak>=3 ? 1 : 0);
+  /* ONE POINT, HOWEVER MANY. The scale is the one heavy legs already sits
+     on: enough to move Fresh to Watch, never enough to reach Strained by
+     itself. "SACORO should never change training just to demonstrate that
+     it's intelligent." */
+  var strain = overRPE + overHR + (worstStreak>=3 ? 1 : 0) + (stoppedTired > 0 ? 1 : 0);
   /* ---- AND WHAT THE ATHLETE SAID THIS MORNING ----
      Recovery read the week's sessions and nothing else, so an athlete who
      had just answered "heavy legs, poor sleep" was shown Fresh on the same
@@ -40571,6 +40688,7 @@ function coachRecovery(){
   var word = function(n){ return n>=3 ? 'strained' : n>=1 ? 'watch' : 'fresh'; };
   return {
     overRPE:overRPE, overHR:overHR, hardStreak:worstStreak, counted:counted,
+    stoppedTired: stoppedTired,
     morning: morning,
     trainingState: word(strain),
     state: word(strain + morning.points)
@@ -40583,6 +40701,7 @@ function recoveryStrainSentence(rec){
   if (rec.overRPE > 0 && rec.overHR > 0) parts.push('Effort and heart rate have both been above target this week');
   else if (rec.overRPE > 0) parts.push('Effort has been above target this week');
   else if (rec.overHR > 0) parts.push('Heart rate has been above target this week');
+  if (rec.stoppedTired > 0) parts.push((parts.length ? 'you' : 'You')+' stopped a session short for fatigue');
   var m = rec.morning;
   if (m && m.flags.length) parts.push((parts.length ? 'you' : 'You')+' reported '+m.flags.join(' and ')+' this morning');
   if (!parts.length) return 'Your recovery signals have been elevated this week.';
@@ -40605,13 +40724,15 @@ function recoveryWatchSentence(rec, quality){
   var runs = rec.overRPE > 0 || rec.overHR > 0;
   var streak = !runs && rec.hardStreak >= 3;
   var said = (rec.morning && rec.morning.flags.length) ? rec.morning.flags.join(' and ') : '';
-  if (runs && !said)
+  if (runs && !said && !rec.stoppedTired)
     return quality
       ? 'There is a bit more fatigue in the last few runs than usual. Do not force the closing reps if the effort starts climbing.'
       : 'A bit more fatigue than usual in the last few runs — worth knowing rather than worth worrying about.';
   var lead = runs ? 'There is a bit more fatigue in the last few runs than usual'
            : streak ? 'That is '+rec.hardStreak+' hard days in a row without an easy one'
            : '';
+  if (rec.stoppedTired > 0)
+    lead = lead ? lead+', and you stopped a session short for fatigue' : 'You stopped a session short for fatigue this week';
   if (said) lead = lead ? lead+', and you reported '+said+' this morning' : 'You reported '+said+' this morning';
   if (!lead) lead = 'Recovery is worth watching this week';
   return lead+'. '+(quality ? 'Do not force the pace if the effort starts climbing.'
@@ -41759,6 +41880,10 @@ function coachDecision(){
   else if (recovery.overRPE >= 2) add(EVIDENCE_CONCEPT.effort, 2, 'Effort above band on '+recovery.overRPE+' sessions this week');
   if (recovery.overHR >= 2) add(EVIDENCE_CONCEPT.hrCost, 2, recovery.overHR+' sessions this week averaged above their heart-rate zone');
   if (recovery.hardStreak >= 3) add('streak', 1, recovery.hardStreak+' quality days in a row without an easy day');
+  /* The same underlying thing as heavy legs -- the athlete saying they are
+     tired -- so the same concept and the same weight, and only the stronger
+     of the two is ever counted. */
+  if (recovery.stoppedTired > 0) add(EVIDENCE_CONCEPT.feel, 2, 'You stopped a session short for fatigue this week');
   if (trend.direction === 'falling') add(EVIDENCE_CONCEPT.execution,
     trend.singleOutlier ? 1 : 2,
     trend.singleOutlier ? 'One recent session dipped well below the rest' : 'Execution has been slipping across recent sessions');
@@ -44459,6 +44584,12 @@ function athleteMemoryFromDays(days, from){
         adjustmentReason: dd.coachAdjust ? dd.coachAdjust.reason : null,
         adjustmentEvidence: dd.coachAdjust ? (dd.coachAdjust.evidence||[]) : [],
         trainingSignal: review ? review.trainingSignal : null,
+        /* HOW MUCH OF IT WAS DONE AND HOW THE SET WENT, BY THE ATHLETE'S OWN
+           ACCOUNT. The record held a distance and an effort and so could not
+           tell a session run in full from one stopped at three efforts of
+           five that covered the same ground. Marked as reported, because it
+           is not measured and nothing that reads it may take it for pace. */
+        reported: (review && review.reported) || null,
         // what the athlete said that morning, and the state it produced
         readiness: dayReadiness(dd),
         athleteState: dd.athleteState ? dd.athleteState.state : null
@@ -48244,6 +48375,7 @@ function coachNoteEvidence(dd){
   if (healthConsentGranted()){
     ev.recovery.sessionsEffortAboveBand = rec.overRPE;
     ev.recovery.sessionsHeartRateAboveZone = rec.overHR;
+    if (rec.stoppedTired) ev.recovery.sessionsStoppedForFatigue = rec.stoppedTired;
     if (rec.morning && rec.morning.flags.length) ev.reportedThisMorning = rec.morning.flags.slice();
   } else ev.healthInformation = 'withheld';
   return ev;
@@ -51933,9 +52065,227 @@ function coachNextMoveForWorkout(dd, env, signal, opts){
 }
 
 /* ---------- the structured review ---------- */
+/* ===== A SESSION WITH NO PACE IS STILL A SESSION =====
+   Founder, having logged a hill session in full -- three of five efforts,
+   stopped for fatigue, effort 8/10, a slight fade, each rep marked -- and
+   been told "Distance is all that was recorded, so this one is not judged on
+   pace or effort":
+
+     "I've input all that and the analysis is still [poor] ... we need to
+      verify whether the underlying coaching engine is ignoring these inputs
+      or whether it's only the Execution Review text that's wrong. Those are
+      two very different problems."
+
+   IT WAS BOTH, AND FOR ONE REASON. coachWorkoutReview() returned nothing
+   unless the session had a numeric score, and a score needs a distance AND
+   an overall pace. A hill session has no pace to give. So no review was
+   written -- which is why the card fell back to the distance-only sentence
+   -- and, because the review is where the engine's training signal is
+   decided and stored, the stop for fatigue never reached coachTrainingSignal()
+   and so never reached the memory, the patterns or the decision. Measured:
+   with every answer filled in, Recovery, the decision and Plan Evolution
+   were identical to a session with a distance and nothing else.
+
+   THE FIX IS THE MISSING REVIEW, NOT A NEW RULE. A session the athlete has
+   told us about gets a review whether or not it has a score:
+
+     the training signal   coachTrainingSignal(), the engine's own function,
+                           unchanged -- it already knows a reported fatigue
+                           is "worth watching rather than acting on yet",
+                           pain and illness put recovery first, and so on.
+                           It was simply never asked.
+     what it says          sessionInterpretation(): what happened, why, and
+                           what the evidence supports, in that order.
+     how sure it is        scored:false and a low fixed confidence. Nothing
+                           here is a number: "Subjective rep assessments must
+                           inform qualitative execution scoring and coaching,
+                           with appropriate evidence confidence. Never treat
+                           them as measured pace."
+
+   No score is invented and no proposal is made that the existing rule would
+   not have made: an adjustment is still offered only on recovery_priority
+   before a quality session. */
+function sessionReported(dd){
+  var a = (dd && dd.actual) || {};
+  return a.rpe != null || a.mainSetFelt != null || a.mainSetHeld != null || a.repsDone != null ||
+         a.recoveries != null || !!a.stopReason || !!a.hurting ||
+         (Array.isArray(a.repMarks) && a.repMarks.some(Boolean)) ||
+         !!(a.conditions && a.conditions.length) || !!(a.notes && String(a.notes).trim());
+}
+var LOG_STOP_WORDS = { illness:'because of illness', injury:'because of an injury or soreness',
+                       fatigue:'because of fatigue', time:'because you ran out of time',
+                       rest:'because you chose to rest', other:'' };
+var LOG_HELD_SAID = {
+  pace:   ['that you got faster through the set', 'that you got slightly faster', 'an even set', 'a slight fade', 'that the set faded'],
+  effort: ['that you got stronger through the set', 'that you got slightly stronger', 'an even set', 'a slight fade', 'that the set faded']
+};
+/* WHAT HAPPENED, WHY, AND WHAT THE EVIDENCE SUPPORTS. Words only -- the
+   assessment's Execution figure is never read here. Null when the athlete
+   has said nothing beyond a distance that was run in full, which is the one
+   case the old distance-only sentence was right about. */
+function sessionInterpretation(dd){
+  if (!dd || !dd.completed || dd.type === 'rest') return null;
+  var as = null;
+  try { as = assessSession(dd); } catch(e){ as = null; }
+  if (!as) return null;
+  var a = dd.actual || {}, c = as.completion, shape = logShape(dd), marks = logRepMarkSummary(dd);
+  if (!sessionReported(dd) && !c.short) return null;
+  var unit = shape.hills ? ['hill effort', 'hill efforts'] : shape.light ? ['stride', 'strides'] : ['rep', 'reps'];
+  var why = a.stopReason ? (LOG_STOP_WORDS[a.stopReason] || '') : '';
+  var out = { short:!!c.short, head:(c.short ? 'Session partially completed.' : 'Session completed.'),
+              what:[], evidence:[], coaching:'' };
+
+  /* 1. What happened. */
+  if (c.basis === 'reps' && c.of){
+    out.what.push(c.short
+      ? 'You completed '+c.done+' of '+c.of+' prescribed '+unit[1]+(why ? ', stopping '+why : '')+'.'
+      : 'You completed all '+c.of+' prescribed '+unit[1]+'.');
+  } else if (c.short){
+    out.what.push('You covered '+Math.round(c.fraction * 100)+'% of the planned distance'+(why ? ', stopping '+why : '')+'.');
+  }
+  var band = null;
+  try { band = expectedRPEBand(dd); } catch(e2){ band = null; }
+  var effort = '';
+  if (a.rpe != null){
+    effort = 'Your overall effort was '+a.rpe+'/10';
+    if (band) effort += (a.rpe > band[1] ? ', above the ' : a.rpe < band[0] ? ', below the ' : ', inside the ')+
+                        band[0]+'\u2013'+band[1]+' this session asks for';
+  }
+  var held = (typeof a.mainSetHeld === 'number' && a.mainSetHeld >= 1 && a.mainSetHeld <= 5)
+    ? LOG_HELD_SAID[shape.hills ? 'effort' : 'pace'][a.mainSetHeld - 1] : '';
+  if (effort && held) out.what.push(effort+', and you reported '+held+'.');
+  else if (effort) out.what.push(effort+'.');
+  else if (held) out.what.push('You reported '+held+'.');
+  if (healthConsentGranted() && typeof a.mainSetFelt === 'number' && LOG_FELT_WORDS[a.mainSetFelt - 1])
+    out.what.push('It felt '+LOG_FELT_WORDS[a.mainSetFelt - 1].toLowerCase()+'.');
+
+  /* 2. What the evidence supports, and what it cannot. */
+  var distFull = a.km != null && dd.km > 0 && a.km / dd.km >= ASSESS_CAL.completeFraction;
+  if (c.short && c.basis === 'reps' && distFull)
+    out.evidence.push('Although the total distance matched the plan, the main set was incomplete.');
+  var parts = null;
+  try { parts = logPlanRows(dd); } catch(e3){ parts = null; }
+  var logged = function(rows){
+    return (rows || []).some(function(r){ var sp = structuredSplitFor(dd, r.segId); return !!(sp && (sp.paceSec > 0 || sp.hr != null)); });
+  };
+  var stages = [];
+  if (parts && logged(parts.warm)) stages.push('warm-up');
+  if (parts && logged(parts.cool)) stages.push('cool-down');
+  var stageSaid = stages.length ? 'The '+stages.join(' and ')+(stages.length > 1 ? ' were' : ' was')+' logged' : '';
+  /* Is anything measured standing behind the set? Only then is it more than
+     the athlete's account. */
+  var timed = as.execution.basis !== 'reported' && as.execution.basis !== 'none';
+  if (shape.reps && !shape.light){
+    var words = LOG_MARK_WORDS[shape.hills ? 'effort' : 'pace'];
+    if (marks.marked && !timed){
+      var tally = [marks.on+' '+words.on.toLowerCase()];
+      if (marks.under) tally.push(marks.under+' '+words.under.toLowerCase());
+      if (marks.over) tally.push(marks.over+' '+words.over.toLowerCase());
+      out.evidence.push((stageSaid ? stageSaid+'. ' : '')+'There is no measured pace for the '+unit[1]+
+        ', so their quality rests on your own marks: '+tally.join(', ')+'.');
+    } else if (timed){
+      /* Reps with their own paces are measured, and are said to be. */
+      out.evidence.push((stageSaid ? stageSaid+'. ' : '')+'Your '+unit[1]+
+        ' were timed, so their pace is on record. Add an average pace for the whole session and it is scored.');
+    } else {
+      out.evidence.push((stageSaid ? stageSaid+', but there' : 'There')+
+        ' is not enough objective information to verify the quality of each '+unit[0]+'.');
+    }
+  } else if (actualPaceSecPerKm(dd) == null){
+    out.evidence.push((stageSaid ? stageSaid+'. ' : '')+
+      'With no average pace for the whole session, this is read from what you reported rather than scored.');
+  }
+
+  /* 3. The coaching interpretation: why it happened, in the engine's terms. */
+  if (c.short && a.stopReason === 'fatigue')
+    out.coaching = 'Fatigue limited completion today. Sacoro weighs this with your recent training and recovery before recommending any change.';
+  else if (c.short && a.stopReason === 'illness')
+    out.coaching = 'Illness stopped this session. That outranks anything else here: recover before the next hard session.';
+  else if (c.short && a.stopReason === 'injury')
+    out.coaching = 'You stopped for an injury or soreness. The next hard session depends on it settling.';
+  else if (c.short && a.stopReason)
+    out.coaching = 'Stopping for that reason says nothing about your fitness. It is counted as partly done and nothing more.';
+  else if (c.short)
+    out.coaching = 'Say why you stopped and Sacoro can read this properly.';
+  else {
+    /* Finished in full, with nothing measured: what the athlete said of the
+       set is stated as exactly that -- their account, of one session. */
+    var said = [];
+    /* The two facts the reported reading is itself made from: fewer than
+       half the marked reps on target, and a fade the athlete reported. */
+    if (marks.marked > 0 && marks.on * 2 < marks.marked) said.push('fell short of target');
+    if ((logHeldWord(a.mainSetHeld) || marks.pattern) === 'faded') said.push('faded');
+    if (said.length && !timed)
+      out.coaching = 'By your own account the set '+said.join(' and ')+
+        '. One session, on your report alone: worth watching rather than acting on.';
+  }
+  return out;
+}
+/* The qualitative part of a review, kept beside the engine's own fields so
+   the memory and the patterns can read it: how much was done, how the set
+   went by the athlete's account, and that it IS an account. */
+function sessionReportedBlock(dd){
+  var as = null;
+  try { as = assessSession(dd); } catch(e){ as = null; }
+  if (!as) return null;
+  var c = as.completion, m = logRepMarkSummary(dd), a = dd.actual || {};
+  if (!sessionReported(dd) && !c.short) return null;
+  return { evidence:'reported',
+           completion:{ done:c.done, of:c.of, fraction:c.fraction, short:!!c.short, reason:c.reason || null },
+           level:as.execution.basis === 'reported' ? as.execution.level : null,
+           /* What the athlete said of the set outranks what was inferred. */
+           pattern:logHeldWord(a.mainSetHeld) || as.execution.pattern || null,
+           marks:m.marked ? { on:m.on, under:m.under, over:m.over, marked:m.marked, of:m.of } : null,
+           /* The two answers that had nowhere to be kept: how the recoveries
+              went, and what the athlete tapped about the route and the day.
+              Kept as said, so the memory holds them; nothing acts on them. */
+           recoveries:a.recoveries || null,
+           conditions:(a.conditions && a.conditions.length) ? a.conditions.slice() : null };
+}
+function coachReportedReview(dd){
+  var it = sessionInterpretation(dd);
+  if (!it) return null;
+  var a = dd.actual || {};
+  var env = coachEnvironment(a.notes, a);
+  var sig = coachTrainingSignal(dd, env, null);
+  var nxt = coachSessionAfter(dd);
+  var nextIsQuality = nxt && !isRecoveryWorkoutType(nxt.type) && nxt.type !== 'rest';
+  var propose = (sig.signal === 'recovery_priority') && nextIsQuality;
+  return {
+    version: COACH_REVIEW_VERSION,
+    at: new Date().toISOString(),
+    source: 'engine',
+    scored: false,                          // no number stands behind this one
+    executionVerdict: [it.head].concat(it.what.slice(0, 1)).join(' '),
+    paceEased: false,
+    trainingSignal: sig.signal,
+    trainingSignalReason: sig.reason,
+    breakthrough: false,
+    breakthroughReason: null,
+    coachNoticed: it.evidence.length ? it.evidence[it.evidence.length - 1] : null,
+    nextMove: it.coaching || coachNextMoveForWorkout(dd, env, sig.signal, {}),
+    recommendPlanAdjustment: propose,
+    adjustmentType: propose ? 'downgrade_to_easy' : null,
+    adjustmentReason: propose ? sig.reason : null,
+    hrDrift: null,
+    splitMetrics: null,
+    environment: { tempC:env.tempC, humidity:env.humidity, treadmill:env.treadmill,
+                   heatBand:env.heatBand, humidBand:env.humidBand, severe:env.severe,
+                   fatigue:env.fatigue, pain:env.pain, illness:env.illness,
+                   hrDoubt:env.hrDoubt },
+    purpose: sessionPurpose(dd),
+    feel: feelOf(dd),
+    uncertainty: env.hrDoubt ? 'hr' : null,
+    comparable: [],
+    /* What the athlete said, and nothing measured: below the floor any
+       scored review starts from. */
+    confidence: 0.3,
+    reported: sessionReportedBlock(dd)
+  };
+}
 function coachWorkoutReview(dd){
   var b = computeExecutionBreakdown(dd);
-  if (!b) return null;
+  if (!b) return coachReportedReview(dd);
   var a = dd.actual || {};
   var env = coachEnvironment(a.notes, a);
   var sig = coachTrainingSignal(dd, env, b);
@@ -52004,7 +52354,10 @@ function coachWorkoutReview(dd){
                // must not put back the heart rate the rest of the card left out.
                hr: healthConsentGranted() ? (x.actual||{}).hr : null };
     }),
-    confidence: coachReviewConfidence(b, env, dd)
+    confidence: coachReviewConfidence(b, env, dd),
+    /* The athlete's own account of the set, beside the score rather than
+       inside it: reps completed, how they were marked, whether it faded. */
+    reported: sessionReportedBlock(dd)
   };
 }
 // How much the engine trusts its own read of this session: more logged
@@ -54521,6 +54874,7 @@ function readingSections(report){
   var recoveryBody =
     hqRow('Effort above band', report.recovery.overRPE+' this week')+
     hqRow('HR above zone', report.recovery.overHR+' this week')+
+    (report.recovery.stoppedTired ? hqRow('Stopped for fatigue', report.recovery.stoppedTired+' this week') : '')+
     /* "1 days" is the kind of thing an athlete reads as the app not paying
        attention, and it is one character to get right. */
     hqRow('Hard days in a row', nDays(report.recovery.hardStreak)+' this week')+
@@ -54610,6 +54964,7 @@ function readingSections(report){
       tone: { fresh:'good', watch:'watch', strained:'bad' }[rec.state],
       syn: rec.hardStreak>=3 ? rec.hardStreak+' hard sessions in a row.'
          : (rec.overRPE||rec.overHR) ? 'Effort has run above its band this week.'
+         : rec.stoppedTired ? 'You stopped a session short for fatigue this week.'
          : (rec.morning && rec.morning.flags.length)
              ? 'You reported '+rec.morning.flags.join(' and ')+' this morning.'
          : (rec.morning && rec.morning.answered) ? 'Absorbing the work, and you felt good this morning.'
@@ -59026,8 +59381,23 @@ function openEditModal(dayId){
      sheet's own heading, forty pixels above.
      The id survives every shape this has had: sacoroRedesign uses
      #ef-sec-reschedule to assert a locked session can still be moved. */
+  /* ---- AND EACH ONE OPENS AS A PAGE ----
+     Founder: "Can edit session and reschedule open in full screen same
+     behaviours and the coaching circles."
+
+     So a tab no longer drops its fields down inside the card: it opens them
+     as a page, in the shell the Coach page's circles open theirs in -- the
+     same ground, the same heading, the same ring to close, and a swipe away
+     closes it. See editPageSet().
+
+     THE FIELDS NEVER LEAVE THE SHEET. The page is this same card, grown to
+     the screen with the other tab put away, not a second surface drawn over
+     it. A title half-typed on one page is still there when the other is
+     opened, Save reads every field from either, and there is no pop-up on a
+     pop-up. Closing a page returns to the two tabs; Save is at the foot of
+     both. */
   var section = function(id, title, sub, body){
-    return '<div class="es-sec" id="'+id+'">'+
+    return '<div class="es-sec" id="'+id+'" data-title="'+escapeHtml(title)+'">'+
       '<button type="button" class="sess-tab sess-tab-btn es-tab" data-action="es-tab" '+
         'aria-expanded="false" aria-controls="'+id+'-body">'+sessionTabHtml(title)+'</button>'+
       '<div class="es-tab-body" id="'+id+'-body" hidden>'+
@@ -59057,7 +59427,7 @@ function openEditModal(dayId){
     (editable ? '<div class="es-reset"><button type="button" class="btn btn-danger btn-block" '+
       'data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset this session</button></div>' : '');
   var html = ''+
-  '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-head"><h2 class="font-head" id="es-head-title">Edit Session</h2><button type="button" class="icon-btn" id="es-close" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body es-body">'+
     summary+
     section('ef-sec-reschedule', 'Reschedule',
@@ -59093,17 +59463,54 @@ function openEditModal(dayId){
   openModal(html, 'modal-themed modal-centred');
 }
 
-/* Opens or shuts one of Edit Session's two tabs. The DOM is toggled and
-   nothing is rendered: see section() in openEditModal(). */
+/* Opens one of Edit Session's two tabs as a page, or closes it back to the
+   sheet. The DOM is toggled and nothing is rendered: see section() in
+   openEditModal(). */
+function editPageSet(secId, open){
+  if (typeof document === 'undefined' || !document.getElementById) return false;
+  var sec = document.getElementById(secId), body = document.getElementById(secId + '-body');
+  if (!sec || !body) return false;
+  if (open) body.removeAttribute('hidden'); else body.setAttribute('hidden', '');
+  if (sec.classList) sec.classList.toggle('is-page', !!open);
+  var tab = sec.querySelector ? sec.querySelector('.es-tab') : null;
+  if (tab) tab.setAttribute('aria-expanded', open ? 'true' : 'false');
+  /* The heading names the page, and the ring that closed the sheet now
+     closes the page -- which is also what a swipe presses. */
+  var head = document.getElementById('es-head-title'), x = document.getElementById('es-close');
+  if (head) head.textContent = open ? (sec.getAttribute('data-title') || ES_SHEET_TITLE) : ES_SHEET_TITLE;
+  if (x){
+    x.setAttribute('data-action', open ? 'es-page-close' : 'close-modal');
+    x.setAttribute('aria-label', open ? 'Back to Edit Session' : 'Close');
+    x.setAttribute('data-sec', open ? secId : '');
+  }
+  var overlay = document.getElementById('modal-overlay');
+  var card = (overlay && overlay.querySelector) ? overlay.querySelector('.modal-card') : null;
+  if (card && card.classList){
+    ES_PAGE_CLASSES.forEach(function(c){ card.classList.toggle(c, !!open); });
+    card.classList.toggle('modal-centred', !open);
+    /* A swipe leaves the card pushed off the screen; it comes back as the
+       sheet, where it was. */
+    card.classList.remove('is-settling'); card.classList.remove('is-dragging');
+    if (card.style) card.style.transform = '';
+    card.scrollTop = 0;
+  }
+  return true;
+}
 function handleEditTab(btn){
   if (!btn || !btn.getAttribute) return;
-  var open = btn.getAttribute('aria-expanded') !== 'true';
-  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  var body = (typeof document !== 'undefined' && document.getElementById)
-    ? document.getElementById(btn.getAttribute('aria-controls')) : null;
-  if (!body) return;
-  if (open) body.removeAttribute('hidden'); else body.setAttribute('hidden', '');
+  var id = String(btn.getAttribute('aria-controls') || '').replace(/-body$/, '');
+  if (id) editPageSet(id, true);
 }
+function handleEditPageClose(btn){
+  var id = (btn && btn.getAttribute) ? btn.getAttribute('data-sec') : '';
+  if (id) editPageSet(id, false); else closeModal();
+}
+/* THE PAGE'S SHELL IS THE COACH PAGE'S, and it is put on by editPageSet()
+   when a tab is opened -- never by openEditModal(), which still opens the
+   sheet as the plain themed, centred card it was. The classes are the ones
+   openHQPanel() gives a Coach panel, plus es-page for what is put away. */
+var ES_PAGE_CLASSES = ['builder-light', 'hq-panel', 'hq-full', 'rp-cherry', 'es-page'];
+var ES_SHEET_TITLE = 'Edit Session';
 
 function findDay(dayId){
   var found = null;
@@ -65008,6 +65415,9 @@ function handleActualFieldChange(dayId, field, value){
   else if (field==='hr'){
     if (value==='') dd.actual.hr = null;
     else if (healthConsentGranted()) dd.actual.hr = parseInt(value,10);
+    delete dd.actual.hrDerived;
+    /* Emptied, so the figure the stages make of it comes back. */
+    if (value===''){ logApplyStageTotals(dd); logPatchTotals(dd); }
   }
   else if (field==='rpe') dd.actual.rpe = value===''?null:parseInt(value,10);
   /* Blank clears back to unknown; anything else is the athlete's own figure,
@@ -65026,7 +65436,7 @@ function handleActualFieldChange(dayId, field, value){
     // Stamp what the athlete was looking at. Written here and nowhere else
     // on this path, so a later unit toggle re-reads rather than reinterprets.
     if (dd.actual.pace) dd.actual.paceUnit = displayUnit();
-    else delete dd.actual.paceUnit;
+    else { delete dd.actual.paceUnit; logApplyStageTotals(dd); logPatchTotals(dd); }
   }
   else if (field==='notes') dd.actual.notes = value;
   else if (field==='feel'){
@@ -65241,6 +65651,14 @@ function handleSplitFieldChange(dayId, index, field, value){
    nothing at all, and a partly-filled one stores only the segments they
    actually answered. Same validation as the flat editor, and pace is
    derived rather than asked for. */
+/* A pace with no distance of the athlete's own: the other half is filled
+   from the prescription, which is the instruction they were given. */
+function slogFillFromPace(s, row){
+  var perKm = s.paceSec;
+  if (row.presKm > 0){ s.km = null; s.sec = Math.round(perKm * row.presKm); delete s.secSeeded; }
+  else if (row.presSec != null){ s.sec = row.presSec; s.secSeeded = true; s.km = round2(row.presSec / perKm); }
+  else { s.km = null; s.sec = null; delete s.secSeeded; }
+}
 function handleStructuredSplitChange(dayId, segId, field, value){
   var dd = findDay(dayId);
   if (!dd) return;
@@ -65260,7 +65678,19 @@ function handleStructuredSplitChange(dayId, segId, field, value){
     var km = (value==='' || isNaN(raw)) ? null
            : round2(state.units==='mi' ? raw/0.621371 : raw);
     s.km = (km!=null && km>0) ? km : null;
-    delete s.paceEntered;
+    /* A DISTANCE AND AN AVERAGE PACE ARE TWO MEASUREMENTS, and typing the
+       second must not rewrite the first. The pace used to be recomputed
+       from a time that had itself been made from the PRESCRIBED distance,
+       so entering 2.1 against a 2km warm-up changed the pace the athlete
+       had just typed. With both given, the time is what follows from them. */
+    if (s.km != null){
+      s.kmEntered = true;
+      if (s.paceEntered && s.paceSec > 0){ s.sec = Math.round(s.paceSec * s.km); delete s.secSeeded; }
+    } else {
+      delete s.kmEntered;
+      if (s.paceEntered && s.paceSec > 0) slogFillFromPace(s, row);
+    }
+    if (!(s.paceEntered && s.paceSec > 0)) delete s.paceEntered;
   } else if (field === 'sec'){
     var sec = parseElapsedInput(value);
     s.sec = (sec!=null && sec>0) ? sec : null;
@@ -65280,15 +65710,16 @@ function handleStructuredSplitChange(dayId, segId, field, value){
     var perKm = (shown != null && shown > 0)
       ? (state.units === 'mi' ? Math.round(shown / 1.60934 * 10) / 10 : shown) : null;
     if (perKm == null){
-      delete s.paceEntered; s.paceSec = null; s.km = null;
+      delete s.paceEntered; s.paceSec = null;
+      if (!s.kmEntered) s.km = null;
       s.sec = (row.presSec != null && !row.asks.time) ? row.presSec : null;
       s.secSeeded = (s.sec != null) || undefined;
     } else {
       s.paceEntered = true;
       s.paceSec = perKm;
-      if (row.presKm > 0){ s.km = null; s.sec = Math.round(perKm * row.presKm); delete s.secSeeded; }
-      else if (row.presSec != null){ s.sec = row.presSec; s.secSeeded = true; s.km = round2(row.presSec / perKm); }
-      else { s.km = null; s.sec = null; delete s.secSeeded; }
+      /* The athlete's own distance outranks the prescription's. */
+      if (s.kmEntered && s.km > 0){ s.sec = Math.round(perKm * s.km); delete s.secSeeded; }
+      else slogFillFromPace(s, row);
     }
   } else if (field === 'hr'){
     // The per-segment column, same rule as the per-lap one above.
@@ -71538,6 +71969,7 @@ document.addEventListener('click', function(e){
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
     case 'coach-graph': handleCoachGraph(target.getAttribute('data-graph')); break;
     case 'es-tab': handleEditTab(target); break;
+    case 'es-page-close': handleEditPageClose(target); break;
     case 'log-pick': handleLogPick(target.getAttribute('data-day'), target.getAttribute('data-field'), target.getAttribute('data-value')); break;
     case 'log-clear': handleLogClear(target.getAttribute('data-day'), target.getAttribute('data-field')); break;
     case 'log-mark': handleLogMark(target.getAttribute('data-day'), target.getAttribute('data-rep')); break;

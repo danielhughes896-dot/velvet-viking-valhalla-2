@@ -110,7 +110,16 @@ test('an ordinary easy run, a long run and a shakeout stay simple', () => {
     assert.deepEqual(parts(html), ['main'], k + ' was given sections');
     assert.equal(count(html, /class="slog-row/g), 0, k + ' is asked for segments');
     assert.doesNotMatch(html, />Warm-up<|>Cool-down<|>Main set<|Reps completed|Recoveries|Did your (pace|effort) hold/, k + ' is asked a multi-part question');
-    assert.match(html, /<div class="yl-title">The run<\/div>/, k + ' was given a heading it has no section for');
+    assert.match(html, /<div class="yl-title">The Run<\/div>/, k + ' was given a heading it has no section for');
+    /* Founder: "Easy runs use one primary 'The Run' card containing actual
+       distance, average pace and HR. No duplicated generic fields." The
+       three figures are IN the card, and there is no loose row above it. */
+    const card = section(html, 'main');
+    ['km', 'pace', 'hr'].forEach(f =>
+      assert.match(card, new RegExp('data-action="actual-field" data-field="' + f + '"'), k + ': ' + f + ' is not in The Run card'));
+    assert.ok(html.indexOf('log-totals') > html.indexOf('data-part="main"'), k + ': the figures sit loose above the card');
+    assert.ok(card.indexOf('data-field="hr"') < card.indexOf('data-field="mainSetFelt"'), k + ': how it felt is asked before the run is given');
+    assert.equal(all[k].a.logTotalsInBox(all[k].dd), true);
     assert.deepEqual([...html.matchAll(/class="yl-q-t">([^<]+)</g)].map(m => m[1]),
       ['How did it feel?', 'Overall effort', 'Anything hurting?'], k + ' is asked something else');
     /* Conditions is still asked: its heading is the group's now, not a second label. */
@@ -145,7 +154,10 @@ test('a session with no warm-up or cool-down in it is not given one', () => {
      whether the pace held. */
   const st = log(all.easy_strides);
   assert.equal(count(st, /class="slog-row/g), 0, 'an easy run with strides is asked for stage figures');
-  assert.match(st, /<div class="yl-title">Strides \u00b7 6 \u00d7 100m<\/div>/);
+  /* It is still an easy run: The Run card, its three figures, how it felt,
+     and then how many strides were done. */
+  assert.match(st, /<div class="yl-title">The Run<\/div>/);
+  assert.match(section(st, 'main'), /data-action="actual-field" data-field="km"[\s\S]*data-field="mainSetFelt"[\s\S]*data-field="repsDone"/);
   assert.match(st, />Strides completed</);
   assert.doesNotMatch(st, /data-action="log-mark"|data-field="recoveries"|data-field="mainSetHeld"|>Each rep</, 'strides are asked a workout\'s questions');
   assert.match(st, /data-field="mainSetFelt"/); assert.match(st, /data-field="rpe"/);
@@ -243,12 +255,20 @@ test('heart rate, elevation and notes are on every log, once, with nothing to op
     assert.equal(new Set(segIn).size, segIn.length, c.arch + ': a segment input is duplicated');
     /* And the order is the order the form is filled in. */
     const at = s => { const i = html.indexOf(s); assert.ok(i !== -1, c.arch + ': ' + s); return i; };
-    assert.ok(at('data-field="pace"') < at('class="actual-field full yl"'));
     /* Average heart rate is the third whole-session figure and sits with
-       the other two, above the sections. (It was below every question,
-       between Anything hurting and Elevation.) */
+       the other two. (It was below every question, between Anything hurting
+       and Elevation.) */
+    assert.ok(at('data-action="actual-field" data-field="km"') < at('data-action="actual-field" data-field="pace"'));
     assert.ok(at('data-action="actual-field" data-field="pace"') < at('data-action="actual-field" data-field="hr"'));
-    assert.ok(at('data-action="actual-field" data-field="hr"') < at('class="actual-field full yl"'), c.arch + ': heart rate is not with distance and pace');
+    /* WHERE THE THREE SIT. A session with stages: above them, as its total.
+       A run with none: inside The Run card, which is the run. */
+    if (c.a.logTotalsInBox(c.dd)){
+      assert.ok(at('data-part="main"') < at('data-action="actual-field" data-field="km"'), c.arch + ': the figures are outside The Run card');
+      assert.ok(at('data-action="actual-field" data-field="hr"') < at('data-group="feedback"'), c.arch);
+      assert.equal(count(html, /class="slog-row/g), 0, c.arch + ': a session with stage rows has no total above them');
+    } else {
+      assert.ok(at('data-action="actual-field" data-field="hr"') < at('class="actual-field full yl"'), c.arch + ': heart rate is not with distance and pace');
+    }
     assert.ok(at('data-group="conditions"') < at('data-action="actual-field" data-field="elevationGainM"'));
     assert.ok(at('data-action="actual-field" data-field="elevationGainM"') < at('data-field="notes"'));
     assert.ok(at('data-field="notes"') < at('data-action="clear-actual"'));
@@ -379,15 +399,19 @@ test('a threshold session reads the way the founder drew it', () => {
   const html = log(c);
   const main = section(html, 'main');
   assert.match(main, /<div class="yl-title">Main set \u00b7 Threshold \u00b7 \d+(\.\d+)? km<\/div>/, 'the heading does not say what the main set is');
-  assert.match(main, /<span class="slog-k">Average pace<\/span><input type="text" class="slog-in" placeholder="5:00 \/km"/);
-  assert.match(main, /<span class="slog-k">Average heart rate<\/span><input type="number"[^>]*placeholder="155 bpm"/);
+  /* Distance, then the two averages, named as the whole session's are. */
+  assert.match(main, /<span class="slog-k">Distance<\/span><input type="number"[^>]*placeholder="2\.0 km"/);
+  assert.match(main, /<span class="slog-k">Avg pace<\/span><input type="text" class="slog-in" placeholder="5:00 \/km"/);
+  assert.match(main, /<span class="slog-k">Avg HR<\/span><input type="number"[^>]*placeholder="155 bpm"/);
+  assert.ok(main.indexOf('>Distance<') < main.indexOf('>Avg pace<') && main.indexOf('>Avg pace<') < main.indexOf('>Avg HR<'));
   assert.match(main, /<div class="yl-opt">Optional \u2014 enter what you know\.<\/div>/);
   /* The same pattern either side of it. */
   ['warmup', 'cooldown'].forEach(p => {
     const sec = section(html, p);
     assert.match(sec, new RegExp('<div class="yl-title">' + (p === 'warmup' ? 'Warm-up' : 'Cool-down') + ' \u00b7 \\d+(\\.\\d+)? km</div>'), p + ' heading');
-    assert.match(sec, /<span class="slog-k">Average pace<\/span>/, p + ' does not name its pace field');
-    assert.match(sec, /<span class="slog-k">Average heart rate<\/span>/, p + ' does not name its heart-rate field');
+    assert.match(sec, /<span class="slog-k">Distance<\/span>/, p + ' does not ask how far it went');
+    assert.match(sec, /<span class="slog-k">Avg pace<\/span>/, p + ' does not name its pace field');
+    assert.match(sec, /<span class="slog-k">Avg HR<\/span>/, p + ' does not name its heart-rate field');
   });
   assert.equal(count(html, /class="yl-opt"/g), 1, 'the reassurance is said more than once');
 });
@@ -397,18 +421,18 @@ test('no field anywhere on a log is a bare "m:ss", "km" or "HR"', () => {
     const html = log(c);
     [...html.matchAll(/<input[^>]*data-action="slog-field"[^>]*>/g)].forEach(m => {
       assert.doesNotMatch(m[0], /placeholder="(m:ss|km|mi|HR)"/, c.arch + ': an unexplained placeholder: ' + m[0].slice(0, 120));
-      assert.match(m[0], /aria-label="[^"]+ average (pace per (km|mi)|heart rate)"/, c.arch + ': a field with no name');
-      assert.match(m[0], /data-field="(pace|hr)"/, c.arch + ': a row asks for something other than pace and heart rate');
+      assert.match(m[0], /aria-label="[^"]+ (average (pace per (km|mi)|heart rate)|distance in (km|mi))"/, c.arch + ': a field with no name');
+      assert.match(m[0], /data-field="(km|pace|hr)"/, c.arch + ': a row asks for something other than distance, pace and heart rate');
     });
     /* Every row's two fields are named: on the row, or once above a list. */
     const rows = count(html, /class="slog-row/g);
     if (!rows){ assert.doesNotMatch(html, /class="yl-opt"/, c.arch + ': "Optional" with nothing optional under it'); return; }
-    const named = count(html, /<span class="slog-k">Average pace<\/span>/g) + count(html, /<div class="slog-cols"[^>]*><span>Average pace<\/span>/g);
+    const named = count(html, /<span class="slog-k">Avg pace<\/span>/g) + count(html, /<div class="slog-cols[^>]*>(<span>Distance<\/span>)<span>Avg pace<\/span>/g);
     assert.ok(named >= 1, c.arch + ': the pace fields are not named');
     [...html.matchAll(/data-part="[a-z]+"[\s\S]*?(?=data-part="|data-group="|data-field="rpe")/g)].forEach(p => {
       const n = count(p[0], /class="slog-row/g);
-      if (n === 1) assert.match(p[0], /<span class="slog-k">Average pace<\/span>/, c.arch + ': a single row is not labelled');
-      if (n > 1) assert.equal(count(p[0], /<span>Average pace<\/span>/g), 1, c.arch + ': a list of rows repeats or lacks its labels');
+      if (n === 1) assert.match(p[0], /<span class="slog-k">Avg pace<\/span>/, c.arch + ': a single row is not labelled');
+      if (n > 1) assert.equal(count(p[0], /<span>Avg pace<\/span>/g), 1, c.arch + ': a list of rows repeats or lacks its labels');
     });
   });
 });
@@ -419,10 +443,10 @@ test('the heading says what the section is: the effort, the reps, the distance',
   assert.match(title('track_reps', 'main'), /^Main set \u00b7 \d+ \u00d7 \d+m$/);
   assert.equal(title('track_reps', 'main').match(/(\d+) \u00d7/)[1], String(all.track_reps.a.logShape(all.track_reps.dd).reps));
   assert.equal(title('ladder', 'main'), 'Main set \u00b7 5 reps', 'a ladder was given one distance for five different reps');
-  assert.match(title('easy_strides', 'main'), /^Strides \u00b7 6 \u00d7 100m$/, 'an easy run with strides is headed as a workout');
+  assert.equal(title('easy_strides', 'main'), 'The Run', 'an easy run with strides is headed as a workout');
   assert.match(title('hill_repeats', 'main'), /^Main set \u00b7 \d+ \u00d7 \d+s$/);
   assert.equal(title('long_run_goal_finish', 'main'), 'Main set', 'stages were given a rep count');
-  assert.equal(title('easy_run', 'main'), 'The run');
+  assert.equal(title('easy_run', 'main'), 'The Run');
   /* A warm-up prescribed as a rule has no number to print, and is given none. */
   assert.equal(title('fartlek', 'warmup'), 'Warm-up');
 });
@@ -530,7 +554,12 @@ test('the main set shows its fields first, then what is asked about the set', ()
     const fb = html.slice(html.indexOf('data-group="feedback"'), html.indexOf('data-group="conditions"'));
     const rowAt = main.indexOf('class="slog-row'), qAt = main.indexOf('class="yl-q"');
     if (rowAt !== -1 && qAt !== -1) assert.ok(rowAt < qAt, c.arch + ': a question sits above the main set\'s fields');
-    if (shape.reps){
+    if (shape.reps && shape.light && c.a.logTotalsInBox(c.dd)){
+      /* An easy run with strides is The Run card: how it felt is asked of
+         the run, in the card, and then the strides are counted. */
+      assert.match(main, /data-field="mainSetFelt"[\s\S]*data-field="repsDone"/, c.arch);
+      assert.doesNotMatch(fb, /data-field="mainSetFelt"|data-field="mainSetHeld"/, c.arch);
+    } else if (shape.reps){
       /* Reps and hills: the box holds the reps; how it felt and whether it
          held are Session feedback, as the hill-sprint mock-up draws them. */
       assert.match(main, /data-field="repsDone"/, c.arch + ': reps completed is not in the main set');

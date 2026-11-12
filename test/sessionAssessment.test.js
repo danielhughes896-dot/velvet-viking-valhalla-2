@@ -485,8 +485,22 @@ test('it is not yet what the circles read: calibration is still under review', (
      contracts and calibration are tested."
      ONE READER WAS LET THROUGH, deliberately, when Your Log was built: the
      session's own analysis prints what was logged -- how much was done, how
-     it was tolerated -- in words. It prints no Execution figure, and nothing
-     that decides training reads the engine at all. This law is that line. */
+     it was tolerated -- in words.
+
+     AND THEN TWO MORE, on the founder's instruction, after a hill session
+     logged in full was told "Distance is all that was recorded":
+
+       "Subjective rep assessments must inform qualitative execution scoring
+        and coaching, with appropriate evidence confidence. Never treat them
+        as measured pace."
+
+     So what the athlete reported is read back as an interpretation
+     (sessionInterpretation) and kept beside the review as their account
+     (sessionReportedBlock). Both take words and counts -- how much was
+     done, why it stopped, how the reps were marked. Neither takes the
+     Execution figure, and the engines that decide training still do not
+     read the assessment: Confidence, trends and Evolution stay behind the
+     gate. This law is that line. */
   const fs = require('fs'); const path = require('path');
   const { RUNTIME_RELATIVE } = require('./harness.js');
   const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
@@ -499,12 +513,22 @@ test('it is not yet what the circles read: calibration is still under review', (
   const end = src.indexOf('\n}\n', src.indexOf('\nfunction assessmentReadout(')) + 3;
   assert.ok(start > -1 && end > start);
   const readout = body('sessionReadoutHtml');
-  const outside = (src.slice(0, start) + src.slice(end)).replace(readout, '');
+  const READERS = ['sessionReadoutHtml', 'sessionInterpretation', 'sessionReportedBlock'];
+  let outside = src.slice(0, start) + src.slice(end);
+  READERS.forEach((name) => { outside = outside.replace(body(name), ''); });
   assert.doesNotMatch(outside, /\bassessSession\(|\bassessmentReadout\(/,
-    'something other than the session\u2019s own analysis is reading the engine');
-  /* The one reader takes words, never the figure. */
-  assert.match(readout, /assessSession\(dd\)/);
-  assert.doesNotMatch(readout, /execution\.score|\.score\b/, 'the unreviewed Execution figure is being shown');
+    'something other than the session\u2019s own analysis and its interpretation is reading the engine');
+  /* Every reader takes words, never the figure. */
+  READERS.forEach((name) => {
+    const code = body(name).replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.match(code, /assessSession\(dd\)/, name + ' no longer reads the assessment, so it should leave this list');
+    assert.doesNotMatch(code, /execution\.score|\.score\b/, name + ' reads the unreviewed Execution figure');
+  });
+  /* Recovery learns that a session was stopped for fatigue from the
+     completion half alone: no execution, no response, no figure. */
+  const cut = body('sessionCutShortFor').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(cut, /assessCompletion\(/);
+  assert.doesNotMatch(cut, /assessSession|assessExecution|assessResponse|\.score\b/, 'the stop reason is read through the scorer');
   /* And the engines that decide training do not mention it. */
   ['coachAnalyse', 'coachTrend', 'coachRecovery', 'coachDecision', 'planEvolution', 'playbookAssess',
    'computeExecutionBreakdown'].forEach((fn) => {

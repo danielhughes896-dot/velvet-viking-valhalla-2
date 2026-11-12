@@ -84,7 +84,7 @@ test('a sustained session has a main set and no reps to count', () => {
 test('an easy run is asked the least: how it felt, the effort, the conditions and whether anything hurts', () => {
   const a = app();
   const html = answers(a, session(a, 'aerobic'));
-  assert.match(html, /The run/, 'an easy run was given a main set');
+  assert.match(html, /The Run/, 'an easy run was given a main set');
   assert.ok(!/Main set/.test(html));
   ['repsDone', 'mainSetHeld', 'recoveries', 'stopReason'].forEach(f =>
     assert.ok(!asks(html, f), 'an easy run finished as prescribed was asked: ' + f));

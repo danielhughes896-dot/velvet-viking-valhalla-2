@@ -251,79 +251,186 @@ function staged(){
 }
 const stage = (a, dd, row, pace) => a.handleStructuredSplitChange(dd.id, row.segId, 'pace', pace);
 
-test('the average pace is worked out once every stage has one and the athlete\'s own distance matches the plan', () => {
-  const { a, dd, rows, planned } = staged();
-  a.handleActualFieldChange(dd.id, 'km', String(planned));
+const stageKm = (a, dd, row, km) => a.handleStructuredSplitChange(dd.id, row.segId, 'km', km);
+const stageHr = (a, dd, row, hr) => a.handleStructuredSplitChange(dd.id, row.segId, 'hr', hr);
+const split = (dd, row) => Array.from(dd.actual.splits || []).filter(x => x.segId === row.segId)[0];
+
+/* Founder, of the rule that averaged stage paces over the PLAN's distances
+   whenever the athlete's own total came within 3% of them:
+
+     "Calculate multi-stage totals from measured distances and times without
+      an arbitrary 3% restriction; never invent missing data."
+
+   So a stage counts when it carries its own distance and its own pace, and
+   the session is added up when every stage does. */
+test('the whole session is added up once every stage carries its own distance and average pace', () => {
+  const { a, dd, rows } = staged();
+  dd.actual.km = null; dd.actual.hr = null;
+  const KM = ['2.1', '3.5', '1.9'], PACE = ['5:55', '4:28', '6:10'], SEC = [355, 268, 370];
+  [0, 1].forEach(i => { stageKm(a, dd, rows[i], KM[i]); stage(a, dd, rows[i], PACE[i]); });
+  assert.equal(dd.actual.km, null, 'two stages of three were treated as the session');
   assert.equal(dd.actual.pace, null);
-  stage(a, dd, rows[0], '6:00');
-  assert.equal(dd.actual.pace, null, 'one stage of three was treated as the session');
-  stage(a, dd, rows[1], '4:30');
-  assert.equal(dd.actual.pace, null);
-  stage(a, dd, rows[2], '6:30');
-  /* The stage paces, weighted by the size of each stage. */
-  const want = Math.round((360 * rows[0].presKm + 270 * rows[1].presKm + 390 * rows[2].presKm) / planned);
+  stageKm(a, dd, rows[2], KM[2]);
+  assert.equal(dd.actual.km, null, 'a stage with a distance and no pace was added up');
+  stage(a, dd, rows[2], PACE[2]);
+  /* Distance is the stages' sum; pace is the time they took over it. */
+  const km = 2.1 + 3.5 + 1.9;
+  const sec = Math.round(355 * 2.1) + Math.round(268 * 3.5) + Math.round(370 * 1.9);
+  assert.equal(dd.actual.km, 7.5);
+  assert.equal(dd.actual.kmDerived, true);
   assert.equal(dd.actual.paceDerived, true);
-  assert.equal(a.paceToSec(dd.actual.pace), want);
+  assert.equal(a.paceToSec(dd.actual.pace), Math.round(sec / km));
   assert.equal(dd.actual.paceUnit, 'km');
-  assert.equal(a.actualPaceSecPerKm(dd), want, 'the worked-out pace is not where the score reads pace');
-  assert.ok(a.computeExecutionBreakdown(dd), 'the session does not score on a worked-out pace');
-  assert.match(log(a, dd), /data-log-totals-note>Average pace worked out from your stages\. Type over it to correct it\.</);
-  /* The distance is the athlete's and is never rewritten from paces. */
-  assert.equal(dd.actual.km, planned);
-  assert.equal(dd.actual.kmDerived, undefined);
-  /* A stage changed: the average follows it. */
+  assert.equal(a.actualPaceSecPerKm(dd), Math.round(sec / km), 'the worked-out pace is not where the score reads pace');
+  assert.ok(a.computeExecutionBreakdown(dd), 'the session does not score on worked-out totals');
+  assert.match(log(a, dd), /data-log-totals-note>Distance and average pace worked out from your stages\. Type over either to correct it\.</);
+  assert.equal(a.logStageTotals(dd).basis, 'measured');
+  /* NOT the prescription's distances: the plan asks for a different total. */
+  assert.notEqual(7.5, rows.reduce((t, r) => t + r.presKm, 0), 'the fixture cannot tell measured from prescribed');
+  /* A stage changed: the totals follow it. */
   stage(a, dd, rows[1], '4:20');
-  assert.equal(a.paceToSec(dd.actual.pace), Math.round((360 * rows[0].presKm + 260 * rows[1].presKm + 390 * rows[2].presKm) / planned));
-  /* A stage emptied: there is no longer an average to state, and it is taken back. */
+  assert.equal(a.paceToSec(dd.actual.pace), Math.round((Math.round(355 * 2.1) + Math.round(260 * 3.5) + Math.round(370 * 1.9)) / km));
+  /* A stage emptied: there is no longer a total to state, and both are taken back. */
   stage(a, dd, rows[2], '');
   assert.equal(dd.actual.pace, null);
+  assert.equal(dd.actual.km, null);
   assert.equal(dd.actual.paceDerived, undefined);
+  assert.equal(dd.actual.kmDerived, undefined);
   assert.doesNotMatch(log(a, dd), /worked out from your stages/);
+  void SEC;
 });
 
-test('prescribed distances are never assumed: a session run short or long is not added up', () => {
-  [0.8, 1.25].forEach(f => {
-    const { a, dd, rows, planned } = staged();
-    a.handleActualFieldChange(dd.id, 'km', String(Math.round(planned * f * 10) / 10));
-    rows.forEach(r => stage(a, dd, r, '5:00'));
-    assert.equal(dd.actual.pace, null, 'a session that covered ' + f + ' of its distance was read as run to plan');
-    assert.equal(dd.actual.paceDerived, undefined);
-  });
-  /* No distance from the athlete at all: nothing to check the stages against. */
+test('average heart rate is worked out too, weighted by the time in each stage, and only when every stage has one', () => {
+  const { a, dd, rows } = staged();
+  dd.actual.km = null; dd.actual.hr = null;
+  const KM = ['2', '4', '2'], PACE = ['6:00', '4:30', '6:00'], HR = ['140', '172', '150'];
+  rows.forEach((r, i) => { stageKm(a, dd, r, KM[i]); stage(a, dd, r, PACE[i]); });
+  stageHr(a, dd, rows[0], HR[0]); stageHr(a, dd, rows[1], HR[1]);
+  a.logApplyStageTotals(dd);
+  assert.equal(dd.actual.hr, null, 'an average was made from two stages of three');
+  stageHr(a, dd, rows[2], HR[2]);
+  const t = [720, 1080, 720];
+  const want = Math.round((140 * t[0] + 172 * t[1] + 150 * t[2]) / (t[0] + t[1] + t[2]));
+  assert.equal(dd.actual.hr, want);
+  assert.equal(dd.actual.hrDerived, true);
+  /* Weighted by time, not a plain mean of three figures. */
+  assert.notEqual(want, Math.round((140 + 172 + 150) / 3), 'the fixture cannot tell a weighted mean from a plain one');
+  assert.match(log(a, dd), /Distance, average pace and average heart rate worked out from your stages\. Type over any of them to correct it\./);
+  /* Typed over: it is the athlete's. Emptied again: the worked-out one returns. */
+  a.handleActualFieldChange(dd.id, 'hr', '149');
+  assert.equal(dd.actual.hr, 149); assert.equal(dd.actual.hrDerived, undefined);
+  stageHr(a, dd, rows[1], '175');
+  assert.notEqual(a.logStageTotals(dd).hr, 149, 'the fixture cannot tell a typed figure from a worked-out one');
+  assert.equal(dd.actual.hr, 149, 'a typed heart rate was replaced by a worked-out one');
+  a.handleActualFieldChange(dd.id, 'hr', '');
+  assert.equal(dd.actual.hrDerived, true);
+  /* Without consent no heart rate is worked out. */
+  const was = a.healthConsentGranted; a.healthConsentGranted = () => false;
+  assert.equal(a.logStageTotals(dd).hr, null);
+  a.healthConsentGranted = was;
+});
+
+test('nothing is assumed about how far a stage went: paces alone are never added up', () => {
+  /* The athlete's own total matches the plan exactly and every stage has a
+     pace. That used to be enough; it is the 3% rule, and it is gone. */
+  const { a, dd, rows, planned } = staged();
+  a.handleActualFieldChange(dd.id, 'km', String(planned));
+  rows.forEach(r => stage(a, dd, r, '5:00'));
+  assert.equal(dd.actual.pace, null, 'stage paces were averaged over the plan\'s distances');
+  assert.equal(dd.actual.paceDerived, undefined);
+  assert.equal(dd.actual.km, planned, 'the athlete\'s own distance was touched');
+  assert.equal(a.LOG_TOTALS_MATCH, undefined, 'the tolerance is still defined');
+  assert.ok(!/LOG_TOTALS_MATCH|presKm|presSec|'stages'/.test(fnBody('logStageTotals')), 'the totals still read the prescription');
+  /* No distance from anyone: none is made up from paces. */
   const none = staged();
   none.dd.actual.km = null;
   none.rows.forEach(r => stage(none.a, none.dd, r, '5:00'));
   assert.equal(none.dd.actual.pace, null);
   assert.equal(none.dd.actual.km, null, 'a distance was made up from stage paces');
-  /* Within the tolerance it is, and outside it is not. */
-  const edge = staged();
-  edge.a.handleActualFieldChange(edge.dd.id, 'km', String(Math.round(edge.planned * (1 + edge.a.LOG_TOTALS_MATCH - 0.01) * 100) / 100));
-  edge.rows.forEach(r => stage(edge.a, edge.dd, r, '5:00'));
-  assert.equal(edge.dd.actual.paceDerived, true);
-  /* The distance corrected afterwards: the average is taken back with it. */
-  edge.a.handleActualFieldChange(edge.dd.id, 'km', String(edge.planned + 3));
-  assert.equal(edge.dd.actual.pace, null);
-  edge.a.handleActualFieldChange(edge.dd.id, 'km', String(edge.planned));
-  assert.equal(edge.dd.actual.paceDerived, true, 'the average did not return when the distance matched again');
+  /* A distance filled in from the prescription is not a measurement, and
+     neither is one worked out from a prescribed duration. */
+  rows.forEach(r => assert.equal(split(dd, r).kmFromPrescription, true));
+  const timed = fresh('steady_tempo');
+  timed.dd.actual.km = null; timed.dd.actual.pace = null;
+  const trows = Array.from(timed.a.loggingModeFor(timed.dd).plan.rows);
+  trows.forEach(r => stage(timed.a, timed.dd, r, '5:00'));
+  assert.equal(timed.dd.actual.km, null, 'a session set by time was added up from durations nobody measured');
+  assert.equal(timed.dd.actual.pace, null);
 });
 
 test('manual correction remains: a figure the athlete types is theirs and is not overwritten', () => {
-  const { a, dd, rows, planned } = staged();
-  a.handleActualFieldChange(dd.id, 'km', String(planned));
-  rows.forEach(r => stage(a, dd, r, '5:00'));
+  const { a, dd, rows } = staged();
+  dd.actual.km = null;
+  rows.forEach(r => { stageKm(a, dd, r, '2'); stage(a, dd, r, '5:00'); });
   assert.equal(dd.actual.paceDerived, true);
   a.handleActualFieldChange(dd.id, 'pace', '5:12');
   assert.equal(dd.actual.pace, '5:12');
   assert.equal(dd.actual.paceDerived, undefined);
   stage(a, dd, rows[1], '4:40');
   assert.equal(dd.actual.pace, '5:12', 'a typed pace was replaced by a worked-out one');
-  assert.doesNotMatch(log(a, dd), /worked out from your stages/);
+  assert.match(log(a, dd), /data-log-totals-note>Distance worked out from your stages\. Type over it to correct it\.</);
+  /* Emptied, the worked-out figure comes back rather than a blank. */
+  a.handleActualFieldChange(dd.id, 'pace', '');
+  assert.equal(dd.actual.paceDerived, true);
+  assert.equal(a.paceToSec(dd.actual.pace), Math.round((600 + 560 + 600) / 6));
+  a.handleActualFieldChange(dd.id, 'km', '6.4');
+  assert.equal(dd.actual.km, 6.4); assert.equal(dd.actual.kmDerived, undefined);
+  stageKm(a, dd, rows[0], '2.5');
+  assert.equal(dd.actual.km, 6.4, 'a typed distance was replaced by a worked-out one');
   /* A session logged the ordinary way -- distance and pace typed -- is untouched by any of this. */
   const plain = fresh('threshold_continuous');
-  const was = plain.dd.actual.pace;
-  Array.from(plain.a.loggingModeFor(plain.dd).plan.rows).forEach(r => stage(plain.a, plain.dd, r, '6:10'));
+  const was = plain.dd.actual.pace, wasKm = plain.dd.actual.km;
+  Array.from(plain.a.loggingModeFor(plain.dd).plan.rows).forEach(r => { stageKm(plain.a, plain.dd, r, '2'); stage(plain.a, plain.dd, r, '6:10'); });
   assert.equal(plain.dd.actual.pace, was);
+  assert.equal(plain.dd.actual.km, wasKm);
   assert.equal(plain.dd.actual.paceDerived, undefined);
+});
+
+test('a stage\'s distance and its pace are two entries, and neither rewrites the other', () => {
+  const { a, dd, rows } = staged();
+  const w = rows[0];
+  /* Pace first: the prescription supplies the distance, as before. */
+  stage(a, dd, w, '5:55');
+  assert.equal(split(dd, w).paceSec, 355);
+  assert.equal(split(dd, w).km, null);
+  assert.equal(split(dd, w).kmFromPrescription, true);
+  /* Then the distance actually run: the pace stays what was typed. */
+  stageKm(a, dd, w, '2.1');
+  assert.equal(split(dd, w).paceSec, 355, 'typing the distance changed the pace the athlete had entered');
+  assert.equal(split(dd, w).km, 2.1);
+  assert.equal(split(dd, w).sec, Math.round(355 * 2.1));
+  assert.equal(split(dd, w).kmEntered, true);
+  assert.equal(split(dd, w).kmFromPrescription, undefined);
+  /* The other order comes to the same thing. */
+  const m = rows[1];
+  stageKm(a, dd, m, '3.5'); stage(a, dd, m, '4:28');
+  assert.equal(split(dd, m).km, 3.5, 'typing the pace cleared the distance the athlete had entered');
+  assert.equal(split(dd, m).paceSec, 268);
+  assert.equal(split(dd, m).sec, Math.round(268 * 3.5));
+  /* The pace re-typed: the distance is still the athlete's. */
+  stage(a, dd, m, '4:30');
+  assert.equal(split(dd, m).km, 3.5);
+  assert.equal(split(dd, m).sec, Math.round(270 * 3.5));
+  /* The distance emptied: back to the prescription's, and marked as such. */
+  stageKm(a, dd, w, '');
+  assert.equal(split(dd, w).km, null);
+  assert.equal(split(dd, w).kmEntered, undefined);
+  assert.equal(split(dd, w).paceSec, 355);
+  assert.equal(split(dd, w).sec, Math.round(355 * w.presKm));
+  assert.equal(split(dd, w).kmFromPrescription, true);
+  /* The pace emptied with a distance typed: the distance stays, alone. */
+  stage(a, dd, m, '');
+  assert.equal(split(dd, m).km, 3.5);
+  assert.equal(split(dd, m).paceSec, null);
+  /* What is drawn back is what was typed, never Sacoro's own arithmetic. */
+  const html = log(a, dd);
+  assert.match(html, new RegExp('aria-label="' + m.label + ' distance in km" value="3\\.5"'));
+  assert.match(html, new RegExp('aria-label="' + w.label + ' distance in km" value=""'), 'a prescribed distance was drawn as if entered');
+  const timed = fresh('steady_tempo');
+  const tr = Array.from(timed.a.loggingModeFor(timed.dd).plan.rows).filter(r => r.presSec > 0)[0];
+  stage(timed.a, timed.dd, tr, '5:00');
+  assert.ok(split(timed.dd, tr).km > 0 && split(timed.dd, tr).secSeeded, 'the fixture has no distance worked out from a duration');
+  assert.match(log(timed.a, timed.dd), new RegExp('aria-label="' + tr.label + ' distance in km" value=""'), 'a distance worked out from a prescribed duration was drawn as the athlete\'s entry');
 });
 
 test('where the stages carry a measured distance and time, the whole session is their sum', () => {
@@ -340,8 +447,14 @@ test('where the stages carry a measured distance and time, the whole session is 
   a.logApplyStageTotals(dd);
   assert.equal(dd.actual.km, null, 'a prescribed distance was counted as a measured one');
   assert.equal(dd.actual.kmDerived, undefined);
-  /* Typing the distance makes it the athlete's. */
+  /* Nor is a stage whose time was only seeded from a prescribed duration. */
   delete dd.actual.splits[1].kmFromPrescription;
+  dd.actual.splits[1].secSeeded = true;
+  a.logApplyStageTotals(dd);
+  assert.equal(dd.actual.km, null, 'a prescribed duration was counted as a measured time');
+  assert.equal(dd.actual.pace, null);
+  delete dd.actual.splits[1].secSeeded;
+  /* Typing the distance makes it the athlete's. */
   a.logApplyStageTotals(dd);
   a.handleActualFieldChange(dd.id, 'km', '8.5');
   assert.equal(dd.actual.km, 8.5);
