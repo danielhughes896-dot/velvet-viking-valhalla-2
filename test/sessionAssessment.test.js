@@ -170,14 +170,89 @@ test('far enough off it is a different session, and says so instead of deducting
   assert.equal(log(a, d, { sections: onWork(() => 1.04) }).execution.interpretation, null);
 });
 
-test('an easy run is not marked down for being slow, and is for being fast', () => {
+test('an easy run is not marked down for being slow', () => {
   const a = athlete(); const d = easy(a);
   const b = bandOf(a, work(a, d)[0]);
-  const on = log(a, d, { pace: mid(b) });
-  const slow = log(a, d, { pace: b.slow * 1.08 });
-  const fast = log(a, d, { pace: b.fast * 0.88 });
+  const on = log(a, d, { pace: mid(b), rpe: 3 });
+  const slow = log(a, d, { pace: b.slow * 1.08, rpe: 3 });
   assert.equal(slow.execution.score, on.execution.score, 'an easy run was penalised for being easy');
-  assert.ok(fast.execution.score < on.execution.score, 'an easy run raced at 12% fast read as a good easy run');
+  assert.equal(slow.execution.overspeed, null);
+});
+
+/* ---- CHANGED SIDES: FAST EASY RUNNING ----
+   The first version of this file held that an easy run 12% fast simply
+   scored lower. The founder, shown the 55 that produced: "Pace above the
+   easy band is a warning signal, not automatically proof of poor execution.
+   Use credible HR, RPE, terrain and personal history to determine whether
+   the athlete actually exceeded the intended intensity. If the evidence is
+   insufficient, say 'Faster than prescribed; intensity uncertain.' Don't
+   award 100 automatically, but don't impose an arbitrary 55 either." */
+
+test('fast easy running with no evidence of effort: no figure, and it says so', () => {
+  const a = athlete(); const d = easy(a);
+  const b = bandOf(a, work(a, d)[0]);
+  const r = log(a, d, { pace: b.fast * 0.88 });
+  assert.equal(r.execution.score, null, 'a figure was put on an intensity nothing measured');
+  assert.equal(r.execution.overspeed, 'uncertain');
+  assert.equal(r.execution.interpretation, null);
+  assert.match(a.assessmentReadout(r).execution, /^Faster than prescribed; intensity uncertain/);
+});
+
+test('fast easy running where the effort demonstrably stayed easy is not deducted, and is noted', () => {
+  const a = athlete(); const d = easy(a);
+  const b = bandOf(a, work(a, d)[0]);
+  const hr = a.executionHRTarget(d);
+  const on = log(a, d, { pace: mid(b), rpe: 3, hr: hr.lo + 2 });
+  const fast = log(a, d, { pace: b.fast * 0.88, rpe: 3, hr: hr.lo + 2 });
+  assert.equal(fast.execution.score, on.execution.score,
+    'the pace was penalised although effort and heart rate both say the run was easy');
+  assert.equal(fast.execution.overspeed, 'effort-easy', 'and the fast pace went unremarked');
+  assert.match(a.assessmentReadout(fast).execution, /^Faster than prescribed; effort stayed easy/);
+  /* One credible signal is enough when nothing contradicts it. */
+  assert.equal(log(a, d, { pace: b.fast * 0.88, rpe: 3 }).execution.overspeed, 'effort-easy');
+});
+
+test('fast easy running where the effort was exceeded is marked down, by how far', () => {
+  const a = athlete(); const d = easy(a);
+  const b = bandOf(a, work(a, d)[0]);
+  const hr = a.executionHRTarget(d);
+  const on = log(a, d, { pace: mid(b), rpe: 3 });
+  const bit = log(a, d, { pace: b.fast * 0.93, rpe: 8, hr: hr.hi + 12 });
+  const lot = log(a, d, { pace: b.fast * 0.89, rpe: 8, hr: hr.hi + 12 });
+  assert.equal(bit.execution.overspeed, 'exceeded');
+  assert.ok(bit.execution.score < on.execution.score, 'an easy run run hard read as a good easy run');
+  assert.ok(lot.execution.score < bit.execution.score, 'the deduction does not grow with the miss');
+});
+
+test('fast easy running with signals that disagree stays uncertain', () => {
+  const a = athlete(); const d = easy(a);
+  const b = bandOf(a, work(a, d)[0]);
+  const hr = a.executionHRTarget(d);
+  const r = log(a, d, { pace: b.fast * 0.88, rpe: 3, hr: hr.hi + 6 });
+  assert.equal(r.execution.overspeed, 'uncertain', 'one of two disagreeing signals decided the score');
+  assert.equal(r.execution.score, null);
+  /* And a heart rate that cannot be trusted does not get a vote. */
+  const strap = log(a, d, { pace: b.fast * 0.88, rpe: 3, hr: hr.hi + 6, notes: 'HR strap was playing up, readings all over the place' });
+  assert.equal(strap.execution.overspeed, 'effort-easy');
+});
+
+test('the athlete\u2019s own history answers it when today says nothing', () => {
+  const a = athlete();
+  const easies = a.plan.days.filter(x => x.type === 'easy');
+  const before = t => easies.filter(x => x.date < t.date && x.date >= a.addDays(t.date, -28));
+  /* An easy run with three more in the four weeks before it. */
+  const target = easies.filter(t => before(t).length >= 3)[0];
+  assert.ok(target, 'the fixture plan has no easy run with three before it');
+  const pool = before(target).slice(-3);
+  assert.equal(pool.length, 3, 'the fixture has no three easy runs in the four weeks before');
+  pool.forEach(x => prepare(a, x, { pace: bandOf(a, work(a, x)[0]).fast * 0.9, rpe: 3 }));
+  const tb = bandOf(a, work(a, target)[0]);
+  const r = log(a, target, { pace: tb.fast * 0.9 });
+  assert.equal(r.execution.overspeed, 'effort-easy', 'three easy runs at this pace did not count as history');
+  assert.equal(r.execution.targetsMayBeStale, true, 'and the band was not questioned');
+  /* Without that history the same run is uncertain. */
+  pool.forEach(x => { x.completed = false; x.actual = null; });
+  assert.equal(log(a, target, { pace: tb.fast * 0.9 }).execution.overspeed, 'uncertain');
 });
 
 test('a set that fades is told apart from one that holds, even at the same average', () => {
@@ -220,6 +295,20 @@ test('a staged long run: the goal-pace section against goal pace, the rest as ea
   assert.ok(jogged.execution.interpretation === 'different-session' ||
             jogged.execution.score < right.execution.score,
     'jogging the goal-pace section read the same as running it');
+});
+
+test('an easy section inside a harder session that ran fast is left uncertain, not judged by the hard part', () => {
+  /* The effort and the average heart rate of a staged long run describe its
+     goal-pace block. They are not evidence about the easy running either
+     side of it. */
+  const a = athlete(); const d = stagedLong(a);
+  const right = log(a, d, { sections: () => 1, rpe: 8 });
+  const quickFlanks = log(a, d, { sections: seg => seg.role === 'work' ? 1 : 0.85, rpe: 8 });
+  assert.equal(quickFlanks.execution.overspeed, 'uncertain',
+    'the hard block\u2019s effort was used to judge the easy running beside it');
+  assert.equal(quickFlanks.execution.score, right.execution.score,
+    'a section nobody can read moved the figure');
+  assert.ok(quickFlanks.execution.sections.some(s => s.uncertain));
 });
 
 /* ---------- 4. response is separate, and heart rate lives there ---------- */

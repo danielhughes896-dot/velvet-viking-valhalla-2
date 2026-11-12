@@ -8779,6 +8779,26 @@
   /* On Today it stands above the session with the page's own gutters and
      enough air under it that the hero still reads as the start of the day. */
   .today-checkin{margin:6px 0 34px;}
+  /* The suggested change, on Today. An open block in the page's own ink: a
+     label, what changes, why, and the two answers at thumb height. No card,
+     no rim -- the cherry on Accept is the only thing lit, because it is the
+     only thing here the athlete is being asked to choose. */
+  .today-proposal{margin:34px 0 34px;}
+  .today-proposal-k{font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:19px; letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF; margin-bottom:12px;}
+  .today-proposal-list{list-style:none; margin:0 0 10px; padding:0;}
+  .today-proposal-list li{font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; color:#FFFFFF;}
+  .today-proposal-why{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .today-proposal-actions{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;}
+  .today-proposal-actions .btn{min-height:56px; margin:0;}
+  /* ACCEPT IS A CHOICE, SO IT IS CHERRY. Outside a sheet the base
+     .btn-primary is the bronze gradient -- measured in the first screenshot
+     of this block, a gold slab on Today. The builder's own declarations. */
+  .today-proposal .btn-primary{background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    box-shadow:inset 0 0 0 1px var(--cherry);}
+  .today-proposal-more{display:block; min-height:44px; margin-top:6px; padding:0;
+    font-size:var(--fs-support); line-height:var(--lh-support); color:var(--cherry-text);
+    background:none; border:0; text-align:left;}
   .today-checkin .readiness, .today-checkin .readiness-done{margin-top:0;}
   /* Answered, it is the last line on Today, centred under the signpost it
      follows, and in pure white by the founder's word for it. */
@@ -36200,10 +36220,19 @@ function assessSectionVerdict(paceSec, band, kind, intensity){
       if (beyond > 0) out.score = clamp(100 - beyond * ASSESS_CAL.easySlowPenaltyPerPct, 0, 100);
       else out.verdict = 'in-band';             /* slow easy running is easy running */
     } else if (dev < 0){
+      /* FASTER THAN EASY IS A QUESTION, NOT YET AN ANSWER. Founder: "Pace
+         above the easy band is a warning signal, not automatically proof of
+         poor execution. Use credible HR, RPE, terrain and personal history
+         to determine whether the athlete actually exceeded the intended
+         intensity." So the verdict here only records that the pace was
+         fast and what it WOULD cost; assessExecution() decides whether it
+         does, from the evidence of how hard the running actually was. */
       beyond = -dev - ASSESS_CAL.easyFastTolerancePct;
-      if (beyond > 0) out.score = clamp(100 - beyond * ASSESS_CAL.easyFastPenaltyPerPct, 0, 100);
-      else out.verdict = 'in-band';
-      if (-dev >= ASSESS_CAL.easyDifferentPct) out.different = true;
+      if (beyond > 0){
+        out.overspeed = true;
+        out.overspeedScore = clamp(100 - beyond * ASSESS_CAL.easyFastPenaltyPerPct, 0, 100);
+        out.overspeedDifferent = (-dev >= ASSESS_CAL.easyDifferentPct);
+      } else out.verdict = 'in-band';
     }
     return out;
   }
@@ -36227,6 +36256,65 @@ function assessRepPattern(workScored){
   var mean = function(list){ return list.reduce(function(t, x){ return t + x.devPct; }, 0) / list.length; };
   var drift = mean(workScored.slice(-n)) - mean(workScored.slice(0, n));
   return drift > ASSESS_CAL.patternDriftPct ? 'faded' : drift < -ASSESS_CAL.patternDriftPct ? 'built' : 'held';
+}
+
+/* HOW HARD AN EASY RUN ACTUALLY WAS, from everything except its pace.
+     'easy'       the evidence agrees the effort stayed easy
+     'exceeded'   the evidence agrees it did not
+     'uncertain'  there is none, or it disagrees
+   Effort (the athlete's own answer, else RPE) and heart rate each get one
+   vote, and a heart rate that cannot be trusted gets none. With no vote
+   today, the athlete's own recent easy running is asked: if this pace has
+   repeatedly been run at an easy effort, the band is what is out of date.
+   Only a single-section easy run can be read this way. In a session with
+   other work in it the effort and the average heart rate describe the hard
+   part, so an easy section there that ran fast stays uncertain. */
+function assessEasyIntensity(dd, plan, ev){
+  if (plan.family !== 'aerobic') return { reading:'uncertain', history:false };
+  var a = dd.actual || {};
+  var votes = [];
+  var band = null;
+  try { band = expectedRPEBand(dd); } catch(e){ band = null; }
+  if (a.mainSetFelt != null) votes.push(a.mainSetFelt >= 4 ? 'exceeded' : 'easy');
+  else if (a.rpe != null && band) votes.push(a.rpe > band[1] ? 'exceeded' : 'easy');
+  if (ev.reliability.hr === 'ok' && healthConsentGranted()){
+    var z = null;
+    try { z = executionHRTarget(dd); } catch(e2){ z = null; }
+    if (z && z.lo != null){
+      var hi = z.hi != null ? z.hi : Infinity;
+      votes.push(a.hr > hi * (1 + ASSESS_CAL.hrHighMarginPct / 100) ? 'exceeded' : 'easy');
+    }
+  }
+  if (!votes.length){
+    var usual = assessEasyHistory(dd);
+    return { reading: usual ? 'easy' : 'uncertain', history: usual };
+  }
+  var allEasy = votes.every(function(v){ return v === 'easy'; });
+  var allOver = votes.every(function(v){ return v === 'exceeded'; });
+  return { reading: allEasy ? 'easy' : allOver ? 'exceeded' : 'uncertain', history:false };
+}
+/* Has the athlete, in the four weeks before this run, repeatedly run easy
+   sessions faster than the band at an effort that was demonstrably easy?
+   Three times is the same floor the rest of the engine uses for a pattern. */
+function assessEasyHistory(dd){
+  var from = addDays(dd.date, -28), n = 0;
+  var paces = getActivePaces(), goalPace = getGoalPaceSecPerKm();
+  (state.days || []).forEach(function(x){
+    if (!x || x === dd || !x.completed || !x.actual || x.type !== dd.type) return;
+    if (!(x.date >= from && x.date < dd.date)) return;
+    var pl = assessPlan(x);
+    if (pl.family !== 'aerobic' || !pl.work.length) return;
+    var pace = null;
+    try { pace = actualPaceSecPerKm(x); } catch(e){ pace = null; }
+    var b = segmentPaceBand(pl.work[0], paces, goalPace);
+    if (pace == null || !b || !(pace < b.fast * (1 - ASSESS_CAL.easyFastTolerancePct / 100))) return;
+    var rb = null, z = null;
+    try { rb = expectedRPEBand(x); z = executionHRTarget(x); } catch(e2){}
+    var easyEffort = x.actual.rpe != null && rb && x.actual.rpe <= rb[1];
+    var easyHeart = x.actual.hr != null && z && z.hi != null && x.actual.hr <= z.hi && healthConsentGranted();
+    if (easyEffort || easyHeart) n++;
+  });
+  return n >= 3;
 }
 
 /* What the session asks for, as the sections it will be judged by.
@@ -36338,11 +36426,35 @@ function assessCompletion(dd, plan, ev, env){
   return out;
 }
 
+/* An easy section that ran fast, settled by how hard it actually was:
+     effort stayed easy   no deduction, and the pace is noted
+     effort was exceeded  the graduated deduction, and far enough over it is
+                          a different session
+     cannot be told       no figure at all -- "Don't award 100 automatically,
+                          but don't impose an arbitrary 55 either." */
+function assessResolveOverspeed(sec, v, dd, plan, ev, out){
+  if (!v.overspeed) return;
+  var how = assessEasyIntensity(dd, plan, ev);
+  sec.verdict = 'fast';
+  if (how.reading === 'exceeded'){
+    sec.score = v.overspeedScore; sec.different = !!v.overspeedDifferent;
+    out.overspeed = 'exceeded';
+  } else if (how.reading === 'easy'){
+    sec.score = 100;
+    if (out.overspeed !== 'exceeded') out.overspeed = 'effort-easy';
+    if (how.history) out.targetsMayBeStale = true;
+  } else {
+    sec.uncertain = true;
+    if (!out.overspeed) out.overspeed = 'uncertain';
+  }
+}
+
 /* HOW WELL the work that was actually done was done. Sections that were not
    run are not here to be scored; that is Completion's business. */
 function assessExecution(dd, plan, ev){
   var a = dd.actual || {};
-  var out = { score:null, level:null, basis:'none', interpretation:null, pattern:null, sections:[], fullDose:false };
+  var out = { score:null, level:null, basis:'none', interpretation:null, pattern:null, overspeed:null,
+              targetsMayBeStale:false, sections:[], fullDose:false };
   var paces = getActivePaces(), goalPace = getGoalPaceSecPerKm();
   var paceUsable = ev.reliability.pace === 'ok';
 
@@ -36369,8 +36481,10 @@ function assessExecution(dd, plan, ev){
     if (!v) return;
     var w = null;
     try { w = (row.km != null && row.km > 0) ? row.km : segmentWeightKm(j.seg, paces, goalPace); } catch(e2){ w = null; }
-    scored.push({ segId:j.seg.segId, role:j.seg.role, kind:j.kind, work:j.work, km:(w > 0 ? w : 1),
-                  devPct:v.devPct, verdict:v.verdict, score:v.score, different:v.different });
+    var sec = { segId:j.seg.segId, role:j.seg.role, kind:j.kind, work:j.work, km:(w > 0 ? w : 1),
+                devPct:v.devPct, verdict:v.verdict, score:v.score, different:v.different };
+    assessResolveOverspeed(sec, v, dd, plan, ev, out);
+    scored.push(sec);
   });
   var workScored = scored.filter(function(x){ return x.work; });
 
@@ -36380,17 +36494,23 @@ function assessExecution(dd, plan, ev){
     var wKm = 0, diffKm = 0, km = 0, acc = 0;
     workScored.forEach(function(x){ wKm += x.km; if (x.different) diffKm += x.km; });
     if (wKm > 0 && diffKm / wKm >= 0.5){ out.interpretation = 'different-session'; return out; }
-    scored.forEach(function(x){ km += x.km; acc += x.score * x.km; });
+    /* A section whose intensity cannot be told is left out of the figure
+       rather than given one. If that leaves nothing, there is no figure. */
+    scored.forEach(function(x){ if (x.uncertain) return; km += x.km; acc += x.score * x.km; });
+    if (!(km > 0)) return out;
     out.score = clamp(Math.round(acc / km), 0, 100);
   } else if (plan.family === 'aerobic' && ev.avgPaceSec != null && plan.work.length){
     /* One section, so the whole run IS the section. */
     var only = assessSectionVerdict(ev.avgPaceSec, segmentPaceBand(plan.work[0], paces, goalPace), 'easy', 'easy');
     if (!only) return out;
     out.basis = 'whole-run';
-    out.sections = [{ segId:plan.work[0].segId, role:'work', kind:'easy', work:true, km:(a.km || dd.km || 1),
-                      devPct:only.devPct, verdict:only.verdict, score:only.score, different:only.different }];
-    if (only.different){ out.interpretation = 'different-session'; return out; }
-    out.score = clamp(Math.round(only.score), 0, 100);
+    var whole = { segId:plan.work[0].segId, role:'work', kind:'easy', work:true, km:(a.km || dd.km || 1),
+                  devPct:only.devPct, verdict:only.verdict, score:only.score, different:only.different };
+    assessResolveOverspeed(whole, only, dd, plan, ev, out);
+    out.sections = [whole];
+    if (whole.different){ out.interpretation = 'different-session'; return out; }
+    if (whole.uncertain) return out;
+    out.score = clamp(Math.round(whole.score), 0, 100);
   } else if (ev.avgPaceSec != null){
     /* A structured session known only by its totals. The average runs
        through the warm-up, the work and the recoveries, so it is compared
@@ -36504,6 +36624,8 @@ function assessmentReadout(as){
            : c.fraction != null ? (Math.round(c.fraction * 100) + '% of the session') : null;
   var completion = !c.short ? 'Session completed' : (part || 'Session cut short');
   var how = x.interpretation === 'different-session' ? 'Not the session that was set'
+          : (x.overspeed === 'uncertain' && x.score == null) ? 'Faster than prescribed; intensity uncertain'
+          : x.overspeed === 'effort-easy' ? 'Faster than prescribed; effort stayed easy'
           : x.score != null ? ('Execution ' + x.score)
           : x.level === 'high' ? 'Run as intended'
           : x.level === 'mixed' ? 'Partly as intended'
@@ -39520,10 +39642,48 @@ function coachRecovery(){
     else { streak++; worstStreak = Math.max(worstStreak, streak); }
   });
   var strain = overRPE + overHR + (worstStreak>=3 ? 1 : 0);
+  /* ---- AND WHAT THE ATHLETE SAID THIS MORNING ----
+     Recovery read the week's sessions and nothing else, so an athlete who
+     had just answered "heavy legs, poor sleep" was shown Fresh on the same
+     screen. Founder: "getting morning check-ins into Recovery."
+     The answers are today's only (coachReadinessToday() returns nothing for
+     yesterday's, and nothing without health consent). Heavy legs and poor
+     sleep are one point each and feeling unwell two, on the scale the
+     week's own flags already use: so heavy legs alone moves Fresh to Watch
+     and cannot reach Strained by itself, which is the interpretation
+     already agreed -- "Heavy legs alone shouldn't automatically downgrade a
+     workout."
+     `trainingState` is the reading WITHOUT the morning. coachDecision()
+     weighs the check-in as evidence of its own, so it reads this one and
+     the same answer is never counted twice. Everything else reads `state`. */
+  var ready = null;
+  try { ready = coachReadinessToday(); } catch(e){ ready = null; }
+  var morning = { answered: readinessIsComplete(ready), legs:null, sleep:null, health:null, points:0, flags:[] };
+  if (ready){
+    morning.legs = ready.legs || null; morning.sleep = ready.sleep || null; morning.health = ready.health || null;
+    if (ready.legs === 'heavy'){ morning.points += 1; morning.flags.push('heavy legs'); }
+    if (ready.sleep === 'poor'){ morning.points += 1; morning.flags.push('poor sleep'); }
+    if (ready.health === 'under'){ morning.points += 2; morning.flags.push('feeling unwell'); }
+  }
+  var word = function(n){ return n>=3 ? 'strained' : n>=1 ? 'watch' : 'fresh'; };
   return {
     overRPE:overRPE, overHR:overHR, hardStreak:worstStreak, counted:counted,
-    state: strain>=3 ? 'strained' : strain>=1 ? 'watch' : 'fresh'
+    morning: morning,
+    trainingState: word(strain),
+    state: word(strain + morning.points)
   };
+}
+/* What the Recovery reading is strained BY, said accurately. It used to say
+   "effort and heart rate have both been above target" whichever one it was. */
+function recoveryStrainSentence(rec){
+  var parts = [];
+  if (rec.overRPE > 0 && rec.overHR > 0) parts.push('Effort and heart rate have both been above target this week');
+  else if (rec.overRPE > 0) parts.push('Effort has been above target this week');
+  else if (rec.overHR > 0) parts.push('Heart rate has been above target this week');
+  var m = rec.morning;
+  if (m && m.flags.length) parts.push((parts.length ? 'you' : 'You')+' reported '+m.flags.join(' and ')+' this morning');
+  if (!parts.length) return 'Your recovery signals have been elevated this week.';
+  return parts.join(', and ')+'.';
 }
 
 /* ---------- notes / context analysis ----------
@@ -40555,6 +40715,9 @@ function coachDecision(){
   if (!nxt) return null;
   var quality = !isRecoveryWorkoutType(nxt.type) && nxt.type!=='rest';
   var recovery = coachRecovery(), trend = coachTrend(), load = coachLoad();
+  /* The check-in is weighed below as evidence in its own right, so this
+     engine reads Recovery without it -- see coachRecovery(). */
+  recovery = Object.assign({}, recovery, { state: recovery.trainingState });
   /* How many sessions were actually completed in the window this decision
      reasons over. Zero is the difference between "assessed and clear" and
      "nothing to assess", and the two must not sound the same. Read here
@@ -45958,8 +46121,10 @@ function planEvolution(){
        coach = recover/modify  ->  the Playbook never adds
        playbook = HOLD         ->  no proposal is manufactured
        playbook = PROGRESS     ->  only reachable from a clean coach state */
+  var evidenceSig = evolutionEvidenceSignature(dec);
+  var settled = evolutionSettledOn(evidenceSig);
   var pb = null;
-  if (stateName==='HOLD' || stateName==='MONITOR'){
+  if (!settled && (stateName==='HOLD' || stateName==='MONITOR')){
     pb = playbookProposal();
     if (pb && !pb.held && pb.change){
       if (pb.decision==='PROGRESS' && dec && dec.state!=='proceed') pb = null;   // invariant
@@ -45995,13 +46160,16 @@ function planEvolution(){
                   selection:pb.change.selection, stimulus:pb.change.stimulus },
       proposalId: pb.proposalId,
       evidenceHash: pb.evidenceHash,
+      evidenceSignature: evidenceSig, settled: false,
       originalPlanHash: planShapeHash(pending),
       evolvedPlanHash: planShapeHash(pending)
     };
   }
   if (pb && pb.held && stateName==='HOLD') reasons = (pb.reason ? [pb.reason] : []).concat(reasons).slice(0,3);
 
-  if (stateName==='ADAPT' || stateName==='RECOVER'){
+  if (settled){
+    reasons = [EVOLUTION_SETTLED_REASON].concat(reasons).slice(0,3);
+  } else if (stateName==='ADAPT' || stateName==='RECOVER'){
     changes = evolutionChanges(stateName, phase, pending, recoverable);
     protectedSessions = pending.filter(function(dd){
       // ANY change kind disqualifies "protected", not just downgrade/drop.
@@ -46032,6 +46200,7 @@ function planEvolution(){
     stimulus: { before:before, after:after, preserved:stimulusPreserved(before, after) },
     missed: missed,
     phase: phase,
+    evidenceSignature: evidenceSig, settled: settled,
     evidenceHash: evolutionEvidenceHash(dec, trends, horizon),
     originalPlanHash: planShapeHash(pending),
     evolvedPlanHash: planShapeHash(applyChangesToCopy(pending, changes)),
@@ -46232,6 +46401,34 @@ function applyChangesToCopy(pending, changes){
 /* ---------- proposing, accepting, declining ----------
    Nothing is applied without the tap, a decline is respected until the
    evidence genuinely changes, and every decision is recorded. */
+/* ---- ONE CHANGE PER BODY OF EVIDENCE ----
+   Accepting a proposal produced another at once, for the next session, on
+   the very evidence just acted on -- and accepting that produced a third.
+   Traced: heart rate high three times eased Sunday's long run, then
+   Tuesday's intervals, then Thursday's threshold, without one new session
+   being run. The proposal id is built from the evidence AND the plan, so
+   changing the plan made the same evidence look new.
+   This is the evidence alone: what the decision concluded, why, and how
+   many sessions had been logged when it did. Once a change is accepted on
+   it, nothing further is proposed until it differs -- a session logged, a
+   note written, a new morning. That is also the first half of what the
+   founder asked of an adjustment: it has to be allowed to show its effect
+   before the next one is argued for. */
+function evolutionEvidenceSignature(dec){
+  var done = (state.days || []).filter(function(d){ return d.completed; }).length;
+  var str = [dec ? dec.state : 'none',
+             dec ? (dec.reasons || []).join('|') : '',
+             done, todayStr()].join('#');
+  var h = 5381;
+  for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return 'es'+h.toString(36);
+}
+function evolutionSettledOn(sig){
+  var e = state.evolution || {}, pbk = state.playbook || {};
+  return (!!e.acceptedEvidence && e.acceptedEvidence === sig) ||
+         (pbk.status === 'accepted' && !!pbk.acceptedEvidence && pbk.acceptedEvidence === sig);
+}
+var EVOLUTION_SETTLED_REASON = 'You accepted a change on this evidence. Sacoro will look again when there is something new to go on.';
 function evolutionProposalVisible(ev){
   if (!ev || !ev.changes.length) return false;
   var st = state.evolution || {};
@@ -46339,7 +46536,8 @@ function handleAcceptEvolution(shownId){
      audit record one level up from the per-day guard above. */
   if (!applied.length){ renderApp(); return; }
   recordEvolution(ev, true, applied);
-  state.evolution = { declinedHash:null, lastAcceptedHash:ev.evidenceHash };
+  state.evolution = { declinedHash:null, lastAcceptedHash:ev.evidenceHash,
+                      acceptedEvidence:ev.evidenceSignature || null };
   flushSave();
   renderApp();
   showToast(applied.length===1 ? 'Plan evolved — one session changed'
@@ -46357,7 +46555,8 @@ function handleDeclineEvolution(shownId){
   }
   // Respected until materially new evidence appears -- never asked again for
   // the same reasons, and never counted against the athlete.
-  state.evolution = { declinedHash:ev.evidenceHash, lastAcceptedHash:(state.evolution||{}).lastAcceptedHash||null };
+  state.evolution = { declinedHash:ev.evidenceHash, lastAcceptedHash:(state.evolution||{}).lastAcceptedHash||null,
+                      acceptedEvidence:(state.evolution||{}).acceptedEvidence||null };
   recordEvolution(ev, false, []);
   flushSave();
   renderApp();
@@ -46522,7 +46721,7 @@ function coachReadinessLine(dd){
     return dec.reasons[0] ? sentence(dec.reasons[0])+' Recovery comes before this session.'
                           : 'Recovery comes before this session.';
   if (rec.state === 'strained')
-    return 'Effort and heart rate have both been sitting above target this week, so the legs are carrying something. Stop if the effort climbs out of proportion to the pace.';
+    return recoveryStrainSentence(rec).replace(/\.$/, '')+', so the legs are carrying something. Stop if the effort climbs out of proportion to the pace.';
   if (rec.state === 'watch')
     return quality
       ? 'There is a bit more fatigue in the last few runs than usual. Do not force the closing reps if the effort starts climbing.'
@@ -47457,7 +47656,7 @@ function playbookEvidence(archetype){
     addEv('safety','recovery_priority','negative', dec.reasons[0] || 'Recovery evidence outranks the next session.', 'coachDecision');
   var rec = coachRecovery();
   if (rec.state==='strained')
-    addEv('safety','strained_week','negative','Effort and heart rate have both been above target this week.','coachRecovery');
+    addEv('safety','strained_week','negative', recoveryStrainSentence(rec), 'coachRecovery');
   var shortfall = playbookRepeatedShortfall(archetype, PLAYBOOK_MIN_OBSERVATIONS.moderate);
   if (shortfall)
     addEv('safety','repeated_shortfall','negative', shortfall.detail, 'computeExecutionScore');
@@ -48987,7 +49186,7 @@ function playbookProposal(){
                fromKm:dd.km, toKm:rebuilt.day.km, fromTitle:dd.title, toTitle:rebuilt.day.title,
                archetype:action.archetype, substituted:false,
                selection:sel.selection, stimulus:sel.stimulus,
-               why: playbookChangeWhy(decision, action, dd, sel) };
+               why: playbookChangeWhy(decision, action, dd, sel, assessment) };
   } else if (action.action === 'SUBSTITUTE'){
     var sub = planSubstitution(dd, action.to, ctx);
     if (!sub.ok) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
@@ -49048,7 +49247,25 @@ function playbookProposalId(prop){
   for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
   return 'pp'+h.toString(36);
 }
-function playbookChangeWhy(decision, action, dd, sel){
+/* ---- A SESSION THAT WAS FINISHED IS NOT ONE THAT WAS NOT ----
+   Every easing was explained as "the session is not being completed as
+   written". For an athlete who ran everything and whose heart rate or effort
+   had simply been high, that was false, and it was the reason shown beside
+   the Accept button. Founder: "If the athlete completed everything but
+   showed unusually high physiological or perceived strain, SACORO must say
+   so. Example: 'You've completed your recent sessions, but they've required
+   more effort than usual.'"
+   The easing is the same; what led to it is named. Strain leads only when
+   there is no shortfall beside it -- an athlete who is both strained and
+   failing to finish is told about the finishing. */
+function playbookStrainLed(assessment){
+  var ev = (assessment && assessment.evidence) || [];
+  var has = function(id){ return ev.some(function(e){ return e.id === id; }); };
+  return has('strained_week') && !has('repeated_shortfall');
+}
+var PLAYBOOK_STRAIN_WHY = 'You\u2019ve completed your recent sessions, but they\u2019ve required more effort than usual, so the next one is eased by one step.';
+function playbookChangeWhy(decision, action, dd, sel, assessment){
+  if (decision !== 'PROGRESS' && playbookStrainLed(assessment)) return PLAYBOOK_STRAIN_WHY;
   var named = sel && sel.selection==='matched_stimulus' && PLAYBOOK_STIMULUS_NOUN[sel.stimulus];
   if (decision==='PROGRESS')
     return named
@@ -49168,7 +49385,8 @@ function handleAcceptPlaybook(shownId){
   state.playbook = {
     lastDecision:prop.decision, lastDecisionAt:new Date().toISOString(),
     lastDayId:prop.change.dayId, evidenceHash:prop.evidenceHash,
-    sessionsAtDecision:prop.sessionsAtDecision, declinedHash:null, status:'accepted'
+    sessionsAtDecision:prop.sessionsAtDecision, declinedHash:null, status:'accepted',
+    acceptedEvidence: evolutionEvidenceSignature(coachDecision())
   };
   recordPlaybookDecision(prop, 'accepted');
   flushSave();
@@ -49282,11 +49500,42 @@ var COACH_REVIEW_VERSION = 7;
    Numbers, not just keywords: "37 degrees" and "67% humidity" carry a severity
    that "hot" does not. Fahrenheit is converted so the thresholds mean one
    thing. */
+var ENV_CREDIBLE_TEMP_C = [-30, 55];
+function coachEnvFromStored(env, actual){
+  if (!actual) return env;
+  var t = actual.tempC, h = actual.humidity;
+  if (typeof t === 'number' && isFinite(t) && t >= ENV_CREDIBLE_TEMP_C[0] && t <= ENV_CREDIBLE_TEMP_C[1]) env.tempC = t;
+  if (typeof h === 'number' && isFinite(h) && h >= 0 && h <= 100) env.humidity = h;
+  if (env.tempC == null && env.humidity == null) return env;
+  env.stored = true;
+  if (env.tempC != null){
+    if (env.tempC >= 32) env.heatBand = 'severe';
+    else if (env.tempC >= 28) env.heatBand = 'significant';
+    else if (env.tempC >= 24) env.heatBand = 'mild';
+  }
+  if (env.humidity != null){
+    if (env.humidity >= 75) env.humidBand = 'severe';
+    else if (env.humidity >= 60) env.humidBand = 'significant';
+  }
+  env.severe = (env.heatBand==='severe') ||
+               (env.heatBand!=='none' && env.heatBand!=='mild' && env.humidBand!=='none' &&
+                env.tempC!=null && env.tempC>=30 && env.humidity!=null && env.humidity>=60);
+  return env;
+}
 function coachEnvironment(notes, actual){
   var env = { tempC:null, humidity:null, treadmill:false, heatBand:'none',
               humidBand:'none', severe:false, fatigue:false, pain:false, illness:false,
               hrDoubt:false };
-  if (!notes) return env;
+  /* WEATHER THE WATCH RECORDED COUNTS WHEN THE ATHLETE WROTE NOTHING.
+     This returned here on an empty note, before the stored temperature and
+     humidity below were ever looked at -- so a run imported at 33C with no
+     comment was read as a run in ordinary conditions. Founder: "If credible
+     environmental data exists, it should inform session context even when
+     the athlete writes no notes. It should not automatically excuse every
+     difficult response." The bands are the same bands a written "33
+     degrees" earns; nothing is excused that a note would not have excused,
+     and a reading no weather produces is ignored. */
+  if (!notes) return coachEnvFromStored(env, actual);
   var t = String(notes);
 
   // Structured signals from the wand are the single source of truth for the
@@ -52476,29 +52725,69 @@ function hierarchyEvolutionRationale(ev){
 var PLAYBOOK_FIELD_NOUN = { reps:'reps', sets:'sets', rungs:'rungs', min:'minutes',
                             km:'distance', finishKm:'goal-pace finish' };
 var PLAYBOOK_FIELD_UNIT = { min:'min', km:'km', finishKm:'km' };
+/* What one change does, in one line. Lifted out of renderEvolutionProposal()
+   so Today and the Coach page print the same words for the same change. */
+function evolutionChangeLine(c){
+  var dd = findDay(c.dayId);
+  var name = dd ? (dd.title || (TYPE_META[dd.type]||{}).label) : 'Session';
+  if (c.kind==='reduce')     return dShort(c.date)+' '+name+' \u2192 '+fmtDist(c.toKm)+' (was '+fmtDist(c.fromKm)+')';
+  if (c.kind==='downgrade')  return dShort(c.date)+' '+name+' \u2192 easy '+fmtDist(c.toKm);
+  if (c.kind==='reschedule') return dShort(c.date)+' \u2192 '+(TYPE_META[c.toType]||{}).label+' '+fmtDist(c.toKm);
+  if (c.kind==='move')       return dShort(c.date)+' '+name+' \u2192 '+dShort(c.toDate);
+  if (c.kind==='drop')       return dShort(c.date)+' '+name+' \u2192 rest';
+  if (c.kind==='progress' || c.kind==='regress'){
+    if (c.fromKm !== c.toKm)
+      return dShort(c.date)+' '+(c.fromTitle||name)+' \u2192 '+c.toTitle+
+             ' ('+fmtDist(c.fromKm)+' \u2192 '+fmtDist(c.toKm)+')';
+    if (c.field)
+      return dShort(c.date)+' '+(c.fromTitle||name)+' \u2192 '+
+             PLAYBOOK_FIELD_NOUN[c.field]+' '+c.from+' \u2192 '+c.to+
+             (PLAYBOOK_FIELD_UNIT[c.field]||'');
+    return dShort(c.date)+' '+(c.fromTitle||name)+' \u2192 '+c.toTitle;
+  }
+  return dShort(c.date)+' '+name;
+}
+/* ---------- THE PROPOSAL, WHERE THE WORKOUT IS ----------
+   Founder: "A proposal affecting an upcoming workout should be visible
+   where the athlete actually sees that workout. Coach provides the
+   explanation; Today provides the actionable entry point. Both must refer
+   to the same proposal, not generate independent ones."
+   It was reachable from Coach only: the one line Today used to carry lived
+   in the Next Move card, which came off Today with nothing put in its
+   place, so an athlete who never opened Coach never learned a change had
+   been suggested.
+   ONE PROPOSAL, TWO PLACES. This asks planEvolution() -- the function the
+   Coach page asks -- and prints its changes, its first reason and ITS id on
+   the two buttons, which fire the same accept and decline the Coach page
+   fires. There is no second calculation that could disagree.
+   `where` is 'above' when the change is to today's own session, because
+   that is a decision to take before running it, and 'below' otherwise, so a
+   change to Sunday does not push Thursday's run down the screen. */
+function renderTodayProposal(dd, where){
+  var ev = null;
+  try { ev = planEvolution(); } catch(e){ ev = null; }
+  if (!evolutionProposalVisible(ev)) return '';
+  var onToday = !!(dd && ev.changes.some(function(c){ return c.dayId === dd.id; }));
+  if ((where === 'above') !== onToday) return '';
+  return '<div class="today-proposal" role="group" aria-label="Suggested change">'+
+    '<div class="today-proposal-k">Suggested change</div>'+
+    '<ul class="today-proposal-list">'+ev.changes.map(function(c){
+      return '<li>'+escapeHtml(evolutionChangeLine(c))+'</li>'; }).join('')+'</ul>'+
+    '<div class="today-proposal-why">'+escapeHtml(ev.reasons[0] || EVOLUTION_META[ev.state].text)+'</div>'+
+    '<div class="today-proposal-actions">'+
+      '<button type="button" class="btn btn-primary" data-action="accept-evolution"'+
+        ' data-source="'+(ev.playbook ? 'playbook' : 'evolution')+'"'+
+        (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Accept</button>'+
+      '<button type="button" class="btn btn-ghost" data-action="decline-evolution"'+
+        ' data-source="'+(ev.playbook ? 'playbook' : 'evolution')+'"'+
+        (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Keep my plan</button>'+
+    '</div>'+
+    '<button type="button" class="today-proposal-more" data-action="open-reading" data-reading="evolution">Full explanation</button>'+
+  '</div>';
+}
 function renderEvolutionProposal(ev, where){
   if (!ev || !ev.changes.length) return '';
-  var line = function(c){
-    var dd = findDay(c.dayId);
-    var name = dd ? (dd.title || (TYPE_META[dd.type]||{}).label) : 'Session';
-    if (c.kind==='reduce')     return dShort(c.date)+' '+name+' → '+fmtDist(c.toKm)+' (was '+fmtDist(c.fromKm)+')';
-    if (c.kind==='downgrade')  return dShort(c.date)+' '+name+' → easy '+fmtDist(c.toKm);
-    if (c.kind==='reschedule') return dShort(c.date)+' → '+(TYPE_META[c.toType]||{}).label+' '+fmtDist(c.toKm);
-    if (c.kind==='move')       return dShort(c.date)+' '+name+' → '+dShort(c.toDate);
-    if (c.kind==='drop')       return dShort(c.date)+' '+name+' → rest';
-    if (c.kind==='progress' || c.kind==='regress'){
-      if (c.fromKm !== c.toKm)
-        return dShort(c.date)+' '+(c.fromTitle||name)+' → '+c.toTitle+
-               ' ('+fmtDist(c.fromKm)+' → '+fmtDist(c.toKm)+')';
-      // the day distance did not move, so name the dimension that did
-      if (c.field)
-        return dShort(c.date)+' '+(c.fromTitle||name)+' → '+
-               PLAYBOOK_FIELD_NOUN[c.field]+' '+c.from+' → '+c.to+
-               (PLAYBOOK_FIELD_UNIT[c.field]||'');
-      return dShort(c.date)+' '+(c.fromTitle||name)+' → '+c.toTitle;
-    }
-    return dShort(c.date)+' '+name;
-  };
+  var line = evolutionChangeLine;
   var vol = ev.stimulus.preserved.volumeDelta;
   return '<div class="evo-panel">'+
     '<div class="evo-sec"><div class="evo-k">Why</div><div class="evo-v">'+
@@ -52897,6 +53186,11 @@ function readingSections(report){
     /* "1 days" is the kind of thing an athlete reads as the app not paying
        attention, and it is one character to get right. */
     hqRow('Longest hard streak', nDays(report.recovery.hardStreak))+
+    hqRow('This morning', (function(){
+      var m = report.recovery.morning;
+      if (!m || (!m.answered && !m.flags.length)) return 'not answered';
+      return m.flags.length ? m.flags.join(', ') : 'feeling good';
+    })())+
     hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged')+
     hqRow('Easy HR vs baseline', (function(){
       var b=easyHRBaseline();
@@ -52978,6 +53272,9 @@ function readingSections(report){
       tone: { fresh:'good', watch:'watch', strained:'bad' }[rec.state],
       syn: rec.hardStreak>=3 ? rec.hardStreak+' hard sessions in a row.'
          : (rec.overRPE||rec.overHR) ? 'Effort has run above its band this week.'
+         : (rec.morning && rec.morning.flags.length)
+             ? 'You reported '+rec.morning.flags.join(' and ')+' this morning.'
+         : (rec.morning && rec.morning.answered) ? 'Absorbing the work, and you felt good this morning.'
          : 'Absorbing the work.',
       body: recoveryBody },
 
@@ -64025,7 +64322,9 @@ function renderTodayView(){
      allowed to claim, so they are still established before anything reasons
      from them. Next Move reasons ABOUT the session, so it reads after it. */
   html += renderTodayCheckIn('top');
+  html += renderTodayProposal(dd, 'above');
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
+  html += renderTodayProposal(dd, 'below');
   /* NEXT MOVE IS NOT ON TODAY, BY RULING. Today answers three questions --
      what am I running, how do I run it, and what does Sacoro want me to
      know -- and the coaching for THIS session belongs in How to run this and
