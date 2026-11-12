@@ -27182,12 +27182,55 @@ function saveImageLabel(){
   var Media = nativePlugin('Media');
   return (Media && Media.savePhoto) ? 'Save to photos' : 'Save to device';
 }
+/* ---------- THE ALBUM ANDROID INSISTS ON ----------
+   Founder: "Save to photos says can't save to photos try again every time."
+   It did, every time, and the cause was one argument. On Android the Media
+   plugin will not save without an album: `albumIdentifier` must be the path
+   of an album directory that exists, and a null one is refused outright
+   with "Album identifier required". This passed null. iOS accepts a save
+   with no album and puts it in the library, which is the platform this call
+   was written against.
+   So on Android the app's own album is found, or made the first time, and
+   named in the save. Nothing here needs a storage permission: the plugin
+   keeps an app's own albums in its media directory and asks for none.
+   THE NAME GOES IN WITHOUT ITS EXTENSION. The plugin appends the type's own
+   extension to whatever it is given, so "run.png" was on its way to being
+   saved as "run.png.png". */
+var NATIVE_PHOTO_ALBUM = 'Sacoro';
+function nativePlatform(){
+  try{ return (window.Capacitor && window.Capacitor.getPlatform) ? window.Capacitor.getPlatform() : null; }
+  catch(e){ return null; }
+}
+function nativePhotoAlbumId(Media){
+  if (nativePlatform() !== 'android') return Promise.resolve(null);
+  if (!Media || !Media.getAlbums || !Media.createAlbum)
+    return Promise.reject(new Error('This build cannot reach a photo album.'));
+  var find = function(){
+    return Media.getAlbums().then(function(r){
+      var list = (r && r.albums) || [];
+      for (var i = 0; i < list.length; i++){
+        if (list[i] && list[i].name === NATIVE_PHOTO_ALBUM && list[i].identifier) return list[i].identifier;
+      }
+      return null;
+    });
+  };
+  return find().then(function(id){
+    if (id) return id;
+    // "Album already exists" is not a failure here: look again either way.
+    return Media.createAlbum({ name:NATIVE_PHOTO_ALBUM }).catch(function(){}).then(find);
+  }).then(function(id){
+    if (!id) throw new Error('The photo album could not be created.');
+    return id;
+  });
+}
 function saveImageToPhotos(o){
   var Media = nativePlugin('Media');
   if (Media && Media.savePhoto){
-    return shareBlobToBase64(o.blob).then(function(b64){
-      return Media.savePhoto({ path:'data:image/png;base64,' + b64,
-                               fileName:o.filename, albumIdentifier:null });
+    return Promise.all([shareBlobToBase64(o.blob), nativePhotoAlbumId(Media)]).then(function(r){
+      var opts = { path:'data:image/png;base64,' + r[0],
+                   fileName:String(o.filename || 'sacoro').replace(/\.[a-z0-9]+$/i, '') };
+      if (r[1]) opts.albumIdentifier = r[1];
+      return Media.savePhoto(opts);
     }).then(function(){ showToast('Saved to your photos'); })
       .catch(function(err){
         var msg = (err && (err.message || err.errorMessage)) || '';
