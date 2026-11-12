@@ -64,8 +64,17 @@ test('a modal is still the lit stage, and the control ramp is pinned to it there
    on the bar. These pin the three cues that answer that, and the absence of
    the thing that used to do the job. */
 test('the navigation is lit, not drawn', () => {
+  /* ---- THE BAR CHANGED SIDES: IT IS GLASS NOW ----
+     This required the bar to be the page's own ground (background:var(--bg)).
+     Founder: "Can you do liquid glass like apple?", and after three mocks:
+     "Increase the background blur and slightly adjust the dark glass opacity
+     so underlying content becomes indistinct rather than readable ... Do not
+     make the navigation fully opaque." The pane is .bn-stack, which floats;
+     the nav inside it carries no surface of its own, so there is still one
+     surface, not two, and still no rule along the top. The glass itself is
+     pinned in test/glassTabBar. */
   const bar = /\.bottom-nav\{([\s\S]*?)\n  \}/.exec(APP)[1];
-  assert.match(bar, /background:var\(--bg\)/, 'the bar has a surface of its own again');
+  assert.match(bar, /background:transparent/, 'the nav drew a surface of its own under the glass');
   assert.match(bar, /border-top:0/, 'the rule along the top is back');
 
   const rest = /\n  \.bn-item\{([\s\S]*?)\n  \}/.exec(APP)[1];

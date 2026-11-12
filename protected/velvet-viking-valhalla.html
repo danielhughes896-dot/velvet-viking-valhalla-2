@@ -625,7 +625,7 @@
     /* Terminal breathing room above the fixed nav, matched to SETTINGS (the
        cleanest of the five) and composed with the home-indicator inset, which
        the nav already respects but this padding previously did not. */
-    padding-bottom:calc(117px + env(safe-area-inset-bottom, 0px));}
+    padding-bottom:calc(127px + env(safe-area-inset-bottom, 0px));}
   /* Sacoro used to need 64px of extra clearance for the Coach/Record subnav
      stacked above the main bottom nav. The subnav is gone with the tabs, and
      so is the clearance -- leaving it would have put 64px of dead screen
@@ -7041,7 +7041,46 @@
     position:fixed; left:0; right:0; bottom:0; z-index:55; display:flex; flex-direction:column;
     max-width:var(--maxw); margin:0 auto;
   }
-  @media (min-width:640px){ .bn-stack{ left:50%; transform:translateX(-50%); border-left:1px solid var(--ctl-surface-border); border-right:1px solid var(--ctl-surface-border); } }
+  /* ---- GLASS ----
+     Founder: "Can you do liquid glass like apple?", then, on the mock: "a
+     little too grey and opaque ... slightly darker and more translucent,
+     with less of that metallic appearance", "Make it see through like
+     glass", and finally: "Increase the background blur and slightly adjust
+     the dark glass opacity so underlying content becomes indistinct rather
+     than readable ... Do not make the navigation fully opaque."
+
+     So the bar floats, inset from the edges and the home indicator, and is
+     a pane rather than a slab:
+       blur      18px -- enough that a line of text passing under it is a
+                 smear of light, not words; the shapes and colours of the
+                 cards still move through it.
+       tint      near-black at .26 -- darkens what passes under so the white
+                 labels always sit on something darker than themselves.
+       sheen     a faint white lift at the top that fades by half-way, and
+                 one hairline of light along the top edge. No metal.
+       depth     a soft shadow under the pane.
+     The tabs themselves are unchanged: white and lit, the chosen one cherry
+     and lit harder (see .bn-item). No lens is drawn behind the chosen tab --
+     the standing rule is light, not a slab (test/controlRamp).
+
+     WHERE GLASS CANNOT BE DRAWN it is not faked: a browser without
+     backdrop-filter, or a phone set to reduce transparency, gets the same
+     pane nearly solid, so the labels never sit on readable text. */
+  .bn-stack{
+    left:12px; right:12px; bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+    border-radius:28px;
+    background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,0) 55%), rgba(8,8,11,.26);
+    -webkit-backdrop-filter:blur(18px) saturate(150%); backdrop-filter:blur(18px) saturate(150%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.06),
+               0 10px 28px rgba(0,0,0,.38);
+  }
+  @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+    .bn-stack{ background:rgba(16,16,20,.94); }
+  }
+  @media (prefers-reduced-transparency: reduce){
+    .bn-stack{ background:rgba(16,16,20,.96); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  }
+  @media (min-width:640px){ .bn-stack{ left:50%; right:auto; width:calc(var(--maxw) - 24px); transform:translateX(-50%); } }
   /* =======================================================
      THIS WEEK -- the week as one session at a time.
      =======================================================
@@ -8313,8 +8352,8 @@
      ones sit back at 72% -- three cues reading the same way, which is the
      rule .bn-item.active already lived by when it was a slab. */
   .bottom-nav{
-    display:flex; background:var(--bg); border-top:0;
-    padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    display:flex; background:transparent; border-top:0;
+    padding:5px 6px;
   }
   .bn-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0;
