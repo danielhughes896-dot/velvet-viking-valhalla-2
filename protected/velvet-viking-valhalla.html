@@ -8783,6 +8783,69 @@
      label, what changes, why, and the two answers at thumb height. No card,
      no rim -- the cherry on Accept is the only thing lit, because it is the
      only thing here the athlete is being asked to choose. */
+  /* ---------- YOUR LOG: THE ANSWERS ----------
+     An open column in the page's ink. The one box is the main set, rimmed in
+     cherry because it is the part of the session the questions are about;
+     everything else is a label and a control with air between them. The
+     slider is the builder's, value for value, so a thumb that has learned
+     one has learned both. */
+  .yl{margin-top:18px; min-width:0;}
+  .yl *{min-width:0;}
+  .yl-box{border:1.5px solid var(--cherry); border-radius:var(--tile-radius); padding:22px 18px 24px;}
+  .yl-title{font-family:var(--label-face); font-weight:var(--label-weight); font-size:19px;
+    letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
+  .yl-sec{margin-top:36px;}
+  .yl-q{margin-top:26px;}
+  .yl-box .yl-title + .yl-q{margin-top:18px;}
+  .yl-sec > .yl-q:first-child{margin-top:0;}
+  .yl-q-head{display:flex; justify-content:space-between; align-items:baseline; gap:12px;}
+  .yl-q-t{font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; color:#FFFFFF;}
+  .yl-sec > .yl-q > .yl-q-head .yl-q-t{font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:19px; letter-spacing:1.6px; text-transform:uppercase;}
+  .yl-fig{font-size:22px; color:#FFFFFF; white-space:nowrap;}
+  .yl-note{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF; margin-top:4px;}
+  .yl-range{-webkit-appearance:none; appearance:none; display:block; width:100%;
+    height:44px; min-height:44px; margin:6px 0 0; padding:0; background:transparent;
+    border:0; border-radius:0; box-shadow:none; cursor:pointer; --p:0%;}
+  .yl-range::-webkit-slider-runnable-track{height:4px; border-radius:2px;
+    background:linear-gradient(to right, var(--cherry-text) var(--p), var(--line) var(--p));}
+  .yl-range::-moz-range-track{height:4px; border-radius:2px;
+    background:linear-gradient(to right, var(--cherry-text) var(--p), var(--line) var(--p));}
+  .yl-range::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:26px; height:26px;
+    margin-top:-11px; border:0; border-radius:50%; background:var(--cherry-ink);
+    box-shadow:0 0 0 3px var(--cherry-text), 0 0 18px var(--cherry-dim);}
+  .yl-range::-moz-range-thumb{width:26px; height:26px; border:0; border-radius:50%;
+    background:var(--cherry-ink); box-shadow:0 0 0 3px var(--cherry-text), 0 0 18px var(--cherry-dim);}
+  /* NOT ANSWERED LOOKS NOT ANSWERED: a hollow thumb on an unfilled track. */
+  .yl-range.is-unset::-webkit-slider-runnable-track{background:var(--line);}
+  .yl-range.is-unset::-moz-range-track{background:var(--line);}
+  .yl-range.is-unset::-webkit-slider-thumb{background:var(--bg-2); box-shadow:0 0 0 2px var(--ink);}
+  .yl-range.is-unset::-moz-range-thumb{background:var(--bg-2); box-shadow:0 0 0 2px var(--ink);}
+  .yl-range:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
+  .yl-ends{display:flex; justify-content:space-between; font-size:var(--fs-support);
+    line-height:var(--lh-support); color:#FFFFFF;}
+  .yl-ans{margin-top:8px; text-align:center; font-family:var(--label-face);
+    font-weight:var(--label-weight); font-size:17px; letter-spacing:1.4px;
+    text-transform:uppercase; color:#FFFFFF;}
+  .yl-ans.is-unset{font-family:var(--text-face); font-weight:400; letter-spacing:0; text-transform:none;}
+  .yl-clear{display:block; min-height:44px; margin:2px auto 0; padding:0 12px;
+    font-size:var(--fs-support); line-height:var(--lh-support); color:var(--cherry-text);
+    background:none; border:0;}
+  .yl .opt-grid{margin-top:14px;}
+  /* THREE ACROSS, ON ITS OWN TRACK. The builder's .cols-N is for grids of
+     short tokens: on a grid of words a bare 1fr track is widened by a label
+     that cannot break, which is how a word once left its card. These are
+     words, so the track is minmax(0,1fr) -- it cannot be widened by what is
+     in it -- and the result is measured at 320px rather than assumed. */
+  .yl .yl-tiles{grid-template-columns:repeat(3, minmax(0, 1fr));}
+  .yl .opt-grid button{min-height:56px; padding-left:6px; padding-right:6px;}
+  .yl .opt-grid button .t{font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:14px; letter-spacing:1.2px; text-transform:uppercase;}
+  /* The narrowest phone: three tiles inside the rimmed box leave 56px a word. */
+  @media (max-width:360px){
+    .yl-box{padding-left:14px; padding-right:14px;}
+    .yl .opt-grid button .t{font-size:13px; letter-spacing:.5px;}
+  }
   .today-proposal{margin:34px 0 34px;}
   .today-proposal-k{font-family:var(--label-face); font-weight:var(--label-weight);
     font-size:19px; letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF; margin-bottom:12px;}
@@ -34162,6 +34225,371 @@ function renderDayHeroBlock(dd, targets){
    different thing to put behind Session Details -- the day card hands in
    its .day-detail, the slide hands in the preview-mode coaching it had
    already built. That is also what stops the slide showing the tab twice. */
+/* ===== YOUR LOG: THE ANSWERS =====
+   Founder: "SACORO needs to extract the maximum coaching intelligence from
+   the minimum athlete effort." And, approving this screen: "Advanced
+   breakdown available but not required. No unnecessary symbols, decorative
+   cards or additional screens. Most importantly, every answer must have a
+   defined downstream purpose. Don't make an athlete answer questions SACORO
+   then ignores."
+
+   WHAT IS ASKED, AND WHAT EACH ANSWER IS FOR. Nothing here is collected to be
+   stored; each answer either reaches the coaching through a channel that was
+   already live, or is shown back in the session's own analysis.
+
+     Overall effort      actual.rpe. The existing effort reading, entered by
+                         thumb: Recovery's effort-above-band count, the
+                         execution score's effort part, the response trend.
+     How did it feel?    actual.mainSetFelt, and it WRITES actual.feel. The
+                         Feel buttons are retired -- founder: "Read the new
+                         scale and retire the old" -- so this answer takes
+                         over every job Feel had: the Recovery page, recent
+                         patterns, the decision and the block reading.
+     Conditions          the same signals a written note produces. "Hot" is
+                         exactly "it was hot" in the notes: the heat band,
+                         the treadmill flag, and so on. Watch data off sets
+                         the GPS doubt signal: distance and pace are read
+                         with that in mind and the review is less certain.
+                         Heart rate, effort and completion are kept.
+     Anything hurting?   the pain signal. Two sessions with pain lead the
+                         decision to Recover, as two notes saying so do.
+     Why did you stop?   illness, injury and fatigue become the illness, pain
+                         and fatigue signals. Out of time, chose to rest and
+                         other do the opposite job: they take the session out
+                         of the "repeatedly not finishing" evidence, because
+                         a run cut short for the school run is not a run the
+                         athlete could not do.
+     Reps completed      completion, shown in the session's analysis beside
+     Did it hold?        whatever is said about execution, and read by the
+     Recoveries          session assessment. These three reach no proposal
+                         yet: the assessment is not what Evolution reads
+                         until its calibration is passed.
+
+   NO DEFAULT ANSWERS. A slider nobody has touched is drawn hollow and says
+   so, and stores nothing: "No selection means unknown, not position three."
+   Every answer can be cleared back to unknown.
+
+   WHAT IS HEALTH INFORMATION. How a session felt, whether anything hurts and
+   stopping for illness or injury are; without health consent they are not
+   asked, exactly as Feel and heart rate were not. Effort, reps, conditions
+   and whether the pace held are ordinary training data. */
+var LOG_FELT_WORDS = ['Much easier than expected', 'Easier than expected', 'As intended',
+                      'Harder than expected', 'Much harder than expected'];
+var LOG_FELT_FEEL = { 1:'very_good', 2:'good', 3:'normal', 4:'heavy', 5:'poor' };
+var LOG_HELD_PACE = ['Got faster', 'Slightly faster', 'Even', 'Slight fade', 'Faded'];
+var LOG_HELD_EFFORT = ['Got stronger', 'Slightly stronger', 'Even', 'Slight fade', 'Faded'];
+/* id, label, and the note signal the answer stands for. */
+var LOG_CONDITIONS = [['hot','Hot','heat'], ['humid','Humid','humidity'], ['windy','Windy','wind'],
+                      ['hilly','Hilly','hills'], ['treadmill','Treadmill','treadmill']];
+var LOG_HURTING = [['no','No',null], ['niggle','Niggle','niggle'], ['pain','Pain','pain']];
+var LOG_STOP = [['illness','Illness','illness'], ['injury','Injury or soreness','pain'],
+                ['fatigue','Fatigue','tired'], ['time','Out of time',null],
+                ['rest','Chose to rest',null], ['other','Other',null]];
+var LOG_STOP_HEALTH = ['illness','injury'];
+var LOG_STOP_EXCUSED = ['time','rest','other'];
+var LOG_RECOVERIES = [['shorter','Shorter'], ['as-set','As set'], ['longer','Longer']];
+
+/* What kind of session this is, as far as the questions are concerned. */
+function logShape(dd){
+  var plan = assessPlan(dd);
+  var rep = plan.family === 'hills' || plan.family === 'reps';
+  return { family:plan.family, reps: rep ? plan.work.length : 0,
+           main: plan.family !== 'aerobic' && plan.family !== 'race',
+           hills: plan.family === 'hills', recoveries: plan.family === 'reps' };
+}
+function logCutShort(dd, shape){
+  var a = dd.actual || {};
+  if (shape.reps && a.repsDone != null && a.repsDone < shape.reps) return true;
+  return a.km != null && dd.km > 0 && (a.km / dd.km) < ASSESS_CAL.completeFraction;
+}
+/* The five-position answer as the engine's three words. A string is passed
+   through, so a value stored before the slider existed still reads. */
+function logHeldWord(v){
+  if (v == null) return null;
+  if (typeof v === 'string') return v;
+  return v <= 2 ? 'built' : v >= 4 ? 'faded' : 'held';
+}
+/* Was this session stopped for a reason that says nothing about ability? */
+function logStopExcused(dd){
+  var r = dd && dd.actual && dd.actual.stopReason;
+  return !!r && LOG_STOP_EXCUSED.indexOf(r) !== -1;
+}
+function logAnswersPresent(actual){
+  if (!actual) return false;
+  return !!((actual.conditions && actual.conditions.length) || actual.watchDataOff ||
+            actual.hurting || actual.stopReason);
+}
+/* THE ANSWERS AS SIGNALS. One signal per concept, built from the same rule a
+   written note would have matched, so nothing downstream can tell a tapped
+   "Hot" from a typed one -- and health signals are withheld without consent
+   by the same test the notes parser applies. */
+function logAnswerSignals(actual){
+  var out = [];
+  if (!actual) return out;
+  var withhold = !healthConsentGranted();
+  var add = function(id, said){
+    var rule = id && NOTE_SIGNAL_BY_ID[id];
+    if (!rule) return;
+    if (withhold && isCoveredNoteSignal(rule)) return;
+    if (out.some(function(s){ return s.concept === rule.concept; })) return;
+    out.push({ id:rule.id, category:rule.cat, concept:rule.concept, label:rule.label,
+               strength:rule.strength, positive:!!rule.positive, flag:rule.flag||null,
+               evidence:said, clause:said, answered:true });
+  };
+  (actual.conditions || []).forEach(function(c){
+    var row = LOG_CONDITIONS.filter(function(x){ return x[0] === c; })[0];
+    if (row) add(row[2], row[1]);
+  });
+  /* GPS DOUBT, AND ONLY THAT. Founder: "Watch data off must not
+     automatically discard all evidence ... unreliable GPS does not
+     necessarily invalidate reliable heart-rate readings, reported effort or
+     completion information." A heart rate the athlete does not trust is
+     still said in the notes, where it always was. */
+  if (actual.watchDataOff) add('gps_doubt', 'Watch data off');
+  var hurt = LOG_HURTING.filter(function(x){ return x[0] === actual.hurting; })[0];
+  if (hurt) add(hurt[2], hurt[1]);
+  var stop = LOG_STOP.filter(function(x){ return x[0] === actual.stopReason; })[0];
+  if (stop) add(stop[2], stop[1]);
+  return out;
+}
+/* Everything the session says about itself: the notes, then the answers. A
+   note wins a concept it has already spoken to, so an athlete who wrote "no
+   pain" is not overruled by a tile. The notes' own list is left alone --
+   effectiveNoteSignals() is what the note chips draw from, and an answer is
+   not a chip to dismiss. */
+function sessionSignals(actual){
+  var base = effectiveNoteSignals(actual);
+  var extra = logAnswerSignals(actual);
+  if (!extra.length) return base;
+  var out = { signals: base.signals.slice(), byCategory:{}, at: base.at };
+  NOTE_CATEGORIES.forEach(function(c){ out.byCategory[c] = (base.byCategory[c] || []).slice(); });
+  extra.forEach(function(s){
+    if (out.signals.some(function(x){ return x.concept === s.concept; })) return;
+    out.signals.push(s);
+    out.byCategory[s.category].push(s);
+  });
+  return out;
+}
+
+/* ---------- drawing them ---------- */
+function logRangeHtml(dd, o){
+  var set = o.value != null;
+  var v = set ? o.value : o.start;
+  var p = (o.max > o.min) ? Math.round((v - o.min) / (o.max - o.min) * 100) : 0;
+  var word = o.words ? (set ? o.words[v - o.min] : 'Slide to answer') : null;
+  var fig = (o.of != null) ? ((set ? v : '–') + ' / ' + o.of) : null;
+  var at = ' data-field="'+o.field+'" data-day="'+dd.id+'"';
+  return '<div class="yl-q">'+
+    '<div class="yl-q-head"><span class="yl-q-t">'+escapeHtml(o.label)+'</span>'+
+      (fig != null ? '<span class="yl-fig font-mono" data-yl-fig>'+escapeHtml(fig)+'</span>' : '')+
+    '</div>'+
+    /* data-hswipe: a drag on a slider is the slider's, not a swipe between
+       tabs or along the week -- both pagers stand down for it. */
+    '<input type="range" data-hswipe class="yl-range'+(set ? '' : ' is-unset')+'" '+
+      'min="'+o.min+'" max="'+o.max+'" step="1" value="'+v+'" style="--p:'+p+'%" '+
+      'data-action="log-slide"'+at+
+      (o.words ? ' data-words="'+escapeHtml(o.words.join('|'))+'"' : '')+
+      (o.of != null ? ' data-of="'+o.of+'"' : '')+
+      ' aria-label="'+escapeHtml(o.label)+'" aria-valuetext="'+
+        escapeHtml(set ? (word || fig) : 'Not answered')+'">'+
+    (o.ends ? '<div class="yl-ends"><span>'+escapeHtml(o.ends[0])+'</span><span>'+escapeHtml(o.ends[1])+'</span></div>' : '')+
+    (o.words ? '<div class="yl-ans'+(set ? '' : ' is-unset')+'" data-yl-ans>'+escapeHtml(word)+'</div>' : '')+
+    (set ? '<button type="button" class="yl-clear" data-action="log-clear"'+at+'>Clear</button>' : '')+
+  '</div>';
+}
+function logTilesHtml(dd, o){
+  var on = function(id){ return Array.isArray(o.value) ? o.value.indexOf(id) !== -1 : o.value === id; };
+  return '<div class="yl-q">'+
+    '<div class="yl-q-head"><span class="yl-q-t">'+escapeHtml(o.label)+'</span></div>'+
+    (o.note ? '<div class="yl-note">'+escapeHtml(o.note)+'</div>' : '')+
+    '<div class="opt-grid yl-tiles" role="group" aria-label="'+escapeHtml(o.label)+'">'+
+      o.options.map(function(x){
+        return '<button type="button" class="'+(on(x[0]) ? 'active' : '')+'" '+
+          'aria-pressed="'+(on(x[0]) ? 'true' : 'false')+'" data-action="log-pick" '+
+          'data-field="'+o.field+'" data-value="'+x[0]+'" data-day="'+dd.id+'">'+
+          '<span class="t">'+escapeHtml(x[1])+'</span></button>';
+      }).join('')+
+    '</div>'+
+  '</div>';
+}
+function renderYourLogAnswers(dd){
+  if (!dd || dd.type === 'rest') return '';
+  var a = dd.actual || {}, shape = logShape(dd), health = healthConsentGranted();
+  var box = '';
+  if (shape.reps)
+    box += logRangeHtml(dd, { field:'repsDone', label:'Reps completed', min:0, max:shape.reps,
+      value:(typeof a.repsDone === 'number' ? a.repsDone : null), start:shape.reps, of:shape.reps });
+  if (health)
+    box += logRangeHtml(dd, { field:'mainSetFelt', label:'How did it feel?', min:1, max:5,
+      value:(typeof a.mainSetFelt === 'number' ? a.mainSetFelt : null), start:3,
+      words:LOG_FELT_WORDS, ends:['Much easier', 'Much harder'] });
+  if (shape.main)
+    box += logRangeHtml(dd, { field:'mainSetHeld',
+      label:(shape.hills ? 'Did your effort hold?' : 'Did your pace hold?'), min:1, max:5,
+      value:(typeof a.mainSetHeld === 'number' ? a.mainSetHeld : null), start:3,
+      words:(shape.hills ? LOG_HELD_EFFORT : LOG_HELD_PACE),
+      ends:[(shape.hills ? 'Got stronger' : 'Got faster'), 'Faded'] });
+  if (shape.recoveries)
+    box += logTilesHtml(dd, { field:'recoveries', label:'Recoveries', options:LOG_RECOVERIES, value:a.recoveries });
+  var conditions = LOG_CONDITIONS.map(function(x){ return [x[0], x[1]]; }).concat([['watch', 'Watch data off']]);
+  var chosen = (a.conditions || []).slice();
+  if (a.watchDataOff) chosen.push('watch');
+  var stops = LOG_STOP.filter(function(x){ return health || LOG_STOP_HEALTH.indexOf(x[0]) === -1; });
+  return '<div class="actual-field full yl">'+
+    (box ? '<div class="yl-box"><div class="yl-title">'+(shape.main ? 'Main set' : 'The run')+'</div>'+box+'</div>' : '')+
+    '<div class="yl-sec">'+
+      logRangeHtml(dd, { field:'rpe', label:'Overall effort', min:1, max:10,
+        value:(typeof a.rpe === 'number' ? a.rpe : null), start:5, of:10, ends:['Very easy', 'All out'] })+
+    '</div>'+
+    '<div class="yl-sec">'+
+      logTilesHtml(dd, { field:'conditions', label:'Conditions', note:'Only what affected the run.',
+        options:conditions, value:chosen })+
+    '</div>'+
+    (health ? '<div class="yl-sec">'+
+      logTilesHtml(dd, { field:'hurting', label:'Anything hurting?', options:LOG_HURTING, value:a.hurting })+
+    '</div>' : '')+
+    (logCutShort(dd, shape) ? '<div class="yl-sec">'+
+      logTilesHtml(dd, { field:'stopReason', label:'Why did you stop?', options:stops, value:a.stopReason })+
+    '</div>' : '')+
+  '</div>';
+}
+/* What the answers add up to, in the session's own analysis. Words only: how
+   much was done when it was not all of it, how it was tolerated, what the
+   set did and what the conditions were. The assessment's Execution figure is
+   deliberately not printed here -- that is behind the calibration gate, and
+   the existing score is still the one the athlete is shown. This line is
+   what keeps that score from standing alone on a partial session: "a
+   100/100 Execution score must never be displayed on its own when only 60%
+   of the workout was completed." */
+function sessionReadoutHtml(dd){
+  var as = null;
+  try { as = assessSession(dd); } catch(e){ as = null; }
+  if (!as) return '';
+  var parts = [];
+  var c = as.completion, r = as.response;
+  if (c.short) parts.push(c.basis === 'reps' ? (c.done + ' of ' + c.of + ' reps completed')
+                                              : (Math.round(c.fraction * 100) + '% of the session completed'));
+  var RESPONSE = { harder:'harder than intended', easier:'easier than intended',
+                   'as-intended':'felt as intended', unclear:'effort and heart rate disagree' };
+  if (RESPONSE[r.reading]) parts.push(RESPONSE[r.reading]);
+  var held = logHeldWord((dd.actual || {}).mainSetHeld) || as.execution.pattern;
+  if (held === 'faded') parts.push('the set faded');
+  if (held === 'built') parts.push('the set got stronger');
+  if (r.signals.indexOf('recoveries-longer') !== -1) parts.push('longer recoveries');
+  if (r.context.length) parts.push(r.context.join(', '));
+  if (!parts.length) return '';
+  var line = parts.join(' · ');
+  return '<div class="cr-sec"><div class="cr-k">What you logged</div>'+
+    '<div class="cr-v">'+escapeHtml(line.charAt(0).toUpperCase() + line.slice(1))+'</div></div>';
+}
+
+/* ---------- saving them ---------- */
+/* A reason for stopping belongs to a session that stopped. If the distance
+   or the reps are corrected to a full session, the reason goes with the
+   question that asked for it. */
+function logTidy(dd){
+  var a = dd && dd.actual;
+  if (!a || !a.stopReason) return;
+  if (!logCutShort(dd, logShape(dd))) delete a.stopReason;
+}
+function logAnswerSaved(dd){
+  logTidy(dd);
+  coachPersistReview(dd);
+  replaceCard(dd);
+  patchDerivedStats();
+  scheduleSave();
+}
+function handleLogAnswer(dayId, field, raw){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  dd.actual = dd.actual || emptyActual();
+  var a = dd.actual, n = parseInt(raw, 10);
+  if (!isFinite(n)) return;
+  if (field === 'rpe'){
+    if (n < 1 || n > 10 || a.rpe === n) return;
+    a.rpe = n;
+  } else if (field === 'repsDone'){
+    var reps = logShape(dd).reps;
+    if (!reps || n < 0 || n > reps || a.repsDone === n) return;
+    a.repsDone = n;
+  } else if (field === 'mainSetFelt'){
+    if (!healthConsentGranted() || n < 1 || n > 5 || a.mainSetFelt === n) return;
+    a.mainSetFelt = n;
+    a.feel = LOG_FELT_FEEL[n];
+  } else if (field === 'mainSetHeld'){
+    if (n < 1 || n > 5 || a.mainSetHeld === n) return;
+    a.mainSetHeld = n;
+  } else return;
+  logAnswerSaved(dd);
+}
+function handleLogPick(dayId, field, value){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  dd.actual = dd.actual || emptyActual();
+  var a = dd.actual;
+  var known = function(list){ return list.some(function(x){ return x[0] === value; }); };
+  if (field === 'conditions'){
+    if (value === 'watch'){ if (a.watchDataOff) delete a.watchDataOff; else a.watchDataOff = true; }
+    else {
+      if (!known(LOG_CONDITIONS)) return;
+      var list = (a.conditions || []).slice(), at = list.indexOf(value);
+      if (at === -1) list.push(value); else list.splice(at, 1);
+      if (list.length) a.conditions = list; else delete a.conditions;
+    }
+  } else if (field === 'recoveries'){
+    if (!known(LOG_RECOVERIES)) return;
+    if (a.recoveries === value) delete a.recoveries; else a.recoveries = value;
+  } else if (field === 'hurting'){
+    if (!healthConsentGranted() || !known(LOG_HURTING)) return;
+    if (a.hurting === value) delete a.hurting; else a.hurting = value;
+  } else if (field === 'stopReason'){
+    if (!known(LOG_STOP)) return;
+    if (LOG_STOP_HEALTH.indexOf(value) !== -1 && !healthConsentGranted()) return;
+    if (a.stopReason === value) delete a.stopReason; else a.stopReason = value;
+  } else return;
+  logAnswerSaved(dd);
+}
+function handleLogClear(dayId, field){
+  var dd = findDay(dayId);
+  if (!dd || !dd.actual) return;
+  var a = dd.actual;
+  if (field === 'rpe') a.rpe = null;
+  else if (field === 'mainSetFelt'){ delete a.mainSetFelt; a.feel = null; }
+  else if (field === 'repsDone' || field === 'mainSetHeld') delete a[field];
+  else return;
+  logAnswerSaved(dd);
+}
+/* While the thumb is moving: the figure, the word and the fill follow it, and
+   nothing is saved or redrawn until it is let go (the `change` event). */
+function logRangeLive(e){
+  var el = e && e.target;
+  if (!el || !el.classList || !el.classList.contains('yl-range')) return;
+  var min = parseInt(el.min, 10), max = parseInt(el.max, 10), v = parseInt(el.value, 10);
+  el.style.setProperty('--p', (max > min ? Math.round((v - min) / (max - min) * 100) : 0) + '%');
+  el.classList.remove('is-unset');
+  var q = el.closest ? el.closest('.yl-q') : null;
+  if (!q) return;
+  var words = el.getAttribute('data-words'), of = el.getAttribute('data-of');
+  var ans = q.querySelector('[data-yl-ans]'), fig = q.querySelector('[data-yl-fig]');
+  if (ans && words){ ans.textContent = words.split('|')[v - min] || ''; ans.classList.remove('is-unset'); }
+  if (fig && of) fig.textContent = v + ' / ' + of;
+}
+
+/* A TAP ON AN UNTOUCHED SLIDER WHERE ITS THUMB ALREADY SITS IS AN ANSWER.
+   Nothing moved, so the browser fires neither `input` nor `change` -- and a
+   touch on a range never becomes a `click` either (measured in Chromium:
+   pointerdown, touchstart, pointerup, touchend, and nothing else). So the
+   lift of the finger is the only event there is. A drag has already cleared
+   is-unset through logRangeLive() by the time it lifts and is left to
+   `change`; a scroll that began on the slider ends in pointercancel, not
+   pointerup, and answers nothing. */
+function logRangeSettle(e){
+  var el = e && e.target;
+  if (!el || !el.classList || !el.classList.contains('yl-range')) return;
+  if (!el.classList.contains('is-unset')) return;
+  handleLogAnswer(el.getAttribute('data-day'), el.getAttribute('data-field'), el.value);
+}
+
 function renderCompletedPanel(dd, detailHtml){
     var a = dd.actual || {};
     var detailOpen = isDetailOpen(dd);
@@ -34218,6 +34646,11 @@ function renderCompletedPanel(dd, detailHtml){
         (logTabOpen(dd) ? '<div class="log-body">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+      /* THE ANSWERS, BEFORE ANYTHING THAT HAS TO BE TYPED. Distance and pace
+         above are the two numbers a watch gives; everything the athlete
+         knows that the watch does not is answered here with a thumb. See
+         renderYourLogAnswers(). */
+      renderYourLogAnswers(dd)+
       /* One control, in the same quiet voice the session breakdown already
          uses. Open when the athlete asks, and open by default whenever this
          day already carries any of it -- a record can never be made less
@@ -34226,7 +34659,7 @@ function renderCompletedPanel(dd, detailHtml){
         '<button type="button" class="splits-toggle" data-action="toggle-detail" data-day="'+dd.id+'" aria-expanded="'+(detailOpen?'true':'false')+'">'+
           (detailOpen ? '<span class="st-k">Hide detail</span>'
                       : '<span class="st-k">+ Add detail</span>'+
-                        '<span class="st-sub">Heart rate \u00b7 effort \u00b7 elevation \u00b7 feel \u00b7 notes</span>')+
+                        '<span class="st-sub">Heart rate \u00b7 elevation \u00b7 notes</span>')+
         '</button>'+
       '</div>'+
       (detailOpen ? (
@@ -34240,24 +34673,24 @@ function renderCompletedPanel(dd, detailHtml){
       (healthConsentGranted()
         ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
         : '')+
-      '<div class="actual-field"><label>RPE (1\u201310)</label><input type="number" min="1" max="10" inputmode="numeric" value="'+(a.rpe!=null?a.rpe:'')+'" data-action="actual-field" data-field="rpe" data-day="'+dd.id+'"></div>'+
+      /* THE TYPED RPE BOX IS GONE: Overall effort is a slider in the answers
+         above and writes the same field. */
       /* ELEVATION IS OPTIONAL AND BLANK MEANS UNKNOWN. A flat run and an
          unmeasured one are different facts, so an empty box stays null and
          never becomes 0 -- and a genuine 0 the athlete types is kept. This is
          ordinary training data, not health information, so it sits with RPE
          rather than behind the consent gate. */
       '<div class="actual-field"><label>Elevation (m) \u2014 optional</label><input type="number" min="0" step="1" inputmode="numeric" placeholder="unknown" value="'+(a.elevationGainM!=null?a.elevationGainM:'')+'" data-action="actual-field" data-field="elevationGainM" data-day="'+dd.id+'"></div>'+
-      (healthConsentGranted()
-        ? '<div class="actual-field full feel-field"><label>Feel</label>'+
-            '<div class="feel-row" role="group" aria-label="How the body felt">'+
-              FEEL_ORDER.map(function(k){
-                return '<button type="button" class="feel-btn'+(a.feel===k?' on':'')+'" '+
-                  'aria-pressed="'+(a.feel===k?'true':'false')+'" '+
-                  'data-action="set-feel" data-feel="'+k+'" data-day="'+dd.id+'">'+FEEL_META[k].short+'</button>';
-              }).join('')+
-            '</div></div>'
-        : '<div class="actual-field full"><div class="field-hint">Heart rate and how the session felt are '+
-          'health information, and Sacoro only records them if you have said it may. '+
+      /* ---- FEEL IS RETIRED ----
+         Five buttons stood here -- Very good, Good, Normal, Heavy, Poor --
+         asking how the body felt. Founder: "Read the new scale and retire
+         the old." "How did it feel?" above asks it against what the session
+         was meant to be, and writes actual.feel itself, so every reading
+         that used Feel still has it. The one line that explains the missing
+         health questions stays for an athlete who has not given consent. */
+      (healthConsentGranted() ? ''
+        : '<div class="actual-field full"><div class="field-hint">Heart rate, how the session felt and whether '+
+          'anything hurts are health information, and Sacoro only records them if you have said it may. '+
           'Settings \u2192 Health &amp; Readiness.</div></div>')+
       '<div class="actual-field full notes-field"><label>Notes \u2014 optional</label>'+
         '<div class="notes-wrap">'+
@@ -36467,7 +36900,7 @@ function assessExecution(dd, plan, ev){
     try { band = expectedRPEBand(dd); } catch(e){ band = null; }
     var tooEasy = (a.mainSetFelt != null && a.mainSetFelt <= 1) ||
                   (a.mainSetFelt == null && a.rpe != null && band && a.rpe < band[0] - 1);
-    out.level = tooEasy ? 'low' : (a.mainSetHeld === 'faded' ? 'mixed' : 'high');
+    out.level = tooEasy ? 'low' : (logHeldWord(a.mainSetHeld) === 'faded' ? 'mixed' : 'high');
     return out;
   }
   if (!paceUsable) return out;
@@ -38943,6 +39376,7 @@ function renderExecutionReview(dd){
               '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>';
     }
     body += renderCoachMessage(msg, 'coach-msg-review');
+    body += sessionReadoutHtml(dd);
     // Like-for-like only, and only when a comparable session exists.
     if (r.comparable && r.comparable.length){
       body += '<div class="cr-sec"><div class="cr-k">Compared With</div><div class="cr-v cr-compare">'+
@@ -43490,7 +43924,7 @@ function athleteMemoryFromDays(days, from){
           ? { kind: dd.support.kind, completedAt: dd.support.completedAt } : null,
         feel: isPast ? feelOf(dd) : null,
         notes: isPast ? (a.notes || '') : '',
-        signals: isPast ? effectiveNoteSignals(a).signals.map(function(x){ return x.id; }) : [],
+        signals: isPast ? sessionSignals(a).signals.map(function(x){ return x.id; }) : [],
         environment: isPast ? (env || null) : null,
         // did it happen as written
         asPlanned: !!(ran && score!=null && score>=90 && !dd.coachAdjust),
@@ -47629,7 +48063,8 @@ function playbookRelevantScored(archetype){
   });
 }
 function playbookRepeatedShortfall(archetype, need){
-  var recent = playbookRelevantScored(archetype).slice(-need);
+  var recent = playbookRelevantScored(archetype)
+    .filter(function(dd){ return !logStopExcused(dd); }).slice(-need);
   if (recent.length < need) return null;
   var scores = recent.map(function(dd){ return computeExecutionScore(dd); });
   if (!scores.every(function(s){ return s!=null && s <= PLAYBOOK_POOR_EXECUTION; })) return null;
@@ -49535,15 +49970,15 @@ function coachEnvironment(notes, actual){
      difficult response." The bands are the same bands a written "33
      degrees" earns; nothing is excused that a note would not have excused,
      and a reading no weather produces is ignored. */
-  if (!notes) return coachEnvFromStored(env, actual);
-  var t = String(notes);
+  if (!notes && !logAnswersPresent(actual)) return coachEnvFromStored(env, actual);
+  var t = notes ? String(notes) : '';
 
   // Structured signals from the wand are the single source of truth for the
   // subjective flags. This is what makes "no pain" and "HR monitor wasn't
   // wrong" read correctly whether or not the athlete ever tapped the wand:
   // the parser runs the same way either way, and the wand only shows and
   // curates its output.
-  var sigs = actual ? effectiveNoteSignals(actual) : parseRunnerNotes(t);
+  var sigs = actual ? sessionSignals(actual) : parseRunnerNotes(t);
   env.signals = sigs;
   env.hrDoubt = noteSignalFlag(sigs, 'hrDoubt');
 
@@ -49860,7 +50295,7 @@ function coachNoteConceptStreak(concept, before, windowN){
     return !before || dd.date <= before;
   }).slice(-(windowN||5));
   var hits = recent.filter(function(dd){
-    return effectiveNoteSignals(dd.actual).signals.some(function(x){ return x.concept===concept; });
+    return sessionSignals(dd.actual).signals.some(function(x){ return x.concept===concept; });
   });
   return { counted:recent.length, hits:hits.length,
            repeated: recent.length>=3 && hits.length>=3 };
@@ -63604,7 +64039,7 @@ function handleActualFieldChange(dayId, field, value){
   if (!dd) return;
   var wasComplete = !!dd.completed;
   dd.actual = dd.actual || emptyActual();
-  if (field==='km') dd.actual.km = value===''?null:parseDistInput(value);
+  if (field==='km'){ dd.actual.km = value===''?null:parseDistInput(value); logTidy(dd); }
   /* Withdrawal stops COLLECTION, not only use, so the writers refuse as well
      as the readers. The controls for these two are not rendered without
      consent, so reaching here means the state changed between paint and tap,
@@ -69370,6 +69805,16 @@ document.addEventListener('click', function(e){
     case 'share-export': shareExport(target.getAttribute('data-mode')); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
+    case 'log-pick': handleLogPick(target.getAttribute('data-day'), target.getAttribute('data-field'), target.getAttribute('data-value')); break;
+    case 'log-clear': handleLogClear(target.getAttribute('data-day'), target.getAttribute('data-field')); break;
+    /* A tap on an untouched slider exactly where its thumb already sits
+       moves nothing, so no `change` fires -- and that tap IS the answer.
+       Once it is answered this does nothing: handleLogAnswer() ignores a
+       value it already holds. */
+    case 'log-slide':
+      if (target.classList && target.classList.contains('is-unset'))
+        handleLogAnswer(target.getAttribute('data-day'), target.getAttribute('data-field'), target.value);
+      break;
     case 'toggle-splits': handleToggleSplits(target.getAttribute('data-day')); break;
     case 'toggle-detail': handleToggleDetail(target.getAttribute('data-day')); break;
     case 'add-split': handleAddSplit(target.getAttribute('data-day')); break;
@@ -69594,6 +70039,7 @@ document.addEventListener('change', function(e){
   // notes-wand here is what made both controls render correctly and do
   // nothing at all when tapped.
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
+  else if (action === 'log-slide') handleLogAnswer(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'split-field') handleSplitFieldChange(actionEl.getAttribute('data-day'), parseInt(actionEl.getAttribute('data-index'),10), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'slog-field') handleStructuredSplitChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-seg'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
@@ -69826,6 +70272,8 @@ function init(){
      accumulate. */
   initViewPager();
   initPageSwipe();
+  try{ document.addEventListener('input', logRangeLive); }catch(e){}
+  try{ document.addEventListener('pointerup', logRangeSettle); }catch(e){}
   // Deliberately last and un-awaited: the app is already painted from
   // localStorage by this point, so cloud sync can never delay startup and a
   // cloud failure can never prevent the app from opening.

@@ -479,19 +479,38 @@ test('it reads the day and changes nothing', () => {
 
 test('it is not yet what the circles read: calibration is still under review', () => {
   /* Founder: "Architecture approved. Numerical calibration remains subject to
-     testing and review." Until that review, the existing score keeps every
-     job it has -- Confidence, the trend, proposals -- and this engine runs
-     beside it. This law is the line; crossing it is a decision, and when it
-     is taken this test is rewritten to say who took it. */
+     testing and review." And, asked whether it could replace the old score:
+     "Not yet ... Keep behind the gate: Switching Confidence, trends and
+     Evolution to the new scoring outputs until their individual input
+     contracts and calibration are tested."
+     ONE READER WAS LET THROUGH, deliberately, when Your Log was built: the
+     session's own analysis prints what was logged -- how much was done, how
+     it was tolerated -- in words. It prints no Execution figure, and nothing
+     that decides training reads the engine at all. This law is that line. */
   const fs = require('fs'); const path = require('path');
   const { RUNTIME_RELATIVE } = require('./harness.js');
   const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  const start = src.indexOf('\nfunction assessSession(');
-  const end = src.indexOf('\nfunction assessmentReadout(');
+  const body = (name) => {
+    const at = src.indexOf('\nfunction ' + name + '(');
+    assert.ok(at > -1, name + '() is gone');
+    return src.slice(at, src.indexOf('\n}\n', at) + 3);
+  };
+  const start = src.indexOf('/* ===== SESSION ASSESSMENT');
+  const end = src.indexOf('\n}\n', src.indexOf('\nfunction assessmentReadout(')) + 3;
   assert.ok(start > -1 && end > start);
-  const outside = src.slice(0, src.indexOf('/* ===== SESSION ASSESSMENT')) + src.slice(src.indexOf('\n}\n', end) + 3);
+  const readout = body('sessionReadoutHtml');
+  const outside = (src.slice(0, start) + src.slice(end)).replace(readout, '');
   assert.doesNotMatch(outside, /\bassessSession\(|\bassessmentReadout\(/,
-    'something outside the engine is already reading it');
+    'something other than the session\u2019s own analysis is reading the engine');
+  /* The one reader takes words, never the figure. */
+  assert.match(readout, /assessSession\(dd\)/);
+  assert.doesNotMatch(readout, /execution\.score|\.score\b/, 'the unreviewed Execution figure is being shown');
+  /* And the engines that decide training do not mention it. */
+  ['coachAnalyse', 'coachTrend', 'coachRecovery', 'coachDecision', 'planEvolution', 'playbookAssess',
+   'computeExecutionBreakdown'].forEach((fn) => {
+    assert.doesNotMatch(body(fn), /assessSession|assessmentReadout|sessionReadoutHtml/,
+      fn + '() has started reading the unreviewed assessment');
+  });
   const a = athlete(); const d = threshold(a);
   log(a, d, { sections: onWork(() => 1), rpe: 7 });
   assert.ok(a.computeExecutionBreakdown(d) && a.computeExecutionBreakdown(d).score != null,

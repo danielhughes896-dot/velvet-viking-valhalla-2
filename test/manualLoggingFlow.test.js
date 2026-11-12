@@ -53,14 +53,23 @@ const has = (html, field) => new RegExp('data-field="' + field + '"').test(html)
 // ---------------------------------------------------------------------------
 // THE DEFAULT SURFACE
 // ---------------------------------------------------------------------------
-test('a completed session asks for distance and pace, and nothing else', () => {
+/* THIS LAW CHANGED SIDES. It used to say distance and pace "and nothing
+   else", with effort a typed box behind Add detail. The founder: "SACORO
+   needs to extract the maximum coaching intelligence from the minimum
+   athlete effort." So the two numbers a watch gives are still the only
+   things TYPED, and what only the athlete knows is answered beneath them
+   with a thumb. Effort is one of those answers: a slider, never a box. */
+test('a completed session types distance and pace, and answers the rest with a thumb', () => {
   const a = app();
   const html = card(a, logged(a, { km: 8 }));
   assert.ok(has(html, 'km'), 'distance is not asked for');
   assert.ok(has(html, 'pace'), 'pace is not asked for');
   assert.ok(!has(html, 'hr'), 'heart rate is still on the default surface');
-  assert.ok(!has(html, 'rpe'), 'RPE is still on the default surface');
   assert.ok(!has(html, 'notes'), 'notes are still on the default surface');
+  assert.match(html, /<input type="range"[^>]*data-field="rpe"/, 'effort is not a slider on the default surface');
+  assert.ok(!/<input type="number"[^>]*data-field="rpe"/.test(html), 'effort is still a typed box');
+  assert.equal((html.match(/<input type="(number|text)"/g) || []).length, 2,
+    'something other than distance and pace has to be typed');
   assert.match(html, /data-action="toggle-detail"/, 'there is no way to reach the detail');
 });
 
@@ -91,7 +100,10 @@ test('opening the detail reveals every field that used to be flat', () => {
   const html = card(a, dd);
   ['hr', 'rpe', 'notes'].forEach(f =>
     assert.ok(has(html, f), f + ' was lost rather than disclosed'));
-  assert.match(html, /data-action="set-feel"/, 'feel was lost rather than disclosed');
+  /* Feel is no longer five buttons in the detail: it is the answer to "How
+     did it feel?", asked once, on the default surface. */
+  assert.ok(has(html, 'mainSetFelt'), 'how it felt was lost rather than moved');
+  assert.ok(!/data-action="set-feel"/.test(html), 'feel is asked twice: the old buttons are still drawn');
 });
 
 test('a day that already carries detail opens showing it', () => {
@@ -136,7 +148,8 @@ test('without health consent, heart rate and feel are absent even when the detai
   const html = card(a, dd);
   assert.equal(a.healthConsentGranted(), false, 'the fixture granted consent');
   assert.ok(!has(html, 'hr'), 'a heart-rate box appeared without consent');
-  assert.ok(!/data-action="set-feel"/.test(html), 'a feel control appeared without consent');
+  ['mainSetFelt', 'hurting'].forEach(f =>
+    assert.ok(!has(html, f), f + ' was asked without consent'));
   /* RPE and notes are ordinary training data and are unaffected. */
   assert.ok(has(html, 'rpe'), 'RPE was gated on health consent');
   assert.ok(has(html, 'notes'), 'notes were gated on health consent');
@@ -176,7 +189,7 @@ test('every evidence field the panel ever offered is still reachable', () => {
   const html = card(a, dd);
   ['km', 'pace', 'hr', 'rpe', 'notes'].forEach(f =>
     assert.ok(has(html, f), 'evidence field removed: ' + f));
-  assert.match(html, /data-action="set-feel"/, 'feel removed');
+  assert.ok(has(html, 'mainSetFelt'), 'feel removed');
   assert.match(html, /data-action="toggle-splits"/, 'segment logging removed');
   assert.match(html, /data-action="clear-actual"/, 'clear log removed');
 });
