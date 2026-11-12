@@ -186,7 +186,11 @@ test('a completed check-in collapses to a confirmation, not to nothing', () => {
   assert.notEqual(html, '', 'THE DEFECT: the completed check-in must not render as nothing');
   assert.doesNotMatch(html, /How are you today\?/, 'it should no longer be asking');
   assert.match(html, /check-in/i, 'it must say what it is');
-  assert.match(html, /✓/, 'and confirm that it is done');
+  /* ---- CHANGED SIDES: NO TICK ----
+     Founder: "fix the check-in symbols". The heading used to end in a tick
+     and the answers were strung on middle dots. The line of answers is the
+     confirmation now, set apart by space alone. */
+  assert.doesNotMatch(html, /[\u2713\u2714\u00b7]/, 'a tick or a middle dot is back in the check-in');
   assert.ok(html.includes('Heavy legs'), 'the recorded answers are shown back');
   assert.ok(html.includes('Poor sleep'));
   assert.ok(html.includes('Health good'));

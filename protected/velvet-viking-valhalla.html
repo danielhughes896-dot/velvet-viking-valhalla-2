@@ -8815,8 +8815,8 @@
     background:none; border:0; color:inherit;
   }
   .readiness-done-head{color:var(--ink); flex:none;}
-  .readiness-done-line{ color:var(--ink); font-size:16px; overflow-wrap:anywhere;}
-  .readiness-tick{color:var(--cherry-text);}
+  .readiness-done-line{ color:var(--ink); font-size:16px; overflow-wrap:anywhere;
+    display:flex; flex-wrap:wrap; column-gap:14px; row-gap:2px; }
   .readiness-head-btn{
     display:flex; align-items:center; gap:6px; width:100%; min-height:44px;
     padding:0; background:none; border:0; cursor:pointer; text-align:left;
@@ -11330,6 +11330,39 @@
   html{ background:var(--bg); }
   @media (prefers-reduced-motion: reduce){
     ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*){ animation:none !important; }
+  }
+
+  /* =======================================================
+     MICRO-INTERACTIONS
+     =======================================================
+     Founder: "Buttons compress by perhaps 2% when pressed and return
+     immediately. Nothing dramatic, just a physical sense of interaction."
+     The individual `scale` property, not `transform`, so it composes with
+     any transform a control already has instead of replacing it. Buttons
+     only: a card is pressed on the way to a scroll as often as on the way
+     to a tap, and "scroll through content: none". The three controls that
+     already had their own press (the tab bar, the builder's option tiles)
+     keep theirs and do not take a second one on top. */
+  @media (prefers-reduced-motion: no-preference){
+    :where(button, .btn, [role="button"], label.day-check):not(:disabled):active{ scale:.98; }
+    .bn-item:active, .opt-grid button:active, .bld-purpose button:active{ scale:none; }
+  }
+  /* "Once a run is logged, its card transitions from prescribed to
+     completed." Played once per session, the first time its completed card
+     is on screen (see doneArrivals): ticked here, saved in Your Log, or
+     arrived from Strava while the app was closed. "Session complete" rises
+     into place, its circle settles with a small give, and the green light
+     under it comes up rather than being there already. Green is complete. */
+  .is-completing .actual-done{ animation:done-rise 420ms cubic-bezier(.2,.8,.2,1) both; }
+  .is-completing .actual-done::before{ animation:done-light 900ms cubic-bezier(.22,.61,.36,1) both; }
+  .is-completing .actual-done-i,
+  .is-completing .day-check input:checked{ animation:done-pop 360ms cubic-bezier(.2,.8,.2,1) 90ms both; }
+  @keyframes done-rise{ from{ opacity:0; translate:0 10px; } to{ opacity:1; translate:0 0; } }
+  @keyframes done-light{ 0%{ opacity:0; } 45%{ opacity:1; filter:brightness(1.35); } 100%{ opacity:1; filter:none; } }
+  @keyframes done-pop{ 0%{ scale:.6; } 60%{ scale:1.14; } 100%{ scale:1; } }
+  @media (prefers-reduced-motion: reduce){
+    .is-completing .actual-done, .is-completing .actual-done::before,
+    .is-completing .actual-done-i, .is-completing .day-check input:checked{ animation:none; }
   }
 </style>
 </head>
@@ -55194,12 +55227,17 @@ var READINESS_SUMMARY = {
   sleep:  { good:'Slept well',   ok:'Sleep OK',        poor:'Poor sleep' },
   health: { good:'Health good',  under:'Under the weather' }
 };
-function readinessSummary(r){
-  if (!r) return '';
+/* NO SYMBOLS IN THE CHECK-IN. Founder: "fix the check-in symbols". The
+   answers were strung together with middle dots under a heading that ended
+   in a tick. Each answer is now its own short phrase, set apart by space
+   alone; the line itself is the confirmation, so the tick has gone. */
+function readinessSummaryParts(r){
+  if (!r) return [];
   return READINESS_QUESTIONS.map(function(q){
     return (READINESS_SUMMARY[q.key] || {})[r[q.key]] || '';
-  }).filter(Boolean).join(' \u00b7 ');
+  }).filter(Boolean);
 }
+function readinessSummary(r){ return readinessSummaryParts(r).join(', '); }
 /* Which day's finished check-in the athlete has reopened to look at or amend.
    Keyed by date, so reopening today's says nothing about any other day, and
    deliberately NOT persisted or synced: it is where the interface is, not
@@ -55227,9 +55265,10 @@ function renderReadinessCheck(dec){
     return '<div class="readiness-done">'+
       '<button type="button" class="readiness-done-btn" data-action="readiness-edit" '+
         'aria-expanded="false">'+
-        '<span class="readiness-done-head font-head">Today\u2019s check-in '+
-          '<span class="readiness-tick" aria-hidden="true">\u2713</span></span>'+
-        '<span class="readiness-done-line">'+escapeHtml(readinessSummary(r))+'</span>'+
+        '<span class="readiness-done-head font-head">Today\u2019s check-in</span>'+
+        '<span class="readiness-done-line" aria-label="'+escapeHtml(readinessSummary(r))+'">'+
+          readinessSummaryParts(r).map(function(p){ return '<span>'+escapeHtml(p)+'</span>'; }).join('')+
+        '</span>'+
       '</button>'+
     '</div>';
   }
@@ -55237,8 +55276,7 @@ function renderReadinessCheck(dec){
     (done
       ? '<button type="button" class="readiness-head readiness-head-btn font-head" '+
           'data-action="readiness-edit" aria-expanded="true">'+
-          'Today\u2019s check-in '+
-          '<span class="readiness-tick" aria-hidden="true">\u2713</span>'+
+          'Today\u2019s check-in'+
         '</button>'
       : '<div class="readiness-head">How are you today?</div>')+
     READINESS_QUESTIONS.map(function(q){
@@ -57340,6 +57378,94 @@ function vtMorph(from, update, to){
   } catch(e){ vtUntag(); pagerSuppressFade = false; update(); return; }
   if (t && t.finished && t.finished.then) t.finished.then(vtUntag, vtUntag);
 }
+/* ---- A coaching change, accepted: the old prescription becomes the new ----
+   Founder: "If the coach recommends changing a session and the athlete
+   accepts, the old prescription smoothly transitions into the new one."
+   The session's card, where it is on screen, is the same card on both
+   sides, so its title and distance fly from what they were to what they
+   are; everything else (the proposal leaving, the week's figures) cross-
+   fades on the same 300ms. Off screen, the page still cross-fades rather
+   than snapping. Same rules as every morph: Reduce Motion or no support,
+   and the change simply happens. */
+function vtCardSide(dayId){
+  if (!dayId || typeof document === 'undefined' || !document.getElementById) return null;
+  var card = document.getElementById('day-' + dayId);
+  return card ? vtSide(card, VT_CARD_PARTS) : null;
+}
+function vtAccept(dayId, apply){
+  if (!vtCanMorph()){ apply(); return; }
+  var from = vtCardSide(dayId);
+  vtUntag();
+  if (from) vtTagSide(from);
+  var t = null;
+  try {
+    t = document.startViewTransition(function(){
+      vtUntag();
+      pagerSuppressFade = true;
+      apply();
+      pagerSuppressFade = false;
+      var to = from ? vtCardSide(dayId) : null;
+      if (to){
+        Object.keys(to.parts).forEach(function(k){ if (!from.parts[k]) delete to.parts[k]; });
+        vtTagSide(to);
+      }
+    });
+  } catch(e){ vtUntag(); pagerSuppressFade = false; apply(); return; }
+  if (t && t.finished && t.finished.then) t.finished.then(vtUntag, vtUntag);
+}
+
+/* ---- Completion, seen once ----
+   Which completed sessions the athlete has already seen as completed. Kept
+   on the device: it is where the interface is, not something that happened
+   in training, so it is never synced. The first time this runs there is no
+   list, and every session already completed is entered as seen -- so the
+   update does not replay a whole block's worth of finished runs. */
+var DONE_SEEN_KEY = 'vvv_done_seen';
+var doneSeen = null;
+function doneSeenLoad(){
+  if (doneSeen) return doneSeen;
+  var raw = null;
+  try { raw = storageAvailable ? window.localStorage.getItem(DONE_SEEN_KEY) : null; } catch(e){ raw = null; }
+  if (raw){
+    try { doneSeen = JSON.parse(raw) || {}; } catch(e){ doneSeen = null; }
+  }
+  if (!doneSeen){
+    doneSeen = {};
+    ((state && state.days) || []).forEach(function(dd){ if (dd.completed) doneSeen[dd.id] = 1; });
+    doneSeenStore();
+  }
+  return doneSeen;
+}
+function doneSeenStore(){
+  try { if (storageAvailable) window.localStorage.setItem(DONE_SEEN_KEY, JSON.stringify(doneSeen || {})); } catch(e){}
+}
+/* Called after every render and every single-card swap. A card is only in
+   the document when its view is the one on screen, so being found here IS
+   being seen. Un-ticking forgets it, so ticking again plays again. */
+function doneArrivals(){
+  if (typeof document === 'undefined' || !document.getElementById || !state || !state.days) return;
+  var seen = doneSeenLoad(), changed = false;
+  state.days.forEach(function(dd){
+    if (!dd.completed){ if (seen[dd.id]){ delete seen[dd.id]; changed = true; } return; }
+    if (seen[dd.id]) return;
+    /* The card, and This Week's carousel slide for the same day, which is
+       its own copy of the card and the one the athlete is usually looking
+       at there. */
+    var els = [].slice.call(document.querySelectorAll('.wk-slide[data-date="' + dd.date + '"]'));
+    var card = document.getElementById('day-' + dd.id);
+    if (card) els.push(card);
+    if (!els.length) return;
+    seen[dd.id] = 1; changed = true;
+    els.forEach(function(el){
+      if (!el.classList) return;
+      el.classList.remove('is-completing');
+      void el.offsetWidth;
+      el.classList.add('is-completing');
+    });
+  });
+  if (changed) doneSeenStore();
+}
+
 function vtOpenCard(){
   var ov = (typeof document !== 'undefined') ? document.getElementById('modal-overlay') : null;
   return ov ? ov.querySelector('.modal-card') : null;
@@ -66020,6 +66146,23 @@ function patchDerivedStats(){
        logged. */
     if (volEl) volEl.textContent = kmToDisplay(vol.doneTraining)+'/'+kmToDisplay(vol.training);
   }
+  try { patchWeekHero(); } catch(e){}
+}
+/* A tick on This Week used to leave the hero's total where it was until the
+   next full redraw. It is rewritten in place now, and then rises. */
+function patchWeekHero(){
+  var hero = document.querySelector('.wk-hero[data-week]');
+  if (!hero) return;
+  var w = parseInt(hero.getAttribute('data-week'), 10);
+  if (!(w > 0)) return;
+  var v = weekVolume(w), pct = weekDonePct(v.doneTraining, v.training);
+  var vol = hero.querySelector('.wk-hero-vol b'), pc = hero.querySelector('.wk-hero-pct'), fill = hero.querySelector('.wk-bar-fill');
+  if (!vol || !pc || !fill) return;
+  vol.textContent = weekDoneText(v.doneTraining);
+  pc.textContent = pct + '%';
+  fill.style.width = pct + '%';
+  fill.style.setProperty('--wk-pct', pct + '%');
+  weekRise();
 }
 /* ---------- A REPLACED CARD IS NEW DOM, AND NEW DOM IS UNWIRED ----------
    This swaps the card's element for a freshly rendered one, which is the
@@ -66086,6 +66229,7 @@ function replaceCard(dd){
     cardEl.parentNode.replaceChild(wrapper.firstChild, cardEl);
   }
   wireCoachingRails();
+  try { doneArrivals(); } catch(e){}
   if (hasWin){ try { if ((window.pageYOffset || 0) !== y) window.scrollTo(0, y); } catch(e){} }
 }
 
@@ -66137,6 +66281,9 @@ function handleToggleComplete(dayId){
   replaceCard(dd);
   patchDerivedStats();
   scheduleSave();
+  /* "A single haptic confirms success": on the athlete's own tick, not when
+     a run arrives from Strava -- a buzz from nowhere reads as a fault. */
+  if (dd.completed) sacoroHaptic('success');
 }
 function handleActualFieldChange(dayId, field, value){
   var dd = findDay(dayId);
@@ -67060,11 +67207,15 @@ function weekSelectedDay(weekNum){
    makes "the same decision" literally the same string. */
 var TAPER_COACHING_LINE = 'Volume drops, but keep hitting these paces \u2014 '+
   'sharpness matters more than mileage from here.';
+/* The hero's two figures, written once: the renderer draws them and
+   patchWeekHero() rewrites them in place, so the two cannot disagree. */
+function weekDoneText(done){ return String(fmtDist(done)).replace(/\s*[a-z]+$/i,''); }
+function weekDonePct(done, planned){ return planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0; }
 function renderWeekHeroBlock(weekNum, asBlock){
   var vol = weekVolume(weekNum);
   var parts = blockIdentityParts();
   var planned = vol.training, done = vol.doneTraining;
-  var pct = planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0;
+  var pct = weekDonePct(done, planned);
   /* ---------- THIS WEEK SAYS THE WEEK, NOT THE BLOCK ----------
      The subline read "Full Marathon · Week 10 of 14" under a title that
      already says "Week 10 · Taper". The block's name belongs to Full Plan,
@@ -67143,7 +67294,7 @@ function renderWeekHeroBlock(weekNum, asBlock){
      reading about right now has a claim to be. The founder had already said
      where that reading belongs, so the asBlock branch that made the two
      screens differ is gone and neither carries it. */
-  return '<div class="wk-hero">'+
+  return '<div class="wk-hero" data-week="'+weekNum+'">'+
     '<div class="wk-hero-title font-head">'+escapeHtml(title)+'</div>'+
     (sub.length ? '<div class="wk-hero-sub">'+escapeHtml(sub.join(' \u00b7 '))+'</div>' : '')+
     '<div class="wk-hero-figs">'+
@@ -67151,7 +67302,7 @@ function renderWeekHeroBlock(weekNum, asBlock){
       /* "13.5 / 46.5 km" -- one unit, said once at the end. The completed
          figure is fmtDist()'s too, with its unit stripped, so the units
          toggle governs both halves and they cannot disagree. */
-      '<div class="wk-hero-vol"><b>'+escapeHtml(String(fmtDist(done)).replace(/\s*[a-z]+$/i,''))+'</b>'+
+      '<div class="wk-hero-vol"><b>'+escapeHtml(weekDoneText(done))+'</b>'+
         '<span> / '+escapeHtml(fmtDist(planned))+'</span></div>'+
       '<div class="wk-hero-pct">'+pct+'%</div>'+
     '</div>'+
@@ -71819,6 +71970,7 @@ function renderApp(){
   animateSessionRing();
   animateWeekBar();
   animateConfidenceGauge();
+  try { doneArrivals(); } catch(e){}
   wireCoachingRails();
   wireWeekDayPager();
   /* Last, and never waited for: the screen above is already complete. */
@@ -72749,12 +72901,91 @@ function animateSessionRing(){
 }
 /* The bar fills when THIS WEEK is presented -- not when a day inside it is
    picked, which leaves the week's total exactly where it was. */
+/* ---------- LIVING NUMBERS ----------
+   Founder: "When weekly distance increases from 32 to 40 km, the number
+   smoothly counts upward while the gold progress bar advances."
+   The screen is redrawn whole, so "from 32" has to be remembered: the This
+   Week hero's figures are kept, per week and per unit, as they were last
+   shown. When the same week is shown again with a different total -- a run
+   ticked off, saved, or arrived from Strava while the app was closed -- the
+   bar slides from where it was and the total and percentage count to where
+   they are, together, in 700ms. A new week, or a first look, fills as it
+   always did. Kept on the device only: it is where the screen was. */
+var WEEK_SEEN_KEY = 'vvv_week_seen';
+var WEEK_RISE_MS = 700;
+function weekSeenRead(){
+  try {
+    var raw = storageAvailable ? window.localStorage.getItem(WEEK_SEEN_KEY) : null;
+    return raw ? JSON.parse(raw) : null;
+  } catch(e){ return null; }
+}
+function weekSeenWrite(v){
+  try { if (storageAvailable) window.localStorage.setItem(WEEK_SEEN_KEY, JSON.stringify(v)); } catch(e){}
+}
+/* "13.5" -> {n:13.5, dp:1, comma:false}; anything else -> null. */
+function weekFigure(text){
+  var t = String(text == null ? '' : text).trim();
+  if (!/^\d+([.,]\d+)?$/.test(t)) return null;
+  var comma = t.indexOf(',') > -1, parts = t.split(/[.,]/);
+  return { n: parseFloat(t.replace(',', '.')), dp: parts[1] ? parts[1].length : 0, comma: comma };
+}
+function weekFigureText(n, like){
+  var t = n.toFixed(like.dp);
+  return like.comma ? t.replace('.', ',') : t;
+}
+/* What the hero shows now, read back from the page: the same strings the
+   athlete sees, so what is remembered cannot disagree with what was shown. */
+function weekHeroNow(){
+  var hero = document.querySelector('.wk-hero');
+  if (!hero) return null;
+  var vol = hero.querySelector('.wk-hero-vol b'), pct = hero.querySelector('.wk-hero-pct'),
+      fill = hero.querySelector('.wk-bar-fill');
+  if (!vol || !pct || !fill) return null;
+  return { key: 'week:' + (hero.getAttribute('data-week') || currentWeekNum()) + ':' + displayUnit(),
+           done: vol.textContent, pct: parseInt(pct.textContent, 10) || 0,
+           els: { vol: vol, pct: pct, fill: fill } };
+}
+/* Returns true when it played, so the ordinary fill does not also run. */
+function weekRise(){
+  var now = weekHeroNow();
+  if (!now) return false;
+  var seen = weekSeenRead();
+  weekSeenWrite({ key: now.key, done: now.done, pct: now.pct });
+  if (!seen || seen.key !== now.key || seen.done === now.done) return false;
+  var a = weekFigure(seen.done), b = weekFigure(now.done);
+  if (!a || !b) return false;
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+  } catch(e){}
+  if (typeof requestAnimationFrame !== 'function') return true;
+  var els = now.els, fromPct = Math.max(0, Math.min(100, seen.pct || 0)), toPct = now.pct;
+  els.fill.classList.remove('is-filling');
+  els.fill.style.transition = 'none';
+  els.fill.style.width = fromPct + '%';
+  void els.fill.offsetWidth;
+  els.fill.style.transition = 'width ' + WEEK_RISE_MS + 'ms cubic-bezier(.22,.61,.36,1)';
+  els.fill.style.width = toPct + '%';
+  var t0 = null;
+  var ease = function(x){ return 1 - Math.pow(1 - x, 3); };
+  var step = function(ts){
+    if (t0 === null) t0 = ts;
+    var k = Math.min(1, (ts - t0) / WEEK_RISE_MS), e = ease(k);
+    els.vol.textContent = k < 1 ? weekFigureText(a.n + (b.n - a.n) * e, b) : now.done;
+    els.pct.textContent = (k < 1 ? Math.round(fromPct + (toPct - fromPct) * e) : toPct) + '%';
+    if (k < 1) requestAnimationFrame(step);
+  };
+  els.vol.textContent = now.done === seen.done ? now.done : weekFigureText(a.n, b);
+  els.pct.textContent = fromPct + '%';
+  requestAnimationFrame(step);
+  return true;
+}
 function animateWeekBar(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{
     var fill = document.querySelector('.wk-bar-fill');
     if (!fill){ weekBarLastKey = null; return; }
     var key = 'week:' + currentWeekNum();
+    if (weekRise()){ weekBarLastKey = key; return; }
     if (key === weekBarLastKey) return;
     weekBarLastKey = key;
     fill.classList.remove('is-filling');
@@ -72989,8 +73220,14 @@ document.addEventListener('click', function(e){
        changes. The athlete sees one Accept and one Keep either way. */
     case 'accept-evolution': {
       var shownA = target.getAttribute('data-proposal');
-      if (target.getAttribute('data-source')==='playbook') handleAcceptPlaybook(shownA);
-      else handleAcceptEvolution(shownA);
+      var pbA = target.getAttribute('data-source')==='playbook';
+      /* The session that changes, so its card can become the new one. */
+      var changedA = null;
+      try {
+        if (pbA){ var pp = playbookProposal(); changedA = pp && pp.change ? pp.change.dayId : null; }
+        else { var ee = planEvolution(); changedA = ee && ee.changes && ee.changes[0] ? ee.changes[0].dayId : null; }
+      } catch(eA){ changedA = null; }
+      vtAccept(changedA, function(){ if (pbA) handleAcceptPlaybook(shownA); else handleAcceptEvolution(shownA); });
       break;
     }
     case 'decline-evolution': {
@@ -73041,7 +73278,7 @@ document.addEventListener('click', function(e){
     case 'paste-backup': openPasteBackupModal(); break;
     case 'restore-pasted': handleRestorePasted(); break;
     case 'copy-backup-field': handleCopyBackupField(); break;
-    case 'coach-accept': handleCoachAccept(target.getAttribute('data-day')); break;
+    case 'coach-accept': { var acc = target.getAttribute('data-day'); vtAccept(acc, function(){ handleCoachAccept(acc); }); break; }
     case 'coach-keep': handleCoachKeep(target.getAttribute('data-day')); break;
     /* One Restore Original control. A Playbook evolution rebalanced the whole
        week, so it restores the whole week; a Phase-4 adjustment restores its

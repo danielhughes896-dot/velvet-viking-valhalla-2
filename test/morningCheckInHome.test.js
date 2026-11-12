@@ -136,12 +136,14 @@ test('answered in full, its one confirming line moves under the Injured or ill s
   const html = app.renderTodayView();
   assert.equal((html.match(/class="today-checkin/g) || []).length, 1, 'drawn in one place, never two');
   assert.match(html, /class="today-checkin is-done"><div class="readiness-done">/);
-  assert.match(html, /Heavy legs · Sleep OK · Health good/);
+  /* Founder: "fix the check-in symbols" -- the answers stand apart by space,
+     not on middle dots. */
+  assert.match(html, /<span>Heavy legs<\/span><span>Sleep OK<\/span><span>Health good<\/span>/);
   assert.doesNotMatch(html, /How are you today\?/);
   const receipt = html.indexOf('class="today-checkin');
   assert.ok(receipt > html.indexOf('class="day-top"'), 'no longer above the session');
   assert.ok(receipt > html.indexOf('Injured or ill?'), 'under the signpost');
-  assert.match(html.slice(receipt), /Health good<\/span><\/button><\/div><\/div><\/div>$/,
+  assert.match(html.slice(receipt), /Health good<\/span><\/span><\/button><\/div><\/div><\/div>$/,
     'and it is the last thing on Today');
 });
 

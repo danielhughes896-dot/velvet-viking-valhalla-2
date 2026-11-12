@@ -87,9 +87,12 @@ test('closing a page and scrolling are felt as nothing', () => {
   ['closeModal', 'closeRecordPanel', 'vtCloseBack', 'stgCloseSub', 'handlePlanBack', 'vtPlanBack']
     .forEach(fn => assert.doesNotMatch(fnBody(fn), /sacoroHaptic|pagerHaptic|vibrate/, fn + ' is felt'));
   assert.doesNotMatch(SRC, /addEventListener\('scroll'[^\n]*(?:sacoroHaptic|vibrate)/, 'scrolling is felt');
-  /* Exactly the six doors in the table and the tab tick: nothing else feels. */
+  /* Exactly the six doors in the table, the tab tick, and the one the
+     founder added with the micro-interactions -- "Once a run is logged ... a
+     single haptic confirms success" (ticking the session off): nothing else
+     feels. */
   const calls = SRC.match(/sacoroHaptic\('(?:tick|light|success|firm)'\)/g) || [];
-  assert.equal(calls.length, 7, 'a haptic was added or lost: ' + calls.join(', '));
+  assert.equal(calls.length, 8, 'a haptic was added or lost: ' + calls.join(', '));
 });
 
 test('the plugin ships with the app', () => {
