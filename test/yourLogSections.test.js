@@ -138,8 +138,17 @@ test('a session with no warm-up or cool-down in it is not given one', () => {
   ['easy_strides', 'long_run_goal_finish', 'race'].forEach(k => {
     const html = log(all[k]);
     assert.deepEqual(parts(html), ['main'], k + ' was given a section its prescription does not have');
-    assert.ok(count(html, /class="slog-row/g) >= 2, k + ' lost its own rows');
+    if (k !== 'easy_strides') assert.ok(count(html, /class="slog-row/g) >= 2, k + ' lost its own rows');
   });
+  /* Founder: "Easy runs stay simple." Strides are counted and nothing else:
+     no stage boxes, no rep-by-rep marks, nothing about recoveries or
+     whether the pace held. */
+  const st = log(all.easy_strides);
+  assert.equal(count(st, /class="slog-row/g), 0, 'an easy run with strides is asked for stage figures');
+  assert.match(st, /<div class="yl-title">Strides \u00b7 6 \u00d7 100m<\/div>/);
+  assert.match(st, />Strides completed</);
+  assert.doesNotMatch(st, /data-action="log-mark"|data-field="recoveries"|data-field="mainSetHeld"|>Each rep</, 'strides are asked a workout\'s questions');
+  assert.match(st, /data-field="mainSetFelt"/); assert.match(st, /data-field="rpe"/);
   assert.deepEqual(rowLabels(log(all.long_run_goal_finish)).filter(l => /Rep|Warm|Cool/.test(l)), []);
   assert.match(log(all.race), /<div class="yl-title">The race[^<]*<\/div>/);
 });
@@ -148,18 +157,31 @@ test('a session with no warm-up or cool-down in it is not given one', () => {
 // REPS
 // ---------------------------------------------------------------------------
 
-test('the reps in the main set are the reps in the session, one row each', () => {
+/* Founder: "Repetition sessions: Replace individual pace/HR entry boxes with
+   simple rep-by-rep assessments using sliders or compact controls. Exactly
+   the number of repetitions prescribed. Watch data supplies detailed metrics
+   when available." (This law used to demand one pace and heart-rate row per
+   rep.) */
+test('every prescribed rep has one mark, and no pace or heart-rate box of its own', () => {
   const all = everyStructure();
+  let seen = 0;
   Object.values(all).forEach(c => {
-    const shape = c.a.logShape(c.dd);
-    const reps = rowLabels(section(log(c), 'main')).filter(l => /^Rep( \d+)?$/.test(l));
-    if (!shape.reps) return;
-    assert.equal(reps.length, shape.reps, c.arch + ' (' + c.dd.title + '): ' + reps.length + ' rep rows for ' + shape.reps + ' reps');
-    assert.match(log(c), new RegExp('data-field="repsDone"[^>]*data-of="' + shape.reps + '"'), c.arch + ': the reps slider does not run to the same number');
+    const shape = c.a.logShape(c.dd), html = log(c), main = section(html, 'main');
+    const marks = [...html.matchAll(/data-action="log-mark" data-rep="(\d+)"/g)].map(m => +m[1]);
+    if (!shape.reps || shape.light){ assert.deepEqual(marks, [], c.arch + ' is asked to mark reps it does not have'); return; }
+    seen++;
+    assert.deepEqual(marks, Array.from({ length: shape.reps }, (_, i) => i + 1), c.arch + ' (' + c.dd.title + '): the marks are not one per prescribed rep');
+    assert.ok(main.indexOf('data-action="log-mark"') !== -1, c.arch + ': the marks are not in the main set');
+    assert.deepEqual(rowLabels(main).filter(l => /^Rep( \d+)?$/.test(l)), [], c.arch + ': a rep still has pace and heart-rate boxes');
+    assert.match(html, new RegExp('data-field="repsDone"[^>]*data-of="' + shape.reps + '"'), c.arch + ': the reps slider does not run to the same number');
     /* Where the title states the count, that is the count. */
     const m = /(\d+)\s?x\s?\d/.exec(c.dd.title);
     if (m && !/twice/.test(c.dd.title)) assert.equal(shape.reps, +m[1], c.arch + ': "' + c.dd.title + '" is counted as ' + shape.reps);
+    /* The words are the session's: a pace for reps run to one, effort up a hill. */
+    assert.match(html, shape.hills ? /Tap a rep: on effort, easier or harder\./ : /Tap a rep: on pace, slower or faster\./, c.arch);
+    assert.equal(/Average pace/.test(main), false, c.arch + ': the main set of a rep session asks for a pace');
   });
+  assert.ok(seen >= 4, 'the fixture has too few rep sessions for this to mean anything');
 });
 
 test('a strides session has six reps, not seven; and a ladder has reps at all', () => {
@@ -168,7 +190,7 @@ test('a strides session has six reps, not seven; and a ladder has reps at all', 
   const st = all.easy_strides;
   assert.match(st.dd.title, /6x100m/);
   assert.equal(st.a.logShape(st.dd).reps, 6, 'the easy run is being counted as a rep');
-  assert.deepEqual(rowLabels(section(log(st), 'main')), ['Easy', 'Rep 1', 'Rep 2', 'Rep 3', 'Rep 4', 'Rep 5', 'Rep 6']);
+  assert.match(log(st), /data-field="repsDone"[^>]*data-of="6"/, 'the strides are not counted out of six');
   assert.equal(st.a.assessPlan(st.dd).reps.length, 6);
   /* 500-1000-1500-1000-500 is five reps by anyone's count. */
   const ld = all.ladder;
@@ -267,7 +289,14 @@ test('a row filled in is saved where every reader already looks, and still score
   /* The inputs on screen carry the plan's own segment ids and the handler's own action. */
   const onScreen = new Set([...html.matchAll(/data-action="slog-field" data-field="[a-z]+"\s+data-day="[^"]*" data-seg="([^"]+)"/g)].map(m => m[1]));
   const reps = Array.from(plan.rows).filter(r => r.role === 'work');
-  reps.forEach(r => assert.ok(onScreen.has(r.segId), r.label + ' has no input on the screen'));
+  /* The warm-up and cool-down are stages and are typed; the reps are marked
+     now, so they have no box until they hold a figure. What is tested below
+     is that a figure a rep DOES hold -- from an earlier log, or from a watch
+     -- is still saved where every reader looks, still scores, and is then
+     drawn. */
+  Array.from(plan.rows).filter(r => r.role === 'warmup' || r.role === 'cooldown').forEach(r =>
+    assert.ok(onScreen.has(r.segId), r.label + ' has no input on the screen'));
+  reps.forEach(r => assert.ok(!onScreen.has(r.segId), r.label + ' still has typed boxes'));
   assert.match(SRC, /action === 'slog-field'\) handleStructuredSplitChange\(/, 'the row inputs are not wired to the structured handler');
   const before = a.computeExecutionBreakdown(dd);
   /* Typed the way the screen now asks: an average pace per rep. */
@@ -390,7 +419,7 @@ test('the heading says what the section is: the effort, the reps, the distance',
   assert.match(title('track_reps', 'main'), /^Main set \u00b7 \d+ \u00d7 \d+m$/);
   assert.equal(title('track_reps', 'main').match(/(\d+) \u00d7/)[1], String(all.track_reps.a.logShape(all.track_reps.dd).reps));
   assert.equal(title('ladder', 'main'), 'Main set \u00b7 5 reps', 'a ladder was given one distance for five different reps');
-  assert.match(title('easy_strides', 'main'), /^Main set \u00b7 6 \u00d7 100m$/);
+  assert.match(title('easy_strides', 'main'), /^Strides \u00b7 6 \u00d7 100m$/, 'an easy run with strides is headed as a workout');
   assert.match(title('hill_repeats', 'main'), /^Main set \u00b7 \d+ \u00d7 \d+s$/);
   assert.equal(title('long_run_goal_finish', 'main'), 'Main set', 'stages were given a rep count');
   assert.equal(title('easy_run', 'main'), 'The run');
@@ -507,8 +536,9 @@ test('the main set shows its fields first, then what is asked about the set', ()
       assert.match(main, /data-field="repsDone"/, c.arch + ': reps completed is not in the main set');
       assert.doesNotMatch(main, /data-field="mainSetFelt"|data-field="mainSetHeld"/, c.arch);
       assert.match(fb, /data-field="mainSetFelt"/, c.arch);
-      assert.match(fb, /data-field="mainSetHeld"/, c.arch);
-      assert.ok(fb.indexOf('data-field="mainSetHeld"') < fb.indexOf('data-field="rpe"'), c.arch);
+      /* Strides are not asked whether the pace held: "Easy runs stay simple." */
+      assert.equal(/data-field="mainSetHeld"/.test(fb), !shape.light, c.arch);
+      if (!shape.light) assert.ok(fb.indexOf('data-field="mainSetHeld"') < fb.indexOf('data-field="rpe"'), c.arch);
     } else {
       /* One sustained effort, or a plain run: both questions are about it. */
       assert.match(main, /data-field="mainSetFelt"/, c.arch + ': how it felt left the main set');

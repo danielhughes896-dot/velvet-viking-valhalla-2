@@ -228,7 +228,9 @@ test('pace is still offered as optional on the completed surface', () => {
      what Sacoro will CLAIM and is never a failure, so the label says so. */
   const a = app();
   const html = a.renderDayCard(completedDayWithLogOpen(a));
-  assert.match(html, /Avg Pace[^<]*optional/i, 'pace reads as compulsory again');
+  /* The word moved from the label into the box, so three labels fit on one
+     row; it is still the first thing the field says. */
+  assert.match(html, /Avg Pace \/[a-z]+<\/label><input type="text" placeholder="optional"/i, 'pace reads as compulsory again');
 });
 
 test('the header is one height on every view, so the page under it cannot shift', () => {

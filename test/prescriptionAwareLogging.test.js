@@ -552,8 +552,13 @@ test('the worst-case sessions stay bounded, and recoveries are not asked for one
     assert.ok(plan.rows.length <= 20, arch + ' must not explode: ' + plan.rows.length);
     const html = a.renderYourLogAnswers(dd);
     const drawn = (html.match(/class="slog-row[^"]*"/g) || []).length;
-    const recs = plan.rows.filter(r => r.kind === 'recovery').length;
-    assert.equal(drawn, plan.rows.length - recs, arch + ': the rows drawn are not the plan less its recoveries');
+    /* Founder: "Replace individual pace/HR entry boxes with simple
+       rep-by-rep assessments ... Exactly the number of repetitions
+       prescribed." So the rows drawn are the stages either side of the set,
+       and the reps are marks: one each, and no more than the plan has. */
+    const stages = plan.rows.filter(r => r.role === 'warmup' || r.role === 'cooldown').length;
+    assert.equal(drawn, stages, arch + ': a rep or a recovery was given typed boxes');
+    assert.equal((html.match(/data-action="log-mark"/g) || []).length, a.logShape(dd).reps, arch + ': the marks are not one per rep');
     assert.doesNotMatch(html, /slog-row is-rec/, arch + ' asks for every recovery by number');
     assert.doesNotMatch(a.renderSplitsBlock(dd), /splits-summary|Session breakdown/i);
     a.state.days.pop();
@@ -573,8 +578,11 @@ test('the sections are the plan\'s own: warm-up, the reps in the main set, cool-
   const part = p => (new RegExp('data-part="' + p + '">([\\s\\S]*?)(?=<div class="yl-sec|<div class="yl-box|<div class="yl-grp|<div id="splits-total)').exec(html) || [,''])[1];
   assert.equal((part('warmup').match(/class="slog-row/g) || []).length, 1);
   assert.equal((part('cooldown').match(/class="slog-row/g) || []).length, 1);
-  assert.deepEqual([...part('main').matchAll(/<span class="slog-label">([^<]+)</g)].map(m => m[1]),
-    ['Rep 1', 'Rep 2', 'Rep 3', 'Rep 4', 'Rep 5']);
+  /* The reps in the main set are marked now, one tile each -- see
+     yourLogSections.test.js -- and it is still the plan's five. */
+  assert.deepEqual([...part('main').matchAll(/data-action="log-mark" data-rep="(\d+)"/g)].map(m => m[1]),
+    ['1', '2', '3', '4', '5']);
+  assert.deepEqual([...part('main').matchAll(/<span class="slog-label">([^<]+)</g)].map(m => m[1]), []);
   assert.ok(html.indexOf('data-part="warmup"') < html.indexOf('data-part="main"') &&
             html.indexOf('data-part="main"') < html.indexOf('data-part="cooldown"'), 'the sections are out of order');
   a.state.days.pop();

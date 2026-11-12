@@ -3398,7 +3398,7 @@
      the label tier, sentences on the support tier, and no box anywhere. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-panel{
     margin-top:30px; padding-top:30px; gap:26px 18px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .log-body{gap:26px 18px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .log-body{gap:22px 18px;}
 
   /* SESSION COMPLETE. Lit exactly as the Coach's Note is lit -- a blurred
      radial that overspills the content and dissolves into the page ground --
@@ -6239,7 +6239,15 @@
      field goes full width. The focused gaps are restated for the same
      reason, beside the rule they mirror. */
   .log-tab{grid-column:1/-1;}
-  .log-body{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+  /* 22 under the tab, not 12: the first fields sat closer to the Your Log
+     tab than the tabs sit to each other, so the tab read as their label. */
+  .log-body{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:22px;}
+  .log-totals{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 14px; min-width:0;}
+  .log-totals.has-hr{grid-template-columns:repeat(3, minmax(0, 1fr));}
+  .log-totals > .actual-field{min-width:0;}
+  .log-totals input{width:100%; min-width:0;}
+  .log-totals-note{grid-column:1/-1; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .log-totals-note:not(:empty){margin-top:8px;}
   .sess-details-mount{grid-column:1/-1;}
   .exec-review-mount{grid-column:1/-1;}
   .exec-review-mount:empty{display:none;}
@@ -8736,14 +8744,20 @@
      everything else is a label and a control with air between them. The
      slider is the builder's, value for value, so a thumb that has learned
      one has learned both. */
-  .yl{margin-top:18px; min-width:0;}
+  /* ---------- TIGHTER, NOT SMALLER ----------
+     Founder: "Reduce overall logging height by approximately 10-15%,
+     primarily through tighter vertical spacing. Keep text, input fields,
+     buttons and slider handles readable and thumb-friendly."
+     Every figure below is a gap. No type size, field height, tile height or
+     slider thumb moved: fields and sliders are still 44px, tiles 48. */
+  .yl{margin-top:4px; min-width:0;}
   .yl *{min-width:0;}
-  .yl-box{border:1.5px solid var(--cherry); border-radius:var(--tile-radius); padding:22px 18px 24px;}
+  .yl-box{border:1.5px solid var(--cherry); border-radius:var(--tile-radius); padding:20px 16px 20px;}
   .yl-title{font-family:var(--label-face); font-weight:var(--label-weight); font-size:19px;
     letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
-  .yl-sec{margin-top:36px;}
-  .yl-q{margin-top:26px;}
-  .yl-box .yl-title + .yl-q{margin-top:18px;}
+  .yl-sec{margin-top:28px;}
+  .yl-q{margin-top:20px;}
+  .yl-box .yl-title + .yl-q{margin-top:12px;}
   .yl-sec > .yl-q:first-child{margin-top:0;}
   .yl-q-head{display:flex; justify-content:space-between; align-items:baseline; gap:12px;}
   .yl-q-t{font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; color:#FFFFFF;}
@@ -8752,7 +8766,7 @@
   .yl-fig{font-size:22px; color:#FFFFFF; white-space:nowrap;}
   .yl-note{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF; margin-top:4px;}
   .yl-range{-webkit-appearance:none; appearance:none; display:block; width:100%;
-    height:44px; min-height:44px; margin:6px 0 0; padding:0; background:transparent;
+    height:44px; min-height:44px; margin:0; padding:0; background:transparent;
     border:0; border-radius:0; box-shadow:none; cursor:pointer; --p:0%;}
   .yl-range::-webkit-slider-runnable-track{height:4px; border-radius:2px;
     background:linear-gradient(to right, var(--cherry-text) var(--p), var(--line) var(--p));}
@@ -8771,11 +8785,11 @@
   .yl-range:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
   .yl-ends{display:flex; justify-content:space-between; font-size:var(--fs-support);
     line-height:var(--lh-support); color:#FFFFFF;}
-  .yl-ans{margin-top:8px; text-align:center; font-family:var(--label-face);
+  .yl-ans{margin-top:2px; text-align:center; font-family:var(--label-face);
     font-weight:var(--label-weight); font-size:17px; letter-spacing:1.4px;
     text-transform:uppercase; color:#FFFFFF;}
   .yl-ans.is-unset{font-family:var(--text-face); font-weight:400; letter-spacing:0; text-transform:none;}
-  .yl-clear{display:block; min-height:44px; margin:2px auto 0; padding:0 12px;
+  .yl-clear{display:block; min-height:44px; margin:0 auto -8px; padding:0 12px;
     font-size:var(--fs-support); line-height:var(--lh-support); color:var(--cherry-text);
     background:none; border:0;}
   /* ---------- THE SECTIONS AND THEIR ROWS ----------
@@ -8783,15 +8797,15 @@
      reps sit in the main set's own box, under the answers about it. The row
      is the structured log's -- same inputs, same handler -- re-dressed for
      this column: no left rule, no dimming, white type, 44px fields. */
-  .yl > .yl-sec:first-child{margin-top:10px;}
-  .yl-sec + .yl-box{margin-top:30px;}
-  .yl-part .slog-row{margin:14px 0 0; padding:0; border:0; opacity:1;}
-  .yl-rows{margin-top:18px;}
+  .yl > .yl-sec:first-child{margin-top:6px;}
+  .yl-sec + .yl-box{margin-top:22px;}
+  .yl-part .slog-row{margin:10px 0 0; padding:0; border:0; opacity:1;}
+  .yl-rows{margin-top:12px;}
   /* The two groups under the sections: a heading, then questions in the
      voice they have inside the main set's box. */
-  .yl-grp{margin-top:40px;}
-  .yl-grp > .yl-title + .yl-q{margin-top:18px;}
-  .yl-sec + .yl-grp, .yl-box + .yl-grp{margin-top:40px;}
+  .yl-grp{margin-top:34px;}
+  .yl-grp > .yl-title + .yl-q{margin-top:12px;}
+  .yl-sec + .yl-grp, .yl-box + .yl-grp{margin-top:34px;}
   .yl-rows .slog-row{margin:0 0 16px; padding:0; border:0; opacity:1;}
   .yl-rows .slog-row:last-child{margin-bottom:0;}
   .yl .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px;}
@@ -8806,12 +8820,28 @@
   .yl .slog-cols{margin-bottom:10px;}
   .yl .slog-in{width:100%; min-height:44px; font-size:16px; padding:8px 10px;}
   .yl .slog-in.slog-hr{flex:none;}
-  .yl-opt{margin-top:16px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .yl-opt{margin-top:10px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   /* A PLACEHOLDER YOU CAN READ. They were the dimmest thing on the form and
      were being asked to do a label's job. The labels do that now; the
      example under them is white, set back, and still plainly not a value. */
   .log-body input::placeholder, .log-body textarea::placeholder{color:#FFFFFF; opacity:.6;}
-  .yl .opt-grid{margin-top:14px;}
+  .yl .opt-grid{margin-top:10px;}
+  /* EACH REP: four to a row, a number over a word. The same tile as every
+     other choice on the log -- same rim, same cherry when chosen -- at the
+     same 48px, so seven reps are two rows where they were seven. */
+  .yl .yl-marks{grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px;}
+  .yl .yl-marks button{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+    padding-top:5px; padding-bottom:5px;}
+  .yl .yl-marks button .n{font-family:var(--num-face); font-size:15px; line-height:1.1; color:#FFFFFF;}
+  .yl .opt-grid.yl-marks button .t{font-size:11px; letter-spacing:.5px;}
+  /* No tick on a marked rep: the tile is 75px wide and the tick sat on the
+     word. The cherry rim says it is chosen, and the word says what was. */
+  .yl .yl-marks button.active::after{display:none;}
+  @media (max-width:360px){
+    .yl .opt-grid.yl-marks button{padding-left:2px; padding-right:2px;}
+    .yl .opt-grid.yl-marks button .t{font-size:10px; letter-spacing:.2px; white-space:nowrap;}
+    .log-totals input::placeholder{font-size:14px;}
+  }
   /* THREE ACROSS, ON ITS OWN TRACK. The builder's .cols-N is for grids of
      short tokens: on a grid of words a bare 1fr track is widened by a label
      that cannot break, which is how a word once left its card. These are
@@ -34395,9 +34425,16 @@ var LOG_RECOVERIES = [['shorter','Shorter'], ['as-set','As set'], ['longer','Lon
 function logShape(dd){
   var plan = assessPlan(dd);
   var rep = plan.family === 'hills' || plan.family === 'reps';
+  /* STRIDES ARE AN EASY RUN WITH A FEW FAST STEPS ON THE END. By structure
+     they are reps; by intent the day is easy, and the founder's rule is
+     "Easy runs stay simple." So they are counted and nothing more: no
+     rep-by-rep marks, no question about the recoveries, none about whether
+     the pace held. */
+  var light = rep && !!dd && dd.type === 'easy';
   return { family:plan.family, reps: rep ? plan.reps.length : 0,
-           main: plan.family !== 'aerobic' && plan.family !== 'race',
-           hills: plan.family === 'hills', recoveries: plan.family === 'reps' };
+           main: plan.family !== 'aerobic' && plan.family !== 'race' && !light,
+           hills: plan.family === 'hills', recoveries: plan.family === 'reps' && !light,
+           light: light };
 }
 function logCutShort(dd, shape){
   var a = dd.actual || {};
@@ -34541,15 +34578,199 @@ function logPlanRows(dd){
     var s = structuredSplitFor(dd, r.segId);
     return !!(s && (s.km != null || s.hr != null || s.paceEntered || (s.sec != null && !s.secSeeded)));
   };
+  /* A REP IS MARKED, NOT TYPED. Founder: "Repetition sessions: Replace
+     individual pace/HR entry boxes with simple rep-by-rep assessments ...
+     Watch data supplies detailed metrics when available." So a rep has no
+     pace and heart-rate boxes of its own -- see logRepMarksHtml() -- and a
+     watch's laps are still drawn by renderSplitsBlock(). The one exception
+     is the rule recoveries already follow: a rep that HOLDS figures an
+     athlete typed keeps its row, because a record is never made less
+     visible than it was. */
+  var shape = null;
+  try { shape = logShape(dd); } catch(e){ shape = null; }
+  var marked = !!(shape && shape.reps), light = !!(shape && shape.light);
+  var mid = rows.filter(function(r){ return r.role !== 'warmup' && r.role !== 'cooldown'; });
   return {
     structured: rows.length > 0,
     warm: rows.filter(function(r){ return r.role === 'warmup'; }),
     cool: rows.filter(function(r){ return r.role === 'cooldown'; }),
-    main: rows.filter(function(r){
-      if (r.role === 'warmup' || r.role === 'cooldown') return false;
-      return r.kind !== 'recovery' || held(r);
-    })
+    main: mid.filter(function(r){
+      if (r.kind === 'recovery' || light) return held(r);
+      if (marked && r.repIndex != null) return held(r);
+      return true;
+    }),
+    /* Every piece of work in the main set, drawn or not: the heading is
+       written from the prescription, not from which boxes are on screen. */
+    work: mid.filter(function(r){ return r.kind !== 'recovery'; })
   };
+}
+/* ---------- EACH REP, MARKED ----------
+   One compact control per prescribed rep -- "Exactly the number of
+   repetitions prescribed" -- and each is one of three things or nothing:
+   on target, short of it, or beyond it. A tap moves it on a step and a
+   fourth tap clears it, so a rep the athlete is unsure of stays unmarked
+   and is never counted as anything.
+
+   THE WORDS ARE THE SESSION'S. Reps run to a pace are on pace, slower or
+   faster. Hill reps have no pace to be held to -- "hill sessions assess
+   effort rather than relying on pace" -- so they are on effort, easier or
+   harder. The stored value is the same three words either way.
+
+   WHERE THEY GO. assessExecution() reads them as the athlete's report of
+   the set: how much of it was on target, and whether it faded or built.
+   That is the reading the per-rep boxes used to feed with numbers, from
+   one tap instead of two typed fields. They are also part of the evidence
+   fingerprint, so a set re-marked is new evidence. Nothing here is turned
+   into a pace: a tap is not a measurement and is not scored as one. */
+var LOG_MARKS = ['on', 'under', 'over'];
+var LOG_MARK_WORDS = {
+  pace:   { on:'On pace',   under:'Slower', over:'Faster' },
+  effort: { on:'On effort', under:'Easier', over:'Harder' }
+};
+function logRepMarks(dd){
+  var n = 0;
+  try { var sh = logShape(dd); n = sh.light ? 0 : sh.reps; } catch(e){ n = 0; }
+  var src = (dd && dd.actual && Array.isArray(dd.actual.repMarks)) ? dd.actual.repMarks : [];
+  var out = [];
+  for (var i = 0; i < n; i++) out.push(LOG_MARKS.indexOf(src[i]) !== -1 ? src[i] : null);
+  return out;
+}
+/* What the marks add up to. `pattern` uses the engine's own three words and
+   its own thirds: the last third of the marked reps against the first. */
+function logRepMarkSummary(dd){
+  var marks = logRepMarks(dd), set = marks.filter(Boolean);
+  var count = function(k){ return set.filter(function(m){ return m === k; }).length; };
+  var out = { of:marks.length, marked:set.length, on:count('on'), under:count('under'), over:count('over'), pattern:null };
+  if (set.length >= 3){
+    var n = Math.max(1, Math.round(set.length / 3));
+    var lean = function(list){
+      return list.reduce(function(t, m){ return t + (m === 'over' ? 1 : m === 'under' ? -1 : 0); }, 0) / list.length; };
+    var d = lean(set.slice(-n)) - lean(set.slice(0, n));
+    out.pattern = d < 0 ? 'faded' : d > 0 ? 'built' : 'held';
+  }
+  return out;
+}
+function logRepMarksHtml(dd, shape){
+  var marks = logRepMarks(dd);
+  if (!marks.length) return '';
+  var words = LOG_MARK_WORDS[shape.hills ? 'effort' : 'pace'];
+  return '<div class="yl-q yl-marks-q">'+
+    '<div class="yl-q-head"><span class="yl-q-t">Each rep</span></div>'+
+    '<div class="yl-note">Tap a rep: '+words.on.toLowerCase()+', '+words.under.toLowerCase()+' or '+
+      words.over.toLowerCase()+'. Leave any you are not sure of.</div>'+
+    '<div class="opt-grid yl-marks" role="group" aria-label="Each rep">'+
+      marks.map(function(m, i){
+        return '<button type="button" class="'+(m ? 'active' : '')+'" aria-pressed="'+(m ? 'true' : 'false')+'" '+
+          'data-action="log-mark" data-rep="'+(i + 1)+'" data-day="'+dd.id+'" '+
+          'aria-label="Rep '+(i + 1)+': '+(m ? words[m] : 'not marked')+'">'+
+          '<span class="n">'+(i + 1)+'</span>'+
+          '<span class="t">'+escapeHtml(m ? words[m] : '\u2013')+'</span></button>';
+      }).join('')+
+    '</div>'+
+  '</div>';
+}
+function handleLogMark(dayId, rep){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  var marks = logRepMarks(dd), i = parseInt(rep, 10) - 1;
+  if (!(i >= 0 && i < marks.length)) return;
+  dd.actual = dd.actual || emptyActual();
+  var at = LOG_MARKS.indexOf(marks[i]);
+  marks[i] = (at === LOG_MARKS.length - 1) ? null : LOG_MARKS[at + 1];
+  if (marks.some(Boolean)) dd.actual.repMarks = marks; else delete dd.actual.repMarks;
+  logAnswerSaved(dd);
+}
+/* ---------- THE WHOLE SESSION, FROM ITS STAGES ----------
+   Founder: "SACORO calculates overall distance and pace from actual stage
+   data where possible, without duplicating inputs or assuming prescribed
+   distances were completed. Manual correction remains available."
+
+   WHAT CAN HONESTLY BE ADDED UP, and nothing else is:
+
+   measured   every stage carries a distance and a time the athlete or the
+              watch gave. The session is their sum: distance and pace.
+   stages     every stage carries an average pace, and the distance the
+              ATHLETE entered for the whole session agrees with what the
+              plan's stages come to (within LOG_TOTALS_MATCH). The stages
+              were then run at the size they were set, on the athlete's own
+              evidence rather than our assumption, and the average pace is
+              the stage paces weighted by those sizes.
+
+   A stage pace on its own does not say how far the stage went, so a
+   distance is never worked out from paces: it stays the one number the
+   athlete gives. A session cut short, or with a stage left blank, is not
+   added up at all.
+
+   A FIGURE WORKED OUT IS MARKED AS SUCH (kmDerived / paceDerived) and gives
+   way the moment the athlete types their own. It is written into the same
+   fields the athlete would have typed into, so every reader of the session
+   -- the score, the review, the graphs -- gets it with no second path. */
+var LOG_TOTALS_MATCH = 0.03;
+function logStageTotals(dd){
+  var out = { km:null, paceSec:null, basis:null };
+  var m = null;
+  try { m = loggingModeFor(dd); } catch(e){ m = null; }
+  if (!m || m.mode !== 'structured' || !m.plan || !m.plan.rows || !m.plan.rows.length) return out;
+  var a = dd.actual || {};
+  var km = 0, sec = 0, measured = true, pKm = 0, pSec = 0, paced = true;
+  m.plan.rows.forEach(function(r){
+    var s = structuredSplitFor(dd, r.segId);
+    if (s && s.km > 0 && s.sec > 0 && !s.secSeeded && !s.kmFromPrescription){ km += s.km; sec += s.sec; }
+    else measured = false;
+    var pace = (s && s.paceSec > 0) ? s.paceSec : null;
+    if (pace && r.presKm > 0){ pKm += r.presKm; pSec += pace * r.presKm; }
+    else if (pace && r.presSec > 0){ pKm += r.presSec / pace; pSec += r.presSec; }
+    else paced = false;
+  });
+  if (measured && km > 0){
+    out.km = round2(km); out.paceSec = Math.round(sec / km); out.basis = 'measured';
+    return out;
+  }
+  var own = (a.km > 0 && !a.kmDerived) ? a.km : null;
+  if (paced && own && pKm > 0 && Math.abs(pKm - own) / own <= LOG_TOTALS_MATCH){
+    out.paceSec = Math.round(pSec / pKm); out.basis = 'stages';
+  }
+  return out;
+}
+/* Writes what logStageTotals() found, and takes back anything it wrote
+   before that no longer holds. Never touches a figure the athlete typed. */
+function logApplyStageTotals(dd){
+  var a = dd && dd.actual;
+  if (!a) return;
+  var t = logStageTotals(dd);
+  if (t.km != null && (a.km == null || a.kmDerived)){ a.km = t.km; a.kmDerived = true; }
+  else if (a.kmDerived && t.km == null){ a.km = null; delete a.kmDerived; }
+  if (t.paceSec != null && (!a.pace || a.paceDerived)){
+    a.pace = secToPace(t.paceSec); a.paceUnit = 'km'; a.paceDerived = true;
+  } else if (a.paceDerived && t.paceSec == null){
+    a.pace = null; delete a.paceUnit; delete a.paceDerived;
+  }
+}
+/* The one line under the three figures that says where a worked-out one
+   came from. Empty when the athlete typed them. */
+function logTotalsNote(dd){
+  var a = (dd && dd.actual) || {};
+  if (a.kmDerived && a.paceDerived) return 'Distance and average pace worked out from your stages. Type over either to correct it.';
+  if (a.paceDerived) return 'Average pace worked out from your stages. Type over it to correct it.';
+  if (a.kmDerived) return 'Distance worked out from your stages. Type over it to correct it.';
+  return '';
+}
+/* A stage or the distance was just typed: put what that makes of the totals
+   into the boxes, without redrawing the card and without touching the box
+   the athlete is in. */
+function logPatchTotals(dd){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  var card = document.getElementById('day-'+dd.id);
+  if (!card || !card.querySelector) return;
+  var a = dd.actual || {};
+  var put = function(field, value){
+    var el = card.querySelector('[data-action="actual-field"][data-field="'+field+'"]');
+    if (el && el !== document.activeElement && el.value !== value) el.value = value;
+  };
+  put('km', a.km != null ? String(kmToDisplay(a.km)) : '');
+  put('pace', actualPaceDisplayStr(dd));
+  var note = card.querySelector('[data-log-totals-note]');
+  if (note) note.textContent = logTotalsNote(dd);
 }
 /* "5km" as the heading prints it. */
 function logSpaced(t){
@@ -34573,9 +34794,11 @@ function logPartTitle(base, rows){
 /* One row is its section: the heading names it and the two labels sit on
    its fields. Several rows are a list: each is named, and the two labels
    are printed once above them rather than once per rep. */
-function logRowsHtml(dd, rows){
+function logRowsHtml(dd, rows, named){
   if (!rows.length) return '';
-  if (rows.length === 1) return renderStructuredRow(dd, rows[0], true, false);
+  /* `named`: a row kept only because it holds figures -- one rep or one
+     recovery out of several -- is not its section, so it keeps its name. */
+  if (rows.length === 1 && !named) return renderStructuredRow(dd, rows[0], true, false);
   return '<div class="slog-cols" aria-hidden="true"><span>Average pace</span>'+
       (healthConsentGranted() ? '<span>Average heart rate</span>' : '')+'</div>'+
     rows.map(function(r){ return renderStructuredRow(dd, r, false, true); }).join('');
@@ -34617,7 +34840,7 @@ function renderYourLogAnswers(dd){
   var a = dd.actual || {}, shape = logShape(dd), health = healthConsentGranted();
   var parts = logPlanRows(dd);
   var repsQ = shape.reps
-    ? logRangeHtml(dd, { field:'repsDone', label:'Reps completed', min:0, max:shape.reps,
+    ? logRangeHtml(dd, { field:'repsDone', label:(shape.light ? 'Strides completed' : 'Reps completed'), min:0, max:shape.reps,
         value:(typeof a.repsDone === 'number' ? a.repsDone : null), start:shape.reps, of:shape.reps })
     : '';
   var feltQ = health
@@ -34644,15 +34867,19 @@ function renderYourLogAnswers(dd){
   var stopQ = logCutShort(dd, shape)
     ? logTilesHtml(dd, { field:'stopReason', label:'Why did you stop?', options:stops, value:a.stopReason })
     : '';
-  /* Reps and hills: the set's own box holds the reps. Everything else: it
-     holds how the one effort felt and whether it held. */
-  var inBox = shape.reps ? repsQ : (feltQ + heldQ);
+  /* Reps and hills: the set's own box holds the reps -- how many, and each
+     one marked. Everything else: it holds how the one effort felt and
+     whether it held. */
+  var inBox = shape.reps ? (repsQ + logRepMarksHtml(dd, shape)) : (feltQ + heldQ);
   var feedback = (shape.reps ? feltQ + heldQ : '') + effortQ + recoveriesQ + stopQ;
-  var mainRows = logRowsHtml(dd, parts.main);
-  var boxBase = shape.family === 'race' ? 'The race' : (shape.main ? 'Main set' : 'The run');
-  var boxTitle = escapeHtml(parts.main.length ? logPartTitle(boxBase, parts.main) : boxBase);
-  /* Said once, where the founder drew it: under the main set's fields. */
-  var optional = parts.structured ? '<div class="yl-opt">Optional — enter what you know.</div>' : '';
+  var mainRows = logRowsHtml(dd, parts.main, !!shape.reps);
+  var boxBase = shape.family === 'race' ? 'The race' : shape.light ? 'Strides' : (shape.main ? 'Main set' : 'The run');
+  /* The heading is the prescription's -- "Main set · 7 × 700m" -- whether
+     or not a rep has a row of its own on screen. */
+  var named = shape.reps ? parts.work.filter(function(r){ return r.repIndex != null; }) : parts.work;
+  var boxTitle = escapeHtml(named.length ? logPartTitle(boxBase, named) : boxBase);
+  /* Said once, under the main set's fields -- and only where it has fields. */
+  var optional = mainRows ? '<div class="yl-opt">Optional \u2014 enter what you know.</div>' : '';
   return '<div class="actual-field full yl">'+
     logPartHtml(dd, 'Warm-up', 'warmup', parts.warm)+
     ((inBox || mainRows) ? '<div class="yl-box" data-part="main"><div class="yl-title">'+boxTitle+'</div>'+
@@ -34686,6 +34913,13 @@ function sessionReadoutHtml(dd){
   var RESPONSE = { harder:'harder than intended', easier:'easier than intended',
                    'as-intended':'felt as intended', unclear:'effort and heart rate disagree' };
   if (RESPONSE[r.reading]) parts.push(RESPONSE[r.reading]);
+  /* The reps as marked: "5 of 7 reps on pace", or "on effort" up a hill. */
+  var marks = logRepMarkSummary(dd);
+  if (marks.marked){
+    var shape = logShape(dd);
+    parts.push(marks.on + ' of ' + marks.marked + (marks.marked < marks.of ? ' marked' : '') + ' reps ' +
+               LOG_MARK_WORDS[shape.hills ? 'effort' : 'pace'].on.toLowerCase());
+  }
   var held = logHeldWord((dd.actual || {}).mainSetHeld) || as.execution.pattern;
   if (held === 'faded') parts.push('the set faded');
   if (held === 'built') parts.push('the set got stronger');
@@ -34857,15 +35091,22 @@ function renderCompletedPanel(dd, detailHtml){
           sessionTabHtml('Your Log')+
         '</button>'+
         (logTabOpen(dd) ? '<div class="log-body">'+
-      '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
-      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
-      /* THE WHOLE SESSION'S THREE FIGURES, TOGETHER. Average heart rate sat
-         below every question, between Anything hurting and Elevation; it is
-         the third number a watch gives and belongs with the other two.
-         Same field, same handler, moved. */
-      (healthConsentGranted()
-        ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
-        : '')+
+      /* THE WHOLE SESSION'S THREE FIGURES, ON ONE ROW. Distance, average pace
+         and average heart rate are the three numbers any watch gives, and
+         three short fields side by side cost one row where they used to cost
+         two (the heart rate sat alone on the second). Same fields, same
+         handler. The pace says "optional" in its own box rather than in its
+         label, which is what lets three labels fit across a phone.
+         The line beneath is empty unless Sacoro worked a figure out from the
+         stages: see logStageTotals(). */
+      '<div class="actual-field full log-totals'+(healthConsentGranted() ? ' has-hr' : '')+'">'+
+        '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
+        '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="optional" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+        (healthConsentGranted()
+          ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" placeholder="optional" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
+          : '')+
+        '<div class="log-totals-note" data-log-totals-note>'+escapeHtml(logTotalsNote(dd))+'</div>'+
+      '</div>'+
       /* THE ANSWERS, BEFORE ANYTHING ELSE THAT HAS TO BE TYPED. The figures
          above are what a watch gives; everything the athlete knows that the
          watch does not is answered here with a thumb. The block ends with
@@ -34906,11 +35147,15 @@ function renderCompletedPanel(dd, detailHtml){
       '<div class="actual-field full notes-field"><label>Notes \u2014 optional</label>'+
         '<div class="notes-wrap">'+
           '<textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'" '+
-          'placeholder="e.g. Legs felt heavy after 12km, strong headwind, slept badly, HR strap seemed off.">'+escapeHtml(a.notes||'')+'</textarea>'+
+          'placeholder="Anything the numbers don\u2019t show: heavy legs, poor sleep, illness, a sensor fault.">'+escapeHtml(a.notes||'')+'</textarea>'+
           '<button type="button" class="notes-wand" data-action="notes-wand" data-day="'+dd.id+'" '+
             'title="Read my notes" aria-label="Read my notes for coaching signals">\u2728</button>'+
         '</div>'+
-        '<span class="field-hint">Anything the numbers don\u2019t show \u2014 tired legs, poor sleep, heat, wind, hills, illness, pain, treadmill, HR sensor trouble.</span>'+
+        /* ONE SENTENCE, IN THE BOX. Founder: "Remove the duplicated explanatory
+           sentence. Keep one concise placeholder explaining what athletes can
+           record beyond the numbers." A hint under the field said the same
+           thing as the example inside it. Heat, wind, hills and the treadmill
+           are tiles directly above, so the placeholder names what is not. */
         renderNoteSignalChips(dd)+
       '</div>'+
       /* What the watch recorded, and any lap list the athlete already typed
@@ -37016,7 +37261,8 @@ function assessEvidence(dd, plan, env){
     a.hr < ASSESS_CAL.plausibleHR[0] || a.hr > ASSESS_CAL.plausibleHR[1]);
   var effort = a.rpe != null || a.mainSetFelt != null;
   var report = !!(a.notes && String(a.notes).trim()) || a.mainSetFelt != null || a.mainSetHeld != null ||
-               a.recoveries != null || a.stopReason != null;
+               a.recoveries != null || a.stopReason != null ||
+               (Array.isArray(a.repMarks) && a.repMarks.some(Boolean));
   var excluded = [];
   if (paceSuspect) excluded.push('pace');
   if (hrSuspect) excluded.push('hr');
@@ -37109,14 +37355,22 @@ function assessExecution(dd, plan, ev){
 
   /* Effort-based work -- hill reps -- has no pace to hold it to. It is
      described from what the athlete reported, and never given a number. */
-  if (plan.family === 'hills' || (!paceUsable && ev.coverage.effort)){
-    if (!ev.coverage.effort && a.mainSetHeld == null) return out;
+  /* The reps as the athlete marked them: see logRepMarksHtml(). What they
+     say outright about whether the set held wins over what the marks imply,
+     and fewer than half the marked reps on target is a mixed set whatever
+     else is said. */
+  var marks = logRepMarkSummary(dd);
+  var heldWord = logHeldWord(a.mainSetHeld) || marks.pattern;
+  var offTarget = marks.marked > 0 && marks.on * 2 < marks.marked;
+  if (plan.family === 'hills' || (!paceUsable && (ev.coverage.effort || marks.marked))){
+    if (!ev.coverage.effort && a.mainSetHeld == null && !marks.marked) return out;
     out.basis = 'reported';
     var band = null;
     try { band = expectedRPEBand(dd); } catch(e){ band = null; }
     var tooEasy = (a.mainSetFelt != null && a.mainSetFelt <= 1) ||
                   (a.mainSetFelt == null && a.rpe != null && band && a.rpe < band[0] - 1);
-    out.level = tooEasy ? 'low' : (logHeldWord(a.mainSetHeld) === 'faded' ? 'mixed' : 'high');
+    out.level = tooEasy ? 'low' : ((heldWord === 'faded' || offTarget) ? 'mixed' : 'high');
+    if (marks.pattern) out.pattern = marks.pattern;
     return out;
   }
   if (!paceUsable) return out;
@@ -37160,6 +37414,13 @@ function assessExecution(dd, plan, ev){
     if (whole.different){ out.interpretation = 'different-session'; return out; }
     if (whole.uncertain) return out;
     out.score = clamp(Math.round(whole.score), 0, 100);
+  } else if (marks.marked){
+    /* Reps the athlete marked and did not time. Their report of the set,
+       described and never given a number: a tap is not a measurement. */
+    out.basis = 'reported';
+    out.pattern = marks.pattern;
+    out.level = (heldWord === 'faded' || offTarget) ? 'mixed' : 'high';
+    return out;
   } else if (ev.avgPaceSec != null){
     /* A structured session known only by its totals. The average runs
        through the warm-up, the work and the recoveries, so it is compared
@@ -47142,7 +47403,8 @@ function evolutionEvidenceSignature(){
     if (d.completed){
       var a = d.actual || {};
       parts.push(['s', d.id, a.km, a.pace, a.rpe, a.hr, a.feel, a.hurting, a.stopReason, a.repsDone,
-                  a.mainSetFelt, a.mainSetHeld, a.recoveries, (a.conditions || []).join('+'),
+                  a.mainSetFelt, a.mainSetHeld, a.recoveries, (a.repMarks || []).join('.'),
+                  (a.conditions || []).join('+'),
                   a.watchDataOff ? 1 : 0, a.tempC, a.humidity, String(a.notes || '')].join(':'));
     }
     var r = d.readiness;
@@ -64693,7 +64955,13 @@ function handleActualFieldChange(dayId, field, value){
   if (!dd) return;
   var wasComplete = !!dd.completed;
   dd.actual = dd.actual || emptyActual();
-  if (field==='km'){ dd.actual.km = value===''?null:parseDistInput(value); logTidy(dd); }
+  if (field==='km'){
+    dd.actual.km = value===''?null:parseDistInput(value);
+    /* The athlete's own figure: it is no longer one Sacoro worked out, and
+       it may be what lets the average pace be worked out from the stages. */
+    delete dd.actual.kmDerived;
+    logTidy(dd); logApplyStageTotals(dd); logPatchTotals(dd);
+  }
   /* Withdrawal stops COLLECTION, not only use, so the writers refuse as well
      as the readers. The controls for these two are not rendered without
      consent, so reaching here means the state changed between paint and tap,
@@ -64717,6 +64985,7 @@ function handleActualFieldChange(dayId, field, value){
   }
   else if (field==='pace'){
     dd.actual.pace = value.trim() || null;
+    delete dd.actual.paceDerived;                    // typed, so the athlete's
     // Stamp what the athlete was looking at. Written here and nowhere else
     // on this path, so a later unit toggle re-reads rather than reinterprets.
     if (dd.actual.pace) dd.actual.paceUnit = displayUnit();
@@ -65013,6 +65282,8 @@ function handleStructuredSplitChange(dayId, segId, field, value){
     var at = dd.actual.splits.indexOf(s);
     if (at !== -1) dd.actual.splits.splice(at, 1);
   }
+  logApplyStageTotals(dd);
+  logPatchTotals(dd);
   coachPersistReview(dd);
   patchExecutionUI(dd);
   patchSplitsTotal(dd);
@@ -70958,6 +71229,7 @@ document.addEventListener('click', function(e){
     case 'es-tab': handleEditTab(target); break;
     case 'log-pick': handleLogPick(target.getAttribute('data-day'), target.getAttribute('data-field'), target.getAttribute('data-value')); break;
     case 'log-clear': handleLogClear(target.getAttribute('data-day'), target.getAttribute('data-field')); break;
+    case 'log-mark': handleLogMark(target.getAttribute('data-day'), target.getAttribute('data-rep')); break;
     /* A tap on an untouched slider exactly where its thumb already sits
        moves nothing, so no `change` fires -- and that tap IS the answer.
        Once it is answered this does nothing: handleLogAnswer() ignores a

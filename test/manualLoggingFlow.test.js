@@ -83,7 +83,8 @@ test('pace is offered as optional, never as a requirement', () => {
      must not be presented as one. */
   const a = app();
   const html = card(a, logged(a, { km: 8 }));
-  assert.match(html, /Avg Pace[^<]*optional/i, 'pace does not read as optional');
+  /* "optional" is in the box rather than the label: three figures share a row. */
+  assert.match(html, /Avg Pace \/[a-z]+<\/label><input type="text" placeholder="optional"/i, 'pace does not read as optional');
   assert.ok(!/required|must|need to log/i.test(html.slice(html.indexOf('data-field="pace"') - 200,
                                                           html.indexOf('data-field="pace"'))),
     'the pace field is framed as compulsory');
