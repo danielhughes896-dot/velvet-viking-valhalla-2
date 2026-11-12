@@ -35028,6 +35028,10 @@ function sessionReadoutHtml(dd){
   if (held === 'built') parts.push('the set got stronger');
   if (r.signals.indexOf('recoveries-longer') !== -1) parts.push('longer recoveries');
   if (r.context.length) parts.push(r.context.join(', '));
+  /* The climb, where there was one worth the name. */
+  var climb = null;
+  try { climb = sessionElevationContext(dd); } catch(e2){ climb = null; }
+  if (climb && climb.band !== 'flat') parts.push(climb.gainM + ' m of climbing');
   if (!parts.length) return '';
   var line = parts.join(' · ');
   return '<div class="cr-sec"><div class="cr-k">What you logged</div>'+
@@ -40612,6 +40616,99 @@ function sessionCutShortFor(dd){
     return c.short ? (c.reason || 'unsaid') : null;
   } catch(e){ return null; }
 }
+/* ===== THE SET THAT KEEPS NOT HOLDING =====
+   Founder: "Track recovery and effort fade across comparable quality
+   sessions, allowing repeated patterns to inform coaching and Recovery."
+
+   Two answers on the log said something about the end of a quality set and
+   went no further than the card: "Did your pace hold?" and "Recoveries".
+   Once is a session. Three of the last four comparable sessions is an
+   athlete who is not getting through their quality work, which is a
+   recovery fact long before it is a fitness one.
+
+   COMPARABLE means the same kind of set: reps and hills with reps and
+   hills, a sustained main set with sustained main sets. A tempo that faded
+   says nothing about whether the 400s will.
+
+   WHAT COUNTS AS A FADE, in order of how well it is known:
+     measured  the reps carry their own paces and the last came in at least
+               FADE_CAL.measuredFadePct slower than the first.
+     reported  the athlete answered "Slight fade" or "Faded".
+   The rep TILES are not read. They are the lowest-confidence evidence the
+   log holds and a pattern is not built on them.
+
+   A session run through illness, or in heat hard enough that effort cannot
+   be read, is left out: its fade belongs to the day.
+
+   A time trial and a race are left out too: they are run to the limit on
+   purpose, and fading at the end of one is the session going to plan.
+
+   The confidence is trendConfidence(), the vocabulary every other pattern
+   uses -- so it takes four comparable sessions that were answered before
+   anything is claimed at all.
+
+   THE WINDOW IS TEN WEEKS, NOT THE SIX OTHER TRENDS USE, because of what
+   "comparable" costs: a plan with one quality day a week alternates reps
+   with a sustained set, so the same kind of session comes round once a
+   fortnight and four of them span six weeks before a fifth is in sight.
+   Measured on a 12-week 10k block: at 42 days no pattern could ever form.
+   AND IT GOES STALE: a pattern whose latest instance is more than four
+   weeks old -- two turns of that cadence -- is history, and is not stated. */
+var FADE_CAL = { windowDays:70, recent:4, measuredFadePct:3, staleDays:28 };
+function fadeFamilyOf(dd){
+  var s = null;
+  try { s = logShape(dd); } catch(e){ s = null; }
+  if (!s) return null;
+  if (s.reps) return s.light ? null : 'reps';
+  return s.main ? 'sustained' : null;
+}
+function sessionFadeReading(dd){
+  if (!dd || !dd.completed || !dd.actual || dd.type === 'rest') return null;
+  if (dd.type === 'checkpoint' || dd.type === 'race') return null;
+  var fam = fadeFamilyOf(dd);
+  if (!fam) return null;
+  var a = dd.actual, env = null;
+  try { env = coachEnvironment(a.notes, a); } catch(e){ env = null; }
+  if (env && env.illness) return null;
+  if (!effortIsReadable(dd)) return null;
+  var out = { date:dd.date, family:fam, faded:null, basis:null, recoveries:a.recoveries || null };
+  var drift = null;
+  try { drift = structuredRepFadePct(dd); } catch(e2){ drift = null; }
+  if (drift != null){ out.faded = drift >= FADE_CAL.measuredFadePct; out.basis = 'measured'; }
+  else if (typeof a.mainSetHeld === 'number'){ out.faded = logHeldWord(a.mainSetHeld) === 'faded'; out.basis = 'reported'; }
+  return (out.faded == null && !out.recoveries) ? null : out;
+}
+var FADE_FAMILY_NOUN = { reps:'rep sessions', sustained:'tempo and threshold sessions' };
+/* Every pattern there is enough evidence to state, newest evidence last. */
+function qualityFadePatterns(asOf){
+  var to = asOf || todayStr();
+  var rows = coachDaysInWindow(addDays(to, -(FADE_CAL.windowDays - 1)), to)
+    .map(sessionFadeReading).filter(Boolean)
+    .sort(function(x, y){ return x.date < y.date ? -1 : 1; });
+  var out = [];
+  ['reps', 'sustained'].forEach(function(fam){
+    var same = rows.filter(function(r){ return r.family === fam; });
+    var judge = function(kind, answered, isHit){
+      var recent = answered.slice(-FADE_CAL.recent);
+      var hits = recent.filter(isHit);
+      var conf = trendConfidence(hits.length, recent.length, answered.length);
+      if (conf === 'insufficient') return;
+      if (hits[hits.length - 1].date < addDays(to, -FADE_CAL.staleDays)) return;
+      out.push({ kind:kind, family:fam, hits:hits.length, of:recent.length, confidence:conf,
+                 lastDate:hits[hits.length - 1].date, dates:hits.map(function(r){ return r.date; }),
+                 measured:hits.filter(function(r){ return r.basis === 'measured'; }).length });
+    };
+    judge('fade', same.filter(function(r){ return r.faded != null; }), function(r){ return r.faded; });
+    judge('recoveries', same.filter(function(r){ return !!r.recoveries; }), function(r){ return r.recoveries === 'longer'; });
+  });
+  return out;
+}
+function fadePatternSentence(p){
+  var noun = FADE_FAMILY_NOUN[p.family] || 'quality sessions';
+  return p.kind === 'recoveries'
+    ? 'You have needed longer recoveries in '+p.hits+' of your last '+p.of+' '+noun+'.'
+    : 'The main set has faded in '+p.hits+' of your last '+p.of+' '+noun+'.';
+}
 function coachRecovery(){
   var today = todayStr();
   var week = coachDaysInWindow(addDays(today,-6), today).filter(function(dd){ return dd.completed; });
@@ -40668,7 +40765,19 @@ function coachRecovery(){
      on: enough to move Fresh to Watch, never enough to reach Strained by
      itself. "SACORO should never change training just to demonstrate that
      it's intelligent." */
-  var strain = overRPE + overHR + (worstStreak>=3 ? 1 : 0) + (stoppedTired > 0 ? 1 : 0);
+  /* AND A SET THAT KEEPS NOT HOLDING. An ESTABLISHED fade or lengthening of
+     recoveries across comparable quality sessions, with its latest instance
+     inside this week, is the same fact as a session stopped for fatigue
+     seen over a longer stretch: the athlete is not getting through their
+     quality work. So it is the SAME point, not a second one -- either, or
+     both, is one. An emerging pattern is reported by Patterns and moves
+     nothing here. */
+  var fading = null;
+  try {
+    fading = qualityFadePatterns(today).filter(function(p){
+      return p.confidence === 'established' && p.lastDate >= weekFrom; })[0] || null;
+  } catch(e){ fading = null; }
+  var strain = overRPE + overHR + (worstStreak>=3 ? 1 : 0) + ((stoppedTired > 0 || fading) ? 1 : 0);
   /* ---- AND WHAT THE ATHLETE SAID THIS MORNING ----
      Recovery read the week's sessions and nothing else, so an athlete who
      had just answered "heavy legs, poor sleep" was shown Fresh on the same
@@ -40696,10 +40805,15 @@ function coachRecovery(){
   return {
     overRPE:overRPE, overHR:overHR, hardStreak:worstStreak, counted:counted,
     stoppedTired: stoppedTired,
+    fading: fading,
     morning: morning,
     trainingState: word(strain),
     state: word(strain + morning.points)
   };
+}
+/* "The main set has faded" mid-sentence is "the main set has faded". */
+function lowerFirst(mid, text){
+  return mid ? text.charAt(0).toLowerCase() + text.slice(1) : text;
 }
 /* What the Recovery reading is strained BY, said accurately. It used to say
    "effort and heart rate have both been above target" whichever one it was. */
@@ -40709,6 +40823,7 @@ function recoveryStrainSentence(rec){
   else if (rec.overRPE > 0) parts.push('Effort has been above target this week');
   else if (rec.overHR > 0) parts.push('Heart rate has been above target this week');
   if (rec.stoppedTired > 0) parts.push((parts.length ? 'you' : 'You')+' stopped a session short for fatigue');
+  else if (rec.fading) parts.push(lowerFirst(parts.length, fadePatternSentence(rec.fading).replace(/\.$/, '')));
   var m = rec.morning;
   if (m && m.flags.length) parts.push((parts.length ? 'you' : 'You')+' reported '+m.flags.join(' and ')+' this morning');
   if (!parts.length) return 'Your recovery signals have been elevated this week.';
@@ -40731,7 +40846,7 @@ function recoveryWatchSentence(rec, quality){
   var runs = rec.overRPE > 0 || rec.overHR > 0;
   var streak = !runs && rec.hardStreak >= 3;
   var said = (rec.morning && rec.morning.flags.length) ? rec.morning.flags.join(' and ') : '';
-  if (runs && !said && !rec.stoppedTired)
+  if (runs && !said && !rec.stoppedTired && !rec.fading)
     return quality
       ? 'There is a bit more fatigue in the last few runs than usual. Do not force the closing reps if the effort starts climbing.'
       : 'A bit more fatigue than usual in the last few runs — worth knowing rather than worth worrying about.';
@@ -40740,6 +40855,10 @@ function recoveryWatchSentence(rec, quality){
            : '';
   if (rec.stoppedTired > 0)
     lead = lead ? lead+', and you stopped a session short for fatigue' : 'You stopped a session short for fatigue this week';
+  else if (rec.fading){
+    var fadeSaid = fadePatternSentence(rec.fading).replace(/\.$/, '');
+    lead = lead ? lead+', and '+lowerFirst(true, fadeSaid) : fadeSaid;
+  }
   if (said) lead = lead ? lead+', and you reported '+said+' this morning' : 'You reported '+said+' this morning';
   if (!lead) lead = 'Recovery is worth watching this week';
   return lead+'. '+(quality ? 'Do not force the pace if the effort starts climbing.'
@@ -41226,6 +41345,95 @@ function coachSessionCues(dd){
     if (cue) cues.push(cue);
   });
   return cues;
+}
+/* ===== MEASURED CLIMBING, AS CONTEXT =====
+   Founder: "Use measured elevation gain to contextualise session execution,
+   accounting for distance, session type and evidence quality. Do not
+   automatically excuse poor execution."
+
+   The figure was collected on every log and reached the share card and
+   nothing else. It is read here, and what it is allowed to do is narrow:
+
+   IT IS WORDS BESIDE THE SCORE, NEVER A CHANGE TO IT. Like every other piece
+   of context in this product -- heat, wind, a tapped "Hilly" -- it explains
+   a pace; it does not re-mark one.
+
+   IT IS BOUNDED. A tapped "Hilly" says the route was hilly and the review
+   takes the athlete's word for the whole gap. A measurement can do better:
+   so many metres per kilometre costs roughly so many seconds, and a gap
+   beyond that is said to be beyond it. That is what "do not automatically
+   excuse" means here -- the hills are given their share and no more.
+
+   DISTANCE: the gain is read per kilometre actually run, never as a raw
+   total -- 150 m over 5 km is a hilly run and over 30 km is a flat one.
+
+   SESSION TYPE decides what the figure can speak to:
+     whole       an easy run, a long run, a tempo judged on its whole-run
+                 pace. The gain and the pace describe the same kilometres.
+     context     reps, or any session whose pace is judged on its main set.
+                 The gain is the whole outing's -- warm-up, recoveries and
+                 all -- so it is stated and explains nothing.
+     prescribed  hill repeats. Climbing is the session, not a circumstance.
+   and a treadmill has no route at all.
+
+   EVIDENCE QUALITY: a figure the athlete marked unreliable ("Watch data
+   off"), or one spread over too short a run to mean anything, is stated as
+   context and never used as an allowance. One beyond any running route is
+   an entry error and is not read.
+
+   THE COST IS A CALIBRATION, stated as a range and said as "typically":
+   0.10-0.15% of pace per metre climbed per kilometre, on a route that comes
+   back down. 20 m/km at 6:00/km is 7-11 s/km. Deliberately the low side of
+   the published rules of thumb: the failure to avoid is over-excusing. */
+var ELEV_CAL = { minKm:3, rollingPerKm:8, hillyPerKm:15, steepPerKm:30, maxPerKm:120,
+                 costLo:0.0010, costHi:0.0015 };
+function sessionElevationContext(dd){
+  var a = dd && dd.actual;
+  if (!a || !dd.completed || dd.type === 'rest') return null;
+  if (a.elevationGainM == null || !(a.km > 0)) return null;
+  var gain = Number(a.elevationGainM);
+  if (!isFinite(gain) || gain < 0) return null;
+  var env = null;
+  try { env = coachEnvironment(a.notes, a); } catch(e){ env = null; }
+  if (env && env.treadmill) return null;
+  var perKm = gain / a.km;
+  if (perKm > ELEV_CAL.maxPerKm) return null;
+  var band = perKm >= ELEV_CAL.steepPerKm ? 'steep' : perKm >= ELEV_CAL.hillyPerKm ? 'hilly'
+           : perKm >= ELEV_CAL.rollingPerKm ? 'rolling' : 'flat';
+  var shape = null;
+  try { shape = logShape(dd); } catch(e2){ shape = null; }
+  var pev = { tr:null, ap:null, sectioned:false };
+  try { pev = coachPaceEvidence(dd); } catch(e3){}
+  var use = (shape && shape.hills) ? 'prescribed'
+          : ((shape && shape.reps && !shape.light) || pev.sectioned) ? 'context' : 'whole';
+  var doubt = a.watchDataOff ? 'watch' : (a.km < ELEV_CAL.minKm ? 'short' : null);
+  if (doubt && use === 'whole') use = 'context';
+  var cost = null;
+  if (use === 'whole' && band !== 'flat' && pev.tr && pev.tr.slow > 0)
+    cost = { lo:Math.round(pev.tr.slow * perKm * ELEV_CAL.costLo), hi:Math.round(pev.tr.slow * perKm * ELEV_CAL.costHi) };
+  return { gainM:Math.round(gain), km:a.km, perKm:Math.round(perKm * 10) / 10, band:band, use:use,
+           source:(isStravaDerived(dd) || a.deviceLapSource) ? 'device' : 'entered', doubt:doubt, cost:cost };
+}
+/* Does the climbing account for a pace `gapSec` (per km) outside the window?
+   Only a whole-run reading with a cost can, and only up to that cost. */
+function elevationExplains(e, gapSec){
+  return !!(e && e.use === 'whole' && e.cost && gapSec > 0 && gapSec <= e.cost.hi);
+}
+/* The one sentence the review says about it, or '' when it has nothing to
+   add: a flat route explains nothing, and is not held against anyone. */
+function elevationPaceSentence(e, gapSec){
+  if (!e || e.band === 'flat' || e.use === 'prescribed') return '';
+  var per = displayUnit() === 'mi' ? 1.60934 : 1, unit = 's/'+displayUnit();
+  var route = e.gainM+' m of climbing over '+fmtDist(e.km);
+  if (e.use === 'context' || !e.cost){
+    return 'The run carried '+route+'. '+
+      (e.doubt === 'watch' ? 'With the watch data marked unreliable, that is context for the pace, not an explanation of it.'
+       : e.doubt === 'short' ? 'Over a run this short the figure is too coarse to explain the pace.'
+       : 'How much of that fell in the main set is not recorded, so it is context for the pace, not an explanation of it.');
+  }
+  var typical = 'Climbing like that typically costs around '+Math.round(e.cost.lo * per)+'\u2013'+Math.round(e.cost.hi * per)+unit;
+  return 'Pace ran '+Math.round(gapSec * per)+unit+' outside the window on '+route+'. '+typical+
+    (elevationExplains(e, gapSec) ? ', so the gap is in line with the route.' : ': part of the gap, not all of it.');
 }
 // Cues on a single day that explain away a given component being off-target.
 function coachExcuses(dd, component){
@@ -41910,6 +42118,8 @@ function coachDecision(){
     feel_negative:EVIDENCE_CONCEPT.feel, readiness_poor:EVIDENCE_CONCEPT.feel,
     execution_declining:EVIDENCE_CONCEPT.execution,
     post_hard_recovery:EVIDENCE_CONCEPT.recovery, post_long_run_recovery:EVIDENCE_CONCEPT.recovery,
+    set_fading_reps:EVIDENCE_CONCEPT.fade, set_fading_sustained:EVIDENCE_CONCEPT.fade,
+    recoveries_lengthening_reps:EVIDENCE_CONCEPT.fade, recoveries_lengthening_sustained:EVIDENCE_CONCEPT.fade,
     /* Phase 5 speaks about the same underlying event as the two trends above,
        better founded because it is measured against this athlete's own
        established timing rather than against a fixed rule. Same concept, so
@@ -41924,6 +42134,10 @@ function coachDecision(){
      substantially overlaps, only the stronger one is counted. */
   var taken = [];
   trendEvidence().forEach(function(t){
+    /* A set that keeps fading and a session stopped for fatigue this week
+       are one fact, as Recovery already counts them: the stop has spoken,
+       and the pattern behind it does not get a second vote. */
+    if (CONCEPT_OF_TREND[t.id] === EVIDENCE_CONCEPT.fade && recovery.stoppedTired > 0) return;
     var dates = t.trend.evidenceDates || [];
     var overlaps = dates.length && taken.some(function(prev){
       var shared = dates.filter(function(d){ return prev.indexOf(d)!==-1; }).length;
@@ -42113,7 +42327,8 @@ var EVIDENCE_CONCEPT = {
   execution:   'execution',    // how close sessions land to their prescription
   recovery:    'recovery',     // how the day after a hard session reads
   efficiency:  'efficiency',   // pace and heart rate moving together
-  consistency: 'consistency'
+  consistency: 'consistency',
+  fade:        'fade'          // whether a quality set is held to its end, session after session
 };
 
 // Recorded once per day, when it changes. The point is the journal: it is how
@@ -44597,6 +44812,11 @@ function athleteMemoryFromDays(days, from){
            five that covered the same ground. Marked as reported, because it
            is not measured and nothing that reads it may take it for pace. */
         reported: (review && review.reported) || null,
+        /* The climb per kilometre and what it could speak to. Context for
+           whoever reads this record later; no baseline excludes on it. */
+        elevation: (review && review.elevation)
+          ? { gainM:review.elevation.gainM, perKm:review.elevation.perKm, band:review.elevation.band,
+              use:review.elevation.use, source:review.elevation.source } : null,
         // what the athlete said that morning, and the state it produced
         readiness: dayReadiness(dd),
         athleteState: dd.athleteState ? dd.athleteState.state : null
@@ -44941,7 +45161,12 @@ function athleteTrends(){
     post_hard_recovery:C.recovery,         post_long_run_recovery:C.recovery,
     post_long_run_recovery_improved:C.recovery,
     recovery_slower_than_personal:C.recovery, recovery_faster_than_personal:C.recovery,
-    consistency:C.consistency
+    consistency:C.consistency,
+    /* One fact read three ways: the quality set is not being held to its
+       end. Its own concept, so it corroborates effort or feel -- which are
+       different facts -- and never itself. */
+    set_fading_reps:C.fade, set_fading_sustained:C.fade,
+    recoveries_lengthening_reps:C.fade, recoveries_lengthening_sustained:C.fade
   };
   var push = function(t){
     if (!t || t.confidence==='insufficient') return;
@@ -45089,6 +45314,19 @@ function athleteTrends(){
              headline:'Improving',
              detail:'Legs have reported good in '+pos.length+' of your last '+recent.length+' sessions.',
              observations:pos.length, of:recent.length });
+  })();
+
+  /* ---- the quality set that keeps not holding ----
+     qualityFadePatterns() reads the days themselves, not `usable`: a hill
+     session has no score and is exactly the session this is about. */
+  (function(){
+    var pats = [];
+    try { pats = qualityFadePatterns(); } catch(e){ pats = []; }
+    pats.forEach(function(p){
+      push({ id:(p.kind === 'recoveries' ? 'recoveries_lengthening_' : 'set_fading_') + p.family,
+             area:'Recovery', direction:'negative', confidence:p.confidence, headline:'Watching',
+             detail:fadePatternSentence(p), observations:p.hits, of:p.of, evidenceDates:p.dates });
+    });
   })();
 
   /* ---- the morning answers, longitudinally ---- */
@@ -51154,6 +51392,19 @@ function structuredSplitsOf(dd){
   var splits = (dd && dd.actual && dd.actual.splits) || [];
   return splits.filter(splitHasStructure);
 }
+/* How much slower the last rep was than the first, in percent, or null
+   when fewer than three reps carry a pace. ONE definition, read by the
+   session's own evidence below and by the fade pattern Recovery reads --
+   which must not call structuredExecutionEvidence() for it: that reads the
+   execution strategy, the strategy reads the athlete's state, and the state
+   reads Recovery. */
+function structuredRepFadePct(dd){
+  var reps = structuredSplitsOf(dd).filter(function(s){
+    return s.role === 'work' && /^Rep/.test(s.label || '') && s.paceSec != null; });
+  if (reps.length < 3) return null;
+  var first = reps[0].paceSec, last = reps[reps.length - 1].paceSec;
+  return Math.round(((last - first) / first) * 1000) / 10;
+}
 function structuredExecutionEvidence(dd){
   var all = structuredSplitsOf(dd);
   if (!all.length) return null;
@@ -51170,8 +51421,7 @@ function structuredExecutionEvidence(dd){
     var sd = Math.sqrt(reps.reduce(function(t,x){ return t + Math.pow(x.paceSec-avg,2); },0)/reps.length);
     var consistency = Math.round((1 - sd/avg) * 1000) / 10;
     out.repConsistencyPct = consistency;
-    var firstRep = reps[0].paceSec, lastRep = reps[reps.length-1].paceSec;
-    var drift = Math.round(((lastRep - firstRep) / firstRep) * 1000) / 10;
+    var drift = structuredRepFadePct(dd);
     out.repFadePct = drift;
     out.claims.push(consistency >= 97
       ? 'Reps held together: ' + consistency + '% pace consistency across ' + reps.length + ' reps.'
@@ -51727,7 +51977,16 @@ function coachVerdict(dd, b, env){
     var paceCtx = coachExcuses(dd, 'pace');
     var fresh = paceCtx.filter(function(c){ return cited.indexOf(c.key)===-1; });
     var paceWindow = fmtPaceFromSecPerKm(tr.fast)+'–'+fmtPaceFromSecPerKm(tr.slow)+' window';
-    out.push(!paceCtx.length
+    /* MEASURED CLIMBING SPEAKS BEFORE A TAPPED "HILLY", and in its place:
+       the measurement says how much of the gap the route accounts for, where
+       the word could only say the route was hilly. Anything else the athlete
+       reported -- wind, soft ground, poor sleep -- still gets the line it
+       always had. See sessionElevationContext(). */
+    var climbSaid = '';
+    if (!paceCtx.some(function(c){ return c.key !== 'hills'; }))
+      climbSaid = elevationPaceSentence(sessionElevationContext(dd), ap - tr.slow);
+    if (climbSaid) out.push(climbSaid);
+    else out.push(!paceCtx.length
       ? 'Pace ran outside the '+paceWindow+' with nothing in the notes to explain it.'
       : fresh.length
         ? 'Pace ran outside the '+paceWindow+' — the notes put that down to '+says(fresh)+
@@ -51857,6 +52116,12 @@ function coachNoticedForWorkout(dd, b, env){
   var ctx = coachExcuses(dd,'pace').filter(function(c){ return c.key!=='heat' && c.key!=='treadmill'; });
   var pev = coachPaceEvidence(dd);
   var tr = pev.tr, ap = pev.ap;
+  /* The measured climb, where it has something to say and nothing else the
+     athlete reported is already explaining the pace. */
+  if (tr && ap!=null && ap > tr.slow && !ctx.some(function(c){ return c.key !== 'hills'; })){
+    var climb = elevationPaceSentence(sessionElevationContext(dd), ap - tr.slow);
+    if (climb) return climb;
+  }
   if (ctx.length && tr && ap!=null && ap > tr.slow){
     var phrase = listPhrase(ctx.map(function(c){ return c.say; }));
     return phrase.charAt(0).toUpperCase()+phrase.slice(1)+
@@ -52331,7 +52596,17 @@ function coachWorkoutReview(dd){
       // the pace window was missed and the notes already account for it
       paceExplained: (function(){
         var pev = coachPaceEvidence(dd);
-        return !!(pev.tr && pev.ap!=null && pev.ap > pev.tr.slow && coachExcuses(dd,'pace').length);
+        if (!(pev.tr && pev.ap!=null && pev.ap > pev.tr.slow)) return false;
+        /* What the athlete reported other than hills explains it as it
+           always did. Hills are measured where they can be: explained when
+           the gap is within what the climbing costs, and not when it is
+           beyond it -- a tapped "Hilly" no longer covers a gap the route's
+           own figure does not. With no usable figure, the word stands. */
+        var said = coachExcuses(dd,'pace');
+        if (said.some(function(c){ return c.key !== 'hills'; })) return true;
+        var climb = sessionElevationContext(dd);
+        if (climb && climb.use === 'whole' && climb.cost) return elevationExplains(climb, pev.ap - pev.tr.slow);
+        return said.length > 0;
       })()
     }),
     recommendPlanAdjustment: propose,
@@ -52362,6 +52637,9 @@ function coachWorkoutReview(dd){
                hr: healthConsentGranted() ? (x.actual||{}).hr : null };
     }),
     confidence: coachReviewConfidence(b, env, dd),
+    /* What the route did, measured: kept with the review so the memory can
+       tell a slow hilly run from a slow flat one. */
+    elevation: sessionElevationContext(dd),
     /* The athlete's own account of the set, beside the score rather than
        inside it: reps completed, how they were marked, whether it faded. */
     reported: sessionReportedBlock(dd)
@@ -54882,6 +55160,8 @@ function readingSections(report){
     hqRow('Effort above band', report.recovery.overRPE+' this week')+
     hqRow('HR above zone', report.recovery.overHR+' this week')+
     (report.recovery.stoppedTired ? hqRow('Stopped for fatigue', report.recovery.stoppedTired+' this week') : '')+
+    (report.recovery.fading ? hqRow(report.recovery.fading.kind === 'recoveries' ? 'Recoveries lengthening' : 'Main set fading',
+      report.recovery.fading.hits+' of last '+report.recovery.fading.of) : '')+
     /* "1 days" is the kind of thing an athlete reads as the app not paying
        attention, and it is one character to get right. */
     hqRow('Hard days in a row', nDays(report.recovery.hardStreak)+' this week')+
@@ -54972,6 +55252,7 @@ function readingSections(report){
       syn: rec.hardStreak>=3 ? rec.hardStreak+' hard sessions in a row.'
          : (rec.overRPE||rec.overHR) ? 'Effort has run above its band this week.'
          : rec.stoppedTired ? 'You stopped a session short for fatigue this week.'
+         : rec.fading ? fadePatternSentence(rec.fading)
          : (rec.morning && rec.morning.flags.length)
              ? 'You reported '+rec.morning.flags.join(' and ')+' this morning.'
          : (rec.morning && rec.morning.answered) ? 'Absorbing the work, and you felt good this morning.'

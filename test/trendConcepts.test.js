@@ -48,6 +48,16 @@ const TREND_PARTITION_BEFORE = [
   ['consistency']
 ];
 
+/* ONE GROUP ADDED SINCE, DELIBERATELY, AND NAMED HERE SO THE ORIGINAL
+   GROUPINGS STAY PINNED. Founder: "Track recovery and effort fade across
+   comparable quality sessions, allowing repeated patterns to inform coaching
+   and Recovery." Whether a quality set is held to its end is a fact of its
+   own -- not effort, not feel, not the day after -- so it is a concept of its
+   own: `fade`. Its four readings share it, so they never corroborate each
+   other, and it merges with nothing above. The same group in both maps. */
+const FADE_GROUP = ['set_fading_reps', 'set_fading_sustained',
+                    'recoveries_lengthening_reps', 'recoveries_lengthening_sustained'];
+
 /* Read key:'value' pairs, not every quoted run -- the vocabulary's comments
    contain apostrophes ("this athlete's norm"), and a naive quote scan splits
    on them and invents concepts nobody wrote. */
@@ -85,13 +95,19 @@ const norm = ps => ps.map(g => g.slice().sort()).sort((x, y) => x[0] < y[0] ? -1
 // BEHAVIOURAL EQUIVALENCE
 // ---------------------------------------------------------------------------
 test('the decision groups exactly the ids it grouped before', () => {
-  assert.deepEqual(partitionOf(mapIn('CONCEPT_OF_TREND')), norm(DECISION_PARTITION_BEFORE),
+  assert.deepEqual(partitionOf(mapIn('CONCEPT_OF_TREND')), norm(DECISION_PARTITION_BEFORE.concat([FADE_GROUP])),
     'a rename that merged or split a concept would change what one fact is worth');
 });
 
 test('the trend layer groups exactly the ids it grouped before', () => {
-  assert.deepEqual(partitionOf(mapIn('TREND_CONCEPT')), norm(TREND_PARTITION_BEFORE),
+  assert.deepEqual(partitionOf(mapIn('TREND_CONCEPT')), norm(TREND_PARTITION_BEFORE.concat([FADE_GROUP])),
     'and would change what the Playbook counts as two agreeing patterns');
+  /* The addition is its own concept in the shared vocabulary, in both maps. */
+  FADE_GROUP.forEach(id => {
+    assert.equal(mapIn('TREND_CONCEPT')[id], 'fade');
+    assert.equal(mapIn('CONCEPT_OF_TREND')[id], 'fade');
+  });
+  assert.equal(vocabulary().fade, 'fade');
 });
 
 // ---------------------------------------------------------------------------
