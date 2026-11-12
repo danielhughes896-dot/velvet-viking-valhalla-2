@@ -235,7 +235,10 @@ test('no view-scoped rule is anchored on the #view-mount id', () => {
 });
 
 test('both hosts that mount a view carry .view-host', () => {
-  assert.match(SRC, /id="view-mount" class="'\+viewMountClass\(\)\+'"/,
+  /* It is told one thing now: whether the arrival is what is being drawn,
+     so that screen is never faded in over itself. The class still comes from
+     here and nowhere else. */
+  assert.match(SRC, /id="view-mount" class="'\+viewMountClass\(arriving\)\+'"/,
     'the live mount no longer gets its class from viewMountClass()');
   assert.match(fn('viewMountClass'), /'view-fade view-host'/,
     'the live mount lost .view-host, so the view-scoped rules stop applying');

@@ -35,6 +35,19 @@
   it, so a change here changes both surfaces in the same commit. See that
   file's own header for the full rationale.
 -->
+<!--
+  THE ARRIVAL'S PHOTOGRAPH IS ASKED FOR FIRST, because it used to arrive last.
+  It is a CSS background on .pe-mountains, so the browser did not learn it
+  needed the file until it had parsed ten thousand lines of stylesheet and
+  reached <body> -- and by then the application script had the main thread, so
+  the picture could not be painted until the script finished. Filmed: the
+  arrival stood for 200ms as words on a black ground, and the photograph only
+  appeared with the second render. These two lines start the download with the
+  document's first bytes. The media queries are the stylesheet's own (see the
+  480px rule beside .pe-mountains), so a phone fetches one file, not two.
+-->
+<link rel="preload" as="image" href="/assets/valhalla-sunrise-420.jpg" media="(max-width:480px)" fetchpriority="high">
+<link rel="preload" as="image" href="/assets/valhalla-sunrise-820.jpg" media="(min-width:481px)" fetchpriority="high">
 <script src="/assets/builder-spec.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51447,6 +51460,13 @@ function handleInsightDismiss(){
 var openInsightKey = null;
 function maybeOpenContextInsight(){
   if (document.getElementById('modal-overlay')) return false;
+  /* NOT OVER THE ARRIVAL. Filmed while fixing the splash: an explanation that
+     had just fallen due opened 40ms after the greeting, on top of it, and the
+     arrival then stood behind a pop-up for its whole two and a half seconds.
+     The arrival ends in a renderApp() of its own (handleProgrammeEntryContinue),
+     which is the first render where the athlete is somewhere an explanation
+     can be about -- so it opens then, a moment later, and loses nothing. */
+  try{ if (shouldShowProgrammeEntry(resolveAppState())) return false; }catch(e){}
   var ins = contextInsightDue();
   if (!ins) return false;
   openInsightKey = ins.key;
@@ -67050,8 +67070,13 @@ var programmeEntryTimer = null;
      FLOOR  and never less than this once the real screen is up, so a slow open
             does not show the greeting and snatch it away -- an athlete who has
             already waited is owed the screen, not punished with a flicker. */
-var PROGRAMME_ENTRY_TOTAL_MS = 1800;
-var PROGRAMME_ENTRY_FLOOR_MS = 650;
+/* LENGTHENED ONCE, on the founder's second look: "It's also maybe a bit quick
+   now ... Maybe hold the splash for a little longer?" The first figures were
+   1800 and 650, set when the arrival still blinked out and faded back in the
+   middle -- which made it read as two short screens. It is one screen now, so
+   it is given the top of what was first asked for and a little over. */
+var PROGRAMME_ENTRY_TOTAL_MS = 2600;
+var PROGRAMME_ENTRY_FLOOR_MS = 1100;
 function programmeEntryHoldMs(){
   var since = 0;
   try{
@@ -67285,8 +67310,20 @@ var lastRenderedDate = null;
    raises this for exactly one render; reading it consumes it, so no other
    render can inherit a suppression meant for the swipe. */
 var pagerSuppressFade = false;
-function viewMountClass(){
+/* AND THE ARRIVAL IS NEVER FADED IN, for the same reason and a worse one.
+   Founder: "The splash screen does a weird flash now. I see the back screen.
+   It goes then I see the splash."
+   Filmed frame by frame on a throttled phone, that is exactly what happened:
+   the document's own #boot-splash painted, renderApp() took it down and wrote
+   the real arrival into #view-mount -- which then faded in FROM NOTHING, so
+   between the two identical screens there was the bare ground and 180ms of
+   the same screen coming back. The arrival is also re-rendered while it
+   stands (the cloud answering, the name being saved), and each of those
+   replayed the fade as well. `still` is renderApp()'s own `arriving`: while
+   the arrival is the screen, a render replaces it in place. */
+function viewMountClass(still){
   var cls = pagerSuppressFade ? 'view-host' : 'view-fade view-host';
+  if (still) cls = 'view-host';
   pagerSuppressFade = false;
   return cls;
 }
@@ -67353,7 +67390,7 @@ function renderApp(){
      only, and the global palette is not being forked. */
   app.innerHTML =
     (arriving ? '' : renderTopbar())+
-    '<div class="view-pager" id="view-pager"><div class="wrap"><div id="view-mount" class="'+viewMountClass()+'">'+renderMainContent()+'</div></div></div>'+
+    '<div class="view-pager" id="view-pager"><div class="wrap"><div id="view-mount" class="'+viewMountClass(arriving)+'">'+renderMainContent()+'</div></div></div>'+
     (navAllowed ? renderBottomNavStack() : '');
   clearBootSplash();
   programmeEntryBindName();

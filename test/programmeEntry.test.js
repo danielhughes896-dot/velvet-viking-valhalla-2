@@ -796,10 +796,12 @@ test('ARRIVAL: it stands itself down, once, and only when there is a name', () =
      document paints the arrival itself now, before any of this script runs,
      so counting from here spends the budget twice -- measured, a repeat open
      on a mid-range phone painted at 1.6s and cleared at 3.7s. The budget is
-     the whole arrival, launch to app, and this is what is left of it. */
-  assert.ok(armedDelay >= 1500 && armedDelay <= 2000,
+     the whole arrival, launch to app, and this is what is left of it.
+     AND THE FIGURE MOVED ONCE MORE: "Maybe hold the splash for a little
+     longer?" -- over two seconds now, and still short of three. */
+  assert.ok(armedDelay > 2000 && armedDelay <= 3000,
     'with the launch only just behind it the hold is ' + armedDelay + 'ms, ' +
-    'outside the 1.5 to 2 seconds this screen is for');
+    'outside the two to three seconds this screen is for');
 
   /* A redraw must not stack a second timer: two would fire two renders, and
      the second would land after the athlete was already somewhere else. */
@@ -817,9 +819,15 @@ test('ARRIVAL: the hold is the rest of a launch budget, not a fresh one', () => 
   const a = arrived();
   const total = a.PROGRAMME_ENTRY_TOTAL_MS;
   const floor = a.PROGRAMME_ENTRY_FLOOR_MS;
-  assert.ok(total >= 1500 && total <= 2000,
-    'the whole arrival is ' + total + 'ms, outside the 1.5 to 2 seconds asked for');
-  assert.ok(floor > 0 && floor < total, 'the floor is not a floor');
+  /* ---- CHANGED SIDES: THE HOLD WAS LENGTHENED ----
+     This held the whole arrival to "1.5 to 2 seconds", the founder's first
+     figure. On the second look: "It's also maybe a bit quick now ... Maybe
+     hold the splash for a little longer?" A little, not a lot: over two
+     seconds, and never as much as three. */
+  assert.ok(total > 2000 && total <= 3000,
+    'the whole arrival is ' + total + 'ms; "a little longer" than two seconds was asked for');
+  assert.ok(floor >= 1000 && floor < total,
+    'a slow open shows the finished arrival for ' + floor + 'ms, which is the "bit quick" that was reported');
 
   const at = (ms) => { a.performance = { now: () => ms }; return a.programmeEntryHoldMs(); };
 
@@ -936,4 +944,81 @@ test('ARRIVAL: the first open asks, and only a screen with nothing to ask holds'
   const html = a.renderProgrammeEntry();
   assert.match(html, /Hello Dan/);
   assert.doesNotMatch(html, /<input/, 'the question is asked again after it was answered');
+});
+
+// ---------------------------------------------------------------------------
+// ONE SCREEN, NOT TWO WITH A GAP BETWEEN THEM
+// ---------------------------------------------------------------------------
+// Founder: "The splash screen does a weird flash now. I see the back screen.
+// It goes then I see the splash."
+//
+// Filmed frame by frame on a throttled phone. The document's own arrival
+// painted as words on a black ground (its photograph had not been asked for
+// yet); renderApp() took it down and wrote the real one, which FADED IN FROM
+// NOTHING -- so the bare ground showed between two copies of the same screen;
+// and an explanation that had fallen due opened on top of it 40ms later.
+// ---------------------------------------------------------------------------
+
+test('ARRIVAL: it is never faded in, because it is already on the screen', () => {
+  const a = athleteInProgramme();
+  assert.equal(a.viewMountClass(true), 'view-host',
+    'the arrival fades in from nothing, which is the blank frame between the two splashes');
+  assert.equal(a.viewMountClass(false), 'view-fade view-host',
+    'a tapped tab stopped fading in; only the arrival was meant to change');
+  /* And renderApp() is what says so, with the same `arriving` it withholds
+     the header and the nav by. */
+  const render = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function renderApp(){'));
+  const arriving = render.indexOf('var arriving = shouldShowProgrammeEntry(resolveAppState());');
+  const mount = render.indexOf("id=\"view-mount\" class=\"'+viewMountClass(arriving)+'\"");
+  assert.ok(arriving > -1 && mount > arriving,
+    'renderApp() no longer tells the mount it is drawing the arrival');
+  /* A swipe still suppresses its own fade, and still only once. */
+  a.pagerSuppressFade = true;
+  assert.equal(a.viewMountClass(false), 'view-host');
+  assert.equal(a.viewMountClass(false), 'view-fade view-host', 'the swipe suppression leaked into the next render');
+});
+
+test('ARRIVAL: the photograph is asked for with the first bytes of the document', () => {
+  /* It is a CSS background, so without this the browser learns it needs the
+     file only after ten thousand lines of stylesheet -- and by then the
+     application script has the main thread and nothing can be painted. */
+  const head = RUNTIME_SRC.slice(0, RUNTIME_SRC.indexOf('<style>'));
+  const small = head.match(/<link rel="preload" as="image" href="\/assets\/valhalla-sunrise-420\.jpg" media="([^"]+)"/);
+  const large = head.match(/<link rel="preload" as="image" href="\/assets\/valhalla-sunrise-820\.jpg" media="([^"]+)"/);
+  assert.ok(small && large, 'the arrival photograph is not preloaded ahead of the stylesheet');
+  /* The same breakpoint the stylesheet swaps the file at, or a phone fetches
+     one photograph and paints the other. */
+  assert.match(RUNTIME_SRC, /@media \(max-width:480px\)\{\s*\.pe-mountains\{ background-image:url\('\/assets\/valhalla-sunrise-420\.jpg'\); \}/,
+    'the stylesheet no longer swaps the photograph at 480px; the preload media must move with it');
+  assert.equal(small[1], '(max-width:480px)');
+  assert.equal(large[1], '(min-width:481px)');
+  /* Ahead of the one parser-blocking script in <head>. */
+  assert.ok(head.indexOf('valhalla-sunrise-420.jpg') < head.indexOf('<script src="/assets/builder-spec.js">'),
+    'the preload sits behind a blocking script');
+});
+
+test('ARRIVAL: nothing opens on top of it', () => {
+  const a = athleteInProgramme();
+  let opened = 0;
+  a.openModal = () => { opened++; };
+  a.renderContextInsight = () => '<div></div>';
+  a.contextInsightDue = () => ({ key: 'block-intro' });
+  assert.equal(a.shouldShowProgrammeEntry(a.resolveAppState()), true, 'the fixture is not arriving');
+  assert.equal(a.maybeOpenContextInsight(), false, 'an explanation opened over the arrival');
+  assert.equal(opened, 0);
+  /* The arrival ending is what lets it through -- the same explanation, a
+     moment later, over the screen it is about. */
+  a.programmeEntryPending = false;
+  assert.equal(a.maybeOpenContextInsight(), true, 'the explanation was lost rather than deferred');
+  assert.equal(opened, 1);
+});
+
+test('ARRIVAL: the Android shell waits on the app\u2019s own ground, not on white', () => {
+  /* Between the native launch screen and the document's first pixel there is
+     only the WebView, and an unpainted WebView is white. */
+  const cap = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'capacitor.config.json'), 'utf8'));
+  const bg = RUNTIME_SRC.match(/--bg:(#[0-9A-Fa-f]{6});/);
+  assert.ok(bg, 'the page ground moved; this law cannot see it');
+  assert.equal(String(cap.android.backgroundColor).toLowerCase(), bg[1].toLowerCase(),
+    'the WebView waits on a different colour from the page it is about to show');
 });

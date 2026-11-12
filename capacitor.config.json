@@ -6,6 +6,7 @@
     "url": "https://app.velvetviking.co.uk"
   },
   "android": {
-    "zoomEnabled": true
+    "zoomEnabled": true,
+    "backgroundColor": "#121316"
   }
 }
