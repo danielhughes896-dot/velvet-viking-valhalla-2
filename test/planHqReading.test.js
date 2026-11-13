@@ -292,7 +292,8 @@ test('PANEL: every Reading card opens the panel that belongs to it', () => {
       assert.doesNotMatch(panel, /class="b-dial/,
         key + ' is marked wordless but still draws a circle');
     } else {
-      assert.match(panel, /class="b-dial"/,
+      // the circle may carry its shape: Readiness restates its three rings
+      assert.match(panel, /class="b-dial(?: is-(?:rings|petals|torus))?"/,
         key + ' keeps a circle-bearing hero but draws no circle');
     }
     assert.ok(panel.indexOf('data-action="open-reading"') === -1,

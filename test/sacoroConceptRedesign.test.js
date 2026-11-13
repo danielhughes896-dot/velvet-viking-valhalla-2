@@ -255,7 +255,7 @@ test('PREVIEW: the Reading arc shows every section it owns, each one a destinati
     assert.match(preview, new RegExp('data-action="open-reading" data-reading="' + sec.key + '"'),
       sec.key + ' is drawn but cannot be opened');
   });
-  assert.equal((preview.match(/<button type="button" class="b-dial"/g) || []).length, 4);
+  assert.equal((preview.match(/<button type="button" class="b-dial(?: is-(?:petals|torus|rings))?"/g) || []).length, 4);
   /* ---- CHANGED SIDES: THE WHISPER GAVE ITS LINE TO THE DOTS ----
      "Tap any circle for the evidence" sat under a grid that showed all four
      at once. Founder, with the approved dashboard: "Rail 3 circles wrapped
@@ -552,12 +552,16 @@ test('SIZE: the gauge has no tick marks, and keeps the thickness it had', () => 
   assert.doesNotMatch(CODE, /class="gauge-tick"/, 'the tick marks are back');
   assert.doesNotMatch(CODE, /gauge-ticks/, 'the tick group is back');
   assert.doesNotMatch(CODE, /\.gauge-tick\{/, 'the tick rule is back');
-  const stroke = /class="gauge-fill" stroke-width="(\d+(?:\.\d+)?)"/.exec(CODE);
-  assert.ok(stroke, 'the gauge arc no longer states its stroke width');
+  /* THREE RINGS NOW, EACH THINNER. Founder, with the approved mock: the
+     gauge became three rings, race goal outer, consistency middle,
+     execution inner, and three rings at the old 9.9px would have closed the
+     face. Each is 5 units in the 100 box at 164px, about 8.2px, and the
+     three together are wider than the one ring was. */
+  const stroke = /confidenceArcsHtml\(computeConfidenceBreakdown\(\), (\d+(?:\.\d+)?)\)/.exec(CODE);
+  assert.ok(stroke, 'the gauge arcs no longer state their stroke width');
   const rendered = parseFloat(stroke[1]) * (164 / 100);
-  assert.ok(Math.abs(rendered - 9.9) < 0.6,
-    'the gauge ring now renders at ' + rendered.toFixed(1) +
-    'px where it rendered at 9.9px -- the founder asked for that thickness');
+  assert.ok(Math.abs(rendered - 8.2) < 0.6,
+    'each gauge ring now renders at ' + rendered.toFixed(1) + 'px where the approved mock had 8.2px');
 });
 
 test('COLOUR: the readiness figure is white, the ring still carries the accent', () => {

@@ -285,7 +285,7 @@ test('HERO: the panel circle is for figures, and a word is carried by its chip',
     if (/\d/.test(face) || !sec.tone) {
       withCircle++;
       assert.match(panel, /class="rp-hero"/, sec.key + ' states a figure but drew no circle');
-      assert.match(panel, /class="b-dial"/, sec.key + ' has no circle to put its figure in');
+      assert.match(panel, /class="b-dial(?: is-(?:petals|torus|rings))?"/, sec.key + ' has no circle to put its figure in');
     } else {
       wordless++;
       assert.match(panel, /class="rp-hero is-wordless"/,

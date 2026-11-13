@@ -1016,7 +1016,6 @@
      cream medallion; against a dark face at the same value it read as a
      second, competing ring, so it takes the accent at low opacity and stops
      being a shape of its own. */
-  .gauge-inner-rim{stroke:color-mix(in srgb, var(--cherry) 38%, transparent); stroke-width:1;}
   /* THE BEVEL IS GONE. It painted a diagonal white-to-black sweep over the
      fill to give the arc "the appearance of a rounded, lit profile" -- a
      drawn highlight, which is precisely what this product stopped doing
@@ -1031,7 +1030,10 @@
   /* A PERCENTAGE, NOT 84px. The face sat inside a 132px wrap; the wrap is
      --ring-dia now and a fixed face would float in it. 63.6% is exactly the
      84/132 it has always been, so nothing about its proportion changed. */
-  .gauge-num{position:absolute; left:50%; top:50%; width:63.6%; height:63.6%; transform:translate(-50%,-50%);
+  /* 58%, inside the third ring: the inner ring's inside edge is at 60% of the
+     wrap, so the face sits within all three and the figure and its 11px
+     label still fit (founder: three rings, execution inside). */
+  .gauge-num{position:absolute; left:50%; top:50%; width:58%; height:58%; transform:translate(-50%,-50%);
     border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:linear-gradient(
         color-mix(in srgb, var(--cherry-tint) 42%, transparent),
@@ -1069,7 +1071,7 @@
      Gold here made the gauge a different kind of instrument from its own
      row. The ring keeps its cherry gradient, which is the mechanism and was
      never in question. */
-  .gauge-num b{font-size:2rem; color:#FFFFFF; line-height:1; font-weight:700;
+  .gauge-num b{font-size:1.625rem; color:#FFFFFF; line-height:1; font-weight:700;
     text-shadow:0 0 10px rgba(255,255,255,.26);}
   .gauge-num span{font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-top:3px; font-weight:var(--label-weight);}
   .checkpoint-banner{
@@ -9753,6 +9755,45 @@
   .b-grid .rd-arc.is-rec-watch{stroke-dasharray:264.9 24.1;}
   .b-grid .rd-arc.is-rec-fresh{animation:rd-circulate 16s linear infinite;}
   @keyframes rd-circulate{ to{ stroke-dashoffset:-289.03; } }
+  /* ---------- EVOLUTION'S PETALS, ADAPTATION'S TORUS ----------
+     See evolutionPetalsHtml() and torusRingHtml(). Each replaces the ring and
+     the painted face: the petals are the instrument, so the face is clear
+     and the word sits on them with a shadow to read by; the torus keeps a
+     face, inside its thicker band. */
+  .b-dial .rd-petals, .b-dial .rd-torus, .b-dial .rd-rings{position:absolute; pointer-events:none; overflow:visible;}
+  .b-dial .rd-petals{inset:-3%; width:106%; height:106%;
+    filter:drop-shadow(0 0 7px rgba(255,255,255,.08));}
+  .b-dial.is-petals .b-medal{background:none; box-shadow:none; z-index:1;}
+  .b-dial.is-petals .rd-val b{text-shadow:0 1px 6px rgba(0,0,0,.92), 0 0 2px rgba(0,0,0,.85);}
+  .b-dial .rd-torus{inset:-2.5%; width:105%; height:105%;}
+  .b-dial .rd-torus.is-learning{opacity:.55;}
+  .b-dial.is-torus{box-shadow:0 0 12px color-mix(in srgb, var(--rd-base) 45%, transparent),
+    0 0 30px color-mix(in srgb, var(--rd-base) 20%, transparent);}
+  .b-grid .b-dial.is-torus .b-medal{inset:14%; z-index:1;}
+  /* Goal readiness opens on the same three rings as the Coach page gauge. */
+  .b-dial.is-rings{background:none; box-shadow:none;}
+  .b-dial .rd-rings{inset:0; width:100%; height:100%; filter:drop-shadow(0 0 8px var(--cherry-dim));}
+  .b-dial.is-rings .b-medal{inset:21%; z-index:1;}
+  .cr-trk{stroke:var(--bg-4);}
+  /* ---------- THE CONFIDENCE BREAKDOWN ---------- */
+  .cb-rows{display:flex; flex-direction:column; gap:16px; margin:6px 0 20px;}
+  .cb-row{display:flex; align-items:center; gap:14px;}
+  .cb-ring{flex:none; width:44px; height:44px; filter:drop-shadow(0 0 5px var(--cherry-dim));}
+  .cb-t{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px; color:#FFFFFF;}
+  .cb-k{font-family:var(--label-face); font-weight:700; font-size:1.0625rem; letter-spacing:.02em;}
+  .cb-say{line-height:1.3;}
+  .cb-v{flex:none; color:#FFFFFF; font-size:1.125rem;}
+  /* ---------- EVOLUTION'S CURRENT PHASE ---------- */
+  .ev-phase{display:flex; align-items:center; justify-content:space-between; gap:16px; margin:6px 0 4px;}
+  .ev-phase-t{min-width:0;}
+  .ev-phase-wk{font-family:var(--label-face); font-size:1.75rem; font-weight:700; color:#FFFFFF; line-height:1.1;}
+  .ev-phase-say{color:#FFFFFF; margin-top:6px; line-height:1.35;}
+  .ev-phase-ring{position:relative; flex:none; width:92px; height:92px;
+    filter:drop-shadow(0 0 8px color-mix(in srgb, var(--ph-col) 35%, transparent));}
+  .ev-phase-ring svg{width:100%; height:100%;}
+  .ev-phase-ring b{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:1.25rem; color:#FFFFFF;}
+  .ev-phase-note{color:#FFFFFF; margin:6px 0 18px;}
   /* THE PROGRESS ENTRANCE STOOD HERE: @keyframes rd-draw and the gated
      .is-drawing rule that played it. Both are deleted with the arc, because
      Progress is a plate now and a plate has no ring to lay down. The
@@ -31009,6 +31050,123 @@ function computeConfidenceScore(){
 }
 // whole numbers, matching the execution-score pills/banner -- the gauge and
 // the scores feeding it are the same family of metric.
+/* ---------- WHAT CONFIDENCE IS MADE OF, AS THREE RINGS ----------
+   Founder: "There's 3 rings so 1. Execution - inner 2. Consistency - middle
+   3. Race goal - outer." Each ring is a number the engine already has:
+     race goal    computeConfidenceScore(), the figure in the centre;
+     consistency  the share of prescribed sessions in the last four weeks
+                  that were run;
+     execution    the average execution score of the sessions scored in
+                  those four weeks.
+   A ring with nothing behind it (no sessions yet) is drawn as its track
+   alone and reads as a dash in the breakdown: never a filled guess. */
+var CONFIDENCE_RECENT_DAYS = 28;
+function computeConfidenceBreakdown(){
+  if (!state.setup) return null;
+  var today = todayStr(), from = addDays(today, -CONFIDENCE_RECENT_DAYS);
+  var set = 0, run = 0, scores = [];
+  state.days.forEach(function(dd){
+    if (dd.type === 'rest' || dd.date < from || dd.date >= today) return;
+    set++;
+    if (!dd.completed) return;
+    run++;
+    var sc = computeExecutionScore(dd);
+    if (sc != null) scores.push(sc);
+  });
+  var goal = computeConfidenceScore();
+  return {
+    goal: goal == null ? null : Math.round(Math.max(0, Math.min(100, goal))),
+    consistency: set ? Math.round(100 * run / set) : null,
+    execution: scores.length ? Math.round(scores.reduce(function(x, y){ return x + y; }, 0) / scores.length) : null
+  };
+}
+/* The three arcs, outer to inner: race goal, consistency, execution. */
+var CONFIDENCE_RINGS = [
+  { key:'goal',        label:'Race goal',   r:46.5, op:1 },
+  { key:'consistency', label:'Consistency', r:39.5, op:0.85 },
+  { key:'execution',   label:'Execution',   r:32.5, op:0.7 }
+];
+/* THE DASH IS THE WHOLE CIRCLE, and the offset is how much of it is still
+   withheld -- so --gauge-to IS the reading, and each arc grows from a fixed
+   12 o'clock instead of sliding into place (see gauge-draw). */
+function confidenceArcsHtml(bd, width){
+  return CONFIDENCE_RINGS.map(function(ring){
+    var pct = bd ? bd[ring.key] : null;
+    var circ = 2 * Math.PI * ring.r;
+    var to = circ - circ * (pct == null ? 0 : pct / 100);
+    return '<circle cx="50" cy="50" r="'+ring.r+'" fill="none" class="gauge-track" stroke-width="'+width+'"/>'+
+      (pct == null ? '' :
+      '<circle cx="50" cy="50" r="'+ring.r+'" fill="none" class="gauge-fill" stroke-width="'+width+'" '+
+        'stroke-opacity="'+ring.op+'" stroke-linecap="round" stroke-dasharray="'+circ.toFixed(1)+'" '+
+        'style="--gauge-len:'+circ.toFixed(1)+'; --gauge-to:'+to.toFixed(1)+'" '+
+        'transform="rotate(-90 50 50)"/>');
+  }).join('');
+}
+/* The same three rings for a panel, which cannot lean on the Coach page's
+   gradient being on screen behind it: its own filament, drawn still. */
+function confidenceRingsPanelSvg(bd){
+  var id = 'rdRings';
+  return '<svg class="rd-rings" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><defs>'+
+    '<linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFF1F5"/>'+
+      '<stop offset="16%" stop-color="var(--cherry-text)"/><stop offset="52%" stop-color="var(--cherry)"/>'+
+      '<stop offset="100%" stop-color="var(--cherry-dim)"/></linearGradient></defs>'+
+    CONFIDENCE_RINGS.map(function(ring){
+      var pct = bd ? bd[ring.key] : null, circ = 2 * Math.PI * ring.r;
+      return '<circle cx="50" cy="50" r="'+ring.r+'" fill="none" class="cr-trk" stroke-width="5"/>'+
+        (pct == null ? '' : '<circle cx="50" cy="50" r="'+ring.r+'" fill="none" stroke="url(#'+id+')" stroke-opacity="'+ring.op+'" '+
+          'stroke-width="5" stroke-linecap="round" stroke-dasharray="'+(circ * pct / 100).toFixed(1)+' '+circ.toFixed(1)+'" transform="rotate(-90 50 50)"/>');
+    }).join('')+'</svg>';
+}
+/* One ring of the breakdown, small, at the strength it has in the gauge. */
+function confidenceMiniRingSvg(ring, pct){
+  var id = 'rdMini', circ = 2 * Math.PI * 40;
+  return '<svg class="cb-ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><defs>'+
+    '<linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFF1F5"/>'+
+      '<stop offset="16%" stop-color="var(--cherry-text)"/><stop offset="52%" stop-color="var(--cherry)"/>'+
+      '<stop offset="100%" stop-color="var(--cherry-dim)"/></linearGradient></defs>'+
+    '<circle cx="50" cy="50" r="40" fill="none" class="cr-trk" stroke-width="11"/>'+
+    (pct == null ? '' : '<circle cx="50" cy="50" r="40" fill="none" stroke="url(#'+id+')" stroke-opacity="'+ring.op+'" stroke-width="11" '+
+      'stroke-linecap="round" stroke-dasharray="'+(circ * pct / 100).toFixed(1)+' '+circ.toFixed(1)+'" transform="rotate(-90 50 50)"/>')+
+  '</svg>';
+}
+var CONFIDENCE_RING_SAY = {
+  execution:   'How closely your sessions match what was prescribed.',
+  consistency: 'How many prescribed sessions were run in the last four weeks.',
+  goal:        'Your readiness for goal day, from every session logged so far.'
+};
+/* Founder, with a reference: "I'd put the three labels above Confidence into
+   its expanded page." Inner ring first, as the founder listed them. */
+function confidenceBreakdownHtml(bd){
+  var rows = CONFIDENCE_RINGS.slice().reverse().map(function(ring){
+    var pct = bd ? bd[ring.key] : null;
+    return '<div class="cb-row">'+confidenceMiniRingSvg(ring, pct)+
+      '<div class="cb-t"><div class="cb-k">'+escapeHtml(ring.label)+'</div>'+
+        '<div class="cb-say">'+escapeHtml(CONFIDENCE_RING_SAY[ring.key])+'</div></div>'+
+      '<div class="cb-v">'+(pct == null ? '\u2014' : pct+'%')+'</div></div>';
+  }).join('');
+  return sectionRule('Confidence Breakdown', true)+'<div class="cb-rows">'+rows+'</div>';
+}
+/* ---------- EVOLUTION: WHERE THE BLOCK IS ----------
+   Founder, with a template: the current phase under the verdict, its week,
+   and a ring for how much of it has passed, said plainly as time and not
+   fitness. The sentence is the phase's own (phaseMessage), as Full Plan has it. */
+function evolutionPhaseHtml(){
+  var phases = blockPhaseProgress();
+  var cur = phases ? phases.filter(function(p){ return p.state === 'now'; })[0] : null;
+  if (!cur) return '';
+  var pct = Math.round(cur.frac * 100), col = PHASE_PETAL_COLOUR[cur.name], circ = 2 * Math.PI * 40;
+  return sectionRule('Current Phase: '+cur.name, true)+
+    '<div class="ev-phase">'+
+      '<div class="ev-phase-t"><div class="ev-phase-wk">Week '+cur.week+' of '+cur.weeks+'</div>'+
+        '<div class="ev-phase-say">'+escapeHtml(phaseMessage(cur.name))+'</div></div>'+
+      '<div class="ev-phase-ring" style="--ph-col:'+col+';">'+
+        '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><circle cx="50" cy="50" r="40" fill="none" class="cr-trk" stroke-width="8"/>'+
+          '<circle cx="50" cy="50" r="40" fill="none" style="stroke:'+col+'" stroke-width="8" stroke-linecap="round" '+
+            'stroke-dasharray="'+(circ * cur.frac).toFixed(1)+' '+circ.toFixed(1)+'" transform="rotate(-90 50 50)"/></svg>'+
+        '<b>'+pct+'%</b></div>'+
+    '</div>'+
+    '<div class="ev-phase-note">'+pct+'% of the scheduled phase elapsed, not a fitness score.</div>';
+}
 function formatConfidencePct(pct){
   return String(Math.round(pct));
 }
@@ -31080,21 +31238,13 @@ function renderConfidenceGauge(){
          ring itself is untouched: same stroke-width, same gradient, same
          entrance. `ticks` is no longer built -- see above. */
       '<circle cx="'+cx+'" cy="'+cy+'" r="48.6" fill="none" class="gauge-rim"/>'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-track" stroke-width="6"/>'+
-      /* THE DASH IS THE WHOLE CIRCLE, and the offset is how much of it is
-         still withheld -- so --gauge-to IS the reading, and the arc grows
-         from a fixed 12 o'clock instead of sliding into place. Absolute
-         lengths rather than pathLength="1": the session ring normalises
-         because its arc is 305 degrees of an unstated radius, while this is
-         a plain circle whose circumference is right here, and a dasharray
-         of 1 on a 289-unit circle would render as dots anywhere pathLength
-         were ignored. Same mechanism, no new assumption. */
-      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-fill" stroke-width="6" '+
-        'stroke-linecap="round" stroke-dasharray="'+circ.toFixed(1)+'" '+
-        'style="--gauge-len:'+circ.toFixed(1)+'; --gauge-to:'+(circ-fillLen).toFixed(1)+'" '+
-        'transform="rotate(-90 '+cx+' '+cy+')"/>'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="38" fill="none" class="gauge-inner-rim"/>'+
-    '</svg>'+
+      /* ---- THREE RINGS, NOT ONE ----
+         Race goal outside (the figure in the centre), consistency, then
+         execution inside: computeConfidenceBreakdown(). Same filament, same
+         draw-on, each ring at its own strength. What each is says itself in
+         the Goal readiness panel, so the Coach page carries no key. */
+      confidenceArcsHtml(computeConfidenceBreakdown(), 5)+
+      '</svg>'+
     '<div class="gauge-num"><b class="font-mono">'+pctLabel+'%</b><span>Confidence</span></div>'+
   '</button>';
 }
@@ -56132,7 +56282,9 @@ function readingSections(report){
   // Everything else here is depth Athlete Status doesn't carry.
   var goalBody =
     hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history')+
-    hqRow('Sessions logged', String(recent.sessionsLogged))+
+    hqRow('Sessions logged', String(recent.sessionsLogged));
+  /* After the breakdown, as the founder's reference has them. */
+  var goalAfter =
     hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?', '+nDays(days):'') : '—')+
     hqRow('Phase', (function(){
       var wk = currentWeekNum();
@@ -56213,10 +56365,13 @@ function readingSections(report){
       syn: report.trend.enough
         ? 'Execution '+trendWord+', '+recent.sessionsLogged+' sessions logged.'
         : recent.sessionsLogged+' sessions logged, still building history.',
-      body: goalBody+
+      body: goalBody,
+      /* The em dash is gone: "...what was prescribed. It settles..." */
+      extra: confidenceBreakdownHtml(computeConfidenceBreakdown())+
+        '<div class="rp-rows">'+goalAfter+
         '<div class="field-hint" style="margin-top:10px;">Confidence reflects how closely your '+
-        'logged sessions have matched what was prescribed — it settles as more sessions are '+
-        'logged, and no single session moves it far.</div>' },
+        'logged sessions have matched what was prescribed. It settles as more sessions are '+
+        'logged, and no single session moves it far.</div></div>' },
 
     /* RECOVERY IS NEVER LEARNING. It reads this week's own flags -- effort
        above band, HR above zone, hard streak -- which exist from the first
@@ -56258,6 +56413,7 @@ function readingSections(report){
         ? ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
           ' suggested across the next '+ev.horizonDays+' days.'
         : evMeta.text,
+      lead: evolutionPhaseHtml(),
       body: renderEvolutionSection(report.evolution) },
 
     { key:'patterns',
@@ -69299,6 +69455,97 @@ var SACORO_PLATES  = ['fitness','progress','goal','benchmark'];
    drawn from and Sacoro computes none of them; two would need health data
    the athlete may never have granted. A ring that cannot be derived is left
    solid rather than filled with a number nobody measured. */
+/* ---------- EVOLUTION'S PETALS: THE BLOCK, PHASE BY PHASE ----------
+   Founder: "glass filled coloured to the phase ... the clear glass is a good
+   idea actually because as the phase progresses and SACORO learns it fills"
+   and "Make the evolution petals be representative of the length of each
+   phase ... Have them naturally ordered", then "make the 2 smaller petals
+   slightly bigger".
+   Clockwise from the top left: Base, Build, Peak, Taper, each a clear glass
+   quarter whose size is its share of the block (a floor keeps a short phase
+   from shrinking to a sliver), filling from the bottom with its phase's
+   colour as the phase is lived through: a finished phase full, the current
+   one by its weeks, the rest still clear. The phases are trainingPhase()'s,
+   the same names the Phase row and Full Plan use. A block that is not the
+   four-phase arc (a maintenance block) has no petals and keeps the ring. */
+var PHASE_PETAL_ORDER = ['Base', 'Build', 'Peak', 'Taper'];
+var PHASE_PETAL_COLOUR = { Base:'var(--z-easy)', Build:'var(--z-mp)', Peak:'var(--cherry)', Taper:'var(--gold)' };
+var PETAL_MIN_SHARE = 0.2;
+function blockPhaseProgress(){
+  var total = totalWeeksInPlan();
+  if (!total) return null;
+  var wk = currentWeekNum();
+  var weeks = {};
+  for (var w = 1; w <= total; w++){
+    var n = trainingPhase(w);
+    if (n === 'Final' || n === 'Race Week' || n === 'Final Week' || n === vGoalWeek()) n = 'Taper';
+    if (PHASE_PETAL_ORDER.indexOf(n) === -1) return null;
+    (weeks[n] = weeks[n] || []).push(w);
+  }
+  return PHASE_PETAL_ORDER.map(function(n){
+    var ws = weeks[n] || [];
+    var first = ws.length ? ws[0] : null, last = ws.length ? ws[ws.length-1] : null;
+    var at = ws.indexOf(wk);
+    var stateOf = !ws.length ? 'none' : (wk > last ? 'done' : at !== -1 ? 'now' : 'next');
+    return { name:n, weeks:ws.length, week: at + 1, state:stateOf,
+             frac: stateOf === 'done' ? 1 : stateOf === 'now' ? (at + 1) / ws.length : 0 };
+  });
+}
+/* FIXED GRADIENT IDS. A render of the same page must be the same string, and
+   a gradient defined twice under one id with the same stops draws the same
+   either way, so each shape names its own once rather than counting. */
+function evolutionPetalsHtml(phases){
+  if (!phases) return '';
+  var id = 'rdPetal';
+  var q = [[-1,-1],[1,-1],[1,1],[-1,1]], g = 3.2, R = 44;
+  var most = Math.max.apply(null, phases.map(function(p){ return p.weeks; })) || 1;
+  var defs = '<linearGradient id="'+id+'g" x1="0" y1="0" x2="0" y2="1">'+
+    '<stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity=".05"/>'+
+    '<stop offset="1" stop-color="#fff" stop-opacity=".03"/></linearGradient>';
+  var parts = '';
+  phases.forEach(function(p, i){
+    if (!p.weeks) return;
+    var sx = q[i][0], sy = q[i][1], cx = 50 + sx * g, cy = 50 + sy * g;
+    var r = R * (PETAL_MIN_SHARE + (1 - PETAL_MIN_SHARE) * p.weeks / most);
+    var d = 'M'+cx+','+cy+' L'+(cx + sx * r).toFixed(2)+','+cy+' A'+r.toFixed(2)+','+r.toFixed(2)+' 0 0 '+(sx*sy > 0 ? 1 : 0)+' '+cx+','+(cy + sy * r).toFixed(2)+' Z';
+    var top = Math.min(cy, cy + sy * r), bot = Math.max(cy, cy + sy * r);
+    var col = PHASE_PETAL_COLOUR[p.name];
+    defs += '<clipPath id="'+id+'c'+i+'"><path d="'+d+'"/></clipPath>'+
+      '<linearGradient id="'+id+'l'+i+'" x1="0" y1="0" x2="0" y2="1">'+
+        '<stop offset="0" style="stop-color:color-mix(in srgb, '+col+' 70%, #ffffff)"/>'+
+        '<stop offset=".5" style="stop-color:'+col+'"/>'+
+        '<stop offset="1" style="stop-color:color-mix(in srgb, '+col+' 55%, #000000)"/></linearGradient>';
+    parts += '<path d="'+d+'" fill="url(#'+id+'g)"/>';
+    if (p.frac > 0){
+      var lvl = bot - (bot - top) * p.frac;
+      parts += '<g clip-path="url(#'+id+'c'+i+')"><rect x="0" y="'+lvl.toFixed(2)+'" width="100" height="'+(bot - lvl + 2).toFixed(2)+'" fill="url(#'+id+'l'+i+')" opacity=".9"/>'+
+        (p.frac < 1 ? '<rect x="0" y="'+(lvl - 0.4).toFixed(2)+'" width="100" height="1.1" style="fill:color-mix(in srgb, '+col+' 45%, #ffffff)" opacity=".9"/>' : '')+'</g>';
+    }
+    parts += '<path d="'+d+'" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width=".9" stroke-linejoin="round"/>';
+  });
+  return '<svg class="rd-petals" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><defs>'+defs+'</defs>'+parts+'</svg>';
+}
+/* ---------- ADAPTATION'S TORUS ----------
+   Founder, choosing between the mock-ups: Evolution takes the petals and
+   Adaptation the torus. A thick lit ring in Adaptation's own blue, with a
+   second band set a little off-centre inside it. While the reading is still
+   learning it is drawn quieter, as the dashed ring said before. */
+function torusRingHtml(col, learning){
+  var id = 'rdTorus';
+  var lt = 'color-mix(in srgb, '+col+' 35%, #ffffff)', dk = 'color-mix(in srgb, '+col+' 45%, #000000)';
+  return '<svg class="rd-torus'+(learning ? ' is-learning' : '')+'" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><defs>'+
+    '<linearGradient id="'+id+'a" x1="0.85" y1="0.08" x2="0.15" y2="0.92"><stop offset="0" style="stop-color:'+lt+'"/>'+
+      '<stop offset=".45" style="stop-color:'+col+'"/><stop offset="1" style="stop-color:'+dk+'"/></linearGradient>'+
+    '<linearGradient id="'+id+'b" x1="0.2" y1="0.1" x2="0.8" y2="0.95"><stop offset="0" style="stop-color:'+dk+'"/>'+
+      '<stop offset=".55" style="stop-color:'+col+'"/><stop offset="1" style="stop-color:'+lt+'"/></linearGradient>'+
+    '<radialGradient id="'+id+'s" cx=".5" cy=".5" r=".5"><stop offset=".6" stop-color="#000" stop-opacity="0"/>'+
+      '<stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient></defs>'+
+    '<circle cx="50" cy="50" r="38" fill="none" stroke="url(#'+id+'a)" stroke-width="17"/>'+
+    '<circle cx="50" cy="50" r="38" fill="none" stroke="url(#'+id+'s)" stroke-width="17"/>'+
+    '<circle cx="46.5" cy="53" r="31.5" fill="none" stroke="url(#'+id+'b)" stroke-width="6.5" opacity=".62"/>'+
+    '<path d="M 64.3 15.3 A 38 38 0 0 1 86.6 40.2" fill="none" stroke="#ffffff" stroke-opacity=".38" stroke-width="3.2" stroke-linecap="round"/>'+
+  '</svg>';
+}
 function dialRingHtml(mode, variant){
   var R = 46;
   var cls = variant ? ' ' + variant : '';
@@ -70179,8 +70426,12 @@ function renderSacoroInstruments(){
          states of one reading and cannot be confused with the dashed
          gathering pattern, which is a repeating dash and not a single
          break. The COLOUR never moves with the state; see READING_ACCENT. */
+      /* Founder: Evolution as the block's phases, Adaptation as the torus. */
+      var petals = k === 'evolution' ? evolutionPetalsHtml(blockPhaseProgress()) : '';
       var ring = k === 'recovery'
         ? dialRingHtml('solid', 'is-rec-' + (reading[k].state || 'fresh'))
+        : petals ? petals
+        : k === 'adaptation' ? torusRingHtml(dialAccentBase(reading[k]), !!reading[k].learning)
         : dialRingHtml(reading[k].learning ? 'learning' : 'solid');
       return readingDialHtml(reading[k], 0, false, ring);
     }
@@ -70955,7 +71206,9 @@ function readingDialHtml(sec, rank, isStatic, ring){
      NOT IN A PANEL: there the circle restates the verdict the athlete just
      pressed, directly under a heading that already names it, so a label
      would be the same word twice. */
-  var dial = '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial" data-rank="'+r+'" '+
+  var shape = !ring ? '' : ring.indexOf('rd-petals') !== -1 ? ' is-petals'
+            : ring.indexOf('rd-torus') !== -1 ? ' is-torus' : ring.indexOf('rd-rings') !== -1 ? ' is-rings' : '';
+  var dial = '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial'+shape+'" data-rank="'+r+'" '+
       (isStatic ? '' : 'data-action="open-reading" data-reading="'+sec.key+'" ')+
       'aria-label="'+escapeHtml(sec.title+' — '+sec.value)+'" '+
       'style="--rd-base:'+dialAccentBase(sec)+'; --rd-tint:'+dialTint(sec)+';">'+
@@ -71067,7 +71320,8 @@ function readingPanel(key){
   var wordless = !hasFigure && chipCarriesIt;
   var head =
     '<div class="rp-hero'+(wordless ? ' is-wordless' : '')+'">'+
-      (wordless ? '' : readingDialHtml(sec, 0, true))+
+      (wordless ? '' : readingDialHtml(sec, 0, true,
+        sec.key === 'readiness' ? confidenceRingsPanelSvg(computeConfidenceBreakdown()) : undefined))+
       '<div class="rp-hero-text">'+
         (sec.tone
           ? '<div class="rp-hero-verdict"><span class="read-val '+sec.tone+'">'+
@@ -71076,8 +71330,12 @@ function readingPanel(key){
         '<div class="rp-hero-say">'+escapeHtml(sec.syn || sec.value)+'</div>'+
       '</div>'+
     '</div>'+
+    /* Two optional places a reading adds a section of its own: before the
+       evidence (Evolution's current phase) and after it (Readiness's
+       breakdown). Every other panel is unchanged. */
+    (sec.lead || '')+
     sectionRule('The Evidence', true);
-  return recordPanelShell(sec.title, head+'<div class="rp-rows">'+sec.body+'</div>');
+  return recordPanelShell(sec.title, head+'<div class="rp-rows">'+sec.body+'</div>'+(sec.extra || ''));
 }
 
 /* =========================================================
