@@ -12523,11 +12523,56 @@ function escapeHtml(s){
 function uid(){ return 'x'+Math.random().toString(36).slice(2,10); }
 function paceToSec(p){
   if (p===null||p===undefined||p==='') return null;
+  /* A PACE SAVED WITH A DOT. The Log Session field stored what was typed,
+     so "5.25" sits in existing logs as the text "5.25" -- and this read it
+     as nothing, which dropped that pace from the score without a word.
+     It is read now as it was meant, 5:25. Anything else without a colon is
+     still nothing, and every colon form reads exactly as it always has, so
+     no existing log changes meaning except the ones that were being lost. */
+  if (String(p).indexOf(':') === -1){
+    var dot = /^\s*(\d{1,2})\.(\d{2})\s*$/.exec(String(p));
+    return (dot && +dot[2] <= 59) ? parseInt(dot[1],10)*60 + parseInt(dot[2],10) : null;
+  }
   var parts = String(p).split(':');
   if (parts.length<2) return null;
   var m=parseInt(parts[0],10), s=parseInt(parts[1],10);
   if (isNaN(m)||isNaN(s)) return null;
   return m*60+s;
+}
+/* ---------- A PACE IS MINUTES AND SECONDS, WRITTEN EITHER WAY ----------
+   Founder: "Accept both "5.25" and "5:25" as 5:25/km across all pace
+   inputs ... Automatically display as "5:25". Validate seconds (00-59)."
+   What every pace field reads what the athlete TYPED with (the stored value
+   is then always m:ss). Accepted:
+     "5:25"  "5.25"            minutes, a colon or a dot, two-digit seconds
+     "525"   "1015"            the watch shorthand the stage fields took:
+                               the last two digits are seconds
+     "5:25/km"  "8.00 /mi"     the unit the athlete copied with it
+   Refused (null), so nothing is guessed:
+     "5:75"  "5.60"            seconds past 59
+     "5.5"   "5:5"             one digit after the separator: 5:05 or 5:50?
+     "5.25.10"  "abc"  "0:00"  not a pace
+   A DOT NEVER MEANS DECIMAL MINUTES: 5.25 is five twenty-five, not 5:15,
+   the same rule the benchmark time already keeps (parseBenchmarkTime). */
+function parsePaceInput(str){
+  if (str==null) return null;
+  var s = String(str).trim().replace(/\s*(min)?\s*\/\s*(km|mi)\s*$/i, '');
+  var m = /^(\d{1,2})[:.](\d{2})$/.exec(s) || /^(\d{1,2})(\d{2})$/.exec(s);
+  if (!m) return null;
+  var sec = parseInt(m[2],10);
+  if (sec > 59) return null;
+  var total = parseInt(m[1],10)*60 + sec;
+  return total > 0 ? total : null;
+}
+var PACE_FORMAT_HELP = 'Pace is minutes and seconds, like 5:25 or 5.25. Seconds run from 00 to 59.';
+/* Put a pace field back to what is stored, after a refusal or to show the
+   tidied m:ss. Every copy of the field for that day (or stage) is set. */
+function setPaceFieldsShown(selector, text){
+  try{
+    if (typeof document === 'undefined' || !document.querySelectorAll) return;
+    var els = document.querySelectorAll(selector);
+    for (var i = 0; i < els.length; i++) els[i].value = text;
+  }catch(e){}
 }
 function secToPace(sec){
   if (sec===null||sec===undefined||isNaN(sec)||!isFinite(sec)) return '';
@@ -31217,9 +31262,9 @@ function renderZonePacesCard(inPanel){
         (hrTxt ? '<div class="pzr-hr font-mono">'+hrTxt+'</div>' : '')+
       '</div>'+
       '<div class="pzr-inputs">'+
-        '<input type="text" class="pzr-input" placeholder="m:ss" inputmode="numeric" value="'+fastTxt+'" data-action="pace-override" data-zone="'+k+'">'+
+        '<input type="text" class="pzr-input" placeholder="m:ss" inputmode="decimal" value="'+fastTxt+'" data-action="pace-override" data-zone="'+k+'">'+
         '<span class="pzr-sep">–</span>'+
-        '<input type="text" class="pzr-input" placeholder="m:ss" inputmode="numeric" value="'+slowTxt+'" data-action="pace-override" data-zone="'+k+'">'+
+        '<input type="text" class="pzr-input" placeholder="m:ss" inputmode="decimal" value="'+slowTxt+'" data-action="pace-override" data-zone="'+k+'">'+
         '<span class="pzr-unit">/'+unit+'</span>'+
       '</div>'+
     '</div>';
@@ -31237,8 +31282,17 @@ function renderZonePacesCard(inPanel){
 function handlePaceOverrideChange(zone){
   if (!state.setup) return;
   var inputs = document.querySelectorAll('.pzr-input[data-zone="'+zone+'"]');
-  var fastSec = paceToSec(inputs[0] ? inputs[0].value.trim() : '');
-  var slowSec = paceToSec(inputs[1] ? inputs[1].value.trim() : '');
+  var fastRaw = inputs[0] ? inputs[0].value.trim() : '', slowRaw = inputs[1] ? inputs[1].value.trim() : '';
+  var fastSec = fastRaw ? parsePaceInput(fastRaw) : null;
+  var slowSec = slowRaw ? parsePaceInput(slowRaw) : null;
+  /* A bound that cannot be read is refused rather than taken as "cleared":
+     reading it as empty would delete the athlete's override. The panel is
+     redrawn from what is stored. */
+  if ((fastRaw && fastSec == null) || (slowRaw && slowSec == null)){
+    try{ showToast(PACE_FORMAT_HELP); }catch(e){}
+    refreshOpenRecordPanel();
+    return;
+  }
   var toKm = function(s){ return s==null ? null : (state.units==='mi' ? s/1.60934 : s); };
   state.setup.paceOverrides = state.setup.paceOverrides || {};
   if (fastSec==null && slowSec==null) delete state.setup.paceOverrides[zone];
@@ -66594,7 +66648,19 @@ function handleActualFieldChange(dayId, field, value){
     }
   }
   else if (field==='pace'){
-    dd.actual.pace = value.trim() || null;
+    var paceSel = '[data-action="actual-field"][data-field="pace"][data-day="'+dd.id+'"]';
+    var paceRaw = value.trim();
+    var paceSec = paceRaw ? parsePaceInput(paceRaw) : null;
+    if (paceRaw && paceSec == null){
+      /* Refused, not stored: the pace already logged stays, and the field
+         shows it again. Storing the text would be the old fault -- kept on
+         screen, and silently nothing to the score. */
+      setPaceFieldsShown(paceSel, actualPaceDisplayStr(dd));
+      try{ showToast(PACE_FORMAT_HELP); }catch(e){}
+      return;
+    }
+    dd.actual.pace = paceSec != null ? secToPace(paceSec) : null;
+    if (dd.actual.pace) setPaceFieldsShown(paceSel, dd.actual.pace);
     delete dd.actual.paceDerived;                    // typed, so the athlete's
     // Stamp what the athlete was looking at. Written here and nowhere else
     // on this path, so a later unit toggle re-reads rather than reinterprets.
@@ -66830,6 +66896,15 @@ function handleStructuredSplitChange(dayId, segId, field, value){
   var row = null;
   for (var i=0;i<m.plan.rows.length;i++) if (m.plan.rows[i].segId === segId) row = m.plan.rows[i];
   if (!row) return;                                   // a stale card; ignore rather than invent
+  var slogPaceSel = '[data-action="slog-field"][data-field="pace"][data-day="'+dd.id+'"][data-seg="'+segId+'"]';
+  if (field === 'pace' && String(value).trim() && parsePaceInput(value) == null){
+    /* Refused before anything is touched: the stage keeps the pace it had
+       (no empty row is made for a refusal), and the field shows it again. */
+    var had = structuredSplitFor(dd, row.segId);
+    setPaceFieldsShown(slogPaceSel, had && had.paceSec != null ? secToPace(paceSecToDisplay(had.paceSec)) : '');
+    try{ showToast(PACE_FORMAT_HELP); }catch(e){}
+    return;
+  }
   var s = upsertStructuredSplit(dd, m.plan, row);
   if (field === 'km'){
     /* round2, not parseDistInput's round1. A whole-session distance to one
@@ -66869,7 +66944,8 @@ function handleStructuredSplitChange(dayId, segId, field, value){
          a rule with no number  -> the pace alone, and nothing invented
        paceEntered keeps the number exactly as typed: recomputing it from a
        rounded time would hand 3:45 back as 3:46. */
-    var shown = parseElapsedInput(value);
+    var shown = String(value).trim() ? parsePaceInput(value) : null;
+    if (shown != null) setPaceFieldsShown(slogPaceSel, secToPace(shown));
     var perKm = (shown != null && shown > 0)
       ? (state.units === 'mi' ? Math.round(shown / 1.60934 * 10) / 10 : shown) : null;
     if (perKm == null){
