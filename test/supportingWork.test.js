@@ -763,10 +763,11 @@ test('the decline action is subordinate to logging it', () => {
 
 test('the Settings control reflects and toggles the stored preference', () => {
   const a = app({});
-  assert.ok(a.renderSupportWorkRow().indexOf('aria-pressed="true"') !== -1);
+  // a switch now, like the other on/off settings beside it
+  assert.match(a.renderSupportWorkRow(), /data-action="toggle-support-work"[^>]* checked>/);
   a.handleSetSupportWork(false);
   assert.equal(a.state.setup.supportWork, 'off');
-  assert.ok(a.renderSupportWorkRow().indexOf('aria-pressed="false"') !== -1);
+  assert.doesNotMatch(a.renderSupportWorkRow(), / checked>/);
   a.handleSetSupportWork(true);
   assert.equal(a.state.setup.supportWork, 'on');
 });

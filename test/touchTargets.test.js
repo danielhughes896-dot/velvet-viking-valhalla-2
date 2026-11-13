@@ -220,7 +220,7 @@ test('the Backup panel is three labelled pairs, and the sheet owns the rhythm', 
   const i = SRC.indexOf('function settingsPanelBackup(');
   assert.ok(i > -1, 'settingsPanelBackup is gone');
   const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
-  ['As a file', 'As text', 'Other exports'].forEach(label => {
+  ['As a file', 'As text', 'Other'].forEach(label => {
     assert.ok(body.includes('<div class="setup-section-title">' + label + '</div>'),
       'the Backup panel lost its "' + label + '" group. Six identical full-width slabs ' +
       'with one heading two thirds down is what a tree walk called the densest surface ' +
