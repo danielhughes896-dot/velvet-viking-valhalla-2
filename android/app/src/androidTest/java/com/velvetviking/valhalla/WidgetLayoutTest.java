@@ -9,7 +9,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.os.Build;
 import android.text.Layout;
-import android.util.SizeF;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -186,10 +185,14 @@ public class WidgetLayoutTest {
                             List<String> cut = cuts(v, hPx);
                             for (String x : cut) failures.add(tag + ": " + x);
                             report.append(tag).append(cut.isEmpty() ? " ok" : " CUT " + cut).append('\n');
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                View pv = SacoroWidgetProvider.responsive(ctx).apply(ctx, parent, null, new SizeF(w, h));
-                                if (kindOf(pv) != fk) failures.add(tag + ": the launcher would draw layout " + kindOf(pv) + ", not " + fk);
-                            }
+                            /* The drawn layout is the one picked for this size. (The
+                               launcher's own choice among the size-keyed layouts is
+                               not reachable from a public API; the keys it chooses
+                               from are the ones pickLayout reads, asserted above.) */
+                            if (kindOf(v) != fk) failures.add(tag + ": drew layout " + kindOf(v) + ", not " + fk);
+                            /* Android 12 and later refuses a size-keyed RemoteViews it
+                               cannot use (too many, duplicate sizes): build it here. */
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SacoroWidgetProvider.responsive(ctx);
                             Bitmap bm = Bitmap.createBitmap(wPx + 2 * Math.round(8 * d), hPx + 2 * Math.round(8 * d), Bitmap.Config.ARGB_8888);
                             Canvas cv = new Canvas(bm);
                             cv.drawColor(0xFF3A3F47);
