@@ -61,3 +61,49 @@ test('2. a Full Plan week row reflows for its text instead of cutting the week\'
   /* And it does reflow where the audit found it broken. */
   assert.ok(361 / (16 * 1.235) < Number(wide[1]), 'iPhone 16 at xxxLarge stays on one line and cuts the name');
 });
+
+test('5. the Coach graph names scroll inside their row instead of widening the page', () => {
+  /* At 200% Android text the five names were wider than a 360px phone and
+     laid the whole Coach page out at 485px, every panel cut at the right. */
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\.cg-tabs\{column-gap:8px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none;\}/);
+  assert.match(bare, /\.cg-tabs::-webkit-scrollbar\{display:none;\}/);
+  /* The 8px floor costs nothing at the normal size: the five measured 241px
+     of names in a 288px row on a 320px phone, and 303 of 343 at 375. */
+  assert.ok(241 + 4 * 8 <= 288 && 303 + 4 * 8 <= 343);
+  /* And the chosen graph's name is brought into view when it changes. */
+  assert.match(fnIn('handleCoachGraph'), /if \(t2\)\{ t2\.scrollLeft = keep; cgTabInView\(t2\); \}/);
+  assert.match(fnIn('cgTabInView'), /if \(!on \|\| tabs\.scrollWidth <= tabs\.clientWidth \+ 1\) return;/, 'it moves the names when they all fit');
+});
+
+test('5. a figure is drawn small enough for its circle, and only when it would not fit', () => {
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const kid = (w, h) => {
+    const b = { getBoundingClientRect: () => ({ width: w }) };
+    return { style: {}, offsetHeight: h, firstElementChild: b };
+  };
+  const medal = (W, H, kids) => ({ clientWidth: W, clientHeight: H, children: kids });
+  const fits = medal(68, 68, [kid(40, 30)]);
+  const wide = medal(68, 68, [kid(64, 40)]);
+  const tall = medal(68, 68, [kid(40, 40), kid(30, 30)]);
+  a.document = { querySelectorAll: () => [fits, wide, tall] };
+  a.fitDialValues();
+  assert.equal(fits.children[0].style.transform, '', 'a figure that fits was touched');
+  assert.equal(wide.children[0].style.transform, 'scale(' + (68 * a.DIAL_FIT_ROOM / 64).toFixed(3) + ')');
+  const r = (68 * a.DIAL_FIT_ROOM / 70).toFixed(3);
+  assert.deepEqual(tall.children.map(k => k.style.transform), ['scale(' + r + ')', 'scale(' + r + ')'], 'a face whose lines are too tall is not fitted as one');
+  /* Run again at a size where it fits: the old scale comes off. */
+  wide.children[0].firstElementChild.getBoundingClientRect = () => ({ width: 30 });
+  a.fitDialValues();
+  assert.equal(wide.children[0].style.transform, '');
+});
+
+test('5. fitted after every render, every panel, every size or text-size change', () => {
+  assert.match(RT, /try \{ easeDials\(\); \} catch\(e\)\{\}\n  try \{ fitDialValues\(\); \} catch\(e\)\{\}/, 'not fitted after a render');
+  const om = fnIn('openModal');
+  assert.equal((om.match(/try \{ fitDialValues\(\); \} catch\(e\)\{\}/g) || []).length, 2, 'a panel opened or redrawn in place is not fitted');
+  assert.match(fnIn('applyDynamicType'), /fitDialValues\(\);/, 'an iOS text-size change is not fitted');
+  assert.match(RT, /window\.addEventListener\('resize', function\(\)\{ fitDialValues\(\); \}\)/);
+  assert.match(RT, /document\.fonts\.ready\.then\(fitDialValues\)/);
+});
