@@ -114,6 +114,9 @@ const WORK_SURFACES = [
      plan, and Account, Subscription, Backup and Legal are true before one
      exists. A surface an athlete works in either way. */
   ['openSettingsPanel', "Settings' own panels"],
+  /* The glass sheets Settings raises for a choice or a confirmation: Your
+     Name, Coach Voice, Sign Out and Delete Account. */
+  ['openStgSheet', "Settings' glass sheets"],
   /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
      it, picks how much the card says and then approves it -- that is working
      in a modal, not answering an interrupt, and it has a close control and

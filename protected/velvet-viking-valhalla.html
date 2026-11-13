@@ -9857,6 +9857,34 @@
   /* A word in a panel's circle takes the words' face, as the rail does. */
   .rp-hero.is-word .rd-val b{font-family:var(--text-face);}
   .rp-hero .b-dial.is-torus .b-medal{inset:15%;}
+  /* ---------- THE SETTINGS SHEET: LIQUID GLASS FROM THE BOTTOM ----------
+     The tab bar's glass, risen into a sheet: a dark pane, blurred behind,
+     a bright hairline at its top edge. The one action in it is cherry
+     glass, as Continue is on the entry screen. */
+  .modal-card.stg-sheet{
+    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%), rgba(16,16,20,.80);
+    -webkit-backdrop-filter:blur(22px) saturate(150%); backdrop-filter:blur(22px) saturate(150%);
+    border:1px solid rgba(255,255,255,.14); border-bottom:0; border-radius:24px 24px 0 0;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 -12px 40px rgba(0,0,0,.5);
+    padding-bottom:env(safe-area-inset-bottom, 0px);}
+  .modal-card.stg-sheet .modal-head{background:transparent; border-bottom-color:rgba(255,255,255,.1);}
+  .modal-card.stg-sheet .modal-head h2{color:#FFFFFF;}
+  .stg-sheet .icon-btn{color:#FFFFFF;}
+  .stg-sheet-say{color:#FFFFFF; font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; margin-bottom:6px;}
+  .stg-sheet .field-hint{color:#FFFFFF;}
+  .stg-sheet-acts{display:flex; gap:10px; margin-top:18px;}
+  .stg-sheet-acts .btn{flex:1 1 0; min-height:48px;}
+  .stg-sheet .stg-sheet-field input.stg-name-input{flex:none; width:100%; min-height:48px; margin:0; box-sizing:border-box;
+    padding:12px 14px; text-align:left; color:#FFFFFF; font-size:var(--fs-body); border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 60%), rgba(8,8,11,.3);
+    border:1px solid rgba(255,255,255,.2); box-shadow:inset 0 1px 0 rgba(255,255,255,.18);}
+  .stg-sheet .stg-sheet-field input::placeholder{color:#FFFFFF; opacity:.6;}
+  .stg-sheet .btn-primary{color:#FFFFFF; border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.03) 60%),
+               color-mix(in srgb, var(--cherry) 55%, transparent);
+    border:1px solid color-mix(in srgb, var(--cherry-text) 70%, transparent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 18px color-mix(in srgb, var(--cherry) 35%, transparent);}
+  .stg-sheet .btn-ghost{border-radius:14px;}
   /* PATTERNS' ORB: the glow is the orb's own, so the dial's wash and ring
      shadow step aside; the word inside takes near-black for contrast. */
   .b-dial.is-orb{background:none; box-shadow:none;}
@@ -28658,9 +28686,11 @@ function cloudRefreshIfNeeded(){
 // browser must never hold. Deliberately leaves the plan on this device --
 // that is the runner's own copy on their own hardware, and silently wiping
 // it would be a surprise; "Reset Plan" below already exists for that.
-function handleCloudDeleteAccount(){
+function handleCloudDeleteAccount(confirmed){
   if (!cloudSignedIn()) return;
-  var ok = window.confirm(
+  /* The Settings sheet asks first and passes confirmed; any other caller is
+     still asked by the system. */
+  var ok = confirmed || window.confirm(
     'Permanently delete your account?\n\n'+
     'This erases your account and every copy of your plan stored on our server. '+
     'It cannot be undone.\n\n'+
@@ -61437,8 +61467,8 @@ function openSettingsModal(){
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="print-plan">'+ICONS.ruler+' Print / Save as PDF</button>'
     ) : '')+
     '<div class="divider-or"><div class="rule"></div>Backup<div class="rule"></div></div>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="import-json" data-target="import-json-input">'+ICONS.upload+' Import Backup (JSON)</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Backup File</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="import-json" data-target="import-json-input">'+ICONS.upload+' Import Backup File</button>'+
     '<input type="file" accept=".json,application/json" id="import-json-input" class="file-input-offscreen">'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
@@ -61956,20 +61986,28 @@ function guidanceAdaptiveReason(dd){
    arrival screen, which is now a timed stop-gap and no place for a field.
    Here it is an ordinary setting with no clock on it, and it is pre-filled
    for the athlete who already has one so the row doubles as "change it". */
+/* ---------- YOUR NAME: A ROW, AND A SHEET ----------
+   Founder, agreeing the Settings review: the field sat inline in a list and
+   squeezed its own description onto two lines. The row now says the name;
+   tapping it raises a glass sheet with the field, so the keyboard and the
+   field arrive together. */
 function renderAthleteNameRow(){
   var n = athleteFirstName();
-  return '<div id="athlete-name-row" class="connect-row">'+
-    '<div><div class="name">Your name</div>'+
-    '<div class="desc">'+(n
-      ? 'SACORO greets you as '+escapeHtml(n)+'.'
-      : 'Add a first name and SACORO will greet you by it.')+'</div></div>'+
-    '<input id="athlete-name" class="stg-name-input" type="text" '+
-      'autocomplete="given-name" maxlength="80" '+
-      'value="'+escapeHtml(n || '')+'" placeholder="First name" '+
-      'aria-label="Your first name" data-action="noop">'+
-    '<button type="button" class="btn btn-sm btn-ghost" '+
-      'data-action="set-athlete-name">Save</button>'+
-  '</div>';
+  return stgRow({ id:'athlete-name-row', title:'Your Name',
+    sub: n ? 'SACORO greets you as '+n : 'Add the name SACORO greets you by',
+    attrs:'data-action="open-stg-sheet" data-sheet="name"' });
+}
+function athleteNameSheetBody(){
+  var n = athleteFirstName();
+  return '<div class="field stg-sheet-field">'+
+      '<input id="athlete-name" class="stg-name-input" type="text" '+
+        'autocomplete="given-name" maxlength="80" '+
+        'value="'+escapeHtml(n || '')+'" placeholder="First name" '+
+        'aria-label="Your first name" data-action="noop">'+
+    '</div>'+
+    '<div class="stg-sheet-acts">'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="set-athlete-name">Save</button>'+
+    '</div>';
 }
 function handleSetAthleteName(){
   if (typeof document === 'undefined' || !document.getElementById) return;
@@ -61981,19 +62019,20 @@ function handleSetAthleteName(){
     return;
   }
   scheduleSave();
+  if (stgSheetOpen('name')) closeStgSheet();
   renderApp();
   showToast('SACORO will call you ' + athleteFirstName());
 }
 function renderSupportWorkRow(){
   var on = supportWorkEnabled();
-  return '<div id="support-work-row" class="connect-row">'+
-    '<div><div class="name">Strength &amp; mobility</div>'+
-    '<div class="desc">'+escapeHtml(SUPPORT_COPY.settingsDesc)+'</div></div>'+
-    '<button type="button" class="btn btn-sm '+(on ? 'btn-primary' : 'btn-ghost')+'" '+
-      'aria-pressed="'+(on ? 'true' : 'false')+'" '+
-      'data-action="set-support-work" data-on="'+(on ? '0' : '1')+'">'+
-      (on ? 'On' : 'Off')+'</button>'+
-  '</div>';
+  /* A SWITCH, like the other two on/off settings beside it. It was a lone
+     button reading "Off" -- a state and a command in one word, and the only
+     control of its kind on the screen. */
+  return stgRow({ id:'support-work-row', title:'Strength & Mobility',
+    sub: SUPPORT_COPY.settingsDesc, chevron:false, still:true,
+    trail:'<span class="stg-row-switch"><label class="switch"><input type="checkbox" '+
+      'data-action="toggle-support-work" aria-label="Strength and mobility"'+(on ? ' checked' : '')+'>'+
+      '<span class="switch-track"></span></label></span>' });
 }
 function handleSetSupportWork(on){
   if (!state.setup) return;
@@ -62345,11 +62384,9 @@ function renderGuidanceLevelRow(){
    its CSS rather than copying it. */
 function renderCoachVoiceRow(){
   var cur = coachVoice();
+  /* The sheet it sits in is headed Coach Voice, so the list carries no
+     heading of its own. */
   return '<div id="coach-voice-row" class="cv-row">'+
-    '<div class="connect-row" style="padding-bottom:0;">'+
-      '<div><div class="name">Coach voice</div>'+
-      '<div class="desc">Who your coach sounds like</div></div>'+
-    '</div>'+
     '<div class="cv-list" role="radiogroup" aria-label="Coach voice">'+
       COACH_VOICES.map(function(k){
         var meta = COACH_VOICE_META[k];
@@ -62394,6 +62431,13 @@ function handleSetCoachVoice(v){
   if (!setCoachVoice(v)) return;
   var row = document.getElementById('coach-voice-row');
   if (row) row.outerHTML = renderCoachVoiceRow();
+  var hub = document.getElementById('coach-voice-hub-row');
+  if (hub) hub.outerHTML = coachVoiceHubRow();
+}
+function coachVoiceHubRow(){
+  var meta = COACH_VOICE_META[coachVoice()] || {};
+  return stgRow({ id:'coach-voice-hub-row', title:'Coach Voice', sub: meta.label || 'Who your coach sounds like',
+    attrs:'data-action="open-stg-sheet" data-sheet="voice"' });
 }
 
 function handleSetGuidanceLevel(level){
@@ -71971,14 +72015,6 @@ function actionPanelNewBlock(){
    controls, their data-actions and their explanatory text are the same
    objects, now behind the row that names them. That is the whole claim of
    this restructure and it is what the tests hold it to. */
-function settingsPanelPrefs(){
-  return recordPanelShell('Preferences',
-    renderAthleteNameRow()+
-    renderNotifyToggleRow()+
-
-    renderSupportWorkRow()+
-    renderCoachVoiceRow());
-}
 function settingsPanelHealth(){
   /* The consent copy travels WITH the switch, always. The row on Settings
      carries the switch too, because a binary an athlete may want to revoke
@@ -72046,7 +72082,9 @@ function openExternal(url){
 function openContact(){ openExternal('mailto:'+LEGAL_URLS.support); }
 function settingsPanelTraining(){
   return recordPanelShell('Training & Zones',
-    '<button type="button" class="btn btn-primary btn-recal btn-block" style="margin-bottom:10px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
+    /* A row like its neighbours: re-calibrating is an action, and cherry
+       is kept for what is on. */
+    stgRow({ title:'Re-calibrate Training Zones', attrs:'data-action="open-recalibrate"' })+
     stgRow({ title:'View Training Zone Paces',
       attrs:'data-action="open-record" data-record="zones"' })+
     stgRow({ title:'Edit Plan Settings',
@@ -72075,8 +72113,8 @@ function settingsPanelBackup(){
   return recordPanelShell('Export / Import Backup',
     '<div class="setup-section-title">As a file</div>'+
     '<div class="stg-actions">'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup (JSON)</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="export-json">'+ICONS.download+' Export Backup File</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup File</button>'+
       '<input type="file" accept=".json,application/json" id="import-json-input-hub" class="file-input-offscreen">'+
     '</div>'+
     '<div class="setup-section-title">As text</div>'+
@@ -72085,7 +72123,7 @@ function settingsPanelBackup(){
       '<button type="button" class="btn btn-ghost btn-block" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
     '</div>'+
     '<div class="field-hint">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
-    '<div class="setup-section-title">Other exports</div>'+
+    '<div class="setup-section-title">Other</div>'+
     '<div class="stg-actions">'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
@@ -72169,7 +72207,8 @@ function appShellDiffers(live, fresh){
 }
 function setAppUpdateStatus(status){
   appUpdateState.status = status;
-  if (openRecordPanelKey === 'update') refreshOpenRecordPanel();
+  var row = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('app-update-row') : null;
+  if (row) row.outerHTML = appUpdateRowHtml();
   return status;
 }
 function checkForAppUpdate(){
@@ -72203,31 +72242,81 @@ function appInstalledVersionLine(){
   var build = nativeInstalledBuild();
   return String(nativeAppInfo.version) + (build !== null ? ' (' + build + ')' : '');
 }
-function settingsPanelUpdate(){
+/* ---------- THE SETTINGS SHEETS ----------
+   Founder, agreeing the Settings review: a choice or a confirmation rises
+   from the bottom as a liquid-glass sheet; a workflow stays a full page.
+   A sheet REPLACES whatever was open rather than sitting on it, so there is
+   never a card over a page: Sign Out and Delete Account are asked from the
+   Account page, and Cancel returns to it. */
+var STG_SHEETS = {
+  name:          { title:'Your Name',      body:function(){ return athleteNameSheetBody(); } },
+  voice:         { title:'Coach Voice',    body:function(){ return renderCoachVoiceRow(); } },
+  signout:       { title:'Sign Out',       body:function(){ return signOutSheetBody(); },       back:'account' },
+  deleteaccount: { title:'Delete Account', body:function(){ return deleteAccountSheetBody(); }, back:'account' }
+};
+var openStgSheetKey = null;
+function stgSheetOpen(key){
+  if (typeof document === 'undefined' || !document.querySelector) return false;
+  return !!document.querySelector('.modal-card[data-modal-key="stg-sheet-'+key+'"]');
+}
+function openStgSheet(key){
+  var sh = STG_SHEETS[key];
+  if (!sh) return;
+  var html = '<div class="modal-head"><h2 class="font-head">'+escapeHtml(sh.title)+'</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-stg-sheet" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+sh.body()+'</div>';
+  openModal(html, 'modal-themed stg-sheet', 'stg-sheet-'+key);
+  openRecordPanelKey = null;
+  openStgSheetKey = key;
+}
+function closeStgSheet(){
+  var sh = STG_SHEETS[openStgSheetKey];
+  openStgSheetKey = null;
+  if (sh && sh.back && cloudSignedIn()) openSettingsPanel(sh.back);
+  else closeModal();
+}
+function signOutSheetBody(){
+  var who = (cloudSession && cloudSession.email) || 'this account';
+  return '<div class="stg-sheet-say">Sign out of '+escapeHtml(who)+'?</div>'+
+    '<div class="field-hint">Your plan stays on this device. To sign back in, SACORO emails you a link.</div>'+
+    '<div class="stg-sheet-acts">'+
+      '<button type="button" class="btn btn-ghost" data-action="close-stg-sheet">Cancel</button>'+
+      '<button type="button" class="btn btn-primary" data-action="stg-sign-out">Sign out</button>'+
+    '</div>';
+}
+function deleteAccountSheetBody(){
+  return '<div class="stg-sheet-say">Delete your account?</div>'+
+    '<div class="field-hint">This erases your SACORO account and every copy of your plan stored on our server, for good. '+
+      'It cannot be undone. Your plan stays on this device.</div>'+
+    '<div class="stg-sheet-acts">'+
+      '<button type="button" class="btn btn-ghost" data-action="close-stg-sheet">Keep my account</button>'+
+      '<button type="button" class="btn btn-danger" data-action="cloud-delete-account-confirmed">Delete account</button>'+
+    '</div>';
+}
+/* ---------- APP UPDATE, IN ITS ROW ----------
+   Founder, agreeing the Settings review: the page behind this row was
+   nearly empty, so the row asks and answers in place. Tap to check; the
+   line under it says what was found; when there is something to do, the
+   row does it. */
+function appUpdateRowHtml(){
   var st = appUpdateState.status;
   var installed = appInstalledVersionLine();
-  var body =
-    (installed ? '<div class="hub-card tile-card">'+hqRow('Installed app', installed)+'</div>' : '')+
-    '<div class="stg-update-say" role="status" aria-live="polite">'+escapeHtml(APP_UPDATE_WORDS[st] || '')+'</div>'+
-    '<div class="field-hint">SACORO updates itself each time you open it. Check here if it has been open for a while.</div>';
-  var foot;
-  if (st === 'ready')
-    foot = '<button type="button" class="btn btn-primary" data-action="apply-app-update">Update now</button>';
-  else if (st === 'store')
-    foot = '<button type="button" class="btn btn-primary" data-action="open-external" data-href="'+PLAY_STORE_URL+'">Open Google Play</button>';
-  else
-    foot = '<button type="button" class="btn btn-primary" data-action="check-app-update"'+
-      (st === 'checking' ? ' disabled' : '')+'>'+
-      (st === 'idle' || st === 'checking' ? 'Check for updates' : 'Check again')+'</button>';
-  return recordPanelShell('App Update', body, null, foot);
+  var said = APP_UPDATE_WORDS[st] || 'Check for updates';
+  var sub = st === 'ready' ? 'A new version is ready. Tap to update'
+    : st === 'store' ? 'A newer version is on Google Play. Tap to open it'
+    : said + (installed && (st === 'current' || st === 'idle') ? ' Installed ' + installed : '');
+  var attrs = st === 'checking' ? 'disabled aria-busy="true"'
+    : st === 'ready' ? 'data-action="apply-app-update"'
+    : st === 'store' ? 'data-action="open-external" data-href="'+PLAY_STORE_URL+'"'
+    : 'data-action="check-app-update"';
+  return stgRow({ id:'app-update-row', title:'App Update', sub:sub, chevron:false, attrs:attrs });
 }
 var ACTION_PANELS = { newblock: actionPanelNewBlock,
-  prefs: settingsPanelPrefs, health: settingsPanelHealth,
+  health: settingsPanelHealth,
   account: settingsPanelAccount, subscription: settingsPanelSubscription,
   training: settingsPanelTraining, strava: settingsPanelStrava,
   garmin: settingsPanelGarmin,
-  backup: settingsPanelBackup, resetplan: settingsPanelReset,
-  update: settingsPanelUpdate };
+  backup: settingsPanelBackup, resetplan: settingsPanelReset };
 /* openHQPanel() refuses without a plan, which is right for every panel it
    was written for -- there is no readiness to read and no record to show.
    Account, Subscription, Backup and Legal are true before a plan exists and
@@ -72275,11 +72364,8 @@ var STG_PAGE = 'hq-panel stg-panel hq-full rp-cherry';
    last time it was open: a reset left armed, or yesterday's update answer. */
 function stgPanelOpening(key){
   if (key === 'resetplan') resetPlanArmed = false;
-  if (key === 'update' && appUpdateState.status !== 'checking') appUpdateState.status = 'idle';
 }
-function stgPanelOpened(key){
-  if (key === 'update') checkForAppUpdate();
-}
+function stgPanelOpened(key){}
 /* Take the athlete to the checkpoint session itself: Full Plan, its week open,
    scrolled to it. Real navigation to a real session -- no new screen. */
 function handleGoToCheckpoint(){
@@ -72367,12 +72453,11 @@ function renderNotifyToggleRow(){
   var desc = !supported ? (isNativeApp() ? 'Needs the latest version of the app' : 'Not supported in this browser')
     : revoked ? (native ? 'Blocked. Allow notifications for SACORO in your phone\u2019s settings'
                         : 'Blocked. Allow notifications for this site in your browser settings')
-    : on ? (native ? 'On. Every morning at 08:00, with that day\u2019s session' : 'On. When today\u2019s session is ready')
+    : on ? (native ? '08:00, with that day\u2019s session' : 'When today\u2019s session is ready')
     : 'Off';
-  return '<div class="connect-row" id="notify-toggle-row">'+
-    '<div><div class="name">Daily 08:00 Workout Reminder</div><div class="desc">'+desc+'</div></div>'+
-    '<label class="switch"><input type="checkbox" data-action="toggle-notify" '+(on?'checked':'')+(supported?'':' disabled')+'><span class="switch-track"></span></label>'+
-  '</div>';
+  return stgRow({ id:'notify-toggle-row', title:'Daily Reminder', sub:desc, chevron:false, still:true,
+    trail:'<span class="stg-row-switch"><label class="switch"><input type="checkbox" data-action="toggle-notify" '+
+      'aria-label="Daily reminder"'+(on?' checked':'')+(supported?'':' disabled')+'><span class="switch-track"></span></label></span>' });
 }
 // Account card. Hidden entirely until cloud sync is configured, so the app
 // never advertises a feature that isn't wired up.
@@ -72408,6 +72493,13 @@ function planStorageStatus(){
 function renderCloudCard(){
   if (!cloudConfigured()) return '';
   var body;
+  /* The way back for an athlete whose plan is parked on this device, or in
+     an account they have not signed into yet. The no-plan screen offers the
+     same route, but only when this device actually holds a parked plan --
+     and that screen has no bottom nav, so this card is not reachable from
+     it. Both doors are needed; neither is a duplicate of the other. */
+  var restoreBtn = '<button type="button" class="btn btn-ghost btn-block" style="margin-top:12px;" '+
+      'data-action="open-restore">'+ICONS.link+' Restore a plan</button>';
   if (cloudSignedIn()){
     // entitlementInfo is display-only (never authority -- /api/app re-checks
     // server-side on every load), but showing it here is what keeps Settings
@@ -72422,9 +72514,12 @@ function renderCloudCard(){
        is signed in, whether the backup has landed, and how to leave. */
     body = '<div class="connect-row">'+
         '<div><div class="name">'+escapeHtml(cloudSession.email||'Signed in')+'</div><div class="desc">'+label+'</div></div>'+
-        '<button type="button" class="btn btn-sm btn-ghost" data-action="cloud-sign-out">Sign out</button>'+
+        '<button type="button" class="btn btn-sm btn-ghost" data-action="open-stg-sheet" data-sheet="signout">Sign out</button>'+
       '</div>'+
       (revoked ? '<div class="field-hint" style="margin-top:8px;">This account no longer has access to SACORO. Your plan and history are unaffected and remain on this device.</div>' : '')+
+      /* RESTORE BEFORE PERMANENT. The irreversible action is the last thing
+         on the page, after everything that can be undone. */
+      restoreBtn+
       /* DELETE ACCOUNT AND RESET PLAN MUST NOT LOOK ALIKE.
          Both were btn-danger, so Settings offered two identical red buttons:
          one clears a schedule and explicitly keeps everything, the other
@@ -72435,14 +72530,15 @@ function renderCloudCard(){
          up. */
       '<div class="danger-zone">'+
         '<div class="dz-title">Permanent</div>'+
-        '<button type="button" class="btn btn-danger btn-block" data-action="cloud-delete-account">'+ICONS.trash+' Delete Account &amp; Cloud Data</button>'+
+        '<button type="button" class="btn btn-danger btn-block" data-action="open-stg-sheet" data-sheet="deleteaccount">'+ICONS.trash+' Delete Account &amp; Cloud Data</button>'+
         '<div class="field-hint" style="margin-top:8px;">Erases your SACORO account and everything stored on our server, for good. '+
         'This is not the same as resetting your plan. Your training on this device is left alone.</div>'+
       '</div>';
   } else {
     body = '<div class="field-hint" style="margin-bottom:10px;">Sign in to back your plan up and use it on more than one device. We email you a link — there is no password.</div>'+
       '<div class="field" style="margin-bottom:8px;"><label>Email</label><input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>';
+      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>'+
+      restoreBtn;
   }
   var st = planStorageStatus();
   /* NO SECTION TITLE. The panel header already says "Account & Backup", and
@@ -72454,13 +72550,6 @@ function renderCloudCard(){
     '<div class="field-hint" style="margin-bottom:10px;"><strong>'+escapeHtml(st.label)+'</strong>'+
       (st.hint ? '<br>'+escapeHtml(st.hint) : '')+'</div>'+
     body+
-    /* The way back for an athlete whose plan is parked on this device, or in
-       an account they have not signed into yet. The no-plan screen offers the
-       same route, but only when this device actually holds a parked plan --
-       and that screen has no bottom nav, so this card is not reachable from
-       it. Both doors are needed; neither is a duplicate of the other. */
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:12px;" '+
-      'data-action="open-restore">'+ICONS.link+' Restore a plan</button>'+
   '</div>';
 }
 function patchCloudCard(){
@@ -72631,19 +72720,20 @@ function stgRow(o){
     (o.trail || '')+
     (o.chevron === false ? '' : '<span class="rs-chev">'+ICONS.chevronRight+'</span>');
   var cls = 'ev-card stg-nav stg-row'+(o.muted ? ' is-muted' : '');
+  var idA = o.id ? ' id="'+o.id+'"' : '';
   /* A row that goes nowhere is not a button. Garmin is "not yet available",
      and a pressable row that does nothing is worse than a stated absence. */
-  if (o.muted) return '<div class="'+cls+'">'+inner+'</div>';
+  if (o.muted) return '<div'+idA+' class="'+cls+'">'+inner+'</div>';
   /* A ROW THAT HOLDS ITS OWN BUTTONS CANNOT BE ONE. Distance units carries
      KM and MI in its trail, and the row was a <button>: a button may not
      contain a button, so the parser closed the row early and put both
      outside it -- the founder's screenshot shows an empty oval on the right
      and "KMMI" as loose text underneath. `still` says the row itself goes
      nowhere; its controls do the work. */
-  if (o.still) return '<div class="'+cls+' is-still">'+inner+'</div>';
+  if (o.still) return '<div'+idA+' class="'+cls+' is-still">'+inner+'</div>';
   if (o.href && o.external) return '<button type="button" class="'+cls+'" data-action="open-external" data-href="'+escapeHtml(o.href)+'">'+inner+'</button>';
   if (o.href) return '<a class="'+cls+'" href="'+o.href+'">'+inner+'</a>';
-  return '<button type="button" class="'+cls+'" '+(o.attrs||'')+'>'+inner+'</button>';
+  return '<button type="button"'+idA+' class="'+cls+'" '+(o.attrs||'')+'>'+inner+'</button>';
 }
 function stgPanelRow(title, sub, panelKey, pill, pillTone){
   return stgRow({ title:title, sub:sub, pill:pill, pillTone:pillTone,
@@ -72673,12 +72763,14 @@ function settingsConnectRows(){
        leads somewhere. The moment the server says the athlete may use it,
        the row becomes a real one opening the same renderGarminSection() it
        always was -- connect, disconnect and all. */
+    /* NOT LISTED UNTIL IT EXISTS. A greyed "Not yet available" row was a
+       dead row and the only grey on the screen; the moment the server says
+       the athlete may use it, the row appears and opens the same section. */
     (g.available
       ? stgPanelRow('Garmin Connect',
           g.connected ? 'Connected' : 'Bring your sessions to your watch',
           'garmin', g.connected ? 'Connected' : null, 'is-green')
-      : stgRow({ title:'Garmin Connect', sub:'Not yet available',
-          muted:true, chevron:false }));
+      : '');
 }
 function renderSettingsHubView(){
   var sub = (cloudConfigured() && cloudSignedIn() && entitlementInfo && entitlementInfo.signed_in)
@@ -72710,81 +72802,78 @@ function renderSettingsHubView(){
   /* ALWAYS THERE, unlike the notice above it. Founder: "Add an app update
      tab. Or search for updates." The notice appears only when this build
      already knows the installed app is behind; this is the athlete asking. */
-  appUpdate += stgPanelRow('App Update', 'Check for updates', 'update');
+  /* ---------- THE ORDER, AGREED ----------
+     Founder, on the Settings review: "agree with everything". Account
+     first; then Training, which is what the plan does; Preferences, how the
+     app speaks to you, shown on this screen rather than behind a row;
+     Connect; Data & Privacy; and at the foot, Contact and App Update beside
+     the build they describe. The update notice above keeps the top only
+     while there is an update to take. */
   var account =
-    (sub ? stgPanelRow('Subscription', subscriptionRowLine(sub),
-             'subscription', subscriptionRowPill(sub), 'is-gold') : '')+
     (cloudConfigured()
       ? stgPanelRow('Account & Backup', cloudRowLine(), 'account')
-      : '');
+      : '')+
+    (sub ? stgPanelRow('Subscription', subscriptionRowLine(sub),
+             'subscription', subscriptionRowPill(sub), 'is-gold') : '');
 
   var training =
-    stgPanelRow('Preferences', 'Your name, reminder, strength & mobility, coach voice',
-      'prefs')+
+    (hasPlan ? stgPanelRow('Training & Zones', 'Paces, recalibrate and race day strategy',
+      'training') : '')+
+    (state.setup ? renderSupportWorkRow() : '')+
+    (hasPlan ? stgRow({ title:'Training Availability',
+      sub: openRestriction() ? 'Injury or illness: restriction open' : 'Injured or ill? Tell SACORO',
+      attrs:'data-action="restriction-open"' }) : '')+
+    /* One way to start again. New Block keeps the finished weeks as history
+       and carries everything learned. */
+    (hasPlan ? stgRow({ title:'Start a New Block',
+      sub:'Keeps your history and everything learned',
+      attrs:'data-action="open-new-block"' }) : '');
+
+  /* The units control lives in the row's trail with no chevron: the row
+     IS the decision and there is no page behind it. */
+  var prefs =
+    renderAthleteNameRow()+
+    coachVoiceHubRow()+
+    renderNotifyToggleRow()+
+    stgRow({ title:'Distance Units',
+      sub: state.units === 'mi' ? 'Miles' : 'Kilometres',
+      chevron:false, still:true,
+      trail:'<span class="stg-row-units">'+unitsToggleHtml()+'</span>' });
+
+  var connectRows = settingsConnectRows();
+  var connect = connectRows ? '<div id="stg-connect-group">'+connectRows+'</div>' : '';
+
+  var privacy =
     /* THE SWITCH IS IN THE ROW, because withdrawing consent must cost one
-       tap, and the row also opens the panel that explains what the switch
-       does. Two targets, one row -- the label goes to the explanation, the
-       switch is the decision. */
+       tap, and the row also opens the page that explains what the switch
+       does. Two targets, one row. */
     stgRow({ title:'Health & Readiness',
       sub: healthOn ? 'On. Used to adjust your programme' : 'Use my health and readiness information',
       chevron:false,
       attrs:'data-action="open-settings-panel" data-panel="health"',
       trail:'<span class="stg-row-switch">'+healthConsentSwitchHtml()+'</span>' })+
-    (hasPlan ? stgRow({ title:'Training Availability',
-      sub: openRestriction() ? 'Injury or illness: restriction open' : 'Injured or ill? Tell SACORO',
-      attrs:'data-action="restriction-open"' }) : '')+
-    (hasPlan ? stgPanelRow('Training & Zones', 'Paces, recalibrate and race day strategy',
-      'training') : '')+
-    /* ---- THE UNITS CONTROL, OFF THE COACH TAB ----
-       Founder: "Coach tab. Remove the KM / Ml tab. Move to settings."
-       Same row shape as Health & Readiness above: the control lives in the
-       trail and there is no chevron, because the row IS the decision and
-       there is no panel behind it to open. Not gated on hasPlan -- an
-       athlete can prefer miles before they have a block, and every distance
-       the builder shows them is already in their chosen unit. */
-    stgRow({ title:'Distance units',
-      sub: state.units === 'mi' ? 'Miles' : 'Kilometres',
-      chevron:false, still:true,
-      trail:'<span class="stg-row-units">'+unitsToggleHtml()+'</span>' });
-
-  var connect = '<div id="stg-connect-group">'+settingsConnectRows()+'</div>';
-
-  /* ONE WAY TO START AGAIN. Founder: "Is start a new block needed? We have
-     that, reset plan and update plan." Asked which should stay: "Keep New
-     Block, drop Reset." New Block keeps the finished weeks as history and
-     carries everything learned; Reset did the second half of that and not
-     the first. Edit Plan Settings, in Training & Zones, still changes the
-     plan you are in. The Reset page itself is untouched and unlinked. */
-  var data =
-    (hasPlan ? stgRow({ title:'Start a New Block',
-      sub:'Keeps your history and everything learned',
-      attrs:'data-action="open-new-block"' }) : '')+
     stgPanelRow('Export / Import Backup', 'Move or keep a copy of your training',
       'backup');
 
-  /* CONTACT, ON ITS OWN. Founder: "Legal and support. Currently the 3
-     options go nowhere. And we have the 2 greyed out options at the bottom
-     so they can be removed from there and delete the legal title. Contact
-     should then be a standalone option."
-     The address is on the row, so the athlete has it whether or not the
-     phone has a mail app set up to open. */
-  var contact =
+  /* Contact on its own, with the address on the row so the athlete has it
+     whether or not the phone has a mail app set up to open. */
+  var foot =
     stgRow({ title:'Contact', sub:LEGAL_URLS.support,
-      attrs:'data-action="open-contact"' });
+      attrs:'data-action="open-contact"' })+
+    appUpdateRowHtml();
 
-  /* A WRAPPER, FOR THE REASON SACORO NEEDED ONE. This screen returned a
-     bare run of sections, and .stg-group is a .hub-card -- the same class
-     Today's Next Move and the post-race panel wear, which the Sacoro pass
-     recorded must never be restyled bare. Scoped here, Settings can drop the
-     containers without touching either of them. */
+  /* A WRAPPER, FOR THE REASON SACORO NEEDED ONE: .stg-group is a .hub-card,
+     and scoped here Settings can drop the containers without touching the
+     other surfaces that wear it. */
   return '<div class="view-settings">'+
     '<div class="view-heading font-head">Settings</div>'+
-    stgGroup('App', appUpdate)+
+    (appUpdate ? '<div class="hub-card tile-card stg-group stg-solo">'+appUpdate+'</div>' : '')+
     stgGroup('Account', account)+
     stgGroup('Training', training)+
+    stgGroup('Preferences', prefs)+
     stgGroup('Connect', connect)+
-    stgGroup('Data', data)+
-    '<div class="hub-card tile-card stg-group stg-solo">'+contact+'</div>'+
+    stgGroup('Data & Privacy', privacy)+
+    '<div class="hub-card tile-card stg-group stg-solo">'+foot+'</div>'+
   '<div class="build-tag">Build '+BUILD_ID+'</div>'+
     /* padded rather than merely coloured: an 11px line of text is a link a
        thumb misses, and these two are the only route to the legal pages. */
@@ -75053,6 +75142,10 @@ document.addEventListener('click', function(e){
     case 'cloud-sign-in': handleCloudSignIn(); break;
     case 'cloud-sign-out': cloudSignOut(); break;
     case 'cloud-delete-account': handleCloudDeleteAccount(); break;
+    case 'open-stg-sheet': openStgSheet(target.getAttribute('data-sheet')); break;
+    case 'close-stg-sheet': closeStgSheet(); break;
+    case 'stg-sign-out': closeModal(); cloudSignOut(); renderApp(); break;
+    case 'cloud-delete-account-confirmed': closeModal(); handleCloudDeleteAccount(true); break;
     case 'cloud-keep-local': handleCloudKeepLocal(); break;
     case 'cloud-keep-remote': handleCloudKeepRemote(); break;
   }
@@ -75099,6 +75192,7 @@ document.addEventListener('change', function(e){
   else if (action === 'slog-field') handleStructuredSplitChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-seg'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
+  else if (action === 'toggle-support-work') handleSetSupportWork(!!t.checked);
   /* The Settings switch is a form field and belongs on `change`; the one-time
      card's two buttons are buttons and are registered on `click`. Separate
      action names rather than one, because a checkbox fires both events and a

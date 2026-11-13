@@ -419,9 +419,11 @@ test('the Settings view mounts the Garmin card', () => {
      server says the athlete may use it the row becomes a real one opening
      the same renderGarminSection() -- which is what the second half here
      asserts, so the card cannot be lost along with the paragraph. */
+  /* NOT LISTED UNTIL IT EXISTS. Founder, agreeing the Settings review: the
+     greyed "Not yet available" row was dead and the only grey on the screen. */
   const html = a.renderSettingsHubView();
-  assert.ok(html.indexOf('Garmin Connect') > -1, 'Garmin is not in Settings');
-  assert.ok(html.indexOf('Not yet available') > -1);
+  assert.ok(html.indexOf('Garmin Connect') === -1, 'an unavailable Garmin is listed again');
+  assert.ok(html.indexOf('Not yet available') === -1);
   a.garminCapability = { available: true, connected: false };
   const live = a.renderSettingsHubView();
   assert.match(live, /data-action="open-settings-panel" data-panel="garmin"/,
