@@ -72008,6 +72008,7 @@ function renderApp(){
   animateWeekBar();
   animateConfidenceGauge();
   try { doneArrivals(); } catch(e){}
+  try { easeDials(); } catch(e){}
   wireCoachingRails();
   wireWeekDayPager();
   /* Last, and never waited for: the screen above is already complete. */
@@ -73029,6 +73030,74 @@ function animateWeekBar(){
     void fill.offsetWidth;
     fill.classList.add('is-filling');
   }catch(e){}
+}
+/* ---------- THE COACH CIRCLES CHANGE, THEY DO NOT SWITCH ----------
+   Founder: "When Recovery changes from Fresh to Watch, the turquoise ring
+   smoothly adjusts rather than instantly switching. A very subtle animation
+   communicates that something has changed." Then: "10. Let's do it."
+   A reading changes between visits, not while it is watched, so this is
+   "changed since you last looked": each circle's word and ring are kept, on
+   the device only, as they were last shown. When the Coach page next shows a
+   circle different from that, the ring eases from the old shape to the new
+   one over 900ms -- the break in Recovery's ring closing as it goes from
+   Watch to Strained, or opening on the way back -- and the new word rises
+   in. A ring that was still gathering (dashed) brightens into its solid
+   form. The first look after this update plays nothing, Reduce Motion plays
+   nothing, and a browser without the Web Animations API simply shows the
+   new state, as before. */
+var DIAL_SEEN_KEY = 'vvv_dial_seen';
+var DIAL_EASE_MS = 900;
+/* The ring's drawn length and break, as the CSS draws each state: Fresh and
+   Watch carry the 30-degree break (264.9 drawn, 24.1 open); Strained and
+   every other solid ring are closed. A dashed "still gathering" ring has no
+   single break to ease, so it is null. */
+function dialDash(cls){
+  cls = ' ' + String(cls || '') + ' ';
+  if (cls.indexOf(' is-learning ') > -1) return null;
+  if (cls.indexOf(' is-rec-fresh ') > -1 || cls.indexOf(' is-rec-watch ') > -1) return '264.9 24.1';
+  return '289.03 0';
+}
+function dialSnapshot(el){
+  var arc = el.querySelector ? el.querySelector('.rd-arc') : null;
+  var v = el.querySelector ? el.querySelector('.rd-val b') : null;
+  return { v: v ? v.textContent : '', k: arc && arc.getAttribute ? (arc.getAttribute('class') || '') : '' };
+}
+function dialSeenRead(){
+  try {
+    var raw = storageAvailable ? window.localStorage.getItem(DIAL_SEEN_KEY) : null;
+    return raw ? JSON.parse(raw) : null;
+  } catch(e){ return null; }
+}
+function dialSeenWrite(v){
+  try { if (storageAvailable) window.localStorage.setItem(DIAL_SEEN_KEY, JSON.stringify(v)); } catch(e){}
+}
+function easeDials(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var els = document.querySelectorAll('.b-grid .b-dial[data-reading]');
+  if (!els || !els.length) return;
+  var seen = dialSeenRead() || {};   // nothing remembered yet: a first look, which plays nothing
+  var still = false;
+  try { still = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(e){}
+  var ease = 'cubic-bezier(.4,0,.2,1)';
+  for (var i = 0; i < els.length; i++){
+    var el = els[i], key = el.getAttribute('data-reading');
+    if (!key) continue;
+    var now = dialSnapshot(el), was = seen[key];
+    seen[key] = now;
+    if (!was || still) continue;
+    var arc = el.querySelector('.rd-arc'), val = el.querySelector('.rd-val b');
+    if (was.k !== now.k && arc && typeof arc.animate === 'function'){
+      var from = dialDash(was.k), to = dialDash(now.k);
+      if (from && to && from !== to)
+        arc.animate([{ strokeDasharray: from }, { strokeDasharray: to }], { duration: DIAL_EASE_MS, easing: ease });
+      else
+        arc.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: DIAL_EASE_MS, easing: ease });
+    }
+    if (was.v !== now.v && val && typeof val.animate === 'function')
+      val.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'translateY(0)' }],
+                  { duration: 600, easing: ease, delay: 150, fill: 'backwards' });
+  }
+  dialSeenWrite(seen);
 }
 /* THE CONFIDENCE GAUGE LAYS ITSELF DOWN ONCE, the way the session ring and
    the week's bar already did. Keyed on the figure it is reporting -- which

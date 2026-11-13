@@ -207,3 +207,61 @@ test('4. a tick on This Week rewrites the hero in place and lets it rise', () =>
   assert.match(fnBody('renderWeekHeroBlock'), /escapeHtml\(weekDoneText\(done\)\)/);
   assert.match(fnBody('renderWeekHeroBlock'), /var pct = weekDonePct\(done, planned\);/);
 });
+
+// ---------------------------------------------------------------- 5. the Coach circles
+/* Founder: "When Recovery changes from Fresh to Watch, the turquoise ring
+   smoothly adjusts rather than instantly switching." Then: "10. Let's do it." */
+function dialEl(reading, word, cls){
+  const anims = [];
+  const arc = fakeEl({ animate: (kf, o) => anims.push({ on: 'arc', kf, o }) });
+  arc.attrs.class = cls;
+  const val = fakeEl({ textContent: word, animate: (kf, o) => anims.push({ on: 'val', kf, o }) });
+  const el = fakeEl({ querySelector: s => s === '.rd-arc' ? arc : s === '.rd-val b' ? val : null });
+  el.attrs['data-reading'] = reading;
+  el.anims = anims;
+  return el;
+}
+test('5. a circle eases from what was last seen to what is true now, once', () => {
+  const a = app();
+  a.window.matchMedia = () => ({ matches: false });
+  let dials = [dialEl('recovery', 'Watch', 'rd-arc is-rec-watch'), dialEl('evolution', 'Learning', 'rd-arc is-learning')];
+  a.document.querySelectorAll = s => s === '.b-grid .b-dial[data-reading]' ? dials : [];
+  a.easeDials();
+  dials.forEach(d => assert.equal(d.anims.length, 0, 'the first look after the update played something'));
+  /* Recovery went to Strained; Evolution stopped gathering. */
+  dials = [dialEl('recovery', 'Strained', 'rd-arc is-rec-strained'), dialEl('evolution', 'On track', 'rd-arc')];
+  a.easeDials();
+  const rec = dials[0].anims, evo = dials[1].anims;
+  const ring = rec.find(x => x.on === 'arc');
+  assert.ok(ring, 'the ring switched instead of easing');
+  assert.deepEqual(JSON.parse(JSON.stringify(ring.kf.map(k => k.strokeDasharray))), ['264.9 24.1', '289.03 0'], 'the break did not close from where it was');
+  assert.equal(ring.o.duration, 900);
+  assert.ok(rec.find(x => x.on === 'val'), 'the new word did not rise in');
+  const fade = evo.find(x => x.on === 'arc');
+  assert.deepEqual(JSON.parse(JSON.stringify(fade.kf.map(k => k.opacity))), [0.25, 1], 'a gathering ring should brighten into its solid form');
+  /* Shown again unchanged: nothing replays. */
+  dials = [dialEl('recovery', 'Strained', 'rd-arc is-rec-strained'), dialEl('evolution', 'On track', 'rd-arc')];
+  a.easeDials();
+  dials.forEach(d => assert.equal(d.anims.length, 0, 'it played again with nothing changed'));
+  /* Kept on the device under its own key. */
+  assert.equal(JSON.parse(a.localStorage.getItem('vvv_dial_seen')).recovery.v, 'Strained');
+});
+
+test('5. Fresh to Watch keeps its break and changes its word; Reduce Motion plays nothing', () => {
+  const a = app();
+  a.window.matchMedia = () => ({ matches: false });
+  let d = [dialEl('recovery', 'Fresh', 'rd-arc is-rec-fresh')];
+  a.document.querySelectorAll = () => d;
+  a.easeDials();
+  d = [dialEl('recovery', 'Watch', 'rd-arc is-rec-watch')];
+  a.easeDials();
+  /* Same break both ways, so the ring settles (brightens) rather than reshaping. */
+  assert.deepEqual(JSON.parse(JSON.stringify(d[0].anims.find(x => x.on === 'arc').kf.map(k => k.opacity))), [0.25, 1]);
+  assert.ok(d[0].anims.find(x => x.on === 'val'));
+  a.window.matchMedia = q => ({ matches: /reduce/.test(q) });
+  d = [dialEl('recovery', 'Strained', 'rd-arc is-rec-strained')];
+  a.easeDials();
+  assert.equal(d[0].anims.length, 0, 'Reduce Motion animated');
+  assert.equal(JSON.parse(a.localStorage.getItem('vvv_dial_seen')).recovery.v, 'Strained', 'what was shown is still remembered');
+  assert.match(fnBody('renderApp'), /easeDials\(\)/);
+});
