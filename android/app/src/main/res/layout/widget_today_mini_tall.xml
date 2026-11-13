@@ -4,7 +4,11 @@
      with the kind under it, each sized to fill its line. In one row at that
      width "14.5 KM INTERVALS" could only fit by being tiny or cut; stacked,
      every word stays whole and large. Same colours: gold mark, white TODAY
-     and distance, cherry kind (set in code). -->
+     and distance, cherry kind (set in code).
+     THE MARK HAS A HEIGHT OF ITS OWN. At the phone's largest font size the
+     mark wanted 20sp and three lines on a 2x1; it now has a fixed 14dp line
+     and shrinks to fit it, so the brand never wraps and never pushes the
+     session down. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -19,7 +23,7 @@
     <TextView
         android:id="@+id/widget_mark"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="14dp"
         android:gravity="center_horizontal"
         android:maxLines="1"
         android:includeFontPadding="false"
@@ -27,7 +31,11 @@
         android:textColor="#E3B15A"
         android:textSize="10sp"
         android:textStyle="bold"
-        android:letterSpacing="0.16" />
+        android:letterSpacing="0.16"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="6dp"
+        android:autoSizeMaxTextSize="10sp"
+        android:autoSizeStepGranularity="0.5dp" />
 
     <LinearLayout
         android:layout_width="match_parent"

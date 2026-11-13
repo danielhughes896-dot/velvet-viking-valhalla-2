@@ -67,7 +67,9 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             chmod +x android/gradlew
-            cd android && ./gradlew connectedDebugAndroidTest --stacktrace || touch ../widget-tests-failed
+            # The app stays installed after the run: uninstalling it deletes
+            # the pictures and the report before they can be pulled.
+            cd android && ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true --stacktrace || touch ../widget-tests-failed
             mkdir -p android/widget-shots && adb pull /sdcard/Android/data/com.velvetviking.valhalla/files/widget-shots android/widget-shots || true
 
       - name: Upload the pictures and the test report
@@ -101,6 +103,7 @@ jobs:
           if [ -n "$R" ]; then
             echo "## Widget layouts" >> "$GITHUB_STEP_SUMMARY"
             echo "$(grep -c ' ok$' "$R") ok, $(grep -c ' CUT ' "$R") with a cut label" >> "$GITHUB_STEP_SUMMARY"
-            grep ' CUT ' "$R" | head -40 || true
+            echo "Every layout, size, case and font size:"
+            cat "$R" || true
           fi
           if [ -f widget-tests-failed ]; then echo "::error::The on-device widget tests failed"; exit 1; fi

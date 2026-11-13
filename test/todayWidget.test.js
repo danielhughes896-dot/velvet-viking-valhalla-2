@@ -316,6 +316,13 @@ test('2x1: the mark across the top, TODAY left, the session right, both sized to
   ['widget_today_mini', 'widget_today_mini_tall'].forEach(n => {
     const lay = AND('res/layout/' + n + '.xml');
     assert.match(lay, /android:background="@drawable\/widget_bg"/, n + ': the rounded dark ground is gone');
+    /* At the largest font size the mark wanted three lines on a 2x1 (found
+       on a Pixel 7 emulator): it has a fixed line and shrinks into it. */
+    const mark = lay.slice(lay.indexOf('android:id="@+id/widget_mark"'));
+    const markOwn = mark.slice(0, mark.indexOf('/>'));
+    assert.match(markOwn, /android:layout_height="14dp"/, n + ': the mark grows with the font and wraps');
+    assert.match(markOwn, /android:autoSizeTextType="uniform"/, n);
+    assert.match(markOwn, /android:autoSizeMinTextSize="6dp"/, n);
     assert.match(lay, /android:id="@\+id\/widget_mark"[\s\S]*?android:gravity="center_horizontal"[\s\S]*?android:text="•  SACORO  •"[\s\S]*?android:textColor="#E3B15A"/, n);
     const label = lay.slice(lay.indexOf('android:id="@+id/widget_label"'));
     const own = label.slice(0, label.indexOf('/>'));

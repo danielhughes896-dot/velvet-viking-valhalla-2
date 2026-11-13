@@ -10,7 +10,11 @@
      word at any size. TODAY now has a column of its own width (44dp) and
      sizes itself to fit inside it, so it can shrink but never be cut; the
      session takes all the rest and fills it. Sizes are allowed to grow with
-     the phone's font size (sp) and shrink to fit (dp minimum). -->
+     the phone's font size (sp) and shrink to fit (dp minimum).
+     THE MARK HAS A HEIGHT OF ITS OWN. At the phone's largest font size the
+     mark wanted 20sp and three lines on a 2x1; it now has a fixed 14dp line
+     and shrinks to fit it, so the brand never wraps and never pushes the
+     session down. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -25,7 +29,7 @@
     <TextView
         android:id="@+id/widget_mark"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="14dp"
         android:gravity="center_horizontal"
         android:maxLines="1"
         android:includeFontPadding="false"
@@ -33,7 +37,11 @@
         android:textColor="#E3B15A"
         android:textSize="10sp"
         android:textStyle="bold"
-        android:letterSpacing="0.16" />
+        android:letterSpacing="0.16"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="6dp"
+        android:autoSizeMaxTextSize="10sp"
+        android:autoSizeStepGranularity="0.5dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
