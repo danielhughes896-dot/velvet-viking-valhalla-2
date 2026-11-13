@@ -56404,6 +56404,7 @@ function readingSections(report){
   var blockMeta = report.block ? BLOCK_META[report.block.state] : null;
   var rec = report.recovery;
   var pp = patternProgress(report);
+  var evd = evolutionDevelopment(report);
 
   return [
     /* Readiness is the hero gauge rather than a circle in the grid; the flag
@@ -56472,8 +56473,9 @@ function readingSections(report){
         ? ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
           ' suggested across the next '+ev.horizonDays+' days.'
         : evMeta.text,
-      lead: evolutionPhaseHtml(),
-      body: renderEvolutionSection(report.evolution) },
+      lead: evolutionPhaseHtml()+evolutionDevelopmentHtml(evd),
+      body: renderEvolutionSection(report.evolution),
+      extra: evolutionReadHtml(evd) },
 
     { key:'patterns',
       title:'Recent patterns',
@@ -69552,7 +69554,7 @@ function blockPhaseProgress(){
     var first = ws.length ? ws[0] : null, last = ws.length ? ws[ws.length-1] : null;
     var at = ws.indexOf(wk);
     var stateOf = !ws.length ? 'none' : (wk > last ? 'done' : at !== -1 ? 'now' : 'next');
-    return { name:n, weeks:ws.length, week: at + 1, state:stateOf,
+    return { name:n, weeks:ws.length, week: at + 1, state:stateOf, first:first, last:last,
              frac: stateOf === 'done' ? 1 : stateOf === 'now' ? (at + 1) / ws.length : 0 };
   });
 }
@@ -71379,6 +71381,74 @@ function recoverySignalsHtml(rec){
       fig: b.sufficient ? (b.delta > 0 ? '+' : '')+b.delta : '–', label:'Easy HR',
       say: b.sufficient ? 'bpm vs baseline' : 'Building baseline' }
   ]);
+}
+
+/* ---------- PLAN EVOLUTION: PHASE DEVELOPMENT ----------
+   Founder, with a reference: Plan Evolution in the same structure as the
+   other panels, "my rules my data". Three tiles under the current phase,
+   then the evidence, then a read in plain words. Each figure is one the
+   engine already holds:
+     Aerobic    the block's easy-efficiency dimension, its comparable runs
+                toward the four a baseline needs, and its direction.
+     Execution  the average execution score of this phase's logged sessions.
+     Structure  whether the plan is changing: stable, or the changes
+                suggested, the ring the share of the coming days kept. */
+function evolutionDevelopment(report){
+  var phases = blockPhaseProgress();
+  var cur = phases ? phases.filter(function(p){ return p.state === 'now'; })[0] : null;
+  if (!cur) return null;
+  var b = report.block;
+  var easy = b ? b.dimensions.filter(function(d){ return d.id === 'easy'; })[0] : null;
+  var today = todayStr(), scores = [];
+  (state.days || []).forEach(function(dd){
+    if (dd.type === 'rest' || !dd.completed || dd.date >= today) return;
+    if (dd.week < cur.first || dd.week > cur.last) return;
+    var sc = computeExecutionScore(dd);
+    if (sc != null) scores.push(sc);
+  });
+  var ev = report.evolution || { changes:[], horizonDays:7 };
+  var changes = (ev.changes && ev.changes.length && evolutionProposalVisible(ev)) ? ev.changes : [];
+  var touched = {};
+  changes.forEach(function(c, i){ touched[c.dayId || c.date || ('c' + i)] = 1; });
+  var horizon = ev.horizonDays || 7;
+  return {
+    phase: cur, easy: easy,
+    execution: scores.length ? Math.round(scores.reduce(function(x, y){ return x + y; }, 0) / scores.length) : null,
+    sessions: scores.length,
+    changes: changes.length, horizon: horizon,
+    kept: Math.max(0, 1 - Object.keys(touched).length / horizon)
+  };
+}
+function evolutionDevelopmentHtml(d){
+  if (!d) return '';
+  var col = READING_ACCENT.evolution, n = d.easy ? d.easy.samples || 0 : 0;
+  return sectionRule('Phase Development', true)+panelTilesHtml([
+    { col:col, frac:Math.min(1, n / BASELINE_MIN_SAMPLES), fig: n ? String(n) : '–',
+      label:'Aerobic', say:blockDirectionWord(d.easy) },
+    { col:col, frac: d.execution == null ? 0 : d.execution / 100,
+      fig: d.execution == null ? '–' : d.execution+'%', label:'Execution',
+      say: d.sessions ? d.sessions+' session'+(d.sessions === 1 ? '' : 's')+' this phase' : 'Awaiting runs' },
+    { col:col, frac: d.changes ? d.kept : 1, fig: d.changes ? String(d.changes) : 'Stable', label:'Structure',
+      say: d.changes ? (d.changes === 1 ? '1 change suggested' : d.changes+' changes suggested') : 'No change needed' }
+  ]);
+}
+/* The read, said from the same three facts and nothing else. */
+function evolutionReadHtml(d){
+  if (!d) return '';
+  var aero = d.easy && d.easy.direction ? blockDirectionWord(d.easy).toLowerCase() : null;
+  var mid = (d.execution != null && aero)
+      ? 'Sessions this phase average '+d.execution+'% execution, and easy aerobic efficiency is '+aero+'.'
+    : d.execution != null
+      ? 'Sessions this phase average '+d.execution+'% execution. There isn’t enough yet to assess aerobic development.'
+    : aero
+      ? 'Easy aerobic efficiency is '+aero+'. There are no scored sessions in this phase yet.'
+      : 'There isn’t enough logged training yet to assess aerobic development or execution.';
+  var end = d.changes
+    ? 'SACORO suggests '+(d.changes === 1 ? 'one change' : d.changes+' changes')+' across the next '+d.horizon+' days.'
+    : 'The current plan remains unchanged.';
+  return sectionRule('Coach’s Read', true)+
+    '<div class="pt-say">Your '+escapeHtml(d.phase.name)+' phase is in week '+d.phase.week+' of '+d.phase.weeks+'. '+
+      escapeHtml(mid)+' '+escapeHtml(end)+'</div>';
 }
 
 /* ---------- THREE PATTERNS ----------
