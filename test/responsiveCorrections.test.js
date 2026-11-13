@@ -85,12 +85,12 @@ test('5. a figure is drawn small enough for its circle, and only when it would n
   };
   const medal = (W, H, kids) => ({ clientWidth: W, clientHeight: H, children: kids });
   const fits = medal(68, 68, [kid(40, 30)]);
-  const wide = medal(68, 68, [kid(64, 40)]);
+  const wide = medal(68, 68, [kid(72, 40)]);
   const tall = medal(68, 68, [kid(40, 40), kid(30, 30)]);
   a.document = { querySelectorAll: () => [fits, wide, tall] };
   a.fitDialValues();
   assert.equal(fits.children[0].style.transform, '', 'a figure that fits was touched');
-  assert.equal(wide.children[0].style.transform, 'scale(' + (68 * a.DIAL_FIT_ROOM / 64).toFixed(3) + ')');
+  assert.equal(wide.children[0].style.transform, 'scale(' + (68 * a.DIAL_FIT_WIDE / 72).toFixed(3) + ')');
   const r = (68 * a.DIAL_FIT_ROOM / 70).toFixed(3);
   assert.deepEqual(tall.children.map(k => k.style.transform), ['scale(' + r + ')', 'scale(' + r + ')'], 'a face whose lines are too tall is not fitted as one');
   /* Run again at a size where it fits: the old scale comes off. */
@@ -118,12 +118,16 @@ test('7. every small control takes a 44px tap without being drawn bigger', () =>
   assert.match(bare, /\.cg-tab::after\{content:''; position:absolute; top:0; bottom:0; left:-9px; right:-9px;\}/);
   assert.ok(28 + 2 * 9 >= 44);
   /* KM and MI: a clipped pill cannot reach past itself, so each half is 44. */
-  assert.match(bare, /\.stg-row-units \.tb-unit-toggle button\{font-size:\.84375rem; padding:0 10px;\s*min-width:var\(--tap-min\);\}/);
+  /* KM and MI keep the widths the founder's toggle has: widening them was a
+     visible change at the normal size (before-and-after on the Pixel). */
+  assert.match(bare, /\.stg-row-units \.tb-unit-toggle button\{font-size:\.84375rem; padding:0 10px;\}/);
+  assert.doesNotMatch(bare, /tb-unit-toggle button\{[^}]*min-width:var\(--tap-min\)/);
   /* The builder's weekday circles: the box that takes the tap is centred
      on the circle and at least 44px. */
   assert.match(bare, /\.field \.wd-check input\{\s*position:absolute; left:50%; top:50%; transform:translate\(-50%,-50%\);\s*width:max\(100%, var\(--tap-min\)\); height:max\(100%, var\(--tap-min\)\); margin:0;/);
   /* The flat heart-rate and benchmark fields: back to 44 tall. */
-  assert.match(bare, /\.benchmark-row > \.field input\{min-height:var\(--tap-min\);\}/);
+  assert.match(bare, /\.benchmark-row > \.field input\{min-height:var\(--tap-min\); margin-top:-2px; margin-bottom:-2px;\}/,
+    'the 44px target must not take more room than the 40px box did');
   /* The two the audit's box measure flagged that were already 44 by a band
      of their own -- Injured or ill and the switches -- keep them. */
   assert.match(bare, /\.coach-why-btn::after\{[^}]*height:44px/);
@@ -221,7 +225,7 @@ test('5. a figure in a circle stays one word on one line; words keep their two l
   a.document = { querySelectorAll: () => [medal(num), medal(word), medal(small)] };
   a.fitDialValues();
   assert.equal(num.firstElementChild.style.whiteSpace, 'nowrap', 'a figure was left free to break');
-  assert.equal(num.style.transform, 'scale(' + (68 * a.DIAL_FIT_ROOM / 80).toFixed(3) + ')');
+  assert.equal(num.style.transform, 'scale(' + (68 * a.DIAL_FIT_WIDE / 80).toFixed(3) + ')');
   assert.equal(word.firstElementChild.style.whiteSpace, '', 'words were forced onto one line');
   assert.equal(small.firstElementChild.style.whiteSpace, '', 'a figure that fits had its layout changed');
   assert.equal(small.style.transform, '');
@@ -230,4 +234,17 @@ test('5. a figure in a circle stays one word on one line; words keep their two l
 test('re-audit: the week hero\'s readings wrap rather than widen the page at the largest iOS size', () => {
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.match(bare, /\n  \.wk-hero-figs\{flex-wrap:wrap; row-gap:4px;\}/);
+});
+
+test('visual gate: at the Pixel\u2019s normal size the pace circle\u2019s figure is left as it was', () => {
+  /* "1:42-1:49" is 74px in the Pixel's 80px face and fitted before the
+     corrections; at 0.84 it was drawn at 91%. */
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const f = { tagName: 'B', textContent: '1:42\u20131:49', style: {}, scrollWidth: 74, getBoundingClientRect(){ return { width: 74 }; } };
+  const kid = { style: {}, offsetHeight: 15, firstElementChild: f };
+  a.document = { querySelectorAll: () => [{ clientWidth: 80, clientHeight: 80, children: [kid] }] };
+  a.fitDialValues();
+  assert.equal(kid.style.transform, '', 'a figure that fits its circle was shrunk');
+  assert.ok(a.DIAL_FIT_WIDE <= 0.95, 'a wider allowance runs the figure into the curve');
 });

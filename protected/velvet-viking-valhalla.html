@@ -2736,8 +2736,13 @@
        was showing clear.
        28px to match the head's own inset, and the photograph is read BELOW
        the words instead -- which is where the room now is, and there is
-       more of it on the stages that say least. */
-    left:-14px; right:-14px; bottom:-18px; top:-28px;
+       more of it on the stages that say least.
+       ACROSS THE WHOLE PHOTOGRAPH. It reached 14px past the words, which was
+       the card's edge while the card was inset 16px; with the photograph
+       edge to edge that left its sides as a box drawn on the picture. It
+       now reaches the slot's 30px padding, so it runs edge to edge with the
+       photograph and fades only top and bottom. */
+    left:-30px; right:-30px; bottom:-18px; top:-28px;
     /* STOPS IN PIXELS, NOT PERCENTAGES. Percentages are of this element,
        whose height is the text -- so the same gradient ramped over 95px on
        a tall card and 34px on a short one, and the tall one showed a step
@@ -2764,8 +2769,14 @@
      the words; this keeps a bright photograph from fighting the card's
      neighbours and gives the figures a floor on the few pixels the fade
      has not reached. */
+  /* EDGE TO EDGE. Founder: "Full screen width -- photograph touches both
+     edges. Keep the rounded top and bottom corners as much as possible.
+     Retain the subtle shadow and glass-edge highlight. Keep all text exactly
+     where it is." The layer loses its 16px side inset and nothing else: the
+     words are placed by the slot's own 30px padding, so not one moves, and
+     the corners, the line of light and the shadow are the card's. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod::before{
-    content:''; position:absolute; inset:6px 16px 26px; z-index:0; pointer-events:none;
+    content:''; position:absolute; inset:6px 0 26px; z-index:0; pointer-events:none;
     border-radius:20px; opacity:1;
     /* The veil over the photograph, then the photograph: one layer, so the
        veil can never be a different shape from the picture under it. */
@@ -5955,11 +5966,12 @@
      sits beside 15px titles. The words go up to 13.5px and each half gets a
      wider press, so the pair is 44px tall and about 100px across. */
   .stg-row-units .tb-unit-toggle{padding:2px 8px;}
-  .stg-row-units .tb-unit-toggle button{font-size:.84375rem; padding:0 10px;
-    /* Responsive correction 7: KM measured 38px wide and MI 35. The pill
-       clips its own edge, so the target cannot reach past it invisibly:
-       each half is 44 wide, the pill a few pixels wider. */
-    min-width:var(--tap-min);}
+  .stg-row-units .tb-unit-toggle button{font-size:.84375rem; padding:0 10px;}
+  /* NOT WIDENED TO 44. Responsive correction 7 made each half 44 wide, which
+     widened the pill on the Pixel at the normal size: a visible change the
+     correction was not allowed to make, and the opposite of the decision
+     recorded on .tb-unit-toggle button (the words stay tight, the height
+     meets the floor). Found by the before-and-after comparison; reverted. */
   /* The row that holds it goes nowhere, so it does not offer a press. */
   .ev-card.stg-row.is-still{cursor:default;}
   /* ---- SET DATE IS AN INTERACTION, SO IT IS CHERRY ----
@@ -6724,7 +6736,12 @@
   /* Responsive correction 7: the flat heart-rate and benchmark fields were
      40px tall, the one typed target in the builder under the thumb floor.
      The rim stays off; the target comes back to 44. */
-  .benchmark-row > .field input{min-height:var(--tap-min);}
+  .benchmark-row > .field input{min-height:var(--tap-min); margin-top:-2px; margin-bottom:-2px;}
+  /* ...AND TAKES NO MORE ROOM THAN IT DID. 44 tall made the two tiles, and
+     everything under them, 4px lower on the Pixel. The input has no rim or
+     ground of its own, so the 2px it gains above and below is drawn over
+     the tile's padding: the target is 44, the box still occupies 40, and
+     the number sits exactly where it did. */
   .goal-input-row input:focus,
   .benchmark-row > .field input:focus{ box-shadow:none; border-color:transparent; }
   /* THE ROW LIGHTS INSTEAD. Flattening the input would otherwise leave a
@@ -7789,7 +7806,12 @@
      edges, so the space under each card is inside the slide; the rail and
      the dots are pulled in by the same amounts, so the picture and the dots
      stay where they were on the page. */
-  .view-plan .pp-slide{padding:6px 16px 30px;}
+  .view-plan .pp-slide{padding:6px 0 30px;}
+  /* EDGE TO EDGE, the same as the session rails: the slide's 16px gutter
+     moves inside the card, so the photograph reaches both edges while the
+     words keep the same column (16 + 16 = 32 from the screen's edge) and
+     wrap at the same width. */
+  .view-plan .pp-slide-body{padding-left:32px; padding-right:32px;}
   /* A card you can feel: a very slight press under the finger. Under
      reduced motion the card does not move. */
   @media (prefers-reduced-motion: no-preference){
@@ -69436,6 +69458,12 @@ function cgTabInView(tabs){
    drawn smaller to fit -- scaled, so nothing around it moves. At the
    normal size every figure already fits and nothing is touched. */
 var DIAL_FIT_ROOM = 0.84;
+/* WIDE: a single line through the middle of a circle has nearly the whole
+   diameter. At 0.84 "1:42-1:49" (74px in an 80px face) was drawn at 91% on
+   the Pixel at the normal size, where it already fitted: a change the
+   correction was not allowed to make. Width is measured against 0.94 of the
+   face; height, which runs into the curve, keeps 0.84. */
+var DIAL_FIT_WIDE = 0.94;
 function fitDialValues(){
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   var medals = document.querySelectorAll('.b-medal');
@@ -69459,7 +69487,7 @@ function fitDialValues(){
     figs.forEach(function(f){
       if (/\s/.test((f.textContent || '').trim())) return;
       f.style.whiteSpace = 'nowrap'; f.style.maxWidth = 'none';
-      if (f.scrollWidth > W * DIAL_FIT_ROOM) held.push(f);
+      if (f.scrollWidth > W * DIAL_FIT_WIDE) held.push(f);
       else { f.style.whiteSpace = ''; f.style.maxWidth = ''; }
     });
     for (k = 0; k < kids.length; k++){
@@ -69467,7 +69495,7 @@ function fitDialValues(){
       w = Math.max(w, held.indexOf(b) > -1 ? b.scrollWidth : b.getBoundingClientRect().width);
       h += kids[k].offsetHeight;
     }
-    var r = Math.min(1, (W * DIAL_FIT_ROOM) / (w || 1), (H * DIAL_FIT_ROOM) / (h || 1));
+    var r = Math.min(1, (W * DIAL_FIT_WIDE) / (w || 1), (H * DIAL_FIT_ROOM) / (h || 1));
     if (r < 0.995) for (k = 0; k < kids.length; k++) kids[k].style.transform = 'scale(' + r.toFixed(3) + ')';
   }
 }

@@ -2484,7 +2484,8 @@ test('the stage card is a photograph, and the words on it are legible', () => {
      are one shape. */
   const layer = /\.ws-rail \.how-mod::before\{([^}]*)\}/.exec(RAILCSS);
   assert.ok(layer && /var\(--card-pic\) 50% 34% \/ cover/.test(layer[1]), 'the stage card has lost its photograph');
-  assert.match(layer[1], /inset:6px 16px 26px/, 'the card is not inset by the page gutter');
+  /* Then: "Full screen width -- photograph touches both edges." */
+  assert.match(layer[1], /inset:6px 0 26px/, 'the photograph no longer reaches both edges of the screen');
   assert.match(layer[1], /border-radius:20px/, 'the card lost its 20px corners');
   assert.match(layer[1], /inset 0 1px 0 rgba\(255,255,255,\.\d+\)/, 'the glass edge along the top is gone');
   assert.match(layer[1], /0 8px 18px rgba\(0,0,0,\.\d+\)/, 'the card no longer floats');

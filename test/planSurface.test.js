@@ -200,8 +200,12 @@ test('done, now and ahead are one colour language on the plan', () => {
   assert.match(edge, /inset 0 1px 0 rgba\(255,255,255,\.\d+\)/, 'the glass edge along the top is gone');
   assert.match(edge, /pointer-events:none/);
   assert.doesNotMatch(edge, /backdrop-filter|background:/, 'a glass box has been laid over the words');
-  /* Space either side: the page gutter, inside the full-width rail. */
-  assert.match(rule('.view-plan .pp-slide'), /padding:\d+px 16px \d+px;/, 'the card is not inset by the page gutter');
+  /* Then: "Full screen width -- photograph touches both edges ... Keep all
+     text exactly where it is." No side gutter on the slide; the gutter is
+     inside the card, so the words keep their column. */
+  assert.match(rule('.view-plan .pp-slide'), /padding:\d+px 0 \d+px;/, 'the photograph no longer reaches both edges');
+  assert.match(BARE, /\.view-plan \.pp-slide-body\{padding-left:32px; padding-right:32px;\}/,
+    'the words moved: 16px of gutter plus the card\u2019s own 16px is 32 from the edge');
   /* The dots sit in the room left under the card for its shadow, so they
      are lifted above the rail: under it they were dimmed by the shadow and
      a tap on them landed on the slide. */
@@ -852,7 +856,7 @@ test('every picture rail sits the same distance below what is above it', () => {
   const planRail = rule('.view-plan > .pp-rail');
   /* The card's own room above it, inside the slide, is the third thing
      above the picture, read from the slide rule rather than written twice. */
-  const slideTop = /padding:(\d+)px 16px/.exec(rule('.view-plan .pp-slide'));
+  const slideTop = /padding:(\d+)px 0/.exec(rule('.view-plan .pp-slide'));
   assert.ok(slideTop, 'the phase slide no longer declares the room above its card');
   assert.ok(planRail.indexOf('margin-top:calc(var(--rail-air) - var(--wk-gap) - ' + heroPB[1] + 'px - ' + slideTop[1] + 'px)') > -1,
     'the plan rail subtracts something other than the hero\u2019s own padding-bottom (' +
@@ -903,7 +907,7 @@ test('every picture rail is the same size', () => {
   /* The rail also carries the floating card's own room (6px above it, 26px
      of shadow below), read off the card layer rather than written twice,
      so the PICTURE is still --rail-pic plus the 4px. */
-  const inset = /inset:(\d+)px 16px (\d+)px/.exec(rule(scope + ' .ws-rail .how-mod::before'));
+  const inset = /inset:(\d+)px 0 (\d+)px/.exec(rule(scope + ' .ws-rail .how-mod::before'));
   assert.ok(inset, 'the session card layer no longer declares its inset');
   const room = Number(inset[1]) + Number(inset[2]);
   assert.ok(railRule.indexOf('min-height:calc(var(--rail-pic) + ' + pad[1] + 'px + ' + room + 'px)') > -1,
