@@ -503,11 +503,11 @@ test('the log is shorter by its gaps alone: every thumb target is the size it wa
   const px = (sel, prop) => { const m = new RegExp(prop + ':(\\d+)px').exec(rule(sel)); assert.ok(m, sel + ' has no ' + prop); return +m[1]; };
   /* What must not have shrunk. */
   assert.match(rule('.yl-range'), /height:44px; min-height:44px/, 'a slider is no longer a 44px target');
-  assert.match(rule('.yl .slog-in'), /min-height:44px; font-size:16px/, 'a stage field shrank');
+  assert.match(rule('.yl .slog-in'), /min-height:44px; font-size:1rem/, 'a stage field shrank');
   assert.match(rule('.yl .opt-grid button'), /min-height:48px/, 'a tile shrank');
   assert.match(rule('.yl-clear'), /min-height:44px/);
   assert.match(CSS, /\.yl-range::-webkit-slider-thumb\{[^}]*width:26px; height:26px/, 'a slider handle shrank');
-  assert.match(rule('.yl-title'), /font-size:19px/);
+  assert.match(rule('.yl-title'), /font-size:1\.1875rem/);
   assert.match(rule('.yl-q-t'), /font-size:var\(--fs-body\)/);
   /* What did: the space between things. Each is smaller than it was, and none is gone. */
   [['.yl-sec', 'margin-top', 36], ['.yl-q', 'margin-top', 26], ['.yl-grp', 'margin-top', 40],

@@ -80,7 +80,7 @@ test('the title grew into the space the sub was holding', () => {
      and it is also just under the session title's own 21.85px -- a tab
      heading bigger than the name of the session it opens would invert the
      card. Two bounds, one number. */
-  assert.match(rule('.sess-tab-k'), /font-size:\s*21px/,
+  assert.match(rule('.sess-tab-k'), /font-size:\s*1\.3125rem/,
     'the tab title is no longer the largest size that fits the narrowest phone');
 });
 
@@ -204,7 +204,7 @@ test('the share segments are the same small control, and the chosen half is lit 
   assert.match(b, /color:\s*#FFFFFF/, 'the resting label is crisp white');
   assert.match(b, /text-shadow:[^;]*rgba\(255, ?255, ?255/, 'with the tight halo');
   assert.match(b, /min-height:\s*34px/, '"small same size": the control did not grow');
-  assert.match(b, /font-size:\s*10\.5px/);
+  assert.match(b, /font-size:\s*\.65625rem/);
   assert.match(on, /color:\s*var\(--cherry-text\)/);
   assert.doesNotMatch(on, /gold|227, ?177, ?90|245, ?208, ?97/i, 'no gold is left on the choice');
   assert.match(on, /text-shadow:[^;]*rgba\(154, ?84, ?108/, 'the light the nav puts on the tab you are on');

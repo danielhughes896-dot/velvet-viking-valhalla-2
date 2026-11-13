@@ -580,6 +580,8 @@ test('a rail card\u2019s title is the hero title, in one declaration', () => {
     const j = BARE.indexOf(sel);
     assert.ok(j > -1, sel + ' has no rule');
     const b = BARE.slice(BARE.indexOf('{', j) + 1, BARE.indexOf('}', BARE.indexOf('{', j)));
+    const rm = /font-size:([\d.]+)rem/.exec(b);
+    if (rm) return parseFloat(rm[1]) * 16;
     const px = /font-size:([\d.]+)px/.exec(b);
     if (px) return parseFloat(px[1]);
     /* A TIER TOKEN IS A SIZE TOO. typographyConsistency requires every line
@@ -1860,7 +1862,7 @@ test('the Race Day panel balances its two figures and carries them in white', ()
      the event the whole block exists for. */
   const dist = rule('.view-plan > .race-event .race-event-dist b');
   const label = rule('.view-plan > .race-event .race-divider .l');
-  const sizeOf = r => parseFloat((/font-size:(\d+(?:\.\d+)?)px/.exec(r) || [])[1]);
+  const sizeOf = r => { const m = /font-size:(\d*(?:\.\d+)?)(px|rem)/.exec(r); return m ? parseFloat(m[1]) * (m[2] === 'rem' ? 16 : 1) : NaN; };
 
   assert.ok(sizeOf(dist) >= 24,
     'the Race Day distance is back to ' + sizeOf(dist) + 'px — a row figure for the ' +

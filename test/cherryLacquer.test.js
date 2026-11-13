@@ -566,7 +566,7 @@ test('both ways into a session wear one treatment, stated once', () => {
      reasoning that each was tuned to its context. 15px is the app's own
      metric tier; 14.5px occurs four times in a 60,000-line sheet. That was
      drift, not tuning, and it left one control with two specs. */
-  assert.match(nav, /font-size:15px/, 'the shared button is off the app\u2019s 15px tier again');
+  assert.match(nav, /font-size:\.9375rem/, 'the shared button is off the app\u2019s 15px tier again');
   assert.match(nav, /padding:14px/, 'the shared button no longer states one padding');
   assert.match(nav, /min-height:var\(--tap-min\)/, 'the shared button has lost the 44px floor');
 

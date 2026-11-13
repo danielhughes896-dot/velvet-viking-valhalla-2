@@ -118,7 +118,7 @@ test('7. every small control takes a 44px tap without being drawn bigger', () =>
   assert.match(bare, /\.cg-tab::after\{content:''; position:absolute; top:0; bottom:0; left:-9px; right:-9px;\}/);
   assert.ok(28 + 2 * 9 >= 44);
   /* KM and MI: a clipped pill cannot reach past itself, so each half is 44. */
-  assert.match(bare, /\.stg-row-units \.tb-unit-toggle button\{font-size:13\.5px; padding:0 10px;\s*min-width:var\(--tap-min\);\}/);
+  assert.match(bare, /\.stg-row-units \.tb-unit-toggle button\{font-size:\.84375rem; padding:0 10px;\s*min-width:var\(--tap-min\);\}/);
   /* The builder's weekday circles: the box that takes the tap is centred
      on the circle and at least 44px. */
   assert.match(bare, /\.field \.wd-check input\{\s*position:absolute; left:50%; top:50%; transform:translate\(-50%,-50%\);\s*width:max\(100%, var\(--tap-min\)\); height:max\(100%, var\(--tap-min\)\); margin:0;/);
@@ -128,4 +128,22 @@ test('7. every small control takes a 44px tap without being drawn bigger', () =>
      of their own -- Injured or ill and the switches -- keep them. */
   assert.match(bare, /\.coach-why-btn::after\{[^}]*height:44px/);
   assert.match(bare, /\.switch::after\{[^}]*width:var\(--tap-min\); height:var\(--tap-min\)/);
+});
+
+test('4. every font size follows iOS text size: stated in rem, the same size at the normal root', () => {
+  /* At a larger iOS size the coaching grew and 247 px-sized labels around it
+     did not. iOS Dynamic Type reaches the page through the root font size
+     (applyDynamicType), so only rem follows it. */
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  const px = bare.match(/font-size:\s*(?:calc\()?[\d.]+px/g) || [];
+  assert.deepEqual(px, [], 'a font size is written in px again, so iOS text size does not reach it');
+  /* The figures bound to the screen's width keep px inside clamp(): they
+     scale with the width, not the text size, and are fitted to it. */
+  assert.ok((bare.match(/font-size:clamp\([\d.]+px, [\d.]+vw/g) || []).length >= 3);
+  /* /start carries the builder's shared rules, so it moved with them. */
+  const START = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
+  const sCss = START.slice(START.indexOf('<style'), START.indexOf('</style>')).replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.deepEqual(sCss.match(/font-size:\s*[\d.]+px/g) || [], []);
+  /* And the bridge is still the root, capped as measured. */
+  assert.match(fnIn('applyDynamicType'), /root\.style\.fontSize = \(16 \* scale\) \+ 'px';/);
 });

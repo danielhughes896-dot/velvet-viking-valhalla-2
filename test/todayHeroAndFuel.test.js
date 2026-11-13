@@ -46,9 +46,9 @@ const longDay = () => {
 
 test('the hero title carries the instructed 15%', () => {
   const m = new RegExp(F.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
-    ' \\.th-hero-title\\{[^}]*font-size:([\\d.]+)px').exec(CSS);
+    ' \\.th-hero-title\\{[^}]*font-size:([\\d.]+)rem').exec(CSS);
   assert.ok(m, 'the focused hero title rule is gone');
-  assert.equal(m[1], '21.85',
+  assert.equal(+m[1] * 16, 21.85,
     'the hero title moved off 19px + 15%. If that is deliberate the note beside it has to change too.');
 });
 

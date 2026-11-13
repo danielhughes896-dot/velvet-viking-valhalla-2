@@ -283,8 +283,8 @@ test('Distance units: KM and MI are inside their row, which is not itself a butt
 });
 
 test('the KM/MI toggle is bigger in Settings, and the chosen unit is cherry', () => {
-  const base = parseFloat(/font-size:([\d.]+)px/.exec(rule('.tb-unit-toggle button'))[1]);
-  const here = parseFloat(/font-size:([\d.]+)px/.exec(rule('.stg-row-units .tb-unit-toggle button'))[1]);
+  const base = parseFloat(/font-size:([\d.]+)rem/.exec(rule('.tb-unit-toggle button'))[1]) * 16;
+  const here = parseFloat(/font-size:([\d.]+)rem/.exec(rule('.stg-row-units .tb-unit-toggle button'))[1]) * 16;
   assert.ok(here > base, 'the units toggle is no bigger in Settings (' + here + ' against ' + base + ')');
   assert.ok(here <= 15, '"slightly bigger" was asked for; ' + here + 'px is the row title’s size or more');
   assert.match(rule('.tb-unit-toggle button.active'), /color:var\(--cherry-text\)/);

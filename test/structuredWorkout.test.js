@@ -2418,7 +2418,7 @@ test('a tab is its name, centred, at the size that fits the narrowest phone', ()
     'the tab still takes a sub-line argument');
   assert.ok(RAILCODE.indexOf('sess-tab-s') === -1,
     'the contents list under each tab name is back');
-  assert.match(RAILCSS, /\.sess-tab-k\{display:block;[^}]*font-size:21px/,
+  assert.match(RAILCSS, /\.sess-tab-k\{display:block;[^}]*font-size:1\.3125rem/,
     'the tab name is no longer 21px');
   /* ---------- THE LAST text-align, NOT ANY text-align ----------
      This matched /\.sess-tab\{[^}]*text-align:center/ and passed for weeks
@@ -2764,7 +2764,7 @@ test('label, figure, detail — that order, on every card of every rail', () => 
 
   /* THE FIGURE IS BIGGER THAN THE LABEL AND THE LABEL BIGGER THAN THE
      DETAIL -- the whole of what was asked for, read off the sheet. */
-  const px = (re) => Number((re.exec(RAILCSS) || [])[1]);
+  const px = (re) => { const m = re.exec(RAILCSS); return m ? Number(m[1]) * (m[2] === 'rem' ? 16 : 1) : NaN; };
   /* (\d+) stopped matching when the title took the hero's 21.85px and
      read back as NaN, which compares false against everything -- so the
      assertion below it was passing on a number that did not exist. */
@@ -2776,8 +2776,8 @@ test('label, figure, detail — that order, on every card of every rail', () => 
      and the ratio is declared once on .ws-rail. The bases are what this law
      compares -- the ratio multiplies both equally, so a claim about the
      base is a claim about the rendered size. */
-  const fig = px(/\.ws-rail \.ws-h-qty,[\s\S]{0,400}?font-size:(?:calc\()?([\d.]+)px/);
-  const lab = px(/\.ws-rail \.ws-h-presc:not\(\.font-mono\),[\s\S]{0,700}?font-size:(?:calc\()?([\d.]+)px/);
+  const fig = px(/\.ws-rail \.ws-h-qty,[\s\S]{0,400}?font-size:(?:calc\()?([\d.]+)(px|rem)/);
+  const lab = px(/\.ws-rail \.ws-h-presc:not\(\.font-mono\),[\s\S]{0,700}?font-size:(?:calc\()?([\d.]+)(px|rem)/);
   /* THE RATIO IS ONE NUMBER, OR "the same %" IS THREE NUMBERS THAT AGREE. */
   assert.match(RAILCSS, /\.ws-rail\{[^}]*--rail-scale:[\d.]+/,
     'the rail no longer declares one ratio, so its three sizes can drift apart');
@@ -2792,7 +2792,7 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   assert.ok(scaled >= 4,
     'only ' + scaled + ' rail sizes follow the ratio — the title, the figure and the ' +
     'coaching were meant to move together');
-  [['21.85px', 'the title'], ['30px', 'the figure'],
+  [['1.365625rem', 'the title'], ['1.875rem', 'the figure'],
    ['var(--fs-support)', 'the coaching sentence']].forEach(([base, what]) => {
     assert.ok(RAILCSS.indexOf('font-size:calc(' + base + ' * var(--rail-scale') > -1,
       what + ' is a fixed size again, so "the same %" is no longer one number');
@@ -2855,7 +2855,7 @@ test('label, figure, detail — that order, on every card of every rail', () => 
   });
   const heroSize = decl(heroM[1], 'font-size').trim();
   const cardSize = decl(labM[1], 'font-size').trim();
-  assert.match(heroSize, /^[\d.]+px$/,
+  assert.match(heroSize, /^[\d.]+(px|rem)$/,
     'the hero title stopped being a plain size, so the card can no longer be derived from it');
   assert.equal(cardSize, 'calc(' + heroSize + ' * var(--rail-scale, 1))',
     'a card title is no longer the hero title scaled by the rail ratio (' +
@@ -3017,7 +3017,7 @@ test('the open Analysis is one box, and it is the Coach\u2019s Note\u2019s box',
   /* WHITE TEXT: the heading is the note heading's size and ink, and no rule
      written for the box reaches for gold, bronze or a dimmed ink. */
   const head = rule('.an-box .exec-review-head,\n  ' + SCOPE + ' .an-box .wc-verdict-k,\n  ' + SCOPE + ' .an-box .wc-verdict.is-plain .wc-verdict-k');
-  assert.match(head, /font-size:17px/); assert.match(head, /color:var\(--ink\)/);
+  assert.match(head, /font-size:1\.0625rem/); assert.match(head, /color:var\(--ink\)/);
   assert.match(head, /margin-bottom:14px/, 'the heading sits on its first line');
   /* Whole rules, selector and body: a line filter read the selector's first
      line and missed a colour declared on its second, which is how a dimmed

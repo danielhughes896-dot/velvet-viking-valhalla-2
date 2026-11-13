@@ -37,27 +37,27 @@
   body{display:flex; align-items:flex-start; justify-content:center;
        padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(40px + env(safe-area-inset-bottom,0px));}
   .vvv-shell{max-width:560px;}
-  .step{font-family:var(--text-face); font-size:11px; letter-spacing:.16em;
+  .step{font-family:var(--text-face); font-size:.6875rem; letter-spacing:.16em;
         text-transform:uppercase; color:var(--ink-faint); margin:0 0 10px;}
-  h1.lead{font-family:'Cinzel',serif; font-size:22px; line-height:1.25; margin:0 0 10px;}
-  p.say{font-size:14px; line-height:1.6; margin:0 0 18px; color:var(--ink);}
-  p.quiet{font-size:12px; line-height:1.55; color:var(--ink-faint); margin:14px 0 0;}
-  label{display:block; font-size:12px; letter-spacing:.04em; text-transform:uppercase;
+  h1.lead{font-family:'Cinzel',serif; font-size:1.375rem; line-height:1.25; margin:0 0 10px;}
+  p.say{font-size:.875rem; line-height:1.6; margin:0 0 18px; color:var(--ink);}
+  p.quiet{font-size:.75rem; line-height:1.55; color:var(--ink-faint); margin:14px 0 0;}
+  label{display:block; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase;
         color:var(--ink-faint); margin:14px 0 5px; font-family:var(--text-face);}
-  input,select{width:100%; padding:11px 12px; font:inherit; font-size:15px;
+  input,select{width:100%; padding:11px 12px; font:inherit; font-size:.9375rem;
         color:var(--ink); background:var(--bg-2); border:1px solid var(--line);
         border-radius:8px; -webkit-appearance:none;}
   .days{display:flex; gap:6px; flex-wrap:wrap;}
-  .day{flex:1 1 0; min-width:40px; padding:9px 0; text-align:center; font-size:12px;
+  .day{flex:1 1 0; min-width:40px; padding:9px 0; text-align:center; font-size:.75rem;
        border:1px solid var(--line); border-radius:8px; background:var(--bg-2);
        cursor:pointer; user-select:none;}
   .day[aria-pressed="true"]{border-color:var(--ink); background:var(--bg-3); font-weight:600;}
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .card{border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0;
         background:var(--bg-2);}
-  .card h3{font-family:var(--text-face); font-size:12px; letter-spacing:.1em;
+  .card h3{font-family:var(--text-face); font-size:.75rem; letter-spacing:.1em;
            text-transform:uppercase; color:var(--ink-faint); margin:0 0 8px; font-weight:500;}
-  .row{display:flex; justify-content:space-between; gap:12px; font-size:13.5px;
+  .row{display:flex; justify-content:space-between; gap:12px; font-size:.84375rem;
        padding:4px 0; border-bottom:1px solid var(--line);}
   .row:last-child{border-bottom:none;}
   .row .r{color:var(--ink-faint); text-align:right; white-space:nowrap;}
@@ -68,9 +68,9 @@
      Sacoro hero's .v-hero-fig) is JetBrains Mono for the number, Oswald for
      the caption below it. This used Cinzel, the brand/display serif reserved
      for "VELVET VIKING" itself, which is a different role. */
-  .big b{display:block; font-family:var(--num-face); font-size:24px; line-height:1.1;}
-  .big span{font-family:var(--text-face); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
-  .err{color:var(--danger-ink); font-size:13px; margin:12px 0 0;}
+  .big b{display:block; font-family:var(--num-face); font-size:1.5rem; line-height:1.1;}
+  .big span{font-family:var(--text-face); font-size:.6875rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
+  .err{color:var(--danger-ink); font-size:.8125rem; margin:12px 0 0;}
 
   /* =========================================================
      THE NINE-STAGE BUILDER'S OWN DESIGN LANGUAGE -- ported, not reinvented.
@@ -135,10 +135,10 @@
 
   /* ---------- fields ---------- */
   .field{margin-bottom:14px;}
-  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
+  .field label{display:block; font-size:.65625rem; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
   .field input, .field select{
     width:100%; background:var(--ctl-bg); border:1px solid var(--ctl-border); border-radius:9px;
-    color:var(--ctl-text); padding:10px 11px; font-size:14px; min-height:44px;
+    color:var(--ctl-text); padding:10px 11px; font-size:.875rem; min-height:44px;
   }
   .field input::placeholder{color:var(--ctl-placeholder); opacity:1;}
   /* ---------- FOUR ANSWERS GIVEN WITH THE THUMB ----------
@@ -152,15 +152,15 @@
   .bld-slide-val{display:inline-flex; align-items:baseline; gap:6px; flex:none;}
   .field .bld-slide-val input{
     width:4.6ch; min-height:44px; padding:0; background:none; border:0; border-radius:0;
-    box-shadow:none; text-align:right; font-family:var(--num-face); font-size:28px;
+    box-shadow:none; text-align:right; font-family:var(--num-face); font-size:1.75rem;
     font-weight:700; color:var(--cherry-text); -moz-appearance:textfield; appearance:textfield;}
   .field .bld-slide-val input::-webkit-outer-spin-button,
   .field .bld-slide-val input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
   .field .bld-slide-val input::placeholder{color:var(--cherry-text); opacity:1;}
   .field .bld-slide-val input:focus{box-shadow:none;}
   .bld-slide-unit, .bld-slide-fig{font-family:var(--num-face); font-weight:700; color:var(--cherry-text);}
-  .bld-slide-unit{font-size:17px;}
-  .bld-slide-fig{font-size:28px; line-height:44px; min-width:1.2ch; text-align:right;}
+  .bld-slide-unit{font-size:1.0625rem;}
+  .bld-slide-fig{font-size:1.75rem; line-height:44px; min-width:1.2ch; text-align:right;}
   .field input.bld-range{
     -webkit-appearance:none; appearance:none; display:block; width:100%;
     height:44px; min-height:44px; margin:0; padding:0; background:transparent;
@@ -183,7 +183,7 @@
   .bld-range:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
   .bld-range-ends, .bld-range-ticks{
     display:flex; justify-content:space-between; font-family:var(--num-face);
-    font-size:13px; color:var(--ink);}
+    font-size:.8125rem; color:var(--ink);}
   .bld-range-ticks{padding:0 6px;}
   .bld-range-ticks span{width:14px; text-align:center;}
   .bld-slide .field-hint{margin-top:10px;}
@@ -196,7 +196,7 @@
   .bld-reveal{margin-top:16px;}
   .bld-skip{margin-top:12px;}
   .bld-reassure{text-align:center; margin-top:8px;}
-  .setup-section-title{font-family:var(--text-face); font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  .setup-section-title{font-family:var(--text-face); font-size:.6875rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
   .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
 
   /* ---------- option grids -- the selected state is GOLD, everywhere, not Cherry Lacquer.
@@ -295,14 +295,14 @@
   .vvcal-kick{font-family:var(--text-face); font-size:var(--fs-label);
     letter-spacing:.06em; text-transform:uppercase; font-weight:700;
     color:var(--ink-faint); margin-bottom:5px;}
-  .vvcal-date{font-family:var(--num-face); font-size:23px; font-weight:700;
+  .vvcal-date{font-family:var(--num-face); font-size:1.4375rem; font-weight:700;
     letter-spacing:.4px; color:var(--ink); line-height:1.1;}
   .vvcal-nav{display:flex; align-items:center; justify-content:space-between; padding:2px 11px 4px;}
-  .vvcal-month{font-family:var(--text-face); font-size:13px; font-weight:700;
+  .vvcal-month{font-family:var(--text-face); font-size:.8125rem; font-weight:700;
     letter-spacing:2.2px; text-transform:uppercase; color:var(--ink);}
   .vvcal-arrow{width:44px; height:44px; display:flex; align-items:center;
     justify-content:center; border-radius:50%; border:1px solid var(--line);
-    background:var(--bg-2); color:var(--ink-dim); font-size:17px; line-height:1;}
+    background:var(--bg-2); color:var(--ink-dim); font-size:1.0625rem; line-height:1;}
   .vvcal-dow{display:grid; grid-template-columns:repeat(7,1fr); padding:4px 11px 2px;}
   .vvcal-dow span{text-align:center; font-family:var(--text-face);
     font-size:var(--fs-label); letter-spacing:1.1px; color:var(--ink-faint);
@@ -310,7 +310,7 @@
   .vvcal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:4px 11px 12px;}
   .vvcal-cell{position:relative; aspect-ratio:1; min-height:38px; padding:0;
     display:flex; align-items:center; justify-content:center;
-    font-family:var(--num-face); font-size:15px; font-weight:600;
+    font-family:var(--num-face); font-size:.9375rem; font-weight:600;
     color:var(--ink); border-radius:50%; border:1px solid transparent;
     background:none;}
   .vvcal-cell.is-empty{visibility:hidden;}
@@ -367,7 +367,7 @@
     border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
     transform:translate(-50%,-50%) rotate(45deg);
   }
-  .wd-name{font-family:var(--num-face); font-size:10.5px; color:var(--ink-faint); transition:color .15s;}
+  .wd-name{font-family:var(--num-face); font-size:.65625rem; color:var(--ink-faint); transition:color .15s;}
   .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
 
   /* ---------- buttons -- the builder's own primary is Cherry Lacquer, and only
@@ -375,7 +375,7 @@
      nothing outside the wizard (Save My Plan, Start my trial) picks it up. ---------- */
   .btn{
     display:inline-flex; align-items:center; justify-content:center; gap:7px;
-    border-radius:var(--radius-sm); padding:11px 18px; font-size:13.5px; font-weight:600;
+    border-radius:var(--radius-sm); padding:11px 18px; font-size:.84375rem; font-weight:600;
     border:1px solid var(--line); background:var(--bg-3); color:var(--ink); transition:.2s;
     min-height:44px; cursor:pointer;
   }
@@ -398,7 +398,7 @@
 
   /* ---------- review ---------- */
   .bld-review-hero{text-align:center; padding:18px 0 6px;}
-  .bld-review-hero .d{font-family:var(--text-face); text-transform:uppercase; letter-spacing:2px; font-size:26px; color:var(--gold-text); line-height:1.1;}
+  .bld-review-hero .d{font-family:var(--text-face); text-transform:uppercase; letter-spacing:2px; font-size:1.625rem; color:var(--gold-text); line-height:1.1;}
   .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
   .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--line-soft);}
   .bld-review-row:last-child{border-bottom:none;}

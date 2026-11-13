@@ -192,7 +192,7 @@ test('the section heading voice stays single', () => {
   const next = /\.coach-next-title\{([^}]*)\}/.exec(CSS);
   const setup = /\n  \.setup-section-title\{([^}]*)\}/.exec(CSS);
   assert.ok(next && setup, 'one of the two section-heading rules is gone');
-  [['font-size', /font-size:(\d+(?:\.\d+)?px)/], ['colour', /color:(var\([^)]*\))/]].forEach(([what, re]) => {
+  [['font-size', /font-size:(\d*(?:\.\d+)?(?:px|rem))/], ['colour', /color:(var\([^)]*\))/]].forEach(([what, re]) => {
     const a = re.exec(next[1]), b = re.exec(setup[1]);
     assert.ok(a && b, 'cannot read ' + what + ' from both section-heading rules');
     assert.equal(a[1], b[1],

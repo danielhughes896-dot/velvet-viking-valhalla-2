@@ -752,7 +752,7 @@
      a solid dark bronze fill with a soft warm glow instead of the gradient. */
   .unit-toggle{display:flex; border:1px solid var(--line); border-radius:99px; overflow:hidden;}
   .unit-toggle button{
-    font-family:var(--num-face); font-size:10px; font-weight:700; letter-spacing:.5px;
+    font-family:var(--num-face); font-size:.625rem; font-weight:700; letter-spacing:.5px;
     padding:6px 9px; color:var(--ink-faint); background:transparent;
   }
   .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
@@ -835,7 +835,7 @@
   .tb-unit-toggle button{
     display:flex; align-items:center; justify-content:center;
     min-height:var(--tap-min); min-width:0; padding:0 5px;
-    font-family:var(--label-face); font-size:10.5px; font-weight:var(--label-weight);
+    font-family:var(--label-face); font-size:.65625rem; font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase; line-height:1;
     color:#FFFFFF; background:none; border-radius:0;
     text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
@@ -859,7 +859,7 @@
     padding:4px 6px;
   }
   .cd-cell{font-weight:700; color:var(--gold-text); font-size:0.7rem; text-align:center; white-space:nowrap;}
-  .cd-race-day{font-family:var(--label-face); font-size:12px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--gold-text); font-weight:var(--label-weight);}
+  .cd-race-day{font-family:var(--label-face); font-size:.75rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--gold-text); font-weight:var(--label-weight);}
 
   /* confidence score fuel gauge — the approved-concept full-circle hero.
      A ring, not a semicircle: 12 tick marks framing a single progress arc,
@@ -1069,16 +1069,16 @@
      Gold here made the gauge a different kind of instrument from its own
      row. The ring keeps its cherry gradient, which is the mechanism and was
      never in question. */
-  .gauge-num b{font-size:32px; color:#FFFFFF; line-height:1; font-weight:700;
+  .gauge-num b{font-size:2rem; color:#FFFFFF; line-height:1; font-weight:700;
     text-shadow:0 0 10px rgba(255,255,255,.26);}
-  .gauge-num span{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-top:3px; font-weight:var(--label-weight);}
+  .gauge-num span{font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-top:3px; font-weight:var(--label-weight);}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px;
     background:var(--tile-sheen), var(--c-gold-soft);
     border:1.5px solid var(--gold); border-radius:var(--tile-radius);
     box-shadow:var(--tile-shadow); padding:13px 14px; margin:16px 0;
   }
-  .cb-icon{font-size:18px; line-height:1; flex:none;}
+  .cb-icon{font-size:1.125rem; line-height:1; flex:none;}
   .cb-text{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink);}
   .cb-text b{color:var(--gold-text);}
   /* ---------- THE TAPER WEEK LOOKS LIKE EVERY OTHER WEEK ----------
@@ -1104,7 +1104,7 @@
      that no session has been shaped for it yet. */
   .week.week-unshaped .week-head{opacity:.85;}
   .week-unshaped-note{padding:16px; text-align:center;}
-  .week-unshaped-head{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:4px;}
+  .week-unshaped-head{font-size:.6875rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:4px;}
   .week-unshaped-sub{ color:var(--ink-faint);}
   /* RACE DAY AS ITS OWN EVENT. Deliberately quiet furniture -- the day card
      inside it carries the weight; this only frames it as the culmination
@@ -1136,14 +1136,14 @@
      "Titles white." */
   .rs-head{
     display:flex; align-items:center; gap:8px;
-    font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase;
+    font-size:.59375rem; letter-spacing:1.2px; text-transform:uppercase;
     color:#FFFFFF; margin-bottom:8px;
   }
   /* LOCKED LOSES ITS OUTLINE with every other pill on this card. It is a
      state, not a control, and an outlined capsule beside a heading read as
      something to press. */
   .rs-locked{
-    font-family:inherit; font-size:8.5px; letter-spacing:.08em;
+    font-family:inherit; font-size:.53125rem; letter-spacing:.08em;
     color:var(--ink-quiet);
   }
   /* .rs-chips, .rs-chip, .rs-chip.on and .rs-rec stood here: a wrapping row of
@@ -1164,26 +1164,26 @@
      inside it, so the name broke onto two lines and Recommended landed 3px
      into the tick. One line is what clears it, so the narrowest phones set
      the name a pixel smaller rather than the tile a row taller. */
-  @media (max-width:350px){ .rs-chips.opt-grid .rs-name{font-size:14px; letter-spacing:0;} }
+  @media (max-width:350px){ .rs-chips.opt-grid .rs-name{font-size:.875rem; letter-spacing:0;} }
   .rs-custom{display:flex; align-items:center; gap:10px; margin-top:9px;}
   /* 38px was under the 44px floor every other control on these screens
      keeps, and these two are pressed repeatedly to tune a number. */
   .rs-step{
     flex:none; width:var(--tap-min); height:var(--tap-min); border-radius:50%; cursor:pointer;
-    font-family:inherit; font-size:17px; line-height:1;
+    font-family:inherit; font-size:1.0625rem; line-height:1;
     background:var(--bg-3); color:var(--ink-dim); border:1px solid var(--line);
   }
   .rs-custom-v{display:flex; flex-direction:column; gap:1px;}
-  .rs-custom-v span:first-child{font-size:14px; color:var(--ink);}
+  .rs-custom-v span:first-child{font-size:.875rem; color:var(--ink);}
   .rs-custom-l{font-size:var(--fs-meta); color:var(--ink-faint);}
   .rs-foot{
     display:flex; align-items:flex-end; justify-content:space-between;
     gap:12px; margin-top:9px;
   }
   .rs-blurb{ color:var(--ink-faint); flex:1;}
-  .rs-finish{flex:none; text-align:right; font-size:15px; color:var(--gold-text); line-height:1.1;}
+  .rs-finish{flex:none; text-align:right; font-size:.9375rem; color:var(--gold-text); line-height:1.1;}
   .rs-finish-l{
-    display:block; font-size:8px; letter-spacing:.1em; text-transform:uppercase;
+    display:block; font-size:.5rem; letter-spacing:.1em; text-transform:uppercase;
     color:var(--ink-faint); margin-top:2px;
   }
   .taper-note.race-split{align-items:flex-start;}
@@ -1200,8 +1200,8 @@
     background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
     border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
   }
-  .zone-head{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; margin-bottom:9px;}
-  .zone-head span:first-child{text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); font-size:10.5px;}
+  .zone-head{display:flex; align-items:center; justify-content:space-between; font-size:.71875rem; margin-bottom:9px;}
+  .zone-head span:first-child{text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); font-size:.65625rem;}
   /* Time-on-feet is a duration -- a metric, like every pace and distance in
      the app, and metrics are ink. --ink rather than --ink-dim because it is
      the one hard figure in the card and its own label, plus the legend, are
@@ -1281,7 +1281,7 @@
      on the band itself and would otherwise sit over the words. */
   .zbar-k{
     position:relative; z-index:3; white-space:nowrap;
-    font-family:var(--text-face); font-size:12.5px; font-weight:600;
+    font-family:var(--text-face); font-size:.78125rem; font-weight:600;
     letter-spacing:.01em; color:#15171B;}
   .zbar-seg:first-child{border-radius:99px 0 0 99px;}
   .zbar-seg:last-child{border-radius:0 99px 99px 0;}
@@ -1309,7 +1309,7 @@
   .zleg-dot.z-threshold{background:var(--z-threshold); color:rgba(228,105,122,.55);}
   .zleg-dot.z-interval{background:var(--z-interval); color:rgba(242,193,78,.55);}
   .zone-legend{display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:10px;}
-  .zleg-item{display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--ink-dim);}
+  .zleg-item{display:flex; align-items:center; gap:5px; font-size:.65625rem; color:var(--ink-dim);}
   .zleg-dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
   /* SOFT SURFACE pass -- see --tile-* tokens. Border colour softened to
      --tile-border and radius/shadow/sheen added, but the dashed-vs-solid
@@ -1345,7 +1345,7 @@
      left of theirs. This block is the old disclosure row; a tab is not one. */
   .fuel-card summary:not(.sess-tab){
     display:flex; align-items:center; gap:6px; padding:8px 10px; min-height:44px;
-    font-size:11px; font-weight:600;
+    font-size:.6875rem; font-weight:600;
     color:var(--bronze-text); cursor:pointer; list-style:none; user-select:none;
     -webkit-tap-highlight-color:transparent;
   }
@@ -1427,7 +1427,7 @@
      21.85px, which is the second bound and the one that matters more: a
      tab heading bigger than the name of the session it opens inverts the
      card's hierarchy. The two bounds land on the same number. */
-  .sess-tab-k{display:block; font-family:var(--label-face); font-size:21px;
+  .sess-tab-k{display:block; font-family:var(--label-face); font-size:1.3125rem;
     font-weight:700; letter-spacing:var(--label-track); text-transform:uppercase;
     color:#FFFFFF;}
   /* .sess-tab-s is gone with the second line it styled -- see
@@ -1468,7 +1468,7 @@
   .how-pre{display:contents;}
   /* The verdict in one line, under the closed tab: how the session went,
      without opening anything. */
-  .wc-line{margin-top:12px; font-family:var(--text-face); font-size:13px;
+  .wc-line{margin-top:12px; font-family:var(--text-face); font-size:.8125rem;
     color:var(--ink-dim);}
   .fuel-chevron{margin-left:auto; display:flex; align-items:center; color:var(--mark-faint); transition:transform .25s;}
   .fuel-chevron svg{width:16px; height:16px; display:block;}
@@ -1499,7 +1499,7 @@
   .how-row{padding:10px 0;}
   .how-row:first-of-type{padding-top:0;}
   .how-row:last-of-type{border-bottom:none; padding-bottom:0;}
-  .how-row .k{display:block; font-family:var(--label-face); font-size:12.5px; font-weight:var(--label-weight);
+  .how-row .k{display:block; font-family:var(--label-face); font-size:.78125rem; font-weight:var(--label-weight);
               letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
   /* overflow-wrap so a long pace range or an unbroken term cannot push the
      card sideways on a narrow phone; the page body must never scroll across. */
@@ -1508,7 +1508,7 @@
      where Execution or Fuel begins without becoming a card of its own. Same
      upgrade as .how-row .k above, for the same reason: it is also a section
      heading (Execution, Fuel) that was reading as body text. */
-  .how-row-heading{font-family:var(--label-face); font-size:12.5px; font-weight:var(--label-weight); letter-spacing:var(--label-track);
+  .how-row-heading{font-family:var(--label-face); font-size:.78125rem; font-weight:var(--label-weight); letter-spacing:var(--label-track);
                    text-transform:uppercase; color:var(--bronze-text); margin:14px 0 6px; padding-top:10px;}
   .how-row-heading:first-child{margin-top:0; padding-top:0; border-top:none;}
   /* Execution Strategy phases -- a staged reading of the prescription, not a
@@ -1778,7 +1778,7 @@
      needs a rule to stop the two reading as one long block. Same hairline the
      rest of the card system uses; no colour of its own. */
   #garmin-section{margin-top:14px; padding-top:14px; border-top:1px solid var(--line-soft);}
-  .build-tag{text-align:center; font-family:var(--num-face); font-size:9.5px; color:var(--ink-faint); margin-top:18px;}
+  .build-tag{text-align:center; font-family:var(--num-face); font-size:.59375rem; color:var(--ink-faint); margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
   .file-input-offscreen{position:absolute; width:1px; height:1px; padding:0; margin:-1px; border:0; opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
@@ -2085,12 +2085,12 @@
      glyph edges off the ground -- growing them with the type would have
      spread the bloom past the card rather than lighting the word. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-title{
-    display:block; font-size:21.85px; font-weight:600; line-height:1.2;
+    display:block; font-size:1.365625rem; font-weight:600; line-height:1.2;
     letter-spacing:.04em; text-transform:uppercase; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
                 0 0 34px rgba(255,255,255,.10);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .strat-phase-label{text-transform:uppercase;
-    letter-spacing:.05em; font-size:12.5px;}
+    letter-spacing:.05em; font-size:.78125rem;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-ring-wrap{
     flex:0 0 40%; display:flex; align-items:center; justify-content:center;
     padding:0; background:none; border:0; border-radius:0;}
@@ -2404,12 +2404,12 @@
   .th-ring-in{position:absolute; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:0; text-align:center;
     padding:0 9%;}
-  .th-ring-k{font-size:12.5px; font-weight:700; letter-spacing:.3px; color:var(--ink);
+  .th-ring-k{font-size:.78125rem; font-weight:700; letter-spacing:.3px; color:var(--ink);
     line-height:1.2;}
   .th-row{display:flex; align-items:center; justify-content:center; gap:3px; color:var(--ink-dim); white-space:nowrap;}
   .th-row .th-ic{display:inline-flex; width:9px; height:9px; color:var(--gold-text);}
   .th-row .th-ic svg{width:9px; height:9px;}
-  .th-row.mp{color:var(--gold-text); font-size:9px;}
+  .th-row.mp{color:var(--gold-text); font-size:.5625rem;}
 
   /* ---- BOX 2 : how to run this ---- */
   /* ---- BOX 2 IS A RAIL, NOT A BOX ----
@@ -2811,7 +2811,7 @@
      means the same thing cannot be two colours on two days. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-k{
     font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:13px; letter-spacing:var(--label-track); text-transform:uppercase;
+    font-size:.8125rem; letter-spacing:var(--label-track); text-transform:uppercase;
     color:#FFFFFF;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-v{
     font-size:var(--fs-data); color:#FFFFFF;}
@@ -2837,12 +2837,12 @@
     display:inline-flex; align-items:baseline; gap:6px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-k{
     font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase;
+    font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase;
     color:#fff;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-v{font-size:14px; color:#FFFFFF;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot-v{font-size:.875rem; color:#FFFFFF;}
   /* The hourly rate, under the total it is the rate of. order:3 -- after the
      figure (2) and before the foot (5). */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-rate{order:3; margin-top:6px; font-size:15px; color:#FFFFFF; letter-spacing:.02em;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-rate{order:3; margin-top:6px; font-size:.9375rem; color:#FFFFFF; letter-spacing:.02em;}
   /* One fact a line: the gels, then the fluid. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .pair-foot.is-stacked{flex-direction:column; align-items:center; gap:7px; margin-top:14px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-presc:not(.font-mono){order:1;}
@@ -2904,7 +2904,7 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .ws-h-qty,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .strat-phase-span,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod .fuel-row .v{
-    display:block; font-size:calc(30px * var(--rail-scale, 1)); font-weight:700;
+    display:block; font-size:calc(1.875rem * var(--rail-scale, 1)); font-weight:700;
     line-height:1.1; color:#FFFFFF; margin:0;}
   /* THE DETAIL, quieter than the figure and smaller than the label: the
      pace band, the phase's target. It qualifies the figure, so it reads as
@@ -3118,7 +3118,7 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .k,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .strat-phase-label{
     display:block; font-family:var(--label-face);
-    font-size:calc(21.85px * var(--rail-scale, 1)); font-weight:600;
+    font-size:calc(1.365625rem * var(--rail-scale, 1)); font-weight:600;
     line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
     margin-bottom:4px; text-align:center; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
@@ -3147,7 +3147,7 @@
      across all five photographs, gives 9.28:1 on the title against a 4.5
      floor (9.58:1 before). */
   .view-plan .pp-slide-k{
-    display:block; font-family:var(--label-face); font-size:31px; font-weight:600;
+    display:block; font-family:var(--label-face); font-size:1.9375rem; font-weight:600;
     line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
     margin-bottom:4px; text-align:center; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
@@ -3271,7 +3271,7 @@
     display:flex; flex-direction:column; align-items:center; text-align:center;
     gap:5px; width:100%; box-sizing:border-box; margin:18px 0 2px; padding:0 18px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-k{
-    font-family:var(--text-face); font-size:15px; font-weight:700;
+    font-family:var(--text-face); font-size:.9375rem; font-weight:700;
     letter-spacing:.12em; text-transform:uppercase; color:var(--ink);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .why-session-v{
     font-family:var(--text-face); font-size:var(--fs-body); line-height:1.45;
@@ -3362,10 +3362,10 @@
   /* THE INSTRUCTION, AT THE SIZE THE FOUNDER DREW IT -- bigger than any
      other sentence in the note, because on this day it is the session. */
   .how-note[data-solo] .hn-lead{
-    font-family:var(--text-face); font-size:31px; font-weight:700; line-height:1.15;
+    font-family:var(--text-face); font-size:1.9375rem; font-weight:700; line-height:1.15;
     color:#fff; letter-spacing:-0.01em; margin-top:2px;}
   .how-note[data-solo] .hn-sub{
-    font-family:var(--text-face); font-size:25px; font-weight:400; line-height:1.2;
+    font-family:var(--text-face); font-size:1.5625rem; font-weight:400; line-height:1.2;
     color:var(--ink-dim);}
   /* THE FUEL FIGURES, in the box's own voice and its own white -- set in
      the numeral face they read as a printout pasted into a sentence. The
@@ -3399,7 +3399,7 @@
      The heading sat 3px above its first sentence, the same gap that
      separates one sentence from the next, so it read as the first line of
      the note rather than its title. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k{font-size:17px; letter-spacing:.055em; gap:7px; margin-bottom:14px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k{font-size:1.0625rem; letter-spacing:.055em; gap:7px; margin-bottom:14px;}
   /* ---------- AND THE NOTE STANDS CLEAR OF THE RAIL ----------
      Founder: "Coaches note is very close to the rail." The rail's dots and
      the top of the note's box were 10px apart -- close enough that the box
@@ -3562,7 +3562,7 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .exec-review-head,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .wc-verdict-k,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .wc-verdict.is-plain .wc-verdict-k{
-    justify-content:center; font-family:inherit; font-size:17px; font-weight:700;
+    justify-content:center; font-family:inherit; font-size:1.0625rem; font-weight:700;
     letter-spacing:.055em; text-transform:uppercase; color:var(--ink); margin-bottom:14px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .exec-pill{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .an-box .cr-signal{justify-content:center;}
@@ -3634,7 +3634,7 @@
      here, because it is `display:none` by default -- the note has two
      positions in the markup and this is the one a focused session shows. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note{display:flex;}
-  .how-note .k{display:flex; align-items:center; gap:6px; font-size:13px;
+  .how-note .k{display:flex; align-items:center; gap:6px; font-size:.8125rem;
     font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--ink);}
   .how-note .k svg{width:13px; height:13px;}
@@ -3686,7 +3686,7 @@
     border:1.5px solid var(--cherry);
     background:var(--cherry-tint), var(--t-tile);
     box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-qty{display:block; font-size:23px; font-weight:700;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-qty{display:block; font-size:1.4375rem; font-weight:700;
     color:#fff; margin:5px 0 3px; letter-spacing:-0.01em;}
   /* ONE FACT PER LINE, WHICH IS WHAT THE DATA ALLOWS. The reference runs
      "Easy . 5:17-6:16/km" inline, and that was tried: three tiles across a
@@ -3703,7 +3703,7 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-pace,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-hr,
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-sub,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-note{font-size:10px; line-height:1.25;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-note{font-size:.625rem; line-height:1.25;
     color:var(--ink-dim);}
   /* Wrap BETWEEN the facts, never inside one: "5:17-6:16/km" breaking into
      "5:17-" / "6:16/km" reads as two different numbers. Each value stays
@@ -3753,7 +3753,7 @@
        so this is the existing answer applied here rather than a second
        white invented for one pair of buttons. 700 was already the weight.
        The rim, the glow and the fill are exactly as they were. */
-    font-size:13px; font-weight:700; color:var(--cherry-btn-ink);}
+    font-size:.8125rem; font-weight:700; color:var(--cherry-btn-ink);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row .voice-btn svg{color:var(--cherry-btn-ink);}
 
   @media (max-width:360px){
@@ -3926,7 +3926,7 @@
     text-transform:uppercase; white-space:nowrap; color:var(--modal-text);
     text-shadow:0 2px 12px rgba(0,0,0,.6);}
   .pe-by{font-family:var(--label-face); font-weight:700;
-    font-size:11.5px; letter-spacing:.3em; margin-right:-.3em;
+    font-size:.71875rem; letter-spacing:.3em; margin-right:-.3em;
     text-transform:uppercase; white-space:nowrap; color:var(--gold);
     text-shadow:0 1px 8px rgba(0,0,0,.6);}
   /* The greeting sits ON the photograph in BOTH themes, so it takes --gold,
@@ -3954,7 +3954,7 @@
      they take the fixed ramp (--modal-text / --gold) rather than the on-cream
      --ink / --gold-text, exactly as .modal-themed re-points --ink at line
      ~1856. CONTINUE below is NOT on the photograph and keeps --ink-dim. */
-  .pe-prog{position:relative; z-index:1; margin-top:34px; font-size:19px;
+  .pe-prog{position:relative; z-index:1; margin-top:34px; font-size:1.1875rem;
     color:var(--modal-text); letter-spacing:.6px;
     text-shadow:0 1px 6px rgba(0,0,0,0.5);}
   .pe-bar{position:relative; z-index:1; width:min(420px,88%); height:11px; margin-top:20px;
@@ -3962,7 +3962,7 @@
   .pe-bar > span{display:block; height:100%; border-radius:999px;
     background:linear-gradient(90deg, var(--cherry-fill), var(--cherry));
     box-shadow:0 0 12px var(--cherry-dim);}
-  .pe-pct{position:relative; z-index:1; margin-top:18px; font-size:21px;
+  .pe-pct{position:relative; z-index:1; margin-top:18px; font-size:1.3125rem;
     color:var(--gold); font-weight:400; letter-spacing:.3px;
     text-transform:none;
     text-shadow:0 1px 8px rgba(0,0,0,0.5);}
@@ -3996,7 +3996,7 @@
     text-transform:uppercase; color:var(--modal-text); line-height:1.08;
     text-shadow:0 2px 12px rgba(0,0,0,.6);}
   .pe-sub{margin-top:7px; font-family:var(--label-face); font-weight:700;
-    font-size:11.5px; letter-spacing:.3em; margin-right:-.3em;
+    font-size:.71875rem; letter-spacing:.3em; margin-right:-.3em;
     text-transform:uppercase; color:var(--gold);
     text-shadow:0 1px 8px rgba(0,0,0,.6);}
   /* The one-time capture stands where the greeting will stand next time. */
@@ -4006,9 +4006,9 @@
      same fixed ramp. It measured 1.64:1 on --gold-text in light mode -- and
      this is the one line a pre-existing athlete sees, so it is the last place
      that can afford to be unreadable. */
-  .pe-ask-k{font-family:var(--text-face); font-size:15px; letter-spacing:.6px;
+  .pe-ask-k{font-family:var(--text-face); font-size:.9375rem; letter-spacing:.6px;
     color:var(--gold); text-shadow:0 2px 10px rgba(0,0,0,0.55);}
-  .pe-ask input{width:100%; text-align:center; font-size:16px;}
+  .pe-ask input{width:100%; text-align:center; font-size:1rem;}
   .pe-ask-go{width:100%;}
   @media (max-width:480px){
     .pe-mountains{ background-image:url('/assets/valhalla-sunrise-420.jpg'); }
@@ -4062,7 +4062,7 @@
 
   .progress-bars{margin-top:16px; display:flex; flex-direction:column; gap:8px;}
   .pbar-row{display:flex; align-items:center; gap:10px;}
-  .pbar-label{font-size:10px; letter-spacing:1px; color:var(--ink-faint); text-transform:uppercase; width:76px; text-align:right; flex:none;}
+  .pbar-label{font-size:.625rem; letter-spacing:1px; color:var(--ink-faint); text-transform:uppercase; width:76px; text-align:right; flex:none;}
   /* min-width:0 lets the bar give up space instead of the number overflowing:
      a flex item's default min-width is auto, so without this the track refuses
      to shrink below its content and the row pushes past the viewport. */
@@ -4093,13 +4093,13 @@
   /* 56px is the space RESERVED so the two rows' numbers line up, not a cap.
      "697.7/1190.4km" is wider than that, and a fixed width made it overflow
      the row rather than the row making room for it. */
-  .pbar-num{font-family:var(--num-face); font-size:11px; color:var(--ink-dim);
+  .pbar-num{font-family:var(--num-face); font-size:.6875rem; color:var(--ink-dim);
             min-width:56px; flex:0 0 auto; text-align:right; white-space:nowrap;}
 
   /* ---------- section labels ---------- */
   .section-label{
     font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track);
-    font-size:12px; color:var(--ink-faint); display:flex; align-items:center; gap:8px; margin:22px 0 10px;
+    font-size:.75rem; color:var(--ink-faint); display:flex; align-items:center; gap:8px; margin:22px 0 10px;
   }
   .section-label .rule{flex:1; height:1px; background:var(--line);}
 
@@ -4127,27 +4127,27 @@
   .phase-divider{display:flex; align-items:center; gap:10px; margin:28px 2px 12px;
                  break-after:avoid; page-break-after:avoid;}
   .phase-divider.is-first{margin-top:12px;}
-  .phase-divider .l{font-size:10.5px; font-weight:600; letter-spacing:2.2px;
+  .phase-divider .l{font-size:.65625rem; font-weight:600; letter-spacing:2.2px;
                     color:var(--gold-text); white-space:nowrap;}
   .phase-divider .r{flex:1; height:1px; min-width:0;
                     background:linear-gradient(to right, var(--line) 0%, transparent 100%);}
   .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink); transition:background .15s ease;}
   .week-head:hover{background:var(--bg-3);}
   .week-head:active{background:var(--bg-4);}
-  .week-num{font-family:var(--num-face); font-weight:700; font-size:20px; color:var(--bronze-text); flex:none; width:34px;}
+  .week-num{font-family:var(--num-face); font-weight:700; font-size:1.25rem; color:var(--bronze-text); flex:none; width:34px;}
   .week-meta{flex:1; min-width:0;}
-  .week-phase{font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
-  .week-range{font-family:var(--num-face); font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
+  .week-phase{font-family:var(--label-face); font-size:.625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
+  .week-range{font-family:var(--num-face); font-size:.65625rem; color:var(--ink-faint); margin-top:2px;}
   .week-vol{text-align:right; flex:none;}
-  .week-vol .v{font-family:var(--num-face); font-weight:700; font-size:15px; color:var(--ink);}
-  .week-vol .l{font-size:9px; color:var(--ink-faint); letter-spacing:1px; text-transform:uppercase;}
+  .week-vol .v{font-family:var(--num-face); font-weight:700; font-size:.9375rem; color:var(--ink);}
+  .week-vol .l{font-size:.5625rem; color:var(--ink-faint); letter-spacing:1px; text-transform:uppercase;}
   .week-chevron{flex:none; color:var(--mark-faint); transition:transform .25s;}
   .week-chevron svg{width:18px; height:18px; display:block;}
   .week.open .week-chevron{transform:rotate(180deg);}
   .week-body{max-height:0; overflow:hidden; transition:max-height .35s ease;}
   .week.open .week-body{max-height:10000px;}
   .week-body-inner{padding:2px 12px 14px;}
-  .week-today-flag{display:inline-block; font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:var(--label-face);}
+  .week-today-flag{display:inline-block; font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:var(--label-face);}
 
   /* ---------- day card ---------- */
   .day{
@@ -4387,7 +4387,7 @@
      against this same translucent-gold background (see --gold-text's own
      comment above), while dark mode is unchanged since --gold-text==--gold
      there. */
-  .exec-pill{font-family:var(--num-face); font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
+  .exec-pill{font-family:var(--num-face); font-size:.625rem; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
   .day-title{font-weight:600; font-size:var(--fs-title); margin-top:3px; color:var(--ink);}
   .day-targets{font-family:var(--num-face); font-size:var(--fs-data); color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
   /* Goal pace is a pace, and it sits in a row of paces and distances -- so it
@@ -4469,7 +4469,7 @@
 
   .actual-panel{margin-top:10px; padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .actual-field{display:flex; flex-direction:column; gap:3px;}
-  .actual-field label{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
+  .actual-field label{font-size:.5625rem; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
   /* ---------- THE LOG MEETS THE 44px FLOOR LIKE EVERYTHING ELSE ----------
      The first tap-target pass took the coach rail, the switch, the KM/MI
      toggle, the day check and the legal links to --tap-min and never
@@ -4482,7 +4482,7 @@
      shortfall once, and the wand gets a hit area rather than growing. */
   .actual-field input, .actual-field textarea{
     background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink);
-    padding:7px 8px; font-size:13px; font-family:var(--num-face); width:100%;
+    padding:7px 8px; font-size:.8125rem; font-family:var(--num-face); width:100%;
     min-height:var(--tap-min);
   }
   .actual-field textarea{font-family:var(--text-face); resize:vertical; min-height:var(--tap-min);}
@@ -4518,7 +4518,7 @@
      textarea corner is the real fix and is a layout change, not a token one. */
   .notes-wand{
     position:absolute; right:5px; bottom:5px; width:24px; height:24px; padding:0;
-    display:flex; align-items:center; justify-content:center; font-size:12px; line-height:1;
+    display:flex; align-items:center; justify-content:center; font-size:.75rem; line-height:1;
     background:var(--bg-3); border:1px solid var(--line); border-radius:6px;
     cursor:pointer; opacity:.65; transition:opacity .12s, border-color .12s, transform .12s;
   }
@@ -4533,17 +4533,17 @@
     transform:translate(-50%,-50%); border-radius:8px;}
   .notes-wand:hover, .notes-wand:focus-visible{opacity:1; border-color:var(--modal-active); transform:translateY(-1px);}
   .note-chips{grid-column:1/-1; margin-top:7px;}
-  .note-chips-head{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px; font-weight:var(--label-weight);}
+  .note-chips-head{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px; font-weight:var(--label-weight);}
   .note-chip-row{display:flex; flex-wrap:wrap; gap:5px;}
   .note-chip{
-    display:inline-flex; align-items:center; gap:5px; font-size:10px; line-height:1;
+    display:inline-flex; align-items:center; gap:5px; font-size:.625rem; line-height:1;
     padding:4px 6px 4px 8px; border:1px solid var(--line); border-radius:99px; color:var(--ink);
     background:var(--bg-3);
   }
   .note-chip.pos{border-color:var(--modal-active);}
   .note-chip.warn{border-color:var(--gold-deep);}
   .note-chip-x{
-    background:none; border:none; color:var(--ink-faint); font-size:12px; line-height:1;
+    background:none; border:none; color:var(--ink-faint); font-size:.75rem; line-height:1;
     padding:0 2px; cursor:pointer;
   }
   .note-chip-x:hover{color:var(--ink);}
@@ -4551,7 +4551,7 @@
   .note-chips-head{display:flex; align-items:center; gap:8px;}
   .note-undo{
     background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;
-    font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint);
+    font-size:.5625rem; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint);
   }
   .note-undo:hover{color:var(--ink);}
   /* ---------- FEEL SPEAKS THE PRODUCT'S OWN LANGUAGE ----------
@@ -4597,27 +4597,27 @@
                 0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
   .feel-btn:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2px;}
   .cr-compare{display:flex; flex-wrap:wrap; gap:6px;}
-  .cr-cmp{font-size:10px; padding:2px 7px; border:1px solid var(--line); border-radius:99px; color:var(--ink-faint);}
+  .cr-cmp{font-size:.625rem; padding:2px 7px; border:1px solid var(--line); border-radius:99px; color:var(--ink-faint);}
   .actual-clear{text-align:right;}
-  .actual-clear button{background:none; border:none; color:var(--ink-faint); font-size:11px; text-decoration:underline; padding:2px;}
+  .actual-clear button{background:none; border:none; color:var(--ink-faint); font-size:.6875rem; text-decoration:underline; padding:2px;}
 
   .splits-body{margin-top:2px;}
   .split-row{display:grid; grid-template-columns:16px 1fr 1fr 46px 32px; gap:5px; align-items:center; margin-bottom:6px;}
-  .split-head{font-size:8.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:1px;}
-  .split-idx{font-size:10px; color:var(--ink-faint); text-align:center;}
+  .split-head{font-size:.53125rem; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:1px;}
+  .split-idx{font-size:.625rem; color:var(--ink-faint); text-align:center;}
   .split-row input{
     background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink);
-    padding:6px; font-size:12.5px; font-family:var(--num-face); width:100%; min-height:32px;
+    padding:6px; font-size:.78125rem; font-family:var(--num-face); width:100%; min-height:32px;
   }
   .split-remove{
-    background:none; border:none; color:var(--ink-faint); font-size:16px; line-height:1;
+    background:none; border:none; color:var(--ink-faint); font-size:1rem; line-height:1;
     padding:4px; min-width:var(--tap-min); min-height:var(--tap-min);
     cursor:pointer; border-radius:6px;
   }
   .split-remove:hover, .split-remove:focus-visible{color:var(--gold-deep); background:var(--bg-4);}
   .splits-add{
     background:none; border:1px dashed var(--line); border-radius:6px; color:var(--ink-dim);
-    font-size:11px; padding:6px 10px; margin-top:2px; cursor:pointer;
+    font-size:.6875rem; padding:6px 10px; margin-top:2px; cursor:pointer;
     min-height:var(--tap-min); width:100%;
   }
   /* Structured logging: one compact block per prescribed segment. Two lines
@@ -4627,15 +4627,15 @@
   .slog-row.is-rec{border-left-color:var(--line-soft); opacity:.86;}
   .slog-row.is-flank{border-left-color:var(--line-soft);}
   .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:3px;}
-  .slog-label{font-size:10.5px; font-weight:600; color:var(--ink); letter-spacing:.2px;}
+  .slog-label{font-size:.65625rem; font-weight:600; color:var(--ink); letter-spacing:.2px;}
   /* The prescribed value echoed beside a logging row is the SAME number the
      step list showed. It stays secondary to the row's label, but secondary is
      --ink-dim, not gold. See .ws-target. */
-  .slog-presc{font-size:10px; color:var(--ink-dim);}
+  .slog-presc{font-size:.625rem; color:var(--ink-dim);}
   .slog-ins{display:flex; gap:5px;}
   .slog-in{
     flex:1 1 0; min-width:0; background:var(--bg-4); border:1px solid var(--line);
-    border-radius:6px; color:var(--ink); padding:6px; font-size:12.5px;
+    border-radius:6px; color:var(--ink); padding:6px; font-size:.78125rem;
     font-family:var(--num-face); min-height:var(--tap-min);
   }
   .slog-in.slog-hr{flex:0 0 62px;}
@@ -4647,10 +4647,10 @@
   .dlap-rows{margin-top:2px;}
   .dlap-row{
     display:grid; grid-template-columns:18px 1fr 58px 62px; gap:6px; align-items:baseline;
-    padding:4px 0; font-size:11.5px;
+    padding:4px 0; font-size:.71875rem;
   }
   .dlap-row:last-child{border-bottom:none;}
-  .dlap-idx{font-size:9.5px; color:var(--ink-faint); text-align:right;}
+  .dlap-idx{font-size:.59375rem; color:var(--ink-faint); text-align:right;}
   .dlap-dist, .dlap-time{color:var(--ink-dim);}
   .dlap-pace{color:var(--ink); text-align:right;}
   .dlap-note{ color:var(--ink-faint); margin:2px 0 7px;}
@@ -4673,14 +4673,14 @@
   .cp-opt.is-active:not(.is-rec){border-color:var(--line-strong);}
   .cp-opt[disabled]{opacity:.55; cursor:default;}
   .cp-opt-l{display:flex; align-items:center; gap:7px; flex-wrap:wrap; min-width:0;}
-  .cp-opt-g{font-size:12.5px; font-weight:600;}
-  .cp-opt-n{font-size:10px; color:inherit; opacity:.8; text-align:right; flex:none;}
+  .cp-opt-g{font-size:.78125rem; font-weight:600;}
+  .cp-opt-n{font-size:.625rem; color:inherit; opacity:.8; text-align:right; flex:none;}
   .cp-tag{
-    font-size:8.5px; letter-spacing:.5px; text-transform:uppercase; font-weight:700;
+    font-size:.53125rem; letter-spacing:.5px; text-transform:uppercase; font-weight:700;
     border:1px solid currentColor; border-radius:99px; padding:1px 6px; opacity:.85;
   }
   .cp-done .cp-said{ color:var(--ink-dim); margin-top:2px;}
-  .splits-total{font-size:10.5px; color:var(--ink-faint); margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .splits-total{font-size:.65625rem; color:var(--ink-faint); margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .splits-total .font-mono{color:var(--ink-dim);}
   .splits-warn{color:var(--gold-deep);}
 
@@ -4692,16 +4692,16 @@
      panel -- see the note on #bld-review. */
   .zone-paces-card{ margin:14px 0 0; padding:14px 0; }
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
-  .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
+  .zpc-head span:first-child{font-size:.8125rem; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0;}
   .pzr:last-of-type{border-bottom:none;}
-  .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
-  .pzr-tag{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px; font-weight:var(--label-weight);}
+  .pzr-label{font-size:.78125rem; color:var(--ink-dim); flex:1; min-width:0;}
+  .pzr-tag{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px; font-weight:var(--label-weight);}
   /* target HR range, shown alongside the pace inputs on the same row --
      stacked under the zone label rather than a third flex column, so the
      row still fits on narrow phones without wrapping or crowding the
      pace-override inputs. */
-  .pzr-hr{font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
+  .pzr-hr{font-size:.65625rem; color:var(--ink-faint); margin-top:2px;}
   .pzr-inputs{display:flex; align-items:center; gap:5px; flex:none;}
   /* Same shallow inset every other text/number field in the product now
      carries (.field input) -- these are their own rule rather than that
@@ -4709,11 +4709,11 @@
      "editable" should be the same one everywhere. */
   .pzr-input{
     width:52px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);
-    color:var(--ink); padding:6px 6px; font-size:12.5px; font-family:var(--num-face); text-align:center;
+    color:var(--ink); padding:6px 6px; font-size:.78125rem; font-family:var(--num-face); text-align:center;
     box-shadow:inset 0 1px 3px rgba(0,0,0,.14);
   }
-  .pzr-sep{color:var(--ink-faint); font-size:12px;}
-  .pzr-unit{color:var(--ink-faint); font-size:11px; width:20px;}
+  .pzr-sep{color:var(--ink-faint); font-size:.75rem;}
+  .pzr-unit{color:var(--ink-faint); font-size:.6875rem; width:20px;}
 
   /* ---------- compact read-only pace reference (Today tab) ---------- */
   /* Five separate, non-interactive reference rows -- same visual family as
@@ -4723,7 +4723,7 @@
      Reference is one reference system, not five separate taps. */
   .pace-ref-card{margin:14px 0 0;}
   .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; padding:0 2px;}
-  .pace-ref-head span:first-child{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink);}
+  .pace-ref-head span:first-child{font-size:.6875rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink);}
   .pace-ref-list{display:flex; flex-direction:column; gap:8px;}
   .pace-ref-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -4737,7 +4737,7 @@
 
   /* ---------- AI post-session execution review ---------- */
   .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--surface-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .exec-review-head{display:flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
+  .exec-review-head{display:flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
   /* title yields first so the badge can never be pushed off or overlapped
      on a narrow phone; the badge itself never shrinks */
   .exec-review-head>span:first-of-type{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -4770,8 +4770,8 @@
   .cr-v{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .cr-sub{ color:var(--ink-faint); margin-top:2px; overflow-wrap:anywhere;}
   .cr-signal{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
-  .cr-sig-dot{font-size:12px; line-height:1;}
-  .cr-sig-label{font-family:var(--label-face); font-size:12px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
+  .cr-sig-dot{font-size:.75rem; line-height:1;}
+  .cr-sig-label{font-family:var(--label-face); font-size:.75rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
   .cr-adjust{margin-top:11px; padding:11px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .cr-adjust-line{ color:var(--ink); overflow-wrap:anywhere;}
   .cr-adjust-why{ color:var(--ink-faint); margin-top:4px; overflow-wrap:anywhere;}
@@ -4787,13 +4787,13 @@
      letter over its time, and room under them for the builder's tick. */
   .goal-options{margin-top:10px;}
   .goal-options.opt-grid .goal-opt{flex-direction:column; min-height:96px; padding:14px 4px; cursor:pointer;}
-  .goal-options.opt-grid .goal-opt .t{font-size:20px; line-height:1.1;}
+  .goal-options.opt-grid .goal-opt .t{font-size:1.25rem; line-height:1.1;}
   .goal-options.opt-grid .goal-opt .sub{margin-top:4px;}
 
   /* ---------- buttons ---------- */
   .btn{
     display:inline-flex; align-items:center; justify-content:center; gap:7px;
-    border-radius:var(--radius-sm); padding:11px 18px; font-size:13.5px; font-weight:600;
+    border-radius:var(--radius-sm); padding:11px 18px; font-size:.84375rem; font-weight:600;
     border:1px solid var(--line); background:var(--bg-3); color:var(--ink); transition:.2s;
   }
   /* 37px is what 11px of padding around 13.5px type comes to, and it is under
@@ -4857,7 +4857,7 @@
      a privacy policy on a phone actually wants. .btn is a bare class so the
      styling already applies -- only the underline needs removing. */
   a.btn, a.ev-card{text-decoration:none;}
-  .btn-sm{padding:7px 12px; font-size:12px; min-height:var(--tap-min); min-width:var(--tap-min);}
+  .btn-sm{padding:7px 12px; font-size:.75rem; min-height:var(--tap-min); min-width:var(--tap-min);}
   /* THE LAST TWO TARGETS, REACHED BY WHAT THEY DO RATHER THAN BY A CLASS --
      neither carries one. The pencil on a day header was 24x24 and "Clear log"
      18px tall; both are now 44, which the rows they sit in already have room
@@ -5882,10 +5882,10 @@
   .vvcal-kick{font-family:var(--label-face); font-size:var(--fs-label);
     letter-spacing:var(--label-track); text-transform:uppercase;
     font-weight:var(--label-weight); color:var(--ink-faint); margin-bottom:5px;}
-  .vvcal-date{font-family:var(--num-face); font-size:23px; font-weight:700;
+  .vvcal-date{font-family:var(--num-face); font-size:1.4375rem; font-weight:700;
     letter-spacing:.4px; color:var(--ink); line-height:1.1;}
   .vvcal-nav{display:flex; align-items:center; justify-content:space-between; padding:2px 11px 4px;}
-  .vvcal-month{font-family:var(--label-face); font-size:13px;
+  .vvcal-month{font-family:var(--label-face); font-size:.8125rem;
     font-weight:var(--label-weight); letter-spacing:2.2px;
     text-transform:uppercase; color:var(--ink);}
   .vvcal-arrow{width:var(--tap-min); height:var(--tap-min); display:flex;
@@ -5900,7 +5900,7 @@
   .vvcal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:4px 11px 12px;}
   .vvcal-cell{position:relative; aspect-ratio:1; min-height:38px; padding:0;
     display:flex; align-items:center; justify-content:center;
-    font-family:var(--num-face); font-size:15px; font-weight:600;
+    font-family:var(--num-face); font-size:.9375rem; font-weight:600;
     color:var(--ink); border-radius:50%; border:1px solid transparent;
     background:none;}
   .vvcal-cell.is-empty{visibility:hidden;}
@@ -5925,7 +5925,7 @@
      sits beside 15px titles. The words go up to 13.5px and each half gets a
      wider press, so the pair is 44px tall and about 100px across. */
   .stg-row-units .tb-unit-toggle{padding:2px 8px;}
-  .stg-row-units .tb-unit-toggle button{font-size:13.5px; padding:0 10px;
+  .stg-row-units .tb-unit-toggle button{font-size:.84375rem; padding:0 10px;
     /* Responsive correction 7: KM measured 38px wide and MI 35. The pill
        clips its own edge, so the target cannot reach past it invisibly:
        each half is 44 wide, the pill a few pixels wider. */
@@ -6042,7 +6042,7 @@
      column of boxes reads as a different kind of content. */
   #bld-review{ padding:6px 0; }
   .bld-review-hero{text-align:center; padding:16px 0 8px; margin-bottom:2px;}
-  .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:26px; color:var(--ink); line-height:1.1; font-weight:var(--label-weight);}
+  .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:1.625rem; color:var(--ink); line-height:1.1; font-weight:var(--label-weight);}
   .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
   /* ---------- WHAT SACORO UNDERSTANDS, IN THE BUILD'S OWN BOX ----------
      Founder: "Page 11. Put them in the blocks."
@@ -6125,7 +6125,7 @@
      content lands 16 inside its own edge -- which is the edge the eye reads
      it against. */
   .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 15px; border-bottom:1px solid var(--modal-border); position:sticky; top:0; background:var(--modal-surface); z-index:2;}
-  .modal-head h2{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:16px; margin:0; color:var(--modal-text);}
+  .modal-head h2{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:1rem; margin:0; color:var(--modal-text);}
   .modal-body{padding:16px 15px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
   /* ---- THE COMPLETION MOMENT ----
@@ -6164,18 +6164,18 @@
      7px dots beside a 26px name become 5px beside 17px. */
   .wc-lockup{display:flex; align-items:center; justify-content:center; gap:10px;}
   .wc-dot{flex:none; width:5px; height:5px; border-radius:50%; background:var(--gold-bright);}
-  .wc-wordmark{font-family:'Cinzel',serif; font-weight:600; font-size:17px;
+  .wc-wordmark{font-family:'Cinzel',serif; font-weight:600; font-size:1.0625rem;
     letter-spacing:7px; text-indent:7px; color:var(--wc-ink);}
-  .wc-by{font-family:var(--label-face); font-weight:600; font-size:7.5px;
+  .wc-by{font-family:var(--label-face); font-weight:600; font-size:.46875rem;
     letter-spacing:.24em; margin-right:-.24em; text-transform:uppercase;
     color:var(--wc-faint); margin:4px 0 10px;}
-  .wc-headline{font-family:var(--text-face); font-weight:700; font-size:17px;
+  .wc-headline{font-family:var(--text-face); font-weight:700; font-size:1.0625rem;
     letter-spacing:.3px; color:var(--wc-ink);}
   .wc-verdict-word{color:var(--gold-bright);}
   .wc-distance{display:flex; align-items:baseline; justify-content:center; gap:7px; margin:2px 0 8px;}
-  .wc-distance span{font-family:var(--text-face); font-weight:700; font-size:46px;
+  .wc-distance span{font-family:var(--text-face); font-weight:700; font-size:2.875rem;
     line-height:1.04; color:var(--wc-ink);}
-  .wc-distance em{font-style:normal; font-weight:600; font-size:19px; color:var(--wc-ink);}
+  .wc-distance em{font-style:normal; font-weight:600; font-size:1.1875rem; color:var(--wc-ink);}
   .wc-metrics{display:flex; align-items:center; justify-content:center;
     gap:16px; flex-wrap:wrap; color:var(--wc-ink);}
   /* The pace of the run just finished, which was set BELOW the sentence
@@ -6218,7 +6218,7 @@
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--gold);}
-  .wc-verdict-v{font-family:var(--text-face); font-size:17px; letter-spacing:.6px;
+  .wc-verdict-v{font-family:var(--text-face); font-size:1.0625rem; letter-spacing:.6px;
     color:var(--wc-ink); font-weight:600;}
   .wc-verdict-why{ color:var(--wc-dim); margin-top:9px;}
   /* No verdict, no gold: the block states the session quietly instead. It
@@ -6229,7 +6229,7 @@
   /* Shape, ground, rim and voice shared with .btn-share / .wk-open: it is
      the same control -- a tab that opens what it names. */
   .wc-continue{display:block; width:100%; background:none; border:0; cursor:pointer;
-    color:var(--wc-dim); font-family:var(--text-face); font-size:14px;
+    color:var(--wc-dim); font-family:var(--text-face); font-size:.875rem;
     font-weight:600; padding:6px 0 2px;}
   /* Inside the completion environment the review card drops its own surface --
      it is a drawer that opened, not a second card sitting on the first. */
@@ -6378,7 +6378,7 @@
     background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
       var(--t-rim-velvet) border-box;
     color:var(--cherry-text);
-    font-family:var(--text-face); font-size:15px; font-weight:600;
+    font-family:var(--text-face); font-size:.9375rem; font-weight:600;
     letter-spacing:.01em;}
   .wk-open svg{width:16px; height:16px;}
   /* The preview canvas is the export itself, drawn at 1080px wide and scaled
@@ -6398,7 +6398,7 @@
   .share-canvas:active{cursor:grabbing;}
   .share-stage.has-img .share-empty{display:none;}
   .share-empty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    pointer-events:none; font-size:12px; letter-spacing:1px; text-transform:uppercase;
+    pointer-events:none; font-size:.75rem; letter-spacing:1px; text-transform:uppercase;
     color:#9a9188; text-shadow:0 1px 6px rgba(0,0,0,.8);}
   .share-controls{display:flex; flex-direction:column; gap:12px;}
   .share-pick{display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;}
@@ -6411,7 +6411,7 @@
      Its card styling goes with it; .wc itself is untouched and still renders
      in the day card, where it says the same thing once the numbers are in. */
   .share-group{display:flex; flex-direction:column; gap:9px;}
-  .share-k{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase;}
+  .share-k{font-size:.65625rem; letter-spacing:1.2px; text-transform:uppercase;}
   /* OVERLAY PICKER. Each thumbnail is the real overlay over the real picture,
      painted by the same layout function as the export -- a static swatch
      would have started lying the first time a design moved. */
@@ -6434,7 +6434,7 @@
      Nothing changes size or shape, and the gold INSIDE the thumbnails is the
      share image itself, which is not this page's to recolour. */
   .share-ov.active .share-ov-thumb{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
-  .share-ov span{font-size:9.5px; letter-spacing:.6px; text-transform:uppercase;
+  .share-ov span{font-size:.59375rem; letter-spacing:.6px; text-transform:uppercase;
     color:var(--ink);}
   .share-ov.active span{color:var(--cherry-text); font-weight:700;}
   .share-bds{display:grid; grid-template-columns:repeat(3,1fr); gap:7px;}
@@ -6442,10 +6442,10 @@
     background-size:cover; background-position:center; border:1.5px solid var(--line);
     display:flex; align-items:flex-end; padding:6px;}
   .share-bd.active{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
-  .share-bd span{font-size:9.5px; letter-spacing:.5px; text-transform:uppercase;
+  .share-bd span{font-size:.59375rem; letter-spacing:.5px; text-transform:uppercase;
     color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9);}
   .share-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
-  .share-row > span{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase;}
+  .share-row > span{font-size:.65625rem; letter-spacing:1.2px; text-transform:uppercase;}
   /* ---------- THE SAME TWO-STATE CONTROL AS KM / MI ----------
      Sacoro|My photos and Story|Post are the same job as the unit toggle in
      the hero: a small closed set, one of them chosen. They were the shape
@@ -6472,7 +6472,7 @@
   .share-seg button{
     display:flex; align-items:center; justify-content:center;
     min-height:34px; min-width:0; padding:0 11px;
-    font-family:var(--label-face); font-size:10.5px; font-weight:var(--label-weight);
+    font-family:var(--label-face); font-size:.65625rem; font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase; line-height:1;
     color:#FFFFFF; background:none; border:0; border-radius:0; cursor:pointer;
     text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
@@ -6514,7 +6514,7 @@
   .share-actions .btn{
     display:flex; width:100%; align-items:center; justify-content:center; gap:8px;
     background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
-    font-family:var(--text-face); font-size:14.5px; font-weight:600;
+    font-family:var(--text-face); font-size:.90625rem; font-weight:600;
     letter-spacing:.01em; padding:11px 16px; box-shadow:none;}
   /* ---------- NEITHER OF THESE IS A CHOICE, SO NEITHER IS LIT ----------
      Share carried the four-layer illumination the nav puts on the tab you
@@ -6530,7 +6530,7 @@
      is best ... Space needs to do the talking." -- and the builder page in
      the next screenshot still had them. A label is told from its field by
      being small capitals above it. */
-  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); margin-bottom:5px;}
+  .field label{display:block; font-size:.65625rem; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); margin-bottom:5px;}
   /* .goal-input-row is listed alongside .field because a goal time entry is a
      field like any other, and it is not always inside one -- the builder wraps
      its three rows in #f-goals, Re-calibrate emits them bare. Left unlisted it
@@ -6545,7 +6545,7 @@
      something you type into" legible at a glance rather than by trial. */
   .field input, .field select, .field textarea, .goal-input-row input{
     width:100%; background:var(--ctl-bg); border:1px solid var(--ctl-border); border-radius:9px;
-    color:var(--ctl-text); padding:10px 11px; font-size:14px;
+    color:var(--ctl-text); padding:10px 11px; font-size:.875rem;
     min-height:44px;   /* a thumb has to land in it before a keyboard appears */
     box-shadow:inset 0 1px 3px rgba(0,0,0,.14);
   }
@@ -6563,14 +6563,14 @@
   .bld-slide-val{display:inline-flex; align-items:baseline; gap:6px; flex:none;}
   .field .bld-slide-val input{
     width:4.6ch; min-height:44px; padding:0; background:none; border:0; border-radius:0;
-    box-shadow:none; text-align:right; font-family:var(--num-face); font-size:28px;
+    box-shadow:none; text-align:right; font-family:var(--num-face); font-size:1.75rem;
     font-weight:700; color:var(--cherry-text); -moz-appearance:textfield; appearance:textfield;}
   .field .bld-slide-val input::-webkit-outer-spin-button,
   .field .bld-slide-val input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
   .field .bld-slide-val input::placeholder{color:var(--cherry-text); opacity:1;}
   .bld-slide-unit, .bld-slide-fig{font-family:var(--num-face); font-weight:700; color:var(--cherry-text);}
-  .bld-slide-unit{font-size:17px;}
-  .bld-slide-fig{font-size:28px; line-height:44px; min-width:1.2ch; text-align:right;}
+  .bld-slide-unit{font-size:1.0625rem;}
+  .bld-slide-fig{font-size:1.75rem; line-height:44px; min-width:1.2ch; text-align:right;}
   .field input.bld-range{
     -webkit-appearance:none; appearance:none; display:block; width:100%;
     height:44px; min-height:44px; margin:0; padding:0; background:transparent;
@@ -6594,7 +6594,7 @@
   .bld-range:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
   .bld-range-ends, .bld-range-ticks{
     display:flex; justify-content:space-between; font-family:var(--num-face);
-    font-size:13px; color:var(--ink);}
+    font-size:.8125rem; color:var(--ink);}
   /* The thumb's centre travels from 13px to 13px short of the far end, so
      the eight numerals are inset to stand under the eight stops. */
   .bld-range-ticks{padding:0 6px;}
@@ -6764,16 +6764,16 @@
   .es-sum.type-track::before{background:var(--c-track);}
   .es-sum.type-long::before{background:var(--c-long);}
   .es-sum-main{flex:1 1 auto; min-width:0;}
-  .es-sum-when{font-size:11.5px; color:var(--ink-dim); margin-bottom:6px;}
+  .es-sum-when{font-size:.71875rem; color:var(--ink-dim); margin-bottom:6px;}
   .es-sum-main .day-badge{margin-bottom:5px;}
-  .es-sum-title{font-size:19px; font-weight:600; color:var(--ink); line-height:1.2;
+  .es-sum-title{font-size:1.1875rem; font-weight:600; color:var(--ink); line-height:1.2;
     overflow-wrap:anywhere;}
   .es-sum-dist{flex:none; display:flex; align-items:baseline; gap:3px;
     padding-left:13px; border-left:1px solid var(--modal-border);}
-  .es-sum-dist b{font-size:27px; font-weight:700; color:#FFFFFF; line-height:1;
+  .es-sum-dist b{font-size:1.6875rem; font-weight:700; color:#FFFFFF; line-height:1;
     font-variant-numeric:tabular-nums; letter-spacing:-0.01em;
     text-shadow:0 0 1px rgba(255,255,255,.40), 0 0 12px rgba(255,255,255,.22);}
-  .es-sum-dist em{font-style:normal; font-weight:700; font-size:14px; color:var(--ink-dim);}
+  .es-sum-dist em{font-style:normal; font-weight:700; font-size:.875rem; color:var(--ink-dim);}
 
   /* ---------- THE SAME PANEL THE REST OF THE PRODUCT USES ----------
      Both of these painted --t-card-grad behind a --t-rim-grad border: a
@@ -6854,7 +6854,7 @@
     background:var(--t-card); border:1px solid var(--cherry);
     box-shadow:0 0 16px var(--cherry-dim);
     border-radius:14px; color:var(--ink);
-    font-family:var(--text-face); font-size:14.5px; font-weight:600;
+    font-family:var(--text-face); font-size:.90625rem; font-weight:600;
     letter-spacing:.01em; padding:11px 16px; text-shadow:none;}
   .es-actions .btn-primary svg{width:16px; height:16px;}
   /* ---- A TAB, OPEN, IS A PAGE ----
@@ -6875,7 +6875,7 @@
   .modal-card.es-full .es-actions{position:sticky; bottom:0; z-index:2; margin:auto -24px 0;
     padding:28px 24px calc(22px + env(safe-area-inset-bottom, 0px));
     background:linear-gradient(to bottom, transparent, var(--t-card) 28px);}
-  .modal-card.es-full .es-actions > .btn-primary{font-size:17px; min-height:56px;}
+  .modal-card.es-full .es-actions > .btn-primary{font-size:1.0625rem; min-height:56px;}
   /* The tile and the two tabs sit at one interval on a page. */
   .modal-card.es-full .es-sec + .es-sec{margin-top:0;}
   /* On a page the list of days IS the page: it runs its full length and the
@@ -6902,7 +6902,7 @@
   .modal-actions .btn{flex:1;}
 
   fieldset{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin:0 0 14px;}
-  legend{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); padding:0 6px; font-weight:var(--label-weight);}
+  legend{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); padding:0 6px; font-weight:var(--label-weight);}
 
   /* ---------- settings extras ---------- */
   /* NO SEPARATOR. A line between two settings is a white separator, which
@@ -6936,13 +6936,13 @@
      in the product"; of the three it named, .stg-nav-label no longer renders
      at all and .coach-status-label is 15px uppercase label voice. It was
      describing a sheet that had moved on. */
-  .connect-row .name{font-size:15px; font-weight:600; color:#FFFFFF; line-height:1.25;}
+  .connect-row .name{font-size:.9375rem; font-weight:600; color:#FFFFFF; line-height:1.25;}
   .connect-row .desc{ color:var(--ink-faint);}
   .strava-connect-btn{background:var(--strava-orange); color:#fff; border:none;}
   .strava-connect-btn:hover{filter:brightness(1.08); border-color:transparent;}
   .strava-connect-btn:active{filter:brightness(0.92);}
   .strava-connect-btn:disabled{opacity:.6; filter:none; cursor:default;}
-  .status-pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px;}
+  .status-pill{display:inline-flex; align-items:center; gap:4px; font-size:.6875rem; font-weight:600; padding:2px 8px; border-radius:99px;}
   .status-pill svg{width:12px; height:12px;}
   .status-connected{background:var(--c-easy-soft); color:var(--c-easy);}
   .switch{position:relative; display:inline-block; width:42px; height:24px; flex:none;}
@@ -7022,12 +7022,12 @@
   .dropzone .main{ font-weight:600; color:var(--ink);}
   .dropzone .sub{ margin-top:3px;}
   .parse-preview{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin-top:14px; background:var(--surface-3);}
-  .parse-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:12.5px;}
+  .parse-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:.78125rem;}
   .parse-row:last-of-type{border-bottom:none;}
   .parse-row .k{color:var(--ink-faint);}
   .parse-row .v{font-family:var(--num-face); font-weight:600;}
   .csv-rows{max-height:220px; overflow-y:auto; margin-top:8px; border:1px solid var(--line-soft); border-radius:8px;}
-  .csv-row-item{display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid var(--line-soft); font-size:11.5px; gap:8px;}
+  .csv-row-item{display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid var(--line-soft); font-size:.71875rem; gap:8px;}
   .csv-row-item:last-child{border-bottom:none;}
   .csv-row-item .meta{font-family:var(--num-face); color:var(--ink-dim); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
@@ -7191,7 +7191,7 @@
   .wk-notes{margin-top:10px; color:var(--ink-faint);}
   /* WHITE: it names the week, which is information. The two figures beneath
      it carry the cherry now. */
-  .wk-hero-title{font-size:23px; font-weight:700; letter-spacing:.015em;
+  .wk-hero-title{font-size:1.4375rem; font-weight:700; letter-spacing:.015em;
     color:var(--ink); line-height:1.15;}
   .wk-hero-sub{margin-top:3px; color:var(--ink-dim);}
   .wk-hero-figs{display:flex; align-items:baseline; justify-content:space-between;
@@ -7205,11 +7205,11 @@
   .wk-hero-title + .wk-hero-figs{margin-top:34px;}
   /* The completed figure is the one that moves, so it is the one that is lit
      -- the same backlight the Today hero's distance uses. */
-  .wk-hero-vol b{font-size:27px; font-weight:700; color:var(--cherry-text);
+  .wk-hero-vol b{font-size:1.6875rem; font-weight:700; color:var(--cherry-text);
     font-variant-numeric:tabular-nums; letter-spacing:-0.01em;
     text-shadow:0 0 12px rgba(154,84,108,.45);}
-  .wk-hero-vol span{font-size:17px; color:var(--ink); font-variant-numeric:tabular-nums;}
-  .wk-hero-pct{font-size:25px; font-weight:700; color:var(--cherry-text);
+  .wk-hero-vol span{font-size:1.0625rem; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .wk-hero-pct{font-size:1.5625rem; font-weight:700; color:var(--cherry-text);
     font-variant-numeric:tabular-nums;}
   /* WHERE IN THE BLOCK, NOT A THIRD FIGURE. The two gold numbers either
      side of it are the hero; this is the caption that says which stretch
@@ -7218,7 +7218,7 @@
      min-width:0 and nowrap together: the row is space-between, and on a
      320px screen with a four-digit block total this is the element that
      would otherwise wrap to two lines and push the bar down. */
-  .wk-hero-wk{font-size:17px; color:var(--ink); font-variant-numeric:tabular-nums;
+  .wk-hero-wk{font-size:1.0625rem; color:var(--ink); font-variant-numeric:tabular-nums;
     white-space:nowrap; flex:none;}
   /* flex:none, NOT min-width:0. nowrap plus a shrinkable box is a box that
      gets squeezed under its own words and clips them -- measured on a
@@ -7399,8 +7399,8 @@
     background:var(--t-tile); color:var(--ink-dim); padding:0;
     transition:border-color .18s, color .18s, box-shadow .18s, background .18s;
   }
-  .wk-day-d{font-size:10px; letter-spacing:.04em;}
-  .wk-day-n{font-size:16px; font-weight:600; font-variant-numeric:tabular-nums;
+  .wk-day-d{font-size:.625rem; letter-spacing:.04em;}
+  .wk-day-n{font-size:1rem; font-weight:600; font-variant-numeric:tabular-nums;
     color:var(--ink); line-height:1;}
   /* ---------- DONE AND MISSED ARE ONE PAIR ----------
      Done is stated in the ring, not by filling the disc: a solid circle
@@ -7523,7 +7523,7 @@
     :root{ --pager-settle:0ms; }
     .wk-track.is-settling{transition:none;} }
   .wk-session-badges{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;}
-  .wk-badge{font-size:10px; letter-spacing:.05em; padding:3px 9px; border-radius:99px;
+  .wk-badge{font-size:.625rem; letter-spacing:.05em; padding:3px 9px; border-radius:99px;
     background:var(--bg-4); color:var(--ink-dim);}
   .wk-badge.is-today{background:var(--gold); color:#20180A; font-weight:600;}
   .wk-badge.is-done{background:rgba(122,160,110,.18); color:#9BC08C;}
@@ -7539,8 +7539,8 @@
      The one rule this note stood over hid the step caption in the overview;
      the caption no longer exists anywhere, so the rule went with it. */
   .wk-rest{padding:6px 0 2px;}
-  .wk-rest-k{font-size:21px; font-weight:600; color:var(--ink);}
-  .wk-rest-v{font-size:13.5px; color:var(--ink-dim); margin-top:2px;}
+  .wk-rest-k{font-size:1.3125rem; font-weight:600; color:var(--ink);}
+  .wk-rest-v{font-size:.84375rem; color:var(--ink-dim); margin-top:2px;}
   /* Sentence case, and Inter rather than Oswald: it is a sentence the
      athlete acts on, not a label on a section. The head font is uppercase
      by definition in this product, which is why it could not be used here. */
@@ -7776,7 +7776,7 @@
      those words are written; the colour is the second telling that the week
      rows below already do with theirs -- green behind, gold now, faint
      ahead. The WORDS are there either way, so colour is never alone. */
-  .pp-slide-w{font-family:var(--text-face); font-size:14.5px; letter-spacing:.07em;
+  .pp-slide-w{font-family:var(--text-face); font-size:.90625rem; letter-spacing:.07em;
     text-transform:uppercase; color:var(--ink-dim);}
   .pp-slide.is-now .pp-slide-w{color:var(--gold-bright);}
   .pp-slide.is-done .pp-slide-w{color:var(--ok-text);}
@@ -7855,7 +7855,7 @@
     box-shadow:var(--glow-done-mark);}
   .pp-mark.is-now{background:rgba(227,177,90,.14); border-color:var(--gold); color:var(--gold);}
   .pp-head-text{flex:1 1 auto; min-width:0;}
-  .pp-name{display:block; font-size:15.5px; font-weight:600; color:var(--ink); line-height:1.2;}
+  .pp-name{display:block; font-size:.96875rem; font-weight:600; color:var(--ink); line-height:1.2;}
   .pp-phase.is-now .pp-name{color:var(--gold-bright);}
   /* DONE IS THE DAY CIRCLE'S GREEN. --ok is the ring and field on
      .wk-day.is-done; --ok-text is that colour at text contrast, which is
@@ -8143,7 +8143,7 @@
     display:flex; align-items:center; gap:9px; margin:0 0 2px; padding:0;}
   .view-plan > .race-event .race-divider .l{
     font-family:var(--text-face); font-weight:700; line-height:1.05;
-    font-size:28px; letter-spacing:.02em; color:#FFFFFF;
+    font-size:1.75rem; letter-spacing:.02em; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
   .view-plan > .race-event .race-divider .r{display:none;}
   /* ---- ONE CARD, THREE AREAS ----
@@ -8167,7 +8167,7 @@
   .view-plan > .race-event .race-divider{grid-column:1; grid-row:1; align-self:end;}
   .view-plan > .race-event .race-event-when{
     grid-column:1; grid-row:2; align-self:start;
-    font-family:var(--text-face); font-size:13.5px; letter-spacing:.07em;
+    font-family:var(--text-face); font-size:.84375rem; letter-spacing:.07em;
     text-transform:uppercase; color:var(--ink-dim);}
   .view-plan > .race-event .race-event-dist{
     grid-column:2; grid-row:1 / span 2; align-self:center;
@@ -8175,11 +8175,11 @@
     padding-left:16px; border-left:1px solid var(--cherry-line);}
   .view-plan > .race-event .race-event-dist b{
     font-family:var(--text-face); font-weight:700; line-height:1;
-    font-size:28px; letter-spacing:-0.01em;
+    font-size:1.75rem; letter-spacing:-0.01em;
     font-variant-numeric:tabular-nums; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
   .view-plan > .race-event .race-event-dist span{
-    font-family:var(--text-face); font-weight:700; font-size:19px;
+    font-family:var(--text-face); font-weight:700; font-size:1.1875rem;
     text-transform:uppercase; color:#FFFFFF; letter-spacing:.01em;
     text-shadow:0 0 1px rgba(255,255,255,.45), 0 0 14px rgba(255,255,255,.24);}
   /* The strategy picker has moved to the race session, so the rule that
@@ -8212,27 +8212,27 @@
      a centred hero into column one. */
   .view-plan > .race-stop{display:block; text-align:center; padding:18px 16px 16px;}
   .view-plan > .race-stop .rst-k{
-    display:block; font-family:var(--text-face); font-size:11.5px;
+    display:block; font-family:var(--text-face); font-size:.71875rem;
     font-weight:500; letter-spacing:.07em; text-transform:uppercase;
     color:var(--ink-dim); margin-bottom:6px;}
   /* THE SAME WHITE AND THE SAME HALO the date and distance wore when they
      were the heroes here -- the panel's weight did not change, only which
      figure carries it. */
   .view-plan > .race-stop .rst-v{
-    font-family:var(--text-face); font-weight:700; font-size:52px; line-height:1;
+    font-family:var(--text-face); font-weight:700; font-size:3.25rem; line-height:1;
     letter-spacing:-0.01em; font-variant-numeric:tabular-nums; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
   /* ONLY THE FALLBACK HERO HAS A UNIT, and it rides smaller, as a unit does
      everywhere else this product prints one. */
   .view-plan > .race-stop .rst-u{
-    font-size:24px; letter-spacing:.01em; margin-left:4px; text-transform:uppercase;}
+    font-size:1.5rem; letter-spacing:.01em; margin-left:4px; text-transform:uppercase;}
   .view-plan > .race-stop .rst-rule{
     height:1px; background:var(--cherry-line); margin:15px 0;}
   .view-plan > .race-stop .rst-subs{display:flex;}
   .view-plan > .race-stop .rst-sub{flex:1; min-width:0; padding:0 6px;}
   .view-plan > .race-stop .rst-sub + .rst-sub{border-left:1px solid var(--cherry-line);}
   .view-plan > .race-stop .rst-sub b{
-    display:block; font-family:var(--text-face); font-weight:700; font-size:16px;
+    display:block; font-family:var(--text-face); font-weight:700; font-size:1rem;
     letter-spacing:.01em; font-variant-numeric:tabular-nums; color:#FFFFFF;}
   /* THE RULE ABOVE THE BUTTON IS DROPPED HERE. .rd-open draws one for the
      race event's own layout, where the button follows a block of figures
@@ -8261,7 +8261,7 @@
     transform:scaleX(-1);}
   .pv-back svg{width:20px; height:20px;}
   .pv-top-text{flex:1; min-width:0;}
-  .pv-title{font-size:21px; letter-spacing:.04em; color:var(--ink); line-height:1.15;}
+  .pv-title{font-size:1.3125rem; letter-spacing:.04em; color:var(--ink); line-height:1.15;}
   .pv-sub{ color:var(--ink-dim); margin-top:2px;}
 
   .pw-progress{
@@ -8271,10 +8271,10 @@
   }
   .pw-figs{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
     margin-bottom:9px;}
-  .pw-vol b{font-size:26px; font-weight:700; color:var(--cherry-text);
+  .pw-vol b{font-size:1.625rem; font-weight:700; color:var(--cherry-text);
     font-variant-numeric:tabular-nums; text-shadow:0 0 12px rgba(227,177,90,.30);}
-  .pw-vol span{font-size:16px; color:var(--ink); font-variant-numeric:tabular-nums;}
-  .pw-pct{font-size:24px; font-weight:700; color:var(--cherry-text); font-variant-numeric:tabular-nums;}
+  .pw-vol span{font-size:1rem; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .pw-pct{font-size:1.5rem; font-weight:700; color:var(--cherry-text); font-variant-numeric:tabular-nums;}
 
   /* ---- the seven sessions ----
      A row is a way in, not a thing that opens, so it is the same height
@@ -8288,11 +8288,11 @@
     transition:border-color .18s, box-shadow .18s;
   }
   .pw-when{flex:none; width:58px; padding-right:12px; border-right:1px solid var(--t-tile-rim);}
-  .pw-dow{display:block; font-size:13px; letter-spacing:.06em; color:var(--ink);}
-  .pw-date{display:block; font-size:11px; color:var(--ink-faint); margin-top:1px;}
+  .pw-dow{display:block; font-size:.8125rem; letter-spacing:.06em; color:var(--ink);}
+  .pw-date{display:block; font-size:.6875rem; color:var(--ink-faint); margin-top:1px;}
   .pw-main{flex:1; min-width:0;}
   .pw-main .day-badge{margin-bottom:4px;}
-  .pw-title{display:block; font-size:15.5px; font-weight:600; color:var(--ink);
+  .pw-title{display:block; font-size:.96875rem; font-weight:600; color:var(--ink);
     line-height:1.25; overflow-wrap:anywhere;}
   /* Between the session and the arrow, in the space the row was already
      leaving empty. flex:none so a long session title gives way to it rather
@@ -8483,7 +8483,7 @@
   }
   .bn-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0;
-    padding:7px 1px; font-family:var(--label-face); font-size:8.5px;
+    padding:7px 1px; font-family:var(--label-face); font-size:.53125rem;
     text-transform:uppercase; letter-spacing:var(--label-track); background:none; border-radius:0;
     transition:color .2s, text-shadow .2s, font-weight .2s;
     /* CRISP MEANS THE TIGHT LAYER DOES THE WORK. Pure white at full
@@ -8554,7 +8554,7 @@
      12px/0.5px. Only the metrics are unified; each keeps its own colour and
      alignment, which are what actually distinguish them. */
   .view-heading{
-    font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-faint);
+    font-size:.6875rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-faint);
     text-align:center; margin:18px 0 4px;
   }
   /* Changing tab is the most frequent thing the athlete does, so it stays
@@ -8735,9 +8735,9 @@
   .coach-dot.good{background:var(--c-easy);} .coach-dot.watch{background:var(--gold);}
   .coach-dot.warn{background:var(--c-threshold);} .coach-dot.neutral{background:var(--mark-faint);}
   .coach-status-main{min-width:0; flex:1 1 auto;}
-  .coach-status-label{font-family:var(--label-face); font-size:15px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.25; font-weight:var(--label-weight);}
+  .coach-status-label{font-family:var(--label-face); font-size:.9375rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.25; font-weight:var(--label-weight);}
   .coach-status-detail{ color:var(--ink-dim); margin-top:3px; overflow-wrap:anywhere;}
-  .coach-phase{font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px; font-weight:var(--label-weight);}
+  .coach-phase{font-family:var(--label-face); font-size:.625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px; font-weight:var(--label-weight);}
   .coach-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px;}
   /* SOFT SURFACE pass -- see --tile-* tokens. All three tiles keep their
      identical resting look regardless of Load/Recovery/Trend's state: no
@@ -8745,8 +8745,8 @@
      (Recovery must not become "a giant green block"). The parent .hub-card
      stays plain/flat -- only these three internal tiles gain depth. */
   .coach-metric{background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border); border-radius:var(--tile-radius); box-shadow:var(--tile-shadow); padding:9px 8px; min-width:0; text-align:center;}
-  .coach-metric .cm-k{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); line-height:1.2; font-weight:var(--label-weight);}
-  .coach-metric .cm-v{font-family:var(--num-face); font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
+  .coach-metric .cm-k{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); line-height:1.2; font-weight:var(--label-weight);}
+  .coach-metric .cm-v{font-family:var(--num-face); font-size:.875rem; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
   .coach-metric .cm-s{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
   /* NO RULE BETWEEN SIGNALS ANY MORE -- see the hairline pass. The rule
      that stood here was an adjacent-sibling border, written that way after
@@ -8756,7 +8756,7 @@
      one signal from the next. */
   .coach-signal{display:flex; gap:9px; align-items:flex-start; padding:9px 0;}
   .coach-signal-body{min-width:0;}
-  .coach-signal-label{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.3; font-weight:var(--label-weight);}
+  .coach-signal-label{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); line-height:1.3; font-weight:var(--label-weight);}
   .coach-signal-detail{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
   .coach-bt{display:flex; gap:0; align-items:flex-start; padding:9px 0;}
   .coach-bt:first-child{border-top:none;}
@@ -8781,7 +8781,7 @@
      the checkpoint is settled -- .cp-done otherwise just dims a line of
      text. The rule below stays for it. */
   .coach-next-head svg{width:15px; height:15px; flex:none; color:var(--gold);}
-  .coach-next-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
+  .coach-next-title{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
   .coach-next-session{font-size:var(--fs-body); color:var(--ink); line-height:var(--lh-body); margin-bottom:6px; overflow-wrap:anywhere;}
   .coach-next-rec{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
@@ -8795,7 +8795,7 @@
   /* PENDING vs SETTLED decision-state flag on the NEXT MOVE card -- a proposed
      adjustment is awaiting a tap (gold, active); a decided one is a record of
      what happened (muted, no action attached to it). */
-  .coach-decision-flag{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; display:block; margin-bottom:5px; font-weight:var(--label-weight);}
+  .coach-decision-flag{font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track); text-transform:uppercase; display:block; margin-bottom:5px; font-weight:var(--label-weight);}
   .coach-decision-flag.pending{color:var(--gold-text);}
   .coach-decision-flag.settled{color:var(--ink-faint);}
   /* ---------- decision state ----------
@@ -8814,7 +8814,7 @@
      so the dimensional face survives regardless of which state is shown. */
   .coach-state{
     display:inline-flex; align-items:center; gap:5px; margin-left:auto;
-    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
+    font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track);
     text-transform:uppercase; padding:2px 8px; border-radius:99px;
     background:var(--tile-sheen), var(--c-rest-soft); color:var(--ink-dim);
     border:1px solid var(--tile-border);
@@ -8837,7 +8837,7 @@
   .coach-why-btn{
     position:relative;
     background:none; border:none; padding:6px 0 0; margin:0; cursor:pointer;
-    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
+    font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink-faint); text-decoration:underline;
     text-underline-offset:3px; font-weight:var(--label-weight);}
   /* ---- A 9.5px LINK IS STILL A 44px TARGET ----
@@ -8871,7 +8871,7 @@
   .evo-link.is-progress:hover, .evo-link.is-progress:focus-visible{color:var(--bronze);}
   .evo-panel{margin-top:9px; padding:10px 11px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .evo-sec + .evo-sec{margin-top:9px;}
-  .evo-k{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px; font-weight:var(--label-weight);}
+  .evo-k{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px; font-weight:var(--label-weight);}
   .evo-v{ color:var(--ink-dim); overflow-wrap:anywhere;}
   .evo-list{margin:0; padding-left:17px; list-style:disc;}
   .evo-list li{ color:var(--ink); margin:2px 0; overflow-wrap:anywhere;}
@@ -8893,7 +8893,7 @@
   .readiness{margin-top:11px; padding:0; background:none; border:0;}
   .readiness-head{color:var(--ink); margin-bottom:2px;}
   .readiness-row{display:block; margin-top:22px;}
-  .readiness-label{display:block; font-size:13px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink); margin-bottom:10px;}
+  .readiness-label{display:block; font-size:.8125rem; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink); margin-bottom:10px;}
   /* Founder: "The boxes can be wrapped smaller slightly. I like the bigness
      of them. But they're too wide. Centre the text vertically."
      So the height stays and the width comes in: three columns capped at
@@ -8909,7 +8909,7 @@
        held under the words. */
     position:relative; display:flex; align-items:center; justify-content:center;
     min-height:60px; padding:8px 6px;
-    font-family:var(--label-face); font-weight:var(--label-weight); font-size:14px;
+    font-family:var(--label-face); font-weight:var(--label-weight); font-size:.875rem;
     letter-spacing:1.2px; text-transform:uppercase; line-height:1.15; text-align:center;
     border:1px solid var(--tile-border); border-radius:var(--tile-radius); cursor:pointer;
     background:var(--tile-sheen), var(--bg-2); color:var(--ink);
@@ -8939,7 +8939,7 @@
     background:none; border:0; color:inherit;
   }
   .readiness-done-head{color:var(--ink); flex:none;}
-  .readiness-done-line{ color:var(--ink); font-size:16px; overflow-wrap:anywhere;
+  .readiness-done-line{ color:var(--ink); font-size:1rem; overflow-wrap:anywhere;
     display:flex; flex-wrap:wrap; column-gap:14px; row-gap:2px; }
   .readiness-head-btn{
     display:flex; align-items:center; gap:6px; width:100%; min-height:44px;
@@ -8967,7 +8967,7 @@
   .yl{margin-top:4px; min-width:0;}
   .yl *{min-width:0;}
   .yl-box{border:1.5px solid var(--cherry); border-radius:var(--tile-radius); padding:20px 16px 20px;}
-  .yl-title{font-family:var(--label-face); font-weight:var(--label-weight); font-size:19px;
+  .yl-title{font-family:var(--label-face); font-weight:var(--label-weight); font-size:1.1875rem;
     letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
   .yl-sec{margin-top:28px;}
   .yl-q{margin-top:20px;}
@@ -8976,8 +8976,8 @@
   .yl-q-head{display:flex; justify-content:space-between; align-items:baseline; gap:12px;}
   .yl-q-t{font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; color:#FFFFFF;}
   .yl-sec > .yl-q > .yl-q-head .yl-q-t{font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:19px; letter-spacing:1.6px; text-transform:uppercase;}
-  .yl-fig{font-size:22px; color:#FFFFFF; white-space:nowrap;}
+    font-size:1.1875rem; letter-spacing:1.6px; text-transform:uppercase;}
+  .yl-fig{font-size:1.375rem; color:#FFFFFF; white-space:nowrap;}
   .yl-note{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF; margin-top:4px;}
   .yl-range{-webkit-appearance:none; appearance:none; display:block; width:100%;
     height:44px; min-height:44px; margin:0; padding:0; background:transparent;
@@ -9000,7 +9000,7 @@
   .yl-ends{display:flex; justify-content:space-between; font-size:var(--fs-support);
     line-height:var(--lh-support); color:#FFFFFF;}
   .yl-ans{margin-top:2px; text-align:center; font-family:var(--label-face);
-    font-weight:var(--label-weight); font-size:17px; letter-spacing:1.4px;
+    font-weight:var(--label-weight); font-size:1.0625rem; letter-spacing:1.4px;
     text-transform:uppercase; color:#FFFFFF;}
   .yl-ans.is-unset{font-family:var(--text-face); font-weight:400; letter-spacing:0; text-transform:none;}
   .yl-clear{display:block; min-height:44px; margin:0 auto -8px; padding:0 12px;
@@ -9036,7 +9036,7 @@
   .yl .slog-k, .yl .slog-cols span{display:block; font-size:var(--fs-support); line-height:var(--lh-support);
     color:#FFFFFF; margin-bottom:4px;}
   .yl .slog-cols{margin-bottom:10px;}
-  .yl .slog-in{width:100%; min-height:44px; font-size:16px; padding:8px 10px;}
+  .yl .slog-in{width:100%; min-height:44px; font-size:1rem; padding:8px 10px;}
   .yl .slog-in.slog-hr{flex:none;}
   .yl-opt{margin-top:10px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   /* A PLACEHOLDER YOU CAN READ. They were the dimmest thing on the form and
@@ -9050,15 +9050,15 @@
   .yl .yl-marks{grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px;}
   .yl .yl-marks button{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
     padding-top:5px; padding-bottom:5px;}
-  .yl .yl-marks button .n{font-family:var(--num-face); font-size:15px; line-height:1.1; color:#FFFFFF;}
-  .yl .opt-grid.yl-marks button .t{font-size:11px; letter-spacing:.5px;}
+  .yl .yl-marks button .n{font-family:var(--num-face); font-size:.9375rem; line-height:1.1; color:#FFFFFF;}
+  .yl .opt-grid.yl-marks button .t{font-size:.6875rem; letter-spacing:.5px;}
   /* No tick on a marked rep: the tile is 75px wide and the tick sat on the
      word. The cherry rim says it is chosen, and the word says what was. */
   .yl .yl-marks button.active::after{display:none;}
   @media (max-width:360px){
     .yl .opt-grid.yl-marks button{padding-left:2px; padding-right:2px;}
-    .yl .opt-grid.yl-marks button .t{font-size:10px; letter-spacing:.2px; white-space:nowrap;}
-    .log-totals input::placeholder{font-size:14px;}
+    .yl .opt-grid.yl-marks button .t{font-size:.625rem; letter-spacing:.2px; white-space:nowrap;}
+    .log-totals input::placeholder{font-size:.875rem;}
   }
   /* THREE ACROSS, ON ITS OWN TRACK. The builder's .cols-N is for grids of
      short tokens: on a grid of words a bare 1fr track is widened by a label
@@ -9070,15 +9070,15 @@
      on the form, and they are the smallest decisions on it. */
   .yl .opt-grid button{min-height:48px; padding-left:6px; padding-right:6px;}
   .yl .opt-grid button .t{font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:13px; letter-spacing:1.1px; text-transform:uppercase;}
+    font-size:.8125rem; letter-spacing:1.1px; text-transform:uppercase;}
   /* The narrowest phone: three tiles inside the rimmed box leave 56px a word. */
   @media (max-width:360px){
     .yl-box{padding-left:14px; padding-right:14px;}
-    .yl .opt-grid button .t{font-size:12.5px; letter-spacing:.4px;}
+    .yl .opt-grid button .t{font-size:.78125rem; letter-spacing:.4px;}
   }
   .today-proposal{margin:34px 0 34px;}
   .today-proposal-k{font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:19px; letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF; margin-bottom:12px;}
+    font-size:1.1875rem; letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF; margin-bottom:12px;}
   .today-proposal-list{list-style:none; margin:0 0 10px; padding:0;}
   .today-proposal-list li{font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; color:#FFFFFF;}
   .today-proposal-why{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
@@ -9103,7 +9103,7 @@
      from the label standard further down this sheet, like every other
      heading. On Today the question stands alone as a section of the page,
      so it is set at the size the page's own section titles use. */
-  .today-checkin .readiness-head{font-size:19px; letter-spacing:1.6px;}
+  .today-checkin .readiness-head{font-size:1.1875rem; letter-spacing:1.6px;}
   /* ---------- week status: one line, no dashboard ---------- */
   /* ---------- full plan status label ----------
      Four different facts (a coach change, a notable day, a gap, a fatigue
@@ -9129,7 +9129,7 @@
      only coloured element in the group. Same size the panel verdict's dot
      took, for the same reason. */
   .day-status-label{
-    font-size:8.5px; letter-spacing:1px; text-transform:uppercase;
+    font-size:.53125rem; letter-spacing:1px; text-transform:uppercase;
     color:#FFFFFF; display:inline-flex; align-items:center; gap:5px;
   }
   .day-status-dot{width:6px; height:6px; border-radius:99px; background:var(--mark-faint); flex:none;}
@@ -9151,7 +9151,7 @@
      gone, but the row still carries a value in a different face and size
      from its label, and centring is what keeps those two optically level. */
   .hq-row{display:flex; align-items:center; gap:10px; padding:3px 0;}
-  .hq-row-l{font-size:11px; color:var(--ink-faint); flex:1 1 auto; min-width:0;}
+  .hq-row-l{font-size:.6875rem; color:var(--ink-faint); flex:1 1 auto; min-width:0;}
   /* Values here are not all short: "usually normal again within about 34h" and
      "Fitness Checkpoint: 5.2km Time Trial" both appear. flex:none meant they
      could neither shrink nor wrap, so on a 320px screen the row ran off the
@@ -9161,7 +9161,7 @@
      hqRowValueClass(): the column stays monospaced for measurements, which
      is what keeps a run of them aligned. */
   .hq-row-v.is-words{font-family:var(--text-face); letter-spacing:0;}
-  .hq-row-v{font-family:var(--num-face); font-size:11px; color:var(--ink-dim);
+  .hq-row-v{font-family:var(--num-face); font-size:.6875rem; color:var(--ink-dim);
             text-align:right; flex:0 1 auto; min-width:0; overflow-wrap:anywhere;}
   .hq-empty{ color:var(--ink-faint);}
   /* Recent patterns: a label, a word, a sentence. No chart, no big number. */
@@ -9188,7 +9188,7 @@
   .hub-card .setup-section-title{margin-top:0;}
 
   .empty-note{ color:var(--ink-faint); text-align:center; padding:10px 0;}
-  .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track); text-transform:uppercase; font-weight:var(--label-weight);}
+  .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-family:var(--label-face); font-size:.625rem; letter-spacing:var(--label-track); text-transform:uppercase; font-weight:var(--label-weight);}
   .divider-or .rule{flex:1; height:1px; background:var(--line);}
   /* ---------- v2: distance-agnostic generator additions ---------- */
   .setup-cta{
@@ -9197,7 +9197,7 @@
   }
   /* Founder: "Build your training block title. White please." Titles are
      white in this product; gold is the brand mark and the destination. */
-  .setup-cta h2{font-family:var(--text-face); font-size:19px; margin:0 0 8px; color:var(--ink); text-transform:uppercase; letter-spacing:.03em;}
+  .setup-cta h2{font-family:var(--text-face); font-size:1.1875rem; margin:0 0 8px; color:var(--ink); text-transform:uppercase; letter-spacing:.03em;}
   .setup-cta p{ color:var(--ink-dim); margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
 
   /* THE DOOR TO THE BUILDER, in the builder's own visual language.
@@ -9211,7 +9211,7 @@
     border:1px solid var(--line); background:var(--bg-2); border-radius:14px;
     padding:30px 22px 26px; text-align:left; max-width:34rem; margin:14px auto;
   }
-  .setup-step h2{ font-size:23px; letter-spacing:.02em; margin:0 0 10px; }
+  .setup-step h2{ font-size:1.4375rem; letter-spacing:.02em; margin:0 0 10px; }
   .setup-step p{ margin-left:0; margin-right:0; max-width:none; }
   /* The preview promise sits under the action, quieter than it and separated
      by a hairline -- a reassurance, not a second instruction. */
@@ -9226,12 +9226,12 @@
   /* The returning-athlete route, set below the primary action and separated by
      a rule so the page still reads as one decision with an obvious default. */
   .hero-return{ margin-top:18px; padding-top:16px; }
-  .hero-return-q{ font-size:12.5px; color:var(--ink-dim); margin:0 0 10px; }
+  .hero-return-q{ font-size:.78125rem; color:var(--ink-dim); margin:0 0 10px; }
   .recover-card{
     border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px 14px;
     margin-bottom:10px; background:var(--surface-2); text-align:left;
   }
-  .recover-card .rc-goal{ font-family:var(--text-face); font-size:14px; color:var(--ink); letter-spacing:.02em; }
+  .recover-card .rc-goal{ font-family:var(--text-face); font-size:.875rem; color:var(--ink); letter-spacing:.02em; }
   .recover-card .rc-meta{ color:var(--ink-dim); margin-top:3px; }
   .recover-card .rc-why{ color:var(--ink-faint); margin-top:6px; }
 
@@ -9242,7 +9242,7 @@
   .plan-summary-bar:hover{background:var(--bg-3); border-color:var(--bronze-2);}
   .plan-summary-bar:active{background:var(--bg-4);}
   .plan-summary-bar .psb-main{flex:1; min-width:0;}
-  .plan-summary-bar .psb-title{font-family:var(--label-face); font-size:12.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
+  .plan-summary-bar .psb-title{font-family:var(--label-face); font-size:.78125rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
   .plan-summary-bar .psb-sub{font-family:var(--num-face); color:var(--ink-faint); margin-top:2px;}
   .plan-summary-bar svg{width:16px; height:16px; color:var(--mark-faint); flex:none;}
 
@@ -9299,7 +9299,7 @@
      the text is no longer the tone, so a dot inheriting from it would be
      white and the tone would be gone. Each tone names its own fill. */
   .read-val{
-    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
+    font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track);
     text-transform:uppercase; color:#FFFFFF; text-align:left;
     min-width:0; overflow-wrap:anywhere; display:inline-flex; align-items:center; gap:7px;
     flex:none; white-space:nowrap; font-weight:var(--label-weight);}
@@ -9321,9 +9321,9 @@
     display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:8px;
   }
   .outlook-title{
-    font-family:var(--label-face); font-size:10px; letter-spacing:var(--label-track);
+    font-family:var(--label-face); font-size:.625rem; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
-  .outlook-dist{font-size:10.5px; color:var(--ink-faint); text-align:right;}
+  .outlook-dist{font-size:.65625rem; color:var(--ink-faint); text-align:right;}
   .outlook-track{
     position:relative; height:12px; border-radius:99px; background:var(--bg-3);
     border:1px solid var(--line-soft);
@@ -9351,10 +9351,10 @@
   }
   .outlook-scale{
     display:flex; justify-content:space-between; gap:10px; margin-top:6px;
-    font-size:10px; color:var(--ink-faint);
+    font-size:.625rem; color:var(--ink-faint);
   }
   .outlook-legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:8px;}
-  .ol-key{display:inline-flex; align-items:center; gap:6px; font-size:10.5px; color:var(--ink-dim);}
+  .ol-key{display:inline-flex; align-items:center; gap:6px; font-size:.65625rem; color:var(--ink-dim);}
   .ol-swatch{width:10px; height:10px; border-radius:3px; flex:none;}
   .ol-swatch.measured{background:var(--cherry);}
   .ol-swatch.goal{background:var(--gold);}
@@ -9405,7 +9405,7 @@
     box-shadow:0 0 16px color-mix(in srgb, var(--call-tone) 14%, transparent),
                var(--tile-shadow);}
   .v-call-head{display:flex; align-items:center; gap:9px;}
-  .v-call-title{font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink);}
+  .v-call-title{font-size:.8125rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink);}
   /* The sub was indented to clear the dot in front of the title above it.
      With no dot there is nothing to clear, and the indent would be the only
      thing on the panel not starting at its edge. */
@@ -9415,8 +9415,8 @@
   .v-call.bad{--call-tone:var(--c-tempo);}
   .v-hero-figs{display:flex; justify-content:center; gap:26px; margin-top:14px;}
   .v-hero-fig{text-align:center;}
-  .v-hero-fig b{display:block; font-size:16px; color:var(--ink); font-weight:700;}
-  .v-hero-fig span{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
+  .v-hero-fig b{display:block; font-size:1rem; color:var(--ink); font-weight:700;}
+  .v-hero-fig span{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
   .v-status-line{
     display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; padding-top:14px; color:var(--ink-dim);
   }
@@ -9463,7 +9463,7 @@
   .oi-label > .setup-section-title{flex:1 1 auto; min-width:0; margin:0;}
   .oi-label span{font-family:var(--label-face); letter-spacing:var(--label-track); text-transform:uppercase; font-weight:var(--label-weight);}
   .oi-label svg{width:11px; height:11px; color:var(--gold-text); opacity:.7; flex:none;}
-  .oi-dist{font-size:10px; letter-spacing:normal; text-transform:none; color:var(--ink-faint); font-family:var(--text-face);}
+  .oi-dist{font-size:.625rem; letter-spacing:normal; text-transform:none; color:var(--ink-faint); font-family:var(--text-face);}
   .oi-track{position:relative; height:6px; margin:22px 6px 24px;}
   .oi-line{position:absolute; inset:0; border-radius:3px; background:var(--line);}
   /* Cherry Lacquer is the measured band -- the athlete's own running, the same
@@ -9473,9 +9473,9 @@
   .oi-band{position:absolute; top:0; height:6px; border-radius:3px; background:var(--cherry);}
   .oi-goal{position:absolute; top:50%; width:9px; height:9px; margin-top:-4.5px; margin-left:-4.5px;
     border-radius:50%; background:var(--gold); box-shadow:0 0 0 3px var(--bg-3);}
-  .oi-goal-lbl{position:absolute; top:-20px; font-family:var(--text-face); /* reads "Goal 3:29:45" -- a label carrying a figure, so the sentence rule applies */ font-size:10.5px; font-weight:600; color:var(--gold-text); white-space:nowrap;}
+  .oi-goal-lbl{position:absolute; top:-20px; font-family:var(--text-face); /* reads "Goal 3:29:45" -- a label carrying a figure, so the sentence rule applies */ font-size:.65625rem; font-weight:600; color:var(--gold-text); white-space:nowrap;}
   /* See the two-label fit rule in the Race Outlook renderer. */
-  .oi-band-lbl{position:absolute; bottom:-19px; font-family:var(--num-face); font-size:10px; color:var(--ink-faint); white-space:nowrap;}
+  .oi-band-lbl{position:absolute; bottom:-19px; font-family:var(--num-face); font-size:.625rem; color:var(--ink-faint); white-space:nowrap;}
   .oi-empty{ color:var(--ink-faint);}
 
   /* ---------- CURRENT FITNESS, the hero's primary instrument ----------
@@ -9509,7 +9509,7 @@
   .cf-goal-lab{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--gold-text);}
-  .cf-goal-val{font-size:13px; color:var(--ink); font-weight:600;}
+  .cf-goal-val{font-size:.8125rem; color:var(--ink); font-weight:600;}
   .cf-goal-sub{ color:var(--ink-faint); width:100%; margin-left:14px;}
 
   /* ---------- THE READING / THE RECORD — condensed previews on Sacoro ----------
@@ -9650,7 +9650,7 @@
   .b-grid .b-medal{inset:9px;
     background:radial-gradient(70% 70% at 50% 42%,
       color-mix(in srgb, var(--rd-base) 13%, transparent) 0%, transparent 72%), var(--bg);}
-  .b-grid .rd-cat{font-size:12px;}
+  .b-grid .rd-cat{font-size:.75rem;}
   /* ---------- THE CIRCLES ARE A RAIL OF THREE ----------
      Founder: "Rail 3 circles wrapped visually. Gold dots underneath."
      The browser's own scroll, snapped to a circle, so it moves under a
@@ -9677,7 +9677,7 @@
   .b-rail > .b-grid{display:flex; gap:18px; margin:0; --dv:.84;}
   .b-rail > .b-grid::after{content:''; flex:0 0 8px; height:1px; margin-left:-18px;}
   .b-rail > .b-grid .b-dial-col{flex:0 0 calc((100% - 36px) / 3); width:auto; min-width:0; scroll-snap-align:start;}
-  .b-rail > .b-grid .rd-cat{font-size:11px;}
+  .b-rail > .b-grid .rd-cat{font-size:.6875rem;}
   @media (max-width:360px){ .b-rail > .b-grid{--dv:.74;} }
   .b-rail-dots{display:flex; justify-content:center; align-items:center; gap:7px; margin-top:10px;}
   /* Founder: "The gold under the circles should be the same small circles
@@ -9703,7 +9703,7 @@
      gold is the destination. The chosen tab is cherry for the reason every
      chosen thing is. */
   .cg-card{margin:26px 0 8px; padding:0; min-width:0;}
-  .cg-title{font-family:var(--label-face); font-weight:var(--label-weight); font-size:19px;
+  .cg-title{font-family:var(--label-face); font-weight:var(--label-weight); font-size:1.1875rem;
     letter-spacing:1.6px; text-transform:uppercase; text-align:center; color:#FFFFFF;}
   /* FIVE IN ONE ROW, ACROSS THE WHOLE TOP. Founder: "ideally I would like
      them across the whole top as 5 in 1 row." They did not fit when the
@@ -9715,7 +9715,7 @@
   .cg-tabs{display:flex; justify-content:space-between; align-items:stretch; gap:0; margin-top:8px;}
   .cg-tab{position:relative; flex:0 0 auto; min-width:0; min-height:44px; padding:0; background:none; border:0; border-radius:0;
     font-family:var(--label-face); font-weight:var(--label-weight);
-    font-size:13px; letter-spacing:.8px; text-transform:uppercase; color:#FFFFFF; white-space:nowrap;}
+    font-size:.8125rem; letter-spacing:.8px; text-transform:uppercase; color:#FFFFFF; white-space:nowrap;}
   .cg-tab > span{display:inline-block; padding:6px 0 5px; border-bottom:2px solid transparent;}
   /* Responsive correction 7: -9px a side, so DRIFT (28px on a 320px
      phone) is a 46px target; the reach into a narrow gap overlaps the next
@@ -9726,7 +9726,7 @@
   .cg-tab.is-on{color:var(--cherry-text);}
   .cg-tab.is-on > span{border-bottom-color:var(--cherry-text);}
   .cg-tab:focus-visible{outline:2px solid var(--cherry-text); outline-offset:-2px;}
-  @media (max-width:360px){ .cg-tab{font-size:11px; letter-spacing:.3px;} }
+  @media (max-width:360px){ .cg-tab{font-size:.6875rem; letter-spacing:.3px;} }
   /* ---------- AND WHEN THE FIVE NO LONGER FIT, THEY SCROLL ----------
      Responsive correction 5. At the phone's largest text size the five
      names were wider than the screen and, unable to wrap, pushed the whole
@@ -9744,13 +9744,13 @@
   .cg-body[data-hswipe]{touch-action:pan-y pinch-zoom;}
   .cg-body.is-settling{transition:transform var(--pager-settle, .24s) ease;}
   .cg-head{display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 10px; margin-top:16px;}
-  .cg-fig{font-family:var(--text-face); font-size:28px; font-weight:700; line-height:1.15; color:#FFFFFF;}
+  .cg-fig{font-family:var(--text-face); font-size:1.75rem; font-weight:700; line-height:1.15; color:#FFFFFF;}
   .cg-fig.is-good{color:var(--ok);}
   .cg-fig-t{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   .cg-measure{margin-top:8px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   .cg-svg{display:block; width:100%; height:auto; margin-top:12px; overflow:visible;}
   .cg-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:2 4;}
-  .cg-ylab, .cg-xlab{font-family:var(--num-face); font-size:10.5px; fill:#FFFFFF;}
+  .cg-ylab, .cg-xlab{font-family:var(--num-face); font-size:.65625rem; fill:#FFFFFF;}
   .cg-area{fill:url(#cg-fill);}
   .cg-line{fill:none; stroke:var(--cherry-text); stroke-width:2.6; stroke-linejoin:round; stroke-linecap:round;}
   .cg-dot{fill:var(--cherry-text);}
@@ -9772,7 +9772,7 @@
   .cg-wait .cg-svg{margin-top:0;}
   .cg-base{stroke:var(--line); stroke-width:1.2;}
   .cg-wait-w{position:absolute; left:0; right:0; top:40%; transform:translateY(-50%); text-align:center;
-    font-family:var(--label-face); font-weight:var(--label-weight); font-size:22px;
+    font-family:var(--label-face); font-weight:var(--label-weight); font-size:1.375rem;
     letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
   .cg-wait-s{margin-top:10px; text-align:center; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   /* ---------- AND THE FOUR PLATES ----------
@@ -9857,7 +9857,7 @@
     font-size:min(26px, calc((100cqw - 4px) / (var(--pv-ch, 5) * 0.6)));
     white-space:nowrap;
     line-height:1.05; color:var(--ink); font-variant-numeric:tabular-nums;}
-  .b-plate-s{font-family:var(--num-face); font-size:11px; color:var(--ink-dim);}
+  .b-plate-s{font-family:var(--num-face); font-size:.6875rem; color:var(--ink-dim);}
   .b-plate:focus-visible{outline:2px solid var(--cherry); outline-offset:3px;}
   .b-dials-arc{display:flex; align-items:flex-start; justify-content:center; gap:5px;}
   .b-dials-arc .b-dial[data-rank="2"]{margin:5px 0;}
@@ -9919,7 +9919,7 @@
   .b-dial[data-rank="s"] .rd-val{min-height:0;}
   /* The counted noun under a Reading count is interface; a benchmark time or
      a goal time under its own headline is DATA, and takes the data face. */
-  .rd-sub-data{font-family:var(--num-face); font-size:11px;
+  .rd-sub-data{font-family:var(--num-face); font-size:.6875rem;
     letter-spacing:0; text-transform:none; color:var(--ink-dim); margin-top:3px;
     max-width:80px; min-height:13px;}
 
@@ -10030,7 +10030,7 @@
   .b-dial[data-rank="2"] .rd-val b{max-width:56px;}
   /* The counted noun under a count. Interface face, never the data face --
      the number is the value, this is what the number is OF. */
-  .rd-sub{font-family:var(--label-face); font-size:9px; letter-spacing:var(--label-track);
+  .rd-sub{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink-faint); line-height:1.1; margin-top:3px;
     max-width:62px; text-align:center; font-weight:var(--label-weight);}
   .rd-val b{display:block; text-align:center; line-height:1.08; max-width:50px;
@@ -10227,7 +10227,7 @@
            border:1px solid var(--tile-border); background:var(--tile-sheen), var(--bg-2);
            box-shadow:none; transition:border-color .2s, box-shadow .2s;}
   .rs-pick-label{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track);
-                 font-size:13px; color:var(--ink); font-weight:var(--label-weight);}
+                 font-size:.8125rem; color:var(--ink); font-weight:var(--label-weight);}
   .rs-pick-note{ color:var(--ink-soft);}
   .rs-pick.is-picked{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
   .rs-pick.is-picked .rs-pick-label{color:var(--cherry-text);}
@@ -10307,7 +10307,7 @@
   .ev-card.stg-row:hover{box-shadow:none; background:var(--bg-3);}
   .ev-card.stg-row:active{background:var(--bg-4);}
   .stg-row-text{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
-  .stg-row-title{font-size:15px; font-weight:600; color:#FFFFFF; line-height:1.25;}
+  .stg-row-title{font-size:.9375rem; font-weight:600; color:#FFFFFF; line-height:1.25;}
   .stg-row-sub{ color:var(--ink-dim);}
   .stg-row .rs-chev{flex:none;}
   .stg-row-switch{flex:none; display:flex; align-items:center;}
@@ -10319,7 +10319,7 @@
      a muted one, announcing the thing the row cannot do. */
   .ev-card.stg-row.is-muted .stg-row-sub{color:var(--ink-quiet);}
   /* The two status pills, in the tones they already carried. */
-  .stg-pill{flex:none; font-family:var(--label-face); font-size:9.5px; font-weight:var(--label-weight);
+  .stg-pill{flex:none; font-family:var(--label-face); font-size:.59375rem; font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase; padding:4px 10px; border-radius:999px;
     border:1px solid currentColor;}
   .stg-pill.is-gold{color:var(--gold-text);}
@@ -10360,7 +10360,7 @@
   .ef-type-row.type-track .ef-type-rail{background:var(--c-track);}
   .ef-type-row.type-long .ef-type-rail{background:var(--c-long);}
   .ef-type-row.type-tuneup .ef-type-rail{background:var(--c-gold);}
-  .ef-type-row .stg-row-title{font-size:14.5px;}
+  .ef-type-row .stg-row-title{font-size:.90625rem;}
   .ef-type-row .swap-tick{flex:none; display:inline-flex; width:22px; height:22px;
     border-radius:50%; align-items:center; justify-content:center;
     border:2px solid var(--line); color:transparent; background:var(--bg-2);}
@@ -10394,10 +10394,10 @@
   .rs-head{display:flex; align-items:center; gap:12px;}
   .rs-dial{position:relative; width:44px; height:44px; flex:none;}
   .rs-dial b{position:absolute; inset:4px; display:flex; align-items:center; justify-content:center;
-    text-align:center; line-height:1.05; font-family:var(--num-face); font-size:9.5px; font-weight:700; color:var(--ink);}
+    text-align:center; line-height:1.05; font-family:var(--num-face); font-size:.59375rem; font-weight:700; color:var(--ink);}
   .rs-medal{position:absolute; inset:5px; border-radius:50%; background:var(--bg-2); border:1px solid var(--line-soft);}
   .rs-head-text{flex:1 1 auto; min-width:0;}
-  .rs-head-text h3{font-family:var(--text-face); font-weight:600; font-size:13px; color:var(--ink); margin:0;}
+  .rs-head-text h3{font-family:var(--text-face); font-weight:600; font-size:.8125rem; color:var(--ink); margin:0;}
   .rs-chev{flex:none; display:flex; opacity:.6;}
   .rs-chev svg{width:15px; height:15px; color:var(--mark-faint);}
 
@@ -10450,7 +10450,7 @@
   .act-tile:active{background:var(--bg-3);}
   .act-tile svg{width:19px; height:19px; color:var(--bronze-text); flex:none;}
   .act-lab{
-    font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track);
+    font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink); line-height:1.3; font-weight:var(--label-weight);}
   /* The panel a Record or Reading circle opens. Same modal-themed surface and
      the same circular close control as every other worked-in surface. The
@@ -10522,7 +10522,7 @@
      the screen behind it. */
   .modal-card.rp-cyan{--rp-accent:var(--cyan);}
   .hq-panel .modal-head{border-bottom:0; padding-bottom:4px;}
-  .hq-panel .modal-head h2{font-size:21px; letter-spacing:1.6px; color:#FFFFFF;}
+  .hq-panel .modal-head h2{font-size:1.3125rem; letter-spacing:1.6px; color:#FFFFFF;}
   .hq-panel .icon-btn{border:1.5px solid color-mix(in srgb, var(--rp-accent) 70%, transparent);
     color:var(--rp-accent); border-radius:50%; width:var(--tap-min); height:var(--tap-min);
     display:flex; align-items:center; justify-content:center;}
@@ -10561,7 +10561,7 @@
      like every other row under them. */
   .rp-hero.is-wordless .rp-hero-text{padding-left:0; border-left:0;}
   .rp-hero-verdict{margin-bottom:5px;}
-  .rp-hero-verdict .read-val{font-size:13px; letter-spacing:.04em;}
+  .rp-hero-verdict .read-val{font-size:.8125rem; letter-spacing:.04em;}
   .rp-hero-say{ color:#FFFFFF;}
 
   /* ---------- THE EVIDENCE, AS ROWS ON THE PANEL ITSELF ----------
@@ -10655,7 +10655,7 @@
      whoever edits it next. */
   .hq-panel .setup-section-title,
   .hq-panel .evo-k{display:flex; align-items:center; gap:12px;
-    font-family:var(--label-face); font-size:11px;
+    font-family:var(--label-face); font-size:.6875rem;
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; margin:20px 0 6px; color:#FFFFFF;}
   .hq-panel .evo-sec .evo-k{margin:0 0 3px;}
@@ -10729,7 +10729,7 @@
   .hq-full .modal-body{padding:10px 24px 48px; font-size:var(--fs-body); line-height:var(--lh-body);}
   .hq-full .rp-hero{margin:22px 0 34px;}
   .hq-full .rp-hero-verdict{margin-bottom:10px;}
-  .hq-full .rp-hero-verdict .read-val{font-size:17px;}
+  .hq-full .rp-hero-verdict .read-val{font-size:1.0625rem;}
   .hq-full .rp-hero-verdict .read-val .read-dot{width:8px; height:8px;}
   .hq-full .rp-hero-say{font-size:var(--fs-body); line-height:var(--lh-body);}
   .hq-full .sec-rule{margin:40px 0 14px;}
@@ -10745,7 +10745,7 @@
   .hq-full .field-hint,
   .hq-full .rec-lede{font-size:var(--fs-support); line-height:var(--lh-support); margin-top:28px;}
   .hq-full .coach-actions{gap:12px; margin-top:40px;}
-  .hq-full .btn{font-size:17px; min-height:56px;}
+  .hq-full .btn{font-size:1.0625rem; min-height:56px;}
   /* A ROW THAT CANNOT SHARE A LINE GIVES ITS VALUE THE NEXT ONE. At 19px
      "Fitness Checkpoint: 6km Time Trial" and "Week 9 · Dec 8" are wider
      together than the page, and squeezed they broke mid-date ("Week 9 · Dec
@@ -10757,13 +10757,13 @@
      token step-up above passed them by and they sat at 10.5-12.5px on a
      page whose sentences are 20. */
   .hq-full .pzr{padding:13px 0;}
-  .hq-full .pzr-label{font-size:17px;}
-  .hq-full .pzr-hr{font-size:13px; margin-top:4px;}
-  .hq-full .pzr-input{font-size:16px;}
-  .hq-full .pzr-sep, .hq-full .pzr-unit{font-size:14px;}
+  .hq-full .pzr-label{font-size:1.0625rem;}
+  .hq-full .pzr-hr{font-size:.8125rem; margin-top:4px;}
+  .hq-full .pzr-input{font-size:1rem;}
+  .hq-full .pzr-sep, .hq-full .pzr-unit{font-size:.875rem;}
   .hq-full .pzr-unit{width:26px;}
-  .hq-full .goal-options.opt-grid .goal-opt .t{font-size:24px;}
-  .hq-full .goal-options.opt-grid .goal-opt .sub{font-size:15px; margin-top:6px;}
+  .hq-full .goal-options.opt-grid .goal-opt .t{font-size:1.5rem;}
+  .hq-full .goal-options.opt-grid .goal-opt .sub{font-size:.9375rem; margin-top:6px;}
   .hq-full .goal-options.opt-grid .goal-opt{min-height:112px;}
 
   /* ============ A SETTINGS WORKFLOW IS A PAGE TOO ============
@@ -10820,7 +10820,7 @@
   .hq-full.stg-panel .field label{font-size:var(--fs-label); color:#FFFFFF;}
   .hq-full.stg-panel .cv-opt .cv-blurb{font-size:var(--fs-support); line-height:var(--lh-support);}
   .hq-full.stg-panel .cv-preview{font-size:var(--fs-label);}
-  .hq-full.stg-panel .rs-pick-label{font-size:15px;}
+  .hq-full.stg-panel .rs-pick-label{font-size:.9375rem;}
   .hq-full.stg-panel .rs-pick{padding:16px;}
   .hq-full.stg-panel .rs-pick-row .rs-pick-inline{min-height:56px; padding:12px 8px; justify-content:center;}
   .hq-full.stg-panel .vvcal-shown{font-size:var(--fs-support);}
@@ -10840,7 +10840,7 @@
   /* Inside the pacing modal -- see the note on #bld-review.
      overflow-x stays: a pace table is genuinely wider than a phone. */
   .pace-table-card{ margin-top:10px; padding:4px 0; overflow-x:auto; }
-  .pace-table{width:100%; border-collapse:collapse; font-size:11.5px;}
+  .pace-table{width:100%; border-collapse:collapse; font-size:.71875rem;}
   /* NO ROW RULES, LIKE EVERYWHERE ELSE. This was the last separator kept on
      my own judgement rather than the founder's -- the argument being that a
      real data table is different, because the rules carry the eye across
@@ -10848,7 +10848,7 @@
      else, so the table reads on alignment and spacing like the rest of the
      product. The cell padding stays; it is what does the separating now. */
   .pace-table th, .pace-table td{padding:9px 6px; text-align:center;}
-  .pace-table th{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
+  .pace-table th{font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
   .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:var(--num-face); color:var(--ink-dim);}
   .pace-table td{font-family:var(--num-face); color:var(--ink);}
   .pace-table tr:last-child td{border-bottom:none; font-weight:700; color:var(--gold);}
@@ -10918,7 +10918,7 @@
      distance, so a goal time and a session distance are the same kind of
      figure in the same product. */
   .goal-input-row input{
-    font-family:var(--num-face); font-size:21px; font-weight:700;
+    font-family:var(--num-face); font-size:1.3125rem; font-weight:700;
     letter-spacing:.2px; line-height:1.1; color:var(--ink); text-align:right;
     /* The flattening rule below strips this field's own box, which also
        strips the min-height that kept it a thumb target. At 30px type it
@@ -10926,9 +10926,9 @@
        still something you tap to edit. */
     min-height:var(--tap-min); height:auto; padding-top:4px; padding-bottom:4px;
   }
-  .goal-input-row input::placeholder{font-size:15px; font-weight:400;}
+  .goal-input-row input::placeholder{font-size:.9375rem; font-weight:400;}
 
-  .setup-section-title{font-family:var(--label-face); font-size:11px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  .setup-section-title{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
   /* The opt-in white, for the surfaces the founder has taken the gold off
      one at a time. .bld-panel below does it by scope; this is for the ones
      that are a single heading rather than a whole screen. */
@@ -11140,9 +11140,9 @@
   .field .wd-check input:checked::after{content:none;}
   .field .wd-check:focus-within{
     outline:2px solid var(--cherry); outline-offset:2px;}
-  .wd-initial{font-family:var(--text-face); font-size:15px; font-weight:600;
+  .wd-initial{font-family:var(--text-face); font-size:.9375rem; font-weight:600;
     line-height:1; color:var(--ink-faint); transition:color .15s;}
-  .wd-name{font-family:var(--text-face); font-size:9.5px; color:var(--ink-faint);
+  .wd-name{font-family:var(--text-face); font-size:.59375rem; color:var(--ink-faint);
     text-transform:uppercase; letter-spacing:.04em; transition:color .15s;}
   .wd-check.checked{
     border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
@@ -65988,7 +65988,16 @@ function handleGarminDisconnect(){
   });
 }
 /* ---------- iOS DYNAMIC TYPE, BRIDGED ONTO THE ROOT ----------
-   The type scale is in rem so a reader's text-size setting reaches it. On
+   The type scale is in rem so a reader's text-size setting reaches it.
+   EVERY SIZE, NOT MOST (responsive correction 4). The tokens were rem but
+   247 sizes were still written in px -- the tab labels, Hear Today, the
+   check-in answers, badges, Injured or ill -- so at a larger iOS size the
+   coaching grew and the buttons around it did not, and a button's label
+   ended up smaller than the sentence beside it. Each is now the same size
+   in rem (identical at the normal 16px root), so the whole hierarchy
+   grows together, as it already did on Android. The display figures sized
+   to the screen's width (clamp(...vw...)) are left in px on purpose: they
+   are bound to the width, not to the reader's text size. On
    Android and in desktop browsers that is the whole story: the browser's own
    root carries the preference and rem follows it. iOS in a WebView does NOT
    -- Dynamic Type is a system setting the engine never maps onto the root, so

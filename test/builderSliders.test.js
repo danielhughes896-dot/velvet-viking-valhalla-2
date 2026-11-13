@@ -282,7 +282,7 @@ test('the track is cherry up to the thumb, and the answer is cherry and large', 
     /linear-gradient\(to right, var\(--cherry-text\) var\(--p\), var\(--line\) var\(--p\)\)/);
   const fig = cssRule('  .field .bld-slide-val input');
   assert.match(fig, /color:var\(--cherry-text\)/);
-  assert.match(fig, /font-size:28px/);
+  assert.match(fig, /font-size:1\.75rem/);   // 28px, in rem (responsive correction 4)
   assert.match(fig, /min-height:44px/, 'still a field a thumb can land in');
   assert.doesNotMatch(cssRule('  .bld-range-ends, .bld-range-ticks'), /--ink-faint|--ink-dim|opacity/);
 });

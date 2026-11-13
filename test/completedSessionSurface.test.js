@@ -378,7 +378,7 @@ test('FEEL: the pills speak the product\'s own language, not the old one', () =>
   ['--label-face', '--label-size', '--label-track', '--label-weight'].forEach(tok =>
     assert.ok(btn.indexOf('var(' + tok + ')') > -1,
       'the Feel pills are off the label voice (' + tok + ')'));
-  assert.doesNotMatch(btn, /font-size:9px/, 'the 9px label is back');
+  assert.doesNotMatch(btn, /font-size:(9px|\.5625rem)/, 'the 9px label is back');
   /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE LAW ABOVE IT ----
      It used to require a 99px pill: that was this control's step AWAY from
      a 6px slab, and at the time the pill was what every comparable control
