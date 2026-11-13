@@ -60,7 +60,7 @@ public class WidgetLayoutTest {
         SacoroWidgetProvider.KIND_TALL, SacoroWidgetProvider.KIND_TALL, SacoroWidgetProvider.KIND_ROW,
         SacoroWidgetProvider.KIND_SMALL, SacoroWidgetProvider.KIND_MEDIUM, SacoroWidgetProvider.KIND_LARGE,
         SacoroWidgetProvider.KIND_LARGE, SacoroWidgetProvider.KIND_ROW, SacoroWidgetProvider.KIND_ROW,
-        SacoroWidgetProvider.KIND_ROW };
+        SacoroWidgetProvider.KIND_ROW_NARROW };
     static final float[] SCALES = { 0.85f, 1.0f, 1.3f, 2.0f };
     /* dist, kind, title, line, note */
     static final String[][] CASES = {
@@ -102,7 +102,8 @@ public class WidgetLayoutTest {
     static int kindOf(View v) {
         if (v.findViewById(R.id.widget_next_head) != null) return SacoroWidgetProvider.KIND_LARGE;
         if (v.findViewById(R.id.widget_dist) != null) return SacoroWidgetProvider.KIND_TALL;
-        if (v.findViewById(R.id.widget_session) != null) return SacoroWidgetProvider.KIND_ROW;
+        if (v.findViewById(R.id.widget_session) != null)
+            return v.findViewById(R.id.widget_label) == null ? SacoroWidgetProvider.KIND_ROW_NARROW : SacoroWidgetProvider.KIND_ROW;
         if (v.findViewById(R.id.widget_note) != null) return SacoroWidgetProvider.KIND_MEDIUM;
         return SacoroWidgetProvider.KIND_SMALL;
     }
@@ -142,9 +143,13 @@ public class WidgetLayoutTest {
             boolean mayEllipsize = tv.getEllipsize() != null;
             int shown = Math.min(l.getLineCount(), tv.getMaxLines());
             if (l.getLineCount() > tv.getMaxLines() && !mayEllipsize) out.add(who + " needs " + l.getLineCount() + " lines and has " + tv.getMaxLines());
+            /* getLineMax, not getLineWidth: getLineWidth counts the space a
+               line was broken at, which Android lets hang past the edge
+               undrawn. Run 3 flagged three coaching lines and a title "2px
+               too wide" for that space alone. */
             for (int i = 0; i < shown; i++) {
                 if (l.getEllipsisCount(i) > 0 && !mayEllipsize) out.add(who + " is ellipsized");
-                if (l.getLineWidth(i) > availW + 1) out.add(who + " is " + Math.round(l.getLineWidth(i)) + "px wide in " + availW + "px");
+                if (l.getLineMax(i) > availW + 1) out.add(who + " is " + Math.round(l.getLineMax(i)) + "px wide in " + availW + "px");
             }
             if (shown > 0 && l.getLineBottom(shown - 1) > availH + 2) out.add(who + " is " + l.getLineBottom(shown - 1) + "px tall in " + availH + "px");
             int bottom = top(tv, root) + tv.getHeight();
@@ -165,7 +170,8 @@ public class WidgetLayoutTest {
             store(base, CASES[c]);
             for (int s = 0; s < SIZES.length; s++) {
                 final float w = SIZES[s][0], h = SIZES[s][1];
-                int kind = SacoroWidgetProvider.LAYOUT_KIND[SacoroWidgetProvider.pickLayout(w, h)];
+                final int layout = SacoroWidgetProvider.pickLayout(w, h);
+                int kind = SacoroWidgetProvider.LAYOUT_KIND[layout];
                 assertEquals(SIZE_NAMES[s] + " picks the wrong layout", EXPECT[s], kind);
                 for (float scale : SCALES) {
                     final Context ctx = scaled(base, scale);
@@ -177,7 +183,7 @@ public class WidgetLayoutTest {
                             float d = ctx.getResources().getDisplayMetrics().density;
                             int wPx = Math.round(w * d), hPx = Math.round(h * d);
                             FrameLayout parent = new FrameLayout(ctx);
-                            RemoteViews rv = SacoroWidgetProvider.renderKind(ctx, fk);
+                            RemoteViews rv = SacoroWidgetProvider.renderLayout(ctx, layout);
                             View v = rv.apply(ctx, parent);
                             v.measure(View.MeasureSpec.makeMeasureSpec(wPx, View.MeasureSpec.EXACTLY),
                                       View.MeasureSpec.makeMeasureSpec(hPx, View.MeasureSpec.EXACTLY));

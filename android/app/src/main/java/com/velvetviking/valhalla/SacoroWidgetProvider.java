@@ -81,17 +81,26 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
        below were set against the Pixel launcher's own cell sizes (portrait
        2x1 is 130 by 102dp, landscape 269 by 51), so a portrait 2x1 is the
        stacked two-word layout, a landscape one the single row, 2x2 the small
-       layout, 4x2 the medium and 4x3 and up the large. */
-    static final int KIND_ROW = 0, KIND_TALL = 1, KIND_SMALL = 2, KIND_MEDIUM = 3, KIND_LARGE = 4;
+       layout, 4x2 the medium and 4x3 and up the large.
+       The device check at every font size then found three more things.
+       Below 160dp wide the row left the session 30dp, which no session fits,
+       so the very smallest row is the mark and the session alone. And the
+       large layout is keyed twice, at 4x3 and at 4x4 heights, so it knows
+       how tall it is at its smallest and lists only the coming days that fit
+       (see comingRows). Its 4x3 key is 330dp, not 300: the Pixel 4x3 is 337,
+       and from 300 to 330 three days fit only at the smallest fonts. */
+    static final int KIND_ROW = 0, KIND_TALL = 1, KIND_SMALL = 2, KIND_MEDIUM = 3, KIND_LARGE = 4, KIND_ROW_NARROW = 5;
     static final float[][] LAYOUT_KEYS = {
-        { 110, 40 },   // the single row: TODAY, then the session
+        { 110, 40 },   // the very smallest: the mark, then the session alone
         { 110, 90 },   // TODAY beside the distance over the kind: a narrow 2x1
+        { 160, 40 },   // the single row: TODAY, then the session
         { 240, 50 },   // the single row, wide: a landscape 2x1, any 4x1
         { 110, 180 },  // small
         { 240, 130 },  // medium
-        { 240, 300 },  // large
+        { 240, 330 },  // large, as tall as a 4x3
+        { 240, 440 },  // large, as tall as a 4x4
     };
-    static final int[] LAYOUT_KIND = { KIND_ROW, KIND_TALL, KIND_ROW, KIND_SMALL, KIND_MEDIUM, KIND_LARGE };
+    static final int[] LAYOUT_KIND = { KIND_ROW_NARROW, KIND_TALL, KIND_ROW, KIND_ROW, KIND_SMALL, KIND_MEDIUM, KIND_LARGE, KIND_LARGE };
 
     /** Of the layouts that fit in w by h dp, the largest; the smallest if none fits. */
     static int pickLayout(float w, float h) {
@@ -104,12 +113,14 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         return best < 0 ? 0 : best;
     }
 
-    static RemoteViews renderKind(Context context, int kind) {
-        switch (kind) {
+    /** The layout for LAYOUT_KEYS[i]; the large one is told the height it has at least. */
+    static RemoteViews renderLayout(Context context, int i) {
+        switch (LAYOUT_KIND[i]) {
+            case KIND_ROW_NARROW: return renderMiniNarrow(context);
             case KIND_ROW: return renderMini(context);
             case KIND_TALL: return renderMiniTall(context);
             case KIND_SMALL: return renderSmall(context);
-            case KIND_LARGE: return renderLarge(context);
+            case KIND_LARGE: return renderLarge(context, LAYOUT_KEYS[i][1]);
             default: return renderMedium(context);
         }
     }
@@ -118,7 +129,7 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
     static RemoteViews responsive(Context context) {
         Map<SizeF, RemoteViews> m = new ArrayMap<>();
         for (int i = 0; i < LAYOUT_KEYS.length; i++)
-            m.put(new SizeF(LAYOUT_KEYS[i][0], LAYOUT_KEYS[i][1]), renderKind(context, LAYOUT_KIND[i]));
+            m.put(new SizeF(LAYOUT_KEYS[i][0], LAYOUT_KEYS[i][1]), renderLayout(context, i));
         return new RemoteViews(m);
     }
 
@@ -132,7 +143,7 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         int w = o == null ? 0 : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0);
         int h = o == null ? 0 : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0);
         if (w <= 0 || h <= 0) { w = (int) start[0]; h = (int) start[1]; }
-        return renderKind(context, LAYOUT_KIND[pickLayout(w, h)]);
+        return renderLayout(context, pickLayout(w, h));
     }
 
     @Override
@@ -265,6 +276,18 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         return v;
     }
 
+    /** The very smallest row, under 160dp wide: the mark, then the session
+     *  across the whole width. TODAY's own column would leave the session
+     *  30dp, and no session fits that. */
+    static RemoteViews renderMiniNarrow(Context context) {
+        SharedPreferences p = prefs(context);
+        String[] c = SacoroWidgetDays.compactForToday(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false), todayKey());
+        RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today_mini_narrow);
+        v.setTextViewText(R.id.widget_session, compactSession(c[0], c[1]));
+        openOnTap(context, v, R.id.widget_root);
+        return v;
+    }
+
     /** The narrow 2x1 (a portrait Pixel 2x1 is 130dp wide): TODAY beside the
      *  distance, with the kind under it, so neither is ever cut. A day with
      *  no distance shows its kind alone in the top line. */
@@ -299,9 +322,29 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         { R.id.widget_next3, R.id.widget_next3_day, R.id.widget_next3_title, R.id.widget_next3_line },
     };
 
-    /** Large, 4x4: today in full, then the next three days. A day the app has
-     *  not handed over is left out rather than guessed. */
-    static RemoteViews renderLarge(Context context) {
+    /* HOW MANY COMING DAYS FIT. A widget cannot measure itself, so this is
+       the large layout's own arithmetic (widget_today_large.xml): 60dp of
+       padding and gaps above the list, and 87sp of words (label, title,
+       line, two lines of note, COMING UP); each day is a 10dp gap and 25sp
+       (title and line). Lines are 1.35 times their size, the tallest the
+       device check measured. Text grows with the phone's font size, the
+       gaps do not. Measured against the height the layout is guaranteed
+       (its key), never the height it may have, so the last day is never cut:
+       at 4x3, three days at normal sizes, two at 130%, none at 200%; at 4x4,
+       three, three and one. */
+    static final float LARGE_TOP_DP = 60f, LARGE_TOP_SP = 87f, LARGE_ROW_DP = 10f, LARGE_ROW_SP = 25f, LINE = 1.35f;
+
+    static int comingRows(float heightDp, float fontScale) {
+        float top = LARGE_TOP_DP + LARGE_TOP_SP * LINE * fontScale;
+        float row = LARGE_ROW_DP + LARGE_ROW_SP * LINE * fontScale;
+        int n = (int) Math.floor((heightDp - top) / row);
+        return Math.max(0, Math.min(LARGE_ROWS.length, n));
+    }
+
+    /** Large, 4x3 and up: today in full, then as many of the next three days
+     *  as fit. A day the app has not handed over is left out rather than
+     *  guessed. */
+    static RemoteViews renderLarge(Context context, float heightDp) {
         String[] l = todayLines(context);
         RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today_large);
         v.setTextViewText(R.id.widget_label, l[0]);
@@ -310,7 +353,7 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         v.setTextViewText(R.id.widget_note, l[3]);
         SharedPreferences p = prefs(context);
         String[][] next = SacoroWidgetDays.upcoming(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false),
-                todayKey(), LARGE_ROWS.length);
+                todayKey(), comingRows(heightDp, context.getResources().getConfiguration().fontScale));
         v.setViewVisibility(R.id.widget_next_head, next.length > 0 ? View.VISIBLE : View.GONE);
         for (int i = 0; i < LARGE_ROWS.length; i++) {
             int[] row = LARGE_ROWS[i];

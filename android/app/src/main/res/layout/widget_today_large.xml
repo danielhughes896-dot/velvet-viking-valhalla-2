@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The Today widget, large (4x4): today in full, then the next three days.
      White words throughout, gold only for the TODAY label. No icons, no pills,
-     no dividing rules: space separates the days. -->
+     no dividing rules: space separates the days.
+     THE DAY TAKES THE ROOM ITS WORD NEEDS. It had a fixed 92dp column, and
+     at 130% font "TOMORROW" is wider than that. It is now at least 82dp plus
+     a 10dp gap, the same 92dp at normal sizes, and wider when the word is;
+     the session's title gives way and ends in "...", as it already may.
+     How many days are listed is chosen in SacoroWidgetProvider.comingRows
+     from the widget's height and the font size, so a day that would not fit
+     is left out rather than cut. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -76,8 +83,10 @@
 
         <TextView
             android:id="@+id/widget_next1_day"
-            android:layout_width="92dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:minWidth="82dp"
+            android:layout_marginEnd="10dp"
             android:maxLines="1"
             android:textColor="#FFFFFF"
             android:textSize="11sp"
@@ -121,8 +130,10 @@
 
         <TextView
             android:id="@+id/widget_next2_day"
-            android:layout_width="92dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:minWidth="82dp"
+            android:layout_marginEnd="10dp"
             android:maxLines="1"
             android:textColor="#FFFFFF"
             android:textSize="11sp"
@@ -166,8 +177,10 @@
 
         <TextView
             android:id="@+id/widget_next3_day"
-            android:layout_width="92dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:minWidth="82dp"
+            android:layout_marginEnd="10dp"
             android:maxLines="1"
             android:textColor="#FFFFFF"
             android:textSize="11sp"

@@ -240,9 +240,10 @@ test('every redraw redraws every size, and the midnight redraw outlives any one 
   });
   assert.match(refresh, /viewsFor\(context, manager, id, /);
   /* Every layout can be drawn, and every one is offered to the launcher. */
-  const rk = prov.slice(prov.indexOf('static RemoteViews renderKind('), prov.indexOf('static RemoteViews responsive('));
-  ['renderMini(context)', 'renderMiniTall(context)', 'renderSmall(context)', 'renderMedium(context)', 'renderLarge(context)'].forEach(r =>
-    assert.ok(rk.indexOf(r) > -1, 'renderKind never draws ' + r));
+  const rk = prov.slice(prov.indexOf('static RemoteViews renderLayout('), prov.indexOf('static RemoteViews responsive('));
+  ['renderMiniNarrow(context)', 'renderMini(context)', 'renderMiniTall(context)', 'renderSmall(context)', 'renderMedium(context)',
+   'renderLarge(context, LAYOUT_KEYS[i][1])'].forEach(r =>
+    assert.ok(rk.indexOf(r) > -1, 'renderLayout never draws ' + r));
   const disabled = prov.slice(prov.indexOf('public void onDisabled('), prov.indexOf('static int[] idsOf('));
   assert.match(disabled, /if \(placedCount\(context\) > 0\) return;/,
     'removing the last small widget would stop the midnight redraw for a medium one still placed');
@@ -380,17 +381,66 @@ test('resizing: the layout picked at every Pixel launcher size, and dragging an 
     ['landscape 4x2', 554, 117, 'KIND_ROW'],
     ['4x3', 276, 337, 'KIND_LARGE'],
     ['4x4', 276, 455, 'KIND_LARGE'],
-    ['smallest it can be dragged to', 110, 40, 'KIND_ROW'],
-    ['smaller than any layout', 60, 30, 'KIND_ROW'],
+    ['smallest it can be dragged to', 110, 40, 'KIND_ROW_NARROW'],
+    ['smaller than any layout', 60, 30, 'KIND_ROW_NARROW'],
+    ['a short row wide enough for TODAY', 160, 40, 'KIND_ROW'],
+    ['just short of a 4x3', 276, 320, 'KIND_MEDIUM'],
   ];
   want.forEach(([name, w, h, k]) => assert.equal(at(w, h), k, name + ' (' + w + 'x' + h + ') draws ' + at(w, h)));
   /* Android 12 and later: every layout handed to the launcher at once. */
   assert.match(prov, /if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.S\) return responsive\(context\);/);
-  assert.match(prov, /m\.put\(new SizeF\(LAYOUT_KEYS\[i\]\[0\], LAYOUT_KEYS\[i\]\[1\]\), renderKind\(context, LAYOUT_KIND\[i\]\)\);/);
+  assert.match(prov, /m\.put\(new SizeF\(LAYOUT_KEYS\[i\]\[0\], LAYOUT_KEYS\[i\]\[1\]\), renderLayout\(context, i\)\);/);
   /* Older Android: the size the launcher reports, remade when it changes. */
-  assert.match(prov, /return renderKind\(context, LAYOUT_KIND\[pickLayout\(w, h\)\]\);/);
+  assert.match(prov, /return renderLayout\(context, pickLayout\(w, h\)\);/);
   assert.match(prov, /public void onAppWidgetOptionsChanged\(Context context, AppWidgetManager manager, int id, Bundle newOptions\) \{\s*manager\.updateAppWidget\(id, viewsFor\(context, manager, id, startSize\(\)\)\);/);
   /* The narrow 2x1 keeps the session data: distance white, kind cherry. */
   const tall = prov.slice(prov.indexOf('static RemoteViews renderMiniTall('));
   assert.match(tall.slice(0, tall.indexOf('\n    }\n')), /SacoroWidgetDays\.compactForToday\(/);
+});
+
+/* Widget check run 3, at every Pixel size and every font size: the smallest
+   row had 30dp for the session, "TOMORROW" outgrew its column at 130%, and
+   the large widget listed more days than fit at 130% and 200%. */
+test('the smallest row is the mark and the session across the whole width', () => {
+  const lay = AND('res/layout/widget_today_mini_narrow.xml');
+  assert.doesNotMatch(lay, /widget_label/, 'TODAY\u2019s column leaves the session 30dp');
+  assert.match(lay, /android:id="@\+id\/widget_mark"[\s\S]*?android:layout_height="14dp"[\s\S]*?android:text="\u2022  SACORO  \u2022"[\s\S]*?android:textColor="#E3B15A"/);
+  const sess = lay.slice(lay.indexOf('android:id="@+id/widget_session"'));
+  assert.match(sess, /android:layout_width="match_parent"/);
+  assert.match(sess, /android:maxLines="1"/);
+  assert.match(sess, /android:autoSizeTextType="uniform"/);
+  assert.match(sess, /android:autoSizeMinTextSize="\d+dp"/, 'a minimum in sp grows with the font');
+  const prov = JAVA('SacoroWidgetProvider');
+  const narrow = prov.slice(prov.indexOf('static RemoteViews renderMiniNarrow('), prov.indexOf('static RemoteViews renderMiniTall('));
+  assert.match(narrow, /R\.layout\.widget_today_mini_narrow/);
+  assert.match(narrow, /compactSession\(c\[0\], c\[1\]\)/, 'the session loses its white distance and cherry kind');
+});
+
+test('the large widget lists only the coming days that fit its height at the phone\u2019s font size', () => {
+  const prov = JAVA('SacoroWidgetProvider');
+  const k = n => +new RegExp(n + ' = ([\\d.]+)f').exec(prov)[1];
+  const body = /static int comingRows\(float heightDp, float fontScale\) \{([\s\S]*?)\n    \}/.exec(prov)[1];
+  assert.match(body, /LARGE_TOP_DP \+ LARGE_TOP_SP \* LINE \* fontScale/, 'the words above the list do not grow with the font');
+  assert.match(body, /LARGE_ROW_DP \+ LARGE_ROW_SP \* LINE \* fontScale/);
+  assert.match(body, /Math\.max\(0, Math\.min\(LARGE_ROWS\.length, n\)\)/);
+  const rows = (h, s) => {
+    const top = k('LARGE_TOP_DP') + k('LARGE_TOP_SP') * k('LINE') * s;
+    const row = k('LARGE_ROW_DP') + k('LARGE_ROW_SP') * k('LINE') * s;
+    return Math.max(0, Math.min(3, Math.floor((h - top) / row)));
+  };
+  /* At 4x3 and 4x4, by font size: what the device check showed would fit. */
+  assert.deepEqual([0.85, 1, 1.3, 2].map(s => rows(330, s)), [3, 3, 2, 0], '4x3');
+  assert.deepEqual([0.85, 1, 1.3, 2].map(s => rows(440, s)), [3, 3, 3, 1], '4x4');
+  const large = prov.slice(prov.indexOf('static RemoteViews renderLarge('), prov.indexOf('static PendingIntent midnightIntent('));
+  assert.match(large, /comingRows\(heightDp, context\.getResources\(\)\.getConfiguration\(\)\.fontScale\)/);
+  /* The day takes the room its word needs: the same 92dp at normal sizes. */
+  const lay = AND('res/layout/widget_today_large.xml');
+  for (let i = 1; i <= 3; i++) {
+    const d = lay.slice(lay.indexOf('android:id="@+id/widget_next' + i + '_day"'));
+    const own = d.slice(0, d.indexOf('/>'));
+    assert.match(own, /android:layout_width="wrap_content"/, 'day ' + i + ' has a fixed column again');
+    assert.match(own, /android:minWidth="82dp"/);
+    assert.match(own, /android:layout_marginEnd="10dp"/);
+    assert.match(own, /android:maxLines="1"/);
+  }
 });
