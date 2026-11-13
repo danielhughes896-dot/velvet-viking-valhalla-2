@@ -633,14 +633,14 @@ test('CHECKPOINT: Measured Fitness names it and always has a real action, no sep
   assert.match(panel, /<h2 class="font-head">Measured Fitness<\/h2>/);
   // "Why races/checkpoints count as measurements" is said once, here, not
   // repeated in a second popup that no longer exists.
-  assert.match(panel, /What counts as a measurement/);
+  assert.match(panel, /What Counts as Evidence/);
   // Never generic scheduling.
   assert.doesNotMatch(panel, /schedule a (workout|session|run)/i);
   assert.doesNotMatch(panel, /add a session/i);
 
   const chk = a.state.days.filter(d => d.type === 'checkpoint')[0];
   assert.ok(chk, 'the generator scheduled no checkpoint to test against');
-  assert.match(panel, /Your (next )?checkpoint/);
+  assert.match(panel, /Your Checkpoint|Next Checkpoint/);
   assert.ok(panel.indexOf(chk.title || 'Fitness Checkpoint') !== -1, 'the checkpoint\'s own name is missing');
   assert.match(panel, new RegExp('Week ' + chk.week));
   // The row/action goes directly to Full Plan -- not to another popup.

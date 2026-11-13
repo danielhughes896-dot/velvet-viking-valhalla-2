@@ -9842,6 +9842,27 @@
   /* A word in a panel's circle takes the words' face, as the rail does. */
   .rp-hero.is-word .rd-val b{font-family:var(--text-face);}
   .rp-hero .b-dial.is-torus .b-medal{inset:15%;}
+  /* ---------- THE RECORD PANELS: TWO FIGURES, BARS, ITEMS ---------- */
+  .rec-stats{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin:4px 0 18px;}
+  .rec-stat{padding:14px 10px 12px; text-align:center; border-radius:16px; border:1px solid rgba(255,255,255,.07);
+    background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));}
+  .rec-stat-k{color:#FFFFFF; font-family:var(--label-face); font-weight:var(--label-weight); font-size:.75rem;
+    letter-spacing:.08em; text-transform:uppercase;}
+  .rec-stat-v{margin-top:6px; color:#FFFFFF; font-family:var(--text-face); font-weight:700; font-size:1.75rem;
+    line-height:1.1; font-variant-numeric:tabular-nums;}
+  .rec-stat-u{margin-left:4px; font-size:.9375rem; font-weight:600;}
+  .rec-stat-say{margin-top:4px; color:#FFFFFF; font-size:.8125rem;}
+  .rec-bar{margin:6px 0 14px;}
+  .rec-bar-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px; color:#FFFFFF;}
+  .rec-bar-k{font-size:var(--fs-body); font-weight:600;}
+  .rec-bar-v{font-size:var(--fs-body); font-variant-numeric:tabular-nums;}
+  .rec-bar-track{margin-top:8px; height:6px; border-radius:99px; background:var(--bg-4); overflow:hidden;}
+  .rec-bar-fill{height:100%; border-radius:99px; background:var(--rp-accent, var(--gold));}
+  /* No hairline between them: the space does the separating, as on Today. */
+  .rec-item{padding:9px 0;}
+  .rec-item + .rec-item{margin-top:6px;}
+  .rec-item-k{color:#FFFFFF; font-size:var(--fs-body); font-weight:600;}
+  .rec-item-say{margin-top:3px; color:#FFFFFF; font-size:var(--fs-support); line-height:var(--lh-support);}
   /* PATTERNS' ORB: the glow is the orb's own, so the dial's wash and ring
      shadow step aside; the word inside takes near-black for contrast. */
   .b-dial.is-orb{background:none; box-shadow:none;}
@@ -70610,73 +70631,70 @@ function recordPanelShell(title, body, key, foot){
    hqRow, which is also the end of a shadowing bug that would have bitten
    whoever next edited the wrong one. */
 
+/* ---------- THE RECORD PANELS, IN THE SHARED STRUCTURE ----------
+   Founder, with reference pages for Measured Fitness, Progress, Goal and
+   Benchmark: "Just the structure. No silly symbols. The words / title does
+   the talking. Make sure the details link up to the evidence we collect."
+   The circle and its sentence; two figures where there are figures; the
+   sections, each under its own rule; and SACORO's Read at the foot. Every
+   figure is one the app already records. */
+function recStatsHtml(items){
+  return '<div class="rec-stats">'+items.map(function(it){
+    return '<div class="rec-stat"><div class="rec-stat-k">'+escapeHtml(it.k)+'</div>'+
+      '<div class="rec-stat-v">'+escapeHtml(String(it.v))+
+        (it.unit ? '<span class="rec-stat-u">'+escapeHtml(it.unit)+'</span>' : '')+'</div>'+
+      (it.say ? '<div class="rec-stat-say">'+escapeHtml(it.say)+'</div>' : '')+
+    '</div>';
+  }).join('')+'</div>';
+}
+function recReadHtml(text){
+  return sectionRule('SACORO’s Read', true)+'<div class="pt-say">'+escapeHtml(text)+'</div>';
+}
+function recBarHtml(label, value, pct){
+  var f = Math.max(0, Math.min(100, Math.round(pct || 0)));
+  return '<div class="rec-bar"><div class="rec-bar-top"><span class="rec-bar-k">'+escapeHtml(label)+'</span>'+
+      '<span class="rec-bar-v">'+escapeHtml(value)+'</span></div>'+
+    '<div class="rec-bar-track"><div class="rec-bar-fill" style="width:'+f+'%"></div></div></div>';
+}
+function recItemHtml(title, say){
+  return '<div class="rec-item"><div class="rec-item-k">'+escapeHtml(title)+'</div>'+
+    '<div class="rec-item-say">'+escapeHtml(say)+'</div></div>';
+}
+
 function recordPanelFitness(){
   var chk = scheduledCheckpointDay();
-  /* CURRENT FITNESS OPENS THIS PANEL NOW. It was the hero's second
-     instrument -- the range the last measured effort implies for the goal
-     distance -- and the circle that opens this panel states that range, so
-     the panel has to open on it or the athlete taps a number and lands
-     somewhere that does not mention it. It sits above renderMeasuredFitness()
-     for the same reason the circle states the range and not the run: the
-     conclusion, then the measurement it was drawn from. Same function, same
-     mount-free call; patchDerivedStats() already tolerates its mount being
-     absent. */
-  /* ONLY WHERE THERE IS A MEASUREMENT BEHIND IT, and the condition is the
-     whole point. renderCurrentFitnessInstrument() falls back to estimating
-     from the BENCHMARK when nothing has been measured -- correct on a hero
-     that is answering "what does your fitness suggest", and a contradiction
-     in a panel whose own copy, four paragraphs down, says a benchmark is not
-     a measurement. Added unconditionally, it put a clock time at the top of
-     a panel that then explained there was nothing measured to produce one.
-     So the conclusion opens this panel when it is drawn from the measurement
-     below it, and not otherwise; the Fitness circle states an em dash in the
-     same case, so the two never disagree. */
+  /* The conclusion opens the panel only when it is drawn from a measurement;
+     the Fitness circle states a dash in the same case, so the two never
+     disagree (see renderCurrentFitnessInstrument's benchmark fallback). */
+  var perfs = measuredPerformances();
   var measured = measuredProgression().latest;
+  var races = perfs.filter(function(p){ return p.source === 'race'; }).length;
+  var checks = perfs.filter(function(p){ return p.source === 'checkpoint'; }).length;
   var body = (measured ? renderCurrentFitnessInstrument() : '')+
-    renderMeasuredFitness(true)+
-    '<div class="setup-section-title">What counts as a measurement</div>'+
-    '<div class="hub-card tile-card">'+
-      hqRow('A completed race', 'any distance')+
-      hqRow('A Fitness Checkpoint', 'time trial')+
-    '</div>'+
-    '<div class="setup-section-title">What does not count</div>'+
-    '<div class="field-hint">Your benchmark, and the training paces calculated from your goal. '+
-      'Those set where you train — they are a target, not a measurement. Keeping the two apart '+
-      'is what stops Plan HQ telling you that you are fitter than it actually knows.</div>';
-  /* THE ONLY CHECKPOINT DESTINATION THAT EXISTS is the one the generator
-     already put in the block. It is stated as a fact, with its week and date,
-     and there is no "Schedule a Checkpoint" control -- because there is no
-     scheduling flow behind one, and a button that goes nowhere would be the
-     first dishonest thing on this surface.
-
-     YOUR NEXT CHECKPOINT navigates directly into Full Plan now -- the
-     standalone Fitness Checkpoint popup this used to hand off to is gone
-     (requirement 9): it only ever repeated what/when/why and then offered
-     this exact same door. "Why races/checkpoints count as a measurement" is
-     answered once, immediately above, in "What counts as a measurement" --
-     not said again here. */
+    sectionRule('What Counts as Evidence', true)+
+    recStatsHtml([
+      { k:'Race Results', v:races, say:'Any distance' },
+      { k:'Checkpoints', v:checks, say:'Time trial' }
+    ])+
+    (measured ? sectionRule('The Evidence', true)+renderMeasuredFitness(true) : '');
+  /* The next checkpoint, stated as a fact with its week and date, and a
+     door straight into the plan. The copy is keyed on the performance
+     record itself: a checkpoint ticked off without a time is a completed
+     session, not a measurement, and the third case says what to do. */
   if (chk){
-    /* "Completed" and "measured" are not the same fact, and this panel is the
-       one place that must not blur them: recordMeasuredPerformance() only
-       accepts a checkpoint logged with a real distance and a real time, so a
-       checkpoint ticked off without a time is a completed session and not a
-       measurement. The copy is keyed on the performance record itself rather
-       than on the tick, and the third case says what to do about it. */
-    var counted = chk.completed && measuredPerformances().some(function(p){
-      return p.date === chk.date;
-    });
+    var counted = chk.completed && perfs.some(function(p){ return p.date === chk.date; });
     var note;
     if (!chk.completed) note = 'Ahead of you. Run it and log it, and it becomes a measurement.';
     else if (counted) note = 'Already run and logged. It is the measurement above.';
     else note = 'Marked complete, but without a time it can be measured from. Add the time to that session and it becomes a measurement.';
-    body += '<div class="setup-section-title">'+(chk.completed ? 'Your checkpoint' : 'Your next checkpoint')+'</div>'+
-      '<div class="hub-card tile-card">'+
-        hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+', '+dShort(chk.date))+
-      '</div>'+
-      '<div class="field-hint" style="margin-bottom:8px;">'+note+'</div>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="go-checkpoint">'+
-        ICONS.calendarWeek+' Open week '+chk.week+' in your plan</button>';
+    body += sectionRule(chk.completed ? 'Your Checkpoint' : 'Next Checkpoint', true)+
+      '<div class="rp-rows">'+hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+', '+dShort(chk.date))+'</div>'+
+      '<div class="field-hint" style="margin-bottom:10px;">'+note+'</div>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="go-checkpoint">Open week '+chk.week+' in your plan</button>';
   }
+  body += recReadHtml('Only a completed race or a Fitness Checkpoint says where you are now. '+
+    'Your benchmark and the paces calculated from your goal set where you train: a target, not a measurement. '+
+    'Keeping the two apart is what stops SACORO telling you that you are fitter than it knows.');
   return recordPanelShell('Measured Fitness', body, 'fitness');
 }
 
@@ -70684,34 +70702,28 @@ function recordPanelBenchmark(){
   var b = state.setup.benchmark;
   var goal = getActiveGoal();
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
-  /* THE FIGURE IS THE CIRCLE NOW. This opened on a row restating the
-     benchmark -- "10K / 44:00" -- directly beneath the circle that had just
-     said it, because the panel used to open on a sentence rather than on
-     the instrument. The absence still gets its line, since there is no
-     figure in the circle to carry it. */
-  var body = (b ? '' : '<div class="hub-card tile-card">'+
-      '<div class="hq-empty">No benchmark set yet.</div></div>')+
-    '<div class="field-hint">A benchmark is a recent performance you have told SACORO about. '+
-      'It is the number Suggest Goals works from, and the number to update when your fitness moves.</div>'+
-    /* WHAT ACTUALLY SETS THEM, from the same accessor the paces use. Until
-       the current-fitness change this paragraph said "from your active goal,
-       not directly from the benchmark", which was true then and is not now:
-       the benchmark is rung three of currentFitnessAnchor(). */
-    '<div class="setup-section-title">What your paces actually come from</div>'+
-    '<div class="field-hint">'+
-      escapeHtml(zonePaceSourceSentence(goal, profile))+
-      ' Every upcoming session is re-tailored when it changes.'+
-    '</div>'+
-    '<div class="setup-section-title">Not a measurement of current fitness</div>'+
-    '<div class="field-hint">A benchmark says where you are training. Only a completed race or a '+
-      'Fitness Checkpoint says where you are now — that is what Measured Fitness reports, and '+
-      'it is deliberately a different number.</div>'+
-    /* The existing action, reached the existing way. openRecalibrateModal()
-       owns benchmark and goal editing, validation and re-tailoring; this is a
-       door to it, not a second copy of it. btn-ghost so the Cherry Lacquer BACK stays
-       the only primary on the surface. */
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:14px;" '+
-      'data-action="open-recalibrate">'+ICONS.zap+' Update benchmark &amp; re-calibrate</button>';
+  var bp = b ? DISTANCE_PROFILES[b.distanceKey] : null;
+  var body = '';
+  if (b && bp && b.timeSec){
+    var perKm = b.timeSec / bp.raceKm;
+    var shown = state.units === 'mi' ? perKm * 1.60934 : perKm;
+    body += recStatsHtml([
+      { k:'Distance', v:bp.label },
+      { k:'Reference Pace', v:secToPace(shown), unit:'/'+displayUnit() }
+    ]);
+  } else {
+    body += '<div class="rp-rows"><div class="hq-empty">No benchmark set yet.</div></div>';
+  }
+  body += sectionRule('Training Calibration', true)+
+    recItemHtml('Training Paces', zonePaceSourceSentence(goal, profile))+
+    recItemHtml('Future Sessions', 'Every upcoming session is re-tailored when your benchmark changes.')+
+    recItemHtml('Suggest Goals', 'Works from your benchmark, so update it when your fitness moves.')+
+    recReadHtml('Your benchmark is a performance you have told SACORO about, and it calibrates training. '+
+      'Measured Fitness reports what you have actually run in a race or a Fitness Checkpoint. '+
+      'They serve different purposes and will not always match.')+
+    /* The Builder owns benchmark and goal editing; this is a door to it. */
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:16px;" '+
+      'data-action="open-recalibrate">Update benchmark &amp; re-calibrate</button>';
   return recordPanelShell('Benchmark', body, 'benchmark');
 }
 
@@ -70818,19 +70830,19 @@ function zonePaceSourceSentence(goal, profile){
   var anchor = currentFitnessAnchor();
   var label = profile ? profile.label : 'your distance';
   if (anchor.source === 'performance')
-    return 'Calculated from your most recent measured result — the last race or '+
+    return 'Calculated from your most recent measured result: the last race or '+
            'Fitness Checkpoint you actually ran.';
   if (anchor.source === 'calibration')
     return 'Calculated from your Threshold Calibration'+
            (anchor.date ? ' on '+dShort(anchor.date) : '')+
-           ' — the threshold pace SACORO measured you at.';
+           ', the threshold pace SACORO measured you at.';
   if (anchor.source === 'benchmark')
     return 'Calculated from the benchmark time you gave at setup. Run a Threshold '+
            'Calibration, a race or a Fitness Checkpoint and these are recalculated '+
            'from what you actually ran.';
   return (goal && goal.timeSec
-    ? 'Estimated from your active goal — Goal '+state.setup.activeGoal+', '+
-      secToClock(goal.timeSec)+' for the '+label+' — because nothing has been '
+    ? 'Estimated from your active goal, Goal '+state.setup.activeGoal+' at '+
+      secToClock(goal.timeSec)+' for the '+label+', because nothing has been '
     : 'Estimated from your active goal for the '+label+', because nothing has been ')+
     'measured yet. Run a Threshold Calibration, a race or a Fitness Checkpoint and they '+
     'are recalculated from what you actually ran.';
@@ -70864,18 +70876,27 @@ function recordPanelProgress(){
      distance done are both in renderPlanOverviewStats(), twice over -- as
      figures and as bars -- so repeating them here would fill the panel with
      the thing the athlete has just read. */
-  var body = '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
-    '<div class="setup-section-title">Where you are in the block</div>'+
-    '<div class="hub-card tile-card">'+
-      (week && total ? hqRow('Week', week+' of '+total) : '')+
+  var runsPct = s.totalRuns ? 100 * s.completedRuns / s.totalRuns : 0;
+  var kmPct = s.totalKm ? 100 * s.completedKm / s.totalKm : 0;
+  var body =
+    recStatsHtml([
+      { k:'Runs Completed', v:s.completedRuns+'/'+s.totalRuns },
+      { k:'Distance Run', v:kmToDisplay(s.completedKm), unit:displayUnit() }
+    ])+
+    sectionRule('Block Completion', true)+
+    recBarHtml('Sessions', Math.round(runsPct)+'%', runsPct)+
+    recBarHtml('Distance', kmToDisplay(s.completedKm)+' / '+fmtDist(s.totalKm), kmPct)+
+    sectionRule('Your Block', true)+
+    '<div class="rp-rows">'+
+      (week && total ? hqRow('Current week', week+' of '+total) : '')+
       hqRow(sessionsLabel, (s.totalRuns - s.completedRuns)+'')+
       (longestDone ? hqRow('Longest run so far', fmtDist(longestDone)) : '')+
       (longestToCome ? hqRow(longestAheadLabel, fmtDist(longestToCome)) : '')+
       (horizonPartial ? hqRow('Rest of the block', 'shaped week by week, through week '+total) : '')+
     '</div>'+
-    '<div class="field-hint">Runs and distance move at different rates through a block — the '+
-      'long runs that carry the distance are weighted towards the back of it. Neither figure is a '+
-      'judgement; the coaching reading of your training is above, in Programme Status.</div>';
+    recReadHtml('Progress measures how much of your programme you have completed, not how well you are running. '+
+      'Runs and distance move at different rates: the long runs that carry the distance sit towards the back of the block. '+
+      'The coaching reading of your training is in the circles on the Coach page.');
   return recordPanelShell('Progress', body, 'progress');
 }
 
@@ -70892,9 +70913,8 @@ function recordPanelProgress(){
 function recordPanelGoal(){
   var body = renderRaceOutlook()+
     renderGoalToggle()+
-    '<div class="field-hint" style="margin-top:12px;">Your goal sets the paces every '+
-      'session is prescribed at. Changing it re-calculates them from the next session '+
-      'onward; nothing already logged is altered.</div>';
+    recReadHtml('Your goal sets the paces every session is prescribed at. Changing it '+
+      're-calculates them from the next session onward; nothing already logged is altered.');
   return recordPanelShell('Goal', body, 'goal');
 }
 var RECORD_PANELS = {
@@ -71855,7 +71875,7 @@ function renderRaceOutlook(){
       /* THE WEAKER RUNG SAYS SO, in one line, rather than presenting an
          estimate with the authority of a measurement. */
       (o.state === 'estimated'
-        ? ' Estimated from your training so far — a race or a Fitness Checkpoint would sharpen it.'
+        ? ' Estimated from your training so far. A race or a Fitness Checkpoint would sharpen it.'
         : '')+
     '</div>'+
   '</div>';

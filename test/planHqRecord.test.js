@@ -292,21 +292,29 @@ test('PANEL: the progress panel hosts the existing stats and keeps the patch mou
   const a = planHQ();
   a.state.days.filter(d => d.type !== 'rest').slice(0, 9).forEach(d => { d.completed = true; });
   const panel = a.RECORD_PANELS.progress();
-  assert.ok(panel.indexOf(a.renderPlanOverviewStats()) !== -1,
-    'the panel does not render renderPlanOverviewStats() verbatim');
-  assert.match(panel, /id="planhq-stats-mount"/,
-    'patchDerivedStats() can no longer find the stats it patches');
-  // The rows carry what the bars do not; runs done and distance done are
-  // already stated twice above, so repeating them here would be filler.
+  /* Founder, with a reference: the shared structure. Two figures, the
+     completion bars, the block, SACORO's Read; every figure computeStats()'s. */
+  const s = a.computeStats();
+  assert.match(panel, new RegExp('Runs Completed</div><div class="rec-stat-v">' + s.completedRuns + '/' + s.totalRuns));
+  assert.match(panel, /Block Completion/);
+  assert.match(panel, new RegExp('rec-bar-k">Sessions</span><span class="rec-bar-v">' + Math.round(100 * s.completedRuns / s.totalRuns) + '%'));
   assert.match(panel, /Sessions still to run/);
   assert.match(panel, /Longest run so far/);
   assert.match(panel, /Longest run still ahead/);
-  const rows = panel.slice(panel.indexOf('Where you are in the block'));
-  assert.doesNotMatch(rows, /Runs done/, 'the panel repeats a figure the bars already carry');
+  const rows = panel.slice(panel.indexOf('Your Block'));
+  assert.doesNotMatch(rows, /Runs done/, 'the panel repeats a figure the figures above already carry');
+  assert.match(panel, /SACORO’s Read/);
 });
 
 test('PANEL: the measured-fitness panel hosts renderMeasuredFitness() verbatim', () => {
   const a = planHQ();
+  /* With nothing measured the circle already says so, so the empty
+     paragraph is not said again; once there is a measurement, the panel
+     hosts renderMeasuredFitness() verbatim under The Evidence. */
+  assert.ok(a.RECORD_PANELS.fitness().indexOf('Nothing measured yet') === -1, 'the empty state is said twice');
+  const chk = a.state.days.filter(d => d.type === 'checkpoint')[0];
+  chk.completed = true; chk.actual = { km: chk.km, pace: '4:05', hr: 168, rpe: 9, notes: '' };
+  a.recordMeasuredPerformance(chk);
   const panel = a.RECORD_PANELS.fitness();
   assert.ok(panel.indexOf(a.renderMeasuredFitness(true)) !== -1,
     'the panel does not render renderMeasuredFitness() verbatim');
@@ -453,15 +461,16 @@ test('CLAIMS: no panel says the benchmark sets the training paces', () => {
 
 test('CLAIMS: a benchmark is never called a measurement of current fitness', () => {
   const a = planHQ();
-  assert.match(a.RECORD_PANELS.benchmark(), /Not a measurement of current fitness/);
-  assert.match(a.RECORD_PANELS.fitness(), /What does not count/);
-  assert.match(a.RECORD_PANELS.fitness(), /they are a target, not a measurement/);
+  assert.match(a.RECORD_PANELS.benchmark(), /Measured Fitness reports what you have actually run/);
+  assert.match(a.RECORD_PANELS.fitness(), /a target, not a measurement/);
 });
 
 test('CLAIMS: no fitness estimate is invented where the evidence is not there', () => {
   const a = planHQ();
   const panel = a.RECORD_PANELS.fitness();
-  assert.match(panel, /Nothing measured yet/);
+  assert.match(panel, /Not established yet/);
+  assert.match(panel, /Race Results<\/div><div class="rec-stat-v">0</);
+  assert.match(panel, /Checkpoints<\/div><div class="rec-stat-v">0</);
   // Not one clock time anywhere in the panel: no equivalent range, no estimate,
   // nothing derived from the benchmark and presented as a measurement.
   const body = panel.slice(panel.indexOf('<div class="modal-body">'));
@@ -473,7 +482,7 @@ test('CLAIMS: the checkpoint is stated where one is scheduled, and no control is
   const chk = a.state.days.filter(d => d.type === 'checkpoint')[0];
   assert.ok(chk, 'the generator scheduled no Fitness Checkpoint');
   const panel = a.RECORD_PANELS.fitness();
-  assert.match(panel, /Your next checkpoint/);
+  assert.match(panel, /Next Checkpoint/);
   assert.match(panel, new RegExp('Week ' + chk.week));
   assert.match(panel, /Ahead of you/);
   // And the row/action goes straight to Full Plan -- not to another popup.
@@ -508,7 +517,8 @@ test('CLAIMS: a checkpoint ticked off without a time is not called a measurement
   assert.match(unmeasured, /without a time it can be measured from/);
   assert.doesNotMatch(unmeasured, /It is the measurement above/,
     'a completed-but-unmeasured checkpoint was counted as evidence');
-  assert.match(unmeasured, /Nothing measured yet/, 'and the state above must still say so');
+  assert.match(unmeasured, /Not established yet/, 'and the state above must still say so');
+  assert.match(unmeasured, /Checkpoints<\/div><div class="rec-stat-v">0</, 'an unmeasured checkpoint was counted');
 
   // Now log it properly, through the app's own recording path.
   chk.actual = { km: chk.km, pace: '4:05', hr: 168, rpe: 9, notes: '' };
