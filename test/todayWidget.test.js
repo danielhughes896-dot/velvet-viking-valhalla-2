@@ -44,7 +44,7 @@ test('a fortnight from today, one entry per date, every entry fully worded', () 
     assert.equal(p.days.length, 14);
     p.days.forEach((d, i) => {
       assert.equal(d.date, a.addDays('2026-11-12', i), 'the stored days are not consecutive from today');
-      assert.deepEqual(Object.keys(d).sort(), ['date', 'label', 'line', 'note', 'title'], 'the widget was handed something other than words for one day');
+      assert.deepEqual(Object.keys(d).sort(), ['date', 'dist', 'kind', 'label', 'line', 'note', 'title'], 'the widget was handed something other than words for one day');
       assert.equal(d.label, 'TODAY');
       assert.ok(d.title && d.line, d.date + ' would draw an empty widget');
       for (const k of ['title', 'line', 'note']) assert.doesNotMatch(d[k], /—/, 'an em dash reached the home screen: ' + d[k]);
@@ -190,17 +190,18 @@ test('stale or missing data: the widget asks to be opened rather than guessing',
   const lay = AND('res/layout/widget_today.xml');
   const colours = (lay.match(/textColor="#[0-9A-Fa-f]+"/g) || []).map(s => s.slice(11, -1).toUpperCase());
   assert.deepEqual([...new Set(colours)].sort(), ['#E3B15A', '#FFFFFF']);
-  assert.match(fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8'), /versionCode 8\s+versionName "1\.7"/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8'), /versionCode 9\s+versionName "1\.8"/);
 });
 
 /* PHASE TWO. Founder: "8 - let's do small and large." Same data, same
    privacy, same redraws; only what each size draws differs. */
-test('three sizes on the home screen: small 2x2, medium 4x2, large 4x4, each its own entry', () => {
+test('four sizes on the home screen: 2x1, small 2x2, medium 4x2, large 4x4, each its own entry', () => {
   const man = AND('AndroidManifest.xml');
   const receivers = man.match(/<receiver[\s\S]*?<\/receiver>/g) || [];
   const byName = {};
   receivers.forEach(r => { const n = /android:name="\.(\w+)"/.exec(r); if (n) byName[n[1]] = r; });
-  [['SacoroWidgetProvider', 'sacoro_widget_info', 4, 2], ['SacoroWidgetSmall', 'sacoro_widget_small_info', 2, 2],
+  [['SacoroWidgetProvider', 'sacoro_widget_info', 4, 2], ['SacoroWidgetMini', 'sacoro_widget_mini_info', 2, 1],
+   ['SacoroWidgetSmall', 'sacoro_widget_small_info', 2, 2],
    ['SacoroWidgetLarge', 'sacoro_widget_large_info', 4, 4]].forEach(([cls, info, w, h]) => {
     const r = byName[cls];
     assert.ok(r, cls + ' is not on the home screen list');
@@ -221,9 +222,9 @@ test('three sizes on the home screen: small 2x2, medium 4x2, large 4x4, each its
 test('every redraw redraws every size, and the midnight redraw outlives any one size', () => {
   const prov = JAVA('SacoroWidgetProvider');
   const refresh = prov.slice(prov.indexOf('static void refreshAll('), prov.indexOf('static String todayKey('));
-  ['SacoroWidgetProvider.class', 'SacoroWidgetSmall.class', 'SacoroWidgetLarge.class'].forEach(c =>
+  ['SacoroWidgetProvider.class', 'SacoroWidgetMini.class', 'SacoroWidgetSmall.class', 'SacoroWidgetLarge.class'].forEach(c =>
     assert.ok(refresh.indexOf(c) > -1, 'refreshAll leaves out ' + c));
-  ['renderMedium(context)', 'renderSmall(context)', 'renderLarge(context)'].forEach(r =>
+  ['renderMedium(context)', 'renderMini(context)', 'renderSmall(context)', 'renderLarge(context)'].forEach(r =>
     assert.ok(refresh.indexOf(r) > -1, 'refreshAll never draws ' + r));
   const disabled = prov.slice(prov.indexOf('public void onDisabled('), prov.indexOf('static int[] idsOf('));
   assert.match(disabled, /if \(placedCount\(context\) > 0\) return;/,
@@ -261,4 +262,58 @@ test('the new sizes keep SACORO’s colours: white words, gold only for the labe
     assert.doesNotMatch(lay, /ImageView|<View\b/, n + ': an icon or a dividing rule');
   });
   for (let i = 1; i <= 3; i++) assert.match(AND('res/layout/widget_today_large.xml'), new RegExp('widget_next' + i + '_day'));
+});
+
+/* THE 2x1. Founder: "Could you build a 2 x 1 widget with dot SACORO dot top
+   centre, left aligned today and then right aligned 8km easy. Make the text
+   as big as possible for the box size? Or that fits neatly inside. Keep the
+   colours." And of the mock: "No pace, no unnecessary text." */
+test('2x1: every day carries its distance and one word for the run, and nothing else', () => {
+  for (const o of [{}, { distanceKey: 'full', volume: 70, weeks: 16 }, { distanceKey: '5k', volume: 25, weeks: 8 }]){
+    const a = app(o);
+    a.widgetPayload().days.forEach(d => {
+      const dd = a.findDayByDate(d.date);
+      assert.match(d.kind, /^[A-Z ]+$/, d.date + ': the kind is not one word in capitals: ' + d.kind);
+      assert.doesNotMatch(d.dist + ' ' + d.kind, /\/km|\/mi|:\d\d|bpm|at /i, 'a pace or a heart rate reached the 2x1');
+      if (dd && dd.type !== 'rest' && !a.isOptionalRunDay(dd) && !a.dayRestricted(dd)){
+        assert.equal(d.dist, a.kmToDisplay(dd.km) + ' ' + a.displayUnit().toUpperCase(), 'the distance is not the card’s');
+      } else assert.equal(d.dist, '');
+    });
+  }
+  const a = app();
+  const kinds = new Set(a.widgetPayload().days.map(d => d.kind));
+  assert.ok(kinds.has('EASY') && kinds.has('REST DAY'), [...kinds].join(', '));
+  assert.ok(![...kinds].some(k => /LONG RUN|INTERVAL$/.test(k)), 'the long names reached the 2x1');
+  /* Miles when the athlete runs in miles. */
+  a.state.units = 'mi';
+  const run = a.widgetPayload().days.find(d => d.dist);
+  assert.match(run.dist, / MI$/);
+});
+
+test('2x1: the mark across the top, TODAY left, the session right, both sized to the box, in SACORO’s colours', () => {
+  const lay = AND('res/layout/widget_today_mini.xml');
+  assert.match(lay, /android:id="@\+id\/widget_mark"[\s\S]*?android:gravity="center_horizontal"[\s\S]*?android:text="•  SACORO  •"[\s\S]*?android:textColor="#E3B15A"/);
+  const label = lay.slice(lay.indexOf('android:id="@+id/widget_label"'), lay.indexOf('android:id="@+id/widget_session"'));
+  assert.match(label, /android:gravity="start\|center_vertical"/);
+  assert.match(label, /android:text="TODAY"/);
+  assert.match(label, /android:textColor="#FFFFFF"/);
+  assert.match(label, /android:autoSizeTextType="uniform"/);
+  const sess = lay.slice(lay.indexOf('android:id="@+id/widget_session"'));
+  assert.match(sess, /android:gravity="end\|center_vertical"/);
+  assert.match(sess, /android:autoSizeTextType="uniform"/);
+  assert.ok(+/autoSizeMaxTextSize="(\d+)sp"/.exec(sess)[1] > +/autoSizeMaxTextSize="(\d+)sp"/.exec(label)[1],
+    'the session should be the biggest thing in the box');
+  assert.match(sess, /android:maxLines="1"/);
+  const prov = JAVA('SacoroWidgetProvider');
+  assert.match(prov, /static final int CHERRY = 0xFFC46A89;/, 'the kind is not in SACORO’s cherry');
+  const cs = prov.slice(prov.indexOf('static CharSequence compactSession('), prov.indexOf('static RemoteViews renderMini('));
+  assert.match(cs, /new StyleSpan\(Typeface\.BOLD\)/);
+  assert.match(cs, /new ForegroundColorSpan\(CHERRY\)/);
+  assert.match(JAVA('SacoroWidgetMini'), /RemoteViews build\(Context context\) \{ return renderMini\(context\); \}/);
+  const days = JAVA('SacoroWidgetDays');
+  const c = days.slice(days.indexOf('static String[] compactForToday('), days.indexOf('/** The days after today'));
+  assert.match(c, /if \(!hasPlan\) return new String\[\] \{ "", "NO PLAN" \};/);
+  assert.match(c, /if \(kind\.isEmpty\(\)\) kind = d\.optString\("title", ""\)\.toUpperCase\(Locale\.UK\);/,
+    'an app too old to send the kind would leave the 2x1 empty');
+  assert.match(c, /return new String\[\] \{ "", "OPEN SACORO" \};/);
 });

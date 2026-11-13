@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Today widget, 2x1. Founder: "a 2 x 1 widget with dot SACORO dot top
+     centre, left aligned today and then right aligned 8km easy. Make the text
+     as big as possible for the box size? Or that fits neatly inside. Keep the
+     colours."
+     Both lines size themselves to the box (autoSize, Android 8 and later; the
+     textSize is the size used before that). Gold for the mark, white for
+     TODAY and the distance, cherry for the kind of run (set in code). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="7dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/widget_mark"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:maxLines="1"
+        android:text="•  SACORO  •"
+        android:textColor="#E3B15A"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.16" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="2dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_label"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0.28"
+            android:layout_marginEnd="10dp"
+            android:gravity="start|center_vertical"
+            android:maxLines="1"
+            android:text="TODAY"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="9sp"
+            android:autoSizeMaxTextSize="14sp"
+            android:autoSizeStepGranularity="1sp" />
+
+        <TextView
+            android:id="@+id/widget_session"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="0.72"
+            android:gravity="end|center_vertical"
+            android:maxLines="1"
+            android:text="SACORO"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMaxTextSize="40sp"
+            android:autoSizeStepGranularity="1sp" />
+    </LinearLayout>
+</LinearLayout>

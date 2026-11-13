@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2x1: the mark, TODAY, and the session in two words. Same data and the
+     same redraws as every other size. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:resizeMode="horizontal"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_today_mini"
+    android:previewLayout="@layout/widget_today_mini"
+    android:description="@string/widget_description_mini"
+    android:widgetCategory="home_screen" />

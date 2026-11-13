@@ -8,6 +8,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Typeface;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -17,9 +23,9 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * THE TODAY WIDGET, in three sizes. This class is the medium one (4x2) and
- * the shared machinery; SacoroWidgetSmall (2x2) and SacoroWidgetLarge (4x4)
- * are the other two and differ only in what they draw.
+ * THE TODAY WIDGET, in four sizes. This class is the medium one (4x2) and
+ * the shared machinery; SacoroWidgetMini (2x1), SacoroWidgetSmall (2x2) and
+ * SacoroWidgetLarge (4x4) differ only in what they draw.
  *
  * Founder: "I particularly like the idea of an athlete waking up, glancing at
  * their phone and immediately seeing what SACORO has planned." And the three
@@ -96,6 +102,7 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
 
     static int placedCount(Context context) {
         return idsOf(context, SacoroWidgetProvider.class).length
+             + idsOf(context, SacoroWidgetMini.class).length
              + idsOf(context, SacoroWidgetSmall.class).length
              + idsOf(context, SacoroWidgetLarge.class).length;
     }
@@ -104,10 +111,12 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
     static void refreshAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] medium = idsOf(context, SacoroWidgetProvider.class);
+        int[] mini = idsOf(context, SacoroWidgetMini.class);
         int[] small = idsOf(context, SacoroWidgetSmall.class);
         int[] large = idsOf(context, SacoroWidgetLarge.class);
-        if (medium.length + small.length + large.length == 0) return;
+        if (medium.length + mini.length + small.length + large.length == 0) return;
         if (medium.length > 0) { RemoteViews v = renderMedium(context); for (int id : medium) manager.updateAppWidget(id, v); }
+        if (mini.length > 0) { RemoteViews v = renderMini(context); for (int id : mini) manager.updateAppWidget(id, v); }
         if (small.length > 0) { RemoteViews v = renderSmall(context); for (int id : small) manager.updateAppWidget(id, v); }
         if (large.length > 0) { RemoteViews v = renderLarge(context); for (int id : large) manager.updateAppWidget(id, v); }
         scheduleMidnight(context);
@@ -143,6 +152,38 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         v.setTextViewText(R.id.widget_title, l[1]);
         v.setTextViewText(R.id.widget_line, l[2]);
         v.setTextViewText(R.id.widget_note, l[3]);
+        openOnTap(context, v, R.id.widget_root);
+        return v;
+    }
+
+    static final int CHERRY = 0xFFC46A89;   // the cherry of ACORO on the icon
+
+    /** "8 KM EASY": the distance in white and bold, the kind in cherry, a
+     *  little smaller. A day with no distance (rest, optional) is the kind
+     *  alone. */
+    static CharSequence compactSession(String dist, String kind) {
+        SpannableStringBuilder b = new SpannableStringBuilder();
+        if (dist != null && !dist.isEmpty()) {
+            b.append(dist);
+            b.setSpan(new StyleSpan(Typeface.BOLD), 0, b.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            b.append(' ');
+        }
+        int start = b.length();
+        b.append(kind == null ? "" : kind);
+        b.setSpan(new ForegroundColorSpan(CHERRY), start, b.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        if (start > 0) b.setSpan(new RelativeSizeSpan(0.8f), start, b.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return b;
+    }
+
+    /** Mini, 2x1. Founder: "a 2 x 1 widget with dot SACORO dot top centre,
+     *  left aligned today and then right aligned 8km easy. Make the text as big
+     *  as possible for the box size ... Keep the colours." The layout sizes
+     *  both lines to fill their space (autoSize); this only supplies words. */
+    static RemoteViews renderMini(Context context) {
+        SharedPreferences p = prefs(context);
+        String[] c = SacoroWidgetDays.compactForToday(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false), todayKey());
+        RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today_mini);
+        v.setTextViewText(R.id.widget_session, compactSession(c[0], c[1]));
         openOnTap(context, v, R.id.widget_root);
         return v;
     }

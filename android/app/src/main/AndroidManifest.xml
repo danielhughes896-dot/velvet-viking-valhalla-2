@@ -49,6 +49,16 @@
              medium one (SacoroWidgetProvider.refreshAll), so only that receiver
              needs to hear about the clock changing. -->
         <receiver
+            android:name=".SacoroWidgetMini"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sacoro_widget_mini_info" />
+        </receiver>
+        <receiver
             android:name=".SacoroWidgetSmall"
             android:exported="true">
             <intent-filter>

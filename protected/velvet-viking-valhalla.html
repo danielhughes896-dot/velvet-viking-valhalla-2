@@ -73670,19 +73670,39 @@ function widgetCue(dd){
   try { g = coachingEntryFor(dd); } catch(e){ g = null; }
   return widgetSafe(g && g.cue);
 }
+/* THE 2x1 WIDGET'S TWO WORDS. Founder, of the smallest size: "8 KM EASY
+   ... just the essential session information. No pace." So each day also
+   carries its distance as the card would say it, in capitals, and one word
+   for what kind of run it is, from the same labels the card uses. */
+var WIDGET_KIND = { 'Long Run':'LONG', 'Interval':'INTERVALS', 'Repetition':'REPS',
+                    'Race Day':'RACE', 'Goal Day':'GOAL', 'Rest':'REST DAY' };
+function widgetKind(dd){
+  var l = '';
+  try { l = String(dayTypeLabel(dd) || ''); } catch(e){ l = ''; }
+  return WIDGET_KIND[l] || l.toUpperCase();
+}
+function widgetDist(dd){
+  if (!dd || !(dd.km > 0)) return '';
+  return String(kmToDisplay(dd.km)) + ' ' + displayUnit().toUpperCase();
+}
 function widgetDay(date){
   var dd = findDayByDate(date);
   var out = { date: date, label: 'TODAY' };
   if (!dd){
     out.title = 'Nothing planned'; out.line = 'No session in your plan today.'; out.note = '';
+    out.dist = ''; out.kind = 'NO SESSION';
   } else if (dayRestricted(dd)){
     out.title = 'Your plan'; out.line = 'Open SACORO for today’s plan.'; out.note = '';
+    out.dist = ''; out.kind = 'OPEN SACORO';
   } else if (isOptionalRunDay(dd)){
     out.title = 'Optional run'; out.line = 'No run needed.'; out.note = 'Rest, or run if you feel like it.';
+    out.dist = ''; out.kind = 'OPTIONAL';
   } else if (dd.type === 'rest'){
     out.title = 'REST DAY'; out.line = vRestInstruction()+'.';
     out.note = widgetCue(dd) || WIDGET_REST_NOTE;
+    out.dist = ''; out.kind = 'REST DAY';
   } else {
+    out.dist = widgetDist(dd); out.kind = widgetKind(dd);
     var pace = '';
     try { pace = getDayTargets(dd).pace || ''; } catch(e){ pace = ''; }
     /* The card's own name, but no dash on a home screen: "no em dashes". */
