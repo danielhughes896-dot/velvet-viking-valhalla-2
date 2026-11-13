@@ -7083,6 +7083,14 @@
     .bn-stack{ background:rgba(16,16,20,.96); -webkit-backdrop-filter:none; backdrop-filter:none; }
   }
   @media (min-width:640px){ .bn-stack{ left:50%; right:auto; width:calc(var(--maxw) - 24px); transform:translateX(-50%); } }
+  /* While a field has the keyboard (see fieldTyping), the bar fades out of
+     the way on a touch screen and is gone from the hit test and the layout
+     measurement once it has; it fades back when typing ends. */
+  @media (pointer:coarse){
+    .bn-stack{ transition:opacity .2s ease, visibility 0s linear 0s; }
+    html.is-typing .bn-stack{ opacity:0; visibility:hidden; pointer-events:none;
+      transition:opacity .2s ease, visibility 0s linear .2s; }
+  }
   /* =======================================================
      THIS WEEK -- the week as one session at a time.
      =======================================================
@@ -72353,12 +72361,24 @@ function fieldFocusIn(e){
   var el = e && e.target;
   if (!isTypingField(el)) return;
   fieldView.el = el;
+  fieldTyping(true);
   fieldSoon(FIELD_SETTLE_MS);
+}
+/* ---- THE TAB BAR STEPS ASIDE WHILE YOU TYPE ----
+   Founder: "The floating navigation can hide while typing." On a phone the
+   keyboard and the tab bar would otherwise share the bottom of the screen
+   and the field would have to clear both. A class on the root, read by the
+   sheet only on touch screens (a desk keyboard needs no room), fades the
+   bar out and back; it is the same bar when it returns. */
+function fieldTyping(on){
+  var r = document.documentElement;
+  if (r && r.classList) r.classList[on ? 'add' : 'remove']('is-typing');
 }
 function fieldFocusOut(){
   setTimeout(function(){
     if (isTypingField(document.activeElement)) return;
     fieldView.el = null;
+    fieldTyping(false);
     clearTimeout(fieldView.timer);
     setTimeout(fieldUnpad, FIELD_SETTLE_MS);
   }, 0);

@@ -162,10 +162,25 @@ test('wired once at start, listening for focus, typing and the keyboard moving t
   assert.match(fnIn('fieldSoon'), /clearTimeout\(fieldView\.timer\)/);
 });
 
-test('the glass tab bar is left exactly as it is: the field moves, the bar does not', () => {
-  ['isTypingField', 'fieldScroller', 'fieldClearBand', 'fieldShortfall', 'fieldBringIntoView', 'fieldUnpad',
-   'fieldSoon', 'fieldFocusIn', 'fieldFocusOut', 'fieldViewportMoved', 'fieldTyped', 'initFieldInView'].forEach(n => {
-    const src = fnIn(n);
-    assert.doesNotMatch(src, /bn-stack|bottom-nav|kb-open/, n + ' reaches for the tab bar');
-  });
+test('the tab bar steps aside while typing, on touch screens only, and comes back unchanged', () => {
+  /* Founder, on the corrections: "ensure all active input fields remain
+     visible above the keyboard, including the inline Log Session form. The
+     floating navigation can hide while typing." */
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const cls = new Set();
+  a.document = { documentElement: { classList: { add: c => cls.add(c), remove: c => cls.delete(c) } }, activeElement: null };
+  a.fieldTyping(true);
+  assert.ok(cls.has('is-typing'));
+  a.fieldTyping(false);
+  assert.ok(!cls.has('is-typing'));
+  assert.match(fnIn('fieldFocusIn'), /fieldTyping\(true\)/);
+  assert.match(fnIn('fieldFocusOut'), /fieldTyping\(false\)/);
+  /* Only opacity and visibility change: the bar's glass, shape and place are
+     the same bar when it returns. A desk keyboard needs no room. */
+  const m = /@media \(pointer:coarse\)\{([\s\S]*?)\n  \}/.exec(CSS);
+  assert.ok(m, 'the hiding is not limited to touch screens');
+  const hide = /html\.is-typing \.bn-stack\{([^}]*)\}/.exec(m[1]);
+  assert.ok(hide, 'nothing hides the bar while typing');
+  assert.match(hide[1], /opacity:0; visibility:hidden; pointer-events:none;/);
+  assert.doesNotMatch(hide[1], /background|backdrop|border-radius|bottom:|left:|right:|transform/, 'the bar is restyled, not just hidden');
 });
