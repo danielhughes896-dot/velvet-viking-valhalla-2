@@ -28,12 +28,18 @@ final class SacoroWidgetDays {
 
     /** The four lines the widget shows (label, title, line, note), chosen for today. */
     static String[] linesForToday(String daysJson, boolean hasPlan, String today) {
+        return linesForDate(daysJson, hasPlan, today);
+    }
+
+    /** The same four lines for any day the app handed over. The label is the
+     *  app's ("TODAY"); the 4x2 widget names a later day itself (dayLabel). */
+    static String[] linesForDate(String daysJson, boolean hasPlan, String date) {
         if (!hasPlan) return NO_PLAN;
         try {
             JSONArray days = new JSONArray(daysJson == null ? "[]" : daysJson);
             for (int i = 0; i < days.length(); i++) {
                 JSONObject d = days.getJSONObject(i);
-                if (!today.equals(d.optString("date"))) continue;
+                if (!date.equals(d.optString("date"))) continue;
                 return new String[] {
                     d.optString("label", "TODAY"),
                     d.optString("title", ""),
@@ -92,6 +98,56 @@ final class SacoroWidgetDays {
             return new String[0][];
         }
         return out.toArray(new String[0][]);
+    }
+
+    /* ---------- THE DAYS THE 4x2 WIDGET CAN BROWSE ----------
+       Founder: "browsing the seven days of the current training week. But
+       only future days. So Tuesday doesn't then need to show Monday and if it
+       was Friday then only Friday, Saturday, Sunday would be available."
+       Today first, then each day after it up to and including Sunday, the end
+       of the training week. Only days the app actually handed over, and only
+       consecutive ones: a gap ends the list rather than being stepped over,
+       the same rule as upcoming(). With no plan there is today alone. */
+    static List<String> browsableDates(String daysJson, boolean hasPlan, String today) {
+        List<String> out = new ArrayList<>();
+        out.add(today);
+        if (!hasPlan) return out;
+        int left = daysToSunday(today);
+        try {
+            JSONArray days = new JSONArray(daysJson == null ? "[]" : daysJson);
+            for (int k = 1; k <= left; k++) {
+                String date = addDays(today, k);
+                if (date == null) break;
+                boolean found = false;
+                for (int i = 0; i < days.length(); i++) {
+                    if (date.equals(days.getJSONObject(i).optString("date"))) { found = true; break; }
+                }
+                if (!found) break;
+                out.add(date);
+            }
+        } catch (Exception e) {
+            // today alone
+        }
+        return out;
+    }
+
+    /** Days from this one to the Sunday that ends its training week: Monday 6, Sunday 0. */
+    static int daysToSunday(String ymd) {
+        try {
+            Calendar c = Calendar.getInstance();
+            c.setTime(new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(ymd));
+            int dow = c.get(Calendar.DAY_OF_WEEK);           // SUNDAY 1, MONDAY 2 .. SATURDAY 7
+            return dow == Calendar.SUNDAY ? 0 : 8 - dow;
+        } catch (ParseException e) {
+            return 0;
+        }
+    }
+
+    /** What the 4x2 widget calls the day it is showing: TODAY, TOMORROW, then the weekday. */
+    static String dayLabel(String today, String date) {
+        if (date == null || date.equals(today)) return "TODAY";
+        for (int k = 1; k <= 7; k++) if (date.equals(addDays(today, k))) return dayWord(date, k);
+        return dayWord(date, 2);
     }
 
     static String addDays(String ymd, int k) {

@@ -5,8 +5,10 @@ import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -24,6 +26,7 @@ import android.widget.RemoteViews;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -64,6 +67,31 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
     static final String KEY_DAYS = "days";
     static final String KEY_HAS_PLAN = "hasPlan";
     static final String ACTION_MIDNIGHT = "com.velvetviking.valhalla.WIDGET_MIDNIGHT";
+
+    /* ---------- THE 4x2 BROWSES THE REST OF THE WEEK ----------
+       Founder: "Update the existing 4x2 widget to allow browsing the seven
+       days of the current training week. But only future days ... Add subtle
+       left/right navigation ... Default to TODAY whenever the widget loads.
+       Automatically return to TODAY after locking/unlocking the phone where
+       Android permits, and when the date changes. Tapping the session opens
+       it in SACORO ... Use Android-supported widget interactions rather than
+       relying on swipe gestures."
+       A widget cannot take a swipe, so two small arrows send a broadcast back
+       here (ACTION_PREV / ACTION_NEXT), which moves THAT widget's day and
+       redraws it. Which day a widget shows is remembered per widget, with the
+       date it was chosen on: a choice made yesterday is not a choice today.
+       Every other redraw -- the app saving, the half-hourly update, midnight,
+       the clock changing -- goes back to TODAY, and so does the screen going
+       off or the phone being unlocked, which Android only tells an app whose
+       process is still running (watchForUnlock); when it is not, the next
+       half-hourly update is what brings the widget back. */
+    static final String ACTION_PREV = "com.velvetviking.valhalla.WIDGET_PREV";
+    static final String ACTION_NEXT = "com.velvetviking.valhalla.WIDGET_NEXT";
+    /** The day SACORO should open, carried on the tap that opens it. */
+    static final String EXTRA_OPEN_DAY = "com.velvetviking.valhalla.OPEN_DAY";
+    static final String KEY_SHOWN_PREFIX = "shown_";
+    /** Tests fix the date; null in the app. */
+    static String sTodayForTest = null;
 
     /* ---------- ANY SIZE, ANY ENTRY ----------
        Founder: "Enable Android widget resizing, like the standard weather
@@ -115,21 +143,30 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
 
     /** The layout for LAYOUT_KEYS[i]; the large one is told the height it has at least. */
     static RemoteViews renderLayout(Context context, int i) {
+        return renderLayout(context, i, AppWidgetManager.INVALID_APPWIDGET_ID);
+    }
+
+    /** The same, for one placed widget: the 4x2 shows the day that widget is on. */
+    static RemoteViews renderLayout(Context context, int i, int widgetId) {
         switch (LAYOUT_KIND[i]) {
             case KIND_ROW_NARROW: return renderMiniNarrow(context);
             case KIND_ROW: return renderMini(context);
             case KIND_TALL: return renderMiniTall(context);
             case KIND_SMALL: return renderSmall(context);
             case KIND_LARGE: return renderLarge(context, LAYOUT_KEYS[i][1]);
-            default: return renderMedium(context);
+            default: return renderMedium(context, widgetId);
         }
     }
 
     /** Android 12 and later: every layout at once, for the launcher to choose from. */
     static RemoteViews responsive(Context context) {
+        return responsive(context, AppWidgetManager.INVALID_APPWIDGET_ID);
+    }
+
+    static RemoteViews responsive(Context context, int widgetId) {
         Map<SizeF, RemoteViews> m = new ArrayMap<>();
         for (int i = 0; i < LAYOUT_KEYS.length; i++)
-            m.put(new SizeF(LAYOUT_KEYS[i][0], LAYOUT_KEYS[i][1]), renderLayout(context, i));
+            m.put(new SizeF(LAYOUT_KEYS[i][0], LAYOUT_KEYS[i][1]), renderLayout(context, i, widgetId));
         return new RemoteViews(m);
     }
 
@@ -137,18 +174,19 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
     float[] startSize() { return new float[] { 276, 220 }; }
 
     static RemoteViews viewsFor(Context context, AppWidgetManager manager, int id, float[] start) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return responsive(context);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return responsive(context, id);
         Bundle o = manager.getAppWidgetOptions(id);
         // Portrait width is the minimum width and portrait height the maximum height.
         int w = o == null ? 0 : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0);
         int h = o == null ? 0 : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0);
         if (w <= 0 || h <= 0) { w = (int) start[0]; h = (int) start[1]; }
-        return renderLayout(context, pickLayout(w, h));
+        return renderLayout(context, pickLayout(w, h), id);
     }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
-        for (int id : ids) manager.updateAppWidget(id, viewsFor(context, manager, id, startSize()));
+        /* Placed, or the half-hourly update: TODAY. */
+        for (int id : ids) { forgetShown(context, id); manager.updateAppWidget(id, viewsFor(context, manager, id, startSize())); }
         scheduleMidnight(context);
     }
 
@@ -159,9 +197,23 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
     }
 
     @Override
+    public void onDeleted(Context context, int[] ids) {
+        for (int id : ids) forgetShown(context, id);
+    }
+
+    @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
         String a = intent.getAction();
+        if (ACTION_PREV.equals(a) || ACTION_NEXT.equals(a)) {
+            int id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
+            if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return;
+            step(context, id, ACTION_NEXT.equals(a) ? 1 : -1);
+            AppWidgetManager manager = AppWidgetManager.getInstance(context);
+            manager.updateAppWidget(id, viewsFor(context, manager, id, startSize()));
+            watchForUnlock(context);
+            return;
+        }
         if (ACTION_MIDNIGHT.equals(a)
                 || Intent.ACTION_TIME_CHANGED.equals(a)
                 || Intent.ACTION_TIMEZONE_CHANGED.equals(a)) {
@@ -197,6 +249,8 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
 
     /** Redraw every placed widget, of every size, from what is stored. */
     static void refreshAll(Context context) {
+        /* Every redraw that is not an arrow is a fresh look: TODAY. */
+        backToToday(context);
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] medium = idsOf(context, SacoroWidgetProvider.class);
         int[] mini = idsOf(context, SacoroWidgetMini.class);
@@ -211,7 +265,90 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
     }
 
     static String todayKey() {
+        if (sTodayForTest != null) return sTodayForTest;
         return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+    }
+
+    /* ---------- WHICH DAY A 4x2 IS SHOWING ----------
+       Stored as "date|chosen-on". Read back only on the day it was chosen and
+       only while that day can still be browsed; anything else is TODAY. */
+    static List<String> browsable(Context context) {
+        SharedPreferences p = prefs(context);
+        return SacoroWidgetDays.browsableDates(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false), todayKey());
+    }
+
+    static String shownDate(Context context, int id) {
+        String today = todayKey();
+        if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return today;
+        String v = prefs(context).getString(KEY_SHOWN_PREFIX + id, null);
+        if (v == null) return today;
+        String[] parts = v.split("\\|");
+        if (parts.length != 2 || !today.equals(parts[1])) return today;
+        return browsable(context).contains(parts[0]) ? parts[0] : today;
+    }
+
+    /** One day along, never before today and never past Sunday. */
+    static void step(Context context, int id, int delta) {
+        List<String> days = browsable(context);
+        int i = days.indexOf(shownDate(context, id));
+        if (i < 0) i = 0;
+        i = Math.max(0, Math.min(days.size() - 1, i + delta));
+        if (i == 0) forgetShown(context, id);
+        else prefs(context).edit().putString(KEY_SHOWN_PREFIX + id, days.get(i) + "|" + todayKey()).apply();
+    }
+
+    static void forgetShown(Context context, int id) {
+        prefs(context).edit().remove(KEY_SHOWN_PREFIX + id).apply();
+    }
+
+    static void backToToday(Context context) {
+        SharedPreferences p = prefs(context);
+        SharedPreferences.Editor e = p.edit();
+        for (String k : p.getAll().keySet()) if (k.startsWith(KEY_SHOWN_PREFIX)) e.remove(k);
+        e.apply();
+    }
+
+    /* ---------- LOCKING AND UNLOCKING, WHERE ANDROID PERMITS ----------
+       Since Android 8 the screen going off and the phone being unlocked are
+       told only to receivers registered by a running process, never to one
+       in the manifest. So SACORO listens while its process is alive: from
+       the moment an arrow is pressed, and whenever the app is open. Either
+       one puts every widget back on TODAY. Registered once per process, on
+       the application context (a receiver's own context may not register). */
+    static volatile boolean watchingLock = false;
+
+    static void watchForUnlock(Context context) {
+        if (watchingLock) return;
+        try {
+            IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+            f.addAction(Intent.ACTION_USER_PRESENT);
+            BroadcastReceiver r = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context c, Intent i) { refreshAll(c); }
+            };
+            Context app = context.getApplicationContext();
+            if (Build.VERSION.SDK_INT >= 33) app.registerReceiver(r, f, Context.RECEIVER_NOT_EXPORTED);
+            else app.registerReceiver(r, f);
+            watchingLock = true;
+        } catch (Exception e) {
+            // the half-hourly update still brings it back
+        }
+    }
+
+    static PendingIntent navIntent(Context context, int id, String action) {
+        Intent i = new Intent(context, SacoroWidgetProvider.class).setAction(action)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id);
+        int code = 2000 + id * 2 + (ACTION_NEXT.equals(action) ? 1 : 0);
+        return PendingIntent.getBroadcast(context, code, i,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    /** The intent a tap on the 4x2 sends: SACORO, opened on that day. */
+    static Intent openDayIntent(Context context, String date) {
+        Intent open = new Intent(context, MainActivity.class);
+        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        open.putExtra(EXTRA_OPEN_DAY, date);
+        return open;
     }
 
     static SharedPreferences prefs(Context context) {
@@ -232,15 +369,40 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         v.setOnClickPendingIntent(rootId, pi);
     }
 
-    /** Medium, 4x2: label, title, distance and pace, the coaching line. */
+    /** Medium, 4x2: label, title, distance and pace, the coaching line, for
+     *  the day this widget is on, with an arrow either side of the label row
+     *  when there is a day that way. */
     static RemoteViews renderMedium(Context context) {
-        String[] l = todayLines(context);
+        return renderMedium(context, AppWidgetManager.INVALID_APPWIDGET_ID);
+    }
+
+    static RemoteViews renderMedium(Context context, int widgetId) {
+        SharedPreferences p = prefs(context);
+        String today = todayKey();
+        String shown = shownDate(context, widgetId);
+        String[] l = shown.equals(today) ? todayLines(context)
+                : SacoroWidgetDays.linesForDate(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false), shown);
         RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today);
-        v.setTextViewText(R.id.widget_label, l[0]);
+        v.setTextViewText(R.id.widget_label, shown.equals(today) ? l[0] : SacoroWidgetDays.dayLabel(today, shown));
         v.setTextViewText(R.id.widget_title, l[1]);
         v.setTextViewText(R.id.widget_line, l[2]);
         v.setTextViewText(R.id.widget_note, l[3]);
-        openOnTap(context, v, R.id.widget_root);
+        List<String> days = browsable(context);
+        int at = Math.max(0, days.indexOf(shown));
+        boolean live = widgetId != AppWidgetManager.INVALID_APPWIDGET_ID;
+        /* INVISIBLE, not GONE: an arrow with nowhere to go keeps its place, so
+           the label row never shifts as the athlete steps along. */
+        v.setViewVisibility(R.id.widget_prev, live && at > 0 ? View.VISIBLE : View.INVISIBLE);
+        v.setViewVisibility(R.id.widget_next, live && at < days.size() - 1 ? View.VISIBLE : View.INVISIBLE);
+        if (live) {
+            v.setOnClickPendingIntent(R.id.widget_prev, navIntent(context, widgetId, ACTION_PREV));
+            v.setOnClickPendingIntent(R.id.widget_next, navIntent(context, widgetId, ACTION_NEXT));
+            PendingIntent pi = PendingIntent.getActivity(context, 1000 + widgetId, openDayIntent(context, shown),
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            v.setOnClickPendingIntent(R.id.widget_root, pi);
+        } else {
+            openOnTap(context, v, R.id.widget_root);
+        }
         return v;
     }
 

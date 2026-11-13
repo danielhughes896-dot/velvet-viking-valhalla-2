@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The Today widget, medium (4x2). SACORO's own language: the near-black
-     ground, white words, gold only for the brand label. No icons, no pills. -->
+     ground, white words, gold only for the brand label. No icons, no pills.
+     THE TWO ARROWS are navigation, not decoration: founder, "Add subtle
+     left/right navigation to move between days." They sit at the end of the
+     label row, white, small, each with a wider target than its mark, and
+     the row is as tall as their target so nothing below moves as a day
+     changes. An arrow with no day that way is hidden but keeps its place.
+     The label sizes itself down to fit beside them (WEDNESDAY at the largest
+     font) rather than wrapping or being cut. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -9,24 +16,60 @@
     android:orientation="vertical"
     android:paddingStart="18dp"
     android:paddingEnd="18dp"
-    android:paddingTop="14dp"
+    android:paddingTop="7dp"
     android:paddingBottom="14dp">
+    <!-- paddingTop 14 -> 7 with the 30dp arrow row: TODAY's centre stays
+         where it was (14 + 7.5 then, 7 + 15 now), and the title sits 4dp
+         lower, the only line that moves. -->
 
-    <TextView
-        android:id="@+id/widget_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="TODAY"
-        android:textColor="#E3B15A"
-        android:textSize="11sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.14" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_label"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="start|center_vertical"
+            android:maxLines="1"
+            android:text="TODAY"
+            android:textColor="#E3B15A"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.14"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="7dp"
+            android:autoSizeMaxTextSize="11sp"
+            android:autoSizeStepGranularity="0.5dp" />
+
+        <ImageView
+            android:id="@+id/widget_prev"
+            android:layout_width="36dp"
+            android:layout_height="30dp"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_chevron_left"
+            android:contentDescription="Previous day" />
+
+        <ImageView
+            android:id="@+id/widget_next"
+            android:layout_width="36dp"
+            android:layout_height="30dp"
+            android:layout_marginEnd="-8dp"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/widget_chevron_right"
+            android:contentDescription="Next day" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="0dp"
         android:maxLines="1"
         android:ellipsize="end"
         android:text="SACORO"

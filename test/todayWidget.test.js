@@ -241,7 +241,7 @@ test('every redraw redraws every size, and the midnight redraw outlives any one 
   assert.match(refresh, /viewsFor\(context, manager, id, /);
   /* Every layout can be drawn, and every one is offered to the launcher. */
   const rk = prov.slice(prov.indexOf('static RemoteViews renderLayout('), prov.indexOf('static RemoteViews responsive('));
-  ['renderMiniNarrow(context)', 'renderMini(context)', 'renderMiniTall(context)', 'renderSmall(context)', 'renderMedium(context)',
+  ['renderMiniNarrow(context)', 'renderMini(context)', 'renderMiniTall(context)', 'renderSmall(context)', 'renderMedium(context, widgetId)',
    'renderLarge(context, LAYOUT_KEYS[i][1])'].forEach(r =>
     assert.ok(rk.indexOf(r) > -1, 'renderLayout never draws ' + r));
   const disabled = prov.slice(prov.indexOf('public void onDisabled('), prov.indexOf('static int[] idsOf('));
@@ -388,10 +388,11 @@ test('resizing: the layout picked at every Pixel launcher size, and dragging an 
   ];
   want.forEach(([name, w, h, k]) => assert.equal(at(w, h), k, name + ' (' + w + 'x' + h + ') draws ' + at(w, h)));
   /* Android 12 and later: every layout handed to the launcher at once. */
-  assert.match(prov, /if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.S\) return responsive\(context\);/);
-  assert.match(prov, /m\.put\(new SizeF\(LAYOUT_KEYS\[i\]\[0\], LAYOUT_KEYS\[i\]\[1\]\), renderLayout\(context, i\)\);/);
+  /* Each placed widget is drawn as itself, so a 4x2 shows the day it is on. */
+  assert.match(prov, /if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.S\) return responsive\(context, id\);/);
+  assert.match(prov, /m\.put\(new SizeF\(LAYOUT_KEYS\[i\]\[0\], LAYOUT_KEYS\[i\]\[1\]\), renderLayout\(context, i, widgetId\)\);/);
   /* Older Android: the size the launcher reports, remade when it changes. */
-  assert.match(prov, /return renderLayout\(context, pickLayout\(w, h\)\);/);
+  assert.match(prov, /return renderLayout\(context, pickLayout\(w, h\), id\);/);
   assert.match(prov, /public void onAppWidgetOptionsChanged\(Context context, AppWidgetManager manager, int id, Bundle newOptions\) \{\s*manager\.updateAppWidget\(id, viewsFor\(context, manager, id, startSize\(\)\)\);/);
   /* The narrow 2x1 keeps the session data: distance white, kind cherry. */
   const tall = prov.slice(prov.indexOf('static RemoteViews renderMiniTall('));

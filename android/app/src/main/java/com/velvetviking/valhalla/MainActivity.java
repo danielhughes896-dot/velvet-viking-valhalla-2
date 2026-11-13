@@ -1,5 +1,6 @@
 package com.velvetviking.valhalla;
 
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 
@@ -27,6 +28,19 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SacoroWidgetPlugin.class);   // the Today widget's link to the app
         super.onCreate(savedInstanceState);
         lockPhonesToPortrait();
+        /* A tap on the 4x2 widget names the day to open; the web app asks
+           for it (SacoroWidget.takeOpenDay) once it is running. */
+        SacoroWidgetPlugin.noteOpenDay(getIntent());
+        /* While SACORO is running, locking or unlocking returns every widget to TODAY. */
+        SacoroWidgetProvider.watchForUnlock(this);
+    }
+
+    /* singleTask: a tap while SACORO is already open arrives here, before
+       the app resumes and asks. */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        SacoroWidgetPlugin.noteOpenDay(intent);
     }
 
     /**

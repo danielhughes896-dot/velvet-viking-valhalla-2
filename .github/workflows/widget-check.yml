@@ -106,4 +106,11 @@ jobs:
             echo "Every layout, size, case and font size:"
             cat "$R" || true
           fi
+          B=$(ls android/widget-shots/widget-shots/browse-report.txt android/widget-shots/browse-report.txt 2>/dev/null | head -1)
+          if [ -n "$B" ]; then
+            echo "## 4x2 browsing, every day of the week" >> "$GITHUB_STEP_SUMMARY"
+            echo "$(grep -c ' ok$' "$B") ok, $(grep -c ' CUT ' "$B") with a cut label" >> "$GITHUB_STEP_SUMMARY"
+            echo "Every browsable day, size and font size:"
+            cat "$B" || true
+          fi
           if [ -f widget-tests-failed ]; then echo "::error::The on-device widget tests failed"; exit 1; fi

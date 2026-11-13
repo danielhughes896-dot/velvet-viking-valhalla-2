@@ -74367,6 +74367,34 @@ function widgetSync(){
   try { p = W.update(payload); } catch(e){ widgetLastSent = null; return Promise.resolve(false); }
   return Promise.resolve(p).then(function(){ return true; }, function(){ widgetLastSent = null; return false; });
 }
+/* ---------- A TAP ON THE 4x2 WIDGET OPENS THAT DAY ----------
+   Founder: "Tapping the session opens it in SACORO." The widget can be on
+   any day from today to Sunday; its tap carries that date, and the native
+   side holds it until asked (SacoroWidget.takeOpenDay). Asked when the app
+   starts and whenever it comes back to the foreground; taken once. Today
+   opens Today; a later day opens This Week on that day with its card open.
+   A day the plan does not have opens nothing -- the app as it was. */
+function widgetOpenDay(){
+  var W = nativePlugin('SacoroWidget');
+  if (!W || !W.takeOpenDay) return Promise.resolve(null);
+  var p;
+  try { p = W.takeOpenDay(); } catch(e){ return Promise.resolve(null); }
+  return Promise.resolve(p).then(function(r){
+    var d = r && r.day;
+    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+    return openDayFromWidget(d) ? d : null;
+  }, function(){ return null; });
+}
+function openDayFromWidget(date){
+  if (!state || !state.days || !findDayByDate(date)) return false;
+  try{ closeModal(); }catch(e){}
+  if (date === todayStr()){ handleSetView('today'); return true; }
+  handleSetView('week');                 // clears any day picked before
+  weekSelectedDate = date;
+  weekSessionOpen = true;
+  renderApp();
+  return true;
+}
 var notifyTimer = null;
 function startNotificationScheduler(){
   if (notifyTimer) clearInterval(notifyTimer);
@@ -74390,6 +74418,7 @@ document.addEventListener('visibilitychange', function(){
   if (nativeNotifier()) nativeScheduleReminders(); else maybeFireDailyNotification();
   /* A new day moves the fortnight on by one; unchanged, it sends nothing. */
   try{ widgetSync(); }catch(e){}
+  try{ widgetOpenDay(); }catch(e){}
   /* Coming back to the foreground is the other moment a staged run can be
      waiting. The webhook stages it while VVV is in the background, and on
      Android resuming does NOT re-run init() -- the WebView is still alive --
@@ -74533,6 +74562,7 @@ function init(){
   registerServiceWorker();
   startNotificationScheduler();
   try{ widgetSync(); }catch(e){}
+  try{ widgetOpenDay(); }catch(e){}
   initHardwareBackButton();
   /* Un-awaited, like cloudInit() below: the answer is only needed if the
      athlete opens Settings, and a slow or absent plugin must never hold up
