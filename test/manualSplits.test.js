@@ -99,9 +99,12 @@ test('no lap editor is offered on an unstructured run, and a structured one has 
 
 test('a session with no logged laps still completes and scores normally', () => {
   const a = app();
-  const dd = completedDay(a);
+  /* A run of one intensity: a structured session's total is a partial
+     assessment whatever laps exist, which is a different law. */
+  const dd = a.state.days.filter(x => x.type === 'easy')[0];
+  dd.completed = true; dd.actual = a.emptyActual();
   dd.actual.km = dd.km;
-  dd.actual.pace = '5:00';
+  dd.actual.pace = a.secToPace(Math.round((a.executionPaceTarget(dd).fast + a.executionPaceTarget(dd).slow) / 2));
   assert.equal(a.computeExecutionScore(dd) != null, true, 'scoring must not depend on laps existing');
 });
 

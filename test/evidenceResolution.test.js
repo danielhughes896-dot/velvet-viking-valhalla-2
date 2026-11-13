@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 /* EVIDENCE RESOLUTION — WHAT THE LOG CAN AND CANNOT ESTABLISH
  * ===========================================================================
@@ -24,6 +24,19 @@ const { buildPlan } = require('./fixtures.js');
  * naming its resolution reads as a verdict on the threshold section, which is
  * the one thing whole-session evidence cannot support. This file pins the
  * naming, and pins that the arithmetic did not change to get it.
+ *
+ * FOUNDER DECISION, LATER: "SACORO needs to distinguish missing evidence from
+ * successful execution ... if someone logs 8 km at 5:00/km against an
+ * interval session but provides no repetition data, SACORO can assess
+ * distance and overall pace. It cannot legitimately claim the intervals were
+ * executed perfectly. That should produce a clearly labelled partial or
+ * unverified assessment, not an invented 100%."
+ * So a structured session logged as one total no longer gets a whole-session
+ * score with a disclosure beside it: it gets a partial assessment and no
+ * score, and is scored once its sections are logged. Where a law below was
+ * about something else (unknown is not zero, more evidence does not lower the
+ * ceiling), the threshold session is logged section by section, as the
+ * athlete now does to have it scored.
  */
 
 const TODAY = '2026-08-24';
@@ -41,15 +54,26 @@ function logWhole(dd, pace){
   dd.actual = { km: dd.km, pace: pace || '5:12', paceUnit: 'km' };
   return dd;
 }
+/* The same total, with each section typed into Your Log on target. */
+function logBySection(a, dd, pace){
+  logWhole(dd, pace);
+  return logSections(a, dd, 1);
+}
 
 // ---------------------------------------------------------------------------
 // RESOLUTION IS DETECTED, NOT GUESSED
 // ---------------------------------------------------------------------------
-test('a structured session logged as one total is judged at whole-session resolution', () => {
+test('a structured session logged as one total gets a partial assessment, not a whole-session score', () => {
   const a = app();
-  const b = a.computeExecutionBreakdown(logWhole(firstOf(a, 'threshold')));
-  assert.equal(b.paceResolution, 'whole-session',
-    'a session with a warm-up, a quality block and a cool-down was treated as if the average were the section');
+  const dd = logWhole(firstOf(a, 'threshold'));
+  assert.equal(a.computeExecutionBreakdown(dd), null,
+    'a session with a warm-up, a quality block and a cool-down was scored from its average');
+  const pa = a.computePartialAssessment(dd);
+  assert.equal(pa && pa.tier, 'partial');
+  /* Logged by section, the same session is scored, at section resolution. */
+  const b = a.computeExecutionBreakdown(logSections(a, dd, 1));
+  assert.ok(b && b.score > 0);
+  assert.notEqual(b.paceResolution, 'whole-session');
 });
 
 test('a single-intensity session is judged directly, because the average IS the thing prescribed', () => {
@@ -84,12 +108,12 @@ test('AUDIT FINDING: distance alone produces no Execution Review at all', () => 
 // ---------------------------------------------------------------------------
 // THE CLAUSE — said where it is load-bearing, silent where it is noise
 // ---------------------------------------------------------------------------
-test('the athlete is told the sections were not logged separately', () => {
+test('the athlete is told the sections were not logged separately, and how to have it scored', () => {
   const a = app();
-  const b = a.computeExecutionBreakdown(logWhole(firstOf(a, 'threshold')));
-  const clause = a.executionResolutionClause(b);
-  assert.match(clause, /whole run/, 'the resolution is not disclosed');
-  assert.match(clause, /not logged separately/);
+  const lines = a.partialAssessmentLines(a.computePartialAssessment(logWhole(firstOf(a, 'threshold')))).join(' ');
+  assert.match(lines, /not logged on its own|not logged one by one/, 'the missing evidence is not named');
+  assert.match(lines, /no execution score/);
+  assert.match(lines, /Log each part in Your Log/);
 });
 
 test('a simple run says nothing about resolution, because there is nothing to say', () => {
@@ -111,7 +135,7 @@ test('the clause never claims a number the athlete did not log', () => {
 // ---------------------------------------------------------------------------
 test('an unlogged component is excluded from the score, never scored nil', () => {
   const a = app();
-  const dd = logWhole(firstOf(a, 'threshold'));
+  const dd = logBySection(a, firstOf(a, 'threshold'));
   const b = a.computeExecutionBreakdown(dd);
   const hr = b.parts.filter(p => p.key === 'hr')[0];
   assert.equal(hr.score, null, 'heart rate was scored despite never being logged');
@@ -120,21 +144,22 @@ test('an unlogged component is excluded from the score, never scored nil', () =>
   assert.ok(b.score > 0, 'unknown evidence dragged the score towards zero');
 });
 
-test('sparse evidence still produces a real verdict rather than a refusal', () => {
+test('sparse evidence still produces a real assessment rather than a refusal', () => {
   const a = app();
   const dd = logWhole(firstOf(a, 'threshold'));
-  const b = a.computeExecutionBreakdown(dd);
-  assert.ok(typeof b.score === 'number' && b.score >= 0 && b.score <= 100,
-    'a session logged simply was not judged at all');
+  const pa = a.computePartialAssessment(dd);
+  assert.ok(pa, 'a session logged simply was not assessed at all');
+  assert.ok(pa.ratio > 0.98, 'the distance was not read');
+  assert.ok(['within', 'faster', 'slower'].includes(pa.paceRead), 'the overall pace was not read');
 });
 
 test('more evidence does not lower the ceiling: adding HR and RPE keeps a good session good', () => {
   const a = app();
-  const sparse = a.computeExecutionBreakdown(logWhole(firstOf(a, 'threshold')));
+  const sparse = a.computeExecutionBreakdown(logBySection(a, firstOf(a, 'threshold')));
   const b = app();
-  const rich = b.computeExecutionBreakdown(
-    Object.assign(logWhole(firstOf(b, 'threshold')), { actual: Object.assign(
-      { km: firstOf(b, 'threshold').km, pace: '5:12', paceUnit: 'km' }, { rpe: 6 }) }));
+  const bd = logBySection(b, firstOf(b, 'threshold'));
+  bd.actual.rpe = 6;
+  const rich = b.computeExecutionBreakdown(bd);
   assert.ok(rich.score > 0 && sparse.score > 0);
   assert.ok(rich.counted.length >= sparse.counted.length,
     'adding evidence reduced what was counted');
@@ -147,7 +172,7 @@ test('naming the resolution did not move any score', () => {
   /* The whole point of the finding: the maths was already right. If adding a
      label changed a number, the label would be doing something it must not. */
   const a = app();
-  const dd = logWhole(firstOf(a, 'threshold'));
+  const dd = logBySection(a, firstOf(a, 'threshold'));
   const b = a.computeExecutionBreakdown(dd);
   const parts = {};
   b.parts.forEach(p => { parts[p.key] = p.score; });
@@ -225,8 +250,9 @@ test('the completion rung steps aside the moment pace is logged', () => {
   const a = app();
   const dd = logWhole(firstOf(a, 'threshold'));
   assert.equal(a.computeCompletionAssessment(dd), null,
-    'the broad rung competed with the whole-session rung');
-  assert.ok(a.computeExecutionBreakdown(dd), 'the higher rung stopped working');
+    'the broad rung competed with the partial rung');
+  assert.ok(a.computePartialAssessment(dd), 'the higher rung stopped working');
+  assert.ok(a.computeExecutionBreakdown(logSections(a, dd, 1)), 'logged by section, it is not scored');
 });
 
 test('a distance-only log still feeds no coaching decision', () => {

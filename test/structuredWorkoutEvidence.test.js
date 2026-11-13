@@ -258,32 +258,38 @@ test('the recorded ladder is readable from the evidence without being labelled',
 // 5. EXECUTION REVIEW -- IT STOPS SAYING SOMETHING UNTRUE
 // =====================================================================
 
-test('with nothing logged below the total, the original sentence is unchanged', () => {
+/* FOUNDER, LATER: a structured session with no section evidence is "a
+   clearly labelled partial or unverified assessment, not an invented 100%".
+   The sentence about what was not logged now belongs to that assessment, and
+   there is no score beside it. */
+test('with nothing logged below the total, it is a partial assessment that says so', () => {
   const { a, dd } = athlete();
   dd.completed = true;
   dd.actual = { km: dd.km, pace: '5:00', paceUnit: 'km', hr: 160, rpe: 6, feel: null, notes: '' };
-  const b = a.computeExecutionBreakdown(dd);
-  assert.equal(b.paceResolution, 'whole-session');
-  assert.match(a.executionResolutionClause(b), /the sections were not logged separately/);
+  assert.equal(a.computeExecutionBreakdown(dd), null);
+  const lines = a.partialAssessmentLines(a.computePartialAssessment(dd)).join(' ');
+  assert.match(lines, /reps were not logged one by one|main set was not logged on its own/);
+  assert.match(lines, /no execution score/);
 });
 
 test('once the athlete logs the sections, it stops claiming they did not', () => {
   const { a, dd } = athlete();
   dd.completed = true;
   dd.actual = { km: dd.km, pace: '5:00', paceUnit: 'km', hr: 160, rpe: 6, feel: null, notes: '' };
-  const before = a.computeExecutionBreakdown(dd);
+  assert.equal(a.computeExecutionBreakdown(dd), null);
   const plan = a.structuredLoggingPlan(dd);
   plan.rows.forEach(r => {
     const row = a.upsertStructuredSplit(dd, plan, r);
     row.km = r.role === 'work' ? 0.2 : 0.3; row.sec = r.role === 'work' ? 35 : 90;
+    delete row.secSeeded;                 // a typed time, as the handler records one
     row.paceSec = Math.round(row.sec / row.km);
   });
   const after = a.computeExecutionBreakdown(dd);
-  assert.equal(after.paceResolution, 'sections-logged');
-  assert.doesNotMatch(a.executionResolutionClause(after), /not logged separately/,
+  assert.ok(after, 'every section logged and still no score');
+  assert.equal(after.paceResolution, 'sections-scored');
+  assert.equal(a.computePartialAssessment(dd), null,
     'the app told the athlete it had no evidence it was holding at the time');
-  // THE SCORE IS NOT TOUCHED. Naming the evidence is not re-weighting it.
-  assert.equal(after.score, before.score, 'the verdict moved -- that is a coaching change');
+  assert.doesNotMatch(a.executionResolutionClause(after), /not logged separately/);
 });
 
 test('imported laps are credited as recorded, and not as proof of which was a rep', () => {
@@ -293,20 +299,22 @@ test('imported laps are credited as recorded, and not as proof of which was a re
      honestly that the score did not move. */
   const bare = athlete();
   importInto(bare.a, bare.dd, rawActivity({ laps: null }));
-  const before = bare.a.computeExecutionBreakdown(bare.a.findDay(bare.dd.id));
+  const before = bare.a.computePartialAssessment(bare.a.findDay(bare.dd.id));
+  assert.equal(before.laps, false);
 
   const { a, dd } = athlete();
   a.state.healthConsent = { version: a.HEALTH_CONSENT_VERSION, decision: 'granted',
                             at: '2026-01-01T00:00:00Z' };
   importInto(a, dd);
-  const after = a.computeExecutionBreakdown(a.findDay(dd.id));
-  assert.equal(after.paceResolution, 'laps-recorded');
-  const clause = a.executionResolutionClause(after);
-  assert.doesNotMatch(clause, /not logged separately/);
-  assert.match(clause, /laps are recorded/);
-  assert.match(clause, /nothing in them says which lap was a rep/,
-    'the clause claimed more than the evidence supports');
-  assert.equal(after.score, before.score, 'recorded laps silently re-scored the session');
+  /* Laps say nothing about which was a rep, so they are not section
+     evidence: no score, before or after, and the assessment says why. */
+  assert.equal(a.computeExecutionBreakdown(a.findDay(dd.id)), null, 'recorded laps silently scored the session');
+  const after = a.computePartialAssessment(a.findDay(dd.id));
+  assert.equal(after.laps, true);
+  const lines = a.partialAssessmentLines(after).join(' ');
+  assert.match(lines, /watch laps are not matched to the reps/,
+    'the assessment claimed more than the evidence supports');
+  assert.deepEqual([after.km, after.paceSec], [before.km, before.paceSec], 'the laps changed the whole-run reading');
 });
 
 test("the athlete's own log outranks the device's when both exist", () => {
@@ -317,11 +325,12 @@ test("the athlete's own log outranks the device's when both exist", () => {
   plan.rows.forEach(r => {
     const row = a.upsertStructuredSplit(dd, plan, r);
     row.km = 0.4; row.sec = 120; row.paceSec = 300;
+    delete row.secSeeded;                 // a typed time, as the handler records one
   });
   dd.actual.deviceLaps = [{ km: 1, sec: 300, paceSec: 300 }];
   dd.actual.deviceLapSource = 'strava';
   const b = a.computeExecutionBreakdown(dd);
-  assert.equal(b.paceResolution, 'sections-logged',
+  assert.equal(b && b.paceResolution, 'sections-scored',
     'a watch lap was preferred to the athlete naming the section themselves');
 });
 
@@ -375,8 +384,10 @@ test('manual logging is entirely unaffected by any of this', () => {
   const { a, dd } = athlete();
   dd.completed = true;
   dd.actual = { km: 8.2, pace: '4:44', paceUnit: 'km', hr: 168, rpe: 7, feel: 'strong', notes: 'ok' };
-  const b = a.computeExecutionBreakdown(dd);
-  assert.ok(b && b.score != null, 'a hand-logged session stopped being scored');
+  /* A hand-logged total on a structured session is read as a partial
+     assessment, exactly as one without any import machinery would be. */
+  const pa = a.computePartialAssessment(dd);
+  assert.ok(pa && pa.km === 8.2 && pa.paceSec === 284, 'a hand-logged session stopped being read');
   assert.equal(a.actualPaceSecPerKm(dd), 284);
   assert.equal(dd.actual.deviceLaps, undefined, 'laps were invented for a manual log');
 });

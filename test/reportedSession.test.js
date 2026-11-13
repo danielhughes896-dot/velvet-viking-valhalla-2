@@ -156,7 +156,7 @@ test('with appropriate evidence confidence: it is marked as unscored and as repo
   assert.equal(r.hrDrift, null); assert.equal(r.splitMetrics, null);
   /* A scored session of the same kind is more sure of itself, and says so. */
   const scored = hillDay();
-  logAsPrescribed(scored.a, scored.dd, { quality: 1 });
+  logAsPrescribed(scored.a, scored.dd, { quality: 1, sections: true });
   const sr = scored.a.coachWorkoutReview(scored.dd);
   assert.ok(scored.a.computeExecutionBreakdown(scored.dd), 'the comparison session did not score');
   assert.notEqual(sr.scored, false);

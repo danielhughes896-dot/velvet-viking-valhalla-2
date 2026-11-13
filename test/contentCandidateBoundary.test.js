@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 const bridge = require('../api/_content-bridge.js');
 
 // CONTENT CANDIDATE BOUNDARY TESTS.
@@ -33,6 +33,7 @@ function founderApp() {
     feel: 'good',
     notes: 'felt strong, shin was a bit sore afterwards'
   };
+  logSections(a, dd, 1);              // a structured session is scored from its sections
   return { a, dd };
 }
 

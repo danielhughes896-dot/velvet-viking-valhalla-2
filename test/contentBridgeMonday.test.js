@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 const CB = require('../api/_content-bridge.js');
 
 // CONTENT BRIDGE -- SERVER BOUNDARY TESTS.
@@ -113,6 +113,7 @@ test('3. an arbitrary future athlete-state field cannot leak', () => {
   dd.actual = { km: dd.km, pace: a.secToPace(Math.round(tr.fast - 2)),
                 hr: z && z.hi ? z.hi - 4 : null, rpe: 7, feel: 'good',
                 notes: 'felt strong, shin was a bit sore afterwards' };
+  logSections(a, dd, 1);              // a structured session is scored from its sections
   // A feature added next year adds fields nobody revisited this test for.
   dd.futureInjuryFlag = 'suspected stress fracture';
   dd.actual.futureBodyMetric = 'HRV 42';
@@ -191,6 +192,7 @@ test('7. the founder exports only what deterministic coaching eligibility allows
   dd.completed = true;
   dd.actual = { km: dd.km, pace: a.secToPace(Math.round(tr.fast - 2)),
                 hr: z && z.hi ? z.hi - 4 : null, rpe: 7, feel: 'good', notes: '' };
+  logSections(a, dd, 1);              // a structured session is scored from its sections
   a.CONTENT_CANDIDATE_ENABLED = true;
   assert.equal(a.coachBreakthroughs().length, 1);
   assert.equal(a.contentCandidates('founder').length, 1);

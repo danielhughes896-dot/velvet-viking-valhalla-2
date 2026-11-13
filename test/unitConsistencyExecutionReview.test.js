@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 /* UNIT CONSISTENCY -- THE CACHED EXECUTION REVIEW GAP
  * ===========================================================================
@@ -53,6 +53,7 @@ function loggedThreshold(a){
   a.handleActualFieldChange(dd.id, 'pace', '5:00');
   a.handleActualFieldChange(dd.id, 'hr', '160');
   a.handleActualFieldChange(dd.id, 'rpe', '6');
+  logSections(a, dd, 1);              // a structured session is scored from its sections
   a.coachPersistReview(dd);
   return dd;
 }

@@ -536,7 +536,11 @@ test('it is not yet what the circles read: calibration is still under review', (
       fn + '() has started reading the unreviewed assessment');
   });
   const a = athlete(); const d = threshold(a);
-  log(a, d, { sections: onWork(() => 1), rpe: 7 });
+  /* With the whole session's average pace: a score needs a distance and an
+     overall pace ("Add an average pace for the whole session and it is
+     scored"), and a structured session its sections as well. */
+  const t = a.executionPaceTarget(d);
+  log(a, d, { sections: onWork(() => 1), rpe: 7, pace: Math.round((t.fast + t.slow) / 2) });
   assert.ok(a.computeExecutionBreakdown(d) && a.computeExecutionBreakdown(d).score != null,
     'the existing score stopped answering');
 });

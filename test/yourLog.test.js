@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadApp } = require('./harness.js');
-const { buildPlan, logAsPrescribed } = require('./fixtures.js');
+const { buildPlan, logAsPrescribed, logSections } = require('./fixtures.js');
 
 /* YOUR LOG.
 
@@ -476,6 +476,7 @@ test('a tapped condition excuses a slow pace exactly as the same word typed in t
     const a = app(), dd = session(a, 'sustained');
     const sec = a.actualPaceSecPerKm(dd) * 1.12;
     dd.actual.pace = Math.floor(sec / 60) + ':' + String(Math.round(sec % 60)).padStart(2, '0');
+    logSections(a, dd, 1.12);         // and every section as slow: a structured session is scored from them
     return { a, dd };
   };
   const read = (a, dd) => {

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 /* THE READING, THE RACE OUTLOOK, AND THE ACTION TRIO.
  *
@@ -61,6 +61,7 @@ function withHistory(a) {
     const mid = tgt && tgt.fast != null ? Math.round((tgt.fast + tgt.slow) / 2) : 320;
     dd.completed = true;
     dd.actual = { km: dd.km, pace: a.secToPace(mid), hr: 148, rpe: 5, feel: 'good', notes: '' };
+    logSections(a, dd, 1);            // a structured session is scored from its sections
     if (dd.type === 'race' || dd.type === 'checkpoint') a.recordMeasuredPerformance(dd);
   });
   return a;
