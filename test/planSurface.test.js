@@ -187,9 +187,28 @@ test('done, now and ahead are one colour language on the plan', () => {
      is asserted here is that the rim really is gone in EVERY state, because
      a rim on one slide and not another is the gap coming back. */
   assert.match(rule('.pp-slide-body'), /border:0/,
-    'the full-bleed photograph grew a rim again, which is the gap in another colour');
-  assert.match(rule('.pp-slide-body'), /border-radius:0/,
-    'the full-bleed photograph grew corners again');
+    'the photograph grew a rim again: its edge is light (::after), not a border');
+  /* CHANGED SIDES. Founder, with a mock-up: "Keep the Instagram-style
+     width with space on either side. Rounded corners: approximately 20px.
+     Floating effect: soft shadow beneath the image. Glass edge: delicate
+     highlight catching the upper edge ... No glass box over the text."
+     The edge-to-edge photograph this used to hold is now a card. */
+  const card = rule('.pp-slide-body');
+  assert.match(card, /border-radius:20px/, 'the photograph lost its 20px corners');
+  assert.match(card, /box-shadow:0 10px 20px rgba\(0,0,0,\.\d+\)/, 'the card no longer floats on a soft shadow');
+  const edge = rule('.pp-slide-body::after');
+  assert.match(edge, /inset 0 1px 0 rgba\(255,255,255,\.\d+\)/, 'the glass edge along the top is gone');
+  assert.match(edge, /pointer-events:none/);
+  assert.doesNotMatch(edge, /backdrop-filter|background:/, 'a glass box has been laid over the words');
+  /* Space either side: the page gutter, inside the full-width rail. */
+  assert.match(rule('.view-plan .pp-slide'), /padding:\d+px 16px \d+px;/, 'the card is not inset by the page gutter');
+  /* The dots sit in the room left under the card for its shadow, so they
+     are lifted above the rail: under it they were dimmed by the shadow and
+     a tap on them landed on the slide. */
+  assert.match(BARE, /\.view-plan > \.pp-dots\{[^}]*position:relative; z-index:1;/, 'the phase dots are under the rail again');
+  /* And a card you can feel: a slight press, still under reduced motion. */
+  const motion = BARE.slice(BARE.indexOf('.pp-slide-body:active') - 200, BARE.indexOf('.pp-slide-body:active') + 60);
+  assert.match(motion, /prefers-reduced-motion: no-preference[\s\S]*\.pp-slide-body:active\{transform:scale\(\.985\);\}/);
   assert.doesNotMatch(BARE, /\.pp-slide[^{]*\{[^}]*border-color:/,
     'a phase slide sets a border colour again — on a full-bleed picture there is ' +
     'no border for it to be, so this is a rim coming back by the side door');
@@ -829,7 +848,11 @@ test('every picture rail sits the same distance below what is above it', () => {
   const heroPB = /padding:\S+ 0 (\d+)px/.exec(rule('.wk-hero'));
   assert.ok(heroPB, 'the hero no longer declares a padding-bottom this can read');
   const planRail = rule('.view-plan > .pp-rail');
-  assert.ok(planRail.indexOf('margin-top:calc(var(--rail-air) - var(--wk-gap) - ' + heroPB[1] + 'px)') > -1,
+  /* The card's own room above it, inside the slide, is the third thing
+     above the picture, read from the slide rule rather than written twice. */
+  const slideTop = /padding:(\d+)px 16px/.exec(rule('.view-plan .pp-slide'));
+  assert.ok(slideTop, 'the phase slide no longer declares the room above its card');
+  assert.ok(planRail.indexOf('margin-top:calc(var(--rail-air) - var(--wk-gap) - ' + heroPB[1] + 'px - ' + slideTop[1] + 'px)') > -1,
     'the plan rail subtracts something other than the hero\u2019s own padding-bottom (' +
     heroPB[1] + 'px): ' + planRail);
   /* --wk-gap is declared in a .view-plan rule of its own, not the first
