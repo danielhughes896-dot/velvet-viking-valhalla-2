@@ -149,3 +149,31 @@ test('every pace field offers a keypad with a dot, and is read through the one p
   assert.match(body('handlePaceOverrideChange'), /parsePaceInput\(fastRaw\)[\s\S]*parsePaceInput\(slowRaw\)/);
   assert.match(body('handleStructuredSplitChange'), /parsePaceInput\(value\)/);
 });
+
+/* Founder: "Keep execution score separate from Neutral / Building Baseline,
+   as they measure different things. Make the distinction clear in the
+   review." The score is this session against its prescription; the
+   training signal reads recent sessions. The signal used to sit straight
+   under the Execution Review heading, where the day views keep the score. */
+test('the review gives the training trend its own heading, says it is not the score, and the score is untouched', () => {
+  const A = loadApp({ pinnedDate: '2026-05-20T09:00:00Z' }); A.showToast = () => {};
+  buildPlan(A, { weeks: 16, distanceKey: 'half', startDate: A.addDays('2026-05-20', -21), lthr: 170 });
+  const dd = A.state.days.filter(d => d.date < '2026-05-20' && d.type === 'easy')[0];
+  const t = A.executionPaceTarget(dd);
+  dd.completed = true;
+  dd.actual = Object.assign(A.emptyActual(), { km: dd.km, pace: A.secToPace(Math.round((t.fast + t.slow) / 2)), paceUnit: 'km', hr: 157, rpe: 3 });
+  A.coachPersistReview(dd);
+  const score = A.computeExecutionScore(dd);
+  const html = A.renderExecutionReview(dd);
+  const head = html.indexOf('Execution Review'), trend = html.indexOf('<div class="cr-sec cr-trend">');
+  assert.ok(trend > head, 'the trend is not in its own section of the review');
+  const sec = html.slice(trend, html.indexOf('</div></div>', html.indexOf('cr-trend-note')) + 12);
+  assert.match(sec, /<div class="cr-k">Training Trend<\/div>/);
+  assert.match(sec, /Neutral \/ Building Baseline/);
+  assert.match(sec, /separate from this session’s execution score/);
+  assert.doesNotMatch(sec, /%|exec-pill/, 'a percentage sits beside the trend');
+  /* The label no longer stands straight under the heading, in the score's place. */
+  const afterHead = html.slice(head, head + 400);
+  assert.doesNotMatch(afterHead.slice(0, afterHead.indexOf('exec-pill') + 200), /cr-sig-label/);
+  assert.equal(A.computeExecutionScore(dd), score, 'rendering the review moved the score');
+});

@@ -40445,12 +40445,26 @@ function renderExecutionReview(dd){
       msg = { when:msg.when, depth:msg.depth,
               paragraphs:msg.paragraphs.slice(1), signal:msg.signal };
     }
-    if (sigMeta){
-      body += '<div class="cr-signal"><span class="cr-sig-dot">'+sigMeta.dot+'</span>'+
-              '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>';
-    }
     body += renderCoachMessage(msg, 'coach-msg-review');
     body += sessionReadoutHtml(dd);
+    /* ---------- THE TREND IS NOT THE SCORE ----------
+       Founder: "Keep execution score separate from Neutral / Building
+       Baseline, as they measure different things. Make the distinction
+       clear in the review."
+       The execution score is THIS session against its prescription. The
+       training signal (coachTrainingSignal) reads the last several logged
+       sessions for a trend or for fatigue. The signal used to sit straight
+       under the Execution Review heading, in the place the day views keep
+       for the score, in the same capitals: "Neutral / Building Baseline"
+       read as this session's grade. It now has its own heading, says in
+       one line what it is, and sits apart from the session's own readings.
+       Nothing about either number changed. */
+    if (sigMeta){
+      body += '<div class="cr-sec cr-trend"><div class="cr-k">Training Trend</div>'+
+              '<div class="cr-signal"><span class="cr-sig-dot">'+sigMeta.dot+'</span>'+
+              '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>'+
+              '<div class="cr-v cr-trend-note">Read across your recent sessions, separate from this session\u2019s execution score.</div></div>';
+    }
     // Like-for-like only, and only when a comparable session exists.
     if (r.comparable && r.comparable.length){
       body += '<div class="cr-sec"><div class="cr-k">Compared With</div><div class="cr-v cr-compare">'+
