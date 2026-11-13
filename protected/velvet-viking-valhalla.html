@@ -7201,6 +7201,16 @@
      than it, and wk-fill animates WIDTH rather than a transform precisely so
      the caps stay round on their own (see that keyframe's note). */
   .wk-bar{margin-top:9px; height:9px; border-radius:99px; background:var(--bg-4);}
+  /* FULL PLAN'S PANE. The tab bar's own material (the --glass-* tokens), so
+     it is the same glass, not a near copy; subtle because the hero is
+     context and the phase imagery below is the picture. The figures keep
+     their sizes and colours; the pane only gives them a ground. The bar
+     keeps its glow: the pane does not clip. */
+  .wk-glass{margin-top:16px; padding:14px 16px 16px; border-radius:22px;
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    border:1px solid rgba(255,255,255,.08); box-shadow:var(--glass-rim);}
+  .wk-glass .wk-hero-figs{margin-top:0;}
   .wk-bar-fill{height:100%; border-radius:99px;
     background:linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-bright));
     /* The second stop matches the cycle's 0%, so the bar does not jump when
@@ -67337,6 +67347,14 @@ function renderWeekHeroBlock(weekNum, asBlock){
   return '<div class="wk-hero" data-week="'+weekNum+'">'+
     '<div class="wk-hero-title font-head">'+escapeHtml(title)+'</div>'+
     (sub.length ? '<div class="wk-hero-sub">'+escapeHtml(sub.join(', '))+'</div>' : '')+
+    /* ---------- FULL PLAN: THE FIGURES AND THE BAR ON ONE PANE OF GLASS ----------
+       Founder: "Keep FULL MARATHON as a separate heading at the top left.
+       Place WEEK 1 OF 16, 0 / 922 km and 0% inside one subtle liquid-glass
+       panel. Keep the gold progress bar within that panel, underneath the
+       figures." The heading stays outside it; the three readings and the bar
+       they describe sit together on the same glass as the tab bar. This Week
+       is untouched: its hero has no pane. */
+    (asBlock ? '<div class="wk-glass">' : '')+
     '<div class="wk-hero-figs">'+
       wkPos+
       /* "13.5 / 46.5 km" -- one unit, said once at the end. The completed
@@ -67347,6 +67365,7 @@ function renderWeekHeroBlock(weekNum, asBlock){
       '<div class="wk-hero-pct">'+pct+'%</div>'+
     '</div>'+
     '<div class="wk-bar"><div class="wk-bar-fill" style="width:'+pct+'%; --wk-pct:'+pct+'%"></div></div>'+
+    (asBlock ? '</div>' : '')+
     /* NO "TAPER:" LABEL. The title two lines above already says TAPER, and a
        word that repeats the heading is the third time this hero names the
        same thing. What is left is the coaching, which is what the line is
@@ -72207,6 +72226,128 @@ function sliderInputHaptic(e){
   if (e.isTrusted === false) return;
   sliderHaptic(el);
 }
+/* =========================================================
+   THE FIELD YOU ARE TYPING IN STAYS IN SIGHT
+   =========================================================
+   Founder: "When the keyboard opens, automatically bring the active input
+   box into view. Keep the box and its entered value visible above the
+   keyboard. Keep the glass bottom navigation unchanged. No jumping,
+   clipping or disappearing inputs."
+   WHAT WENT WRONG. The phone scrolls a focused field just far enough to be
+   above the keyboard, and knows nothing of what SACORO floats over the
+   page: on Android the glass tab bar rides up on the keyboard and sat over
+   the Ask Coach box, and a full page's glass Save strip does the same to
+   the last field above it. The tab bar is not moved or hidden; the field
+   is moved instead.
+   HOW. Once the keyboard has finished arriving (the visible viewport stops
+   changing), the field is measured against the part of the screen that is
+   really clear: the visible viewport, less any bar fixed or pinned over its
+   top or bottom edge. If the field is not wholly inside that band with
+   FIELD_GAP to spare, the thing it scrolls in moves by exactly the
+   difference, once. Where the page has no room left to scroll, room is
+   added under it for as long as the keyboard is up, so a field near the
+   end can still come clear; it goes when typing ends.
+   A field taller than the clear band keeps its top in sight, where its
+   value starts. Typing that grows a field re-checks it. */
+var FIELD_GAP = 12;
+var FIELD_SETTLE_MS = 320;
+var fieldView = { el:null, timer:null, padEl:null, padWas:'' };
+function isTypingField(el){
+  if (!el || el.nodeType !== 1 || el.disabled || el.readOnly) return false;
+  if (el.isContentEditable) return true;
+  if (el.tagName === 'TEXTAREA') return true;
+  if (el.tagName !== 'INPUT') return false;
+  return ['text','search','email','url','tel','number','password'].indexOf(String(el.type || 'text').toLowerCase()) !== -1;
+}
+function fieldScroller(el){
+  for (var p = el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement){
+    var oy = window.getComputedStyle(p).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight + 1) return p;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+/* The clear band: the visible viewport, less the bars pinned over its edges. */
+function fieldClearBand(el){
+  var vv = window.visualViewport;
+  var top = vv ? vv.offsetTop : 0, bottom = top + (vv ? vv.height : window.innerHeight);
+  var band = { top: top, bottom: bottom };
+  var fr = el.getBoundingClientRect();
+  /* In a full page only that page's own bars count: the tab bar and header
+     are underneath it. On the page itself, an open full page is not a bar. */
+  var root = (el.closest && el.closest('#modal-overlay')) || document.body;
+  var nodes = root ? root.getElementsByTagName('*') : [];
+  for (var i = 0; i < nodes.length; i++){
+    var x = nodes[i];
+    if (x === el || x.contains(el)) continue;
+    var cs = window.getComputedStyle(x);
+    if (cs.position !== 'fixed' && cs.position !== 'sticky') continue;
+    if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+    var r = x.getBoundingClientRect();
+    if (!r.width || !r.height || r.height > (bottom - top) / 2) continue;
+    if (r.right <= fr.left || r.left >= fr.right) continue;
+    if ((r.top + r.bottom) / 2 > (top + bottom) / 2) band.bottom = Math.min(band.bottom, r.top);
+    else band.top = Math.max(band.top, r.bottom);
+  }
+  return band;
+}
+/* How far the field's scroller must move (positive = content up). */
+function fieldShortfall(fr, band){
+  var lo = band.top + FIELD_GAP, hi = band.bottom - FIELD_GAP;
+  if (fr.bottom - fr.top > hi - lo) return fr.top - lo;
+  if (fr.bottom > hi) return fr.bottom - hi;
+  if (fr.top < lo) return fr.top - lo;
+  return 0;
+}
+function fieldBringIntoView(){
+  var el = fieldView.el;
+  if (!el || document.activeElement !== el || !el.isConnected) return;
+  var need = fieldShortfall(el.getBoundingClientRect(), fieldClearBand(el));
+  if (Math.abs(need) < 2) return;
+  var sc = fieldScroller(el);
+  if (need > 0){
+    var room = sc.scrollHeight - sc.clientHeight - sc.scrollTop;
+    if (need > room){
+      var host = (sc === document.scrollingElement || sc === document.documentElement) ? document.body : sc;
+      if (fieldView.padEl !== host){ fieldUnpad(); fieldView.padEl = host; fieldView.padWas = host.style.paddingBottom; }
+      var base = parseFloat(window.getComputedStyle(host).paddingBottom) || 0;
+      host.style.paddingBottom = Math.ceil(base + need - room) + 'px';
+    }
+  }
+  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  try { sc.scrollBy({ top: need, behavior: calm ? 'auto' : 'smooth' }); } catch(e){ sc.scrollTop += need; }
+}
+function fieldUnpad(){
+  if (fieldView.padEl){ fieldView.padEl.style.paddingBottom = fieldView.padWas; fieldView.padEl = null; fieldView.padWas = ''; }
+}
+function fieldSoon(ms){
+  clearTimeout(fieldView.timer);
+  fieldView.timer = setTimeout(fieldBringIntoView, ms);
+}
+function fieldFocusIn(e){
+  var el = e && e.target;
+  if (!isTypingField(el)) return;
+  fieldView.el = el;
+  fieldSoon(FIELD_SETTLE_MS);
+}
+function fieldFocusOut(){
+  setTimeout(function(){
+    if (isTypingField(document.activeElement)) return;
+    fieldView.el = null;
+    clearTimeout(fieldView.timer);
+    setTimeout(fieldUnpad, FIELD_SETTLE_MS);
+  }, 0);
+}
+/* The keyboard moving (and the viewport with it) or the field growing as it
+   is typed in: measure again once it is still. */
+function fieldViewportMoved(){ if (fieldView.el) fieldSoon(120); }
+function fieldTyped(e){ if (fieldView.el && e && e.target === fieldView.el) fieldSoon(120); }
+function initFieldInView(){
+  document.addEventListener('focusin', fieldFocusIn, true);
+  document.addEventListener('focusout', fieldFocusOut, true);
+  document.addEventListener('input', fieldTyped, true);
+  window.addEventListener('resize', fieldViewportMoved);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fieldViewportMoved);
+}
 /* Does any ancestor of the touched node scroll sideways RIGHT NOW? */
 function pagerOwnedElsewhere(node){
   var el = node, hops = 0;
@@ -73970,6 +74111,7 @@ function init(){
   initPageSwipe();
   try{ document.addEventListener('input', logRangeLive); }catch(e){}
   try{ document.addEventListener('input', sliderInputHaptic, true); }catch(e){}
+  try{ initFieldInView(); }catch(e){}
   try{ document.addEventListener('pointerup', logRangeSettle); }catch(e){}
   try{ document.addEventListener('scroll', coachRailScrolled, true); }catch(e){}
   // Deliberately last and un-awaited: the app is already painted from
