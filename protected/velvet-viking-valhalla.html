@@ -2230,17 +2230,29 @@
   .th-dist{--th-dist-size:clamp(45.6px, 14.4vw, 57.6px);}
   .th-dist span{font-family:var(--text-face); font-weight:700; line-height:1;
     font-size:var(--th-dist-size); letter-spacing:-0.02em;
-    font-variant-numeric:tabular-nums; color:#FFFFFF;
-    /* Already pure white at peak 255; what it gains here is REACH -- a
-       wider, stronger bloom, which is lit area rather than a brighter
-       glyph, for the same reason the ring gained stroke. */
-    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 20px rgba(255,255,255,.42),
-                0 0 54px rgba(255,255,255,.22);}
+    font-variant-numeric:tabular-nums; color:#FFFFFF;}
   /* The unit travels with the number -- "15km" is one figure, and leaving
      "km" behind would have changed the proportion between them. */
   .th-dist em{font-style:normal; font-weight:700; font-size:clamp(28.8px, 9.6vw, 38.4px);
-    color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.34);}
+    color:#FFFFFF;}
+  /* ---------- FROSTED WHITE GLASS ----------
+     Founder, choosing between two mock-ups of the distance figure: white
+     with a liquid-glass finish, the frosted one. Still white at the top and
+     the foot of every glyph; a soft band across the middle is the sheen, a
+     thin bright edge is the glass, and the lift off the card is a shadow
+     beneath rather than the old bloom around it. Where background-clip:text
+     is not supported the colour above stays, so the figure is never lost.
+     A text-shadow would paint through a transparent glyph, so the depth is
+     drop-shadow on the box instead. */
+  @supports ((-webkit-background-clip:text) or (background-clip:text)){
+    .th-dist span, .th-dist em{
+      color:transparent; text-shadow:none;
+      background:linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 36%, rgba(236,240,247,.86) 50%, #F2F4F9 66%, #FFFFFF 100%);
+      -webkit-background-clip:text; background-clip:text;
+      -webkit-text-stroke:.6px rgba(255,255,255,.6);
+      filter:drop-shadow(0 1px 0 rgba(255,255,255,.3)) drop-shadow(0 0 12px rgba(255,255,255,.26))
+             drop-shadow(0 3px 6px rgba(0,0,0,.65));}
+  }
 
   /* The gauge: a near-complete amber ring, thin, with the gap at top-right. */
   /* THE RING IS A FIXED SQUARE AND THE READOUT FLOATS OVER IT. Laid out in
