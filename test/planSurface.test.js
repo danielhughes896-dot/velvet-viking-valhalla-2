@@ -2164,7 +2164,9 @@ test('a phase says its state in colour, and still says it in words', () => {
   const html = a.renderWeeksList(true);
   assert.ok(html.indexOf('class="pp-meta"') === -1,
     'the phase subtitle is back under the name');
-  assert.ok(!/Weeks \d+ – \d+ · (Completed|Now|Ahead)</.test(html.replace(/<span class="sr-only">[^<]*<\/span>/g, '')),
+  /* Founder: "no symbols". The meta now reads "Weeks 3 to 6: Now"; both the old
+     and the new form must stay out of sight. */
+  assert.ok(!/Weeks \d+ (–|to) \d+( ·|:) (Completed|Now|Ahead)</.test(html.replace(/<span class="sr-only">[^<]*<\/span>/g, '')),
     'the phase range and state are being printed visibly again');
 
   /* COLOUR ALONE IS NOT A SIGNAL. The words it replaced stay in the button

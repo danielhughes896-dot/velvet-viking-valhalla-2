@@ -223,7 +223,9 @@ test('a failed sign-in never points at a screen the athlete cannot reach', () =>
   ['otp_expired', 'access_denied', 'anything_else'].forEach(code => {
     const said = withPlan.cloudAuthErrorCopy(code);
     assert.ok(said.length > 20, code + ' produced no usable sentence');
-    assert.match(said, /—/, code + ' gives a reason but no next step');
+    /* Founder: "no em dashes". The reason and the next step are two
+       sentences now, so the next step is the second one. */
+    assert.match(said, /^[^.]+\.\s+(Request|Sign in)\b/, code + ' gives a reason but no next step');
   });
 });
 

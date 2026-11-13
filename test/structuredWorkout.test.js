@@ -645,7 +645,8 @@ test('the hill repeats card says the founder’s four lines and nothing else', (
       .map(l => l.replace(/<[^>]*>/g, '').replace(/&middot;|&#183;/g, '·'));
     const n = d.prescription.params.reps, ring = a.getDayTargets(d);
     assert.deepEqual(lines, [
-      'Target: ' + ring.pace + ' · Hard effort',
+      /* Founder: "no symbols". The dot became a comma. */
+      'Target: ' + ring.pace + ', hard effort',
       'Start controlled. Keep all ' + words[n] + ' reps consistent.',
       'Jog or walk downhill.',
       'Start the next rep when sufficiently recovered.'
@@ -3709,8 +3710,10 @@ test('a figure breaks between a ladder\u2019s rungs and never inside a set', () 
            normal beside this. */
         assert.ok(painted.indexOf(NBSP) === -1,
           d.date + ': a ladder was made unbreakable, so it will run off the card again');
-        if (raw.indexOf(' \u00b7 ') > -1)
-          assert.ok(painted.indexOf(' \u00b7 ') > -1, d.date + ': a ladder lost its break points');
+        /* Founder: "no symbols". The rungs are joined with ", " now, and
+           the space after each comma is the break point. */
+        if (raw.indexOf(', ') > -1)
+          assert.ok(painted.indexOf(', ') > -1, d.date + ': a ladder lost its break points');
       }
       if (/\u00d7/.test(raw)){
         sets++;

@@ -308,7 +308,8 @@ test('11. the optional average pace persists, and is omitted when absent', () =>
   const d = a.findDay(dd.id);
   assert.equal(d.actual.pace, '5:34');
   assert.equal(a.actualPaceSecPerKm(d), 334);
-  assert.match(a.renderDayCard(d), /5\.2km · 5:34\/km/);
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(a.renderDayCard(d), /5\.2km, 5:34\/km/);
 
   const b = optionalToday();
   logRun(b.a, b.dd, 5.2, null);
@@ -325,7 +326,9 @@ test('11. the optional average pace persists, and is omitted when absent', () =>
      not "5.2km · <something>/km" when no pace was given. */
   const line = (card.match(/<div class="optional-line[^"]*">([^<]*)<\/div>/) || [])[1] || '';
   assert.ok(line, 'the optional run line is gone, so the guard protects nothing');
-  assert.doesNotMatch(line, /·/, 'and nothing is invented in its place');
+  /* The separator is a comma now (founder: "no symbols"), so a comma is
+     what an invented pace would bring with it. */
+  assert.doesNotMatch(line, /,/, 'and nothing is invented in its place');
 });
 
 test('12. km/mi conversion is correct in both directions', () => {
@@ -348,7 +351,8 @@ test('12. km/mi conversion is correct in both directions', () => {
      existing converter rather than a second one, which is the property under
      test here. Asserting 3.00 would be asserting a conversion the product does
      not perform. */
-  assert.match(a.renderDayCard(d), /2\.98mi · 9:00\/mi/);
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(a.renderDayCard(d), /2\.98mi, 9:00\/mi/);
   assert.equal(a.kmToDisplay(d.actual.km), 2.98, 'shown is exactly what is stored, converted once');
   /* The same record read by an athlete who has switched to kilometres. */
   a.state.units = 'km';

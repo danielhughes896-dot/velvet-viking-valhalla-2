@@ -994,15 +994,16 @@ test('SURFACE: Plan HQ names the block and the week within it', () => {
   logPast(a);
   raceHappened(a);
   a.recordRaceOutcome('raced');
-  assert.match(a.blockIdentityLine(), /Half Marathon Build · Week \d+ of \d+/,
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(a.blockIdentityLine(), /Half Marathon Build, Week \d+ of \d+/,
     'a race block should read as its distance');
 
   a.startDevelopmentBlock('maintain');
-  assert.match(a.blockIdentityLine(), /^Maintain & Protect · Week \d+ of \d+$/);
+  assert.match(a.blockIdentityLine(), /^Maintain & Protect, Week \d+ of \d+$/);
   a.startDevelopmentBlock('base');
-  assert.match(a.blockIdentityLine(), /^Aerobic Base · Week \d+ of \d+$/);
+  assert.match(a.blockIdentityLine(), /^Aerobic Base, Week \d+ of \d+$/);
   a.startDevelopmentBlock('speed');
-  assert.match(a.blockIdentityLine(), /^Speed & Threshold · Week \d+ of \d+$/);
+  assert.match(a.blockIdentityLine(), /^Speed & Threshold, Week \d+ of \d+$/);
 });
 
 test('SURFACE: the countdown stops shouting GO once the day has passed', () => {

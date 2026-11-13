@@ -233,7 +233,8 @@ test('watch laps and figures already typed for a rep are still shown, by name', 
   /* And what a watch recorded is still drawn. */
   dd.actual.deviceLaps = [1, 2, 3, 4].map(i => ({ km: 0.7, sec: 160 + i, paceSec: Math.round((160 + i) / 0.7) }));
   dd.actual.deviceLapSource = 'strava';
-  assert.match(a.renderSplitsBlock(dd), /Recorded laps \u00b7 4 from your watch/, 'what the watch recorded is no longer drawn');
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(a.renderSplitsBlock(dd), /Recorded laps: 4 from your watch/, 'what the watch recorded is no longer drawn');
 });
 
 // ---------------------------------------------------------------------------

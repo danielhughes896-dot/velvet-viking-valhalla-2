@@ -274,7 +274,8 @@ test('two comparable runs are compared, in the founder\'s words, and called earl
   assert.equal(s.good, false);
   assert.equal(Array.from(s.predicted).length, 0);
   assert.ok(!/is-good|cg-pred|Predicted|Dotted/.test(card), 'early evidence is presented as a trend');
-  assert.match(card, /<div class="cg-measure">Heartbeats per km \u00b7 each easy run<\/div>/);
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(card, /<div class="cg-measure">Heartbeats per km on each easy run<\/div>/);
 
   /* Higher is said as plainly as lower. */
   const up = easyLogged(2, i => 146 + i * 5);
@@ -539,7 +540,8 @@ test('Threshold Development is drawn from threshold sessions run to plan', () =>
   /* Pace, heart rate and response, said together. */
   assert.equal(s.caption, 'Your threshold main set was 0:06 per km quicker than in your first session at 4 bpm lower. ' +
     'The latest felt as intended. From 3 threshold sessions run to plan. A race or Fitness Checkpoint is still what sets your training paces.');
-  assert.match(s.measure, /^Main-set pace per km \u00b7 threshold sessions run to plan$/);
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(s.measure, /^Main-set pace per km in threshold sessions run to plan$/);
   assert.equal(s.good, true);
   /* It is not the session's overall pace, which runs through the warm-up and cool-down. */
   assert.notEqual(Math.round(pts(s)[0].v), a.actualPaceSecPerKm(th[0]));
@@ -751,12 +753,13 @@ test('the graphs read the engine and are read by nothing', () => {
 
 test('every graph says what it plots, in the units it plots it in', () => {
   const a = evidenced();
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
   const want = {
-    efficiency: /^Heartbeats per km \u00b7 easy runs \u00b7 weekly median$/,
-    paceAtHR: /^Pace per km \u00b7 easy runs within 5 bpm of \d+ \u00b7 weekly median$/,
-    drift: /^Heart-rate rise, second half against first \u00b7 steady runs at a held pace$/,
-    threshold: /^Main-set pace per km \u00b7 threshold sessions run to plan$/,
-    recovery: /^Hours until you read as normal \u00b7 from your reports and easy heart rate$/,
+    efficiency: /^Heartbeats per km on easy runs, weekly median$/,
+    paceAtHR: /^Pace per km on easy runs within 5 bpm of \d+, weekly median$/,
+    drift: /^Heart-rate rise, second half against first, on steady runs at a held pace$/,
+    threshold: /^Main-set pace per km in threshold sessions run to plan$/,
+    recovery: /^Hours until you read as normal, from your reports and easy heart rate$/,
   };
   const th = thresholded(3).a;
   Object.keys(want).forEach(k => {

@@ -133,8 +133,9 @@ test('a session with all three shows all three, with the main set between them',
    'progressive_tempo', 'goal_pace_block', 'time_trial', 'long_run_goal_insert', 'long_run_goal_broken'].forEach(k => {
     const html = log(all[k]);
     assert.deepEqual(parts(html), ['warmup', 'main', 'cooldown'], k);
-    assert.match(section(html, 'warmup'), /<div class="yl-title">Warm-up( \u00b7 [^<]+)?<\/div>/);
-    assert.match(section(html, 'cooldown'), /<div class="yl-title">Cool-down( \u00b7 [^<]+)?<\/div>/);
+    /* Founder: "no symbols". The middle dot became natural punctuation. */
+    assert.match(section(html, 'warmup'), /<div class="yl-title">Warm-up(: [^<]+)?<\/div>/);
+    assert.match(section(html, 'cooldown'), /<div class="yl-title">Cool-down(: [^<]+)?<\/div>/);
     /* Under its own heading a single row is not named a second time. */
     assert.doesNotMatch(section(html, 'warmup') + section(html, 'cooldown'), /class="slog-label"/, k + ': "Warm up" is printed under "Warm-up"');
     assert.match(section(html, 'warmup'), /data-action="slog-field"/, k + ': the warm-up has nothing to fill in');
@@ -404,7 +405,8 @@ test('a threshold session reads the way the founder drew it', () => {
   const c = everyStructure().threshold_continuous;
   const html = log(c);
   const main = section(html, 'main');
-  assert.match(main, /<div class="yl-title">Main set \u00b7 Threshold \u00b7 \d+(\.\d+)? km<\/div>/, 'the heading does not say what the main set is');
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(main, /<div class="yl-title">Main set: Threshold, \d+(\.\d+)? km<\/div>/, 'the heading does not say what the main set is');
   /* Distance, then the two averages, named as the whole session's are. */
   assert.match(main, /<span class="slog-k">Distance<\/span><input type="number"[^>]*placeholder="2\.0 km"/);
   assert.match(main, /<span class="slog-k">Avg pace<\/span><input type="text" class="slog-in" placeholder="5:00 \/km"/);
@@ -414,7 +416,7 @@ test('a threshold session reads the way the founder drew it', () => {
   /* The same pattern either side of it. */
   ['warmup', 'cooldown'].forEach(p => {
     const sec = section(html, p);
-    assert.match(sec, new RegExp('<div class="yl-title">' + (p === 'warmup' ? 'Warm-up' : 'Cool-down') + ' \u00b7 \\d+(\\.\\d+)? km</div>'), p + ' heading');
+    assert.match(sec, new RegExp('<div class="yl-title">' + (p === 'warmup' ? 'Warm-up' : 'Cool-down') + ': \\d+(\\.\\d+)? km</div>'), p + ' heading');
     assert.match(sec, /<span class="slog-k">Distance<\/span>/, p + ' does not ask how far it went');
     assert.match(sec, /<span class="slog-k">Avg pace<\/span>/, p + ' does not name its pace field');
     assert.match(sec, /<span class="slog-k">Avg HR<\/span>/, p + ' does not name its heart-rate field');
@@ -446,11 +448,12 @@ test('no field anywhere on a log is a bare "m:ss", "km" or "HR"', () => {
 test('the heading says what the section is: the effort, the reps, the distance', () => {
   const all = everyStructure();
   const title = (k, p) => (new RegExp('<div class="yl-title">([^<]*)</div>').exec(section(log(all[k]), p)) || [,''])[1];
-  assert.match(title('track_reps', 'main'), /^Main set \u00b7 \d+ \u00d7 \d+m$/);
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(title('track_reps', 'main'), /^Main set: \d+ \u00d7 \d+m$/);
   assert.equal(title('track_reps', 'main').match(/(\d+) \u00d7/)[1], String(all.track_reps.a.logShape(all.track_reps.dd).reps));
-  assert.equal(title('ladder', 'main'), 'Main set \u00b7 5 reps', 'a ladder was given one distance for five different reps');
+  assert.equal(title('ladder', 'main'), 'Main set: 5 reps', 'a ladder was given one distance for five different reps');
   assert.equal(title('easy_strides', 'main'), 'The Run', 'an easy run with strides is headed as a workout');
-  assert.match(title('hill_repeats', 'main'), /^Main set \u00b7 \d+ \u00d7 \d+s$/);
+  assert.match(title('hill_repeats', 'main'), /^Main set: \d+ \u00d7 \d+s$/);
   assert.equal(title('long_run_goal_finish', 'main'), 'Main set', 'stages were given a rep count');
   assert.equal(title('easy_run', 'main'), 'The Run');
   /* A warm-up prescribed as a rule has no number to print, and is given none. */

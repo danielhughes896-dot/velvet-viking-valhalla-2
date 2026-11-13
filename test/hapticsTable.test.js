@@ -64,8 +64,9 @@ test('saving a session pulses only when it saved', () => {
   assert.ok(updated > -1 && swapped > -1);
   assert.match(save.slice(updated - 60, updated), /sacoroHaptic\('success'\);\s*$/, 'a saved session is not felt');
   assert.match(save.slice(swapped - 60, swapped), /sacoroHaptic\('success'\);\s*$/, 'a saved swap is not felt');
-  /* The refusals are silent. */
-  ["Can’t swap — race day", "Can’t swap — that week", "Can’t swap — a logged session"].forEach(r => {
+  /* The refusals are silent. Founder: "no em dashes", so each refusal is
+     two sentences now. */
+  ["Can’t swap. Race day", "Can’t swap. That week", "Can’t swap. A logged session"].forEach(r => {
     const at = save.indexOf(r);
     assert.ok(at > -1);
     assert.doesNotMatch(save.slice(at - 120, at), /sacoroHaptic/, 'a refused swap pulses as if it saved: ' + r);

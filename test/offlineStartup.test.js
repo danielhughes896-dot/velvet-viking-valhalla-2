@@ -187,8 +187,9 @@ test('a foreign owner\'s plan is archived rather than rendered or destroyed', ()
 });
 
 test('signing out is not a foreign owner, and the plan stays on the device', () => {
-  /* THE SHIPPED CONTRACT, unchanged: "Signed out -- your plan stays on this
-     device". With no session there is no uid and nothing is archived. */
+  /* THE SHIPPED CONTRACT: "Signed out. Your plan stays on this device".
+     Founder: "no em dashes", so the promise is two sentences; its words are
+     unchanged. With no session there is no uid and nothing is archived. */
   const a = loadApp({});
   a.state = a.makeDefaultState();
   a.state.setup = { distanceKey:'10k' };
@@ -198,7 +199,7 @@ test('signing out is not a foreign owner, and the plan stays on the device', () 
   assert.equal(a.resolveOwnershipBeforeRender(), 'no-session',
     'with no stored session the load-time path did something other than nothing');
   const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  assert.match(src, /Signed out — your plan stays on this device/,
+  assert.match(src, /Signed out\. Your plan stays on this device/,
     'the shipped logout promise was changed');
 });
 
