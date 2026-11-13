@@ -76,7 +76,10 @@ test('PATTERNS: three rings, the evidence each needs, the questions, never a sco
       x.label + ' reads "' + x.word + '", a word the engine does not use');
   });
   const p = a.readingPanel('patterns');
-  assert.match(p, /class="b-dial is-rings"/, 'the hero is not the three rings');
+  /* Founder: "Patterns orb: Approved - build it on the Coach page and on
+     the Patterns panel's circle." */
+  assert.match(p, /class="b-dial is-orb"/, 'the hero is not the orb');
+  assert.match(p, /<svg class="rd-orb"/);
   order(p, ['Three Patterns', '>Pacing<', '>Effort<', '>Recovery<', 'The Evidence',
             'What SACORO Is Learning', 'Do you hold your prescribed pace?', 'How hard does the work feel?',
             'How do you respond between sessions?', 'never a score.']);
@@ -128,4 +131,48 @@ test('the three panels keep the house rules: white text, no new grey, 11px floor
     if (f) assert.ok(+f[1] * 16 >= 11, sel + ' is below the 11px floor');
   });
   assert.equal((SRC.match(/<style[\s>]/g) || []).length, 1);
+});
+
+test('PATTERNS: the Coach page draws the orb, the name under it, the word inside it dark on white', () => {
+  const a = athlete();
+  const rail = a.renderSacoroInstruments();
+  assert.match(rail, /<button type="button" class="b-dial is-orb"[^>]*data-reading="patterns"/);
+  const dial = rail.slice(rail.indexOf('data-reading="patterns"'));
+  assert.match(dial, /<svg class="rd-orb"/);
+  assert.match(dial, /<span class="rd-cat">Patterns<\/span>/, 'the name is not under the orb');
+  const css = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  assert.match(css, /\.b-dial\.is-orb \.rd-val b\{color:#111216;/, 'the word inside the orb is not dark');
+  // same string every render: the orb names its gradients once
+  assert.equal(a.patternOrbHtml(), a.patternOrbHtml());
+});
+
+test('PLAN EVOLUTION: phase, then Phase Development, the evidence, recently evolved, the Coach’s Read', () => {
+  /* Founder, with a reference: "change plan evolution to follow this
+     structure - my rules my data". */
+  const a = athlete();
+  const fut = a.state.days.filter(d => d.date > TODAY && d.type !== 'rest');
+  a.state.evolutionHistory = [{ date: a.addDays(TODAY, -2), accepted: true, changes: [{ dayId: fut[1].id }] }];
+  const p = a.readingPanel('evolution');
+  order(p, ['Current Phase', 'Phase Development', '>Aerobic<', '>Execution<', '>Structure<',
+            'The Evidence', 'Evidence behind this', 'Recently evolved', 'Coach’s Read']);
+  const d = a.evolutionDevelopment(a.coachAnalyse());
+  // execution is this phase's own logged sessions, averaged
+  const sc = a.state.days.filter(x => x.type !== 'rest' && x.completed && x.date < TODAY &&
+    x.week >= d.phase.first && x.week <= d.phase.last).map(x => a.computeExecutionScore(x)).filter(v => v != null);
+  assert.equal(d.execution, Math.round(sc.reduce((x, y) => x + y, 0) / sc.length));
+  assert.match(text(p), new RegExp(d.execution + '% Execution ' + sc.length + ' sessions this phase'));
+  assert.match(text(p), d.changes ? /Structure \d+ changes? suggested/ : /Stable Structure No change needed/);
+  const read = text(p).slice(text(p).indexOf('Coach’s Read'));
+  assert.match(read, new RegExp('Your ' + d.phase.name + ' phase is in week ' + d.phase.week + ' of ' + d.phase.weeks + '\\.'));
+  assert.doesNotMatch(read, /[—–]/);
+});
+
+test('PLAN EVOLUTION: with nothing logged the read says so, and the tiles wait', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {};
+  buildPlan(a, { weeks: 16, distanceKey: 'half', startDate: a.addDays(TODAY, -42), lthr: 170, maxHR: 190 });
+  const p = text(a.readingPanel('evolution'));
+  assert.match(p, /Execution Awaiting runs/);
+  assert.match(p, /There isn’t enough logged training yet to assess aerobic development or execution\./);
+  assert.match(p, /The current plan remains unchanged\.|SACORO suggests/);
 });

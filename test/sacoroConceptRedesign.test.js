@@ -255,7 +255,7 @@ test('PREVIEW: the Reading arc shows every section it owns, each one a destinati
     assert.match(preview, new RegExp('data-action="open-reading" data-reading="' + sec.key + '"'),
       sec.key + ' is drawn but cannot be opened');
   });
-  assert.equal((preview.match(/<button type="button" class="b-dial(?: is-(?:petals|torus|rings))?"/g) || []).length, 4);
+  assert.equal((preview.match(/<button type="button" class="b-dial(?: is-(?:petals|torus|rings|orb))?"/g) || []).length, 4);
   /* ---- CHANGED SIDES: THE WHISPER GAVE ITS LINE TO THE DOTS ----
      "Tap any circle for the evidence" sat under a grid that showed all four
      at once. Founder, with the approved dashboard: "Rail 3 circles wrapped
