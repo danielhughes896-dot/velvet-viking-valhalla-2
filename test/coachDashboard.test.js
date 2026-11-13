@@ -349,7 +349,7 @@ test('all five can be chosen with a thumb, and choosing one redraws the card', (
   assert.ok(!/flex-wrap|grid|overflow-x/.test(rule('.cg-tabs')), 'the tabs wrap, or one is hidden behind a sideways scroll');
   assert.match(rule('.cg-tab'), /flex:0 0 auto/, 'a tab is not the width of its word');
   assert.match(rule('.cg-tab'), /white-space:nowrap/);
-  assert.match(rule('.cg-tab::after'), /position:absolute; top:0; bottom:0; left:-7px; right:-7px/, 'the target is only as wide as the word');
+  assert.match(rule('.cg-tab::after'), /position:absolute; top:0; bottom:0; left:-9px; right:-9px/, 'the target is only as wide as the word');
   assert.match(rule('.cg-title'), /text-align:center/, 'the title is not centred');
   assert.ok(card.indexOf('class="cg-title"') < card.indexOf('class="cg-tabs"'), 'the tabs are not under the title');
   assert.match(rule('.cg-tab.is-on'), /color:var\(--cherry-text\)/, 'the chosen tab is not cherry');
