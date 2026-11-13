@@ -5925,7 +5925,11 @@
      sits beside 15px titles. The words go up to 13.5px and each half gets a
      wider press, so the pair is 44px tall and about 100px across. */
   .stg-row-units .tb-unit-toggle{padding:2px 8px;}
-  .stg-row-units .tb-unit-toggle button{font-size:13.5px; padding:0 10px;}
+  .stg-row-units .tb-unit-toggle button{font-size:13.5px; padding:0 10px;
+    /* Responsive correction 7: KM measured 38px wide and MI 35. The pill
+       clips its own edge, so the target cannot reach past it invisibly:
+       each half is 44 wide, the pill a few pixels wider. */
+    min-width:var(--tap-min);}
   /* The row that holds it goes nowhere, so it does not offer a press. */
   .ev-card.stg-row.is-still{cursor:default;}
   /* ---- SET DATE IS AN INTERACTION, SO IT IS CHERRY ----
@@ -6687,6 +6691,10 @@
     background:none; border:0; box-shadow:none; min-height:0;
     padding-left:0; padding-right:0;
   }
+  /* Responsive correction 7: the flat heart-rate and benchmark fields were
+     40px tall, the one typed target in the builder under the thumb floor.
+     The rim stays off; the target comes back to 44. */
+  .benchmark-row > .field input{min-height:var(--tap-min);}
   .goal-input-row input:focus,
   .benchmark-row > .field input:focus{ box-shadow:none; border-color:transparent; }
   /* THE ROW LIGHTS INSTEAD. Flattening the input would otherwise leave a
@@ -7434,6 +7442,15 @@
      tap. They are usually the same day and must still be distinguishable
      when they are not, so today keeps an underline of its own. */
   .wk-day.is-today{position:relative;}
+  /* ---------- A 44px TARGET UNDER EVERY DAY ----------
+     Responsive correction 7. The seven circles are a seventh of the row
+     less its gaps: 43px on a 375px phone and 35px at the Largest display
+     size. The circle is drawn as it was; an invisible 44px disc centred on
+     it takes the tap, reaching a few pixels into the gaps either side. */
+  .wk-day{position:relative;}
+  .wk-day::before{content:''; position:absolute; left:50%; top:50%;
+    width:max(100%, var(--tap-min)); height:max(100%, var(--tap-min));
+    transform:translate(-50%,-50%); border-radius:50%;}
   .wk-day.is-today::after{
     content:''; position:absolute; left:28%; right:28%; bottom:-7px; height:2px;
     border-radius:2px; background:var(--cherry); box-shadow:0 0 8px color-mix(in srgb, var(--cherry) 65%, transparent);
@@ -7794,6 +7811,11 @@
     background:none; display:inline-flex; align-items:center;
     justify-content:center; cursor:pointer;
     -webkit-tap-highlight-color:transparent;}
+  /* Responsive correction 7: the dot's button is --tap-min wide but 34px
+     tall, so an invisible band makes it 44 tall without moving the row. */
+  .pp-dot{position:relative;}
+  .pp-dot::after{content:''; position:absolute; left:0; right:0; top:50%;
+    height:var(--tap-min); transform:translateY(-50%);}
   .pp-dot::before{
     content:''; display:block; width:6px; height:6px; border-radius:50%;
     background:var(--mark-faint); opacity:.34;
@@ -9695,7 +9717,10 @@
     font-family:var(--label-face); font-weight:var(--label-weight);
     font-size:13px; letter-spacing:.8px; text-transform:uppercase; color:#FFFFFF; white-space:nowrap;}
   .cg-tab > span{display:inline-block; padding:6px 0 5px; border-bottom:2px solid transparent;}
-  .cg-tab::after{content:''; position:absolute; top:0; bottom:0; left:-7px; right:-7px;}
+  /* Responsive correction 7: -9px a side, so DRIFT (28px on a 320px
+     phone) is a 46px target; the reach into a narrow gap overlaps the next
+     name's by a few pixels, and the name nearer the finger takes it. */
+  .cg-tab::after{content:''; position:absolute; top:0; bottom:0; left:-9px; right:-9px;}
   .cg-tab:first-child::after{left:0;}
   .cg-tab:last-child::after{right:0;}
   .cg-tab.is-on{color:var(--cherry-text);}
@@ -11104,7 +11129,11 @@
     transition:border-color .18s, box-shadow .18s, color .18s;
   }
   .field .wd-check input{
-    position:absolute; inset:0; width:100%; height:100%; margin:0;
+    /* Responsive correction 7: at 320px the seven circles are 32px wide;
+       the box that takes the tap is centred on the circle and at least
+       44px, reaching a few pixels into the gaps. The circle is unchanged. */
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:max(100%, var(--tap-min)); height:max(100%, var(--tap-min)); margin:0;
     opacity:0; cursor:pointer; border:0; background:none; box-shadow:none;
   }
   .field .wd-check input:checked{background:none; border:0;}

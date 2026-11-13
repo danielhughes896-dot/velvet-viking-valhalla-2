@@ -107,3 +107,25 @@ test('5. fitted after every render, every panel, every size or text-size change'
   assert.match(RT, /window\.addEventListener\('resize', function\(\)\{ fitDialValues\(\); \}\)/);
   assert.match(RT, /document\.fonts\.ready\.then\(fitDialValues\)/);
 });
+
+test('7. every small control takes a 44px tap without being drawn bigger', () => {
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  /* The week's seven day circles: an invisible 44px disc centred on each. */
+  assert.match(bare, /\.wk-day::before\{content:''; position:absolute; left:50%; top:50%;\s*width:max\(100%, var\(--tap-min\)\); height:max\(100%, var\(--tap-min\)\);\s*transform:translate\(-50%,-50%\); border-radius:50%;\}/);
+  /* The phase dots: 34px buttons, 44px bands. */
+  assert.match(bare, /\.pp-dot::after\{content:''; position:absolute; left:0; right:0; top:50%;\s*height:var\(--tap-min\); transform:translateY\(-50%\);\}/);
+  /* The graph names reach 9px either side: DRIFT, 28px at 320, is 46. */
+  assert.match(bare, /\.cg-tab::after\{content:''; position:absolute; top:0; bottom:0; left:-9px; right:-9px;\}/);
+  assert.ok(28 + 2 * 9 >= 44);
+  /* KM and MI: a clipped pill cannot reach past itself, so each half is 44. */
+  assert.match(bare, /\.stg-row-units \.tb-unit-toggle button\{font-size:13\.5px; padding:0 10px;\s*min-width:var\(--tap-min\);\}/);
+  /* The builder's weekday circles: the box that takes the tap is centred
+     on the circle and at least 44px. */
+  assert.match(bare, /\.field \.wd-check input\{\s*position:absolute; left:50%; top:50%; transform:translate\(-50%,-50%\);\s*width:max\(100%, var\(--tap-min\)\); height:max\(100%, var\(--tap-min\)\); margin:0;/);
+  /* The flat heart-rate and benchmark fields: back to 44 tall. */
+  assert.match(bare, /\.benchmark-row > \.field input\{min-height:var\(--tap-min\);\}/);
+  /* The two the audit's box measure flagged that were already 44 by a band
+     of their own -- Injured or ill and the switches -- keep them. */
+  assert.match(bare, /\.coach-why-btn::after\{[^}]*height:44px/);
+  assert.match(bare, /\.switch::after\{[^}]*width:var\(--tap-min\); height:var\(--tap-min\)/);
+});
