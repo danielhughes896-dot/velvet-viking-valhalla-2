@@ -1283,6 +1283,15 @@
     position:relative; z-index:3; white-space:nowrap;
     font-family:var(--text-face); font-size:.78125rem; font-weight:600;
     letter-spacing:.01em; color:#15171B;}
+  /* ---------- A TIGHT BAR WRAPS ITS WORDS, IT DOES NOT CUT THEM ----------
+     Responsive correction 10. At the largest phone text size the bands'
+     words no longer fit the bar and the last ones ran under its clipped
+     edge ("9% . 29m" cut by 92px). fitZoneBars() marks only a bar whose
+     words are wider than it; there a band may narrow to its longest word
+     and its words wrap inside it, and the bar grows taller. Every real week
+     at the normal size fits (see .zbar), is never marked and is unchanged. */
+  .zbar.is-tight .zbar-seg{min-width:min-content;}
+  .zbar.is-tight .zbar-k{white-space:normal; text-align:center; line-height:1.15;}
   .zbar-seg:first-child{border-radius:99px 0 0 99px;}
   .zbar-seg:last-child{border-radius:0 99px 99px 0;}
   .zbar-seg:only-child{border-radius:99px;}
@@ -4740,7 +4749,10 @@
   .exec-review-head{display:flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
   /* title yields first so the badge can never be pushed off or overlapped
      on a narrow phone; the badge itself never shrinks */
-  .exec-review-head>span:first-of-type{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  /* Responsive correction 10: the heading wraps at a word rather than
+     ending in "..." when a large text size makes it wider than its row; at
+     the normal size it is one line, as it was. */
+  .exec-review-head>span:first-of-type{min-width:0;}
   /* the review header reuses the very same .exec-pill as the card header, so
      the score reads as one component wherever it appears */
   .exec-review-head .exec-pill{margin-left:auto; flex:none; text-transform:none;}
@@ -57458,7 +57470,7 @@ function openModal(html, extraClass, key){
       var y = card.scrollTop;
       card.innerHTML = html;
       card.scrollTop = y;
-      try { fitDialValues(); fitTabLabels(); } catch(e){}
+      try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
       return;
     }
   }
@@ -57470,7 +57482,7 @@ function openModal(html, extraClass, key){
   overlay.addEventListener('mousedown', function(e){ if (e.target===overlay) closeModal(); });
   document.body.appendChild(overlay);
   /* A reading or record page carries its own circle: fit its figure too. */
-  try { fitDialValues(); fitTabLabels(); } catch(e){}
+  try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
 }
 function closeModal(){
   // whatever the overlay held, it is not a Record panel any more -- see
@@ -66080,7 +66092,7 @@ function applyDynamicType(){
     root.style.fontSize = (16 * scale) + 'px';
     if (scale > 1.25) root.setAttribute('data-text-scale', 'large');
     else root.removeAttribute('data-text-scale');
-    fitDialValues(); fitTabLabels();
+    fitDialValues(); fitTabLabels(); fitZoneBars();
   }catch(e){}
 }
 
@@ -69405,14 +69417,30 @@ function fitDialValues(){
   var medals = document.querySelectorAll('.b-medal');
   for (var i = 0; i < medals.length; i++){
     var m = medals[i], kids = m.children || [], k, w = 0, h = 0;
-    for (k = 0; k < kids.length; k++){ kids[k].style.transform = ''; }
+    var figs = [];
+    for (k = 0; k < kids.length; k++){
+      kids[k].style.transform = '';
+      var f0 = kids[k].firstElementChild;
+      if (f0 && f0.tagName === 'B'){ f0.style.whiteSpace = ''; f0.style.maxWidth = ''; figs.push(f0); }
+    }
     var W = m.clientWidth, H = m.clientHeight;
     if (!W || !H) continue;
+    /* A FIGURE IS ONE WORD. The face's figure is a narrow block allowed to
+       break, which is right for "Worth watching" and wrong for "95%": at a
+       large text size it broke into "9" over "5%" and the circle cut the
+       second line. A figure (no space in it) is measured on one line, and
+       if that line is too wide it stays on one line and is scaled to fit;
+       words keep their two lines. */
+    var held = [];
+    figs.forEach(function(f){
+      if (/\s/.test((f.textContent || '').trim())) return;
+      f.style.whiteSpace = 'nowrap'; f.style.maxWidth = 'none';
+      if (f.scrollWidth > W * DIAL_FIT_ROOM) held.push(f);
+      else { f.style.whiteSpace = ''; f.style.maxWidth = ''; }
+    });
     for (k = 0; k < kids.length; k++){
-      /* The figure is an inline <b>, whose own box is its width; the line
-         it sits on is the face's full width and says nothing. */
       var b = kids[k].firstElementChild || kids[k];
-      w = Math.max(w, b.getBoundingClientRect().width);
+      w = Math.max(w, held.indexOf(b) > -1 ? b.scrollWidth : b.getBoundingClientRect().width);
       h += kids[k].offsetHeight;
     }
     var r = Math.min(1, (W * DIAL_FIT_ROOM) / (w || 1), (H * DIAL_FIT_ROOM) / (h || 1));
@@ -69436,6 +69464,15 @@ function fitTabLabels(){
       l.classList.add('is-fit');
       l.style.transform = 'scale(' + (room / need).toFixed(3) + ')';
     }
+  }
+}
+function fitZoneBars(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var bars = document.querySelectorAll('.zbar');
+  for (var i = 0; i < bars.length; i++){
+    var b = bars[i];
+    b.classList.remove('is-tight');
+    if (b.clientWidth > 0 && b.scrollWidth > b.clientWidth + 1) b.classList.add('is-tight');
   }
 }
 function handleCoachGraph(key){
@@ -72252,7 +72289,7 @@ function renderApp(){
   animateConfidenceGauge();
   try { doneArrivals(); } catch(e){}
   try { easeDials(); } catch(e){}
-  try { fitDialValues(); fitTabLabels(); } catch(e){}
+  try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
   wireCoachingRails();
   wireWeekDayPager();
   /* Last, and never waited for: the screen above is already complete. */
@@ -74368,8 +74405,8 @@ function init(){
   try{ document.addEventListener('input', logRangeLive); }catch(e){}
   try{ document.addEventListener('input', sliderInputHaptic, true); }catch(e){}
   try{ initFieldInView(); }catch(e){}
-  try{ window.addEventListener('resize', function(){ fitDialValues(); fitTabLabels(); }); }catch(e){}
-  try{ if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ fitDialValues(); fitTabLabels(); }); }catch(e){}
+  try{ window.addEventListener('resize', function(){ fitDialValues(); fitTabLabels(); fitZoneBars(); }); }catch(e){}
+  try{ if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ fitDialValues(); fitTabLabels(); fitZoneBars(); }); }catch(e){}
   try{ document.addEventListener('pointerup', logRangeSettle); }catch(e){}
   try{ document.addEventListener('scroll', coachRailScrolled, true); }catch(e){}
   // Deliberately last and un-awaited: the app is already painted from

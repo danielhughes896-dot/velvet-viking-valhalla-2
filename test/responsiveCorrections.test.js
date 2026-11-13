@@ -100,12 +100,12 @@ test('5. a figure is drawn small enough for its circle, and only when it would n
 });
 
 test('5. fitted after every render, every panel, every size or text-size change', () => {
-  assert.match(RT, /try \{ easeDials\(\); \} catch\(e\)\{\}\n  try \{ fitDialValues\(\); fitTabLabels\(\); \} catch\(e\)\{\}/, 'not fitted after a render');
+  assert.match(RT, /try \{ easeDials\(\); \} catch\(e\)\{\}\n  try \{ fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\); \} catch\(e\)\{\}/, 'not fitted after a render');
   const om = fnIn('openModal');
-  assert.equal((om.match(/try \{ fitDialValues\(\); fitTabLabels\(\); \} catch\(e\)\{\}/g) || []).length, 2, 'a panel opened or redrawn in place is not fitted');
-  assert.match(fnIn('applyDynamicType'), /fitDialValues\(\); fitTabLabels\(\);/, 'an iOS text-size change is not fitted');
-  assert.match(RT, /window\.addEventListener\('resize', function\(\)\{ fitDialValues\(\); fitTabLabels\(\); \}\)/);
-  assert.match(RT, /document\.fonts\.ready\.then\(function\(\)\{ fitDialValues\(\); fitTabLabels\(\); \}\)/);
+  assert.equal((om.match(/try \{ fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\); \} catch\(e\)\{\}/g) || []).length, 2, 'a panel opened or redrawn in place is not fitted');
+  assert.match(fnIn('applyDynamicType'), /fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\);/, 'an iOS text-size change is not fitted');
+  assert.match(RT, /window\.addEventListener\('resize', function\(\)\{ fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\); \}\)/);
+  assert.match(RT, /document\.fonts\.ready\.then\(function\(\)\{ fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\); \}\)/);
 });
 
 test('7. every small control takes a 44px tap without being drawn bigger', () => {
@@ -187,4 +187,42 @@ test('9. words that inform meet an 11px floor; glyphs in fixed circles and the t
   assert.equal(.6875 * 16, 11);
   /* Still rem, so it follows the reader's text size like everything else. */
   assert.doesNotMatch(floor[0], /px/);
+});
+
+test('10. a zone bar whose words outgrow it wraps them; the review heading wraps at a word', () => {
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const bar = (cw, sw) => { const c = new Set(['is-tight']); return { clientWidth: cw, scrollWidth: sw, classList: { add: x => c.add(x), remove: x => c.delete(x), has: x => c.has(x) } }; };
+  const fits = bar(328, 328), over = bar(328, 420), hidden = bar(0, 300);
+  a.document = { querySelectorAll: () => [fits, over, hidden] };
+  a.fitZoneBars();
+  assert.ok(!fits.classList.has('is-tight'), 'a bar that fits was marked');
+  assert.ok(over.classList.has('is-tight'));
+  assert.ok(!hidden.classList.has('is-tight'), 'a collapsed bar was marked');
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\.zbar\.is-tight \.zbar-seg\{min-width:min-content;\}/);
+  assert.match(bare, /\.zbar\.is-tight \.zbar-k\{white-space:normal; text-align:center; line-height:1\.15;\}/);
+  /* Untouched when it fits: the bands still take at least their words. */
+  assert.match(bare, /\.zbar-seg\{\s*position:relative; flex-basis:0; min-width:max-content;/);
+  assert.match(bare, /\.exec-review-head>span:first-of-type\{min-width:0;\}/);
+  assert.doesNotMatch(bare, /\.exec-review-head>span:first-of-type\{[^}]*ellipsis/);
+});
+
+test('5. a figure in a circle stays one word on one line; words keep their two lines', () => {
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  /* "95%" in a 68px face: allowed to break, it would be "9" over "5%". */
+  const fig = (text, natural) => {
+    const f = { tagName: 'B', textContent: text, style: {}, get scrollWidth(){ return this.style.whiteSpace === 'nowrap' ? natural : 50; }, getBoundingClientRect(){ return { width: 50 }; } };
+    return { style: {}, offsetHeight: 40, firstElementChild: f };
+  };
+  const num = fig('95%', 80), word = fig('Worth watching', 120), small = fig('3', 20);
+  const medal = k => ({ clientWidth: 68, clientHeight: 68, children: [k] });
+  a.document = { querySelectorAll: () => [medal(num), medal(word), medal(small)] };
+  a.fitDialValues();
+  assert.equal(num.firstElementChild.style.whiteSpace, 'nowrap', 'a figure was left free to break');
+  assert.equal(num.style.transform, 'scale(' + (68 * a.DIAL_FIT_ROOM / 80).toFixed(3) + ')');
+  assert.equal(word.firstElementChild.style.whiteSpace, '', 'words were forced onto one line');
+  assert.equal(small.firstElementChild.style.whiteSpace, '', 'a figure that fits had its layout changed');
+  assert.equal(small.style.transform, '');
 });
