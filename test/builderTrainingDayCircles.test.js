@@ -264,3 +264,18 @@ test('/start\'s renderWeekdayGrid() no longer builds a .wd-circle span, and no c
   assert.doesNotMatch(body, /wd-circle/);
   assert.doesNotMatch(START_SRC, /\.wd-check\.checked\{[^}]*background/, 'no background/wash may be declared on the selected label in /start either');
 });
+
+/* Founder, of these circles beside the week view's: "match please". The
+   week's days wear the completion circle's glass; these copy that circle,
+   so they wear it too, and a chosen day keeps the week's chosen ring. */
+test('the training-day circles are the same glass as the week view, chosen ones with its cherry ring', () => {
+  const wd = SRC.match(/\n  \.field \.wd-check\{\n(    background:linear-gradient[^}]*)\}/);
+  const wk = SRC.match(/\n  \.wk-day\{\n(    background:linear-gradient[^}]*)\}/);
+  assert.ok(wd && wk, 'a circle has no glass rule');
+  assert.equal(wd[1].trim(), wk[1].trim(), 'the builder circle and the week circle are different glass');
+  const chosen = SRC.match(/\.wd-check\.checked\{([^}]*)\}/)[1];
+  /* The week's glass chosen state: the last .wk-day.is-sel rule, the one that wins. */
+  const weekChosen = [...SRC.matchAll(/\n  \.wk-day\.is-sel\{\n([^}]*)\}/g)].pop()[1];
+  assert.equal(chosen.replace(/\s+/g, ' ').trim(), weekChosen.replace(/\s+/g, ' ').trim(),
+    'a chosen training day does not wear the week’s chosen ring');
+});

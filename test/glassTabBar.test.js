@@ -130,7 +130,14 @@ test('one material: the tokens are the tab bar’s own numbers', () => {
 test('each of the five is glass, and keeps the colour it already spoke in', () => {
   Object.entries(PANES).forEach(([what, re]) => {
     const r = block(re, what);
-    assert.match(r, /background:var\(--glass-sheen\), var\(--glass-tint\);/, what + ' is not glass');
+    /* ---- THE X CHANGED SIDES ----
+       Founder, of the round close buttons: "match please" -- the completion
+       circle's glass, which the back ring and the week's days already wear:
+       a lit upper half rather than the bar's faint sheen. Still glass. */
+    const ground = /X on a full page/.test(what)
+      ? /background:linear-gradient\(180deg, rgba\(255,255,255,\.16\), rgba\(255,255,255,\.03\) 60%\), var\(--glass-tint\);/
+      : /background:var\(--glass-sheen\), var\(--glass-tint\);/;
+    assert.match(r, ground, what + ' is not glass');
     assert.match(r, /-webkit-backdrop-filter:var\(--glass-blur\); backdrop-filter:var\(--glass-blur\);/, what + ' does not blur (or not on the iPhone)');
     assert.doesNotMatch(r, /opacity:|(?:^|[^-])filter:/, what + ' fades or filters its own contents');
   });
@@ -139,8 +146,19 @@ test('each of the five is glass, and keeps the colour it already spoke in', () =
   assert.match(block(PANES['this week in Full Plan'], 'week'), /0 0 26px 2px color-mix\(in srgb, var\(--cherry\) 26%, transparent\)/);
   assert.match(block(PANES['Hear Today / Ask Coach'], 'coach'), /0 0 16px var\(--cherry-dim\)/);
   assert.match(block(PANES['the pop-up notice'], 'notice'), /0 0 16px var\(--cherry-dim\)/);
-  /* The X is the full page's own X, not every modal's. */
-  assert.doesNotMatch(CSS, /\n  \.icon-btn\{[^}]*--glass/, 'every close button in the product turned to glass');
+  /* ---- AND EVERY X, NOT ONLY THE FULL PAGE'S ----
+     The same founder note: "The round x close buttons, on Settings pages,
+     Edit Session and the other sheets ... could take the same glass." Every
+     close button takes it, by its label rather than by its class, so the
+     one icon-btn that is not a close (the header's Settings mark) is left
+     alone; and before the panel rules, so a cherry or accent ring stays. */
+  const x = CSS.match(/\n  \.icon-btn\[aria-label="Close"\]\{([^}]*)\}/);
+  assert.ok(x, 'the close buttons are not glass');
+  assert.match(x[1], /var\(--glass-tint\)/);
+  assert.match(x[1], /backdrop-filter:var\(--glass-blur\)/);
+  assert.ok(CSS.indexOf('.icon-btn[aria-label="Close"]{') < CSS.indexOf('.hq-panel .icon-btn{'),
+    'the glass X sits after the panel rules and takes away their ring');
+  assert.doesNotMatch(CSS, /\n  \.icon-btn\{[^}]*--glass/, 'every icon button, not only the close, turned to glass');
 });
 
 test('where glass cannot be drawn, every pane is near solid', () => {

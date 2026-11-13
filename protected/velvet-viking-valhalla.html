@@ -1819,6 +1819,19 @@
   }
   .icon-btn:hover{color:var(--ink); border-color:var(--bronze);}
   .icon-btn svg{width:18px; height:18px;}
+  /* ---------- THE X IS GLASS, LIKE THE COMPLETION CIRCLE ----------
+     Founder, of the round close buttons on Settings, Edit Session and the
+     other sheets: "match please". The completion circle's own recipe
+     (label.day-check input), as the back ring and the week's days already
+     carry it: a lit upper half over the bar's tint and blur, a fine light
+     rim, a light line along the top and a soft shadow under it. Placed
+     before the panel rules so a Coach or Settings X keeps its cherry or
+     accent ring; size, place and icon unchanged. */
+  .icon-btn[aria-label="Close"]{
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    border-color:rgba(255,255,255,.2);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 6px rgba(0,0,0,.35);}
   /* Coach and Record detail sheets specifically -- every panel opened via
      openHQPanel() carries this wrapper class -- get the brand's own cherry
      for their close control instead of the generic dark/grey .icon-btn every
@@ -11245,8 +11258,23 @@
     line-height:1; color:var(--ink-faint); transition:color .15s;}
   .wd-name{font-family:var(--text-face); font-size:.59375rem; color:var(--ink-faint);
     text-transform:uppercase; letter-spacing:.04em; transition:color .15s;}
+  /* ---------- AND THEY ARE GLASS, AS THE WEEK'S DAYS ARE NOW ----------
+     Founder: "match please". The week view's days took the completion
+     circle's glass; these copy that circle, so they take it too: the lit
+     upper half over the tint and blur, the fine light rim, the light line
+     along the top and the soft shadow. A chosen day keeps its cherry ring
+     and glow, over the same light line, as the week's chosen day does.
+     Size, words and the control are unchanged. Before the chosen state, so
+     the chosen state wins by order at the same weight. */
+  .field .wd-check{
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    border-color:rgba(255,255,255,.2);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 6px rgba(0,0,0,.35);}
   .wd-check.checked{
-    border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
+    border-color:var(--cherry);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 1px var(--cherry),
+      0 0 16px color-mix(in srgb, var(--cherry) 44%, transparent);}
   .wd-check.checked .wd-initial{color:var(--cherry-text);}
   .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
   /* ---------- A NARROW PHONE KEEPS THE TARGET, NOT THE PERFECT CIRCLE ----
@@ -11477,9 +11505,9 @@
   /* The X on every full page: a small glass disc, still ringed and drawn in
      the page's own accent. */
   .modal-card:is(.hq-full, .es-full) .modal-head .icon-btn{
-    background:var(--glass-sheen), var(--glass-tint);
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%), var(--glass-tint);
     -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
-    box-shadow:var(--glass-rim);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 6px rgba(0,0,0,.35);
   }
   /* This week in Full Plan is glass too, declared in its own single rule
      (.view-plan .pp-body .week.is-now) because test/planSurface holds that
