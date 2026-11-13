@@ -9885,6 +9885,16 @@
     border:1px solid color-mix(in srgb, var(--cherry-text) 70%, transparent);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 18px color-mix(in srgb, var(--cherry) 35%, transparent);}
   .stg-sheet .btn-ghost{border-radius:14px;}
+  /* THE CHECK-IN IN THE SHEET: the same tiles, thinned. Founder: "the
+     boxes can be thinned." Still the full tap height, a lighter rim. */
+  .checkin-sheet .readiness-btn{min-height:var(--tap-min); padding:6px; font-size:.8125rem;
+    border-color:rgba(255,255,255,.1); background:rgba(255,255,255,.04);}
+  .checkin-sheet .readiness-row + .readiness-row{margin-top:14px;}
+  .checkin-row{display:flex; flex-wrap:wrap; align-items:center; width:100%; gap:2px 10px;
+    background:none; border:0; padding:14px 0; text-align:left; cursor:pointer; color:#FFFFFF;}
+  .checkin-row-k{flex:1 1 auto; color:#FFFFFF; font-size:1.125rem; letter-spacing:.06em; text-transform:uppercase;}
+  .checkin-row-v{order:3; flex-basis:100%; color:#FFFFFF; font-size:var(--fs-support);}
+  .checkin-row .rs-chev{order:2;}
   /* PATTERNS' ORB: the glow is the orb's own, so the dial's wash and ring
      shadow step aside; the word inside takes near-black for contrast. */
   .b-dial.is-orb{background:none; box-shadow:none;}
@@ -50145,7 +50155,12 @@ function handleSetReadiness(key, value){
      that should feel like finishing. Amending an already-complete check-in
      never trips this, so a reopened panel stays open under the athlete's hand
      while they change their mind. */
-  if (!wasComplete && readinessIsComplete(coachReadinessToday())){
+  var finished = !wasComplete && readinessIsComplete(coachReadinessToday());
+  if (checkinSheetIsOpen()){
+    if (finished) closeModal();
+    else openCheckinSheet();
+  }
+  if (finished){
     readinessEditOpen[today] = false;
     sacoroHaptic('light');            // the check-in is finished: once, on the answer that finishes it
   }
@@ -50155,9 +50170,55 @@ function handleSetReadiness(key, value){
 /* Reopen the finished check-in, or fold it back up. The answers are already
    saved; this moves nothing but the panel. */
 function handleReadinessEdit(){
-  var today = todayStr();
-  readinessEditOpen[today] = !readinessEditOpen[today];
-  renderApp();
+  /* Changing an answer opens the same sheet the question was asked in. */
+  openCheckinSheet();
+}
+/* ---------- THE CHECK-IN SHEET ----------
+   The Settings glass sheet, holding the same three questions under the
+   same rules: each answer is stored the moment it is tapped, tapping it
+   again clears it, and nothing is read without health consent. It closes
+   itself on the answer that finishes the check-in; reopened to amend, it
+   stays open under the thumb. */
+var checkinSheetRaised = {};
+function checkinSheetBody(){
+  var r = coachReadinessToday() || {};
+  return READINESS_QUESTIONS.map(function(q){
+    return '<div class="readiness-row">'+
+      '<span class="readiness-label font-head">'+q.label+'</span>'+
+      '<span class="readiness-opts">'+
+        q.options.map(function(o){
+          return '<button type="button" class="readiness-btn'+(r[q.key]===o[0]?' on':'')+'" '+
+            'aria-pressed="'+(r[q.key]===o[0]?'true':'false')+'" '+
+            'data-action="set-readiness" data-rk="'+q.key+'" data-rv="'+o[0]+'">'+o[1]+'</button>';
+        }).join('')+
+      '</span>'+
+    '</div>';
+  }).join('');
+}
+function openCheckinSheet(){
+  if (!state.setup || !healthConsentGranted()) return;
+  checkinSheetRaised[todayStr()] = true;
+  /* Reopened to amend, it is showing an answer, not asking again. */
+  var title = readinessIsComplete(coachReadinessToday()) ? 'Today\u2019s check-in' : 'How are you today?';
+  openModal('<div class="modal-head"><h2 class="font-head">'+title+'</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body"><div class="readiness checkin-sheet-body">'+checkinSheetBody()+'</div></div>',
+    'modal-themed stg-sheet checkin-sheet', 'checkin');
+}
+function checkinSheetIsOpen(){
+  if (typeof document === 'undefined' || !document.querySelector) return false;
+  return !!document.querySelector('.modal-card[data-modal-key="checkin"]');
+}
+/* Once a day, on Today, with nothing else up and nothing to arrive through
+   first. Dismissed, it stays dismissed until tomorrow; the row on Today
+   raises it again whenever the athlete wants. */
+function maybeRaiseCheckinSheet(arriving){
+  if (arriving || state.view !== 'today') return;
+  if (!state.setup || !state.days || !state.days.length || !healthConsentGranted()) return;
+  if (readinessIsComplete(coachReadinessToday())) return;
+  if (checkinSheetRaised[todayStr()]) return;
+  if (typeof document === 'undefined' || !document.getElementById || document.getElementById('modal-overlay')) return;
+  openCheckinSheet();
 }
 function handleCoachKeep(dayId){
   var dd = findDay(dayId);
@@ -56234,6 +56295,19 @@ function renderTodayCheckIn(where){
   if (!state.setup || !state.days || !state.days.length) return '';
   var done = readinessIsComplete(coachReadinessToday());
   if ((where === 'foot') !== done) return '';
+  /* THE QUESTION RISES AS A SHEET. Founder: "Make daily check in behave
+     like the settings bottom pops up we have just designed." Unanswered,
+     Today keeps one slim row that raises it again; the sheet itself rises
+     once a day on its own (see maybeRaiseCheckinSheet). */
+  if (!done){
+    if (!healthConsentGranted()) return '';
+    return '<div class="today-checkin is-ask">'+
+      '<button type="button" class="checkin-row" data-action="open-checkin-sheet">'+
+        '<span class="checkin-row-k font-head">How are you today?</span>'+
+        '<span class="checkin-row-v">Legs, sleep and health</span>'+
+        '<span class="rs-chev">'+ICONS.chevronRight+'</span>'+
+      '</button></div>';
+  }
   var body = renderReadinessCheck({ readinessEarned:true, readinessComplete: done });
   return body ? '<div class="today-checkin'+(done ? ' is-done' : '')+'">'+body+'</div>' : '';
 }
@@ -73519,6 +73593,7 @@ function renderApp(){
   try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
   wireCoachingRails();
   wireWeekDayPager();
+  try { maybeRaiseCheckinSheet(arriving); } catch(e){}
   /* Last, and never waited for: the screen above is already complete. */
   try { coachNoteMaybeFetch(); } catch(e){}
 }
@@ -75060,6 +75135,7 @@ document.addEventListener('click', function(e){
     case 'race-custom': handleRaceCustomStep(target.getAttribute('data-delta')); break;
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
     case 'readiness-edit': handleReadinessEdit(); break;
+    case 'open-checkin-sheet': openCheckinSheet(); break;
     case 'open-reading': vtOpenReading(target, target.getAttribute('data-reading')); break;
     case 'open-new-block': openHQPanel('newblock'); break;
     case 'go-checkpoint': handleGoToCheckpoint(); break;

@@ -117,6 +117,8 @@ const WORK_SURFACES = [
   /* The glass sheets Settings raises for a choice or a confirmation: Your
      Name, Coach Voice, Sign Out and Delete Account. */
   ['openStgSheet', "Settings' glass sheets"],
+  /* The morning check-in, risen in the same glass sheet. */
+  ['openCheckinSheet', 'the daily check-in sheet'],
   /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
      it, picks how much the card says and then approves it -- that is working
      in a modal, not answering an interrupt, and it has a close control and
