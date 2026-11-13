@@ -33,9 +33,14 @@ test('there is exactly one Android release workflow', () => {
   /* A second one would mean two ways to produce an artifact somebody uploads,
      signed by whatever each happened to configure. */
   const dir = path.join(ROOT, '.github', 'workflows');
-  const files = fs.readdirSync(dir).filter(f => /\.ya?ml$/.test(f));
-  assert.deepEqual(files, ['build-apk.yml'],
+  /* build-ios.yml is the iOS app's, added when the founder said "We need to
+     build an iOS app bundle now"; it builds no Android artifact. Still one
+     way to produce each platform's build, and no third. */
+  const files = fs.readdirSync(dir).filter(f => /\.ya?ml$/.test(f)).sort();
+  assert.deepEqual(files, ['build-apk.yml', 'build-ios.yml'],
     'a second workflow appeared -- the release path must not be duplicated: ' + files.join(', '));
+  const ios = fs.readFileSync(path.join(dir, 'build-ios.yml'), 'utf8');
+  assert.doesNotMatch(ios, /gradlew|assembleRelease|bundleRelease|ANDROID_KEYSTORE/, 'the iOS workflow builds Android too');
 });
 
 test('the complete suite runs BEFORE anything is built', () => {

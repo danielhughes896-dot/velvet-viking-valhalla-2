@@ -8,5 +8,10 @@
   "android": {
     "zoomEnabled": true,
     "backgroundColor": "#121316"
+  },
+  "ios": {
+    "backgroundColor": "#121316",
+    "contentInset": "never",
+    "limitsNavigationsToAppBoundDomains": false
   }
 }

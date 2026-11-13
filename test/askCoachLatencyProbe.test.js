@@ -306,7 +306,10 @@ test('the diagnostic adds no dependency and no new require', () => {
      between main tabs: very light tick. Complete daily check-in: light
      confirmation. Save session: success pulse. Accept coaching
      recommendation: firm confirmation." The WebView has no vibration of its
-     own on iOS, and Android's WebView ignores navigator.vibrate. */
+     own on iOS, and Android's WebView ignores navigator.vibrate.
+
+     @capacitor/ios was added for the iOS app. Founder: "We need to build an
+     iOS app bundle now." It is the iOS twin of @capacitor/android. */
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.deepEqual(Object.keys(pkg.dependencies || {}).sort(), [
     '@capacitor-community/media',
@@ -316,6 +319,7 @@ test('the diagnostic adds no dependency and no new require', () => {
     '@capacitor/core',
     '@capacitor/filesystem',
     '@capacitor/haptics',
+    '@capacitor/ios',
     '@capacitor/local-notifications',
     '@capacitor/share'
   ], 'the dependency list changed');

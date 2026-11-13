@@ -1,0 +1,213 @@
+name: Build iOS app
+
+# Founder: "We need to build an iOS app bundle now."
+#
+# Like Android, the iOS app is a SHELL: capacitor.config.json points it at
+# https://app.velvetviking.co.uk, so content reaches iPhones through the
+# normal web deploy. This builds the shell itself, and only when asked:
+# a manual run from the Actions tab. macOS minutes cost about ten times
+# Linux minutes, so nothing here runs on an ordinary push.
+#
+# WHAT A RUN PRODUCES
+#   Always: SACORO-simulator, the app built for the iOS Simulator. It needs
+#   no Apple account and proves the project, every plugin and the assets
+#   compile. It opens in Xcode's Simulator on any Mac.
+#   With the Apple secrets below: SACORO-ios-app-store, a signed .ipa ready
+#   for TestFlight, and with upload_testflight ticked it is sent there.
+#
+# THE SECRETS (Settings, Secrets and variables, Actions). None exist yet; the
+# signed steps say so and skip rather than fail.
+#   IOS_DIST_CERT_P12_BASE64   Apple Distribution certificate, .p12, base64
+#   IOS_DIST_CERT_PASSWORD     its password
+#   IOS_PROFILE_BASE64         App Store provisioning profile for
+#                              com.velvetviking.valhalla, base64
+#   IOS_TEAM_ID                the 10-character Apple team ID
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_BASE64
+#                              App Store Connect API key, only for upload
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Exact commit SHA, tag or branch to build. Leave blank to build the current branch tip.'
+        required: false
+        default: ''
+      upload_testflight:
+        description: 'Also upload the signed build to TestFlight (needs the App Store Connect key secrets)'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  # THE WHOLE SUITE FIRST, on Linux, where it is cheap. A red suite must not
+  # produce a build somebody could send to TestFlight, and it must not spend
+  # Mac minutes finding that out.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Run the complete automated suite
+        run: npm test
+
+  build-ios:
+    needs: test
+    runs-on: macos-latest
+    env:
+      IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+      IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+      IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
+      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+
+      # The newest Xcode on the image: App Store uploads must be built with a
+      # current SDK, and the layered icon (AppIcon.icon) needs Xcode 26.
+      - name: Select the newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Copies the shell's web assets and config into the project and runs
+      # pod install for the seven plugins (CocoaPods, because the Media plugin
+      # has no Swift Package yet).
+      - name: Sync Capacitor native project
+        run: npx cap sync ios
+
+      - name: Build for the iOS Simulator (no signing)
+        run: |
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION="$BUILD_NUMBER" build
+          cd "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator"
+          ditto -c -k --sequesterRsrc --keepParent App.app "$RUNNER_TEMP/SACORO-simulator.zip"
+
+      - name: Upload simulator build
+        uses: actions/upload-artifact@v4
+        with:
+          name: SACORO-simulator
+          path: ${{ runner.temp }}/SACORO-simulator.zip
+
+      - name: Note signed build skipped (no Apple signing secrets yet)
+        if: env.IOS_DIST_CERT_P12_BASE64 == '' || env.IOS_PROFILE_BASE64 == '' || env.IOS_TEAM_ID == ''
+        run: |
+          echo "::notice::Signed iOS build skipped: add IOS_DIST_CERT_P12_BASE64, IOS_DIST_CERT_PASSWORD, IOS_PROFILE_BASE64 and IOS_TEAM_ID to build an App Store .ipa."
+
+      # A throwaway keychain for this run only, so nothing outlives the job.
+      - name: Install the distribution certificate and profile
+        if: env.IOS_DIST_CERT_P12_BASE64 != '' && env.IOS_PROFILE_BASE64 != '' && env.IOS_TEAM_ID != ''
+        run: |
+          KC="$RUNNER_TEMP/sacoro.keychain-db"; KP="$(uuidgen)"
+          echo "$IOS_DIST_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security create-keychain -p "$KP" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KP" "$KC"
+          security import "$RUNNER_TEMP/dist.p12" -P "$IOS_DIST_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KP" "$KC"
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          echo "$IOS_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")
+          NAME=$(/usr/libexec/PlistBuddy -c 'Print Name' "$RUNNER_TEMP/profile.plist")
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
+
+      # Manual signing on the App target only. Passing the profile on the
+      # command line would hand it to every CocoaPods framework too, which
+      # Xcode refuses; the frameworks are signed when they are embedded.
+      - name: Archive and export the App Store build
+        if: env.IOS_DIST_CERT_P12_BASE64 != '' && env.IOS_PROFILE_BASE64 != '' && env.IOS_TEAM_ID != ''
+        run: |
+          python3 - <<'PY'
+          import os, re
+          f = 'ios/App/App.xcodeproj/project.pbxproj'
+          s = open(f).read()
+          team, prof = os.environ['IOS_TEAM_ID'], os.environ['PROFILE_NAME']
+          def sign(m):
+              block = m.group(0)
+              if 'PRODUCT_BUNDLE_IDENTIFIER = com.velvetviking.valhalla;' not in block or 'name = Release;' not in block:
+                  return block
+              add = ('CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\t'
+                     'CODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\t'
+                     'PROVISIONING_PROFILE_SPECIFIER = "%s";\n\t\t\t\t') % (team, prof)
+              block = re.sub(r'\n\t\t\t\t(CODE_SIGN_STYLE|DEVELOPMENT_TEAM|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE_SPECIFIER) = [^;]*;', '', block)
+              return block.replace('buildSettings = {\n\t\t\t\t', 'buildSettings = {\n\t\t\t\t' + add, 1)
+          s2 = re.sub(r'\{\n\t\t\tisa = XCBuildConfiguration;.*?\n\t\t\};', sign, s, flags=re.S)
+          assert s2 != s, 'the App target Release configuration was not found'
+          open(f, 'w').write(s2)
+          PY
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${IOS_TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key><dict>
+              <key>com.velvetviking.valhalla</key><string>${PROFILE_NAME}</string>
+            </dict>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/SACORO.xcarchive" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" archive
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/SACORO.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export"
+          ls -la "$RUNNER_TEMP/export"
+
+      - name: Upload App Store build
+        if: env.IOS_DIST_CERT_P12_BASE64 != '' && env.IOS_PROFILE_BASE64 != '' && env.IOS_TEAM_ID != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: SACORO-ios-app-store
+          path: ${{ runner.temp }}/export/*.ipa
+
+      - name: Upload to TestFlight
+        if: github.event.inputs.upload_testflight == 'true' && env.IOS_DIST_CERT_P12_BASE64 != '' && env.IOS_PROFILE_BASE64 != '' && env.IOS_TEAM_ID != '' && env.ASC_KEY_ID != '' && env.ASC_ISSUER_ID != '' && env.ASC_KEY_P8_BASE64 != ''
+        run: |
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Report build identity
+        if: always()
+        run: |
+          {
+            echo "## SACORO iOS build"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Built ref | \`${{ github.event.inputs.ref || github.ref_name }}\` |"
+            echo "| Commit | \`$(git rev-parse HEAD)\` |"
+            echo "| Build number | $BUILD_NUMBER |"
+            echo "| Signed | $([ -n "$IOS_DIST_CERT_P12_BASE64" ] && [ -n "$IOS_PROFILE_BASE64" ] && [ -n "$IOS_TEAM_ID" ] && echo yes || echo 'no: Apple signing secrets not set') |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the temporary keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/sacoro.keychain-db" 2>/dev/null || true
