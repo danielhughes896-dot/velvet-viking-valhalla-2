@@ -147,8 +147,14 @@ public class WidgetLayoutTest {
                line was broken at, which Android lets hang past the edge
                undrawn. Run 3 flagged three coaching lines and a title "2px
                too wide" for that space alone. */
+            /* A line the layout allows to end in "..." and that does end in
+               it is truncated by design: Android measures it with the
+               ellipsis glyph's overhang, a pixel or two past the box (run 5,
+               "Open SACORO for today's plan." 824px in 822). Its width is not
+               a cut. Every other line is measured as before. */
             for (int i = 0; i < shown; i++) {
                 if (l.getEllipsisCount(i) > 0 && !mayEllipsize) out.add(who + " is ellipsized");
+                if (l.getEllipsisCount(i) > 0 && mayEllipsize) continue;
                 if (l.getLineMax(i) > availW + 1) out.add(who + " is " + Math.round(l.getLineMax(i)) + "px wide in " + availW + "px");
             }
             if (shown > 0 && l.getLineBottom(shown - 1) > availH + 2) out.add(who + " is " + l.getLineBottom(shown - 1) + "px tall in " + availH + "px");

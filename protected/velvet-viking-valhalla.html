@@ -74316,11 +74316,14 @@ function widgetDist(dd){
 function widgetDay(date){
   var dd = findDayByDate(date);
   var out = { date: date, label: 'TODAY' };
+  /* The 4x2 widget now shows the days after today as well, so a line that
+     says "today" says it only of today. */
+  var when = date === todayStr() ? 'today' : 'that day';
   if (!dd){
-    out.title = 'Nothing planned'; out.line = 'No session in your plan today.'; out.note = '';
+    out.title = 'Nothing planned'; out.line = 'No session in your plan ' + when + '.'; out.note = '';
     out.dist = ''; out.kind = 'NO SESSION';
   } else if (dayRestricted(dd)){
-    out.title = 'Your plan'; out.line = 'Open SACORO for today’s plan.'; out.note = '';
+    out.title = 'Your plan'; out.line = 'Open SACORO for ' + when + '’s plan.'; out.note = '';
     out.dist = ''; out.kind = 'OPEN SACORO';
   } else if (isOptionalRunDay(dd)){
     out.title = 'Optional run'; out.line = 'No run needed.'; out.note = 'Rest, or run if you feel like it.';

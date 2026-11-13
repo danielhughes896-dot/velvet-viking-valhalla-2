@@ -99,7 +99,9 @@ test('privacy: nothing health-related, nothing logged and no reason for a restri
   assert.doesNotMatch(all, PRIVATE, 'a health word reached the widget');
   assert.doesNotMatch(all, /163|181|knee|slept/, 'something the athlete logged reached the widget');
   const h = p.days.find(d => d.date === hurt.date);
-  assert.deepEqual([h.title, h.line, h.note], ['Your plan', 'Open SACORO for today’s plan.', ''], 'a restricted day says more than to open the app');
+  /* "today" only of today: the 4x2 widget now shows the days after it too. */
+  const when = h.date === a.todayStr() ? 'today' : 'that day';
+  assert.deepEqual([h.title, h.line, h.note], ['Your plan', 'Open SACORO for ' + when + '’s plan.', ''], 'a restricted day says more than to open the app');
   const c = p.days.find(d => d.date === done.date);
   assert.equal(c.note, 'Logged. Nicely done.');
   /* Any coaching line naming a health topic is dropped whole, not edited. */
