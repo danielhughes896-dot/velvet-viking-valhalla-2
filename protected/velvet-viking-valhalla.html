@@ -8003,6 +8003,41 @@
        "63.2/69.2" needed -- size the column to the fixture and the first
        athlete running three figures clips. */
     flex:0 0 100px;}
+  /* ---------- AND THE ROW REFLOWS WHEN THE WORDS GROW ----------
+     Responsive correction 2. At a larger phone text size the two figure
+     columns stayed 100px and 36px while their words grew, so they ran into
+     each other and the week's name was cut to "WE..." (iOS xxxLarge) or
+     vanished under the date (AX1). The columns are now measured in the
+     row's own text size -- the same 100px and 36px at the normal size, and
+     wider as the words widen -- and when the row is too narrow FOR ITS
+     TEXT the name takes the whole first line and the figures and chevron
+     move together to a second line, on the right.
+     "Too narrow for its text" is a container query in em, so it is the
+     number of characters that fit and not a pixel width: the row's box
+     scales with the phone's text size on both platforms (iOS through the
+     root, Android through the WebView's text zoom), so one threshold holds
+     at every size. Measured at the normal size, the name, both figures and
+     the chevron need 21.7 row-ems (22 to spare a hair), which is 20.6 of
+     the box's own ems (the row text is 15/16 of it); under 375px the date
+     already sits under the name, the name needs less, and the threshold is
+     17.3. At the normal size on every phone measured -- 320 to 430 --
+     nothing changes. */
+  .view-plan .pp-body .week{container:weekrow / inline-size;}
+  .view-plan .pp-body .week-vol{font-size:var(--fs-row); flex-basis:6.67em;}
+  @media (min-width:375px){
+    @container weekrow (max-width:20.6em){
+      .view-plan .pp-body .week-head{flex-wrap:wrap; row-gap:2px;}
+      .view-plan .pp-body .week-meta{flex:1 0 100%;}
+      .view-plan .pp-body .week-vol{margin-left:auto;}
+    }
+  }
+  @media (max-width:374px){
+    @container weekrow (max-width:17.3em){
+      .view-plan .pp-body .week-head{flex-wrap:wrap; row-gap:2px;}
+      .view-plan .pp-body .week-meta{flex:1 0 100%;}
+      .view-plan .pp-body .week-vol{margin-left:auto;}
+    }
+  }
   /* ---------- THE UNIT COMES OFF THE ROW ----------
      "KM" is the same three characters on all eleven rows, under a hero that
      has just said "/ 525.7km", beside a percentage that can only be a
@@ -8036,7 +8071,7 @@
      the same way. One selector, one rule. */
   /* Likewise 100%, which is four characters where every other value is
      two or three. */
-  .view-plan .pp-body .week-pct{font-size:var(--fs-row); flex:0 0 36px;
+  .view-plan .pp-body .week-pct{font-size:var(--fs-row); flex:0 0 2.4em;
     text-align:right; margin-left:0;}
   /* THE WEEK THE ATHLETE IS IN is marked further down, with the rest of the
      state colours. It used to be stated here as a gold rim plus a 1px ring;

@@ -1975,7 +1975,11 @@ test('the week list runs in columns, not wherever each row’s figures end', () 
   assert.match(vol, /text-align:left/,
     'the volume is centred in a single-row layout, so it floats away from the column ' +
     'edge the rest of the row aligns to');
-  assert.match(pct, /flex:0 0 \d+px/,
+  /* FIXED, IN THE ROW'S OWN TEXT SIZE (responsive correction 2): every
+     row has the same text size, so the column is the same width on every
+     row -- 36px at the normal 15px -- and it widens with the words when the
+     phone's text is larger instead of letting them overrun it. */
+  assert.match(pct, /flex:0 0 2\.4em/,
     'the completion figure is sized to its own content again');
 
   /* THE BOX HAS TO FIT THE WIDEST REAL FIGURE. "63.2/69.2" measured 81px on
@@ -1985,6 +1989,11 @@ test('the week list runs in columns, not wherever each row’s figures end', () 
      --fs-data against the 84px my fixture's "63.2/69.2" needed. Size this
      to the fixture and the first athlete running three figures clips. */
   const w = parseInt(/flex:0 0 (\d+)px/.exec(vol)[1], 10);
+  /* And at the normal text size the reflow rule's width in em is that same
+     width, so nothing moved at the size it was measured at. */
+  const reflow = /\.view-plan \.pp-body \.week-vol\{font-size:var\(--fs-row\); flex-basis:([\d.]+)em;/.exec(BARE);
+  assert.ok(reflow, 'the volume column no longer grows with the row\u2019s text');
+  assert.ok(Math.abs(Number(reflow[1]) * 15 - w) < 1, 'the em width (' + reflow[1] + 'em at 15px) is not the ' + w + 'px it replaces');
   assert.ok(w >= 100,
     'the volume column is ' + w + 'px. A 120km week prints "123.4/145.6", which needs ' +
     '100px at this size, so this clips it.');
