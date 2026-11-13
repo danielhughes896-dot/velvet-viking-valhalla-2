@@ -9842,6 +9842,7 @@
   /* A word in a panel's circle takes the words' face, as the rail does. */
   .rp-hero.is-word .rd-val b{font-family:var(--text-face);}
   .rp-hero .b-dial.is-torus .b-medal{inset:15%;}
+  .day-check.day-check-hold{visibility:hidden; pointer-events:none;}
   /* ---------- THE RECORD PANELS: TWO FIGURES, BARS, ITEMS ---------- */
   .rec-stats{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin:4px 0 18px;}
   .rec-stat{padding:14px 10px 12px; text-align:center; border-radius:16px; border:1px solid rgba(255,255,255,.07);
@@ -31230,7 +31231,9 @@ function evolutionPhaseHtml(){
   var phases = blockPhaseProgress();
   var cur = phases ? phases.filter(function(p){ return p.state === 'now'; })[0] : null;
   if (!cur) return '';
-  var pct = Math.round(cur.frac * 100), col = PHASE_PETAL_COLOUR[cur.name], circ = 2 * Math.PI * 40;
+  /* The panel's own green, as its card is: the petals on the Coach page
+     carry the phase colours, the page behind them carries Evolution's. */
+  var pct = Math.round(cur.frac * 100), col = READING_ACCENT.evolution, circ = 2 * Math.PI * 40;
   return sectionRule('Current Phase: '+cur.name, true)+
     '<div class="ev-phase">'+
       '<div class="ev-phase-t"><div class="ev-phase-wk">Week '+cur.week+' of '+cur.weeks+'</div>'+
@@ -36349,9 +36352,18 @@ function renderDayCard(dd){
            day with nothing to edit left a 16px hole beside the tick. The
            container is emitted only when it has something in it. */
         var act = dayActionButton(dd);
-        return '<div class="day-rail">'+renderDayCheck(dd)+
+        /* NO COMPLETION DOT ON A REST DAY. Founder: "On a rest day. No
+           completion dot is needed ... just needs to be hidden." There is
+           nothing to tick off, so the hero's top-right corner holds nothing. */
+        var tick = dd.type === 'rest' ? '' : renderDayCheck(dd);
+        if (!tick && !act) return '';
+        return '<div class="day-rail">'+tick+
           (act ? '<div class="day-actions">'+act+'</div>' : '')+'</div>';
-      })() : renderDayCheck(dd))+
+      })() : (dd.type === 'rest'
+        /* In a list the rest day keeps the dot's space, so the rows stay in
+           line, but nothing is drawn in it. */
+        ? '<span class="day-check day-check-hold" aria-hidden="true"></span>'
+        : renderDayCheck(dd)))+
       '<div class="day-main">'+
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
@@ -71463,11 +71475,13 @@ function evolutionReadHtml(d){
    engine's: a trend's own headline where one stands, otherwise how settled
    the learning is. */
 var PATTERN_KINDS = [
-  { key:'pacing',   label:'Pacing',   col:'var(--cherry)', concept:'execution', complexity:'simple',
+  /* ONE COLOUR PER PANEL. Founder: "All colours of the pages behind the
+     circles use same colours the cards represent." Patterns is the ink. */
+  { key:'pacing',   label:'Pacing',   col:'var(--ink)', concept:'execution', complexity:'simple',
     ask:'Do you hold your prescribed pace?' },
-  { key:'effort',   label:'Effort',   col:'var(--z-mp)',   concept:'effort',    complexity:'simple',
+  { key:'effort',   label:'Effort',   col:'var(--ink)',   concept:'effort',    complexity:'simple',
     ask:'How hard does the work feel?' },
-  { key:'recovery', label:'Recovery', col:'var(--cyan)',   concept:'recovery',  complexity:'complex',
+  { key:'recovery', label:'Recovery', col:'var(--ink)',   concept:'recovery',  complexity:'complex',
     ask:'How do you respond between sessions?' }
 ];
 function patternProgress(report){

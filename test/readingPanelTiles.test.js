@@ -176,3 +176,15 @@ test('PLAN EVOLUTION: with nothing logged the read says so, and the tiles wait',
   assert.match(p, /There isn’t enough logged training yet to assess aerobic development or execution\./);
   assert.match(p, /The current plan remains unchanged\.|SACORO suggests/);
 });
+
+test('COLOUR: every graph on a panel wears the colour of the card that opens it', () => {
+  /* Founder: "All colours of the pages behind the circles use same colours
+     the cards represent." */
+  const a = athlete();
+  a.patternProgress(a.coachAnalyse()).forEach(p => assert.equal(p.col, a.READING_ACCENT.patterns, p.label));
+  assert.match(a.evolutionPhaseHtml(), new RegExp('--ph-col:' + a.READING_ACCENT.evolution.replace(/[()]/g, '\\$&')));
+  [['recovery', 'recovery'], ['adaptation', 'adaptation'], ['evolution', 'evolution']].forEach(([k]) => {
+    const tiles = (a.readingPanel(k).match(/class="pt-tile" style="--pt-col:([^;]+);/g) || []);
+    tiles.forEach(t => assert.ok(t.indexOf(a.READING_ACCENT[k]) !== -1, k + ' has a tile in another colour'));
+  });
+});
