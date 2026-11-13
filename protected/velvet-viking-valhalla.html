@@ -73113,6 +73113,27 @@ function wireCoachingRail(rail){
      how tall a module is; one late re-measure costs nothing and avoids a
      rail sized for text that has since reflowed. */
   if (typeof setTimeout === 'function') setTimeout(function(){ measure(); setFocus(focus, false); }, 350);
+  /* ---------- AND AGAIN WHENEVER THE WORDS CHANGE SIZE ----------
+     Responsive correction 3. Measured once (and once more at 350ms), the
+     rail was sized for the text as it was then, and every card is clipped
+     to that box -- so text that grew later was cut mid-sentence: a larger
+     system font on Android, iOS text size changed while the app was in
+     the background, a slow font, a phone turned to a new width. Each
+     card's own contents are watched, and the rail is re-measured when one
+     of them changes height, so the card grows with its words instead of
+     cutting them. The cards themselves are stretched to the rail, so it is
+     their CONTENTS that are watched: watching the cards would re-measure
+     on its own result. Nothing below moves while the athlete reads,
+     because nothing changes size while they read. */
+  if (typeof ResizeObserver === 'function'){
+    try{
+      var railRO = new ResizeObserver(function(){ measure(); });
+      for (var ri = 0; ri < n; ri++){
+        var kids = mods[ri].children || [];
+        for (var rk = 0; rk < kids.length; rk++) railRO.observe(kids[rk]);
+      }
+    }catch(e){}
+  }
 }
 /* HOW TO RUN THIS IS NOT A DROP-DOWN ON TODAY. The approved screen shows the
    whole session on one page: hero, structure, execution, all open. The
