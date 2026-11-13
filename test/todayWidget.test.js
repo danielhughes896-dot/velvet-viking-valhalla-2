@@ -183,11 +183,82 @@ test('stale or missing data: the widget asks to be opened rather than guessing',
   assert.doesNotMatch(days, /import android\./, 'the day picker must stay runnable off the phone');
   assert.match(days, /if \(!hasPlan\) return NO_PLAN;/);
   assert.match(days, /if \(!today\.equals\(d\.optString\("date"\)\)\) continue;/);
-  assert.match(days, /return UNKNOWN;\s*\}\s*\}\s*$/);
+  const lft = days.slice(days.indexOf('static String[] linesForToday('), days.indexOf('static String[][] upcoming('));
+  assert.match(lft, /return UNKNOWN;\s*\}\s*(\/\*\*[\s\S]*)?$/, 'the last word of linesForToday must be the honest one');
   assert.match(days, /UNKNOWN = \{ "TODAY", "Open SACORO", /);
   /* SACORO's own colours only: white words, gold for the label. */
   const lay = AND('res/layout/widget_today.xml');
   const colours = (lay.match(/textColor="#[0-9A-Fa-f]+"/g) || []).map(s => s.slice(11, -1).toUpperCase());
   assert.deepEqual([...new Set(colours)].sort(), ['#E3B15A', '#FFFFFF']);
-  assert.match(fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8'), /versionCode 7\s+versionName "1\.6"/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8'), /versionCode 8\s+versionName "1\.7"/);
+});
+
+/* PHASE TWO. Founder: "8 - let's do small and large." Same data, same
+   privacy, same redraws; only what each size draws differs. */
+test('three sizes on the home screen: small 2x2, medium 4x2, large 4x4, each its own entry', () => {
+  const man = AND('AndroidManifest.xml');
+  const receivers = man.match(/<receiver[\s\S]*?<\/receiver>/g) || [];
+  const byName = {};
+  receivers.forEach(r => { const n = /android:name="\.(\w+)"/.exec(r); if (n) byName[n[1]] = r; });
+  [['SacoroWidgetProvider', 'sacoro_widget_info', 4, 2], ['SacoroWidgetSmall', 'sacoro_widget_small_info', 2, 2],
+   ['SacoroWidgetLarge', 'sacoro_widget_large_info', 4, 4]].forEach(([cls, info, w, h]) => {
+    const r = byName[cls];
+    assert.ok(r, cls + ' is not on the home screen list');
+    assert.match(r, /android:exported="true"/);
+    assert.match(r, /android\.appwidget\.action\.APPWIDGET_UPDATE/);
+    assert.match(r, new RegExp('android:resource="@xml/' + info + '"'));
+    const x = AND('res/xml/' + info + '.xml');
+    assert.match(x, new RegExp('android:targetCellWidth="' + w + '"[\\s\\S]*android:targetCellHeight="' + h + '"'));
+    assert.match(x, /android:updatePeriodMillis="1800000"/);
+    const desc = /android:description="@string\/(\w+)"/.exec(x)[1];
+    assert.match(AND('res/values/strings.xml'), new RegExp('name="' + desc + '"'));
+  });
+  /* The two new sizes are the medium one with different drawing. */
+  assert.match(JAVA('SacoroWidgetSmall'), /extends SacoroWidgetProvider[\s\S]*RemoteViews build\(Context context\) \{ return renderSmall\(context\); \}/);
+  assert.match(JAVA('SacoroWidgetLarge'), /extends SacoroWidgetProvider[\s\S]*RemoteViews build\(Context context\) \{ return renderLarge\(context\); \}/);
+});
+
+test('every redraw redraws every size, and the midnight redraw outlives any one size', () => {
+  const prov = JAVA('SacoroWidgetProvider');
+  const refresh = prov.slice(prov.indexOf('static void refreshAll('), prov.indexOf('static String todayKey('));
+  ['SacoroWidgetProvider.class', 'SacoroWidgetSmall.class', 'SacoroWidgetLarge.class'].forEach(c =>
+    assert.ok(refresh.indexOf(c) > -1, 'refreshAll leaves out ' + c));
+  ['renderMedium(context)', 'renderSmall(context)', 'renderLarge(context)'].forEach(r =>
+    assert.ok(refresh.indexOf(r) > -1, 'refreshAll never draws ' + r));
+  const disabled = prov.slice(prov.indexOf('public void onDisabled('), prov.indexOf('static int[] idsOf('));
+  assert.match(disabled, /if \(placedCount\(context\) > 0\) return;/,
+    'removing the last small widget would stop the midnight redraw for a medium one still placed');
+  /* The plugin redraws through refreshAll, so a save reaches all three. */
+  assert.match(JAVA('SacoroWidgetPlugin'), /SacoroWidgetProvider\.refreshAll\(ctx\);/);
+});
+
+test('the large widget lists only days it was given, from tomorrow, in words, and stops at a gap', () => {
+  const days = JAVA('SacoroWidgetDays');
+  const up = days.slice(days.indexOf('static String[][] upcoming('), days.indexOf('static String addDays('));
+  assert.match(up, /if \(!hasPlan \|\| n <= 0\) return new String\[0\]\[\];/);
+  assert.match(up, /for \(int k = 1; k <= n; k\+\+\)/);
+  assert.match(up, /if \(found == null\) break;/, 'a missing day must end the list, not be skipped');
+  assert.match(up, /catch \(Exception e\) \{\s*return new String\[0\]\[\];/);
+  assert.match(days, /if \(k == 1\) return "TOMORROW";/);
+  assert.match(days, /new SimpleDateFormat\("EEEE", Locale\.UK\)/);
+  const prov = JAVA('SacoroWidgetProvider');
+  assert.match(prov, /v\.setViewVisibility\(R\.id\.widget_next_head, next\.length > 0 \? View\.VISIBLE : View\.GONE\);/);
+  assert.match(prov, /v\.setViewVisibility\(row\[0\], View\.GONE\);/);
+  /* Small draws no coaching line: two lines of it would not fit. */
+  const small = prov.slice(prov.indexOf('static RemoteViews renderSmall('), prov.indexOf('static final int[][] LARGE_ROWS'));
+  assert.doesNotMatch(small, /widget_note/);
+});
+
+test('the new sizes keep SACORO’s colours: white words, gold only for the label', () => {
+  ['widget_today_small', 'widget_today_large'].forEach(n => {
+    const lay = AND('res/layout/' + n + '.xml');
+    const colours = (lay.match(/textColor="#[0-9A-Fa-f]+"/g) || []).map(s => s.slice(11, -1).toUpperCase());
+    assert.deepEqual([...new Set(colours)].sort(), ['#E3B15A', '#FFFFFF'], n);
+    const gold = lay.split(/<TextView/).filter(t => /#E3B15A/i.test(t));
+    assert.equal(gold.length, 1, n + ': gold on more than the label');
+    assert.match(gold[0], /android:id="@\+id\/widget_label"/);
+    assert.match(lay, /android:background="@drawable\/widget_bg"/);
+    assert.doesNotMatch(lay, /ImageView|<View\b/, n + ': an icon or a dividing rule');
+  });
+  for (let i = 1; i <= 3; i++) assert.match(AND('res/layout/widget_today_large.xml'), new RegExp('widget_next' + i + '_day'));
 });

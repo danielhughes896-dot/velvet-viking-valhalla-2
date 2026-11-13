@@ -8,6 +8,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import java.text.SimpleDateFormat;
@@ -16,19 +17,22 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * THE TODAY WIDGET, PHASE ONE: one medium widget on Android.
+ * THE TODAY WIDGET, in three sizes. This class is the medium one (4x2) and
+ * the shared machinery; SacoroWidgetSmall (2x2) and SacoroWidgetLarge (4x4)
+ * are the other two and differ only in what they draw.
  *
  * Founder: "I particularly like the idea of an athlete waking up, glancing at
  * their phone and immediately seeing what SACORO has planned." And the three
- * conditions the founder set: automatic updates ("No stale training advice"), rest days
- * that say REST DAY and the coaching message, and privacy ("No heart rate,
- * recovery status, injury information or sensitive health data").
+ * conditions the founder set: automatic updates ("No stale training advice"),
+ * rest days that say REST DAY and the coaching message, and privacy ("No
+ * heart rate, recovery status, injury information or sensitive health data").
+ * Phase two: "let's do small and large".
  *
  * WHERE THE WORDS COME FROM. The app (SacoroWidgetPlugin.update) hands over
  * the next fortnight as plain words -- the title, the distance and pace line,
  * the coaching line -- already stripped of anything health-related in the
  * web layer (widgetPayload). Nothing here computes training; it only chooses
- * which of the stored days is today.
+ * which of the stored days is today, and which follow it.
  *
  * WHY A FORTNIGHT, AND NOT TODAY ALONE. A widget is not guaranteed to refresh
  * when the app changes, and it certainly cannot ask the app at 00:01. Holding
@@ -39,7 +43,8 @@ import java.util.Locale;
  * minutes (updatePeriodMillis, the shortest Android honours), and once just
  * after midnight via an INEXACT alarm -- never an exact one: SACORO does not
  * hold SCHEDULE_EXACT_ALARM, and asking for it is what trapped the app on the
- * "Alarms and reminders" screen.
+ * "Alarms and reminders" screen. Every redraw redraws all three sizes, so
+ * one placed alone is never left behind.
  *
  * WHEN IT CANNOT KNOW, IT SAYS SO: see SacoroWidgetDays, which chooses the day.
  */
@@ -49,9 +54,13 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
     static final String KEY_HAS_PLAN = "hasPlan";
     static final String ACTION_MIDNIGHT = "com.velvetviking.valhalla.WIDGET_MIDNIGHT";
 
+    /** What this size draws. The medium one; the other sizes override it. */
+    RemoteViews build(Context context) { return renderMedium(context); }
+
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
-        for (int id : ids) manager.updateAppWidget(id, render(context));
+        RemoteViews views = build(context);
+        for (int id : ids) manager.updateAppWidget(id, views);
         scheduleMidnight(context);
     }
 
@@ -71,19 +80,36 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         scheduleMidnight(context);
     }
 
+    /** The last of ONE size removed is not the last widget: the midnight
+     *  redraw stops only when no size is left on the home screen. */
     @Override
     public void onDisabled(Context context) {
+        if (placedCount(context) > 0) return;
         AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (am != null) am.cancel(midnightIntent(context));
     }
 
-    /** Redraw every placed widget from what is stored. */
+    static int[] idsOf(Context context, Class<?> cls) {
+        int[] ids = AppWidgetManager.getInstance(context).getAppWidgetIds(new ComponentName(context, cls));
+        return ids == null ? new int[0] : ids;
+    }
+
+    static int placedCount(Context context) {
+        return idsOf(context, SacoroWidgetProvider.class).length
+             + idsOf(context, SacoroWidgetSmall.class).length
+             + idsOf(context, SacoroWidgetLarge.class).length;
+    }
+
+    /** Redraw every placed widget, of every size, from what is stored. */
     static void refreshAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
-        int[] ids = manager.getAppWidgetIds(new ComponentName(context, SacoroWidgetProvider.class));
-        if (ids == null || ids.length == 0) return;
-        RemoteViews views = render(context);
-        for (int id : ids) manager.updateAppWidget(id, views);
+        int[] medium = idsOf(context, SacoroWidgetProvider.class);
+        int[] small = idsOf(context, SacoroWidgetSmall.class);
+        int[] large = idsOf(context, SacoroWidgetLarge.class);
+        if (medium.length + small.length + large.length == 0) return;
+        if (medium.length > 0) { RemoteViews v = renderMedium(context); for (int id : medium) manager.updateAppWidget(id, v); }
+        if (small.length > 0) { RemoteViews v = renderSmall(context); for (int id : small) manager.updateAppWidget(id, v); }
+        if (large.length > 0) { RemoteViews v = renderLarge(context); for (int id : large) manager.updateAppWidget(id, v); }
         scheduleMidnight(context);
     }
 
@@ -91,19 +117,79 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
     }
 
-    static RemoteViews render(Context context) {
-        SharedPreferences p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String[] l = SacoroWidgetDays.linesForToday(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false), todayKey());
+    static SharedPreferences prefs(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    static String[] todayLines(Context context) {
+        SharedPreferences p = prefs(context);
+        return SacoroWidgetDays.linesForToday(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false), todayKey());
+    }
+
+    /** Tapping any size opens SACORO. */
+    static void openOnTap(Context context, RemoteViews v, int rootId) {
+        Intent open = new Intent(context, MainActivity.class);
+        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pi = PendingIntent.getActivity(context, 0, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        v.setOnClickPendingIntent(rootId, pi);
+    }
+
+    /** Medium, 4x2: label, title, distance and pace, the coaching line. */
+    static RemoteViews renderMedium(Context context) {
+        String[] l = todayLines(context);
         RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today);
         v.setTextViewText(R.id.widget_label, l[0]);
         v.setTextViewText(R.id.widget_title, l[1]);
         v.setTextViewText(R.id.widget_line, l[2]);
         v.setTextViewText(R.id.widget_note, l[3]);
-        Intent open = new Intent(context, MainActivity.class);
-        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pi = PendingIntent.getActivity(context, 0, open,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        v.setOnClickPendingIntent(R.id.widget_root, pi);
+        openOnTap(context, v, R.id.widget_root);
+        return v;
+    }
+
+    /** Small, 2x2: the glance. Label, title, distance and pace; no coaching
+     *  line, because two lines of it would not fit and one would be cut. */
+    static RemoteViews renderSmall(Context context) {
+        String[] l = todayLines(context);
+        RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today_small);
+        v.setTextViewText(R.id.widget_label, l[0]);
+        v.setTextViewText(R.id.widget_title, l[1]);
+        v.setTextViewText(R.id.widget_line, l[2]);
+        openOnTap(context, v, R.id.widget_root);
+        return v;
+    }
+
+    static final int[][] LARGE_ROWS = {
+        { R.id.widget_next1, R.id.widget_next1_day, R.id.widget_next1_title, R.id.widget_next1_line },
+        { R.id.widget_next2, R.id.widget_next2_day, R.id.widget_next2_title, R.id.widget_next2_line },
+        { R.id.widget_next3, R.id.widget_next3_day, R.id.widget_next3_title, R.id.widget_next3_line },
+    };
+
+    /** Large, 4x4: today in full, then the next three days. A day the app has
+     *  not handed over is left out rather than guessed. */
+    static RemoteViews renderLarge(Context context) {
+        String[] l = todayLines(context);
+        RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today_large);
+        v.setTextViewText(R.id.widget_label, l[0]);
+        v.setTextViewText(R.id.widget_title, l[1]);
+        v.setTextViewText(R.id.widget_line, l[2]);
+        v.setTextViewText(R.id.widget_note, l[3]);
+        SharedPreferences p = prefs(context);
+        String[][] next = SacoroWidgetDays.upcoming(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false),
+                todayKey(), LARGE_ROWS.length);
+        v.setViewVisibility(R.id.widget_next_head, next.length > 0 ? View.VISIBLE : View.GONE);
+        for (int i = 0; i < LARGE_ROWS.length; i++) {
+            int[] row = LARGE_ROWS[i];
+            if (i < next.length) {
+                v.setViewVisibility(row[0], View.VISIBLE);
+                v.setTextViewText(row[1], next[i][0]);
+                v.setTextViewText(row[2], next[i][1]);
+                v.setTextViewText(row[3], next[i][2]);
+            } else {
+                v.setViewVisibility(row[0], View.GONE);
+            }
+        }
+        openOnTap(context, v, R.id.widget_root);
         return v;
     }
 

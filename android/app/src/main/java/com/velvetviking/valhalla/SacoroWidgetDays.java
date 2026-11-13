@@ -3,6 +3,14 @@ package com.velvetviking.valhalla;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
 /**
  * Which of the stored days the Today widget shows. Kept apart from the
  * provider, with nothing from Android in it, so it can be run and checked on
@@ -37,5 +45,55 @@ final class SacoroWidgetDays {
             // fall through to the honest answer
         }
         return UNKNOWN;
+    }
+
+    /** The days after today the large widget lists: up to n of them, in order,
+     *  each as {day word, title, line}. Only days the app actually handed over
+     *  and only consecutive ones from tomorrow: a gap ends the list rather than
+     *  being skipped over, so nothing is shown under the wrong day. */
+    static String[][] upcoming(String daysJson, boolean hasPlan, String today, int n) {
+        List<String[]> out = new ArrayList<>();
+        if (!hasPlan || n <= 0) return new String[0][];
+        try {
+            JSONArray days = new JSONArray(daysJson == null ? "[]" : daysJson);
+            for (int k = 1; k <= n; k++) {
+                String date = addDays(today, k);
+                if (date == null) break;
+                JSONObject found = null;
+                for (int i = 0; i < days.length(); i++) {
+                    JSONObject d = days.getJSONObject(i);
+                    if (date.equals(d.optString("date"))) { found = d; break; }
+                }
+                if (found == null) break;
+                out.add(new String[] { dayWord(date, k), found.optString("title", ""), found.optString("line", "") });
+            }
+        } catch (Exception e) {
+            return new String[0][];
+        }
+        return out.toArray(new String[0][]);
+    }
+
+    static String addDays(String ymd, int k) {
+        try {
+            SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            Date d = f.parse(ymd);
+            Calendar c = Calendar.getInstance();
+            c.setTime(d);
+            c.add(Calendar.DAY_OF_YEAR, k);
+            return f.format(c.getTime());
+        } catch (ParseException e) {
+            return null;
+        }
+    }
+
+    /** "TOMORROW", then the weekday in capitals: words, no symbols. */
+    static String dayWord(String ymd, int k) {
+        if (k == 1) return "TOMORROW";
+        try {
+            Date d = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(ymd);
+            return new SimpleDateFormat("EEEE", Locale.UK).format(d).toUpperCase(Locale.UK);
+        } catch (ParseException e) {
+            return "";
+        }
     }
 }

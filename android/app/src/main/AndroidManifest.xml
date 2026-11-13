@@ -45,6 +45,30 @@
                 android:resource="@xml/sacoro_widget_info" />
         </receiver>
 
+        <!-- The same widget, small (2x2) and large (4x4). They redraw with the
+             medium one (SacoroWidgetProvider.refreshAll), so only that receiver
+             needs to hear about the clock changing. -->
+        <receiver
+            android:name=".SacoroWidgetSmall"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sacoro_widget_small_info" />
+        </receiver>
+        <receiver
+            android:name=".SacoroWidgetLarge"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sacoro_widget_large_info" />
+        </receiver>
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"

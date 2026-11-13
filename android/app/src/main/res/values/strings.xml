@@ -5,4 +5,6 @@
     <string name="package_name">com.velvetviking.valhalla</string>
     <string name="custom_url_scheme">com.velvetviking.valhalla</string>
     <string name="widget_description">Today\'s session from SACORO</string>
+    <string name="widget_description_small">Today\'s session at a glance</string>
+    <string name="widget_description_large">Today and the next three days</string>
 </resources>
