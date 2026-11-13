@@ -163,3 +163,19 @@ test('6. a tab\'s name is drawn smaller to fit its tab, never cut, and only when
   /* It runs wherever the circle figures are fitted. */
   assert.match(fnIn('applyDynamicType'), /fitTabLabels\(\);/);
 });
+
+test('8. Android phones stay upright, tablets are free to turn', () => {
+  const MA = fs.readFileSync(path.join(__dirname, '..', 'android/app/src/main/java/com/velvetviking/valhalla/MainActivity.java'), 'utf8');
+  assert.match(MA, /super\.onCreate\(savedInstanceState\);\s*lockPhonesToPortrait\(\);/, 'the lock is not applied when the app opens');
+  assert.match(MA, /static final int TABLET_MIN_DP = 600;/, 'the phone and tablet line moved off Android’s own 600dp');
+  assert.match(MA, /int sw = getResources\(\)\.getConfiguration\(\)\.smallestScreenWidthDp;\s*if \(sw > 0 && sw < TABLET_MIN_DP\) \{\s*setRequestedOrientation\(ActivityInfo\.SCREEN_ORIENTATION_USER_PORTRAIT\);/,
+    'a tablet is locked too, or the phone’s own rotation setting is overridden');
+  /* Not in the manifest: it cannot tell a phone from a tablet. */
+  const MF = fs.readFileSync(path.join(__dirname, '..', 'android/app/src/main/AndroidManifest.xml'), 'utf8');
+  assert.doesNotMatch(MF, /screenOrientation/);
+  /* And no restart on turning: the activity handles orientation itself. */
+  assert.match(MF, /android:configChanges="[^"]*orientation[^"]*"/);
+  /* The iPhone app was already portrait-only. */
+  const plist = fs.readFileSync(path.join(__dirname, '..', 'ios/App/App/Info.plist'), 'utf8');
+  assert.match(plist, /<key>UISupportedInterfaceOrientations<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<\/array>/);
+});
