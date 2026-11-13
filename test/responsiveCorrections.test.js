@@ -100,12 +100,12 @@ test('5. a figure is drawn small enough for its circle, and only when it would n
 });
 
 test('5. fitted after every render, every panel, every size or text-size change', () => {
-  assert.match(RT, /try \{ easeDials\(\); \} catch\(e\)\{\}\n  try \{ fitDialValues\(\); \} catch\(e\)\{\}/, 'not fitted after a render');
+  assert.match(RT, /try \{ easeDials\(\); \} catch\(e\)\{\}\n  try \{ fitDialValues\(\); fitTabLabels\(\); \} catch\(e\)\{\}/, 'not fitted after a render');
   const om = fnIn('openModal');
-  assert.equal((om.match(/try \{ fitDialValues\(\); \} catch\(e\)\{\}/g) || []).length, 2, 'a panel opened or redrawn in place is not fitted');
-  assert.match(fnIn('applyDynamicType'), /fitDialValues\(\);/, 'an iOS text-size change is not fitted');
-  assert.match(RT, /window\.addEventListener\('resize', function\(\)\{ fitDialValues\(\); \}\)/);
-  assert.match(RT, /document\.fonts\.ready\.then\(fitDialValues\)/);
+  assert.equal((om.match(/try \{ fitDialValues\(\); fitTabLabels\(\); \} catch\(e\)\{\}/g) || []).length, 2, 'a panel opened or redrawn in place is not fitted');
+  assert.match(fnIn('applyDynamicType'), /fitDialValues\(\); fitTabLabels\(\);/, 'an iOS text-size change is not fitted');
+  assert.match(RT, /window\.addEventListener\('resize', function\(\)\{ fitDialValues\(\); fitTabLabels\(\); \}\)/);
+  assert.match(RT, /document\.fonts\.ready\.then\(function\(\)\{ fitDialValues\(\); fitTabLabels\(\); \}\)/);
 });
 
 test('7. every small control takes a 44px tap without being drawn bigger', () => {
@@ -146,4 +146,20 @@ test('4. every font size follows iOS text size: stated in rem, the same size at 
   assert.deepEqual(sCss.match(/font-size:\s*[\d.]+px/g) || [], []);
   /* And the bridge is still the root, capped as measured. */
   assert.match(fnIn('applyDynamicType'), /root\.style\.fontSize = \(16 \* scale\) \+ 'px';/);
+});
+
+test('6. a tab\'s name is drawn smaller to fit its tab, never cut, and only when it would not fit', () => {
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const lab = (room, need) => { const c = new Set(); return { clientWidth: room, scrollWidth: need, style: {}, classList: { add: x => c.add(x), remove: x => c.delete(x), has: x => c.has(x) } }; };
+  const fits = lab(63, 50), wide = lab(63, 79);
+  a.document = { querySelectorAll: () => [fits, wide] };
+  a.fitTabLabels();
+  assert.equal(fits.style.transform, ''); assert.ok(!fits.classList.has('is-fit'));
+  assert.equal(wide.style.transform, 'scale(' + (63 / 79).toFixed(3) + ')'); assert.ok(wide.classList.has('is-fit'));
+  /* Fitted, it is shown whole: no ellipsis, scaled from its start. */
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\.bn-item span\.is-fit\{overflow:visible; text-overflow:clip; transform-origin:0 50%;\}/);
+  /* It runs wherever the circle figures are fitted. */
+  assert.match(fnIn('applyDynamicType'), /fitTabLabels\(\);/);
 });

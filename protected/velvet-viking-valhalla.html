@@ -8499,6 +8499,10 @@
   .bn-item svg{width:18px; height:18px; flex:none; stroke-width:2.1;
     filter:drop-shadow(0 0 5px rgba(255,255,255,.30));}
   .bn-item span{max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  /* Responsive correction 6: a label wider than its tab at a large text
+     size is drawn smaller to fit (fitTabLabels) instead of being cut to
+     "THIS ..."; the bar keeps its height. */
+  .bn-item span.is-fit{overflow:visible; text-overflow:clip; transform-origin:0 50%;}
   /* THE SELECTED TAB HAS TO OUT-SHOUT FOUR BOLD WHITE ONES, and gold is the
      darker colour of the two -- #E3B15A sits well below white in luminance,
      so colour alone would make the chosen tab the quietest thing down there.
@@ -57436,7 +57440,7 @@ function openModal(html, extraClass, key){
       var y = card.scrollTop;
       card.innerHTML = html;
       card.scrollTop = y;
-      try { fitDialValues(); } catch(e){}
+      try { fitDialValues(); fitTabLabels(); } catch(e){}
       return;
     }
   }
@@ -57448,7 +57452,7 @@ function openModal(html, extraClass, key){
   overlay.addEventListener('mousedown', function(e){ if (e.target===overlay) closeModal(); });
   document.body.appendChild(overlay);
   /* A reading or record page carries its own circle: fit its figure too. */
-  try { fitDialValues(); } catch(e){}
+  try { fitDialValues(); fitTabLabels(); } catch(e){}
 }
 function closeModal(){
   // whatever the overlay held, it is not a Record panel any more -- see
@@ -66058,7 +66062,7 @@ function applyDynamicType(){
     root.style.fontSize = (16 * scale) + 'px';
     if (scale > 1.25) root.setAttribute('data-text-scale', 'large');
     else root.removeAttribute('data-text-scale');
-    fitDialValues();
+    fitDialValues(); fitTabLabels();
   }catch(e){}
 }
 
@@ -69397,6 +69401,25 @@ function fitDialValues(){
     if (r < 0.995) for (k = 0; k < kids.length; k++) kids[k].style.transform = 'scale(' + r.toFixed(3) + ')';
   }
 }
+/* ---------- A TAB'S NAME IS NEVER CUT ----------
+   Responsive correction 6. At the largest phone text size "THIS WEEK",
+   "FULL PLAN" and "SETTINGS" were wider than their fifth of the bar and
+   ended in "...". A name that would not fit is drawn smaller to fit its
+   tab -- scaled, so the bar stays the height it is -- and at the normal
+   size every name fits and nothing is touched. Run with fitDialValues. */
+function fitTabLabels(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var labs = document.querySelectorAll('.bn-item > span');
+  for (var i = 0; i < labs.length; i++){
+    var l = labs[i];
+    l.classList.remove('is-fit'); l.style.transform = '';
+    var room = l.clientWidth, need = l.scrollWidth;
+    if (room > 0 && need > room + 1){
+      l.classList.add('is-fit');
+      l.style.transform = 'scale(' + (room / need).toFixed(3) + ')';
+    }
+  }
+}
 function handleCoachGraph(key){
   if (COACH_GRAPHS.indexOf(key) === -1 || key === coachGraphSel) return;
   coachGraphSel = key;
@@ -72211,7 +72234,7 @@ function renderApp(){
   animateConfidenceGauge();
   try { doneArrivals(); } catch(e){}
   try { easeDials(); } catch(e){}
-  try { fitDialValues(); } catch(e){}
+  try { fitDialValues(); fitTabLabels(); } catch(e){}
   wireCoachingRails();
   wireWeekDayPager();
   /* Last, and never waited for: the screen above is already complete. */
@@ -74327,8 +74350,8 @@ function init(){
   try{ document.addEventListener('input', logRangeLive); }catch(e){}
   try{ document.addEventListener('input', sliderInputHaptic, true); }catch(e){}
   try{ initFieldInView(); }catch(e){}
-  try{ window.addEventListener('resize', function(){ fitDialValues(); }); }catch(e){}
-  try{ if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitDialValues); }catch(e){}
+  try{ window.addEventListener('resize', function(){ fitDialValues(); fitTabLabels(); }); }catch(e){}
+  try{ if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ fitDialValues(); fitTabLabels(); }); }catch(e){}
   try{ document.addEventListener('pointerup', logRangeSettle); }catch(e){}
   try{ document.addEventListener('scroll', coachRailScrolled, true); }catch(e){}
   // Deliberately last and un-awaited: the app is already painted from
