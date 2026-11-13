@@ -12,18 +12,28 @@ name: Build iOS app
 #   Always: SACORO-simulator, the app built for the iOS Simulator. It needs
 #   no Apple account and proves the project, every plugin and the assets
 #   compile. It opens in Xcode's Simulator on any Mac.
-#   With the Apple secrets below: SACORO-ios-app-store, a signed .ipa ready
-#   for TestFlight, and with upload_testflight ticked it is sent there.
+#   With signing secrets: SACORO-ios-app-store, a signed .ipa ready for
+#   TestFlight, and with upload_testflight ticked it is sent there.
 #
-# THE SECRETS (Settings, Secrets and variables, Actions). None exist yet; the
-# signed steps say so and skip rather than fail.
-#   IOS_DIST_CERT_P12_BASE64   Apple Distribution certificate, .p12, base64
-#   IOS_DIST_CERT_PASSWORD     its password
-#   IOS_PROFILE_BASE64         App Store provisioning profile for
-#                              com.velvetviking.valhalla, base64
-#   IOS_TEAM_ID                the 10-character Apple team ID
-#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_BASE64
-#                              App Store Connect API key, only for upload
+# TWO WAYS TO SIGN (Settings, Secrets and variables, Actions). None exist yet;
+# the signed steps say so and skip rather than fail.
+#
+#   1. CLOUD SIGNING, the simple one. Founder: "Once in I'll do the connect
+#      API and I assume I'll get the certificate." No certificate to make:
+#      with an App Store Connect API key, Apple creates and keeps the
+#      distribution certificate and the profile itself.
+#        IOS_TEAM_ID          the 10-character Apple team ID
+#        ASC_KEY_ID           the key's ID
+#        ASC_ISSUER_ID        the issuer ID shown above the keys list
+#        ASC_KEY_P8_BASE64    the downloaded AuthKey_XXXX.p8, base64
+#      The key needs the Admin role (cloud-managed certificates).
+#
+#   2. MANUAL, if a certificate is ever made by hand. Used instead of cloud
+#      signing whenever all of these exist:
+#        IOS_DIST_CERT_P12_BASE64, IOS_DIST_CERT_PASSWORD,
+#        IOS_PROFILE_BASE64 (App Store profile for com.velvetviking.valhalla),
+#        IOS_TEAM_ID
+#      Uploading to TestFlight still needs the ASC_ key secrets.
 on:
   workflow_dispatch:
     inputs:
@@ -73,6 +83,17 @@ jobs:
         with:
           ref: ${{ github.event.inputs.ref || github.sha }}
 
+      # Manual if a certificate and profile were supplied, cloud if only the
+      # API key and team were, otherwise none. Decided once, read by every
+      # signed step below.
+      - name: Decide how to sign
+        run: |
+          if [ -n "$IOS_DIST_CERT_P12_BASE64" ] && [ -n "$IOS_PROFILE_BASE64" ] && [ -n "$IOS_TEAM_ID" ]; then MODE=manual
+          elif [ -n "$IOS_TEAM_ID" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_KEY_P8_BASE64" ]; then MODE=cloud
+          else MODE=none; fi
+          echo "SIGN_MODE=$MODE" >> "$GITHUB_ENV"
+          echo "Signing: $MODE"
+
       # The newest Xcode on the image: App Store uploads must be built with a
       # current SDK, and the layered icon (AppIcon.icon) needs Xcode 26.
       - name: Select the newest Xcode
@@ -112,13 +133,21 @@ jobs:
           path: ${{ runner.temp }}/SACORO-simulator.zip
 
       - name: Note signed build skipped (no Apple signing secrets yet)
-        if: env.IOS_DIST_CERT_P12_BASE64 == '' || env.IOS_PROFILE_BASE64 == '' || env.IOS_TEAM_ID == ''
+        if: env.SIGN_MODE == 'none'
         run: |
-          echo "::notice::Signed iOS build skipped: add IOS_DIST_CERT_P12_BASE64, IOS_DIST_CERT_PASSWORD, IOS_PROFILE_BASE64 and IOS_TEAM_ID to build an App Store .ipa."
+          echo "::notice::Signed iOS build skipped: add IOS_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8_BASE64 (cloud signing) to build an App Store .ipa."
 
-      # A throwaway keychain for this run only, so nothing outlives the job.
+      # The API key on disk, where xcodebuild and altool both look for it.
+      - name: Install the App Store Connect key
+        if: env.ASC_KEY_ID != '' && env.ASC_KEY_P8_BASE64 != ''
+        run: |
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      # Manual signing only: a throwaway keychain for this run, so nothing
+      # outlives the job.
       - name: Install the distribution certificate and profile
-        if: env.IOS_DIST_CERT_P12_BASE64 != '' && env.IOS_PROFILE_BASE64 != '' && env.IOS_TEAM_ID != ''
+        if: env.SIGN_MODE == 'manual'
         run: |
           KC="$RUNNER_TEMP/sacoro.keychain-db"; KP="$(uuidgen)"
           echo "$IOS_DIST_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
@@ -136,62 +165,72 @@ jobs:
           cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
           echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
 
-      # Manual signing on the App target only. Passing the profile on the
-      # command line would hand it to every CocoaPods framework too, which
-      # Xcode refuses; the frameworks are signed when they are embedded.
+      # The App target's Release configuration only. Handing signing settings
+      # to the whole command line would hand them to every CocoaPods framework
+      # too, which Xcode refuses; the frameworks are signed when embedded.
       - name: Archive and export the App Store build
-        if: env.IOS_DIST_CERT_P12_BASE64 != '' && env.IOS_PROFILE_BASE64 != '' && env.IOS_TEAM_ID != ''
+        if: env.SIGN_MODE != 'none'
         run: |
           python3 - <<'PY'
           import os, re
           f = 'ios/App/App.xcodeproj/project.pbxproj'
           s = open(f).read()
-          team, prof = os.environ['IOS_TEAM_ID'], os.environ['PROFILE_NAME']
+          mode, team = os.environ['SIGN_MODE'], os.environ['IOS_TEAM_ID']
+          if mode == 'manual':
+              add = ('CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\t'
+                     'CODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\t'
+                     'PROVISIONING_PROFILE_SPECIFIER = "%s";\n\t\t\t\t') % (team, os.environ['PROFILE_NAME'])
+          else:
+              add = 'CODE_SIGN_STYLE = Automatic;\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\t' % team
           def sign(m):
               block = m.group(0)
               if 'PRODUCT_BUNDLE_IDENTIFIER = com.velvetviking.valhalla;' not in block or 'name = Release;' not in block:
                   return block
-              add = ('CODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\t'
-                     'CODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\t'
-                     'PROVISIONING_PROFILE_SPECIFIER = "%s";\n\t\t\t\t') % (team, prof)
               block = re.sub(r'\n\t\t\t\t(CODE_SIGN_STYLE|DEVELOPMENT_TEAM|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE_SPECIFIER) = [^;]*;', '', block)
               return block.replace('buildSettings = {\n\t\t\t\t', 'buildSettings = {\n\t\t\t\t' + add, 1)
           s2 = re.sub(r'\{\n\t\t\tisa = XCBuildConfiguration;.*?\n\t\t\};', sign, s, flags=re.S)
           assert s2 != s, 'the App target Release configuration was not found'
           open(f, 'w').write(s2)
           PY
+          if [ "$SIGN_MODE" = "manual" ]; then
+            STYLE=manual
+            PROFILES="<key>provisioningProfiles</key><dict><key>com.velvetviking.valhalla</key><string>${PROFILE_NAME}</string></dict>"
+            AUTH=""
+          else
+            STYLE=automatic
+            PROFILES=""
+            # Cloud signing: Xcode asks Apple, with the API key, for the
+            # distribution certificate and profile it needs.
+            AUTH="-allowProvisioningUpdates -authenticationKeyPath $HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 -authenticationKeyID ${ASC_KEY_ID} -authenticationKeyIssuerID ${ASC_ISSUER_ID}"
+          fi
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
             <key>teamID</key><string>${IOS_TEAM_ID}</string>
-            <key>signingStyle</key><string>manual</string>
-            <key>provisioningProfiles</key><dict>
-              <key>com.velvetviking.valhalla</key><string>${PROFILE_NAME}</string>
-            </dict>
+            <key>signingStyle</key><string>${STYLE}</string>
+            ${PROFILES}
             <key>uploadSymbols</key><true/>
           </dict></plist>
           PLIST
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/SACORO.xcarchive" \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" archive
+            $AUTH CURRENT_PROJECT_VERSION="$BUILD_NUMBER" archive
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/SACORO.xcarchive" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export"
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" $AUTH
           ls -la "$RUNNER_TEMP/export"
 
       - name: Upload App Store build
-        if: env.IOS_DIST_CERT_P12_BASE64 != '' && env.IOS_PROFILE_BASE64 != '' && env.IOS_TEAM_ID != ''
+        if: env.SIGN_MODE != 'none'
         uses: actions/upload-artifact@v4
         with:
           name: SACORO-ios-app-store
           path: ${{ runner.temp }}/export/*.ipa
 
       - name: Upload to TestFlight
-        if: github.event.inputs.upload_testflight == 'true' && env.IOS_DIST_CERT_P12_BASE64 != '' && env.IOS_PROFILE_BASE64 != '' && env.IOS_TEAM_ID != '' && env.ASC_KEY_ID != '' && env.ASC_ISSUER_ID != '' && env.ASC_KEY_P8_BASE64 != ''
+        if: github.event.inputs.upload_testflight == 'true' && env.SIGN_MODE != 'none' && env.ASC_KEY_ID != '' && env.ASC_ISSUER_ID != '' && env.ASC_KEY_P8_BASE64 != ''
         run: |
-          mkdir -p "$HOME/.appstoreconnect/private_keys"
-          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
           IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
           xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
 
@@ -205,7 +244,7 @@ jobs:
             echo "| Built ref | \`${{ github.event.inputs.ref || github.ref_name }}\` |"
             echo "| Commit | \`$(git rev-parse HEAD)\` |"
             echo "| Build number | $BUILD_NUMBER |"
-            echo "| Signed | $([ -n "$IOS_DIST_CERT_P12_BASE64" ] && [ -n "$IOS_PROFILE_BASE64" ] && [ -n "$IOS_TEAM_ID" ] && echo yes || echo 'no: Apple signing secrets not set') |"
+            echo "| Signing | ${SIGN_MODE:-none} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove the temporary keychain
