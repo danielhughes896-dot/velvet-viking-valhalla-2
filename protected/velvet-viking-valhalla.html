@@ -7508,6 +7508,33 @@
     content:''; position:absolute; left:28%; right:28%; bottom:-7px; height:2px;
     border-radius:2px; background:var(--cherry); box-shadow:0 0 8px color-mix(in srgb, var(--cherry) 65%, transparent);
   }
+  /* ---------- THE DAYS ARE GLASS, LIKE THE COMPLETION CIRCLE ----------
+     Founder: "I love the new tick button for session complete ... I also
+     think the circle days could be the same." The completion circle's own
+     recipe (label.day-check input): a lit upper half over the bar's tint and
+     blur, a fine light rim, a light line along the top and a soft shadow
+     under it. Every state keeps its meaning: done green and missed red stay
+     in the disc and the ring, the selected day keeps its cherry ring and
+     glow, and today keeps its underline. Size, place and words unchanged. */
+  .wk-day{
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    border-color:rgba(255,255,255,.2);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 6px rgba(0,0,0,.35);}
+  .wk-day.is-done{
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%),
+      linear-gradient(color-mix(in srgb, var(--ok) 13%, transparent), color-mix(in srgb, var(--ok) 13%, transparent)),
+      var(--glass-tint);
+    border-color:color-mix(in srgb, var(--ok) 75%, transparent);}
+  .wk-day.is-missed{
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%),
+      linear-gradient(color-mix(in srgb, var(--c-threshold) 13%, transparent), color-mix(in srgb, var(--c-threshold) 13%, transparent)),
+      var(--glass-tint);
+    border-color:color-mix(in srgb, var(--c-threshold) 75%, transparent);}
+  .wk-day.is-sel{
+    border-color:var(--cherry);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 1px var(--cherry),
+      0 0 16px color-mix(in srgb, var(--cherry) 44%, transparent);}
 
   /* ---- BOX 2: the selected session ---- */
   /* NOT A BOX, OPEN OR SHUT. The open state already stripped this -- a card
@@ -8318,6 +8345,18 @@
     background:var(--t-tile); border:1px solid var(--t-tile-rim); color:var(--gold);
     transform:scaleX(-1);}
   .pv-back svg{width:20px; height:20px;}
+  /* ---------- THE BACK ARROW IS GLASS TOO ----------
+     Founder: "I love the new tick button for session complete. Can all back
+     arrows follow?" The completion circle's recipe on the back ring, the one
+     back arrow in the app (Full Plan's week and session screens). The gold
+     chevron, the size and the place are unchanged. The ring is mirrored to
+     turn the chevron round; the light runs top to bottom, so it is the
+     same either way. */
+  .pv-back{
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    border-color:rgba(255,255,255,.2);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 6px rgba(0,0,0,.35);}
   .pv-top-text{flex:1; min-width:0;}
   .pv-title{font-size:1.3125rem; letter-spacing:.04em; color:var(--ink); line-height:1.15;}
   .pv-sub{ color:var(--ink-dim); margin-top:2px;}
