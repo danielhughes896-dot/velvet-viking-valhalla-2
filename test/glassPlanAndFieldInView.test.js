@@ -184,3 +184,23 @@ test('the tab bar steps aside while typing, on touch screens only, and comes bac
   assert.match(hide[1], /opacity:0; visibility:hidden; pointer-events:none;/);
   assert.doesNotMatch(hide[1], /background|backdrop|border-radius|bottom:|left:|right:|transform/, 'the bar is restyled, not just hidden');
 });
+
+// ------------------------------------------------------------ 3. the completion circle
+test('the session\'s completion circle is glass, the other circles keep the shared ring', () => {
+  /* Founder: "The circle to click completed session. Can that be the glass
+     as well?" */
+  const rule = /label\.day-check input\{([^}]*)\}/.exec(CSS);
+  assert.ok(rule, 'the completion circle has no glass of its own');
+  assert.match(rule[1], /var\(--glass-tint\)/);
+  assert.match(rule[1], /backdrop-filter:var\(--glass-blur\)/);
+  assert.match(rule[1], /inset 0 1px 0 rgba\(255,255,255,/, 'no light along its upper edge');
+  assert.doesNotMatch(rule[1], /width|height|margin|padding/, 'the ring changed size or moved');
+  /* Ticked it is still Cherry: only light is laid over the fill. */
+  const ticked = /label\.day-check input:checked\{([^}]*)\}/.exec(CSS);
+  assert.ok(ticked);
+  assert.match(ticked[1], /^\s*background-image:/);
+  assert.doesNotMatch(ticked[1], /background:|background-color|border/);
+  /* Only the session's circle: the shared component is untouched. */
+  const shared = /\.day-check input, \.wd-check input(?:, [^{]+)?\{([^}]*)\}/.exec(CSS);
+  assert.match(shared[1], /border:2px solid var\(--line\); background:var\(--bg-2\)/);
+});
