@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Small (2x2). Same data and the same redraws as the medium one. -->
+<!-- Resizable from any edge, down to the single row. Founder: "Enable
+     Android widget resizing, like the standard weather widget." The layout
+     follows the size: see SacoroWidgetProvider.LAYOUT_KEYS. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="110dp"
     android:minHeight="110dp"
     android:targetCellWidth="2"
     android:targetCellHeight="2"
     android:minResizeWidth="110dp"
-    android:minResizeHeight="110dp"
-    android:resizeMode="none"
+    android:minResizeHeight="40dp"
+    android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_today_small"
     android:previewLayout="@layout/widget_today_small"

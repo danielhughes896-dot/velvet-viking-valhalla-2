@@ -37,8 +37,14 @@ test('there is exactly one Android release workflow', () => {
      build an iOS app bundle now"; it builds no Android artifact. Still one
      way to produce each platform's build, and no third. */
   const files = fs.readdirSync(dir).filter(f => /\.ya?ml$/.test(f)).sort();
-  assert.deepEqual(files, ['build-apk.yml', 'build-ios.yml'],
+  /* widget-check.yml runs the on-device widget tests on an emulator ("Please
+     test at actual Pixel launcher dimensions, including font scaling"); it
+     builds and signs nothing anyone installs. */
+  assert.deepEqual(files, ['build-apk.yml', 'build-ios.yml', 'widget-check.yml'],
     'a second workflow appeared -- the release path must not be duplicated: ' + files.join(', '));
+  const check = fs.readFileSync(path.join(dir, 'widget-check.yml'), 'utf8');
+  assert.doesNotMatch(check, /assembleRelease|bundleRelease|VVV_KEYSTORE|ANDROID_KEYSTORE|upload-release/, 'the widget check builds or signs a release');
+  assert.match(check, /connectedDebugAndroidTest/);
   const ios = fs.readFileSync(path.join(dir, 'build-ios.yml'), 'utf8');
   assert.doesNotMatch(ios, /gradlew|assembleRelease|bundleRelease|ANDROID_KEYSTORE/, 'the iOS workflow builds Android too');
 });

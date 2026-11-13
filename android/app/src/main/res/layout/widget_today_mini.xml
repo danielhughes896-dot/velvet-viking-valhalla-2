@@ -1,21 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Today widget, 2x1. Founder: "a 2 x 1 widget with dot SACORO dot top
+<!-- The Today widget's single row: the mark across the top, TODAY on the
+     left, the session on the right. Used when the widget is short (a
+     landscape 2x1, a 4x1). Founder: "a 2 x 1 widget with dot SACORO dot top
      centre, left aligned today and then right aligned 8km easy. Make the text
      as big as possible for the box size? Or that fits neatly inside. Keep the
-     colours."
-     Both lines size themselves to the box (autoSize, Android 8 and later; the
-     textSize is the size used before that). Gold for the mark, white for
-     TODAY and the distance, cherry for the kind of run (set in code). -->
+     colours." Then: "TODAY currently displays as TODA."
+     WHY IT WAS CUT. TODAY had a fixed share of the row, and on a portrait
+     Pixel a 2x1 is 130dp wide, which left it about 25dp: not enough for the
+     word at any size. TODAY now has a column of its own width (44dp) and
+     sizes itself to fit inside it, so it can shrink but never be cut; the
+     session takes all the rest and fills it. Sizes are allowed to grow with
+     the phone's font size (sp) and shrink to fit (dp minimum). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="vertical"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="7dp"
-    android:paddingBottom="8dp">
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
 
     <TextView
         android:id="@+id/widget_mark"
@@ -23,6 +28,7 @@
         android:layout_height="wrap_content"
         android:gravity="center_horizontal"
         android:maxLines="1"
+        android:includeFontPadding="false"
         android:text="•  SACORO  •"
         android:textColor="#E3B15A"
         android:textSize="10sp"
@@ -33,41 +39,41 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="2dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
         <TextView
             android:id="@+id/widget_label"
-            android:layout_width="0dp"
+            android:layout_width="44dp"
             android:layout_height="match_parent"
-            android:layout_weight="0.28"
-            android:layout_marginEnd="10dp"
+            android:layout_marginEnd="8dp"
             android:gravity="start|center_vertical"
             android:maxLines="1"
+            android:includeFontPadding="false"
             android:text="TODAY"
             android:textColor="#FFFFFF"
-            android:textSize="13sp"
+            android:textSize="11sp"
             android:textStyle="bold"
-            android:letterSpacing="0.08"
+            android:letterSpacing="0.06"
             android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="9sp"
-            android:autoSizeMaxTextSize="14sp"
-            android:autoSizeStepGranularity="1sp" />
+            android:autoSizeMinTextSize="6dp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="0.5dp" />
 
         <TextView
             android:id="@+id/widget_session"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="0.72"
+            android:layout_weight="1"
             android:gravity="end|center_vertical"
             android:maxLines="1"
+            android:includeFontPadding="false"
             android:text="SACORO"
             android:textColor="#FFFFFF"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="11sp"
+            android:autoSizeMinTextSize="7dp"
             android:autoSizeMaxTextSize="40sp"
-            android:autoSizeStepGranularity="1sp" />
+            android:autoSizeStepGranularity="0.5dp" />
     </LinearLayout>
 </LinearLayout>

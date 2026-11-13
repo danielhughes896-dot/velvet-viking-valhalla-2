@@ -9,6 +9,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
+import android.os.Build;
+import android.os.Bundle;
+import android.util.ArrayMap;
+import android.util.SizeF;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
@@ -21,6 +25,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * THE TODAY WIDGET, in four sizes. This class is the medium one (4x2) and
@@ -60,14 +65,86 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
     static final String KEY_HAS_PLAN = "hasPlan";
     static final String ACTION_MIDNIGHT = "com.velvetviking.valhalla.WIDGET_MIDNIGHT";
 
-    /** What this size draws. The medium one; the other sizes override it. */
-    RemoteViews build(Context context) { return renderMedium(context); }
+    /* ---------- ANY SIZE, ANY ENTRY ----------
+       Founder: "Enable Android widget resizing, like the standard weather
+       widget. Ideally, users should be able to drag the widget edges and
+       have the layout adapt between compact and expanded sizes."
+       The four entries in the picker are now four STARTING sizes of one
+       widget: every one can be dragged to any size, and draws whichever of
+       the five layouts fits the space it has. On Android 12 and later the
+       launcher is handed all five at once (a size-keyed RemoteViews) and
+       switches between them itself as the edges move, rotation included; on
+       older Android the same choice is made here from the size the launcher
+       reports, and remade whenever it reports a new one.
+       A layout is chosen the way Android 12 chooses: of those whose minimum
+       size fits inside the widget, the one with the largest area. The keys
+       below were set against the Pixel launcher's own cell sizes (portrait
+       2x1 is 130 by 102dp, landscape 269 by 51), so a portrait 2x1 is the
+       stacked two-word layout, a landscape one the single row, 2x2 the small
+       layout, 4x2 the medium and 4x3 and up the large. */
+    static final int KIND_ROW = 0, KIND_TALL = 1, KIND_SMALL = 2, KIND_MEDIUM = 3, KIND_LARGE = 4;
+    static final float[][] LAYOUT_KEYS = {
+        { 110, 40 },   // the single row: TODAY, then the session
+        { 110, 90 },   // TODAY beside the distance over the kind: a narrow 2x1
+        { 240, 50 },   // the single row, wide: a landscape 2x1, any 4x1
+        { 110, 180 },  // small
+        { 240, 130 },  // medium
+        { 240, 300 },  // large
+    };
+    static final int[] LAYOUT_KIND = { KIND_ROW, KIND_TALL, KIND_ROW, KIND_SMALL, KIND_MEDIUM, KIND_LARGE };
+
+    /** Of the layouts that fit in w by h dp, the largest; the smallest if none fits. */
+    static int pickLayout(float w, float h) {
+        int best = -1;
+        float bestArea = -1;
+        for (int i = 0; i < LAYOUT_KEYS.length; i++) {
+            float kw = LAYOUT_KEYS[i][0], kh = LAYOUT_KEYS[i][1];
+            if (kw <= w && kh <= h && kw * kh > bestArea) { best = i; bestArea = kw * kh; }
+        }
+        return best < 0 ? 0 : best;
+    }
+
+    static RemoteViews renderKind(Context context, int kind) {
+        switch (kind) {
+            case KIND_ROW: return renderMini(context);
+            case KIND_TALL: return renderMiniTall(context);
+            case KIND_SMALL: return renderSmall(context);
+            case KIND_LARGE: return renderLarge(context);
+            default: return renderMedium(context);
+        }
+    }
+
+    /** Android 12 and later: every layout at once, for the launcher to choose from. */
+    static RemoteViews responsive(Context context) {
+        Map<SizeF, RemoteViews> m = new ArrayMap<>();
+        for (int i = 0; i < LAYOUT_KEYS.length; i++)
+            m.put(new SizeF(LAYOUT_KEYS[i][0], LAYOUT_KEYS[i][1]), renderKind(context, LAYOUT_KIND[i]));
+        return new RemoteViews(m);
+    }
+
+    /** The size this entry starts at, for older Android before it reports one. */
+    float[] startSize() { return new float[] { 276, 220 }; }
+
+    static RemoteViews viewsFor(Context context, AppWidgetManager manager, int id, float[] start) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return responsive(context);
+        Bundle o = manager.getAppWidgetOptions(id);
+        // Portrait width is the minimum width and portrait height the maximum height.
+        int w = o == null ? 0 : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0);
+        int h = o == null ? 0 : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0);
+        if (w <= 0 || h <= 0) { w = (int) start[0]; h = (int) start[1]; }
+        return renderKind(context, LAYOUT_KIND[pickLayout(w, h)]);
+    }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
-        RemoteViews views = build(context);
-        for (int id : ids) manager.updateAppWidget(id, views);
+        for (int id : ids) manager.updateAppWidget(id, viewsFor(context, manager, id, startSize()));
         scheduleMidnight(context);
+    }
+
+    /** The athlete dragged an edge (or the launcher changed the size). */
+    @Override
+    public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int id, Bundle newOptions) {
+        manager.updateAppWidget(id, viewsFor(context, manager, id, startSize()));
     }
 
     @Override
@@ -115,10 +192,10 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         int[] small = idsOf(context, SacoroWidgetSmall.class);
         int[] large = idsOf(context, SacoroWidgetLarge.class);
         if (medium.length + mini.length + small.length + large.length == 0) return;
-        if (medium.length > 0) { RemoteViews v = renderMedium(context); for (int id : medium) manager.updateAppWidget(id, v); }
-        if (mini.length > 0) { RemoteViews v = renderMini(context); for (int id : mini) manager.updateAppWidget(id, v); }
-        if (small.length > 0) { RemoteViews v = renderSmall(context); for (int id : small) manager.updateAppWidget(id, v); }
-        if (large.length > 0) { RemoteViews v = renderLarge(context); for (int id : large) manager.updateAppWidget(id, v); }
+        for (int id : medium) manager.updateAppWidget(id, viewsFor(context, manager, id, new SacoroWidgetProvider().startSize()));
+        for (int id : mini) manager.updateAppWidget(id, viewsFor(context, manager, id, new SacoroWidgetMini().startSize()));
+        for (int id : small) manager.updateAppWidget(id, viewsFor(context, manager, id, new SacoroWidgetSmall().startSize()));
+        for (int id : large) manager.updateAppWidget(id, viewsFor(context, manager, id, new SacoroWidgetLarge().startSize()));
         scheduleMidnight(context);
     }
 
@@ -184,6 +261,22 @@ public class SacoroWidgetProvider extends AppWidgetProvider {
         String[] c = SacoroWidgetDays.compactForToday(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false), todayKey());
         RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today_mini);
         v.setTextViewText(R.id.widget_session, compactSession(c[0], c[1]));
+        openOnTap(context, v, R.id.widget_root);
+        return v;
+    }
+
+    /** The narrow 2x1 (a portrait Pixel 2x1 is 130dp wide): TODAY beside the
+     *  distance, with the kind under it, so neither is ever cut. A day with
+     *  no distance shows its kind alone in the top line. */
+    static RemoteViews renderMiniTall(Context context) {
+        SharedPreferences p = prefs(context);
+        String[] c = SacoroWidgetDays.compactForToday(p.getString(KEY_DAYS, null), p.getBoolean(KEY_HAS_PLAN, false), todayKey());
+        RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_today_mini_tall);
+        boolean hasDist = c[0] != null && !c[0].isEmpty();
+        v.setTextViewText(R.id.widget_dist, hasDist ? c[0] : c[1]);
+        v.setTextColor(R.id.widget_dist, hasDist ? 0xFFFFFFFF : CHERRY);
+        v.setTextViewText(R.id.widget_kind, hasDist ? c[1] : "");
+        v.setViewVisibility(R.id.widget_kind, hasDist ? View.VISIBLE : View.GONE);
         openOnTap(context, v, R.id.widget_root);
         return v;
     }

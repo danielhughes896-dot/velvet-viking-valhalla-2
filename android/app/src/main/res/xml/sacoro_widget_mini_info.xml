@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 2x1: the mark, TODAY, and the session in two words. Same data and the
      same redraws as every other size. -->
+<!-- Resizable from any edge, down to the single row. Founder: "Enable
+     Android widget resizing, like the standard weather widget." The layout
+     follows the size: see SacoroWidgetProvider.LAYOUT_KEYS. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="110dp"
     android:minHeight="40dp"
@@ -8,7 +11,7 @@
     android:targetCellHeight="1"
     android:minResizeWidth="110dp"
     android:minResizeHeight="40dp"
-    android:resizeMode="horizontal"
+    android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_today_mini"
     android:previewLayout="@layout/widget_today_mini"

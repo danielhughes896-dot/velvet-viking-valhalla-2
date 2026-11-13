@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Today widget, narrow 2x1 (a portrait Pixel 2x1 is 130 by 102dp): the
+     mark across the top, TODAY on the left, and on the right the distance
+     with the kind under it, each sized to fill its line. In one row at that
+     width "14.5 KM INTERVALS" could only fit by being tiny or cut; stacked,
+     every word stays whole and large. Same colours: gold mark, white TODAY
+     and distance, cherry kind (set in code). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/widget_mark"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:maxLines="1"
+        android:includeFontPadding="false"
+        android:text="•  SACORO  •"
+        android:textColor="#E3B15A"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.16" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_label"
+            android:layout_width="44dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="6dp"
+            android:gravity="start|center_vertical"
+            android:maxLines="1"
+            android:includeFontPadding="false"
+            android:text="TODAY"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.06"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="6dp"
+            android:autoSizeMaxTextSize="12sp"
+            android:autoSizeStepGranularity="0.5dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_dist"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="0.58"
+                android:gravity="end|bottom"
+                android:maxLines="1"
+                android:includeFontPadding="false"
+                android:text="SACORO"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="7dp"
+                android:autoSizeMaxTextSize="34sp"
+                android:autoSizeStepGranularity="0.5dp" />
+
+            <TextView
+                android:id="@+id/widget_kind"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="0.42"
+                android:gravity="end|top"
+                android:maxLines="1"
+                android:includeFontPadding="false"
+                android:textColor="#C46A89"
+                android:textSize="16sp"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="6dp"
+                android:autoSizeMaxTextSize="22sp"
+                android:autoSizeStepGranularity="0.5dp" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

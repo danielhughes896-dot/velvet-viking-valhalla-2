@@ -190,7 +190,7 @@ test('stale or missing data: the widget asks to be opened rather than guessing',
   const lay = AND('res/layout/widget_today.xml');
   const colours = (lay.match(/textColor="#[0-9A-Fa-f]+"/g) || []).map(s => s.slice(11, -1).toUpperCase());
   assert.deepEqual([...new Set(colours)].sort(), ['#E3B15A', '#FFFFFF']);
-  assert.match(fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8'), /versionCode 9\s+versionName "1\.8"/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8'), /versionCode 10\s+versionName "1\.9"/);
 });
 
 /* PHASE TWO. Founder: "8 - let's do small and large." Same data, same
@@ -214,18 +214,35 @@ test('four sizes on the home screen: 2x1, small 2x2, medium 4x2, large 4x4, each
     const desc = /android:description="@string\/(\w+)"/.exec(x)[1];
     assert.match(AND('res/values/strings.xml'), new RegExp('name="' + desc + '"'));
   });
-  /* The two new sizes are the medium one with different drawing. */
-  assert.match(JAVA('SacoroWidgetSmall'), /extends SacoroWidgetProvider[\s\S]*RemoteViews build\(Context context\) \{ return renderSmall\(context\); \}/);
-  assert.match(JAVA('SacoroWidgetLarge'), /extends SacoroWidgetProvider[\s\S]*RemoteViews build\(Context context\) \{ return renderLarge\(context\); \}/);
+  /* Four starting sizes of ONE resizable widget. Founder: "Enable Android
+     widget resizing, like the standard weather widget ... drag the widget
+     edges and have the layout adapt between compact and expanded sizes."
+     Each entry differs only in the size it starts at; every one draws
+     whichever layout fits the space it is given. */
+  assert.match(JAVA('SacoroWidgetMini'), /extends SacoroWidgetProvider[\s\S]*float\[\] startSize\(\) \{ return new float\[\] \{ 130, 102 \}; \}/);
+  assert.match(JAVA('SacoroWidgetSmall'), /extends SacoroWidgetProvider[\s\S]*float\[\] startSize\(\) \{ return new float\[\] \{ 130, 220 \}; \}/);
+  assert.match(JAVA('SacoroWidgetLarge'), /extends SacoroWidgetProvider[\s\S]*float\[\] startSize\(\) \{ return new float\[\] \{ 276, 455 \}; \}/);
+  assert.match(JAVA('SacoroWidgetProvider'), /float\[\] startSize\(\) \{ return new float\[\] \{ 276, 220 \}; \}/);
+  ['sacoro_widget_info', 'sacoro_widget_mini_info', 'sacoro_widget_small_info', 'sacoro_widget_large_info'].forEach(n => {
+    const x = AND('res/xml/' + n + '.xml');
+    assert.match(x, /android:resizeMode="horizontal\|vertical"/, n + ' cannot be dragged both ways');
+    assert.match(x, /android:minResizeWidth="110dp"/, n);
+    assert.match(x, /android:minResizeHeight="40dp"/, n);
+  });
 });
 
 test('every redraw redraws every size, and the midnight redraw outlives any one size', () => {
   const prov = JAVA('SacoroWidgetProvider');
   const refresh = prov.slice(prov.indexOf('static void refreshAll('), prov.indexOf('static String todayKey('));
-  ['SacoroWidgetProvider.class', 'SacoroWidgetMini.class', 'SacoroWidgetSmall.class', 'SacoroWidgetLarge.class'].forEach(c =>
-    assert.ok(refresh.indexOf(c) > -1, 'refreshAll leaves out ' + c));
-  ['renderMedium(context)', 'renderMini(context)', 'renderSmall(context)', 'renderLarge(context)'].forEach(r =>
-    assert.ok(refresh.indexOf(r) > -1, 'refreshAll never draws ' + r));
+  ['SacoroWidgetProvider', 'SacoroWidgetMini', 'SacoroWidgetSmall', 'SacoroWidgetLarge'].forEach(c => {
+    assert.ok(refresh.indexOf(c + '.class') > -1, 'refreshAll leaves out ' + c);
+    assert.ok(refresh.indexOf('new ' + c + '().startSize()') > -1, 'refreshAll does not redraw ' + c + ' at its own size');
+  });
+  assert.match(refresh, /viewsFor\(context, manager, id, /);
+  /* Every layout can be drawn, and every one is offered to the launcher. */
+  const rk = prov.slice(prov.indexOf('static RemoteViews renderKind('), prov.indexOf('static RemoteViews responsive('));
+  ['renderMini(context)', 'renderMiniTall(context)', 'renderSmall(context)', 'renderMedium(context)', 'renderLarge(context)'].forEach(r =>
+    assert.ok(rk.indexOf(r) > -1, 'renderKind never draws ' + r));
   const disabled = prov.slice(prov.indexOf('public void onDisabled('), prov.indexOf('static int[] idsOf('));
   assert.match(disabled, /if \(placedCount\(context\) > 0\) return;/,
     'removing the last small widget would stop the midnight redraw for a medium one still placed');
@@ -291,29 +308,82 @@ test('2x1: every day carries its distance and one word for the run, and nothing 
 });
 
 test('2x1: the mark across the top, TODAY left, the session right, both sized to the box, in SACORO’s colours', () => {
-  const lay = AND('res/layout/widget_today_mini.xml');
-  assert.match(lay, /android:id="@\+id\/widget_mark"[\s\S]*?android:gravity="center_horizontal"[\s\S]*?android:text="•  SACORO  •"[\s\S]*?android:textColor="#E3B15A"/);
-  const label = lay.slice(lay.indexOf('android:id="@+id/widget_label"'), lay.indexOf('android:id="@+id/widget_session"'));
-  assert.match(label, /android:gravity="start\|center_vertical"/);
-  assert.match(label, /android:text="TODAY"/);
-  assert.match(label, /android:textColor="#FFFFFF"/);
-  assert.match(label, /android:autoSizeTextType="uniform"/);
-  const sess = lay.slice(lay.indexOf('android:id="@+id/widget_session"'));
+  /* Founder: "TODAY currently displays as TODA. Adjust the spacing and
+     responsive text sizing so all labels remain visible." TODAY has a column
+     of its own width and sizes itself to fit inside it, so it can shrink but
+     never be cut; the session takes the rest. The real proof is on a device:
+     androidTest/.../WidgetLayoutTest at every Pixel size and font size. */
+  ['widget_today_mini', 'widget_today_mini_tall'].forEach(n => {
+    const lay = AND('res/layout/' + n + '.xml');
+    assert.match(lay, /android:background="@drawable\/widget_bg"/, n + ': the rounded dark ground is gone');
+    assert.match(lay, /android:id="@\+id\/widget_mark"[\s\S]*?android:gravity="center_horizontal"[\s\S]*?android:text="•  SACORO  •"[\s\S]*?android:textColor="#E3B15A"/, n);
+    const label = lay.slice(lay.indexOf('android:id="@+id/widget_label"'));
+    const own = label.slice(0, label.indexOf('/>'));
+    assert.match(own, /android:layout_width="44dp"/, n + ': TODAY has lost its own column');
+    assert.match(own, /android:text="TODAY"/, n);
+    assert.match(own, /android:textColor="#FFFFFF"/, n);
+    assert.match(own, /android:autoSizeTextType="uniform"/, n + ': TODAY no longer shrinks to fit');
+    assert.match(own, /android:autoSizeMinTextSize="6dp"/, n + ': a minimum in sp grows with the font and pushes TODAY past its column');
+  });
+  const row = AND('res/layout/widget_today_mini.xml');
+  const label = row.slice(row.indexOf('android:id="@+id/widget_label"'), row.indexOf('android:id="@+id/widget_session"'));
+  const sess = row.slice(row.indexOf('android:id="@+id/widget_session"'));
+  assert.match(sess, /android:layout_weight="1"/);
   assert.match(sess, /android:gravity="end\|center_vertical"/);
   assert.match(sess, /android:autoSizeTextType="uniform"/);
   assert.ok(+/autoSizeMaxTextSize="(\d+)sp"/.exec(sess)[1] > +/autoSizeMaxTextSize="(\d+)sp"/.exec(label)[1],
     'the session should be the biggest thing in the box');
   assert.match(sess, /android:maxLines="1"/);
+  /* Narrow 2x1: the distance over the kind, white then cherry. */
+  const tall = AND('res/layout/widget_today_mini_tall.xml');
+  assert.match(tall, /android:id="@\+id\/widget_dist"[\s\S]*?android:textColor="#FFFFFF"[\s\S]*?android:textStyle="bold"[\s\S]*?android:autoSizeTextType="uniform"/);
+  assert.match(tall, /android:id="@\+id\/widget_kind"[\s\S]*?android:textColor="#C46A89"[\s\S]*?android:autoSizeTextType="uniform"/, 'the kind is not cherry');
   const prov = JAVA('SacoroWidgetProvider');
   assert.match(prov, /static final int CHERRY = 0xFFC46A89;/, 'the kind is not in SACORO’s cherry');
   const cs = prov.slice(prov.indexOf('static CharSequence compactSession('), prov.indexOf('static RemoteViews renderMini('));
   assert.match(cs, /new StyleSpan\(Typeface\.BOLD\)/);
   assert.match(cs, /new ForegroundColorSpan\(CHERRY\)/);
-  assert.match(JAVA('SacoroWidgetMini'), /RemoteViews build\(Context context\) \{ return renderMini\(context\); \}/);
   const days = JAVA('SacoroWidgetDays');
   const c = days.slice(days.indexOf('static String[] compactForToday('), days.indexOf('/** The days after today'));
   assert.match(c, /if \(!hasPlan\) return new String\[\] \{ "", "NO PLAN" \};/);
   assert.match(c, /if \(kind\.isEmpty\(\)\) kind = d\.optString\("title", ""\)\.toUpperCase\(Locale\.UK\);/,
     'an app too old to send the kind would leave the 2x1 empty');
   assert.match(c, /return new String\[\] \{ "", "OPEN SACORO" \};/);
+});
+
+test('resizing: the layout picked at every Pixel launcher size, and dragging an edge redraws it', () => {
+  /* Founder: "drag the widget edges and have the layout adapt between
+     compact and expanded sizes." pickLayout is run here as written in Java,
+     against the space the Pixel launcher gives each cell size (dp). */
+  const prov = JAVA('SacoroWidgetProvider');
+  const keys = /static final float\[\]\[\] LAYOUT_KEYS = \{([\s\S]*?)\};/.exec(prov)[1]
+    .replace(/\/\/.*$/gm, '').match(/\{\s*\d+,\s*\d+\s*\}/g).map(k => k.match(/\d+/g).map(Number));
+  const kinds = /static final int\[\] LAYOUT_KIND = \{([^}]*)\};/.exec(prov)[1].split(',').map(x => x.trim());
+  const body = /static int pickLayout\(float w, float h\) \{([\s\S]*?)\n    \}/.exec(prov)[1]
+    .replace(/\bint |\bfloat /g, 'let ').replace(/let kw = (.*), kh = /, 'let kw = $1; let kh = ');
+  const pick = new Function('LAYOUT_KEYS', 'w', 'h', body);
+  const at = (w, h) => kinds[pick(keys, w, h)];
+  const want = [
+    ['portrait 2x1', 130, 102, 'KIND_TALL'],
+    ['landscape 2x1', 269, 51, 'KIND_ROW'],
+    ['3x1', 203, 102, 'KIND_TALL'],
+    ['4x1', 276, 102, 'KIND_ROW'],
+    ['2x2', 130, 220, 'KIND_SMALL'],
+    ['4x2', 276, 220, 'KIND_MEDIUM'],
+    ['landscape 4x2', 554, 117, 'KIND_ROW'],
+    ['4x3', 276, 337, 'KIND_LARGE'],
+    ['4x4', 276, 455, 'KIND_LARGE'],
+    ['smallest it can be dragged to', 110, 40, 'KIND_ROW'],
+    ['smaller than any layout', 60, 30, 'KIND_ROW'],
+  ];
+  want.forEach(([name, w, h, k]) => assert.equal(at(w, h), k, name + ' (' + w + 'x' + h + ') draws ' + at(w, h)));
+  /* Android 12 and later: every layout handed to the launcher at once. */
+  assert.match(prov, /if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.S\) return responsive\(context\);/);
+  assert.match(prov, /m\.put\(new SizeF\(LAYOUT_KEYS\[i\]\[0\], LAYOUT_KEYS\[i\]\[1\]\), renderKind\(context, LAYOUT_KIND\[i\]\)\);/);
+  /* Older Android: the size the launcher reports, remade when it changes. */
+  assert.match(prov, /return renderKind\(context, LAYOUT_KIND\[pickLayout\(w, h\)\]\);/);
+  assert.match(prov, /public void onAppWidgetOptionsChanged\(Context context, AppWidgetManager manager, int id, Bundle newOptions\) \{\s*manager\.updateAppWidget\(id, viewsFor\(context, manager, id, startSize\(\)\)\);/);
+  /* The narrow 2x1 keeps the session data: distance white, kind cherry. */
+  const tall = prov.slice(prov.indexOf('static RemoteViews renderMiniTall('));
+  assert.match(tall.slice(0, tall.indexOf('\n    }\n')), /SacoroWidgetDays\.compactForToday\(/);
 });

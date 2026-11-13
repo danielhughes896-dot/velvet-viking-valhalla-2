@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Large (4x4): today, then the next three days. -->
+<!-- Resizable from any edge, down to the single row. Founder: "Enable
+     Android widget resizing, like the standard weather widget." The layout
+     follows the size: see SacoroWidgetProvider.LAYOUT_KEYS. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="250dp"
     android:minHeight="250dp"
     android:targetCellWidth="4"
     android:targetCellHeight="4"
-    android:minResizeWidth="250dp"
-    android:minResizeHeight="250dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_today_large"

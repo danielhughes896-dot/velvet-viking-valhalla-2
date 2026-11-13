@@ -1,0 +1,106 @@
+name: Check the widgets on a Pixel
+
+# Founder: "Please test at actual Pixel launcher dimensions, including font
+# scaling."
+#
+# Boots a Pixel 7 emulator, installs the debug app and runs the on-device
+# tests in android/app/src/androidTest: every widget layout drawn into the
+# space the Pixel launcher gives each cell size, at font sizes from 85% to
+# 200%, with every label measured for cuts, and resizing checked on every
+# widget entry. Run by hand from the Actions tab. It builds nothing anyone
+# can install and signs nothing.
+#
+# The pictures it draws are uploaded as an artifact and also published to the
+# widget-shots branch (replaced on every run), so they can be looked at
+# without downloading anything.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Exact commit SHA, tag or branch to check. Leave blank to check the current branch tip.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  widgets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Sync Capacitor native project
+        run: npx cap sync android
+
+      # Hardware acceleration for the emulator.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the widget tests on a Pixel 7 (Android 14)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          # Each script line runs in its own shell from the repository root.
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            chmod +x android/gradlew
+            cd android && ./gradlew connectedDebugAndroidTest --stacktrace || touch ../widget-tests-failed
+            mkdir -p android/widget-shots && adb pull /sdcard/Android/data/com.velvetviking.valhalla/files/widget-shots android/widget-shots || true
+
+      - name: Upload the pictures and the test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: widget-check
+          path: |
+            android/widget-shots
+            android/app/build/reports/androidTests
+            android/app/build/outputs/androidTest-results
+
+      - name: Publish the pictures to the widget-shots branch
+        if: always()
+        run: |
+          SRC=android/widget-shots/widget-shots
+          [ -d "$SRC" ] || SRC=android/widget-shots
+          [ -n "$(ls -A "$SRC" 2>/dev/null)" ] || { echo "no pictures"; exit 0; }
+          WORK="$RUNNER_TEMP/shots"; mkdir -p "$WORK"; cp -r "$SRC"/. "$WORK"/
+          cd "$WORK"
+          git init -q && git checkout -q -b widget-shots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -q -m "Widget pictures from run ${{ github.run_number }} at ${{ github.sha }}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" widget-shots
+
+      - name: Report
+        if: always()
+        run: |
+          R=$(ls android/widget-shots/widget-shots/report.txt android/widget-shots/report.txt 2>/dev/null | head -1)
+          if [ -n "$R" ]; then
+            echo "## Widget layouts" >> "$GITHUB_STEP_SUMMARY"
+            echo "$(grep -c ' ok$' "$R") ok, $(grep -c ' CUT ' "$R") with a cut label" >> "$GITHUB_STEP_SUMMARY"
+            grep ' CUT ' "$R" | head -40 || true
+          fi
+          if [ -f widget-tests-failed ]; then echo "::error::The on-device widget tests failed"; exit 1; fi

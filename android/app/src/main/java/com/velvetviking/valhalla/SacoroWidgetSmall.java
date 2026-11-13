@@ -1,11 +1,8 @@
 package com.velvetviking.valhalla;
 
-import android.content.Context;
-import android.widget.RemoteViews;
-
-/** The Today widget, small (2x2). Everything but the drawing is the medium
- *  one's: see SacoroWidgetProvider. */
+/** The Today widget, starting at 2x2. Resizable to any size, like every
+ *  entry: see SacoroWidgetProvider. */
 public class SacoroWidgetSmall extends SacoroWidgetProvider {
     @Override
-    RemoteViews build(Context context) { return renderSmall(context); }
+    float[] startSize() { return new float[] { 130, 220 }; }
 }
