@@ -2476,8 +2476,22 @@ test('the stage card is a photograph, and the words on it are legible', () => {
      not have -- so goal day, which has no blueprint, got plain panels
      while a tempo session got cards. Every panel in every rail is a
      .how-mod, so that is what carries the card. */
-  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*background-image:var\(--card-pic\)/,
-    'the stage card has lost its photograph');
+  /* AND THE PICTURE IS A FLOATING CARD. Founder: "It looks that good can
+     it be on every picture rail across today and this week?" -- the Full
+     Plan phase card: inset, 20px corners, a soft shadow, a line of light
+     along the top, and the words still straight on the photograph. The
+     photograph is on the card layer (::before) with its veil, so the two
+     are one shape. */
+  const layer = /\.ws-rail \.how-mod::before\{([^}]*)\}/.exec(RAILCSS);
+  assert.ok(layer && /var\(--card-pic\) 50% 34% \/ cover/.test(layer[1]), 'the stage card has lost its photograph');
+  assert.match(layer[1], /inset:6px 16px 26px/, 'the card is not inset by the page gutter');
+  assert.match(layer[1], /border-radius:20px/, 'the card lost its 20px corners');
+  assert.match(layer[1], /inset 0 1px 0 rgba\(255,255,255,\.\d+\)/, 'the glass edge along the top is gone');
+  assert.match(layer[1], /0 8px 18px rgba\(0,0,0,\.\d+\)/, 'the card no longer floats');
+  assert.doesNotMatch(layer[1], /backdrop-filter/, 'a glass box has been laid over the words');
+  /* The slot under the card paints nothing, and its padding is the card's
+     own padding plus the inset, so the words sit where they sat. */
+  assert.match(RAILCSS, /\.ws-rail \.how-mod\{[^}]*margin:0; padding:34px 30px 44px;[^}]*background:none;/);
   /* ---------- ONE PICTURE PER SESSION TYPE ----------
      The founder's mapping: track for reps, misty road for easy, the finish
      arch for goal day, and the sunrise road that was already here for

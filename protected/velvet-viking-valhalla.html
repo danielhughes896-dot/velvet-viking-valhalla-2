@@ -2535,7 +2535,7 @@
      189px and 173px of spare picture and the work card had 55px. The work
      card is the binding constraint and 1.18 is the largest ratio that
      keeps it inside the box it already has, re-wrapping included. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{min-height:calc(var(--rail-pic) + 4px); --rail-scale:1.18;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail{min-height:calc(var(--rail-pic) + 4px + 32px); --rail-scale:1.18;}
   /* NO TRAILING SPACE AND NO WIDE LAST MODULE. Both were ways of letting
      the last module reach the LEFT edge, because that is where the active
      one used to be decided. The rail no longer decides it there -- see
@@ -2604,10 +2604,17 @@
        photograph that ends early is a ragged card, so each one stretches to
        the height the rail was given. */
     align-self:stretch;
-    margin:0; padding:28px 14px 18px;
-    /* NO RIM, NO RADIUS. A photograph that runs to both edges of the screen
-       is the page there; a rim round it would be the gap drawn in another
-       colour, which is the thing being removed. */
+    /* ---------- THE SAME FLOATING CARD AS FULL PLAN ----------
+       Founder, of the Full Plan phase cards: "It looks that good can it be
+       on every picture rail across today and this week?"
+       The slot stays the full width of the rail, because the rail's pager
+       measures its slots (wireCoachingRail's wantedScroll) and a slot that
+       is the rail's own width is what keeps the last card and the dots in
+       step. The PICTURE is drawn inset inside it, on ::before, with the
+       phase card's corners, shadow and edge of light; the padding grows by
+       exactly that inset (16px a side, 6px above, 26px of shadow room
+       below), so every word sits where it sat on the photograph. */
+    margin:0; padding:34px 30px 44px;
     border:0; border-radius:0;
     /* ---------- THE PICTURE IS THE SESSION'S, NOT THE STAGE'S ----------
        One photograph per session TYPE, carried as a custom property on the
@@ -2620,9 +2627,7 @@
        A PROPERTY RATHER THAN A RULE PER TYPE. The card is declared once and
        each type says only which picture it is, which also makes the narrow
        -420 swap one line per type instead of a second copy of this block. */
-    background-image:var(--card-pic);
-    background-size:cover; background-position:50% 34%;
-    background-clip:padding-box;}
+    background:none;}
   /* The blueprint's own element stays contents so its three lines are the
      body's flex items rather than a box inside a box. */
   /* display:contents DISSOLVES THE BOX, NOT THE INHERITANCE. .ws-h-step
@@ -2751,10 +2756,22 @@
      neighbours and gives the figures a floor on the few pixels the fade
      has not reached. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod::before{
-    content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
-    border-radius:inherit; opacity:1;
+    content:''; position:absolute; inset:6px 16px 26px; z-index:0; pointer-events:none;
+    border-radius:20px; opacity:1;
+    /* The veil over the photograph, then the photograph: one layer, so the
+       veil can never be a different shape from the picture under it. */
     background:linear-gradient(to bottom,
-      rgba(8,6,10,.06) 0%, rgba(8,6,10,.20) 55%, rgba(8,6,10,.38) 100%);}
+      rgba(8,6,10,.06) 0%, rgba(8,6,10,.20) 55%, rgba(8,6,10,.38) 100%),
+      var(--card-pic) 50% 34% / cover no-repeat;
+    /* The glass edge along the top, then the float. */
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.30), inset 0 0 0 1px rgba(255,255,255,.07),
+      0 8px 18px rgba(0,0,0,.46), 0 3px 8px rgba(0,0,0,.30);}
+  /* A card you can feel, as on Full Plan: a very slight press under the
+     finger, and none under reduced motion. */
+  @media (prefers-reduced-motion: no-preference){
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod::before{transition:transform .18s cubic-bezier(.4,0,.2,1);}
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod:active::before{transform:scale(.985);}
+  }
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod > *{position:relative; z-index:1;}
   /* NO HAIRLINE BETWEEN CARDS. It is a divider for columns that share a
      row; these are separate photographs with a gap between them, and a 1px
@@ -3038,6 +3055,8 @@
   .how-dots{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dots{
     display:flex; justify-content:center; gap:7px; padding:12px 0 2px;}
+  /* Under a picture rail, the dots take back the card's shadow room. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail + .how-dots{margin-top:-14px; position:relative; z-index:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dot{
     width:6px; height:6px; border-radius:50%; background:var(--mark-faint);
     opacity:.34; transition:opacity .25s ease, background-color .25s ease,

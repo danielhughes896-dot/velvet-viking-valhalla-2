@@ -898,7 +898,13 @@ test('every picture rail is the same size', () => {
   const railRule = rule(scope + ' .ws-rail');
   const pad = /padding:0 0 (\d+)px/.exec(rule(scope + ' :is(.how-card .fuel-body, .ws-rail)'));
   assert.ok(pad, 'the session rail no longer declares the padding under its card');
-  assert.ok(railRule.indexOf('min-height:calc(var(--rail-pic) + ' + pad[1] + 'px)') > -1,
+  /* The rail also carries the floating card's own room (6px above it, 26px
+     of shadow below), read off the card layer rather than written twice,
+     so the PICTURE is still --rail-pic plus the 4px. */
+  const inset = /inset:(\d+)px 16px (\d+)px/.exec(rule(scope + ' .ws-rail .how-mod::before'));
+  assert.ok(inset, 'the session card layer no longer declares its inset');
+  const room = Number(inset[1]) + Number(inset[2]);
+  assert.ok(railRule.indexOf('min-height:calc(var(--rail-pic) + ' + pad[1] + 'px + ' + room + 'px)') > -1,
     'the session rail adds something other than its own ' + pad[1] + 'px of padding to the ' +
     'shared picture height: ' + railRule);
   /* AND THE CARD FILLS IT, so the picture really is --rail-pic tall rather
