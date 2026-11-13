@@ -179,3 +179,12 @@ test('8. Android phones stay upright, tablets are free to turn', () => {
   const plist = fs.readFileSync(path.join(__dirname, '..', 'ios/App/App/Info.plist'), 'utf8');
   assert.match(plist, /<key>UISupportedInterfaceOrientations<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<\/array>/);
 });
+
+test('9. words that inform meet an 11px floor; glyphs in fixed circles and the tab labels keep their size', () => {
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  const floor = /\.coach-why-btn,\s*\.v-hero-fig span,\s*\.gauge-num span,\s*\.zleg-item,\s*\.cr-cmp,\s*\.build-tag\{font-size:\.6875rem;\}\s*$/.exec(bare.trimEnd());
+  assert.ok(floor, 'the 11px floor is not the last word on these, so an earlier rule wins');
+  assert.equal(.6875 * 16, 11);
+  /* Still rem, so it follows the reader's text size like everything else. */
+  assert.doesNotMatch(floor[0], /px/);
+});

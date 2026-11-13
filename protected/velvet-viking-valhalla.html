@@ -11525,6 +11525,24 @@
     .is-completing .actual-done, .is-completing .actual-done::before,
     .is-completing .actual-done-i, .is-completing .day-check input:checked{ animation:none; }
   }
+
+  /* ---------- THE 11px FLOOR FOR WORDS THAT INFORM ----------
+     Responsive correction 9. The audit read these at 9 to 10.5px on every
+     phone: Injured or ill (a safety link), the Coach hero's captions (TO
+     GOAL DAY, LOAD, CONFIDENCE), the zone legend, the session comparison
+     lines, and Privacy / Terms and the build line. Each has room to grow
+     and now meets an 11px floor (.6875rem, so it still follows the
+     reader's text size). Left as they are, on purpose: the tab labels
+     (sized to the glass bar and now fitted to it), and the single letters
+     inside fixed day circles (M T W), which are glyph labels in a circle
+     that cannot grow. Stated once, last, so it outranks each rule it
+     raises without editing their measured notes. */
+  .coach-why-btn,
+  .v-hero-fig span,
+  .gauge-num span,
+  .zleg-item,
+  .cr-cmp,
+  .build-tag{font-size:.6875rem;}
 </style>
 </head>
 <body>
