@@ -976,6 +976,66 @@
     var fig = field && field.querySelector('.bld-slide-fig');
     if (fig) fig.textContent = has ? String(v) : '\u2013';
   }
+  /* ---------- EVERY SLIDER IS FELT, ONE STEP AT A TIME ----------
+     Founder: "Apply consistent, subtle haptic feedback to every interactive
+     slider in SACORO, including ... Build-a-Plan." This page opens inside the
+     installed app (the Android manifest routes /start there) but cannot reach
+     the app's sacoroHaptic(), so it carries the same two kinds the sliders
+     use, made by the same plugin calls, and the same slider rule: a tick per
+     value, never the same value twice, never closer than SLIDER_TICK_GAP_MS,
+     'light' at either end, and nothing for a value written by code.
+     test/sliderHaptics holds this to the app's copy, line for line where it
+     matters. */
+  var SLIDER_TICK_GAP_MS = 50;
+  var HAPTIC_WEB_MS = { tick:8, light:12 };
+  function sacoroHaptic(kind){
+    try{
+      var cap = window.Capacitor;
+      var h = cap && cap.Plugins && cap.Plugins.Haptics;
+      var quiet = function(p){ if (p && p.catch) p.catch(function(){}); };
+      if (h){
+        var ios = cap.getPlatform && cap.getPlatform() === 'ios';
+        if (kind === 'tick'){
+          if (ios && typeof h.selectionChanged === 'function'){
+            quiet(h.selectionStart && h.selectionStart()); quiet(h.selectionChanged()); quiet(h.selectionEnd && h.selectionEnd());
+          } else if (typeof h.vibrate === 'function') quiet(h.vibrate({ duration: 8 }));
+          return;
+        }
+        if (kind === 'light' && h.impact){ quiet(h.impact({ style:'LIGHT' })); return; }
+        return;
+      }
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function' && HAPTIC_WEB_MS[kind])
+        navigator.vibrate(HAPTIC_WEB_MS[kind]);
+    }catch(e){}
+  }
+  var sliderFelt = (typeof WeakMap === 'function') ? new WeakMap() : null;
+  function sliderMark(el, v){
+    var min = parseFloat(el.min), max = parseFloat(el.max);
+    if (v === min || v === max) return true;
+    var marks = el.getAttribute && el.getAttribute('data-haptic-marks');
+    return !!marks && marks.split(',').some(function(m){ return parseFloat(m) === v; });
+  }
+  function sliderHaptic(el){
+    if (!el || !sliderFelt) return '';
+    var v = String(el.value), st = sliderFelt.get(el) || {};
+    if (st.v === v) return '';
+    st.v = v;
+    var kind = sliderMark(el, parseFloat(v)) ? 'light' : 'tick';
+    var now = Date.now();
+    if (kind === 'tick' && st.at && now - st.at < SLIDER_TICK_GAP_MS){ sliderFelt.set(el, st); return ''; }
+    st.at = now;
+    sliderFelt.set(el, st);
+    sacoroHaptic(kind);
+    return kind;
+  }
+  function sliderInputHaptic(e){
+    var el = e && e.target;
+    if (!el || el.type !== 'range') return;
+    if (e.isTrusted === false) return;
+    sliderHaptic(el);
+  }
+  try{ document.addEventListener('input', sliderInputHaptic, true); }catch(e){}
+
   function wireRanges(){
     Array.prototype.forEach.call(document.querySelectorAll('#bld-stage-body .bld-range'), function(rg){
       var t = $(rg.getAttribute('data-for'));

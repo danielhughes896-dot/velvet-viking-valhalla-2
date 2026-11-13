@@ -34820,6 +34820,7 @@ function logRangeHtml(dd, o){
       'min="'+o.min+'" max="'+o.max+'" step="1" value="'+v+'" style="--p:'+p+'%" '+
       'data-action="log-slide"'+at+
       (o.words ? ' data-words="'+escapeHtml(o.words.join('|'))+'"' : '')+
+      (o.words && (o.min + o.max) % 2 === 0 ? ' data-haptic-marks="'+((o.min + o.max) / 2)+'"' : '')+
       (o.of != null ? ' data-of="'+o.of+'"' : '')+
       ' aria-label="'+escapeHtml(o.label)+'" aria-valuetext="'+
         escapeHtml(set ? (word || fig) : 'Not answered')+'">'+
@@ -35386,6 +35387,7 @@ function logRangeSettle(e){
   var el = e && e.target;
   if (!el || !el.classList || !el.classList.contains('yl-range')) return;
   if (!el.classList.contains('is-unset')) return;
+  sliderHaptic(el);
   handleLogAnswer(el.getAttribute('data-day'), el.getAttribute('data-field'), el.value);
 }
 
@@ -72155,6 +72157,56 @@ function sacoroHaptic(kind){
   }catch(e){}
 }
 function pagerHaptic(){ sacoroHaptic('tick'); }
+/* ---------- EVERY SLIDER IS FELT, ONE STEP AT A TIME ----------
+   Founder: "Apply consistent, subtle haptic feedback to every interactive
+   slider in SACORO ... One light tick per meaningful value change, with
+   slightly stronger feedback at important thresholds where appropriate. Do
+   not trigger continuous vibration, duplicate feedback or haptics during
+   automatic value updates. Use the existing shared haptic system."
+   ONE LISTENER FOR EVERY SLIDER, on the document, so a slider added later is
+   felt without anyone remembering to wire it. Through sacoroHaptic(), so
+   Android and iOS get exactly what the rest of the app gives them: 'tick' is
+   the tab-swipe tick, 'light' the check-in's light confirmation.
+     A step is a tick: one per value the thumb lands on, never two for the
+     same value, and never closer together than SLIDER_TICK_GAP_MS, so a fast
+     sweep is a run of distinct ticks rather than a buzz.
+     A threshold is 'light': both ends of every slider, and any value the
+     slider names in data-haptic-marks (the middle, neutral word of the
+     five-word Your Log questions).
+     Automatic is silent: only a real touch or key counts (isTrusted). A
+     value written by code -- a typed figure moving its slider, a redraw --
+     fires no event at all, and the builder's own re-dispatched events are
+     on its text fields, not on a range.
+   Nothing here reads or writes a value: ranges, scoring and styling are
+   untouched. /start has no access to this file and carries the same helper,
+   held to it by test/sliderHaptics. */
+var SLIDER_TICK_GAP_MS = 50;
+var sliderFelt = (typeof WeakMap === 'function') ? new WeakMap() : null;
+function sliderMark(el, v){
+  var min = parseFloat(el.min), max = parseFloat(el.max);
+  if (v === min || v === max) return true;
+  var marks = el.getAttribute && el.getAttribute('data-haptic-marks');
+  return !!marks && marks.split(',').some(function(m){ return parseFloat(m) === v; });
+}
+function sliderHaptic(el){
+  if (!el || !sliderFelt) return '';
+  var v = String(el.value), st = sliderFelt.get(el) || {};
+  if (st.v === v) return '';
+  st.v = v;
+  var kind = sliderMark(el, parseFloat(v)) ? 'light' : 'tick';
+  var now = Date.now();
+  if (kind === 'tick' && st.at && now - st.at < SLIDER_TICK_GAP_MS){ sliderFelt.set(el, st); return ''; }
+  st.at = now;
+  sliderFelt.set(el, st);
+  sacoroHaptic(kind);
+  return kind;
+}
+function sliderInputHaptic(e){
+  var el = e && e.target;
+  if (!el || el.type !== 'range') return;
+  if (e.isTrusted === false) return;
+  sliderHaptic(el);
+}
 /* Does any ancestor of the touched node scroll sideways RIGHT NOW? */
 function pagerOwnedElsewhere(node){
   var el = node, hops = 0;
@@ -73917,6 +73969,7 @@ function init(){
   initViewPager();
   initPageSwipe();
   try{ document.addEventListener('input', logRangeLive); }catch(e){}
+  try{ document.addEventListener('input', sliderInputHaptic, true); }catch(e){}
   try{ document.addEventListener('pointerup', logRangeSettle); }catch(e){}
   try{ document.addEventListener('scroll', coachRailScrolled, true); }catch(e){}
   // Deliberately last and un-awaited: the app is already painted from
