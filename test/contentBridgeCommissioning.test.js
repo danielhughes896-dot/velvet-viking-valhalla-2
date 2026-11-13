@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 const CB = require('../api/_content-bridge.js');
 
 // COMMISSIONING -- the complete upstream path, driven end to end.
@@ -98,6 +98,7 @@ function syntheticApp() {
   dd.completed = true;
   dd.actual = { km: dd.km, pace: a.secToPace(tr.fast - 4),
                 hr: z && z.lo != null ? z.lo + 2 : 150, rpe: 6, notes: '' };
+  logSections(a, dd, 1);              // a structured session is scored from its sections
   return { a, dd };
 }
 

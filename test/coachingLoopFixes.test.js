@@ -26,7 +26,7 @@ function athlete() {
     startDate: a.addDays(TODAY, -37) });
   const past = plan.days.filter(d => d.date < TODAY && d.type !== 'rest');
   past.forEach(d => {
-    logAsPrescribed(a, d, { quality: 1 });
+    logAsPrescribed(a, d, { quality: 1, sections: true });
     const z = a.executionHRTarget(d);
     if (z && z.lo != null) d.actual.hr = Math.round((z.lo + (z.hi || z.lo + 8)) / 2);
   });
@@ -143,7 +143,7 @@ test('new evidence reopens the question', () => {
   const sig = a.planEvolution().evidenceSignature;
   /* A session is logged: the evidence is no longer the evidence that was acted on. */
   const next = a.plan.days.filter(d => d.date >= TODAY && d.type !== 'rest' && !d.completed)[0];
-  logAsPrescribed(a, next, { quality: 1 });
+  logAsPrescribed(a, next, { quality: 1, sections: true });
   const again = a.planEvolution();
   assert.notEqual(again.evidenceSignature, sig);
   assert.equal(again.settled, false, 'the engine stayed silent after new evidence arrived');

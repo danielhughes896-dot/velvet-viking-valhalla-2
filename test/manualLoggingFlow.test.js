@@ -226,8 +226,10 @@ test('rich evidence is not flattened to the simplified surface', () => {
   assert.equal(dd.actual.splits.length, 1, 'segment evidence was discarded');
   assert.equal(dd.actual.hr, 158);
   assert.ok(has(html, 'hr'), 'imported heart rate is not shown');
-  const b = a.computeExecutionBreakdown(dd);
-  assert.ok(b && b.score != null, 'a rich record stopped being scored');
+  /* A threshold session's one total and an unmatched lap are not its
+     sections: it is assessed, partially, from what was stored, all of it. */
+  const pa = a.computePartialAssessment(dd);
+  assert.ok(pa && pa.km === 8.02 && pa.paceSec === 312, 'a rich record stopped being assessed');
 });
 
 // ---------------------------------------------------------------------------

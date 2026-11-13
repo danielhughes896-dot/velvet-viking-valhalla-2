@@ -132,6 +132,47 @@ function buildPlan(app, opts) {
  * progressively outside the window on the slow side and short of the
  * distance, which is how a real athlete falls short.
  */
+/**
+ * logSections(app, dd, ratio) -- a structured session's own evidence.
+ * A session with more than one intensity is scored from its sections (the
+ * founder: "SACORO needs to distinguish missing evidence from successful
+ * execution"); one total gives a partial assessment and no score. So a
+ * fixture that means "ran it as prescribed" logs each section at the middle
+ * of that section's own band, times `ratio` (1 on target, above 1 slower),
+ * as the athlete would type it into Your Log. A session that needs no
+ * sections is left exactly as it was.
+ */
+function logSections(app, dd, ratio) {
+  const r = ratio != null ? ratio : 1;
+  let need = false;
+  try { need = app.executionNeedsSections(dd); } catch (e) { need = false; }
+  if (!need) return dd;
+  const plan = app.structuredLoggingPlan(dd);
+  if (!plan || !plan.rows || !plan.rows.length) return dd;
+  const p = app.prescriptionOf(dd);
+  const paces = app.getActivePaces(), goal = app.getGoalPaceSecPerKm();
+  const phases = plan.source === 'phases' ? app.strategyPhasesFor(dd, p, app.segmentsFor(p)) : null;
+  const segs = app.orderedSegments(p) || [];
+  dd.actual = dd.actual || app.emptyActual();
+  if (!Array.isArray(dd.actual.splits)) dd.actual.splits = [];
+  /* Each row as Your Log writes it when a pace is typed: the same split
+     object, the time or distance filled from the prescription by the app's
+     own rule, and nothing else touched. */
+  Array.from(plan.rows).forEach((row, i) => {
+    const seg = phases ? (phases[i] ? { intensity: phases[i].intensity } : null)
+                       : segs.find(s => s.segId === row.segId);
+    const b = seg ? app.segmentPaceBand(seg, paces, goal) : null;
+    if (!b || b.fast == null || b.slow == null) return;
+    const sp = app.upsertStructuredSplit(dd, plan, row);
+    sp.paceEntered = true;
+    sp.paceSec = Math.round((b.fast + b.slow) / 2 * r);
+    app.slogFillFromPace(sp, row);
+    const paceKm = (sp.km != null && sp.km > 0) ? sp.km : (!row.asks.dist && row.presKm > 0) ? row.presKm : null;
+    sp.kmFromPrescription = (sp.km == null && paceKm != null) ? true : undefined;
+  });
+  return dd;
+}
+
 function logAsPrescribed(app, dd, opts) {
   const o = opts || {};
   const q = o.quality != null ? o.quality : 1;
@@ -152,9 +193,12 @@ function logAsPrescribed(app, dd, opts) {
     paceUnit: 'km',
     rpe: rpe,
   }, o.extra || {});
+  /* `sections: true` also types each section's pace into Your Log, which a
+     structured session needs to be scored (see logSections). */
+  if (o.sections) logSections(app, dd, (sec != null && range) ? sec / ((range.slow + range.fast) / 2) : 1);
   delete dd.coachReview;
   try { app.coachPersistReview(dd); } catch (e) {}
   return dd;
 }
 
-module.exports = { buildPlan, logAsPrescribed };
+module.exports = { buildPlan, logAsPrescribed, logSections };

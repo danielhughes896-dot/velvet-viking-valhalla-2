@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 /* BLOCK INTELLIGENCE COMPARES EFFORT WITHIN TYPE TOO
  * ===========================================================================
@@ -64,6 +64,7 @@ function block(shape, day){
       hr: z && z.lo != null ? Math.round((z.lo + (z.hi != null ? z.hi : z.lo + 20)) / 2) : null,
       rpe: rpe, notes: '',
     };
+    logSections(app, dd, 1);
   });
   return app;
 }

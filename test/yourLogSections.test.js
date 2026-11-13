@@ -328,8 +328,9 @@ test('a row filled in is saved where every reader already looks, and still score
   const ev = a.structuredExecutionEvidence(dd);
   assert.equal(ev.reps, reps.length, 'the split analysis no longer sees the reps');
   assert.ok(ev.claims.length >= 1);
-  assert.ok(a.computeExecutionBreakdown(dd), 'the session stopped scoring');
-  assert.ok(before, 'the fixture session was not scoring to begin with');
+  assert.ok(a.computeExecutionBreakdown(dd), 'the reps are logged and the session is not scored');
+  /* Before the reps were typed it was one total: a partial assessment, no score. */
+  assert.equal(before, null, 'one total on a rep session was scored before its reps were logged');
   assert.equal(a.assessSession(dd).completion.done, reps.length, 'the assessment does not count the reps that were entered');
   /* And they come back on the next draw, exactly as typed. */
   const shown = [...section(log(c), 'main').matchAll(/value="([^"]*)"\s+data-action="slog-field" data-field="pace"/g)].map(m => m[1]);

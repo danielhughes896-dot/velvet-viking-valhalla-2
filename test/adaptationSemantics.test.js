@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 // VVV maximises useful training, not completed workouts. That requires the
 // adaptation engine to tell four states apart:
@@ -43,6 +43,7 @@ function block(weeksDone, shape) {
       rpe: band ? band[0] : 3,
       notes: '',
     };
+    logSections(a, d, 1);
   });
   if (shape) past.forEach((d, i) => shape(a, d, i, past.length));
   past.forEach(d => { try { a.coachPersistReview(d); } catch (e) {} });
@@ -52,7 +53,7 @@ function block(weeksDone, shape) {
 function degrade(a, d, { paceOff = 0, hrOff = 0, rpeOff = 0 }) {
   const tr = a.executionPaceTarget(d), band = a.expectedRPEBand(d);
   const mid = tr ? Math.round((tr.fast + tr.slow) / 2) : 330;
-  if (paceOff) d.actual.pace = a.secToPace(mid + paceOff);
+  if (paceOff) { d.actual.pace = a.secToPace(mid + paceOff); logSections(a, d, (mid + paceOff) / mid); }
   if (hrOff) d.actual.hr = (d.actual.hr || 145) + hrOff;
   if (rpeOff) d.actual.rpe = Math.min(10, (band ? band[0] : 3) + rpeOff);
 }

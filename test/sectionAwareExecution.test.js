@@ -22,9 +22,17 @@ const { buildPlan } = require('./fixtures.js');
    average against a composite band. Correct for whole-session evidence; wrong
    the moment the athlete has said what each section was.
 
-   WHAT MUST STAY TRUE: the composite is still right where section evidence is
-   absent or incomplete, no band moved, no methodology changed, and a recovery
-   is judged against the recovery's own target rather than the work target. */
+   WHAT MUST STAY TRUE: no band moved, no methodology changed, and a recovery
+   is judged against the recovery's own target rather than the work target.
+
+   LATER, THE FOUNDER: where section evidence is absent or incomplete the
+   composite no longer produces a score. "If someone logs 8 km at 5:00/km
+   against an interval session but provides no repetition data, SACORO can
+   assess distance and overall pace. It cannot legitimately claim the
+   intervals were executed perfectly. That should produce a clearly labelled
+   partial or unverified assessment, not an invented 100%." The whole run is
+   still read -- distance and overall pace, against the same composite
+   window -- as a partial assessment with no score. */
 
 const TODAY = '2026-10-14';
 function app(){
@@ -98,10 +106,12 @@ test('a duration-prescribed segment is untouched by that', () => {
 
 test('6/6 reps inside target score as executed, despite a 5:32/km whole run', () => {
   const a = app(), dd = deuce(a);
-  const before = a.computeExecutionBreakdown(dd);
-  assert.ok(before.parts[1].score < 70,
-    'the fixture no longer reproduces the defect — whole-run pace already scored well');
-  assert.equal(before.paceResolution, 'whole-session');
+  /* The whole run alone is not scored: it is a partial assessment, and its
+     overall pace reads slower than the composite window, as before. */
+  assert.equal(a.computeExecutionBreakdown(dd), null, 'the whole-run average was scored');
+  const before = a.computePartialAssessment(dd);
+  assert.equal(before && before.paceRead, 'slower',
+    'the fixture no longer reproduces the defect: the whole run already reads on pace');
 
   const plan = a.structuredLoggingPlan(dd);
   plan.rows.filter(isRep).forEach((r, i) => logSection(a, dd, plan, r, REPS_INSIDE[i]));
@@ -110,7 +120,7 @@ test('6/6 reps inside target score as executed, despite a 5:32/km whole run', ()
   const after = a.computeExecutionBreakdown(dd);
   assert.equal(after.parts[1].score, 100, 'six reps inside the window did not score as executed');
   assert.equal(after.paceResolution, 'sections-scored');
-  assert.ok(after.score > before.score, 'the corrected evidence did not improve the verdict');
+  assert.ok(after.score >= a.PLAYBOOK_GOOD_EXECUTION, 'the corrected evidence did not give a good verdict');
   // and the athlete is told what was actually judged
   assert.match(a.executionResolutionClause(after), /section by section/);
   assert.doesNotMatch(a.executionResolutionClause(after), /not yet scored/);
@@ -208,12 +218,14 @@ test('a slow warm-up and cool-down cannot drag the work down', () => {
 // 5. FALLBACK — UNKNOWN IS NOT ZERO
 // =====================================================================
 
-test('no section log at all keeps the existing whole-session behaviour exactly', () => {
+test('no section log at all is a partial assessment against the same composite window', () => {
   const a = app(), dd = deuce(a);
   assert.equal(a.sectionPaceExecution(dd), null);
-  const b = a.computeExecutionBreakdown(dd);
-  assert.equal(b.paceResolution, 'whole-session');
-  assert.equal(b.parts[1].score, a.computePaceScore(dd, a.actualPaceSecPerKm(dd)));
+  assert.equal(a.computeExecutionBreakdown(dd), null);
+  const pa = a.computePartialAssessment(dd);
+  const tr = a.executionPaceTarget(dd);
+  assert.deepEqual([pa.window.fast, pa.window.slow], [tr.fast, tr.slow], 'the composite window moved');
+  assert.equal(pa.someSections, false);
 });
 
 test('an incomplete work log falls back rather than scoring from a subset', () => {
@@ -221,9 +233,10 @@ test('an incomplete work log falls back rather than scoring from a subset', () =
   const plan = a.structuredLoggingPlan(dd);
   plan.rows.filter(isRep).slice(0, 4).forEach((r, i) => logSection(a, dd, plan, r, REPS_INSIDE[i]));
   assert.equal(a.sectionPaceExecution(dd), null, 'four reps out of six were scored as if complete');
-  const b = a.computeExecutionBreakdown(dd);
-  assert.equal(b.paceResolution, 'sections-logged');
-  assert.match(a.executionResolutionClause(b), /not every section was logged/);
+  assert.equal(a.computeExecutionBreakdown(dd), null, 'a subset was turned into a score');
+  const pa = a.computePartialAssessment(dd);
+  assert.equal(pa.someSections, true);
+  assert.match(a.partialAssessmentLines(pa).join(' '), /Not every rep was logged/);
 });
 
 test('a seeded time is the prescription, not evidence, and is never scored', () => {

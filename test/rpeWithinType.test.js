@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 /* EFFORT IS COMPARED WITHIN SESSION TYPE, NOT ACROSS THE QUALITY POOL
  * ===========================================================================
@@ -56,6 +56,7 @@ function block(day, rpeFor){
       hr: z && z.lo != null ? Math.round((z.lo + (z.hi != null ? z.hi : z.lo + 20)) / 2) : null,
       rpe: rpeFor(dd, band), notes: '',
     };
+    logSections(app, dd, 1);          // a structured session is scored from its sections
   });
   return app;
 }

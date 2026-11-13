@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 const HC = require('../api/_health-consent.js');
 const G = require('../api/_garmin.js');
 
@@ -57,6 +57,8 @@ function loggedDay(a, extra) {
   // would prove the wrong thing about why the score is absent.
   dd.actual = Object.assign(a.emptyActual(),
     { km: dd.km, pace: '5:00', hr: 158, rpe: 6, feel: 'good' }, extra || {});
+  // and, for a structured session, its sections: one total is not scored.
+  logSections(a, dd, 1);
   return dd;
 }
 
@@ -375,6 +377,7 @@ test('14. ordinary athlete memory survives — ATHLETE is still not PLAN', () =>
     dd.completed = true;
     dd.actual = Object.assign(a.emptyActual(), { km: dd.km, pace: '5:00', rpe: 6, hr: 150,
                                                  feel: 'good' });
+    logSections(a, dd, 1);              // a structured session is scored from its sections
   });
   const mem = a.athleteMemory(60).filter(r => r.completed);
   assert.ok(mem.length >= 5, 'the record still exists');

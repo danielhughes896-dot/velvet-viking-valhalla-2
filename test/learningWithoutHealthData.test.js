@@ -43,7 +43,7 @@ function athlete(opts){
   p.forEach((dd, i) => {
     const withheld = o.covered ? {} : { hr: null, rpe: null };
     logAsPrescribed(a, dd, { quality: o.miss && i >= p.length - o.miss ? 1 : 1,
-                             extra: withheld });
+                             sections: true, extra: withheld });
   });
   if (o.miss) p.slice(-o.miss).forEach(dd => {
     dd.completed = false; dd.actual = a.emptyActual(); delete dd.coachReview;
@@ -83,7 +83,7 @@ test('nor does poor-execution escalation', () => {
      what a phone can measure still gets a real score and a real tier. */
   const a = athlete({ covered: false });
   const q = past(a).filter(d => a.isQualityType(d.type));
-  q.slice(-4).forEach(dd => logAsPrescribed(a, dd, { quality: 0.6, extra: { hr: null, rpe: null } }));
+  q.slice(-4).forEach(dd => logAsPrescribed(a, dd, { quality: 0.6, sections: true, extra: { hr: null, rpe: null } }));
   const p = a.executionPattern();
   assert.ok(p, 'an athlete without covered data got no execution reading at all');
   assert.equal(p.tier, 'persistent');
