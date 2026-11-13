@@ -9857,6 +9857,13 @@
   /* A word in a panel's circle takes the words' face, as the rail does. */
   .rp-hero.is-word .rd-val b{font-family:var(--text-face);}
   .rp-hero .b-dial.is-torus .b-medal{inset:15%;}
+  /* PATTERNS' ORB: the glow is the orb's own, so the dial's wash and ring
+     shadow step aside; the word inside takes near-black for contrast. */
+  .b-dial.is-orb{background:none; box-shadow:none;}
+  .b-dial .rd-orb{position:absolute; inset:-2px; width:calc(100% + 4px); height:calc(100% + 4px); z-index:0; overflow:visible;
+    filter:drop-shadow(0 0 6px rgba(255,255,255,.55)) drop-shadow(0 0 18px rgba(255,255,255,.22));}
+  .b-dial.is-orb .b-medal{background:none; box-shadow:none; z-index:1;}
+  .b-dial.is-orb .rd-val b{color:#111216; text-shadow:none; font-family:var(--text-face);}
   /* THE PROGRESS ENTRANCE STOOD HERE: @keyframes rd-draw and the gated
      .is-drawing rule that played it. Both are deleted with the arc, because
      Progress is a plate now and a plate has no ring to lay down. The
@@ -56475,7 +56482,7 @@ function readingSections(report){
       learning: responsePatternsLearning(report.response, shown.length),
       syn: shown.length ? patternHeadlineSentence(shown[0])
                         : 'Still learning your baseline.',
-      heroRing: patternRingsSvg(pp),
+      heroRing: patternOrbHtml(),
       lead: patternTilesHtml(pp),
       body: patternsBody + renderResponsePatternsSection(report.response),
       extra: patternQuestionsHtml(pp) },
@@ -70490,6 +70497,7 @@ function renderSacoroInstruments(){
         ? dialRingHtml('solid', 'is-rec-' + (reading[k].state || 'fresh'))
         : petals ? petals
         : k === 'adaptation' ? torusRingHtml(dialAccentBase(reading[k]), !!reading[k].learning)
+        : k === 'patterns' ? patternOrbHtml()
         : dialRingHtml(reading[k].learning ? 'learning' : 'solid');
       return readingDialHtml(reading[k], 0, false, ring);
     }
@@ -71265,7 +71273,8 @@ function readingDialHtml(sec, rank, isStatic, ring){
      pressed, directly under a heading that already names it, so a label
      would be the same word twice. */
   var shape = !ring ? '' : ring.indexOf('rd-petals') !== -1 ? ' is-petals'
-            : ring.indexOf('rd-torus') !== -1 ? ' is-torus' : ring.indexOf('rd-rings') !== -1 ? ' is-rings' : '';
+            : ring.indexOf('rd-torus') !== -1 ? ' is-torus' : ring.indexOf('rd-rings') !== -1 ? ' is-rings'
+            : ring.indexOf('rd-orb') !== -1 ? ' is-orb' : '';
   var dial = '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial'+shape+'" data-rank="'+r+'" '+
       (isStatic ? '' : 'data-action="open-reading" data-reading="'+sec.key+'" ')+
       'aria-label="'+escapeHtml(sec.title+' — '+sec.value)+'" '+
@@ -71419,15 +71428,28 @@ function patternQuestionsHtml(P){
     }).join('')+
     '<div class="pt-note">Patterns appear as comparable sessions are logged. Each ring shows how much of the evidence SACORO needs is in, never a score.</div>';
 }
-/* The hero: the three, outer to inner, in their own colours. */
-function patternRingsSvg(P){
-  var rs = [46.5, 39.5, 32.5];
-  return '<svg class="rd-rings" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+P.map(function(p, i){
-    var c = 2 * Math.PI * rs[i];
-    return '<circle cx="50" cy="50" r="'+rs[i]+'" fill="none" class="cr-trk" stroke-width="5"/>'+
-      (p.frac > 0 ? '<circle cx="50" cy="50" r="'+rs[i]+'" fill="none" style="stroke:'+p.col+'" stroke-width="5" stroke-linecap="round" '+
-        'stroke-dasharray="'+(c * p.frac).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 50 50)"/>' : '');
-  }).join('')+'</svg>';
+/* ---------- PATTERNS' ORB ----------
+   Founder, with a reference: "This is the shape, colour and style I want
+   for the patterns tab. Keep current rules tho. So patterns is underneath."
+   A white glass orb: a bright rim, a thin dark gap, a pearl face lit from
+   above with a highlight at the upper right. Patterns' identity has always
+   been the ink, so the orb is that identity made solid. The word inside
+   is near-black because white cannot be read on white; the name stays
+   under the circle, in white, as every circle's does. */
+function patternOrbHtml(){
+  return '<svg class="rd-orb" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><defs>'+
+    '<radialGradient id="rdOrbFace" cx=".5" cy=".42" r=".62"><stop offset="0" stop-color="#FFFFFF"/>'+
+      '<stop offset=".55" stop-color="#F1F1F3"/><stop offset=".85" stop-color="#D9D9DE"/><stop offset="1" stop-color="#BFBFC6"/></radialGradient>'+
+    '<linearGradient id="rdOrbRim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E4E4E8"/></linearGradient>'+
+    '<linearGradient id="rdOrbShine" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/>'+
+      '<stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient></defs>'+
+    '<circle cx="50" cy="50" r="47.5" fill="none" stroke="url(#rdOrbRim)" stroke-width="3"/>'+
+    '<circle cx="50" cy="50" r="44.6" fill="#2A2B30"/>'+
+    '<circle cx="50" cy="50" r="43.4" fill="url(#rdOrbFace)"/>'+
+    '<circle cx="50" cy="50" r="43.4" fill="none" stroke="#9A9AA2" stroke-opacity=".55" stroke-width=".8"/>'+
+    '<path d="M 62 13.5 A 38 38 0 0 1 86 36" fill="none" stroke="url(#rdOrbShine)" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>'+
+    '<ellipse cx="50" cy="30" rx="27" ry="13" fill="#FFFFFF" opacity=".35"/>'+
+  '</svg>';
 }
 function patternHeadlineSentence(t){
   return t.area+(t.headline === 'Watching' ? ' is worth watching.' : ' is '+String(t.headline).toLowerCase()+'.');

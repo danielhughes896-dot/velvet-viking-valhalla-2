@@ -76,7 +76,10 @@ test('PATTERNS: three rings, the evidence each needs, the questions, never a sco
       x.label + ' reads "' + x.word + '", a word the engine does not use');
   });
   const p = a.readingPanel('patterns');
-  assert.match(p, /class="b-dial is-rings"/, 'the hero is not the three rings');
+  /* Founder: "Patterns orb: Approved - build it on the Coach page and on
+     the Patterns panel's circle." */
+  assert.match(p, /class="b-dial is-orb"/, 'the hero is not the orb');
+  assert.match(p, /<svg class="rd-orb"/);
   order(p, ['Three Patterns', '>Pacing<', '>Effort<', '>Recovery<', 'The Evidence',
             'What SACORO Is Learning', 'Do you hold your prescribed pace?', 'How hard does the work feel?',
             'How do you respond between sessions?', 'never a score.']);
@@ -128,4 +131,17 @@ test('the three panels keep the house rules: white text, no new grey, 11px floor
     if (f) assert.ok(+f[1] * 16 >= 11, sel + ' is below the 11px floor');
   });
   assert.equal((SRC.match(/<style[\s>]/g) || []).length, 1);
+});
+
+test('PATTERNS: the Coach page draws the orb, the name under it, the word inside it dark on white', () => {
+  const a = athlete();
+  const rail = a.renderSacoroInstruments();
+  assert.match(rail, /<button type="button" class="b-dial is-orb"[^>]*data-reading="patterns"/);
+  const dial = rail.slice(rail.indexOf('data-reading="patterns"'));
+  assert.match(dial, /<svg class="rd-orb"/);
+  assert.match(dial, /<span class="rd-cat">Patterns<\/span>/, 'the name is not under the orb');
+  const css = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  assert.match(css, /\.b-dial\.is-orb \.rd-val b\{color:#111216;/, 'the word inside the orb is not dark');
+  // same string every render: the orb names its gradients once
+  assert.equal(a.patternOrbHtml(), a.patternOrbHtml());
 });

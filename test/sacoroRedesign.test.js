@@ -135,7 +135,7 @@ test('SUBNAV: every Reading is opened by the face that states it', () => {
       k + ' has no way in from Sacoro, so its panel is unreachable');
   });
   // and they are real buttons, not divs with an attribute nothing listens to
-  assert.equal((preview.match(/<button type="button" class="b-dial(?: is-(?:petals|torus|rings))?"/g) || []).length, 4);
+  assert.equal((preview.match(/<button type="button" class="b-dial(?: is-(?:petals|torus|rings|orb))?"/g) || []).length, 4);
   assert.match(view, /<button[^>]*class="gauge-wrap"/,
     'the gauge carries readiness but is not a button, so readiness is unreachable');
 });
