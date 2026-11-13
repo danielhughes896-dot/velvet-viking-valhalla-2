@@ -1072,7 +1072,7 @@
      row. The ring keeps its cherry gradient, which is the mechanism and was
      never in question. */
   .gauge-num b{font-size:1.625rem; color:#FFFFFF; line-height:1; font-weight:700;
-    text-shadow:0 0 10px rgba(255,255,255,.26);}
+    text-shadow:none;}
   .gauge-num span{font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-top:3px; font-weight:var(--label-weight);}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px;
@@ -2111,8 +2111,7 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-title{
     display:block; font-size:1.365625rem; font-weight:600; line-height:1.2;
     letter-spacing:.04em; text-transform:uppercase; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
-                0 0 34px rgba(255,255,255,.10);}
+    text-shadow:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .strat-phase-label{text-transform:uppercase;
     letter-spacing:.05em; font-size:.78125rem;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-ring-wrap{
@@ -2235,24 +2234,12 @@
      "km" behind would have changed the proportion between them. */
   .th-dist em{font-style:normal; font-weight:700; font-size:clamp(28.8px, 9.6vw, 38.4px);
     color:#FFFFFF;}
-  /* ---------- FROSTED WHITE GLASS ----------
-     Founder, choosing between two mock-ups of the distance figure: white
-     with a liquid-glass finish, the frosted one. Still white at the top and
-     the foot of every glyph; a soft band across the middle is the sheen, a
-     thin bright edge is the glass, and the lift off the card is a shadow
-     beneath rather than the old bloom around it. Where background-clip:text
-     is not supported the colour above stays, so the figure is never lost.
-     A text-shadow would paint through a transparent glyph, so the depth is
-     drop-shadow on the box instead. */
-  @supports ((-webkit-background-clip:text) or (background-clip:text)){
-    .th-dist span, .th-dist em{
-      color:transparent; text-shadow:none;
-      background:linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 36%, rgba(236,240,247,.86) 50%, #F2F4F9 66%, #FFFFFF 100%);
-      -webkit-background-clip:text; background-clip:text;
-      -webkit-text-stroke:.6px rgba(255,255,255,.6);
-      filter:drop-shadow(0 1px 0 rgba(255,255,255,.3)) drop-shadow(0 0 12px rgba(255,255,255,.26))
-             drop-shadow(0 3px 6px rgba(0,0,0,.65));}
-  }
+  /* ---------- CRISP WHITE, ZERO GLOW ----------
+     Founder, after seeing glass, see-through and glow mock-ups of the
+     distance and the session type: "deffo better as pure crisp white and
+     zero glow ... the white should do the talking against the black
+     background", and the same across the other white titles that had a
+     glow. The colour above is the whole treatment. */
 
   /* The gauge: a near-complete amber ring, thin, with the gap at top-right. */
   /* THE RING IS A FIXED SQUARE AND THE READOUT FLOATS OVER IT. Laid out in
@@ -3168,8 +3155,7 @@
     font-size:calc(1.365625rem * var(--rail-scale, 1)); font-weight:600;
     line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
     margin-bottom:4px; text-align:center; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
-                0 0 34px rgba(255,255,255,.10);}
+    text-shadow:none;}
   /* ---------- AND THE PHASE SLIDE HAS LEFT THAT DECLARATION ----------
      It was the fourth arm of the selector above, on the founder's rule "in
      the rails the titles should be white and big like they are in the
@@ -3197,8 +3183,7 @@
     display:block; font-family:var(--label-face); font-size:1.9375rem; font-weight:600;
     line-height:1.2; letter-spacing:.04em; text-transform:uppercase;
     margin-bottom:4px; text-align:center; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
-                0 0 34px rgba(255,255,255,.10);}
+    text-shadow:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .fuel-row .v{
     /* NO COLOUR. The coaching value two rules above sets none either, so it
        takes whatever the focused card gives it -- and hand-setting
@@ -6865,7 +6850,7 @@
     padding-left:13px; border-left:1px solid var(--modal-border);}
   .es-sum-dist b{font-size:1.6875rem; font-weight:700; color:#FFFFFF; line-height:1;
     font-variant-numeric:tabular-nums; letter-spacing:-0.01em;
-    text-shadow:0 0 1px rgba(255,255,255,.40), 0 0 12px rgba(255,255,255,.22);}
+    text-shadow:none;}
   .es-sum-dist em{font-style:normal; font-weight:700; font-size:.875rem; color:var(--ink-dim);}
 
   /* ---------- THE SAME PANEL THE REST OF THE PRODUCT USES ----------
@@ -8275,7 +8260,7 @@
   .view-plan > .race-event .race-divider .l{
     font-family:var(--text-face); font-weight:700; line-height:1.05;
     font-size:1.75rem; letter-spacing:.02em; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
+    text-shadow:none;}
   .view-plan > .race-event .race-divider .r{display:none;}
   /* ---- ONE CARD, THREE AREAS ----
      Identity and date top left, distance top right, the strategy across the
@@ -8308,11 +8293,11 @@
     font-family:var(--text-face); font-weight:700; line-height:1;
     font-size:1.75rem; letter-spacing:-0.01em;
     font-variant-numeric:tabular-nums; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
+    text-shadow:none;}
   .view-plan > .race-event .race-event-dist span{
     font-family:var(--text-face); font-weight:700; font-size:1.1875rem;
     text-transform:uppercase; color:#FFFFFF; letter-spacing:.01em;
-    text-shadow:0 0 1px rgba(255,255,255,.45), 0 0 14px rgba(255,255,255,.24);}
+    text-shadow:none;}
   /* The strategy picker has moved to the race session, so the rule that
      separated it from the figures now sits above the way in -- which is all
      that is left down here, and is what the reference shows. */
@@ -8352,7 +8337,7 @@
   .view-plan > .race-stop .rst-v{
     font-family:var(--text-face); font-weight:700; font-size:3.25rem; line-height:1;
     letter-spacing:-0.01em; font-variant-numeric:tabular-nums; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.30);}
+    text-shadow:none;}
   /* ONLY THE FALLBACK HERO HAS A UNIT, and it rides smaller, as a unit does
      everywhere else this product prints one. */
   .view-plan > .race-stop .rst-u{
