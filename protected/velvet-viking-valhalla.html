@@ -28996,6 +28996,7 @@ function adoptCloudState(remote, keepDevicePrefs){
      on a mile device and adopted on a kilometre one would otherwise have its
      unstamped paces labelled km and read as a completely different run. */
   migrateActualPaceUnits(remote);
+  migrateScoringEvidenceFrom(remote);
   var prefs = keepDevicePrefs ? {
     theme: state.theme, units: state.units,
     view: state.view, notifyEnabled: state.notifyEnabled
@@ -29769,6 +29770,7 @@ function loadState(){
           parsed.guidanceLevel = GUIDANCE_LEVEL_DEFAULT;
           migrateThemePreference(parsed);
           migrateActualPaceUnits(parsed);
+          migrateScoringEvidenceFrom(parsed);
           state = parsed;
           /* Every save written before the athlete record existed is a plan
              with no person behind it. athlete() creates the record on first
@@ -29853,6 +29855,17 @@ function migrateThemePreference(st){
    Deliberately not a conversion: no stored number is touched, only labelled.
    Run at load, before anything can toggle units -- the only moment the
    existing interpretation is still knowable. */
+/* See scoringLegacy(). Once per saved plan: a plan that already holds logged
+   sessions is stamped with the day after this version first opens it, so
+   everything logged up to and including that day keeps its score; a plan
+   with nothing logged yet, and every plan started on this version, gets an
+   empty stamp and scores everything by the corrected rules. */
+function migrateScoringEvidenceFrom(st){
+  if (!st || st.scoringEvidenceFrom !== undefined) return st;
+  var logged = (st.days || []).some(function(d){ return d && d.completed && d.actual; });
+  st.scoringEvidenceFrom = logged ? addDays(todayStr(), 1) : '';
+  return st;
+}
 function migrateActualPaceUnits(st){
   if (!st || !st.days || !st.days.length) return st;
   var unit = st.units==='mi' ? 'mi' : 'km';
@@ -30122,6 +30135,8 @@ function renderHealthConsentSettings(){
 
 function makeDefaultState(){
   return {
+    /* A plan started on this version has no past to keep: see scoringLegacy(). */
+    scoringEvidenceFrom:'',
     theme:DEFAULT_THEME,
     /* false means "nobody has chosen" -- which is what lets a fresh device
        take the account's theme on first sign-in without ever overriding an
@@ -30271,8 +30286,12 @@ function parseGPX(text){
   var durationSec = times.length>=2 ? (times[times.length-1]-times[0])/1000 : null;
   var paceSecPerKm = (durationSec && totalDist>0.05) ? durationSec/totalDist : null;
   var date = times.length ? times[0].toISOString().slice(0,10) : null;
+  /* The sport the device recorded (<trk><type>running</type>), so a ride
+     is not applied to a run. See activityIsRun(). */
+  var typeEl = doc.getElementsByTagName('type')[0];
   return {
     source:'GPX', date: date,
+    activityType: typeEl ? String(typeEl.textContent || '').trim() || null : null,
     km: round1(totalDist),
     pace: paceSecPerKm ? secToPace(paceSecPerKm) : null,
     hr: hrCount ? Math.round(hrSum/hrCount) : null,
@@ -30308,8 +30327,10 @@ function parseTCX(text){
   var paceSecPerKm = (totalTime && km>0.05) ? totalTime/km : null;
   var date = null;
   if (startTime){ var d = new Date(startTime); if (!isNaN(d)) date = d.toISOString().slice(0,10); }
+  var actEl = doc.getElementsByTagName('Activity')[0];
   return {
     source:'TCX', date: date,
+    activityType: actEl ? (actEl.getAttribute('Sport') || null) : null,
     km: round1(km),
     pace: paceSecPerKm ? secToPace(paceSecPerKm) : null,
     hr: hrCount ? Math.round(hrSum/hrCount) : null,
@@ -30347,6 +30368,10 @@ function parseCSV(text){
   var paceIdx = find(['average pace','avg pace','pace']);
   var speedIdx = find(['average speed','avg speed','speed']);
   var dateIdx = find(['date','start time','activity date']);
+  /* The sport, where the export names it: Strava and Garmin call the column
+     "Activity Type", others "Sport" or plain "Type". */
+  var typeIdx = find(['activity type','sport']);
+  if (typeIdx === -1) typeIdx = headers.indexOf('type');
   var rows = [];
   for (var r=1;r<lines.length;r++){
     var cells = splitCSVLine(lines[r]);
@@ -30356,6 +30381,7 @@ function parseCSV(text){
     var speedRaw = speedIdx!==-1 ? parseFloat(cells[speedIdx]) : null;
     var hrRaw = hrIdx!==-1 ? parseFloat(cells[hrIdx]) : null;
     var dateRaw = dateIdx!==-1 ? cells[dateIdx].trim() : null;
+    var typeRaw = (typeIdx!==-1 && cells[typeIdx] != null) ? cells[typeIdx].trim() : '';
     var pace = null;
     if (paceStr && /^\d+:\d+/.test(paceStr)) pace = paceStr.match(/\d+:\d+/)[0];
     else if (speedRaw && speedRaw>0) pace = secToPace(3600/speedRaw > 1000 ? null : (60/speedRaw)*60 ); // speed assumed km/h -> sec/km
@@ -30369,7 +30395,8 @@ function parseCSV(text){
         date: isoDate, dateRaw: dateRaw,
         km: (kmRaw && !isNaN(kmRaw)) ? round1(kmRaw) : null,
         pace: pace,
-        hr: (hrRaw && !isNaN(hrRaw)) ? Math.round(hrRaw) : null
+        hr: (hrRaw && !isNaN(hrRaw)) ? Math.round(hrRaw) : null,
+        activityType: typeRaw || null
       });
     }
   }
@@ -30446,7 +30473,12 @@ function parseFIT(buffer){
     }
   }
 
-  var kmVal=null, paceVal=null, hrVal=null, dateVal=null;
+  var kmVal=null, paceVal=null, hrVal=null, dateVal=null, sportVal=null;
+  /* The session's sport (FIT field 5): 1 running, 2 cycling, 5 swimming,
+     11 walking, 17 hiking. Anything else is named by its number and read as
+     saying nothing (activityIsRun). */
+  var FIT_SPORTS = {1:'Run', 2:'Ride', 5:'Swim', 11:'Walk', 17:'Hike'};
+  if (sessionMsg && sessionMsg[5] != null) sportVal = FIT_SPORTS[sessionMsg[5]] || String(sessionMsg[5]);
   if (sessionMsg){
     if (sessionMsg[9] != null) kmVal = round1(sessionMsg[9] / 100 / 1000);
     if (sessionMsg[16] != null) hrVal = sessionMsg[16];
@@ -30465,7 +30497,7 @@ function parseFIT(buffer){
     if (first[253]!=null) dateVal = new Date((first[253]+FIT_EPOCH_OFFSET)*1000).toISOString().slice(0,10);
   }
   if (kmVal==null && hrVal==null) throw new Error('Couldn\u2019t find a distance or heart-rate summary in this FIT file.');
-  return { source:'FIT', date:dateVal, km:kmVal, pace:paceVal, hr:hrVal };
+  return { source:'FIT', date:dateVal, km:kmVal, pace:paceVal, hr:hrVal, activityType:sportVal };
 }
 
 /* =========================================================
@@ -35561,7 +35593,8 @@ function renderYourLogAnswers(dd){
   var boxTitle = escapeHtml((named.length && !whole) ? logPartTitle(boxBase, named) : boxBase);
   /* Said once, under the main set's fields -- and only where it has fields. */
   var optional = mainRows ? '<div class="yl-opt">Optional \u2014 enter what you know.</div>' : '';
-  return '<div class="actual-field full yl">'+
+  var typeNote = activityTypeControlHtml(dd);
+  return '<div class="actual-field full yl">'+typeNote+
     logPartHtml(dd, 'Warm-up', 'warmup', parts.warm)+
     ((inBox || mainRows) ? '<div class="yl-box" data-part="main"><div class="yl-title">'+boxTitle+'</div>'+
         (mainRows ? '<div class="yl-rows">'+mainRows+'</div>' : '')+optional+inBox+'</div>' : '')+
@@ -36226,7 +36259,12 @@ function executionPaceTarget(dd){
   Object.keys(mix.byIntensity).forEach(function(i){
     var d = mix.byIntensity[i];
     var lo, hi;
-    if (i==='goal_pace'){ lo = hi = goalPace; }
+    if (i==='goal_pace'){
+      /* The card's band, as segmentPaceBand(); race day keeps the goal, and
+         a past session keeps what it was scored against (scoringLegacy). */
+      var gb = (dd.type === 'race' || scoringLegacy(dd)) ? null : trainingGoalPaceBand();
+      if (gb){ lo = gb.fast; hi = gb.slow; } else { lo = hi = goalPace; }
+    }
     else { var z = paces[INTENSITY_ZONE_KEY[i]]; if (z && z.slow!=null){ lo = z.fast; hi = z.slow; } }
     if (lo==null || hi==null){ bad = true; return; }
     fastSec += d*lo; slowSec += d*hi; km += d;
@@ -37446,10 +37484,24 @@ function computeDistanceScore(targetKm, actualKm){
    composite stands. An unlogged rep is unknown, and unknown is not zero --
    the distance component already answers "did they run the whole session".
    ========================================================= */
-function segmentPaceBand(seg, paces, goalPace){
+/* ---------- GOAL PACE IN TRAINING IS THE BAND THE CARD PRINTS ----------
+   The card tells the athlete to run goal-pace work in the band
+   strategyPaceBand('goal_pace') gives, "Goal 4:39-4:44/km". The score judged
+   the same sections against the goal itself, a single pace, so a rep run in
+   the middle of what the card asked for lost points. In training the band is
+   the target; on race day the goal is. */
+function trainingGoalPaceBand(){
+  var b = null;
+  try { b = strategyPaceBand('goal_pace'); } catch(e){ b = null; }
+  return (b && b.fast != null && b.slow != null) ? { fast: b.fast, slow: b.slow } : null;
+}
+function segmentPaceBand(seg, paces, goalPace, raceDay){
   if (!seg) return null;
-  if (seg.intensity === 'goal_pace')
+  if (seg.intensity === 'goal_pace'){
+    var tb = raceDay ? null : trainingGoalPaceBand();
+    if (tb) return tb;
     return goalPace != null ? { fast: goalPace, slow: goalPace } : null;
+  }
   var z = paces[INTENSITY_ZONE_KEY[seg.intensity]];
   return (z && z.slow != null) ? { fast: z.fast, slow: z.slow } : null;
 }
@@ -37488,8 +37540,33 @@ function segmentWeightKm(seg, paces, goalPace){
 }
 function sectionPaceExecution(dd){
   if (!dd || dd.type === 'race') return null;
+  var legacy = scoringLegacy(dd);           // a past session is read as it was
   var p = null, segs = null;
   try { p = prescriptionOf(dd); segs = p ? orderedSegments(p) : null; } catch(e){ return null; }
+  /* A SESSION YOUR LOG ASKS FOR BY PHASE IS JUDGED BY PHASE. A long run with
+     a goal-pace finish is logged as Settle, Hold, then the goal-pace Hold
+     (structuredLoggingPlan, source 'phases'), so its rows carry the phases'
+     ids, not the prescription's -- and with every phase logged on target the
+     session read as unlogged. Each phase names its intensity and its
+     kilometres, so it is judged exactly as a segment is: against its own
+     band, weighted by its own distance.
+     Read from the phases themselves, not from executionStrategy(): that asks
+     the coach for today's decision, the decision reads every past score, and
+     a past session logged by phase would ask again -- without end. The phases
+     are the prescription's alone (strategyPhasesFor), and they are consulted
+     only when the log holds phase rows. */
+  try {
+    var hasPhaseRows = !legacy && ((dd.actual && dd.actual.splits) || []).some(function(x){
+      return x && typeof x.segId === 'string' && x.segId.indexOf('p.') === 0;
+    });
+    var phs = (hasPhaseRows && segs) ? strategyPhasesFor(dd, p, segmentsFor(p)) : null;
+    if (phs && phs.length > 1){
+      segs = phs.map(function(ph, i){
+        return { segId: 'p.' + i, role: 'work', intensity: ph.intensity,
+                 phaseKm: (ph.from != null && ph.to != null && ph.to > ph.from) ? ph.to - ph.from : null };
+      });
+    }
+  } catch(e0){}
   if (!segs || segs.length < 2) return null;
   var splits = (dd.actual && dd.actual.splits) || [];
   if (!splits.length) return null;
@@ -37504,9 +37581,18 @@ function sectionPaceExecution(dd){
     if (isWork) workTotal++;
     /* The pace must rest on something the athlete actually supplied. A seeded
        time is the prescription, not a measurement. */
-    var usable = !!(row && row.paceSec != null && row.sec != null && !row.secSeeded);
+    /* A PACE THE ATHLETE TYPED IS THE MEASUREMENT ITSELF. Your Log asks each
+       section for its average pace; on a rep prescribed by time ("3 min"),
+       typing it fills the time from the prescription (secSeeded) -- and this
+       line then discarded the section, so a fartlek, a hill session or a
+       time-based tempo logged rep by rep could never be scored by section.
+       Found by the old-and-new comparison the founder asked for. What stays
+       excluded is a pace that rests on a seeded time with no pace typed: the
+       prescription talking back, as before. */
+    var usable = !!(row && row.paceSec != null &&
+                    ((row.paceEntered && !legacy) || (row.sec != null && !row.secSeeded)));
     if (!usable) continue;
-    var band = segmentPaceBand(seg, paces, goalPace);
+    var band = segmentPaceBand(seg, paces, goalPace, legacy);
     if (!band) continue;
     /* RUNNING SLOWER THAN EASY ON A WARM-UP, A COOL-DOWN OR A RECOVERY IS NOT
        THE SAME FAILURE AS RUNNING SLOWER THAN TARGET ON A REP. The product
@@ -37516,7 +37602,7 @@ function sectionPaceExecution(dd){
        the part of the session they describe. */
     var sc = paceScoreAgainst(row.paceSec, band, seg.role !== 'work');
     if (sc == null) continue;
-    var w = segmentWeightKm(seg, paces, goalPace);
+    var w = seg.phaseKm != null ? seg.phaseKm : segmentWeightKm(seg, paces, goalPace);
     if (!(w > 0)) continue;
     if (isWork){ workScored++; if (!workBand) workBand = band; }
     scored.push({ segId: seg.segId, role: seg.role, score: sc, km: w, paceSec: row.paceSec });
@@ -37576,6 +37662,19 @@ function computePaceScore(dd, actualPaceSp){
 // under-intensity (penalised harder for quality sessions failing to reach
 // the required effort); above the zone is over-intensity (penalised harder
 // for easy/recovery days, and never rewarded regardless of type).
+/* Logged heart rate the score could not read, said where the review is read.
+   With no score there is no breakdown to ask; the zones themselves say it. */
+function heartRateUnreadLine(dd, b){
+  var a = (dd && dd.actual) || {};
+  if (a.hr == null || !healthConsentGranted() || heartRateDoubted(dd)) return '';
+  if (b ? !b.missing.some(function(p){ return p.key === 'hr'; }) : !!getActiveHRZones()) return '';
+  return 'Heart rate ' + a.hr + ' bpm logged, but there are no heart-rate zones to read it against until your LTHR is set in Training and Zones.';
+}
+/* Notes that doubt the heart rate ("strap was dodgy") already make the review
+   say "read the pace and effort, not the bpm"; the score now agrees with it. */
+function heartRateDoubted(dd){
+  try { return !!coachEnvironment(dd && dd.actual && dd.actual.notes, dd && dd.actual).hrDoubt; } catch(e){ return false; }
+}
 function computeHRScore(dd, actualHR){
   /* WHY THIS COSTS THE ATHLETE NOTHING. computeExecutionBreakdown() counts
      only the parts that produced a score and re-normalises the weights over
@@ -37585,6 +37684,7 @@ function computeHRScore(dd, actualHR){
      empty has always received. Withholding health information cannot lower an
      Execution Score, and that is asserted by test, not assumed. */
   if (!healthConsentGranted()) return null;
+  if (heartRateDoubted(dd) && !scoringLegacy(dd)) return null;
   if (actualHR==null) return null;
   var zone = executionHRTarget(dd);
   if (!zone || zone.lo==null) return null;
@@ -37611,6 +37711,55 @@ function computeRPEScore(dd, rpe){
   if (rpe>=band[0] && rpe<=band[1]) return 100;
   var off = rpe<band[0] ? band[0]-rpe : rpe-band[1];
   return clamp(100-off*15, 0, 100);
+}
+/* ---------- PAST SESSIONS KEEP THE SCORES THEY HAD ----------
+   Founder, choosing between applying the scoring corrections to every
+   session or only to sessions logged after the release: "A". Scores are not
+   stored -- they are read from the log each time -- so without this a
+   release would quietly re-mark months of history. A plan that already had
+   logged sessions when this version first opened it is stamped with that
+   day (migrateScoringEvidenceFrom); every session dated before the stamp is
+   scored exactly as it was. A plan that starts on this version has no
+   stamp, and nothing in it is legacy. The two things an athlete does by
+   hand -- "Not a run?" and "It was a run" -- still apply to any session. */
+function scoringLegacy(dd){
+  var from = state && state.scoringEvidenceFrom;
+  return !!(from && dd && dd.date && dd.date < from);
+}
+/* ---------- ONLY A RUN IS EVIDENCE OF A RUN ----------
+   Founder: "Reject cycling, walking and other non-running activities as
+   evidence of completing a prescribed run. Allow manual correction for
+   incorrectly classified activities."
+   Strava already refuses them (the webhook and stravaMatchDay accept Run,
+   TrailRun, VirtualRun and Treadmill only). A file the athlete imports -- GPX,
+   TCX, FIT, a CSV -- carries its own sport, which is now read and checked the
+   same way; and an imported activity the athlete says was not a run is set
+   aside. Each way can be corrected: "It was a run" counts it, "Not a run?"
+   sets it aside.
+   true for a run, false for a named non-run, null where nothing says. */
+function activityIsRun(type){
+  if (type == null) return null;
+  var t = String(type).toLowerCase().replace(/[^a-z]/g, '');
+  if (!t) return null;
+  if (/run|jog|treadmill/.test(t)) return true;
+  if (/^(other|generic|unknown|activity|workout|all)$/.test(t)) return null;
+  return false;
+}
+function activityRejected(dd){
+  var a = dd && dd.actual;
+  if (!a) return false;
+  if (a.notARun) return true;
+  if (scoringLegacy(dd)) return false;
+  return activityIsRun(a.activityType) === false && !a.runConfirmed;
+}
+/* How a non-run is named back to the athlete: "a ride", "a walk". */
+function activityTypeWords(type){
+  var t = String(type || '').toLowerCase();
+  if (/ride|cycl|bik/.test(t)) return 'a ride';
+  if (/walk/.test(t)) return 'a walk';
+  if (/hike|hiking/.test(t)) return 'a hike';
+  if (/swim/.test(t)) return 'a swim';
+  return 'an activity that is not a run';
 }
 
 // THE scoring engine. Everything that shows a number -- the EXEC pill, the
@@ -37661,6 +37810,7 @@ var EXECUTION_WEIGHTS = { distance:0.35, pace:0.35, hr:0.20, rpe:0.10 };
    from insufficient data. */
 function computeExecutionBreakdown(dd){
   if (!dd || !dd.completed) return null;
+  if (activityRejected(dd)) return null;
   var a = dd.actual || {};
   var parts = [
     { key:'distance', label:'Distance', weight:EXECUTION_WEIGHTS.distance, score:computeDistanceScore(dd.km, a.km) },
@@ -37672,6 +37822,23 @@ function computeExecutionBreakdown(dd){
   var have = {};
   counted.forEach(function(p){ have[p.key] = true; });
   if (!have.distance || !have.pace) return null;
+  /* A distance AND an overall pace, as the gate below has always said: reps
+     timed without a whole-session pace are on record, and the athlete is
+     told that adding the average pace scores it (sessionInterpretation). */
+  var legacy = scoringLegacy(dd);           // a past session keeps the score it had
+  if (!legacy && actualPaceSecPerKm(dd) == null) return null;
+  /* A STRUCTURED SESSION NEEDS ITS SECTIONS TO BE SCORED. Founder: "if
+     someone logs 8 km at 5:00/km against an interval session but provides
+     no repetition data, SACORO can assess distance and overall pace. It
+     cannot legitimately claim the intervals were executed perfectly. That
+     should produce a clearly labelled partial or unverified assessment, not
+     an invented 100%." So a session that mixes intensities -- intervals,
+     tempo, threshold, strides, a goal-pace insert -- is scored only on the
+     sections themselves (sectionPaceExecution); logged as one total it gets
+     computePartialAssessment() instead, which reads the distance and the
+     overall pace and gives no percentage. Easy runs and plain long runs are
+     one intensity and are scored exactly as before. */
+  if (!legacy && executionNeedsSections(dd) && !sectionPaceExecution(dd)) return null;
   var totalW = counted.reduce(function(sum,p){ return sum+p.weight; }, 0);
   var raw = counted.reduce(function(sum,p){ return sum+p.score*p.weight; }, 0) / totalW;
   // A session cannot score more than 15 points above the share of it that was
@@ -38066,7 +38233,7 @@ function assessExecution(dd, plan, ev){
     var row = ev.bySeg[j.seg.segId];
     var pace = (row && row.paceSec != null && !(row.secSeeded && row.km == null)) ? row.paceSec : null;
     if (pace == null) return;
-    var v = assessSectionVerdict(pace, segmentPaceBand(j.seg, paces, goalPace), j.kind, j.seg.intensity);
+    var v = assessSectionVerdict(pace, segmentPaceBand(j.seg, paces, goalPace, dd.type === 'race'), j.kind, j.seg.intensity);
     if (!v) return;
     var w = null;
     try { w = (row.km != null && row.km > 0) ? row.km : segmentWeightKm(j.seg, paces, goalPace); } catch(e2){ w = null; }
@@ -38321,6 +38488,7 @@ function hasRecordedLapEvidence(dd){
    A broad claim earns a broad statement, not broad influence. */
 function computeCompletionAssessment(dd){
   if (!dd || !dd.completed) return null;
+  if (activityRejected(dd)) return null;
   var a = dd.actual || {};
   /* Only where the higher rung is genuinely unavailable. With pace logged the
      breakdown exists and this must stay out of its way. */
@@ -38357,6 +38525,71 @@ function computeExecutionScore(dd){
   var b = computeExecutionBreakdown(dd);
   return b ? b.score : null;
 }
+/* Does this session's prescription mix intensities -- a warm-up, a set and a
+   cool-down, a goal-pace insert -- so that one total cannot say how it was
+   run? The same reading executionPaceResolution() makes. Race day is judged
+   against the goal as one effort. */
+function executionNeedsSections(dd){
+  if (!dd || dd.type === 'race' || dd.type === 'rest') return false;
+  var mix = null;
+  try { mix = executionMix(dd); } catch(e){ mix = null; }
+  if (!mix || !mix.byIntensity) return false;
+  return Object.keys(mix.byIntensity).filter(function(k){ return mix.byIntensity[k] > 0.05; }).length > 1;
+}
+/* ---------- THE PARTIAL ASSESSMENT ----------
+   What one total on a structured session CAN establish: how much was run and
+   the overall pace against the window the whole session should average (the
+   same composite executionPaceTarget() always built). What it cannot: how
+   the reps or the set were run. So no score, and it says which. */
+function computePartialAssessment(dd){
+  if (!dd || !dd.completed || dd.type === 'rest') return null;
+  if (activityRejected(dd)) return null;
+  if (scoringLegacy(dd)) return null;     // a past session is scored as it was
+  if (!executionNeedsSections(dd)) return null;
+  var sec = null;
+  try { sec = sectionPaceExecution(dd); } catch(e){ sec = null; }
+  if (sec) return null;                       // complete: it is scored
+  var a = dd.actual || {};
+  var ap = actualPaceSecPerKm(dd);
+  if (a.km == null || ap == null || !(dd.km > 0)) return null;
+  var tr = null;
+  try { tr = executionPaceTarget(dd); } catch(e1){ tr = null; }
+  var read = null;
+  if (tr && tr.fast != null && tr.slow != null)
+    read = ap < tr.fast ? 'faster' : ap > tr.slow ? 'slower' : 'within';
+  var work = 0;
+  try { work = (orderedSegments(prescriptionOf(dd)) || []).filter(function(s){ return s.role === 'work'; }).length; } catch(e2){ work = 0; }
+  return { tier:'partial', km:a.km, targetKm:dd.km, ratio:a.km / dd.km, paceSec:ap,
+           window: tr, paceRead: read, reps: work > 1,
+           someSections: hasLoggedSectionEvidence(dd), laps: hasRecordedLapEvidence(dd) };
+}
+function partialAssessmentLines(pa){
+  if (!pa) return [];
+  var out = [];
+  out.push(pa.ratio >= 0.98 ? fmtDist(pa.km) + ' logged, the full session.'
+         : fmtDist(pa.km) + ' of ' + fmtDist(pa.targetKm) + ' logged.');
+  if (pa.paceRead && pa.window){
+    var w = fmtPaceWindow(pa.window).replace(/ (window|target)$/, '');
+    out.push('Overall pace ' + fmtPaceFromSecPerKm(pa.paceSec) +
+      (pa.paceRead === 'within' ? ', inside the ' + w + ' this whole session should average.'
+       : pa.paceRead === 'faster' ? ', quicker than the ' + w + ' this whole session should average.'
+       : ', slower than the ' + w + ' this whole session should average.'));
+  }
+  var what = pa.reps ? 'reps' : 'main set';
+  out.push((pa.someSections ? (pa.reps ? 'Not every rep was logged' : 'Not every part of the main set was logged')
+          : pa.laps ? 'The watch laps are not matched to the ' + what
+          : pa.reps ? 'The reps were not logged one by one'
+          : 'The main set was not logged on its own') +
+    ', so the way it was run cannot be judged and there is no execution score.');
+  out.push('Log each part in Your Log to have it scored.');
+  return out;
+}
+/* "X target" where the window is a single pace, "X–Y window" otherwise:
+   goal pace is one number, and a window from a pace to itself reads as a slip. */
+function fmtPaceWindow(tr){
+  var f = fmtPaceFromSecPerKm(tr.fast), sl = fmtPaceFromSecPerKm(tr.slow);
+  return f === sl ? f + ' target' : f + '\u2013' + sl + ' window';
+}
 
 /* =========================================================
    THE WORKOUT LOG — data contract
@@ -38374,7 +38607,9 @@ function computeExecutionScore(dd){
    the array actually exists -- coachHRDrift() is the existing precedent and
    returns null rather than inventing drift from an average.
    ========================================================= */
-var ACTUAL_MANUAL_FIELDS   = ['km','pace','paceUnit','hr','rpe','feel','notes','notesSignals','notesOriginal'];
+var ACTUAL_MANUAL_FIELDS   = ['km','pace','paceUnit','hr','rpe','feel','notes','notesSignals','notesOriginal',
+                              /* the athlete's correction of what kind of activity it was */
+                              'runConfirmed','notARun'];
 var ACTUAL_IMPORTED_FIELDS = ['maxHR','cadence','movingTimeSec','elapsedTimeSec',
                               'elevationGainM','tempC','humidity','activityType','splits',
                               /* THE WATCH'S OWN LAPS, and the name of where they came from.
@@ -40407,6 +40642,59 @@ function analysisTab(dd, body, vLine){
              (body ? '<div class="an-box">'+body+'</div>' : '')) : '')+
   '</div>';
 }
+/* What the log itself shows, read without a score: heart-rate drift, the
+   laps first half against second, and how the logged segments behaved.
+   Shared by the scored card and the partial one, so evidence the athlete
+   logged is never dropped because the session has no score. */
+function reviewEvidenceHtml(dd, r){
+  var out = '';
+  /* A session with no score has no review to carry these, so they are read
+     from the log directly, by the same two functions the review uses. */
+  if (!r || !('splitMetrics' in r)){
+    var drift = null, sm = null;
+    try { drift = coachHRDrift(dd); } catch(e1){}
+    try { sm = coachSplitMetrics(dd); } catch(e2){}
+    r = { hrDrift: drift, splitMetrics: sm };
+  }
+  // Only when there is genuinely something to show -- never invented.
+  if (r.hrDrift!=null){
+    out += '<div class="cr-sec"><div class="cr-k">HR Drift</div>'+
+              '<div class="cr-v">'+(r.hrDrift>0?'+':'')+r.hrDrift+'% first half to second</div></div>';
+  }
+  // Same rule as HR Drift: appears only once coachSplitMetrics() has real
+  // per-lap evidence (4+ logged splits with a pace), and says only what
+  // that whole-session comparison actually supports -- first half against
+  // second half. It does not attempt to match individual laps to
+  // Execution Strategy phases; where that mapping would be ambiguous the
+  // honest answer is to say less, not to manufacture a phase-by-phase
+  // verdict from laps that may not line up with the staged plan at all.
+  if (r.splitMetrics){
+    out += '<div class="cr-sec"><div class="cr-k">Splits</div>'+
+              '<div class="cr-v">'+escapeHtml(describeSplitEvidence(r.splitMetrics))+'</div></div>';
+  }
+  /* The structured read, when the log mirrors the prescription. This is
+     what the flat-lap version could never say: how the REPS behaved, not
+     merely how the first half of the laps compared to the second. Each
+     line is individually gated on the evidence it needs, so a session
+     logged only at warm-up level says nothing here. */
+  var se = structuredExecutionEvidence(dd);
+  if (se){
+    out += '<div class="cr-sec"><div class="cr-k">Execution by segment</div><div class="cr-v">'+
+      se.claims.map(function(c){ return escapeHtml(c); }).join(' ')+
+    '</div></div>';
+  }
+  return out;
+}
+/* The training trend, read across recent sessions, apart from this session's
+   score (founder: "Keep execution score separate from Neutral / Building
+   Baseline"). A session with a partial assessment and no score keeps it too. */
+function trainingTrendHtml(sigMeta){
+  if (!sigMeta) return '';
+  return '<div class="cr-sec cr-trend"><div class="cr-k">Training Trend</div>'+
+         '<div class="cr-signal"><span class="cr-sig-dot">'+sigMeta.dot+'</span>'+
+         '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>'+
+         '<div class="cr-v cr-trend-note">Read across your recent sessions, separate from this session\u2019s execution score.</div></div>';
+}
 function renderExecutionReview(dd){
   if (!dd.completed) return '';
   /* NOTHING WAS PRESCRIBED, SO THERE IS NOTHING TO REVIEW AGAINST. Every
@@ -40426,6 +40714,29 @@ function renderExecutionReview(dd){
        That line says "Distance is all that was recorded", which is true of a
        log with a distance and nothing else and was being said to an athlete
        who had answered every question on the screen. */
+    /* A STRUCTURED SESSION LOGGED AS ONE TOTAL: what it does establish, and
+       no score (computePartialAssessment). What the athlete logged, the
+       training trend and the log's own evidence are not the score, so they
+       stay, as on the scored card. */
+    var pa = null;
+    try { pa = computePartialAssessment(dd); } catch(e0){ pa = null; }
+    if (pa){
+      var pl = partialAssessmentLines(pa);
+      var pr = null;
+      try { pr = coachReviewFor(dd) || coachWorkoutReview(dd); } catch(e1){ pr = null; }
+      var phr = null;
+      try { phr = heartRateUnreadLine(dd, null); } catch(e2){ phr = null; }
+      return analysisTab(dd,
+        '<div class="exec-review-card exec-partial">'+
+          '<div class="exec-review-head"><span>Execution Review</span></div>'+
+          '<div class="exec-review-summary">Partial assessment</div>'+
+          pl.map(function(line){ return '<div class="exec-review-more">'+escapeHtml(line)+'</div>'; }).join('')+
+          (phr ? '<div class="exec-review-more">'+escapeHtml(phr)+'</div>' : '')+
+          sessionReadoutHtml(dd)+
+          trainingTrendHtml(pr ? COACH_SIGNAL_META[pr.trainingSignal] : null)+
+          reviewEvidenceHtml(dd, pr)+
+        '</div>', '', false);
+    }
     var it = null;
     try { it = sessionInterpretation(dd); } catch(e){ it = null; }
     if (it){
@@ -40513,6 +40824,11 @@ function renderExecutionReview(dd){
               paragraphs:msg.paragraphs.slice(1), signal:msg.signal };
     }
     body += renderCoachMessage(msg, 'coach-msg-review');
+    /* Logged heart rate the score could not read is said here as well, where
+       the review is read, unless the message already said it. */
+    var hrLine = heartRateUnreadLine(dd, b);
+    if (hrLine && (msg && msg.paragraphs || []).join(' ').indexOf(hrLine) === -1)
+      body += '<div class="exec-review-more">'+escapeHtml(hrLine)+'</div>';
     body += sessionReadoutHtml(dd);
     /* ---------- THE TREND IS NOT THE SCORE ----------
        Founder: "Keep execution score separate from Neutral / Building
@@ -40526,12 +40842,7 @@ function renderExecutionReview(dd){
        read as this session's grade. It now has its own heading, says in
        one line what it is, and sits apart from the session's own readings.
        Nothing about either number changed. */
-    if (sigMeta){
-      body += '<div class="cr-sec cr-trend"><div class="cr-k">Training Trend</div>'+
-              '<div class="cr-signal"><span class="cr-sig-dot">'+sigMeta.dot+'</span>'+
-              '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>'+
-              '<div class="cr-v cr-trend-note">Read across your recent sessions, separate from this session\u2019s execution score.</div></div>';
-    }
+    body += trainingTrendHtml(sigMeta);
     // Like-for-like only, and only when a comparable session exists.
     if (r.comparable && r.comparable.length){
       body += '<div class="cr-sec"><div class="cr-k">Compared With</div><div class="cr-v cr-compare">'+
@@ -40541,33 +40852,7 @@ function renderExecutionReview(dd){
                   (c.pace?' at '+escapeHtml(c.pace):''))+', '+c.score+'%</span>';
         }).join('')+'</div></div>';
     }
-    // Only when there is genuinely something to show -- never invented.
-    if (r.hrDrift!=null){
-      body += '<div class="cr-sec"><div class="cr-k">HR Drift</div>'+
-                '<div class="cr-v">'+(r.hrDrift>0?'+':'')+r.hrDrift+'% first half to second</div></div>';
-    }
-    // Same rule as HR Drift: appears only once coachSplitMetrics() has real
-    // per-lap evidence (4+ logged splits with a pace), and says only what
-    // that whole-session comparison actually supports -- first half against
-    // second half. It does not attempt to match individual laps to
-    // Execution Strategy phases; where that mapping would be ambiguous the
-    // honest answer is to say less, not to manufacture a phase-by-phase
-    // verdict from laps that may not line up with the staged plan at all.
-    if (r.splitMetrics){
-      body += '<div class="cr-sec"><div class="cr-k">Splits</div>'+
-                '<div class="cr-v">'+escapeHtml(describeSplitEvidence(r.splitMetrics))+'</div></div>';
-    }
-    /* The structured read, when the log mirrors the prescription. This is
-       what the flat-lap version could never say: how the REPS behaved, not
-       merely how the first half of the laps compared to the second. Each
-       line is individually gated on the evidence it needs, so a session
-       logged only at warm-up level says nothing here. */
-    var se = structuredExecutionEvidence(dd);
-    if (se){
-      body += '<div class="cr-sec"><div class="cr-k">Execution by segment</div><div class="cr-v">'+
-        se.claims.map(function(c){ return escapeHtml(c); }).join(' ')+
-      '</div></div>';
-    }
+    body += reviewEvidenceHtml(dd, r);
 
     // Buttons appear only when an adjustment is actually recommended, so a
     // normal session is not cluttered with choices that mean nothing.
@@ -43360,6 +43645,8 @@ function effortWasCompleted(actualKm, prescribedKm){
 function performanceFromDay(dd){
   if (!dd || !dd.completed) return null;
   if (dd.type !== 'race' && dd.type !== 'checkpoint') return null;
+  /* A ride or a walk is not a race result: the fitness it would set is not a runner's. */
+  if (activityRejected(dd)) return null;
   var a = dd.actual || {};
   var km = (a.km != null) ? a.km : dd.km;
   var paceSec = actualPaceSecPerKm(dd);
@@ -52615,7 +52902,7 @@ function coachVerdict(dd, b, env){
     if (b.score>=90){
       var held = [];
       if (tr && ap!=null && !paceSlow && !paceFast)
-        held.push('pace inside the '+fmtPaceFromSecPerKm(tr.fast)+'–'+fmtPaceFromSecPerKm(tr.slow)+' window');
+        held.push('pace inside the '+fmtPaceWindow(tr));
       if (hrInZone) held.push('heart rate at '+a.hr+' bpm');
       var band = expectedRPEBand(dd);
       if (a.rpe!=null && band && a.rpe>=band[0] && a.rpe<=band[1])
@@ -52663,7 +52950,7 @@ function coachVerdict(dd, b, env){
     // wrote "brutal headwind" was told they had explained nothing.
     var paceCtx = coachExcuses(dd, 'pace');
     var fresh = paceCtx.filter(function(c){ return cited.indexOf(c.key)===-1; });
-    var paceWindow = fmtPaceFromSecPerKm(tr.fast)+'–'+fmtPaceFromSecPerKm(tr.slow)+' window';
+    var paceWindow = fmtPaceWindow(tr);
     /* MEASURED CLIMBING SPEAKS BEFORE A TAPPED "HILLY", and in its place:
        the measurement says how much of the gap the route accounts for, where
        the word could only say the route was hilly. Anything else the athlete
@@ -52825,6 +53112,10 @@ function coachNoticedForWorkout(dd, b, env){
      never recorded is a settled choice, not an omission worth noticing, and
      saying so once a session is nagging rather than coaching. A component they
      usually DO record and did not this time is genuinely worth a line. */
+  /* Heart rate logged that nothing could read: said, with the way to fix it,
+     rather than "Scored without heart rate" for a number the athlete gave. */
+  var hrUnread = heartRateUnreadLine(dd, b);
+  if (hrUnread) return hrUnread + executionResolutionClause(b);
   var worthSaying = b.missing.filter(function(p){ return athleteUsuallyLogs(dd, p.key); });
   if (worthSaying.length) return 'Scored without '+listPhrase(worthSaying.map(function(p){ return MISSING_NOUN[p.key]||p.label.toLowerCase(); }))+'.'+
     executionResolutionClause(b);
@@ -65804,6 +66095,11 @@ function aiContextRefusalReason(dd){
 
 /* The write half: only ever reached for an activity the resolver chose. */
 function stravaWriteActivity(dd, a){
+  /* AN ACTIVITY THE ATHLETE SET ASIDE STAYS ASIDE. "Not a run?" untick the
+     day; the same activity coming back on a later sync must not tick it
+     again. A different activity is a new arrival and is judged as one. */
+  if (dd.actual && dd.actual.notARun && dd.stravaActivityId != null &&
+      String(dd.stravaActivityId) === String(a.activityId)) return 'same';
   var before = stravaObjectiveSnapshot(dd);
   // The canonical completion, not a second notion of "Strava completed".
   applyCompletion(dd, true);
@@ -66425,13 +66721,39 @@ function renderImportResult(parsed, filename){
   }
 }
 
-function handleApplyActivity(){
+/* ---------- A FILE THAT SAYS IT IS NOT A RUN ----------
+   Founder: "Reject cycling, walking and other non-running activities as
+   evidence of completing a prescribed run. Allow manual correction for
+   incorrectly classified activities." A file whose sport names something
+   other than a run is not applied; the panel says so and offers "It was a
+   run", which applies it with the athlete's word on record (runConfirmed). */
+function importRefuseNonRun(type, action, rowIdx){
+  var what = activityTypeWords(type);
+  try{ showToast('Recorded as ' + what + ', so not applied to a run'); }catch(e){}
+  var resultEl = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('import-result') : null;
+  if (!resultEl) return;
+  var old = document.getElementById('import-refusal');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  var box = document.createElement('div');
+  box.id = 'import-refusal';
+  box.className = 'callout';
+  box.innerHTML = '<div>This activity is recorded as '+escapeHtml(what)+', so it was not applied to a run. '+
+    'If it was a run, apply it anyway.</div>'+
+    '<button type="button" class="btn btn-sm btn-primary" data-action="'+action+'"'+
+      (rowIdx != null ? ' data-row="'+rowIdx+'"' : '')+'>It was a run</button>';
+  resultEl.insertBefore(box, resultEl.firstChild);
+}
+function handleApplyActivity(confirmed){
   var sel = document.getElementById('activity-target');
   if (!sel || !sel.value){ showToast('Choose a day first'); return; }
   var dd = null;
   state.days.forEach(function(x){ if (x.id===sel.value) dd = x; });
   var parsed = window.__pendingActivity;
   if (!dd || !parsed) return;
+  if (!confirmed && activityIsRun(parsed.activityType) === false){
+    importRefuseNonRun(parsed.activityType, 'apply-activity-run', null);
+    return;
+  }
   // The canonical completion, same as the card checkbox and the Strava import.
   // This used to set dd.completed directly, which skipped the one place that
   // defines what completing a workout does -- so a file-imported session was
@@ -66444,6 +66766,9 @@ function handleApplyActivity(){
   // A file the athlete chose to import is still an import: see the note in
   // stravaWriteActivity. Distance and pace land; heart rate needs consent.
   if (healthConsentGranted() && parsed.hr!=null) dd.actual.hr = parsed.hr;
+  dd.actual.activityType = parsed.activityType || null;
+  if (confirmed) dd.actual.runConfirmed = true;
+  delete dd.actual.notARun;
   coachPersistReview(dd);
   closeModal();
   scheduleSave();
@@ -66451,19 +66776,26 @@ function handleApplyActivity(){
   showToast('Logged to '+dow(dd.date)+' '+dShort(dd.date));
 }
 
-function handleApplyCsvRow(rowIdx){
+function handleApplyCsvRow(rowIdx, confirmed){
   var sel = document.getElementById('csv-target-'+rowIdx);
   if (!sel || !sel.value){ showToast('Choose a day first'); return; }
   var dd = null;
   state.days.forEach(function(x){ if (x.id===sel.value) dd = x; });
   var row = window.__csvRows && window.__csvRows[rowIdx];
   if (!dd || !row) return;
+  if (!confirmed && activityIsRun(row.activityType) === false){
+    importRefuseNonRun(row.activityType, 'apply-csv-row-run', rowIdx);
+    return;
+  }
   applyCompletion(dd, true);
   dd.actual = dd.actual || emptyActual();
   if (row.km!=null) dd.actual.km = row.km;
   if (row.pace){ dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(row.pace));
                  dd.actual.paceUnit = displayUnit(); }
   if (healthConsentGranted() && row.hr!=null) dd.actual.hr = row.hr;
+  dd.actual.activityType = row.activityType || null;
+  if (confirmed) dd.actual.runConfirmed = true;
+  delete dd.actual.notARun;
   coachPersistReview(dd);
   scheduleSave();
   showToast('Logged to '+dow(dd.date)+' '+dShort(dd.date));
@@ -66648,6 +66980,43 @@ function replaceCard(dd){
    session happened -- goes through here, so there is one definition of what
    completing a workout does. Callers decide WHO may act; this decides WHAT
    happens. Returns whether anything actually changed. */
+/* ---------- "NOT A RUN?" AND "IT WAS A RUN" ----------
+   The manual correction the founder asked for, on an imported activity only:
+   a session the athlete typed in is already their own word. A ride the file
+   named is not counted until the athlete says it was a run; a run the
+   import counted can be set aside as not one. */
+function activityTypeControlHtml(dd){
+  var a = dd && dd.actual;
+  if (!a || !(a.activityType || dd.stravaActivityId)) return '';
+  var btn = function(action, label){
+    return '<button type="button" class="coach-why-btn" data-action="'+action+'" data-day="'+escapeHtml(String(dd.id))+'">'+label+'</button>';
+  };
+  if (a.notARun)
+    return '<div class="yl-type">Set aside as not a run, so it does not count as this session. '+btn('activity-is-run', 'It was a run')+'</div>';
+  if (activityRejected(dd))
+    return '<div class="yl-type">Recorded as '+escapeHtml(activityTypeWords(a.activityType))+', so it does not count as this run. '+btn('activity-is-run', 'It was a run')+'</div>';
+  return '<div class="yl-type">'+btn('activity-not-run', 'Not a run?')+'</div>';
+}
+function handleActivityNotRun(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !dd.actual) return;
+  dd.actual.notARun = true;
+  delete dd.actual.runConfirmed;
+  if (!applyCompletion(dd, false)) coachPersistReview(dd);
+  try { patchDerivedStats(); } catch(e){}
+  scheduleSave();
+  renderApp();
+}
+function handleActivityIsRun(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !dd.actual) return;
+  delete dd.actual.notARun;
+  dd.actual.runConfirmed = true;
+  if (!applyCompletion(dd, true)) coachPersistReview(dd);
+  try { patchDerivedStats(); } catch(e){}
+  scheduleSave();
+  renderApp();
+}
 function applyCompletion(dd, completed){
   if (!dd || dd.type==='rest') return false;          // rest days are never workouts
   /* A session that has not happened cannot be marked as having happened -- the
@@ -74094,6 +74463,7 @@ document.addEventListener('click', function(e){
     case 'health-consent':
       handleHealthConsentDecision(target.getAttribute('data-grant')==='1'); break;
     case 'apply-activity': handleApplyActivity(); break;
+    case 'apply-activity-run': handleApplyActivity(true); break;
     case 'set-guidance': handleSetGuidanceLevel(target.getAttribute('data-level')); break;
     case 'set-support-work': handleSetSupportWork(target.getAttribute('data-on') === '1'); break;
     case 'support-skip': handleSupportSkip(target.getAttribute('data-day')); break;
@@ -74113,6 +74483,9 @@ document.addEventListener('click', function(e){
     case 'garmin-connect': handleGarminConnect(); break;
     case 'garmin-disconnect': handleGarminDisconnect(); break;
     case 'apply-csv-row': handleApplyCsvRow(parseInt(target.getAttribute('data-row'),10)); break;
+    case 'apply-csv-row-run': handleApplyCsvRow(parseInt(target.getAttribute('data-row'),10), true); break;
+    case 'activity-not-run': handleActivityNotRun(target.getAttribute('data-day')); break;
+    case 'activity-is-run': handleActivityIsRun(target.getAttribute('data-day')); break;
     case 'export-ics': handleExportICS(); break;
     case 'print-plan': handlePrintPlan(); break;
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;
