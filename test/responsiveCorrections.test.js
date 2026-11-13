@@ -226,3 +226,8 @@ test('5. a figure in a circle stays one word on one line; words keep their two l
   assert.equal(small.firstElementChild.style.whiteSpace, '', 'a figure that fits had its layout changed');
   assert.equal(small.style.transform, '');
 });
+
+test('re-audit: the week hero\'s readings wrap rather than widen the page at the largest iOS size', () => {
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\n  \.wk-hero-figs\{flex-wrap:wrap; row-gap:4px;\}/);
+});

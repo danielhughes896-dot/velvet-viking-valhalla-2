@@ -7258,6 +7258,12 @@
     -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
     border:1px solid rgba(255,255,255,.08); box-shadow:var(--glass-rim);}
   .wk-glass .wk-hero-figs{margin-top:0;}
+  /* The pane's three readings wrap when -- and only when -- they do not fit
+     on one line, at any width: the re-audit found them pushing the page to
+     444px on a 375px iPhone at the largest text size, where the
+     under-375px wrap above does not apply. At the normal size they fit on
+     one line on every phone and nothing changes. */
+  .wk-hero-figs{flex-wrap:wrap; row-gap:4px;}
   .wk-bar-fill{height:100%; border-radius:99px;
     background:linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-bright));
     /* The second stop matches the cycle's 0%, so the bar does not jump when
