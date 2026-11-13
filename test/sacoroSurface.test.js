@@ -282,9 +282,11 @@ test('HERO: the panel circle is for figures, and a word is carried by its chip',
        same word. An untoned reading has no chip, so dropping its circle
        would leave the hero holding nothing -- it keeps one whatever shape
        its value takes. */
-    if (/\d/.test(face) || !sec.tone) {
+    /* A reading with its own shape (Recovery, Patterns, Adaptation, by the
+       founder's references) keeps its circle and puts the word in it. */
+    if (/\d/.test(face) || !sec.tone || sec.heroRing) {
       withCircle++;
-      assert.match(panel, /class="rp-hero"/, sec.key + ' states a figure but drew no circle');
+      assert.match(panel, /class="rp-hero(?: is-word)?"/, sec.key + ' states a figure but drew no circle');
       assert.match(panel, /class="b-dial(?: is-(?:petals|torus|rings))?"/, sec.key + ' has no circle to put its figure in');
     } else {
       wordless++;

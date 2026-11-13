@@ -252,14 +252,15 @@ test('a good morning is recorded as good, not assumed', () => {
   const r = a.coachRecovery();
   assert.equal(r.morning.answered, true);
   assert.equal(r.state, 'fresh');
-  assert.match(text(a.hqPanelHtml('recovery')), /This morning\s+feeling good/);
+  // the Morning tile, under Recovery Signals: three of three answered
+  assert.match(text(a.hqPanelHtml('recovery')), /3\/3\s+Morning\s+Feeling good/);
 });
 
 test('the Recovery page shows the morning, and without consent the answers are not read', () => {
   const a = athlete();
-  assert.match(text(a.hqPanelHtml('recovery')), /This morning\s+not answered/);
+  assert.match(text(a.hqPanelHtml('recovery')), /Morning\s+Not answered/);
   a.handleSetReadiness('legs', 'heavy');
-  assert.match(text(a.hqPanelHtml('recovery')), /This morning\s+heavy legs/);
+  assert.match(text(a.hqPanelHtml('recovery')), /1\/3\s+Morning\s+Heavy legs/);
   a.healthConsentGranted = () => false;
   assert.equal(a.coachRecovery().state, 'fresh', 'a readiness answer was read without health consent');
 });

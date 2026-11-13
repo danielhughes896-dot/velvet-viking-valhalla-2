@@ -128,11 +128,15 @@ test('the panel behind the circle still carries the tone', () => {
      surface in this product allowed to carry the engine's tone. */
   const a = withRecovery(planHQ(), 'strained');
   const panel = a.readingPanel('recovery');
-  assert.match(panel, /class="read-val bad"/,
+  /* Founder, with the reference: the panel opens on the circle with the
+     word in it, so the chip that repeated the word went. Its dot had already
+     taken the panel's colour, so no colour left the screen; the engine's
+     verdict is still on the hero, as data-tone, and still follows it. */
+  assert.match(panel, /class="rp-hero is-word" data-tone="bad"/,
     'the recovery panel lost the tone the circle gave up');
-  assert.match(panel, /class="read-dot"/, 'and its tone dot with it');
+  assert.match(panel, />Strained</, 'and the word with it');
   const fresh = withRecovery(planHQ(), 'fresh').readingPanel('recovery');
-  assert.match(fresh, /class="read-val good"/, 'the panel does not follow the engine at all');
+  assert.match(fresh, /data-tone="good"/, 'the panel does not follow the engine at all');
 });
 
 test('every reading on the row is told apart by its colour', () => {

@@ -309,7 +309,10 @@ test('the hard streak is this week\'s, and made of days that were run', () => {
   const today = setup((a, on, add) => { [-2, -1, 0].forEach(n => { on(add(TODAY, n)).type = 'tempo'; }); });
   assert.equal(today.hardStreak, 3);
   assert.ok(!/Longest hard streak/.test(SRC), 'the Recovery page still calls it the longest');
-  assert.match(SRC, /hqRow\('Hard days in a row', nDays\(report\.recovery\.hardStreak\)\+' this week'\)/);
+  /* The streak is the Strain tile on the Recovery page now, its figure the
+     streak itself and its words "hard days in a row". */
+  assert.match(SRC, /fig:String\(rec\.hardStreak\), label:'Strain'/);
+  assert.match(SRC, /rec\.hardStreak === 1 \? 'Hard day in a row' : 'Hard days in a row'/);
 });
 
 // ---------------------------------------------------------------------------

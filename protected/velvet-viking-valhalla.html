@@ -9794,6 +9794,38 @@
   .ev-phase-ring b{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     font-size:1.25rem; color:#FFFFFF;}
   .ev-phase-note{color:#FFFFFF; margin:6px 0 18px;}
+  /* ---------- THE PANEL TILES (Recovery, Patterns, Adaptation) ---------- */
+  .pt-tiles{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin:4px 0 18px;}
+  .pt-tile{display:flex; flex-direction:column; align-items:center; text-align:center; min-width:0;
+    padding:14px 6px 12px; border-radius:16px; border:1px solid rgba(255,255,255,.07);
+    background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));}
+  .pt-ring{position:relative; width:68px; height:68px;}
+  .pt-ring svg{display:block; width:100%; height:100%;
+    filter:drop-shadow(0 0 6px color-mix(in srgb, var(--pt-col) 35%, transparent));}
+  .pt-ring b{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#FFFFFF; font-weight:700; font-size:.9375rem; line-height:1; letter-spacing:.02em;}
+  .pt-ring b.is-word{font-family:var(--text-face); font-size:.8125rem;}
+  .pt-k{margin-top:10px; color:#FFFFFF; font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:.75rem; letter-spacing:.08em; text-transform:uppercase; max-width:100%;}
+  .pt-v{margin-top:3px; color:#FFFFFF; font-size:.8125rem; line-height:1.25;}
+  @media (max-width:360px){ .pt-tiles{gap:6px;} .pt-k{font-size:.6875rem; letter-spacing:.02em;} }
+  .pt-say{color:#FFFFFF; font-size:var(--fs-body); line-height:var(--lh-body);}
+  .pt-note{margin-top:12px; color:#FFFFFF; font-size:var(--fs-support); line-height:var(--lh-support);}
+  .pt-q{display:flex; align-items:center; gap:12px; padding:7px 0; color:#FFFFFF; font-size:var(--fs-body); line-height:var(--lh-body);}
+  .pt-q svg{flex:none; width:22px; height:22px;}
+  .pt-tl{position:relative; display:flex; justify-content:space-between; margin:6px 4px 18px; padding-top:2px;}
+  .pt-tl:before{content:''; position:absolute; left:16px; right:16px; top:13px;
+    border-top:2px dotted rgba(255,255,255,.22);}
+  .pt-tl-pt{position:relative; display:flex; flex-direction:column; align-items:center; width:62px; text-align:center;}
+  .pt-dot{width:22px; height:22px; border-radius:50%; box-sizing:border-box;
+    background:var(--bg); border:2px solid var(--z-mp);}
+  .pt-tl-pt.is-now .pt-dot{background:var(--z-mp); box-shadow:0 0 10px var(--z-mp);}
+  .pt-tl-w{margin-top:8px; color:#FFFFFF; font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:.75rem; letter-spacing:.06em;}
+  .pt-tl-s{margin-top:2px; color:#FFFFFF; font-size:.75rem;}
+  /* A word in a panel's circle takes the words' face, as the rail does. */
+  .rp-hero.is-word .rd-val b{font-family:var(--text-face);}
+  .rp-hero .b-dial.is-torus .b-medal{inset:15%;}
   /* THE PROGRESS ENTRANCE STOOD HERE: @keyframes rd-draw and the gated
      .is-drawing rule that played it. Both are deleted with the arc, because
      Progress is a plate now and a plate has no ring to lay down. The
@@ -53340,43 +53372,31 @@ function blockSectionSummary(b){
   return b ? BLOCK_META[b.state].label : 'learning';
 }
 function renderBlockSection(b, bts){
-  var breakthroughs = (bts && bts.length)
-    ? bts.slice(-4).reverse().map(function(dd){
-        return hqRow(dShort(dd.date), (dd.title||dd.type)+', '+computeExecutionScore(dd)+'%');
-      }).join('')
-    : '<div class="hq-empty">No breakthrough sessions logged yet. They appear here once a quality session lands at the fast end of its window with heart rate in zone.</div>';
-  if (!b) return breakthroughs;
-
-  var changing = b.dimensions.filter(function(d){ return d.direction && d.direction!=='flat'; });
-  if (!changing.length) changing = b.dimensions.filter(function(d){ return d.direction==='flat'; });
-  var streak = blockReviewStreak(b.state);
-
-  /* BLOCK RESPONSE STOOD HERE AND SAID NOTHING NEW. It was a heading over
-     one row -- the state's label on the left, "28-day window" on the right
-     -- and the panel already carried both: readingPanel()'s hero states the
-     label (it is this section's `value`, via blockSectionSummary) and the
-     Evidence line four lines below opens with "28 days". So Adaptation
-     History began by repeating its own title and then repeating a figure it
-     was about to give properly, which is the same fault the founder caught
-     in Plan evolution. The window keeps its one honest mention, in
-     Evidence, beside the session count that makes it mean something. */
-  return (changing.length
-      ? '<div class="evo-k">What’s changing</div>'+
-        '<ul class="evo-list">'+changing.slice(0,4).map(function(d){
-            return '<li>'+escapeHtml(d.label+' — '+
-              (d.direction==='positive'?'improving':d.direction==='negative'?'deteriorating':'steady'))+'</li>';
-          }).join('')+'</ul>'
-      : '')+
-    '<div class="evo-k">Coach’s read</div>'+
-    '<div class="hq-empty">'+escapeHtml(b.read)+'</div>'+
-    '<div class="evo-k">Evidence</div>'+
-    '<div class="hq-empty">'+escapeHtml(
-       b.windowDays+' days, '+b.qualifyingSessions+' qualifying session'+(b.qualifyingSessions===1?'':'s')+
-       (b.checkpointInvolved ? ', checkpoint included' : '')+
-       (streak > 1 ? ', '+BLOCK_META[b.state].label.toLowerCase()+' on '+streak+' reviews' : ''))+
-    '</div>'+
-    '<div class="evo-k">Breakthroughs</div>'+
-    breakthroughs;
+  /* THE EVIDENCE AS ROWS. Founder, with a reference: Adaptation History in
+     the same structure as the other panels. Each dimension that has a
+     direction is a row in its own words (the old list joined label and word
+     with an em dash), then the window and the sessions behind it, then any
+     breakthroughs by date. */
+  var dims = b ? b.dimensions.filter(function(d){ return d.direction; }) : [];
+  var streak = b ? blockReviewStreak(b.state) : 0;
+  return dims.map(function(d){ return hqRow(d.label, blockDirectionWord(d).toLowerCase()); }).join('')+
+    (b ? hqRow('Observation window', b.windowDays+' days')+
+         hqRow('Qualifying sessions', String(b.qualifyingSessions)+(b.checkpointInvolved ? ', checkpoint included' : ''))+
+         (streak > 1 ? hqRow('Reviews at '+BLOCK_META[b.state].label.toLowerCase(), String(streak)) : '')
+       : '')+
+    (bts || []).slice(-4).reverse().map(function(dd){
+      return hqRow(dShort(dd.date), (dd.title||dd.type)+', '+computeExecutionScore(dd)+'%');
+    }).join('');
+}
+function blockDirectionWord(d){
+  return !d || !d.direction ? 'Learning'
+       : d.direction === 'positive' ? 'Improving'
+       : d.direction === 'negative' ? 'Deteriorating' : 'Steady';
+}
+function renderBlockRead(b, bts){
+  return (b ? sectionRule('Coach\u2019s Read', true)+'<div class="pt-say">'+escapeHtml(b.read)+'</div>' : '')+
+    ((bts && bts.length) ? '' :
+      '<div class="pt-note">Breakthroughs appear once a quality session lands at the fast end of its window with heart rate in zone.</div>');
 }
 
 /* ---------- the gate on athlete-specific language ----------
@@ -56299,16 +56319,10 @@ function readingSections(report){
       report.recovery.fading.hits+' of last '+report.recovery.fading.of) : '')+
     /* "1 days" is the kind of thing an athlete reads as the app not paying
        attention, and it is one character to get right. */
-    hqRow('Hard days in a row', nDays(report.recovery.hardStreak)+' this week')+
-    hqRow('This morning', (function(){
-      var m = report.recovery.morning;
-      if (!m || (!m.answered && !m.flags.length)) return 'not answered';
-      return m.flags.length ? m.flags.join(', ') : 'feeling good';
-    })())+
-    hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged')+
-    hqRow('Easy HR vs baseline', (function(){
-      var b=easyHRBaseline();
-      return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })());
+    /* Hard days in a row, this morning and easy HR against baseline are the
+       three Recovery Signals tiles above the evidence now (see
+       recoverySignalsHtml), so they are not said a second time here. */
+    hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged');
   // Load itself is Athlete Status's own metric tile, right above this card --
   // not repeated here.
 
@@ -56351,6 +56365,7 @@ function readingSections(report){
   var evMeta = EVOLUTION_META[ev.state];
   var blockMeta = report.block ? BLOCK_META[report.block.state] : null;
   var rec = report.recovery;
+  var pp = patternProgress(report);
 
   return [
     /* Readiness is the hero gauge rather than a circle in the grid; the flag
@@ -56395,7 +56410,13 @@ function readingSections(report){
              ? 'You reported '+rec.morning.flags.join(' and ')+' this morning.'
          : (rec.morning && rec.morning.answered) ? 'Absorbing the work, and you felt good this morning.'
          : 'Absorbing the work.',
-      body: recoveryBody },
+      heroRing: dialRingHtml('solid', 'is-rec-' + (rec.state || 'fresh')),
+      lead: recoverySignalsHtml(rec),
+      body: recoveryBody,
+      extra: (report.decision && report.decision.recommendation)
+        ? sectionRule('SACORO\u2019s Assessment', true)+
+          '<div class="pt-say">'+escapeHtml(report.decision.recommendation)+'</div>'
+        : '' },
 
     { key:'evolution',
       title:'Plan evolution',
@@ -56421,9 +56442,12 @@ function readingSections(report){
       value: responsePatternsSummary(report.response, shown.length),
       tone: null,
       learning: responsePatternsLearning(report.response, shown.length),
-      syn: shown.length ? shown[0].area+' — '+shown[0].headline+'.'
+      syn: shown.length ? patternHeadlineSentence(shown[0])
                         : 'Still learning your baseline.',
-      body: patternsBody + renderResponsePatternsSection(report.response) },
+      heroRing: patternRingsSvg(pp),
+      lead: patternTilesHtml(pp),
+      body: patternsBody + renderResponsePatternsSection(report.response),
+      extra: patternQuestionsHtml(pp) },
 
     { key:'adaptation',
       title:'Adaptation history',
@@ -56436,7 +56460,10 @@ function readingSections(report){
          synopsis has one line, and a card that grows to three because the
          engine was talkative stops being a card. */
       syn: (blockMeta || BLOCK_META.LEARNING).text,
-      body: adaptBody }
+      heroRing: torusRingHtml(READING_ACCENT.adaptation, !report.block || report.block.state === 'LEARNING'),
+      lead: adaptationTilesHtml(report.block, bts)+adaptationTimelineHtml(),
+      body: adaptBody,
+      extra: renderBlockRead(report.block, bts) }
   ];
 }
 
@@ -71269,6 +71296,151 @@ function sectionRule(title, leftAligned, modifier){
    words, "what the next person edits by mistake". READING_ARC went with
    them: its only job was the staggered rank ladder the arc needed, and a
    grid of equal cells has no ranks. */
+/* =========================================================
+   THE PANEL TILES, AND THE GRAPHS IN THEM
+   =========================================================
+   Founder, with three references: Recovery & Fatigue, Recent Patterns and
+   Adaptation History in one structure. The circle, then three tiles each
+   with a ring, then the evidence. Every ring is a share of something the
+   engine already holds, said under it, and never a score. */
+function panelRingSvg(frac, col, width){
+  var c = 2 * Math.PI * 40, f = Math.max(0, Math.min(1, frac || 0)), w = width || 8;
+  return '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
+    '<circle cx="50" cy="50" r="40" fill="none" class="cr-trk" stroke-width="'+w+'"/>'+
+    (f > 0 ? '<circle cx="50" cy="50" r="40" fill="none" style="stroke:'+col+'" stroke-width="'+w+'" stroke-linecap="round" '+
+      'stroke-dasharray="'+(c * f).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 50 50)"/>' : '')+
+  '</svg>';
+}
+function panelTilesHtml(tiles){
+  return '<div class="pt-tiles">'+tiles.map(function(t){
+    var fig = String(t.fig);
+    return '<div class="pt-tile" style="--pt-col:'+t.col+';"><div class="pt-ring">'+panelRingSvg(t.frac, t.col)+
+      '<b'+(/\d/.test(fig) ? '' : ' class="is-word"')+'>'+escapeHtml(fig)+'</b></div>'+
+      '<div class="pt-k">'+escapeHtml(t.label)+'</div><div class="pt-v">'+escapeHtml(t.say)+'</div></div>';
+  }).join('')+'</div>';
+}
+
+/* ---------- RECOVERY SIGNALS ----------
+   Morning: how many of the three check-in questions were answered.
+   Strain: hard days in a row, filling toward three, where the reading turns
+   Strained. Easy HR: beats above or below the easy baseline, filling toward
+   four, where a run is read as rough. */
+function recoverySignalsHtml(rec){
+  var m = rec.morning || { flags:[] }, col = READING_ACCENT.recovery;
+  var answered = ['legs','sleep','health'].filter(function(q){ return m[q] != null; }).length;
+  var b = easyHRBaseline();
+  var said = m.flags && m.flags.length ? m.flags.join(', ') : 'feeling good';
+  return sectionRule('Recovery Signals', true)+panelTilesHtml([
+    { col:col, frac:answered / 3, fig: answered ? answered+'/3' : '–', label:'Morning',
+      say: answered ? said.charAt(0).toUpperCase()+said.slice(1) : 'Not answered' },
+    { col:col, frac:Math.min(1, rec.hardStreak / 3), fig:String(rec.hardStreak), label:'Strain',
+      say: rec.hardStreak === 1 ? 'Hard day in a row' : 'Hard days in a row' },
+    { col:col, frac: b.sufficient ? Math.min(1, Math.abs(b.delta) / 4) : 0,
+      fig: b.sufficient ? (b.delta > 0 ? '+' : '')+b.delta : '–', label:'Easy HR',
+      say: b.sufficient ? 'bpm vs baseline' : 'Building baseline' }
+  ]);
+}
+
+/* ---------- THREE PATTERNS ----------
+   How much of the evidence each pattern needs is in. Pacing reads the
+   comparable quality sessions, Effort the sessions with an effort logged,
+   Recovery the windows logged after demanding sessions. The word is the
+   engine's: a trend's own headline where one stands, otherwise how settled
+   the learning is. */
+var PATTERN_KINDS = [
+  { key:'pacing',   label:'Pacing',   col:'var(--cherry)', concept:'execution', complexity:'simple',
+    ask:'Do you hold your prescribed pace?' },
+  { key:'effort',   label:'Effort',   col:'var(--z-mp)',   concept:'effort',    complexity:'simple',
+    ask:'How hard does the work feel?' },
+  { key:'recovery', label:'Recovery', col:'var(--cyan)',   concept:'recovery',  complexity:'complex',
+    ask:'How do you respond between sessions?' }
+];
+function patternProgress(report){
+  var m = report.response || athleteResponseModel();
+  var fam = (m && m.families) || {};
+  var trends = (report.decision && report.decision.trends) ? report.decision.trends : athleteTrends();
+  var sum = function(list, fn){ return list.reduce(function(n, f){ return n + (fam[f] ? fn(fam[f]) : 0); }, 0); };
+  var counts = {
+    pacing: sum(['threshold','tempo','interval','repetition'], function(f){ return f.comparableSessions || 0; }),
+    effort: athleteMemory(RESPONSE_WINDOW_DAYS).filter(function(r){
+      return r.completed && r.rpe != null && r.type !== 'easy'; }).length,
+    recovery: sum(DEMANDING_FAMILIES, function(f){ return (f.recovery && f.recovery.windows) || 0; })
+  };
+  return PATTERN_KINDS.map(function(k){
+    var need = k.complexity === 'complex' ? 5 : BASELINE_MIN_SAMPLES;
+    var n = counts[k.key];
+    var t = trends.filter(function(x){ return x.concept === k.concept && x.confidence !== 'insufficient'; })[0];
+    var word = t ? t.headline
+      : { insufficient:'Learning', emerging:'Emerging', established:'Established' }[learningConfidence(n, k.complexity)];
+    return { key:k.key, label:k.label, col:k.col, ask:k.ask, n:n, need:need,
+             frac:Math.min(1, n / need), word:word };
+  });
+}
+function patternTilesHtml(P){
+  return sectionRule('Three Patterns', true)+panelTilesHtml(P.map(function(p){
+    return { col:p.col, frac:p.frac, fig:Math.min(p.n, p.need)+'/'+p.need, label:p.label, say:p.word };
+  }));
+}
+function patternQuestionsHtml(P){
+  return sectionRule('What SACORO Is Learning', true)+
+    P.map(function(p){
+      return '<div class="pt-q">'+panelRingSvg(p.frac, p.col, 12)+'<span>'+escapeHtml(p.ask)+'</span></div>';
+    }).join('')+
+    '<div class="pt-note">Patterns appear as comparable sessions are logged. Each ring shows how much of the evidence SACORO needs is in, never a score.</div>';
+}
+/* The hero: the three, outer to inner, in their own colours. */
+function patternRingsSvg(P){
+  var rs = [46.5, 39.5, 32.5];
+  return '<svg class="rd-rings" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+P.map(function(p, i){
+    var c = 2 * Math.PI * rs[i];
+    return '<circle cx="50" cy="50" r="'+rs[i]+'" fill="none" class="cr-trk" stroke-width="5"/>'+
+      (p.frac > 0 ? '<circle cx="50" cy="50" r="'+rs[i]+'" fill="none" style="stroke:'+p.col+'" stroke-width="5" stroke-linecap="round" '+
+        'stroke-dasharray="'+(c * p.frac).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 50 50)"/>' : '');
+  }).join('')+'</svg>';
+}
+function patternHeadlineSentence(t){
+  return t.area+(t.headline === 'Watching' ? ' is worth watching.' : ' is '+String(t.headline).toLowerCase()+'.');
+}
+
+/* ---------- YOUR ADAPTATION ----------
+   Aerobic and Tolerance are the block's easy-efficiency and recovery
+   dimensions, each ring the comparable sessions behind it toward the four a
+   baseline needs. Breakthroughs is the count in the window, its ring the
+   share of the window's qualifying sessions. */
+function adaptationTilesHtml(b, bts){
+  var col = READING_ACCENT.adaptation;
+  var dim = function(id){ return b ? b.dimensions.filter(function(d){ return d.id === id; })[0] : null; };
+  var tile = function(d, label){
+    var n = d ? d.samples || 0 : 0;
+    return { col:col, frac:Math.min(1, n / BASELINE_MIN_SAMPLES), fig: n ? String(n) : '–',
+             label:label, say:blockDirectionWord(d) };
+  };
+  var nb = (bts || []).length;
+  return sectionRule('Your Adaptation', true)+panelTilesHtml([
+    tile(dim('easy'), 'Aerobic'),
+    tile(dim('recovery'), 'Tolerance'),
+    { col:col, frac: b && b.qualifyingSessions ? Math.min(1, nb / b.qualifyingSessions) : 0, fig:String(nb),
+      label:'Breakthroughs', say:'in '+(b ? b.windowDays : 28)+' days' }
+  ]);
+}
+/* The block's own review history, the latest reading in each plan week, the
+   last five. Written only when a logged session moved the conclusion, so the
+   line is what happened rather than what the calendar did. */
+function adaptationTimelineHtml(){
+  var byWeek = {};
+  (Array.isArray(state.blockReviews) ? state.blockReviews : []).forEach(function(r){
+    var dd = r && r.date ? findDayByDate(r.date) : null;
+    if (dd && BLOCK_META[r.state]) byWeek[dd.week] = r.state;
+  });
+  var weeks = Object.keys(byWeek).map(Number).sort(function(x, y){ return x - y; }).slice(-5);
+  return sectionRule('Adaptation Timeline', true)+(weeks.length
+    ? '<div class="pt-tl">'+weeks.map(function(w, i){
+        return '<div class="pt-tl-pt'+(i === weeks.length - 1 ? ' is-now' : '')+'"><span class="pt-dot"></span>'+
+          '<span class="pt-tl-w">W'+w+'</span><span class="pt-tl-s">'+escapeHtml(BLOCK_META[byWeek[w]].label)+'</span></div>';
+      }).join('')+'</div>'
+    : '<div class="pt-note">The timeline starts with the first review of the block.</div>');
+}
+
 function readingPanel(key){
   var report = coachAnalyse();
   if (!report) return '';
@@ -71317,13 +71489,20 @@ function readingPanel(key){
      patterns are both untoned, which is why they keep a circle even in the
      states where their value reads as a word rather than a figure. */
   var chipCarriesIt = !!sec.tone;
-  var wordless = !hasFigure && chipCarriesIt;
+  /* A READING WITH ITS OWN SHAPE KEEPS ITS CIRCLE. Founder, with the
+     references for Recovery, Patterns and Adaptation: the panel opens on the
+     circle, the word in it, the sentence beside it. The circle carries the
+     word, so the chip goes; the dot it carried had already taken the panel's
+     colour, and the engine's verdict stays on the hero as data-tone. */
+  var circled = !!sec.heroRing;
+  var wordless = !circled && !hasFigure && chipCarriesIt;
   var head =
-    '<div class="rp-hero'+(wordless ? ' is-wordless' : '')+'">'+
+    '<div class="rp-hero'+(wordless ? ' is-wordless' : '')+(circled && !hasFigure ? ' is-word' : '')+'"'+
+      (sec.tone ? ' data-tone="'+sec.tone+'"' : '')+'>'+
       (wordless ? '' : readingDialHtml(sec, 0, true,
-        sec.key === 'readiness' ? confidenceRingsPanelSvg(computeConfidenceBreakdown()) : undefined))+
+        sec.heroRing || (sec.key === 'readiness' ? confidenceRingsPanelSvg(computeConfidenceBreakdown()) : undefined)))+
       '<div class="rp-hero-text">'+
-        (sec.tone
+        (sec.tone && !circled
           ? '<div class="rp-hero-verdict"><span class="read-val '+sec.tone+'">'+
               '<span class="read-dot"></span>'+escapeHtml(sec.value)+'</span></div>'
           : '')+

@@ -195,7 +195,9 @@ test('READING: the ring says which reading, the face says what it says', () => {
     'an Athlete Status fact moved when the coaching verdict moved — a fact took a tone');
 
   // The panel is still where tone is carried, so the verdict is not colourless.
-  assert.match(a.readingPanel('recovery'), /class="read-val (good|watch|bad)"/,
+  /* The circle now holds the word in the panel too, so the chip went; the
+     engine's verdict rides on the hero as data-tone. */
+  assert.match(a.readingPanel('recovery'), /class="rp-hero[^"]*" data-tone="(good|watch|bad)"/,
     'the recovery panel lost the tone the circle gave up');
 
   /* And neither map consults the engine at all -- the strongest form of
@@ -284,7 +286,7 @@ test('PANEL: every Reading card opens the panel that belongs to it', () => {
        evidence, and of those three the chip is the one shaped for a word --
        so the circle goes and the hero is marked is-wordless. Either way the
        athlete lands on the verdict they pressed. */
-    assert.match(panel, /class="rp-hero(?: is-wordless)?"/,
+    assert.match(panel, /class="rp-hero(?: is-wordless| is-word)?"/,
       key + ' does not open on a restatement of itself');
     if (/class="rp-hero is-wordless"/.test(panel)) {
       assert.match(panel, /class="rp-hero-verdict"/,
