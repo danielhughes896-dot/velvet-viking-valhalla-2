@@ -24,6 +24,7 @@ dependency shows up.
 | 9 | `supabase-operational-view-provider-trial.sql` | rebuilds `account_operational_state` so the trial is read from `subscriptions` |
 | 10 | `supabase-security-posture.sql` | InitPlan policy rewrite, service-only assertions, definer search paths, `rls_auto_enable()` |
 | 11 | `supabase-health-consent.sql` | `health_data_consent` — the append-only explicit-consent record for health and readiness information |
+| 12 | `supabase-circles.sql` | Circles: `circles`, `circle_members`, `circle_invites`, `circle_days`, `circle_cheers`, `circle_sharing_log` — a private group of 2 to 8 that sees whether each member did their own plan; consent recorded on joining, everything else through checked functions |
 
 Applied in this order against an empty database plus the Supabase substrate
 (`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles, and the default
@@ -58,6 +59,14 @@ old file 7 can be corrected without replaying anything. That is not the mistake
 file 6 avoids. A view is derived, not data: re-running the corrected 7 and
 running 9 leave a database in exactly the same state, and neither touches a row.
 The two definitions are asserted identical by test, not compared by eye.
+
+File 12 is the first table where one athlete's data is visible to another,
+so it is the first migration proved by ACTING AS PEOPLE rather than by reading
+the SQL: see "Proving a migration" below. Like 11 it goes after 10, is created
+with RLS on, and asserts its own posture (every circle policy for signed-in
+users only and scoped to the caller or their circle, no client writes to
+membership, invites, Nice work or the consent log, every circle function on
+the empty search path and closed to the anonymous key).
 
 ## Deployment parameters
 
@@ -106,3 +115,20 @@ what was applied to production by hand, not a step in building a new one.
 | `supabase-beta-verification.sql` | Read-only reporting. |
 | `supabase-web-billing-verification.sql` | Read-only reporting. Answers "is this database ready to sell" — which of the files above are actually applied, whether the two gates that close the product are still closed, and whether anybody's access exists only in the legacy override column. Safe to paste into production. |
 | `supabase-pre-beta-least-privilege.sql` | The record of a hand-applied production hardening. See above. |
+
+## Proving a migration
+
+`tools/db-proof/` builds a disposable Postgres, gives it just enough of the
+Supabase substrate (the platform roles, `auth.users`, `auth.uid()` read from
+the request claims, and the default grants that leave the deciding to RLS),
+applies a migration twice to prove it re-runs, then acts as real users to try
+every thing the rules forbid, and deletes the cluster.
+
+- `tools/db-proof/run.sh supabase-circles.sql tools/db-proof/circles-proof.sql`
+  proves circles on its own.
+- `tools/db-proof/full-chain.sh` rebuilds the whole order above (the two
+  operator placeholders get throwaway test values in a temporary copy, never
+  in these files), applies circles, re-runs file 10 after it, and proves
+  circles on top.
+
+`substrate.sql` must never be run against a real Supabase project.

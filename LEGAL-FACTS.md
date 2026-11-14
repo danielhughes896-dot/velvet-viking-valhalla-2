@@ -330,7 +330,7 @@ churn risk. It is used for operations, not marketing.
 
 ## 6. Account deletion and anonymisation
 
-Proven on a fresh cluster against the completed commercial schema. Ten
+Proven on a fresh cluster against the completed commercial schema. These
 foreign keys reference `auth.users`:
 
 | Table | On delete |
@@ -346,6 +346,9 @@ foreign keys reference `auth.users`:
 | `health_data_consent` | CASCADE |
 | `account_agreements` | CASCADE |
 | `billing_events` | **SET NULL** |
+| `circle_members` | CASCADE |
+| `circle_invites` | CASCADE |
+| `circle_sharing_log` | CASCADE |
 
 **Website can safely state:**
 - Deleting an account removes the athlete's training plan, every staged
@@ -365,6 +368,14 @@ foreign keys reference `auth.users`:
   function takes no arguments and every statement in it is scoped to the
   caller's own verified id. An unauthenticated caller cannot execute it at all.
 - Deletion is immediate, not queued.
+- **Circles** (not live yet; `supabase-circles.sql`, proven on a fresh cluster
+  by `tools/db-proof/`). Deleting an account removes the athlete's circle
+  membership, and with it, by cascade through the membership, every day they
+  shared (`circle_days`) and every "Nice work" they gave or received
+  (`circle_cheers`), plus any invites they made and their circle consent log.
+  The circle itself holds only its name and no reference to any person, so the
+  remaining members keep their circle. When the last member's account goes,
+  the circle, its name and its invites are deleted too.
 
 ---
 
@@ -494,4 +505,5 @@ It becomes publishable on the day the first real subscription locks a price.
 - That the founding-price guarantee is in effect.
 - That Garmin is supported or coming on a date.
 - That signup is open.
+- That circles exist or are coming. The database is designed and proven, not applied.
 - Any price as chargeable today.
