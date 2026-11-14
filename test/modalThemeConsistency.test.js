@@ -119,6 +119,8 @@ const WORK_SURFACES = [
   ['openStgSheet', "Settings' glass sheets"],
   /* The morning check-in, risen in the same glass sheet. */
   ['openCheckinSheet', 'the daily check-in sheet'],
+  /* Yesterday not logged: a quick question on Today, the same glass sheet. */
+  ['openUnloggedSheet', 'the yesterday-not-logged sheet'],
   /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
      it, picks how much the card says and then approves it -- that is working
      in a modal, not answering an interrupt, and it has a close control and

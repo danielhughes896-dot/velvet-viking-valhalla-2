@@ -52,7 +52,7 @@ test('every band states its own share and its own time', () => {
     segs.forEach(seg => {
       const txt = /<span class="zbar-k">([^<]*)<\/span>/.exec(seg)[1];
       /* A SHARE, A SEPARATOR AND A TIME -- "9% • 42m" or "77% • 5h 55m". */
-      const m = /^(\d+)% • (?:(\d+)h (\d{2})m|(\d+)m)$/.exec(txt);
+      const m = /^(\d+)%, (?:(\d+)h (\d{2})m|(\d+)m)$/.exec(txt);
       assert.ok(m, b.k + ' w' + b.wk + ': a band reads "' + txt + '", which is not a share and a time');
       const pct = Number(m[1]);
       assert.ok(pct > 0, b.k + ' w' + b.wk + ': a band with no share was drawn');
@@ -125,9 +125,9 @@ test('a band’s time reads as a clock, not as sixty minutes', () => {
     a.computeWeekZoneBreakdown = real;
     return /<span class="zbar-k">([^<]*)<\/span>/.exec(h)[1];
   };
-  assert.equal(say(3599), '100% • 1h 00m', '3599s rounds to "60m" instead of an hour');
-  assert.equal(say(3600), '100% • 1h 00m', 'an exact hour does not read as one');
-  assert.equal(say(2700), '100% • 45m', 'three quarters of an hour grew an hours field');
-  assert.equal(say(7140), '100% • 1h 59m', 'an hour and fifty-nine reads wrong');
-  assert.equal(say(180), '100% • 3m', 'three minutes reads wrong');
+  assert.equal(say(3599), '100%, 1h 00m', '3599s rounds to "60m" instead of an hour');
+  assert.equal(say(3600), '100%, 1h 00m', 'an exact hour does not read as one');
+  assert.equal(say(2700), '100%, 45m', 'three quarters of an hour grew an hours field');
+  assert.equal(say(7140), '100%, 1h 59m', 'an hour and fifty-nine reads wrong');
+  assert.equal(say(180), '100%, 3m', 'three minutes reads wrong');
 });

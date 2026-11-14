@@ -216,7 +216,7 @@ test('HERO: load is coachAnalyse().load.ratio, not a second computation', () => 
   const a = planHQ();
   const report = a.coachAnalyse();
   const hero = a.renderProgrammeStatus();
-  const loadText = report.load.ratio != null ? report.load.ratio.toFixed(2) + 'x' : '—';
+  const loadText = report.load.ratio != null ? report.load.ratio.toFixed(2) + 'x' : '\u2013';
   assert.ok(hero.indexOf('>' + loadText + '</b><span>Load</span>') !== -1,
     'the hero\'s Load figure is not coachAnalyse().load.ratio');
 });
@@ -487,8 +487,8 @@ test('RECORD: an absence is not typeset as a measurement', () => {
      reading a label rather than looking at a slot. */
   const slot = /<b class="rec-none"[^>]*>([\s\S]*?)<\/b>/.exec(dial);
   assert.ok(slot, 'no value slot at all');
-  assert.equal(slot[1], '\u2014', 'the circle states the absence as though it were a value');
-  assert.match(dial, /aria-label="Measured fitness \u2014 Nothing measured"/,
+  assert.equal(slot[1], '\u2013', 'the circle states the absence as though it were a value');
+  assert.match(dial, /aria-label="Measured fitness, Nothing measured"/,
     'the absence is no longer announced to a screen reader');
   assert.match(dial, /data-action="open-record"/, 'the absence stopped being tappable');
   // and the rule that makes rec-none a different face is actually there

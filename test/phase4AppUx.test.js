@@ -289,8 +289,8 @@ test('Recently evolved is bounded to the last two accepted entries, most recent 
   });
   const html = a.recentlyEvolvedSummary();
   assert.doesNotMatch(html, /Mar 1\b/, 'only the most recent two entries may show');
-  assert.match(html, /Mar 8/);
-  assert.match(html, /Mar 5/);
+  assert.match(html, /8 Mar/);
+  assert.match(html, /5 Mar/);
 });
 
 test('Recently evolved shows nothing for declined proposals', () => {

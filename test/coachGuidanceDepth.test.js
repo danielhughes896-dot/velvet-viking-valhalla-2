@@ -253,7 +253,7 @@ test('the protected recommendation line survives on a real PROCEED quality day',
     'precondition: a PROCEED day means recent load is productive, and it is ' +
     a.coachLoad().band + ' at ' + a.coachLoad().ratio.toFixed(2) + 'x');
   const mv = a.coachAnalyse().nextMove;
-  assert.equal(mv.recommendation, 'Run it as prescribed. Landing inside the target window is the session — beating it is not a bonus.');
+  assert.equal(mv.recommendation, 'Run it as prescribed. Landing inside the target window is the session. Beating it is not a bonus.');
 });
 
 test('terse copy stays terse -- no heading balloons into a paragraph', () => {

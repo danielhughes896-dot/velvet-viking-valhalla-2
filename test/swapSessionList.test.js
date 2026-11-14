@@ -223,7 +223,8 @@ test('a day with no week number is still listed, under its own heading', () => {
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
   buildPlan(a, { distanceKey: '10k', volume: 50, weeks: 12, startDate: a.addDays(TODAY, -7) });
   const dd = a.state.days.filter(d => d.type === 'interval')[0];
-  const orphan = a.state.days.filter(d => d.id !== dd.id)[0];
+  // a day still to come: days already gone are not offered (audit fix)
+  const orphan = a.state.days.filter(d => d.id !== dd.id && d.date >= TODAY && d.type !== 'race' && d.type !== 'checkpoint')[0];
   delete orphan.week;
   let html = '';
   a.openModal = h => { html = h; };

@@ -100,7 +100,7 @@ test('ADAPTATION: torus, tiles, the timeline from its own reviews, evidence as r
     .map(([d, s]) => ({ date: d, state: s, at: d + 'T08:00:00Z', windowDays: 28, evidence: [], positives: [], negatives: [], qualifyingSessions: 10 }));
   const p = a.readingPanel('adaptation');
   assert.match(p, /class="b-dial is-torus"/);
-  order(p, ['Your Adaptation', '>Aerobic<', '>Tolerance<', '>Breakthroughs<', 'Adaptation Timeline',
+  order(p, ['Your Adaptation', '>Aerobic<', '>Tolerance<', '>Break\u00ADthroughs<', 'Adaptation Timeline',
             'The Evidence', 'Observation window', 'Qualifying sessions', 'Coach’s Read']);
   // one point per plan week, its latest reading: the 28th and 29th share a week
   const wk = d => a.findDayByDate(d).week;

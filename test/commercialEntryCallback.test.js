@@ -222,7 +222,7 @@ test('the gateway states its place in the journey', () => {
    comes back. Each clause is checkable against the builder. */
 const APPROVED_GATEWAY_BODY =
   'Pick a goal distance, your current weekly mileage and a recent benchmark ' +
-  'time — get a full pace-zoned training block for anything from a 5K ' +
+  'time. Get a full pace-zoned training block for anything from a 5K ' +
   'to a 50K ultra. An event is optional.';
 
 test('the approved gateway paragraph is rendered word for word', () => {

@@ -286,8 +286,8 @@ test('the words and the label are exactly what they were', () => {
      circle shows an em dash and the panel behind it says the phrase in full.
      The words are still announced to a screen reader, which is reading a
      label rather than looking at a slot. */
-  assert.match(html, /<b class="rec-none"[^>]*>\u2014<\/b>/, 'the empty value slot changed');
-  assert.match(html, /aria-label="Measured fitness \u2014 Nothing measured"/,
+  assert.match(html, /<b class="rec-none"[^>]*>\u2013<\/b>/, 'the empty value slot changed');
+  assert.match(html, /aria-label="Measured fitness, Nothing measured"/,
     'the absence is no longer announced');
   assert.match(html, /<span class="rd-cat">Fitness<\/span>/, 'the circle label changed');
   /* And the phrase itself survives, in the panel the circle opens. */

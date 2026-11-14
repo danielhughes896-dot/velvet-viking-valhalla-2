@@ -413,7 +413,7 @@ test('a threshold session reads the way the founder drew it', () => {
   assert.match(main, /<span class="slog-k">Avg pace<\/span><input type="text" class="slog-in" placeholder="5:00 \/km"/);
   assert.match(main, /<span class="slog-k">Avg HR<\/span><input type="number"[^>]*placeholder="155 bpm"/);
   assert.ok(main.indexOf('>Distance<') < main.indexOf('>Avg pace<') && main.indexOf('>Avg pace<') < main.indexOf('>Avg HR<'));
-  assert.match(main, /<div class="yl-opt">Optional \u2014 enter what you know\.<\/div>/);
+  assert.match(main, /<div class="yl-opt">Optional\. Enter what you know\.<\/div>/);
   /* The same pattern either side of it. */
   ['warmup', 'cooldown'].forEach(p => {
     const sec = section(html, p);

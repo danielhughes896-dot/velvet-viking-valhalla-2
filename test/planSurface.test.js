@@ -1480,7 +1480,7 @@ test('the day the block is for is a panel, not another row', () => {
     'the race session no longer carries the strategy, so it is homeless');
 
   /* And the way in says it once. The panel it sits in is titled RACE DAY. */
-  assert.match(src, />View session '\+/,
+  assert.match(src, />View session<\/button>'/,
     'the way into the race session is worded differently again');
   assert.ok(!/>View race session/.test(src),
     '"View race session" is back — the panel it sits in is already titled RACE DAY');

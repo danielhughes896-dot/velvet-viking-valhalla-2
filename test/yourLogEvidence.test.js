@@ -227,7 +227,7 @@ test('watch laps and figures already typed for a rep are still shown, by name', 
   let html = log(a, dd);
   assert.equal((html.match(/class="slog-row/g) || []).length, 3, 'the rep that holds a figure lost its row');   // warm-up, that rep, cool-down
   assert.match(html, new RegExp('<span class="slog-label">' + reps[2].label + '<'), 'a lone rep row has no name');
-  assert.match(html, /Optional — enter what you know\./);
+  assert.match(html, /Optional\. Enter what you know\./);
   /* The marks are still exactly the prescribed number. */
   assert.equal((html.match(/data-action="log-mark"/g) || []).length, reps.length);
   /* And what a watch recorded is still drawn. */

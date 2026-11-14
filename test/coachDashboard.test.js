@@ -215,7 +215,7 @@ test('there are five graphs, in the founder\'s order, each with the founder\'s w
  * establish a trend.' That's useful coaching without pretending two runs
  * prove improved fitness."
  * ------------------------------------------------------------------------- */
-const EARLY = /Early evidence \u2014 more (runs|sessions) needed to establish a trend\./;
+const EARLY = /Early evidence\. More (runs|sessions) needed to establish a trend\./;
 /* The first n easy runs, logged; `hr(i)` gives each a heart rate, or none. */
 function easyLogged(n, hr, pace){
   const a = athlete();
@@ -263,7 +263,7 @@ test('two comparable runs are compared, in the founder\'s words, and called earl
   const { a } = easyLogged(2, i => 150 - i * 4);
   const s = series(a, 'efficiency');
   assert.equal(s.early, true); assert.equal(s.ready, false);
-  assert.equal(s.caption, 'Your heart rate was 4 bpm lower at a similar pace. Early evidence \u2014 more runs needed to establish a trend.');
+  assert.equal(s.caption, 'Your heart rate was 4 bpm lower at a similar pace. Early evidence. More runs needed to establish a trend.');
   assert.equal(s.figure, '4 bpm lower'); assert.equal(s.figureText, 'at a similar pace');
   assert.equal(pts(s).length, 2);
   /* It is what the two runs measured: the points are their own heartbeats per km. */
@@ -554,7 +554,7 @@ test('a threshold reading builds from the first session, with the confidence it 
   assert.equal(one.caption, 'One threshold session with a main-set pace so far, and that is the starting point. A race or Fitness Checkpoint is still what sets your training paces.');
   const two = series(thresholded(2).a, 'threshold');
   assert.equal(two.early, true); assert.equal(two.ready, false);
-  assert.match(two.caption, /^Your threshold main set was 0:03 per km quicker than in your first session at 2 bpm lower\. The latest felt as intended\. Early evidence \u2014 more sessions needed to establish a trend\. A race or Fitness Checkpoint is still what sets your training paces\.$/);
+  assert.match(two.caption, /^Your threshold main set was 0:03 per km quicker than in your first session at 2 bpm lower\. The latest felt as intended\. Early evidence\. More sessions needed to establish a trend\. A race or Fitness Checkpoint is still what sets your training paces\.$/);
   assert.equal(two.good, false, 'two sessions are shown as an established gain');
   /* Nothing logged with a main-set pace: said, with what would fix it. */
   const bare = thresholded(0);

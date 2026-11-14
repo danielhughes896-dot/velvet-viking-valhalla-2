@@ -52,7 +52,7 @@ test('the Pace Reference provenance line follows the anchor to a calibration', (
   const line = a.paceReferenceProvenanceLine();
   assert.match(line, /^Calibrated from/);
   assert.match(line, /Threshold Calibration/);
-  assert.match(line, /Feb 27/, 'the date is the anchor\'s own date, not today');
+  assert.match(line, /27 Feb/, 'the date is the anchor\'s own date, not today');
 });
 
 test('renderCompactPaceReference() prints the same provenance line, not a second copy of it', () => {
@@ -147,7 +147,7 @@ test('renderCurrentFitnessPanel() follows the anchor off the goal once real evid
   a.state.setup.thresholdPaceMeasuredOn = '2026-02-27';
   const html = a.renderCurrentFitnessPanel();
   assert.match(html, /Threshold Calibration/);
-  assert.match(html, /Feb 27/);
+  assert.match(html, /27 Feb/);
 });
 
 // ---------------------------------------------------------------------------
@@ -333,7 +333,7 @@ test('currentFitnessEvidenceState() is a truthful category from the real anchor,
   const a = planned();
   delete a.state.setup.benchmark;
   let ev = a.currentFitnessEvidenceState();
-  assert.equal(ev.label, 'Using your goal — nothing measured yet');
+  assert.equal(ev.label, 'Using your goal. Nothing measured yet');
   assert.equal(ev.tone, 'watch');
 
   a.state.setup.benchmark = { distanceKey: '10k', timeSec: 2700 };
@@ -378,7 +378,7 @@ test('renderCurrentFitnessInstrument() follows currentFitnessAnchor(), not a dup
   a.state.setup.thresholdPaceMeasuredOn = '2026-02-27';
   const html = a.renderCurrentFitnessInstrument();
   assert.match(html, /Threshold Calibration/);
-  assert.match(html, /Feb 27/);
+  assert.match(html, /27 Feb/);
   const est = a.currentFitnessEstimate(a.state.setup.distanceKey);
   assert.ok(html.indexOf(a.secToClock(est.fastSec)) !== -1,
     'the headline value is currentFitnessEstimate()\'s own number, not recomputed here');

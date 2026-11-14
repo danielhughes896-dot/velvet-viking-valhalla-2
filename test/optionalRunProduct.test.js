@@ -291,7 +291,7 @@ test('9. Log a run records an actual completed activity', () => {
   assert.equal(d.date, dd.date, 'on the day it was run');
   const html = a.renderDayCard(d);
   assert.doesNotMatch(html, /Log a run/, 'the invitation is gone');
-  assert.match(html, /Logged — SACORO will take this into account/);
+  assert.match(html, /Logged\. SACORO will take this into account/);
 });
 
 test('10. the actual distance persists, and is what is shown', () => {
@@ -464,7 +464,7 @@ test('17. a reload preserves a completed optional run', () => {
   assert.equal(d.actual.km, 5.2);
   assert.equal(d.actual.pace, '5:34');
   assert.equal(revived.optionalRunDayState(d), 'logged');
-  assert.match(revived.renderDayCard(d), /Logged — SACORO/);
+  assert.match(revived.renderDayCard(d), /Logged\. SACORO/);
   assert.equal(revived.planContentSignature(revived.state), sig, 'and it signs the same');
 
   /* THE MARKER IS PART OF THE SIGNATURE, or a device that dropped it would

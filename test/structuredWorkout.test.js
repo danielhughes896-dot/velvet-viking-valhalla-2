@@ -443,7 +443,9 @@ test('the coaching disclosure keeps every section it had', () => {
   const gdSec = a.coachingDisclosureFor(dd, a.athleteExperience()) || {};
   [['Why', gdSec.why], ['Feel', gdSec.feel], ['Watch For', gdSec.avoid]].forEach(pair => {
     if (!pair[1]) return;
-    assert.ok(html.indexOf(pair[1]) > -1,
+    // Watch For is drawn as "Avoid racing it." since the audit fix
+    const said = pair[0] === 'Watch For' ? a.escapeHtml('Avoid ' + a.voiceLowerFirst(pair[1])) : pair[1];
+    assert.ok(html.indexOf(said) > -1,
       'the card lost ' + pair[0] + ' entirely: ' + JSON.stringify(pair[1].slice(0, 40)));
   });
   /* AND THE SENTENCES MUST EXIST TO BE FOUND. Three `if (!pair[1]) return`
@@ -884,7 +886,8 @@ test('the coaching rides the cards, one sentence each, and the work card is the 
        at all. */
     let workIdx = -1;
     steps.forEach((st, i) => { if (st.role === 'work') workIdx = i; });
-    if (gd.avoid && workIdx > -1) assert.ok((cards[workIdx] || '').indexOf(gd.avoid) > -1,
+    // the line now reads "Avoid racing it." (audit fix): it is named as what it is
+    if (gd.avoid && workIdx > -1) assert.ok((cards[workIdx] || '').indexOf(a.escapeHtml('Avoid ' + a.voiceLowerFirst(gd.avoid))) > -1,
       d.date + ': Watch For is not on the work card (card' + workIdx + ')');
     /* FEEL JOINED WATCH FOR ON THE WORK CARD. It was kept off the cards by
        the 223px measurement above and nothing else; with the room re-taken
@@ -1527,7 +1530,7 @@ test('a week slide carries its rail and its solo note, and never the Coach\u2019
     const wi = html.indexOf('class="why-session"');
     assert.ok(wi > -1 && html.indexOf(gd.why) > wi,
       d.date + ' (' + arch + '): the purpose is not under the rail on the full view');
-    assert.ok(html.indexOf(gd.avoid) > -1,
+    assert.ok(html.indexOf(a.escapeHtml('Avoid ' + a.voiceLowerFirst(gd.avoid))) > -1,
       d.date + ' (' + arch + '): Watch For has gone from the full view');
     /* AND THE PREVIEW STILL WITHHOLDS THE SECTION, which is the other half
        of "the Coach's Note belongs to the canonical Full Session view, not
@@ -2120,7 +2123,10 @@ test('why, feel and watch for left the screen — Why for its own section, the r
       const k = pair[0], v = pair[1];
       if (!v) return;
       const inNote = note.indexOf(v) > -1;
-      const onCard = html.slice(0, html.indexOf('class="how-note"') + 1 || undefined).indexOf(v) > -1;
+      const cardHtml = html.slice(0, html.indexOf('class="how-note"') + 1 || undefined);
+      // Watch For is drawn as "Avoid racing it." on the card since the audit fix
+      const onCard = cardHtml.indexOf(v) > -1 ||
+        (k === 'Watch For' && cardHtml.indexOf(a.escapeHtml('Avoid ' + a.voiceLowerFirst(v))) > -1);
       assert.ok(inNote || onCard,
         d.date + ' (' + d.type + '): ' + k + ' is on neither the cards nor the Coach’s Note — ' +
         JSON.stringify(v.slice(0, 40)) + ' has been dropped, not moved');

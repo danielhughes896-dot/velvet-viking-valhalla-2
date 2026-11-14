@@ -118,8 +118,8 @@ test('a flat route explains nothing, and is not held against anyone', () => {
 
 test('a tapped "Hilly" still stands where there is no figure, and is measured where there is', () => {
   const tapped = easy(30, (a, dd) => { a.handleLogPick(dd.id, 'conditions', 'hilly'); });
-  assert.match(tapped.r.executionVerdict, /the notes put that down to hilly terrain, so it is not read as lost fitness\./);
-  assert.equal(tapped.r.coachNoticed, 'Hilly terrain in the notes — pace is read in that context rather than as lost fitness.');
+  assert.match(tapped.r.executionVerdict, /The notes put that down to hilly terrain, so it is not read as lost fitness\./);
+  assert.equal(tapped.r.coachNoticed, 'Hilly terrain in the notes. Pace is read in that context rather than as lost fitness.');
   assert.notEqual(tapped.r.nextMove, easy(30).r.nextMove, 'with no figure to measure it by, the athlete\'s word no longer stands');
   /* The same tap, with the route's own figure: the hills get their share and no more. */
   const both = easy(30, (a, dd) => { a.handleLogPick(dd.id, 'conditions', 'hilly'); climb(20)(a, dd); });
@@ -131,8 +131,8 @@ test('a tapped "Hilly" still stands where there is no figure, and is measured wh
   assert.equal(flatTap.r.coachNoticed, tapped.r.coachNoticed);
   /* Anything else the athlete reported keeps the line it always had. */
   const wind = easy(8, (a, dd) => { climb(20)(a, dd); dd.actual.notes = 'brutal headwind all the way'; });
-  assert.equal(wind.r.coachNoticed, 'Wind in the notes — pace is read in that context rather than as lost fitness.');
-  assert.match(wind.r.executionVerdict, /the notes put that down to wind, so it is not read as lost fitness\./, 'the climb spoke over what the athlete reported');
+  assert.equal(wind.r.coachNoticed, 'Wind in the notes. Pace is read in that context rather than as lost fitness.');
+  assert.match(wind.r.executionVerdict, /The notes put that down to wind, so it is not read as lost fitness\./, 'the climb spoke over what the athlete reported');
   assert.doesNotMatch(wind.r.executionVerdict, /climbing/);
 });
 

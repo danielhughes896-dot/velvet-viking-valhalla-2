@@ -309,7 +309,7 @@ test('an opener with no "today" in it still names the day', () => {
   assert.ok(!/\btoday\b/i.test(sp.opener), 'the race opener gained a "today" to swap');
   assert.match(a.voiceSpokenOpener(dd, sp, 'Sunday'), /Race day on Sunday/);
   assert.match(a.voiceSpokenOpener(dd, sp, 'Tomorrow'), /Race day tomorrow/);
-  assert.match(a.voiceSpokenOpener(dd, sp, null), /^Race day —/);
+  assert.match(a.voiceSpokenOpener(dd, sp, null), /^Race day:/);
 });
 
 test('the temporal frame reads as English on every day of the week', () => {

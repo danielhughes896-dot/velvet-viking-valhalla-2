@@ -872,7 +872,7 @@ test('prepLabelFor no longer answers "preparation" for the commonest shortfall',
 test('the reason is said in a frame that fits it, and never blames the plan for an injury', () => {
   const a = raceApp('full', 70, 16);
   ['workload', 'durability', 'specificity'].forEach(k =>
-    assert.match(a.prepShortSentence(k), /the block has not yet built the/));
+    assert.match(a.prepShortSentence(k), /[Tt]he block has not yet built the/));
   assert.doesNotMatch(a.prepShortSentence('workload'), /the preparation this race/);
   const interrupted = a.prepShortSentence('interruption');
   assert.match(interrupted, /injury or illness/);
@@ -1107,27 +1107,32 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
   assert.equal(html.indexOf('coach-next-title'), -1, 'Next Move is not on Today');
 });
 
-test('it directs to Settings and does nothing else', () => {
+test('it opens the Injury or illness page itself, the same one Settings opens', () => {
+  /* Founder, on the audit's "Injured or ill? is a dead end": fix. A line of
+     directions to Settings left the athlete to navigate there alone. */
   const a = app();
-  assert.doesNotMatch(a.renderInjuryPointer(), /Head to Settings/,
-    'the direction is shown before it is asked for');
+  const opened = [];
+  a.openModal = (html, cls) => opened.push({ html, cls });
   a.handleInjuryHint();
-  const open = a.renderInjuryPointer();
-  assert.match(open, /Head to Settings → Training Availability to update your training\./);
-  assert.match(open, /aria-expanded="true"/);
-  a.handleInjuryHint();
-  assert.doesNotMatch(a.renderInjuryPointer(), /Head to Settings/);
+  assert.equal(opened.length, 1, 'the page did not open');
+  assert.match(opened[0].html, /Injury or illness/i);
+  assert.match(opened[0].html, /data-action="restriction-confirm"/);
+  // the same page Settings opens, not a second copy of it
+  const fromSettings = [];
+  a.openModal = (html, cls) => fromSettings.push({ html, cls });
+  a.openRestrictionModal();
+  assert.equal(opened[0].html, fromSettings[0].html);
+  assert.equal(opened[0].cls, fromSettings[0].cls);
+  assert.doesNotMatch(a.renderInjuryPointer(), /Head to Settings/, 'the line of directions is back');
 });
 
-test('it is not a second set of restriction controls', () => {
+test('the pointer itself carries no restriction controls', () => {
   const a = app();
-  a.handleInjuryHint();
   const html = a.renderInjuryPointer();
   ['restriction-open', 'restriction-level', 'restriction-days',
    'restriction-confirm', 'restriction-end'].forEach(act =>
     assert.doesNotMatch(html, new RegExp('data-action="' + act + '"'),
-      'the signpost carries the ' + act + ' control that belongs to Settings'));
-  // Settings remains the single authority, and still holds the real entry
+      'the pointer carries the ' + act + ' control that belongs to the page'));
   assert.match(a.renderSettingsHubView(), /data-action="restriction-open"/);
 });
 
@@ -1139,11 +1144,12 @@ test('pressing it declares nothing and cannot touch the plan', () => {
      is the signpost alone. */
   a.renderTodayView();
   const sig = a.planContentSignature(a.state);
+  a.openModal = () => {};
   a.renderInjuryPointer();
   a.handleInjuryHint();
   a.renderInjuryPointer();
   a.handleInjuryHint();
-  assert.equal(a.planContentSignature(a.state), sig, 'the signpost moved the plan');
+  assert.equal(a.planContentSignature(a.state), sig, 'opening the page moved the plan');
   assert.equal(a.restrictionRecord(), null, 'the signpost declared a restriction');
   assert.equal(a.state.setup.restriction, undefined);
 });

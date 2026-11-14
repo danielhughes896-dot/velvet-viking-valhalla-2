@@ -328,7 +328,7 @@ test('an existing completed companion still renders correctly, on today and in t
      prescribed rather than that a particular kind happens to land on this day. */
   assert.match(onDay, new RegExp(a.SUPPORT_KINDS[SUPPORT_EASY_KIND].label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
     'naming the kind that was prescribed');
-  assert.match(onDay, / — done|— done/, 'and still says done');
+  assert.match(onDay, /, done/, 'and still says done');
   assert.match(onDay, /checked/, 'with the control in its checked state');
   assert.doesNotMatch(onDay, /support-check locked/, 'live on the day, so a mistake can be undone');
 

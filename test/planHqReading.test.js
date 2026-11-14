@@ -132,7 +132,7 @@ test('READING: every interpretation the engine produces is reachable', () => {
     assert.match(c, /class="rd-val"/, 'a Reading circle states no conclusion');
     // The full title and verdict reach a screen reader even though the face
     // is short enough to fit a 66px circle.
-    assert.match(c, /aria-label="[^"]+ \u2014 [^"]+"/, 'a Reading circle is unlabelled');
+    assert.match(c, /aria-label="[^"]+, [^"]+"/, 'a Reading circle is unlabelled');
   });
 });
 

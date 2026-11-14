@@ -44,7 +44,7 @@ test('every subscription state says something true and offers a way to act', () 
       says: /Trial until/, acts: /Cancel my subscription/ },
     { name: 'active',     info: ENT({}), says: /active until/, acts: /Cancel my subscription/ },
     { name: 'cancelling', info: ENT({ cancel_at_period_end: true }),
-      says: /Cancelled .* paid up until/, acts: null },
+      says: /Cancelled\. Paid up until/, acts: null },
     { name: 'grace',      info: ENT({ state: 'grace' }),
       says: /payment didn/i, acts: /Update payment details/ },
     { name: 'expired',    info: ENT({ state: 'expired', access_until: '2026-08-01T00:00:00Z' }),

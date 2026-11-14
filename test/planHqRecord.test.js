@@ -70,7 +70,7 @@ function cards(html) {
 }
 const isEmptyCard = c => /class="rec-none"/.test(c);
 function cardFor(html, subject, app) {
-  const found = cards(html).filter(c => c.indexOf('aria-label="' + subject + ' \u2014') !== -1);
+  const found = cards(html).filter(c => c.indexOf('aria-label="' + subject + ', ') !== -1);
   assert.equal(found.length, 1, 'expected exactly one "' + subject + '" circle, found ' + found.length);
   const key = (found[0].match(/data-record="([a-z]+)"/) || [])[1];
   return found[0] + (app ? app.hqPanelHtml(key) : '');
@@ -96,7 +96,7 @@ test('RECORD: Sacoro carries exactly four Record facts, each its own tappable pl
      below is the same string it was when two of these were circles, which
      is the point: the athlete reads the same four facts in the same order
      and only the shape two of them arrive in has moved. */
-  const subjects = found.map(c => (c.match(/aria-label="([^\u2014]+) \u2014/) || [])[1].trim());
+  const subjects = found.map(c => (c.match(/aria-label="([^,]+), /) || [])[1].trim());
   assert.equal(subjects.join(' | '), 'Measured fitness | Progress | Goal | Benchmark');
 
   found.forEach(c => {

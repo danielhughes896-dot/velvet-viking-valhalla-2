@@ -162,16 +162,16 @@ test('where positive evidence exists, the claim may be positive', () => {
 test('fluid guidance is not printed to the millilitre', () => {
   const a = loadApp({ pinnedDate: PINNED });
   const out = a.fmtFluidEstimate(816, 1224);
-  assert.match(out, /^≈/, 'it is an estimate and says so');
+  assert.match(out, /^about /, 'it is an estimate and says so');
   assert.match(out, /L$/, 'a litre-scale total is expressed in litres');
   assert.ok(!/816|1224/.test(out), 'four significant figures imply a precision nobody has');
-  assert.equal(out, '≈0.8–1.2 L');
+  assert.equal(out, 'about 0.8–1.2 L');
 });
 
 test('smaller totals stay in millilitres, still rounded', () => {
   const a = loadApp({ pinnedDate: PINNED });
   const out = a.fmtFluidEstimate(430, 645);
-  assert.match(out, /^≈\d+–\d+ ml$/);
+  assert.match(out, /^about \d+–\d+ ml$/);
   assert.ok(!/430|645/.test(out), 'rounded to something an athlete can act on');
 });
 
@@ -200,7 +200,7 @@ test('the fueling card marks its estimates and keeps its honest caveats', () => 
   const html = a.renderFuelingCard(long);
   assert.match(html, /Fluid guide \(est\.\)/);
   assert.match(html, /Total carbs \(est\.\)/);
-  assert.match(html, /≈/, 'the numbers are marked approximate');
+  assert.match(html, /about \d/, 'the numbers are marked approximate');
   assert.match(html, /drink to thirst/i, 'the existing honest caveat is preserved');
   assert.match(html, /adjust for the heat/i);
   assert.ok(!/\d{3,4}–\d{3,4}ml/.test(html), 'no bare four-figure millilitre range');
