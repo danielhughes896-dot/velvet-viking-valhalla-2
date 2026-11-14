@@ -28335,19 +28335,19 @@ function saveBinaryFile(o){
   } catch(err){ showToast('Could not save the image. Try again'); }
   return Promise.resolve();
 }
-/* ---------- SHARE MUST NEVER FAIL IN SILENCE ----------
-   Founder, on the phone: "no share options work", and asked what happens:
-   "Nothing happens" -- no sheet and no message. Every refusal on this path
-   already said so in a toast, so the only way to get nothing at all is a
-   step that never answers. Filesystem.writeFile is known to do exactly that
-   on Android with a large base64 payload, and a full-size share image is
-   several megabytes of it in one bridge call (Save to photos goes through
-   the Media plugin instead, which is why saving works).
-   So the file is written in pieces -- one writeFile, then appendFile, each
-   piece a whole number of base64 quads so it decodes on its own -- and each
-   step has a deadline. A step that does not answer now ends in a plain
-   message naming what did not happen, never in nothing. */
-var SHARE_WRITE_CHUNK = 512 * 1024;           // base64 characters; a multiple of 4
+/* ---------- SHARE MUST NEVER FAIL IN SILENCE, OR CLOSE THE APP ----------
+   Founder, on the phone: "Nothing happens" when Share was tapped, and after
+   the image was written in pieces: "Nothing and then the app crashes and
+   closes". Both were the Filesystem plugin: its write runs on the app's main
+   thread, so one large write froze the app (nothing on screen, no message)
+   and appending pieces brought it down. Save to photos never touched it --
+   it goes through the Media plugin -- and Save worked every time.
+   So on Android, Share takes Save's road: the Media plugin writes the image
+   into the SACORO album, and the share sheet is handed that file (the
+   FileProvider's external path covers the album). The one difference the
+   athlete sees is that a shared image is also kept in their SACORO album,
+   and the message says so. Everywhere else the cache write stands, as one
+   write, and every step still has a deadline and a message. */
 var SHARE_STEP_MS = { write: 20000, sheet: 8000 };
 function shareStepWithin(p, ms, label){
   return new Promise(function(res, rej){
@@ -28361,38 +28361,41 @@ function shareStepWithin(p, ms, label){
                             function(e){ if (done) return; done = true; clearTimeout(t); rej(e); });
   });
 }
-function nativeWriteBase64(FS, path, b64){
-  if (b64.length <= SHARE_WRITE_CHUNK || !FS.appendFile)
-    return FS.writeFile({ path:path, data:b64, directory:'CACHE' });
-  var first = FS.writeFile({ path:path, data:b64.slice(0, SHARE_WRITE_CHUNK), directory:'CACHE' });
-  var chain = first;
-  for (var at = SHARE_WRITE_CHUNK; at < b64.length; at += SHARE_WRITE_CHUNK){
-    (function(piece){
-      chain = chain.then(function(){
-        // No `encoding`: appended as base64, decoded to bytes, like writeFile.
-        return FS.appendFile({ path:path, data:piece, directory:'CACHE' });
-      });
-    })(b64.slice(at, at + SHARE_WRITE_CHUNK));
+/* Where the image is written for the share sheet: { uri, kept }. */
+function nativeShareableFile(o, b64){
+  var Media = nativePlugin('Media');
+  if (nativePlatform() === 'android' && Media && Media.savePhoto){
+    return nativePhotoAlbumId(Media).then(function(album){
+      return Media.savePhoto({ path:'data:' + (o.mime || 'image/png') + ';base64,' + b64,
+                               albumIdentifier:album,
+                               fileName:String(o.filename || 'sacoro').replace(/\.[a-z0-9]+$/i, '') });
+    }).then(function(r){
+      if (!r || !r.filePath) throw new Error('The image file was not written.');
+      var path = String(r.filePath);
+      return { uri: /^file:/.test(path) ? path : 'file://' + path, kept:true };
+    });
   }
-  // writeFile is the call that returns the file's uri; appendFile does not.
-  return chain.then(function(){ return first; });
+  // No `encoding` -- that is how the bridge is told the payload is base64.
+  return nativePlugin('Filesystem').writeFile({ path:o.filename, data:b64, directory:'CACHE' })
+    .then(function(res){ return { uri: res && res.uri, kept:false }; });
 }
 function nativeSaveBinaryFile(o){
-  var FS = nativePlugin('Filesystem'), Share = nativePlugin('Share');
-  var sheetShown = false;
+  var Share = nativePlugin('Share');
+  var sheetShown = false, kept = false;
   var onAway = function(){ sheetShown = true; };
   var unbind = function(){
     try{ document.removeEventListener('visibilitychange', onAway); window.removeEventListener('blur', onAway); }catch(e){}
   };
   showToast('Getting your image ready');
   return shareBlobToBase64(o.blob).then(function(b64){
-    return shareStepWithin(nativeWriteBase64(FS, o.filename, b64), SHARE_STEP_MS.write, 'write');
-  }).then(function(res){
-    if (!res || !res.uri) throw new Error('The image file was not written.');
+    return shareStepWithin(nativeShareableFile(o, b64), SHARE_STEP_MS.write, 'write');
+  }).then(function(file){
+    if (!file || !file.uri) throw new Error('The image file was not written.');
+    kept = !!file.kept;
     try{ document.addEventListener('visibilitychange', onAway); window.addEventListener('blur', onAway); }catch(e){}
     // url + title only; adding `text` makes Android share plain text and drop
     // the image -- the same lesson nativeSaveTextFile() records.
-    var sharing = Share.share({ title:o.title || o.filename, url:res.uri,
+    var sharing = Share.share({ title:o.title || o.filename, url:file.uri,
                                 dialogTitle:o.dialog || 'Share workout' });
     /* The promise only settles when the athlete comes back from the sheet,
        which can be minutes. The deadline is for the sheet APPEARING: once
@@ -28413,8 +28416,10 @@ function nativeSaveBinaryFile(o){
       sharing.then(function(){ clearInterval(tick); res2(); }, function(){ clearInterval(tick); res2(); });
     });
     return appeared.then(function(){ return sharing; });
-  }).then(function(){ unbind(); showToast(o.done); })
-    .catch(function(err){
+  }).then(function(){
+    unbind();
+    showToast(kept ? 'Shared. A copy is in your SACORO album' : o.done);
+  }).catch(function(err){
       unbind();
       var msg = (err && (err.message || err.errorMessage)) || '';
       if (/cancel/i.test(msg)) return;

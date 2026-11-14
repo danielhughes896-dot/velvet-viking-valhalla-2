@@ -398,41 +398,47 @@ test('typing a run on a rest day lights the cherry ring, never the old gold', ()
 });
 
 /* ---------- SHARE NEVER FAILS IN SILENCE ---------- */
-function shareRig(fs, share){
+function shareRig(fs, share, media){
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   const toasts = [];
   a.showToast = m => toasts.push(m);
   a.setTimeout = setTimeout; a.clearTimeout = clearTimeout;
   a.setInterval = setInterval; a.clearInterval = clearInterval;
-  a.nativePlugin = n => (n === 'Filesystem' ? fs : n === 'Share' ? share : null);
-  a.shareBlobToBase64 = () => Promise.resolve(BIG);
+  a.nativePlugin = n => (n === 'Filesystem' ? fs : n === 'Share' ? share : n === 'Media' ? (media || null) : null);
+  a.nativePlatform = () => (media ? 'android' : 'ios');
+  a.shareBlobToBase64 = () => Promise.resolve('QUJD');
   a.document.hasFocus = () => true;
   return { a, toasts };
 }
-const BIG = Buffer.from(Array.from({ length: 1200 * 1024 }, (_, i) => i % 251)).toString('base64');
-test('a large share image is written in whole pieces that rebuild the exact file', async () => {
-  const bytes = [];
-  const fs = {
-    writeFile: o => { bytes.length = 0; bytes.push(Buffer.from(o.data, 'base64')); return Promise.resolve({ uri: 'file:///cache/' + o.path }); },
-    appendFile: o => { assert.equal(o.encoding, undefined, 'appended as text, not bytes'); bytes.push(Buffer.from(o.data, 'base64')); return Promise.resolve(); }
+test('on Android, Share takes Save\'s road and never touches the Filesystem plugin', async () => {
+  const fsCalls = [];
+  const fs = { writeFile: o => { fsCalls.push(o); return new Promise(() => {}); } };
+  const saved = [];
+  const media = {
+    getAlbums: () => Promise.resolve({ albums: [{ name: 'SACORO', identifier: '/storage/emulated/0/Android/media/app/SACORO' }] }),
+    createAlbum: () => Promise.resolve(),
+    savePhoto: o => { saved.push(o); return Promise.resolve({ filePath: o.albumIdentifier + '/' + o.fileName + '.png' }); }
   };
   let shared = null;
-  const { a, toasts } = shareRig(fs, { share: o => { shared = o; return Promise.resolve({}); } });
-  await a.nativeSaveBinaryFile({ blob: {}, filename: 'x.png', done: 'Image ready to share' });
-  assert.ok(bytes.length > 1, 'written in one call');
-  assert.equal(Buffer.concat(bytes).toString('base64'), BIG, 'the pieces do not rebuild the image');
-  assert.equal(shared.url, 'file:///cache/x.png');
-  assert.equal(toasts[toasts.length - 1], 'Image ready to share');
+  const { a, toasts } = shareRig(fs, { share: o => { shared = o; return Promise.resolve({}); } }, media);
+  await a.nativeSaveBinaryFile({ blob: {}, mime: 'image/png', filename: 'sacoro-20260519.png', done: 'Image ready to share' });
+  assert.equal(fsCalls.length, 0, 'the Filesystem plugin that froze and closed the app was used');
+  assert.equal(saved[0].path, 'data:image/png;base64,QUJD');
+  assert.equal(saved[0].fileName, 'sacoro-20260519');
+  assert.equal(shared.url, 'file:///storage/emulated/0/Android/media/app/SACORO/sacoro-20260519.png');
+  assert.equal(toasts[0], 'Getting your image ready');
+  assert.equal(toasts[toasts.length - 1], 'Shared. A copy is in your SACORO album', 'the kept copy is not mentioned');
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  assert.doesNotMatch(src, /appendFile\(/, 'the append that closed the app is back');
 });
 test('a write that never answers ends in a message, not nothing', async () => {
-  const { a, toasts } = shareRig({ writeFile: () => new Promise(() => {}), appendFile: () => new Promise(() => {}) },
-                                 { share: () => Promise.resolve({}) });
+  const { a, toasts } = shareRig({ writeFile: () => new Promise(() => {}) }, { share: () => Promise.resolve({}) });
   a.SHARE_STEP_MS.write = 60;
   await a.nativeSaveBinaryFile({ blob: {}, filename: 'x.png', done: 'ok' });
   assert.match(toasts[toasts.length - 1], /could not be prepared to share\. Save it instead/);
 });
 test('a share sheet that never appears ends in a message; one that does is left alone', async () => {
-  const fs = { writeFile: o => Promise.resolve({ uri: 'file:///c/' + o.path }), appendFile: () => Promise.resolve() };
+  const fs = { writeFile: o => Promise.resolve({ uri: 'file:///c/' + o.path }) };
   const stuck = shareRig(fs, { share: () => new Promise(() => {}) });
   stuck.a.SHARE_STEP_MS.sheet = 300;
   await stuck.a.nativeSaveBinaryFile({ blob: {}, filename: 'x.png', done: 'ok' });
