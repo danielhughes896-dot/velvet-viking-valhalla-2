@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan, logAsPrescribed } = require('./fixtures.js');
+const APP_HTML = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
 
 /* CIRCLES: THE APP SIDE.
 
@@ -137,12 +138,38 @@ test('the table: join order, sessions done of set, km only where shared, missed 
   const html = a.circleTableHtml();
   const order = ['>You<', '>Sarah<', '>Kate<'].map(n => html.indexOf(n));
   assert.ok(order[0] < order[1] && order[1] < order[2], 'rows are not in join order');
-  assert.match(html, />1 of 3<\/b>16km/, 'Sarah: one done of three set, with her km');
+  assert.match(html, />1 of 3<\/b><span>16km<\/span>/, 'Sarah: one done of three set, with her km');
   assert.match(html, />1 of 1<\/b><\/div>/, 'my km is off, so no km');
-  assert.match(html, /cc-miss/);
+  assert.match(html, /class="wk-day cc-day is-missed"/);
   assert.match(html, />Kate<\/div><div class="cc-paused">Not sharing right now<\/div>/);
   assert.equal((html.match(/data-user="k"/g) || []).length, 0, 'a paused member\'s days were drawn');
   assert.doesNotMatch(html, /\bpace\b|bpm|\bHR\b/i);
+});
+
+test('the days are This Week\'s own day circles, names on top, missed white not red', () => {
+  const a = athlete();
+  const c = member(a);
+  const ws = a.circleWeekStart(TODAY);
+  c.days = [{ user_id: 's', day: ws, state: 'done', session_label: 'Easy', km: null }];
+  const html = a.circleTableHtml();
+  assert.equal((html.match(/class="wk-days cc-days"/g) || []).length, 2, 'one row of days per sharing member');
+  assert.equal((html.match(/class="wk-day cc-day/g) || []).length, 14);
+  assert.match(html, /<div class="cc-row-head"><div class="cc-name">You<\/div><div class="cc-sum">/, 'the name is not above the days');
+  assert.match(a.circleCellHtml('s', ws, TODAY), /^<button type="button" class="wk-day cc-day is-done[^"]*" data-action="circle-day"/);
+  assert.match(a.circleCellHtml('s', ws, TODAY), /wk-day-d font-head">M<\/span><span class="wk-day-n">/);
+  const css = APP_HTML.match(/\.cc-days \.wk-day\.is-missed\{[^}]*\}/);
+  assert.ok(css, 'missed is not restyled for the circle');
+  assert.match(css[0], /border-color:#FFFFFF/);
+  assert.doesNotMatch(css[0], /c-threshold|cherry/, 'a missed day in a circle must stay white');
+});
+
+test('the page opens on the circle name and the brand line, not an explanation', () => {
+  const a = athlete();
+  member(a);
+  const html = a.circlePageHtml();
+  assert.match(html, /<div class="cc-strap">Your people\. Your plans\. Shared accountability\.<\/div><div class="cc-claim">Earn your place<\/div>/);
+  assert.doesNotMatch(html, /Everyone runs their own plan/);
+  assert.ok(html.indexOf('cc-claim') < html.indexOf('cc-rows'));
 });
 
 test('a week turns green only when everyone who shared it kept it', () => {

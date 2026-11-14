@@ -11145,39 +11145,42 @@
   /* The injury page keeps its two answers at the foot, however short it is. */
   .modal-card.restriction-panel{display:flex; flex-direction:column;}
   /* ---------- CIRCLES ----------
-     The table the founder approved: one row per person in the order they
-     joined, Monday to Sunday, green for done, a white ring for missed, a
-     small dot for rest, a faint ring for still to come. Completion is
-     green, today's letter and anything the athlete presses are cherry. */
+     One block per person in the order they joined: the name on top, sessions
+     done of set at its right, and the seven days beneath as This Week's own
+     day circles (.wk-day), sized to the row. Green is done, white is
+     missed, a faded day is rest, today is underlined in cherry. */
   .modal-card.circle-page{display:flex; flex-direction:column;}
   .modal-card.circle-page > .modal-head{flex:none;}
   .modal-card.circle-page > .modal-body{flex:1 0 auto;}
   .cc-lede{margin:2px 0 6px;}
-  .cc-grid{display:grid; grid-template-columns:minmax(58px,1.25fr) repeat(7,minmax(0,1fr)) minmax(62px,1.1fr);
-    align-items:center; row-gap:16px; column-gap:3px; margin-top:6px;}
-  .cc-h{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:#FFFFFF; text-align:center;}
-  .cc-h.is-today{color:var(--cherry-text);}
-  .cc-name{font-family:var(--label-face); font-size:.875rem; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:#FFFFFF; line-height:1.15; overflow-wrap:anywhere;}
+  .cc-crest{margin:10px 0 14px; text-align:center;}
+  .cc-strap{font-size:1rem; line-height:1.4; color:#FFFFFF; font-weight:600;}
+  .cc-claim{margin-top:8px; font-family:var(--label-face); font-weight:800; font-size:1.375rem;
+    letter-spacing:.12em; margin-right:-.12em; text-transform:uppercase; color:var(--gold); line-height:1.1;}
+  .cc-rows{margin-top:4px;}
+  /* Space, not lines, between people: the app keeps no plain hairlines
+     outside Settings. */
+  .cc-row{padding:12px 0 14px;}
+  .cc-row:first-child{padding-top:6px;}
+  .cc-row-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px;}
+  .cc-name{font-family:var(--label-face); font-size:.9375rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF; line-height:1.2; overflow-wrap:anywhere; min-width:0;}
   .cc-note{display:block; font-family:var(--text-face); text-transform:none; letter-spacing:0;
     font-size:.75rem; color:#FFFFFF; margin-top:3px;}
-  .cc-paused{grid-column:span 8; font-size:.8125rem; color:#FFFFFF; padding-left:6px;}
-  .cc-c{display:flex; justify-content:center; align-items:center; height:30px;}
-  .cc-d{position:relative; width:20px; height:20px; border-radius:50%; flex:none; padding:0;}
-  .cc-done{background:var(--ok); border:0; cursor:pointer;
-    box-shadow:0 0 10px color-mix(in srgb, var(--ok) 45%, transparent);}
-  /* The tap reaches 44 without the dot growing. */
-  .cc-done::after{content:''; position:absolute; left:50%; top:50%; width:var(--tap-min); height:var(--tap-min);
-    transform:translate(-50%,-50%);}
-  .cc-miss{border:2px solid #FFFFFF;}
-  .cc-next{border:1.5px solid rgba(255,255,255,.28);}
-  .cc-next.is-today{border-color:var(--cherry-text);}
-  .cc-rest{width:6px; height:6px; background:rgba(255,255,255,.55);}
-  .cc-heart{position:absolute; right:-7px; top:-7px; width:13px; height:13px; color:var(--cherry-text);}
-  .cc-heart svg{width:13px; height:13px; display:block; fill:currentColor; stroke:none;}
-  .cc-sum{text-align:right; font-family:var(--num-face); font-size:.8125rem; color:#FFFFFF; line-height:1.3;}
-  .cc-sum b{display:block; font-size:.9375rem; white-space:nowrap;}
+  .cc-paused{font-size:.8125rem; color:#FFFFFF; text-align:right;}
+  .cc-sum{flex:none; text-align:right; font-family:var(--num-face); color:#FFFFFF; white-space:nowrap; line-height:1.2;}
+  .cc-sum b{font-size:.9375rem;}
+  .cc-sum span{margin-left:10px; font-size:.8125rem;}
+  /* The days are .wk-day, unchanged, except for what a circle needs. */
+  .cc-days .wk-day{cursor:default;}
+  .cc-days button.wk-day{cursor:pointer;}
+  .cc-days .wk-day.is-missed{
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%), var(--glass-tint);
+    border-color:#FFFFFF;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 1px rgba(255,255,255,.85), 0 2px 6px rgba(0,0,0,.35);}
+  .cc-days .wk-day.cc-blank{opacity:.3;}
+  .cc-heart{position:absolute; right:-4px; top:-4px; width:14px; height:14px; color:var(--cherry-text);}
+  .cc-heart svg{width:14px; height:14px; display:block; fill:currentColor; stroke:none;}
   .cc-key{margin-top:18px; font-size:.8125rem; color:#FFFFFF; line-height:1.5;}
   .cc-kept, .cc-past{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:8px;
     padding:13px 16px; border-radius:var(--tile-radius); border:1px solid var(--t-tile-rim); background:var(--t-tile);
@@ -11201,18 +11204,8 @@
   .cc-quiet{margin-top:12px; text-align:center; font-size:.8125rem; color:#FFFFFF;}
   .cc-code{margin:16px 0 4px; text-align:center; font-size:1.625rem; letter-spacing:.12em; color:#FFFFFF;}
   .cc-leave{margin-top:18px;}
-  /* A 320 phone: the seven days keep a clear gap between them, and both
-     actions stay on one line. */
+  /* A 320 phone: both actions stay on one line. */
   .modal-card.circle-page .page-foot .btn{white-space:nowrap; padding-left:10px; padding-right:10px;}
-  @media (max-width:380px){
-    .cc-grid{grid-template-columns:minmax(46px,1fr) repeat(7,minmax(0,1fr)) max-content; column-gap:2px;}
-    .cc-sum{font-size:.75rem;}
-    .cc-sum b{font-size:.8125rem;}
-    .cc-d{width:16px; height:16px;}
-    .cc-rest{width:5px; height:5px;}
-    .cc-name{font-size:.8125rem;}
-    .cc-heart{right:-6px; top:-6px;}
-  }
   .cc-sheet-body{padding:4px 0 6px;}
   .cc-sheet{max-height:92vh; overflow-y:auto; overscroll-behavior:contain;}
   .cc-sheet .field{margin-top:12px;}
@@ -71655,39 +71648,56 @@ function circleListNames(names){
 }
 
 /* ---- the page ---- */
+/* EACH DAY IS THE APP'S DAY CIRCLE. Founder: "the same day circles we have
+   on This Week just scaled down to fit. Same behaviours ... Just not red for
+   a missed day stay white." So a day here is .wk-day itself, the glass disc
+   with its letter above its date: green ring when done, today underlined in
+   cherry, a rest day faded. Only missed differs, white instead of red,
+   because a circle is accountability between friends, not a mark against
+   anyone. A day with nothing shared (before someone joined) is fainter
+   still, so it never reads as a rest. */
 function circleCellHtml(uid, day, today){
-  var d = circleDayFor(uid, day);
-  var heart = '';
-  if (d && d.state === 'done' && circleCheersFor(uid, day).length)
-    heart = '<span class="cc-heart" aria-hidden="true">'+ICONS.heart+'</span>';
-  if (d && d.state === 'done')
-    return '<div class="cc-c"><button type="button" class="cc-d cc-done" data-action="circle-day" '+
-      'data-user="'+escapeHtml(uid)+'" data-date="'+day+'" aria-label="'+escapeHtml(circleName(uid)+', '+(d.session_label||'session')+' done, '+dow(day))+'">'+heart+'</button></div>';
-  if (d && d.state === 'missed') return '<div class="cc-c"><span class="cc-d cc-miss" aria-label="Missed"></span></div>';
-  if (d && (d.state === 'rest' || d.state === 'restricted')) return '<div class="cc-c"><span class="cc-d cc-rest" aria-label="Rest"></span></div>';
-  if (d && d.state === 'planned') return '<div class="cc-c"><span class="cc-d cc-next'+(day === today ? ' is-today' : '')+'" aria-label="To come"></span></div>';
-  return '<div class="cc-c"></div>';
+  var d = circleDayFor(uid, day), st = d ? d.state : '';
+  var cls = 'wk-day cc-day';
+  if (st === 'done') cls += ' is-done';
+  else if (st === 'missed') cls += ' is-missed';
+  else if (st === 'rest' || st === 'restricted') cls += ' is-rest is-past';
+  else if (!st) cls += ' cc-blank';
+  if (day === today) cls += ' is-today';
+  var face = '<span class="wk-day-d font-head">'+escapeHtml(dow(day).charAt(0))+'</span>'+
+    '<span class="wk-day-n">'+Number(day.slice(8, 10))+'</span>';
+  if (st === 'done'){
+    var heart = circleCheersFor(uid, day).length
+      ? '<span class="cc-heart" aria-hidden="true">'+ICONS.heart+'</span>' : '';
+    return '<button type="button" class="'+cls+'" data-action="circle-day" '+
+      'data-user="'+escapeHtml(uid)+'" data-date="'+day+'" aria-label="'+
+      escapeHtml(circleName(uid)+', '+(d.session_label||'session')+' done, '+dow(day))+'">'+face+heart+'</button>';
+  }
+  var said = st === 'missed' ? 'missed' : (st === 'rest' || st === 'restricted') ? 'rest'
+    : st === 'planned' ? 'to come' : 'nothing shared';
+  return '<span class="'+cls+'" role="img" aria-label="'+escapeHtml(dow(day)+', '+said)+'">'+face+'</span>';
 }
+/* ONE PERSON, ONE BLOCK. Founder: "names be at the top", so each member's
+   name sits above their seven days, with sessions done of set (and km, if
+   they share it) at the right of the name. Join order, never ranked. */
 function circleTableHtml(){
   var today = todayStr(), ws = circleWeekStart(today);
-  var letters = ['M','T','W','T','F','S','S'];
-  var html = '<div class="cc-grid" role="table" aria-label="This week">'+
-    '<div></div>'+letters.map(function(l, i){
-      return '<div class="cc-h'+(addDays(ws, i) === today ? ' is-today' : '')+'">'+l+'</div>';
-    }).join('')+'<div></div>';
+  var html = '<div class="cc-rows">';
   circle.members.forEach(function(m){
-    var uid = m.user_id, you = uid === circleMe();
-    var name = '<div class="cc-name">'+escapeHtml(you ? 'You' : m.display_name);
+    var uid = m.user_id, name = uid === circleMe() ? 'You' : m.display_name;
+    var head = '<div class="cc-row-head"><div class="cc-name">'+escapeHtml(name);
     if (!m.sharing){
-      html += name + '</div><div class="cc-paused">Not sharing right now</div>';
+      html += '<div class="cc-row">'+head+'</div><div class="cc-paused">Not sharing right now</div></div></div>';
       return;
     }
     var s = circleWeekSummary(uid, ws);
-    if (s.restricted) name += '<span class="cc-note">Resting by plan</span>';
-    html += name + '</div>';
-    for (var i = 0; i < 7; i++) html += circleCellHtml(uid, addDays(ws, i), today);
-    html += '<div class="cc-sum"><b>'+s.done+' of '+s.set+'</b>'+
-      (m.show_km && s.km > 0 ? fmtDist(s.km) : '')+'</div>';
+    if (s.restricted) head += '<span class="cc-note">Resting by plan</span>';
+    head += '</div><div class="cc-sum"><b>'+s.done+' of '+s.set+'</b>'+
+      (m.show_km && s.km > 0 ? '<span>'+fmtDist(s.km)+'</span>' : '')+'</div></div>';
+    var days = '';
+    for (var i = 0; i < 7; i++) days += circleCellHtml(uid, addDays(ws, i), today);
+    html += '<div class="cc-row">'+head+
+      '<div class="wk-days cc-days" role="group" aria-label="'+escapeHtml(name+', this week')+'">'+days+'</div></div>';
   });
   return html + '</div>';
 }
@@ -71737,10 +71747,14 @@ function circlePageHtml(){
     var full = circle.members.length >= CIRCLE_MAX;
     return head(circle.name)+
       '<div class="modal-body">'+
-        '<div class="rp-hero-say cc-lede">Everyone runs their own plan. This shows who has done theirs. Tap a green day to say nice work.</div>'+
+        /* Founder: "Your people. Your plans. Shared accountability. EARN
+           YOUR PLACE. I actually think that should be at the top." The
+           claim is the brand line, so it is gold, the brand colour. */
+        '<div class="cc-crest"><div class="cc-strap">Your people. Your plans. Shared accountability.</div>'+
+          '<div class="cc-claim">Earn your place</div></div>'+
         sectionRule('This Week, ' + dShort(circleWeekStart(todayStr())) + ' to ' + dShort(addDays(circleWeekStart(todayStr()), 6)), true)+
         circleTableHtml()+
-        '<div class="cc-key">Green is done. A white ring is missed. A small dot is rest. A heart is a nice work.</div>'+
+        '<div class="cc-key">Green is done. White is missed. A faded day is rest. A heart means someone said nice work. Tap a green day to say nice work.</div>'+
         circlePastWeeksHtml()+ err +
       '</div>'+
       '<div class="page-foot">'+
@@ -71752,7 +71766,7 @@ function circlePageHtml(){
     '<div class="modal-body">'+
       '<div class="rp-hero-say cc-lede">A small private group, two to eight people you choose. Each of you runs your own plan, and the circle sees who has done theirs this week. No rankings, no chat, and nothing sent to your phone.</div>'+
       sectionRule('How It Works', true)+
-      '<div class="pt-say">Each person is a row and each day is a dot: green when the session is done, a ring when it is missed, a small dot on a rest day. When everyone keeps their plan, the week turns green. Tap a green day to say nice work.</div>'+
+      '<div class="pt-say">Each person has a row of seven days: green when the session is done, white when it is missed, faded on a rest day. When everyone keeps their plan, the week turns green. Tap a green day to say nice work.</div>'+
       err+
     '</div>'+
     '<div class="page-foot">'+
@@ -71769,7 +71783,7 @@ function circleIntroSheetHtml(){
   return circleSheetShell('Your Circle',
     '<div class="cc-say">A small private group, two to eight people you choose. Each of you runs your own plan, and the circle sees who has done theirs this week.</div>'+
     '<div class="cc-intro-k">How it works</div>'+
-    '<div class="cc-intro">Each person is a row and each day is a dot: green when the session is done, a ring when it is missed, a small dot on a rest day. When everyone keeps their plan, the week turns green. Tap a green day to say nice work.</div>'+
+    '<div class="cc-intro">Each person has a row of seven days: green when the session is done, white when it is missed, faded on a rest day. When everyone keeps their plan, the week turns green. Tap a green day to say nice work.</div>'+
     '<div class="cc-intro">No rankings, no chat, and nothing sent to your phone.</div>'+
     '<div class="unlogged-actions cc-intro-acts">'+
       '<button type="button" class="btn btn-ghost" data-action="circle-join-open">Join with a Code</button>'+
