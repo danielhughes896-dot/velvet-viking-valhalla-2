@@ -386,3 +386,13 @@ test('the verdict on the share image is lit from its first letter', () => {
   assert.equal(hp.text, 'INTERVAL: DIALED');
   assert.equal(hp.text.slice(hp.accentFrom), 'DIALED');
 });
+
+/* ---------- RAN ANYWAY TYPES IN CHERRY ---------- */
+test('typing a run on a rest day lights the cherry ring, never the old gold', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  const css = src.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const rule = /\n  \.optional-block :focus-visible\{outline-color:var\(--cherry-text\);\}/;
+  assert.match(css, rule);
+  assert.ok(css.search(rule) > css.indexOf('\n  :focus-visible{'), 'it must come after the global gold ring to win');
+});
