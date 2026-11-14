@@ -175,6 +175,20 @@ function loadApp(options) {
   vm.createContext(sandbox);
   new vm.Script(src, { filename: 'velvet-viking-valhalla.html (inline script)' }).runInContext(sandbox);
 
+  /* THE QUESTION SHEET, ANSWERED HERE BY `confirm`. Every confirmation in
+     the app is a glass sheet now (askSacoro), answered by a tap this stub
+     document cannot make. So the harness answers it the way it always
+     answered the system dialog: `app.confirm` (accept by default, or a
+     test's own decline). The flows under test are unchanged; the sheet
+     itself is tested directly through `__askSacoroSheet`. */
+  if (typeof sandbox.askSacoro === 'function'){
+    sandbox.__askSacoroSheet = sandbox.askSacoro;
+    sandbox.askSacoro = function(o){
+      const yes = sandbox.confirm([o.say, o.hint].filter(Boolean).join('\n\n'));
+      if (yes) o.onYes(); else if (o.onNo) o.onNo();
+    };
+  }
+
   return sandbox;
 }
 

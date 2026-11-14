@@ -115,7 +115,7 @@ test('a page with something to commit carries it in a foot, outside the body', (
   assert.match(shell, /<div class="modal-body"><p>b<\/p><\/div><div class="page-foot"><button>go<\/button><\/div>$/,
     'the foot is not a sibling after the body, so the page cannot pin it');
   assert.doesNotMatch(a.recordPanelShell('T', 'b'), /page-foot/, 'a page with nothing to commit grew an empty foot');
-  ['resetplan', 'newblock', 'update'].forEach((key) => {
+  ['resetplan', 'newblock'].forEach((key) => {
     const html = a.hqPanelHtml(key);
     const body = html.indexOf('<div class="modal-body">');
     const foot = html.indexOf('<div class="page-foot">');
@@ -184,7 +184,7 @@ test('Reset: the second press clears, with no dialog, and only if the page asked
   assert.equal(a.resetPlanConfirmedOnPage, false, 'the answer outlived the call it was given to');
 });
 
-test('Reset: any other caller is still asked by the system, and opening the page disarms it', () => {
+test('Reset: any other caller is asked on a glass sheet, and opening the page disarms it', () => {
   const a = athlete();
   let asked = 0;
   a.confirm = () => { asked++; return false; };
@@ -305,16 +305,18 @@ test('Coaching detail and the injury tiles light the chosen answer in cherry, ne
 /* ---------- check for updates ---------- */
 
 test('App Update is always in Settings, on the web and in the app', () => {
+  /* Founder, agreeing the Settings review: the row asks and answers in
+     place rather than opening a near-empty page. */
   const web = athlete();
-  assert.match(web.renderSettingsHubView(), /data-action="open-settings-panel" data-panel="update"/,
+  assert.match(web.renderSettingsHubView(), /id="app-update-row"[^>]*data-action="check-app-update"/,
     'there is nowhere to ask whether Sacoro is up to date');
   const native = athlete();
   native.Capacitor = { isNativePlatform: () => true };
   native.nativeAppInfo = { build: String(native.LATEST_NATIVE_BUILD), version: '9.9' };
   const html = native.renderSettingsHubView();
-  assert.match(html, /data-panel="update"/);
+  assert.match(html, /id="app-update-row"/);
   assert.doesNotMatch(html, /Update Sacoro/, 'a current app is told an update is available');
-  assert.match(native.hqPanelHtml('update'), /Installed app[\s\S]*9\.9 \(/, 'the page does not say which app is installed');
+  assert.match(native.appUpdateRowHtml(), /Installed 9\.9 \(/, 'the row does not say which app is installed');
 });
 
 test('the check compares the served stylesheet and script with the ones running', () => {
@@ -360,32 +362,27 @@ test('an Android app behind the store is sent there; a stale page is reloaded fi
   behind.nativeAppInfo = { build: String(behind.LATEST_NATIVE_BUILD - 1), version: '1.0' };
   assert.equal(await behind.checkForAppUpdate(), 'store');
   /* Through openExternal(): a new window is what went nowhere in the app. */
-  assert.match(behind.hqPanelHtml('update'), /<button type="button" class="btn btn-primary" data-action="open-external" data-href="https:\/\/play\.google\.com[^"]*">Open Google Play<\/button>/);
+  assert.match(behind.appUpdateRowHtml(), /data-action="open-external" data-href="https:\/\/play\.google\.com[^"]*"[\s\S]*Tap to open it/);
   /* The page being newer comes first: the fresh one knows the store's latest. */
   const both = checker(['s', 'j'], ['s', 'j2']);
   both.Capacitor = behind.Capacitor; both.nativeAppInfo = behind.nativeAppInfo;
   assert.equal(await both.checkForAppUpdate(), 'ready');
-  assert.match(both.hqPanelHtml('update'), /data-action="apply-app-update"[^>]*>Update now/);
+  assert.match(both.appUpdateRowHtml(), /data-action="apply-app-update"[\s\S]*A new version is ready\. Tap to update/);
 });
 
-test('the page says what it found, and opening it asks without being told to', async () => {
+test('the row says what it found, and asks only when tapped', async () => {
   const a = checker(['s', 'j'], ['s', 'j']);
-  const calls = opened(a);
-  a.openSettingsPanel('update');
-  assert.match(calls[0].html, /Check for updates/);
-  assert.equal(a.appUpdateState.status, 'checking', 'opening the page did not start the check');
-  assert.match(a.hqPanelHtml('update'), /disabled/, 'the check can be started twice at once');
+  assert.match(a.appUpdateRowHtml(), /Check for updates/);
+  const p = a.checkForAppUpdate();
+  assert.equal(a.appUpdateState.status, 'checking');
+  assert.match(a.appUpdateRowHtml(), /disabled[\s\S]*Checking/, 'the check can be started twice at once');
   let fetches = 0;
   const realFetch = a.fetch;
   a.fetch = function () { fetches++; return realFetch.apply(this, arguments); };
   assert.equal(await a.checkForAppUpdate(), 'checking', 'a second check ran on top of the first');
   assert.equal(fetches, 0, 'the app was downloaded twice for one question');
-  await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
+  await p;
   assert.equal(a.appUpdateState.status, 'current');
-  assert.match(a.hqPanelHtml('update'), /You have the latest version\./);
-  assert.match(a.hqPanelHtml('update'), /data-action="check-app-update">Check again/);
-  /* Yesterday's answer is not shown as today's. */
-  a.appUpdateState.status = 'ready';
-  a.stgPanelOpening('update');
-  assert.equal(a.appUpdateState.status, 'idle');
+  assert.match(a.appUpdateRowHtml(), /You have the latest version\./);
+  assert.match(a.appUpdateRowHtml(), /data-action="check-app-update"/, 'the row cannot ask again');
 });

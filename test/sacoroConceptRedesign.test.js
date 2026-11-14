@@ -157,7 +157,7 @@ test('HERO: the unit toggle is still real, and reachable from Settings', () => {
   assert.match(settings, /class="tb-unit-toggle"/, 'the toggle did not arrive in Settings');
   assert.match(settings, /data-action="set-units" data-units="km"/);
   assert.match(settings, /data-action="set-units" data-units="mi"/);
-  assert.match(settings, />Distance units</, 'the units row does not name itself');
+  assert.match(settings, />Distance Units</, 'the units row does not name itself');
   /* AND IT STILL REFLECTS THE STATE IT SETS, which is the half of a moved
      control that is easiest to drop on the way. */
   a.state.units = 'mi';

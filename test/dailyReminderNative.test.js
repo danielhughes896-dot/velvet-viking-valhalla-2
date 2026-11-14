@@ -33,7 +33,7 @@ function phone(pin, perm){
 
 test('turning it on asks the phone, then schedules the next seven mornings at 08:00, each naming its session', async () => {
   const { a, ln, toasts } = phone('2026-11-12T07:00:00Z');
-  assert.match(text(a.renderNotifyToggleRow()), /Daily 08:00 Workout Reminder Off/);
+  assert.match(text(a.renderNotifyToggleRow()), /Daily Reminder Off/);
   await a.handleToggleNotify();
   assert.equal(ln.asked, 1, 'the phone was not asked for permission');
   assert.equal(a.state.notifyEnabled, true);
@@ -57,7 +57,7 @@ test('turning it on asks the phone, then schedules the next seven mornings at 08
   const n = ln.scheduled.filter(x => x.schedule.at.toISOString().slice(0, 10) === run.date || x.id === 8000 + Math.round((Date.parse(run.date) - Date.parse('2026-11-12')) / 864e5))[0];
   assert.match(n.body, new RegExp('^Today: ' + a.displayCardTitle(run).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ', '));
   assert.deepEqual(toasts, ['Daily 08:00 reminder on']);
-  assert.match(text(a.renderNotifyToggleRow()), /On\. Every morning at 08:00, with that day’s session/);
+  assert.match(text(a.renderNotifyToggleRow()), /Daily Reminder 08:00, with that day’s session/);
 });
 
 test('a morning already gone is not scheduled, and the last schedule is cleared first', async () => {

@@ -174,8 +174,11 @@ test('Settings: a session the server has revoked is shown as ended, without hidi
   const html = a.renderCloudCard();
   assert.match(html, /Access ended/);
   assert.match(html, /no longer has access/i);
-  assert.match(html, /data-action="cloud-sign-out"/, 'signing out must still be reachable');
-  assert.match(html, /data-action="cloud-delete-account"/, 'deleting the account must still be reachable');
+  // both are asked on a glass sheet now, which the Account page opens
+  assert.match(html, /data-action="open-stg-sheet" data-sheet="signout"/, 'signing out must still be reachable');
+  assert.match(html, /data-action="open-stg-sheet" data-sheet="deleteaccount"/, 'deleting the account must still be reachable');
+  assert.match(a.signOutSheetBody(), /data-action="stg-sign-out"/);
+  assert.match(a.deleteAccountSheetBody(), /data-action="cloud-delete-account-confirmed"/);
 });
 
 test('Settings: entitlementInfo remains display-only -- a revoked flag changes copy, never what is offered', () => {

@@ -319,7 +319,7 @@ test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
     .concat(Object.keys(a.ACTION_PANELS));
   assert.ok(keys.length >= 11, 'panels vanished from the registries: ' + keys.length);
   assert.ok(keys.indexOf('goal') !== -1, 'the goal panel is not in the registry');
-  assert.ok(keys.indexOf('prefs') !== -1, "Settings' preferences panel is not in the registry");
+  assert.ok(keys.indexOf('health') !== -1, "Settings' health panel is not in the registry");
   keys.forEach(key => {
     const panel = a.hqPanelHtml(key);
     assert.ok(panel, key + ' produced no panel');

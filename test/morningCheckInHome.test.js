@@ -64,15 +64,18 @@ test('Today asks the morning check-in on a morning the coach has a concern', () 
   const app = concernedMorning();
   const dec = app.coachAnalyse().decision;
   assert.equal(dec.readinessEarned, true, 'the fixture must be a morning the check-in is earned on');
+  /* Founder: "Make daily check in behave like the settings bottom pops up."
+     Today carries the row that raises it; the sheet carries the questions. */
   const html = app.renderTodayView();
-  assert.match(html, /class="today-checkin"/);
+  assert.match(html, /class="today-checkin is-ask"/);
   assert.match(html, /How are you today\?/);
-  assert.equal((html.match(/data-action="set-readiness"/g) || []).length, 8, 'three legs, three sleep, two health');
+  assert.match(html, /data-action="open-checkin-sheet"/);
+  assert.equal((app.checkinSheetBody().match(/data-action="set-readiness"/g) || []).length, 8, 'three legs, three sleep, two health');
 });
 
 test('it is asked before the session is read, not after it', () => {
   const html = concernedMorning().renderTodayView();
-  const ask = html.indexOf('class="today-checkin"');
+  const ask = html.indexOf('class="today-checkin is-ask"');
   const session = html.indexOf('class="day-top"');
   assert.ok(ask > 0 && session > 0);
   assert.ok(ask < session, 'an answer can change what is advised for the session');
@@ -91,7 +94,7 @@ test('and on an ordinary morning with nothing wrong: it is asked every day', () 
   assert.equal(app.coachAnalyse().decision.readinessEarned, false,
     'the coach has no concern -- which used to mean the athlete was not asked');
   const html = app.renderTodayView();
-  assert.match(html, /class="today-checkin"/);
+  assert.match(html, /class="today-checkin is-ask"/);
   assert.match(html, /How are you today\?/);
 });
 
@@ -150,11 +153,14 @@ test('answered in full, its one confirming line moves under the Injured or ill s
 test('reopened to change an answer, it opens where it was tapped, at the foot', () => {
   const app = concernedMorning();
   ['legs:heavy', 'sleep:ok', 'health:good'].forEach((p) => app.handleSetReadiness.apply(app, p.split(':')));
+  const got = [];
+  app.openModal = (h, cls) => got.push({ h, cls });
   app.handleReadinessEdit();
   const html = app.renderTodayView();
   const panel = html.indexOf('class="today-checkin');
-  assert.ok(panel > html.indexOf('Injured or ill?'));
-  assert.equal((html.slice(panel).match(/data-action="set-readiness"/g) || []).length, 8);
+  assert.ok(panel > html.indexOf('Injured or ill?'), 'the line stays at the foot');
+  assert.equal(got.length, 1, 'tapping it raises the sheet');
+  assert.equal((got[0].h.match(/data-action="set-readiness"/g) || []).length, 8);
 });
 
 test('the confirming line is pure white', () => {
@@ -278,4 +284,32 @@ test('the words sit in the middle of the tile, chosen or not', () => {
   assert.doesNotMatch(tile, /padding:\d+px \d+px 26px/, 'room held under the label pushes it off centre');
   const tick = cssRule('  .readiness-btn.on::after');
   assert.match(tick, /right:8px; top:8px;/, 'the tick is in the corner, so choosing an answer does not move its words');
+});
+
+test('the sheet rises by itself once a day on Today, and never over something else', () => {
+  const app = concernedMorning();
+  const got = [];
+  app.openModal = (h, cls, key) => got.push({ h, cls, key });
+  app.state.view = 'today';
+  app.document.getElementById = () => null;          // nothing else is up
+  app.maybeRaiseCheckinSheet(false);
+  assert.equal(got.length, 1, 'the sheet did not rise on Today');
+  assert.match(got[0].cls, /\bstg-sheet\b/);
+  assert.equal(got[0].key, 'checkin');
+  app.maybeRaiseCheckinSheet(false);
+  assert.equal(got.length, 1, 'dismissed, it rose again the same day');
+  const b = concernedMorning();
+  const gotB = [];
+  b.openModal = (h) => gotB.push(h);
+  b.state.view = 'week'; b.maybeRaiseCheckinSheet(false);
+  b.state.view = 'today'; b.maybeRaiseCheckinSheet(true);
+  assert.equal(gotB.length, 0, 'it rose off Today, or over the arrival screen');
+});
+
+test('the boxes in the sheet are thinner, and still a full tap tall', () => {
+  const i = CODE.indexOf('  .checkin-sheet .readiness-btn{');
+  assert.ok(i > 0);
+  const rule = CODE.slice(i, CODE.indexOf('}', i));
+  assert.match(rule, /min-height:var\(--tap-min\)/);
+  assert.match(rule, /border-color:rgba\(255,255,255,\.1\)/);
 });

@@ -146,7 +146,7 @@ test('every settings row still opens its own panel', () => {
     pairs[m[1]] = m[2];
   }
   for (const [panel, needle] of [
-      ['account', 'Account'], ['prefs', 'Preferences'], ['health', 'Health'],
+      ['account', 'Account'], ['health', 'Health'],
       ['training', 'Training &amp; Zones'], ['backup', 'Export']]){
     assert.ok(pairs[panel], 'the ' + panel + ' row is gone from Settings');
     assert.ok(pairs[panel].indexOf(needle) > -1,

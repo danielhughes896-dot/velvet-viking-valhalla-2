@@ -90,6 +90,8 @@ const panel = app => app.renderReadinessCheck(app.coachDecision());
    question is "did the coach receive it". */
 const evidence = app => app.coachDecision().evidenceCount;
 const selectedCount = html => (html.match(/class="readiness-btn on"/g) || []).length;
+/* The check-in rises as a glass sheet now; this catches what it raised. */
+const sheetOf = app => { const got = []; app.openModal = (html, cls, key) => got.push({ html, cls, key }); return got; };
 
 // =====================================================================
 // 1. THE DEFECT: one answer must not close the panel
@@ -216,18 +218,18 @@ test('the completed state is tappable, and reopens with the saved answers select
   assert.match(collapsed, /data-action="readiness-edit"/, 'the confirmation must be reopenable');
   assert.match(collapsed, /aria-expanded="false"/);
 
+  const got = sheetOf(app);
   app.handleReadinessEdit();
-  const reopened = panel(app);
+  assert.equal(got.length, 1, 'reopening raises the check-in sheet');
+  assert.match(got[0].cls, /stg-sheet/);
+  const reopened = got[0].html;
   assert.equal(selectedCount(reopened), 3, 'reopening shows the actual saved selections');
   assert.match(reopened, /data-rk="legs" data-rv="heavy"/);
   assert.match(reopened, /data-rk="sleep" data-rv="ok"/);
   assert.match(reopened, /data-rk="health" data-rv="under"/);
-  assert.match(reopened, /aria-expanded="true"/);
   assert.doesNotMatch(reopened, /How are you today\?/,
     'a reopened finished check-in is not asking again, it is showing');
-
-  app.handleReadinessEdit();
-  assert.match(panel(app), /aria-expanded="false"/, 'and it folds back up');
+  assert.match(panel(app), /aria-expanded="false"/, 'the line on Today stays a line');
 });
 
 test('amending a reopened answer persists, and is what the coach then reads', () => {
@@ -235,7 +237,11 @@ test('amending a reopened answer persists, and is what the coach then reads', ()
   app.handleSetReadiness('legs', 'fresh');
   app.handleSetReadiness('sleep', 'good');
   app.handleSetReadiness('health', 'good');
+  const got = sheetOf(app);
   app.handleReadinessEdit();
+  let closed = false;
+  app.checkinSheetIsOpen = () => true;
+  app.closeModal = () => { closed = true; };
 
   app.handleSetReadiness('health', 'under');
   assert.equal(app.coachReadinessToday().health, 'under', 'the correction is saved');
@@ -243,8 +249,9 @@ test('amending a reopened answer persists, and is what the coach then reads', ()
   assert.ok(app.coachDecision().reasons.some(r => /under the weather/i.test(r)),
     'the coach must act on the corrected value, not the one it was told first');
 
-  assert.match(panel(app), /aria-expanded="true"/,
-    'amending an already-complete check-in leaves the panel open under the thumb');
+  assert.equal(closed, false, 'amending an already-complete check-in leaves the sheet open under the thumb');
+  assert.equal(got.length, 2, 'and the sheet is redrawn with the correction');
+  assert.match(got[1].html, /data-rk="health" data-rv="under"/);
 });
 
 test('an amendment that empties a dimension makes the check-in partial again', () => {
@@ -417,8 +424,9 @@ test('reopening after a reload shows the saved selections, not blanks', () => {
   const restored = loadApp({ pinnedDate: PINNED });
   restored.state = JSON.parse(JSON.stringify(app.state));
   assert.match(panel(restored), /Legs normal/, 'the confirmation reads back what was saved');
+  const got = sheetOf(restored);
   restored.handleReadinessEdit();
-  assert.equal(selectedCount(panel(restored)), 3);
+  assert.equal(selectedCount(got[0].html), 3);
 });
 
 // =====================================================================

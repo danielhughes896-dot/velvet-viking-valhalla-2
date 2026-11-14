@@ -306,7 +306,8 @@ test('the education prompt opens as a ci-modal, which is what the rule hangs on'
      "# fail" line past the mutation runner's buffer and reported a guard
      that works as one that does not. A test nobody can read the failure of
      is not a test. */
-  assert.ok(SRC.indexOf("openModal(renderContextInsight(ins), 'modal-themed builder-light ci-modal')") > -1,
+  // It rises as the glass sheet now (founder's three interaction styles).
+  assert.ok(SRC.indexOf("openModal(renderContextInsight(ins), 'modal-themed stg-sheet ci-modal')") > -1,
     'the education prompt no longer opens as a ci-modal — its styling is gone with the class');
 });
 

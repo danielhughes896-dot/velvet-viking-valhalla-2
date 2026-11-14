@@ -164,13 +164,18 @@ test('the reversible act and the permanent one do not look alike', () => {
      name them -- Settings lists destinations now. The claim is unchanged
      and is the only thing that matters here: the reversible act and the
      permanent one must not wear the same treatment, wherever they live. */
-  const settings = a.renderSettingsHubView() + a.hqPanelHtml('resetplan') + a.hqPanelHtml('account');
+  const settings = a.renderSettingsHubView() + a.hqPanelHtml('resetplan') + a.hqPanelHtml('account') +
+    a.deleteAccountSheetBody();
 
   const resetBtn = /<button[^>]*data-action="reset-plan"[^>]*>/.exec(settings);
   assert.ok(resetBtn, 'Reset Plan is missing from Settings');
-  const deleteBtn = /<button[^>]*data-action="cloud-delete-account"[^>]*>/.exec(settings)[0];
+  /* The page's control opens the glass sheet that asks; the sheet's own
+     control deletes. Both keep the danger treatment. */
+  const deleteBtn = /<button[^>]*data-sheet="deleteaccount"[^>]*>/.exec(settings)[0];
+  const confirmBtn = /<button[^>]*data-action="cloud-delete-account-confirmed"[^>]*>/.exec(settings)[0];
 
   assert.match(deleteBtn, /btn-danger/, 'deleting an account must keep the danger treatment');
+  assert.match(confirmBtn, /btn-danger/, 'the sheet that deletes lost the danger treatment');
   assert.doesNotMatch(resetBtn[0], /btn-danger/,
     'Reset Plan keeps every logged run — dressing it as destruction makes the ' +
     'genuinely destructive control look ordinary by comparison');
@@ -194,7 +199,7 @@ test('EVERY Reset Plan control, not just the one on the hub', () => {
     assert.doesNotMatch(b, /btn-danger/, 'Reset Plan #' + (i + 1) + ' still reads as destruction');
     assert.match(b, /btn-ghost/, 'Reset Plan #' + (i + 1) + ' has lost its ordinary treatment');
   });
-  const deletes = CODE.match(/<button[^>]*data-action=\\?"cloud-delete-account\\?"[^>]*>/g) || [];
+  const deletes = CODE.match(/<button[^>]*(?:data-action=\\?"cloud-delete-account(?:-confirmed)?\\?"|data-sheet=\\?"deleteaccount\\?")[^>]*>/g) || [];
   assert.ok(deletes.length >= 1);
   deletes.forEach(b => assert.match(b, /btn-danger/,
     'account deletion must keep the danger treatment everywhere it appears'));

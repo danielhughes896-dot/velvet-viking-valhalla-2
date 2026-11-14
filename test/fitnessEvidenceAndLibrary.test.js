@@ -239,7 +239,9 @@ test('the swap guards and the fields that travel are untouched', () => {
   ['type','title','km','desc','mpSegment','completed','actual','prescription','manualEdit']
     .forEach(f => assert.ok(a.SWAPPED_WORKOUT_FIELDS.indexOf(f) !== -1, f + ' stopped travelling'));
   assert.equal(typeof a.swapWouldPlaceCompletionInFuture, 'function');
-  assert.equal(typeof a.confirmSwapIfLogged, 'function');
+  // the logged-run question is asked on a glass sheet now (askSwapThen)
+  assert.equal(typeof a.swapLoggedQuestion, 'function');
+  assert.equal(typeof a.askSwapThen, 'function');
 });
 
 // =====================================================================

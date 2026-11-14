@@ -144,7 +144,7 @@ test('the Settings section reuses the existing hub architecture', () => {
   const a0 = app();
   buildPlan(a0, { weeks: 12, startDate: TODAY, distanceKey: 'half' });
   const view = a0.renderSettingsHubView();
-  assert.match(view, /<div class="setup-section-title">Data<\/div>/, 'must use the existing setup-section-title heading');
+  assert.match(view, /<div class="setup-section-title">Data &amp; Privacy<\/div>/, 'must use the existing setup-section-title heading');
   assert.match(view, /data-action="open-contact"/);
   assert.match(view.slice(view.indexOf('open-contact') - 200, view.indexOf('open-contact')), /ev-card stg-nav/, 'must use the shared tappable-destination row class');
   assert.equal((RUNTIME.match(/function stgGroup\(/g) || []).length, 1,

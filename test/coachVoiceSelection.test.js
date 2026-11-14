@@ -181,12 +181,16 @@ test('Coach Voice sits in Settings with the other presentation preferences', () 
      strength & mobility. That it is one of exactly those four is a stronger
      statement of the claim than its position in a scroll was. */
   const a = app();
+  /* Founder, agreeing the Settings review: Preferences is shown on the
+     Settings screen itself, and Coach Voice is a row there that raises a
+     glass sheet with the voices in it. */
   const html = a.renderSettingsHubView();
-  assert.match(html, /data-action="open-settings-panel" data-panel="prefs"/,
-    'Settings has no Preferences destination');
-  const panel = a.hqPanelHtml('prefs');
-  assert.ok(panel.indexOf('coach-voice-row') !== -1, 'Coach Voice is not in Preferences');
+  const prefsAt = html.indexOf('>Preferences<');
+  assert.ok(prefsAt !== -1, 'Settings has no Preferences group');
+  const panel = html.slice(prefsAt, html.indexOf('setup-section-title', prefsAt + 20));
+  assert.match(panel, /id="coach-voice-hub-row"[^>]*data-action="open-stg-sheet" data-sheet="voice"/, 'Coach Voice is not in Preferences');
   assert.ok(panel.indexOf('notify-toggle-row') !== -1, 'the reminder left Preferences');
+  assert.ok(a.renderCoachVoiceRow().indexOf('coach-voice-row') !== -1, 'the voices are not in the sheet');
   /* COACHING DETAIL IS GONE. Founder: "Coach detail - should be the same for
      everyone - remove." Everyone gets the one level, Adaptive, and a save
      still carrying Full or Concise is brought back to it when it loads. */
