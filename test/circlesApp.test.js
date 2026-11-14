@@ -53,13 +53,17 @@ test('hidden until the database exists: no circle box when the functions are mis
   assert.equal(a.renderCircleTodayLine(), '');
 });
 
-test('signed out: nothing is asked and nothing is shown', async () => {
+test('signed out: nothing is asked, and the box offers to sign in rather than hiding', async () => {
   const a = athlete();
   a.cloudSignedIn = () => false;
   const calls = cloud(a, () => null);
   await a.circleLoad();
   assert.equal(calls.length, 0);
-  assert.equal(a.circlePlateHtml(), '');
+  assert.match(a.circlePlateHtml(), /data-action="circle-signin"[\s\S]*Your Circle[\s\S]*Sign in/,
+    'an athlete without an account never learns circles exist');
+  assert.match(a.circleSigninSheetHtml(), /id="cloud-email"[\s\S]*data-action="cloud-sign-in"/);
+  a.cloudConfigured = () => false;
+  assert.equal(a.circlePlateHtml(), '', 'a build with no account service offered sign-in');
 });
 
 test('not in a circle yet: the box offers to start one', async () => {
@@ -89,6 +93,9 @@ test('what the athlete sends: one line a day from the plan, and never the plan',
   assert.equal(by(restricted).state, 'restricted');
   assert.equal(by(restricted).session_label, null, 'a restriction must not say what it is');
   assert.equal(by(today).state, 'planned');
+  rows.filter(r => r.state === 'planned' || r.state === 'rest').forEach(r =>
+    assert.equal(r.session_label, null, 'a day still to come showed its session name, which is the plan'));
+  rows.filter(r => r.state === 'done' || r.state === 'missed').forEach(r => assert.ok(r.session_label));
   assert.ok(rows.every(r => r.km === null), 'km was sent while km is off');
   rows.forEach(r => assert.equal(r.user_id, ME));
 });

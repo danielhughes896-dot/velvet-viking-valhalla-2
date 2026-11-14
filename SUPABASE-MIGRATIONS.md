@@ -60,6 +60,14 @@ file 6 avoids. A view is derived, not data: re-running the corrected 7 and
 running 9 leave a database in exactly the same state, and neither touches a row.
 The two definitions are asserted identical by test, not compared by eye.
 
+File 12 was applied to production on 14 November 2026. Its first live
+application came from outside this file and added a "done must be real" check
+that copied the plan's distance into the shared row after the km gate, so km
+reached the circle with km switched off. No circle existed yet. The check now
+in the file (STEP 4b) confirms a done day against the athlete's own plan and
+never sets km or the session name; it was applied over the live one the same
+day, and every circle function in production now matches this file exactly.
+
 File 12 is the first table where one athlete's data is visible to another,
 so it is the first migration proved by ACTING AS PEOPLE rather than by reading
 the SQL: see "Proving a migration" below. Like 11 it goes after 10, is created

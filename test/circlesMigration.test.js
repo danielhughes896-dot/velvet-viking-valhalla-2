@@ -60,10 +60,22 @@ test('the circle sees only what the table needs, and never a reason or a body', 
   assert.match(d, /state in \('done','missed','rest','restricted','planned'\)/);
   assert.match(d, /check \(state <> 'restricted' or session_label is null\)/, 'a restriction must not carry its reason');
   assert.match(d, /check \(km is null or state = 'done'\)/);
+  assert.match(d, /circle_days_label_only_for_finished check \(session_label is null or state in \('done','missed'\)\)/,
+    'a planned day must not carry its name: that is the plan');
   assert.match(d, /references public\.circle_members\(user_id\) on delete cascade/,
     'leaving must delete a member\'s days, not leave them behind');
   assert.doesNotMatch(code, /\b(pace|heart|hr_|readiness|notes?\b|lthr)/i, 'a body measure has a column');
-  assert.doesNotMatch(code, /public\.plans\b/, 'circles must never touch the programme');
+  assert.doesNotMatch(code, /(insert\s+into|update|delete\s+from)\s+public\.plans/i, 'circles must never change the programme');
+  assert.equal((code.match(/public\.plans\b/g) || []).length, 1, 'the plan is read in one place only');
+});
+
+test('"done" must be a session the plan records as completed, and the check never sets km', () => {
+  const fn = code.slice(code.indexOf('function public.circle_days_verified_completion'), code.indexOf('drop trigger if exists circle_days_verified_completion'));
+  assert.match(fn, /d\.value->>'completed' = 'true'/);
+  assert.match(fn, /return null;/, 'an unconfirmed day must be skipped, not fail the whole send');
+  assert.doesNotMatch(fn, /raise exception/);
+  assert.doesNotMatch(fn, /new\.km|new\.session_label/, 'the check must not put km or a name on a shared day');
+  assert.match(code, /create trigger circle_days_verified_completion\s+before insert or update on public\.circle_days/);
 });
 
 test('km is dropped by the database while it is off, and deleted when it is switched off', () => {

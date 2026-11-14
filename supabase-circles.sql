@@ -23,9 +23,11 @@
 -- NEVER: pace, heart rate, readiness, notes, the plan itself, the reason for
 -- a restriction, or anything about their body. None of it has a column here.
 --
--- THE PROGRAMME IS UNTOUCHED. Nothing in this file reads or writes
--- public.plans. A circle receives a copy of what the athlete has done; nothing
--- flows back. Joining, pausing and leaving change nothing in anyone's plan.
+-- THE PROGRAMME IS UNTOUCHED. Nothing in this file writes public.plans. It is
+-- read in exactly one place, to confirm that a day sent as "done" is a session
+-- the athlete's own plan records as completed (STEP 4b); nothing read there is
+-- shared. A circle receives a copy of what the athlete has done; nothing flows
+-- back. Joining, pausing and leaving change nothing in anyone's plan.
 --
 -- HOW CHANGES ARE MADE. The browser can READ what its circle may see and can
 -- WRITE only its own day rows. Every other change -- create, invite, join,
@@ -104,9 +106,22 @@ create table if not exists public.circle_days (
   updated_at    timestamptz not null default now(),
   primary key (user_id, day),
   constraint circle_days_restricted_says_nothing check (state <> 'restricted' or session_label is null),
-  constraint circle_days_km_only_when_done      check (km is null or state = 'done')
+  constraint circle_days_km_only_when_done      check (km is null or state = 'done'),
+  constraint circle_days_label_only_for_finished check (session_label is null or state in ('done','missed'))
 );
 alter table public.circle_days enable row level security;
+-- A NAME ONLY ON A DAY THAT HAS HAPPENED. A planned day's session name would
+-- show the circle the athlete's plan ahead, and the circle never sees the
+-- plan. Added to production on its first application (from outside this
+-- file) and adopted here so the file matches it; added by name for a
+-- database that ran an earlier version of this file.
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'circle_days_label_only_for_finished'
+                    and conrelid = 'public.circle_days'::regclass) then
+    alter table public.circle_days add constraint circle_days_label_only_for_finished
+      check (session_label is null or state in ('done','missed'));
+  end if;
+end $$;
 
 -- "Nice work": one per giver, per receiver, per day. Keyed to both
 -- memberships, so it disappears with either member when they leave.
@@ -270,6 +285,47 @@ drop trigger if exists circle_members_km_off on public.circle_members;
 create trigger circle_members_km_off
   after update of show_km on public.circle_members
   for each row execute function public.circle_members_km_off();
+
+
+-- ---------------------------------------------------------------------------
+-- STEP 4b -- "DONE" MUST BE A SESSION THE PLAN RECORDS AS COMPLETED
+--
+-- Agreed with the founder: a day can only show green in a circle when the
+-- athlete's own SACORO plan (public.plans, synced from the app) records that
+-- day as completed. A row sent as done that the plan does not confirm is
+-- SKIPPED -- not stored, and not an error -- so one day that has not synced
+-- yet never stops the rest of the week reaching the circle; it arrives on
+-- the next send, after the plan itself has synced.
+--
+-- IT CONFIRMS, IT DOES NOT COPY. An earlier live version of this check (not
+-- from this file) also copied the plan's recorded distance into the shared
+-- row. It ran after the km gate above, so it put km back on the day of an
+-- athlete who had km switched OFF -- breaking the consent screen's "Kilometres
+-- only if you turn them on". This version never touches km or the session
+-- name: km is decided by the athlete's own switch alone (STEP 4), and the
+-- name is the short one the app sends.
+-- ---------------------------------------------------------------------------
+create or replace function public.circle_days_verified_completion()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.state = 'done' and not exists (
+       select 1
+         from public.plans p
+        cross join lateral jsonb_array_elements(coalesce(p.data->'days', '[]'::jsonb)) d(value)
+        where p.user_id = new.user_id
+          and d.value->>'date' = new.day::text
+          and d.value->>'completed' = 'true') then
+    return null;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists circle_days_verified_completion on public.circle_days;
+create trigger circle_days_verified_completion
+  before insert or update on public.circle_days
+  for each row execute function public.circle_days_verified_completion();
 
 
 -- ---------------------------------------------------------------------------
@@ -456,6 +512,7 @@ begin
   execute 'revoke all on function public.circle_days_km_gate() from public, anon, authenticated';
   execute 'revoke all on function public.circle_members_km_off() from public, anon, authenticated';
   execute 'revoke all on function public.circle_members_last_out() from public, anon, authenticated';
+  execute 'revoke all on function public.circle_days_verified_completion() from public, anon, authenticated';
 end $$;
 
 

@@ -109,18 +109,46 @@ select proof.refused($$insert into public.circle_members (user_id, circle_id, di
                        values ('c0000000-0000-0000-0000-000000000003', '$$ || :'cid' || $$', 'Cal', 'circles-v1', now())$$,
   'an outsider cannot add themselves to a circle by writing a row');
 
+-- ------------------------------------------------------- the plans say
+-- What each athlete's own synced plan records as completed: Ann ran
+-- yesterday and today, Ben ran yesterday. The plan carries a distance on
+-- each, which must NOT reach the circle unless the athlete switches km on.
+-- (A bare plans table stands in when this runs without the full chain.)
+select proof.admin();
+create table if not exists public.plans (user_id uuid primary key, data jsonb not null);
+insert into public.plans (user_id, data) values
+  (:ann, jsonb_build_object('days', jsonb_build_array(
+     jsonb_build_object('date', current_date - 1, 'completed', true, 'title', 'Long Run', 'actual', jsonb_build_object('km', 16.2)),
+     jsonb_build_object('date', current_date,     'completed', true, 'title', 'Easy Run', 'actual', jsonb_build_object('km', 8)),
+     jsonb_build_object('date', current_date - 2, 'completed', false, 'title', 'Threshold')))),
+  (:ben, jsonb_build_object('days', jsonb_build_array(
+     jsonb_build_object('date', current_date - 1, 'completed', true, 'title', 'Easy Run', 'actual', jsonb_build_object('km', 6)))));
+
 -- ------------------------------------------------------------ day writes
 select proof.act(:ann);
 insert into public.circle_days (user_id, day, state, session_label, km) values
   (:ann, current_date - 1, 'done',    'Long run', 16.2),
   (:ann, current_date - 2, 'missed',  'Threshold', null),
   (:ann, current_date - 3, 'rest',    null, null),
-  (:ann, current_date + 1, 'planned', 'Easy run', null);
+  (:ann, current_date + 1, 'planned', null, null);
 select proof.ok((select km is null from public.circle_days where user_id = :ann and day = current_date - 1),
-  'km sent while km is OFF is dropped by the database, not stored');
+  'km is not shared while km is OFF, even though the plan records 16.2 km');
+insert into public.circle_days (user_id, day, state, session_label) values
+  (:ann, current_date - 6, 'done', 'Easy Run'),
+  (:ann, current_date - 7, 'rest', null);
+select proof.ok((select count(*) = 0 from public.circle_days where user_id = :ann and day = current_date - 6),
+  'a "done" the plan does not record as completed is not stored');
+select proof.ok((select count(*) = 1 from public.circle_days where user_id = :ann and day = current_date - 7),
+  'and the rest of the same send still arrives');
+delete from public.circle_days where user_id = :ann and day = current_date - 7;
+select proof.ok((select session_label = 'Long run' from public.circle_days where user_id = :ann and day = current_date - 1),
+  'the session name is the one sent ("Long run"), not copied from the plan ("Long Run")');
 select proof.refused($$insert into public.circle_days (user_id, day, state, session_label)
                        values ('a0000000-0000-0000-0000-000000000001', current_date - 4, 'restricted', 'Calf strain')$$,
   'a restricted day cannot carry a reason');
+select proof.refused($$insert into public.circle_days (user_id, day, state, session_label)
+                       values ('a0000000-0000-0000-0000-000000000001', current_date + 3, 'planned', 'Long Run')$$,
+  'a day still to come cannot carry its session name (that would show the plan)');
 insert into public.circle_days (user_id, day, state, km) values (:ann, current_date - 5, 'rest', 5);
 select proof.ok((select km is null from public.circle_days where user_id = :ann and day = current_date - 5),
   'with km OFF, km on any day is dropped');
@@ -273,8 +301,12 @@ select proof.ok((select count(*) = 1 from public.circle_sharing_log where user_i
 -- ------------------------------------------- the programme is untouched
 select proof.ok(not exists (select 1 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
                             where ns.nspname = 'public' and p.proname like 'circle%'
-                              and p.prosrc ~* '\mplans\M'),
-  'no circle function reads or writes the training plan');
+                              and p.prosrc ~* '(insert\s+into|update|delete\s+from)\s+public\.plans'),
+  'no circle function writes the training plan');
+select proof.ok((select string_agg(p.proname, ',') = 'circle_days_verified_completion'
+                   from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+                  where ns.nspname = 'public' and p.proname like 'circle%' and p.prosrc ~* '\mplans\M'),
+  'only the done check reads it');
 
 -- ------------------------------------------ deleting an account, last out
 select proof.admin();

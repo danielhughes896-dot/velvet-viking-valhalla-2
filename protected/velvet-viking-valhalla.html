@@ -10203,6 +10203,10 @@
     white-space:nowrap;
     line-height:1.05; color:var(--ink); font-variant-numeric:tabular-nums;}
   .b-plate-s{font-family:var(--num-face); font-size:.6875rem; color:var(--ink-dim);}
+  .b-plate-u{font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
+    letter-spacing:var(--label-track); font-size:.5em; margin-left:.3em; color:#FFFFFF;}
+  .b-plate-v.is-words{font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
+    letter-spacing:var(--label-track); font-variant-numeric:normal;}
   .b-plate:focus-visible{outline:2px solid var(--cherry); outline-offset:3px;}
   .b-dials-arc{display:flex; align-items:flex-start; justify-content:center; gap:5px;}
   .b-dials-arc .b-dial[data-rank="2"]{margin:5px 0;}
@@ -11213,6 +11217,11 @@
   .cc-sheet{max-height:92vh; overflow-y:auto; overscroll-behavior:contain;}
   .cc-sheet .field{margin-top:12px;}
   .cc-join-go{margin-top:14px;}
+  .cc-intro-k{margin-top:16px; font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track);
+    font-size:var(--fs-label); font-weight:var(--label-weight); color:#FFFFFF;}
+  .cc-intro{margin-top:6px; font-size:.9375rem; line-height:1.5; color:#FFFFFF;}
+  .cc-intro-acts{margin-top:18px;}
+  .cc-intro-acts .btn{white-space:nowrap; padding-left:10px; padding-right:10px;}
   /* The sheets sit outside the builder's theme, so they say their colours
      out loud: the action is cherry, the fields are glass, never the gold. */
   .cc-sheet .btn-primary{background:var(--cherry-fill); color:var(--cherry-btn-ink); border-color:transparent;}
@@ -71392,6 +71401,21 @@ function activityHistoryRuns(){
     return sessionRan(dd) || optionalRunLogged(dd);
   }).sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
 }
+/* A COUNT IS A FIGURE AND A WORD, NOT ONE STRING. Founder, of "1 run" and
+   "Start one" in the boxes: "The text on that page inside the boxes looks
+   weird." The value face is the numerals' monospace, which suits "45:33" and
+   "31%" and makes a word look like code. So a count is drawn the way Today
+   draws "10.5km": the figure in the numerals, the unit beside it smaller in
+   the label face; and a value that is only words takes the label face. */
+function plateCountHtml(n, one, many){
+  var unit = n === 1 ? one : many;
+  return '<span class="b-plate-v" style="--pv-ch:'+(String(n).length + 1.4 + unit.length * 0.42).toFixed(1)+';">'+
+    escapeHtml(String(n))+'<span class="b-plate-u">'+escapeHtml(unit)+'</span></span>';
+}
+function plateWordsHtml(text, none){
+  return '<span class="b-plate-v is-words'+(none ? ' rec-none' : '')+'" style="--pv-ch:'+(text.length * 0.72).toFixed(1)+';">'+
+    escapeHtml(text)+'</span>';
+}
 function activityHistoryPlateHtml(){
   var n = activityHistoryRuns().length;
   var big = n ? (n + (n === 1 ? ' run' : ' runs')) : 'None yet';
@@ -71399,7 +71423,7 @@ function activityHistoryPlateHtml(){
       'data-action="open-record" data-record="history" '+
       'aria-label="'+escapeHtml('Activity history, '+big)+'" style="--rd-base:var(--ok);">'+
       '<span class="b-plate-k">Activity History</span>'+
-      '<span class="b-plate-v'+(n ? '' : ' rec-none')+'" style="--pv-ch:'+plateValueChars(big)+';">'+escapeHtml(big)+'</span>'+
+      (n ? plateCountHtml(n, 'run', 'runs') : plateWordsHtml('None yet', true))+
     '</button>';
 }
 /* =========================================================
@@ -71483,7 +71507,7 @@ function circleLoad(){
       var keepView = circle.view;
       circle = circleFresh();
       circle.status = 'none';
-      circle.view = keepView === 'start' ? 'start' : 'intro';
+      circle.view = 'intro';
       return circle;
     }
     var from = circleFromDate();
@@ -71497,9 +71521,10 @@ function circleLoad(){
       circle.status = 'member';
       circle.id = id;
       circle.name = (r[0] && r[0][0] && r[0][0].name) || 'Your circle';
-      circle.members = r[1] || [];
-      circle.days = r[2] || [];
-      circle.cheers = r[3] || [];
+      var list = function(x){ return Array.isArray(x) ? x : []; };
+      circle.members = list(r[1]);
+      circle.days = list(r[2]);
+      circle.cheers = list(r[3]);
       if (circle.view !== 'table') circle.view = 'table';
       return circle;
     });
@@ -71548,8 +71573,14 @@ function circleMyDayRows(){
     return dd && dd.date >= from && dd.date <= to;
   }).map(function(dd){
     var st = circleDayState(dd, today);
+    /* A NAME ONLY ON A DAY THAT HAS HAPPENED. Done or missed say what the
+       session was; a day still to come says nothing, because its name would
+       show the circle the athlete's plan ahead -- the consent screen promises
+       the circle never sees the plan. The database refuses it too
+       (circle_days_label_only_for_finished), and a refused name used to sink
+       the whole week's send: the founder's first circle showed "0 of 0". */
     var label = null;
-    if (st === 'done' || st === 'missed' || st === 'planned'){
+    if (st === 'done' || st === 'missed'){
       label = optionalRunLogged(dd) ? 'Run' : (((TYPE_META[dd.type] || {}).label) || 'Session');
       label = String(label).slice(0, 40);
     }
@@ -71686,7 +71717,7 @@ function circlePastWeeksHtml(){
 function circleConsentHtml(agreed){
   return '<div class="cc-share">'+
       '<div class="cc-share-k">Your circle will see</div>'+
-      '<p>The name you choose, and for each day whether you ran your session, missed it, rested or are resting by plan, with the session name. Kilometres only if you turn them on.</p>'+
+      '<p>The name you choose, and for each day whether you ran your session, missed it, rested or are resting by plan. Once a day has passed, its session name. Kilometres only if you turn them on.</p>'+
       '<div class="cc-share-k">Your circle will never see</div>'+
       '<p>Your pace, heart rate, readiness, notes, your plan, or why you are resting.</p>'+
       '<p>You can stop sharing or leave at any time. Your programme is never changed by your circle.</p>'+
@@ -71717,20 +71748,6 @@ function circlePageHtml(){
         (full ? '' : '<button type="button" class="btn btn-primary" data-action="circle-invite"'+(circle.busy ? ' disabled' : '')+'>Invite Someone</button>')+
       '</div>';
   }
-  if (circle.view === 'start'){
-    return head('Start a Circle')+
-      '<div class="modal-body">'+
-        '<div class="field"><label for="circle-name">Circle name</label>'+
-          '<input id="circle-name" type="text" maxlength="40" placeholder="The Sunday Runners" autocomplete="off"></div>'+
-        '<div class="field"><label for="circle-me-name">Your name in the circle</label>'+
-          '<input id="circle-me-name" type="text" maxlength="24" value="'+myName+'" autocomplete="given-name"></div>'+
-        circleConsentHtml()+ err +
-      '</div>'+
-      '<div class="page-foot">'+
-        '<button type="button" class="btn btn-ghost" data-action="circle-view" data-view="intro">Back</button>'+
-        '<button type="button" class="btn btn-primary" data-action="circle-start"'+(circle.busy ? ' disabled' : '')+'>Start a Circle</button>'+
-      '</div>';
-  }
   return head('Your Circle')+
     '<div class="modal-body">'+
       '<div class="rp-hero-say cc-lede">A small private group, two to eight people you choose. Each of you runs your own plan, and the circle sees who has done theirs this week. No rankings, no chat, and nothing sent to your phone.</div>'+
@@ -71743,10 +71760,67 @@ function circlePageHtml(){
       '<button type="button" class="btn btn-primary" data-action="circle-view" data-view="start">Start a Circle</button>'+
     '</div>';
 }
+/* BEFORE A CIRCLE, A GLASS SHEET. Founder, of the first Your Circle page: "I
+   want that as a glass bottom page." What a circle is and the two ways in
+   rise over Coach; Join with a Code swaps to its own sheet, Start a Circle
+   opens the setup page. Once the athlete is in a circle, Your Circle is the
+   full page with the table. */
+function circleIntroSheetHtml(){
+  return circleSheetShell('Your Circle',
+    '<div class="cc-say">A small private group, two to eight people you choose. Each of you runs your own plan, and the circle sees who has done theirs this week.</div>'+
+    '<div class="cc-intro-k">How it works</div>'+
+    '<div class="cc-intro">Each person is a row and each day is a dot: green when the session is done, a ring when it is missed, a small dot on a rest day. When everyone keeps their plan, the week turns green. Tap a green day to say nice work.</div>'+
+    '<div class="cc-intro">No rankings, no chat, and nothing sent to your phone.</div>'+
+    '<div class="unlogged-actions cc-intro-acts">'+
+      '<button type="button" class="btn btn-ghost" data-action="circle-join-open">Join with a Code</button>'+
+      '<button type="button" class="btn btn-primary" data-action="circle-start-open">Start a Circle</button>'+
+    '</div>');
+}
+function openCirclePageNow(){
+  closeCircleSheetLayer(); circleSheet = null;
+  openModal(circlePageHtml(), 'modal-themed builder-light hq-panel rp-cherry hq-full circle-page');
+}
 function openCirclePage(){
   circle.error = '';
-  openModal(circlePageHtml(), 'modal-themed builder-light hq-panel rp-cherry hq-full circle-page');
+  if (circle.status !== 'member'){
+    circle.view = 'intro';
+    openCircleSheet({ kind:'intro' }, circleIntroSheetHtml());
+    // In a circle after all (joined on another device): go to the table.
+    circleRefresh().then(function(){
+      if (circle.status === 'member' && circleSheet && circleSheet.kind === 'intro') openCirclePageNow();
+    });
+    return;
+  }
+  openCirclePageNow();
   circleRefresh().then(circleRepaint);
+}
+/* STARTING ONE IS A GLASS SHEET TOO. Founder: "Build circle should still be
+   bottom glass." The circle's name, the name to show, and the consent said
+   in full, over Coach, like joining. */
+function circleStartSheetHtml(v){
+  v = v || {};
+  return circleSheetShell('Start a Circle',
+    '<div class="field"><label for="circle-name">Circle name</label>'+
+      '<input id="circle-name" type="text" maxlength="40" placeholder="The Sunday Runners" autocomplete="off" '+
+        'value="'+escapeHtml(v.group || '')+'"></div>'+
+    '<div class="field"><label for="circle-me-name">Your name in the circle</label>'+
+      '<input id="circle-me-name" type="text" maxlength="24" value="'+escapeHtml(v.name != null ? v.name : (athleteFirstName() || '').slice(0, 24))+'" autocomplete="given-name"></div>'+
+    circleConsentHtml(!!v.agreed)+
+    (circle.error ? '<div class="cc-error" role="alert">'+escapeHtml(circle.error)+'</div>' : '')+
+    '<button type="button" class="btn btn-primary btn-block cc-join-go" data-action="circle-start"'+(circle.busy ? ' disabled' : '')+'>Start a Circle</button>');
+}
+function circleSigninSheetHtml(){
+  return circleSheetShell('Your Circle',
+    '<div class="cc-say">A small private group, two to eight people you choose, who see whether each of you has done your plan this week.</div>'+
+    '<div class="cc-intro">A circle needs a SACORO account, so the people you choose can see your week. Enter your email and we send you a link. No password.</div>'+
+    '<div class="field"><label for="cloud-email">Email</label>'+
+      '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
+    '<button type="button" class="btn btn-primary btn-block cc-join-go" data-action="cloud-sign-in">Email me a sign-in link</button>'+
+    '<div class="cc-quiet">Your plan on this phone is not changed by signing in.</div>');
+}
+function handleCircleStartOpen(){
+  circle.view = 'start'; circle.error = '';
+  openCircleSheet({ kind:'start' }, circleStartSheetHtml());
 }
 function handleCircleView(view){
   circle.view = view; circle.error = '';
@@ -71772,7 +71846,7 @@ function circleSubmit(kind){
     : (kind === 'start' && !group) ? 'Give your circle a name.'
     : (kind === 'join' && code.length !== 12) ? 'An invite code is 12 letters and numbers.'
     : !circleConsented() ? 'Tick the box to agree to what your circle will see.' : '';
-  var repaint = function(){ if (!(kind === 'join' && circleJoinRepaint())) circleRepaint(); };
+  var repaint = function(){ if (!circleFormRepaint(kind)) circleRepaint(); };
   if (problem){ circle.error = problem; repaint(); return Promise.resolve(); }
   circle.busy = true; circle.error = ''; repaint();
   var call = kind === 'start'
@@ -71780,8 +71854,8 @@ function circleSubmit(kind){
     : circleRpc('circle_join',   { p_code: code,  p_display_name: name, p_consent_version: CIRCLE_CONSENT_VERSION });
   return call.then(function(){
     circle.busy = false; circle.view = 'table';
-    if (kind === 'join'){ circleSheet = null; closeCircleSheetLayer(); }
-    return circleRefresh().then(circleRepaint);
+    circleSheet = null; closeCircleSheetLayer();
+    return circleRefresh().then(function(){ openCirclePage(); });
   }, function(err){
     circle.busy = false; circle.error = (err && err.message) || 'That did not work. Try again';
     repaint();
@@ -71809,12 +71883,13 @@ function openCircleJoinSheet(){
   circle.error = '';
   openCircleSheet({ kind:'join' }, circleJoinSheetHtml());
 }
-/* Redraw the join sheet without losing what was typed. */
-function circleJoinRepaint(){
+/* Redraw the start or join sheet without losing what was typed. */
+function circleFormRepaint(kind){
   var layer = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('circle-sheet') : null;
-  if (!layer || !circleSheet || circleSheet.kind !== 'join') return false;
-  layer.innerHTML = circleJoinSheetHtml({ code: circleFieldVal('circle-code'), name: circleFieldVal('circle-me-name'),
-                                          agreed: circleConsented() });
+  if (!layer || !circleSheet || circleSheet.kind !== kind) return false;
+  var v = { code: circleFieldVal('circle-code'), group: circleFieldVal('circle-name'),
+            name: circleFieldVal('circle-me-name'), agreed: circleConsented() };
+  layer.innerHTML = kind === 'start' ? circleStartSheetHtml(v) : circleJoinSheetHtml(v);
   return true;
 }
 
@@ -71989,14 +72064,25 @@ function handleCircleLeave(){
 }
 
 /* ---- the Coach box and the line on Today ---- */
+/* SIGNED OUT, THE BOX STILL SAYS IT IS THERE. Founder: "So it's on my screen
+   but not my mates." The box waited for the database to answer, which needs
+   an account, so an athlete without one never learned circles exist. A
+   circle is only possible with an account -- that is how the people you
+   choose see your week -- so signed out it says Sign in and explains why. */
 function circlePlateHtml(){
+  if (circle.status === 'signedout' && cloudConfigured()){
+    return '<button type="button" class="b-plate b-plate-wide" data-action="circle-signin" '+
+        'aria-label="Your circle, sign in to start or join one" style="--rd-base:var(--cherry);">'+
+        '<span class="b-plate-k">Your Circle</span>'+plateWordsHtml('Sign in')+
+      '</button>';
+  }
   if (circle.status !== 'member' && circle.status !== 'none') return '';
-  var big = circle.status === 'member'
-    ? circle.members.length + (circle.members.length === 1 ? ' person' : ' people') : 'Start one';
+  var n = circle.members.length;
+  var big = circle.status === 'member' ? n + (n === 1 ? ' person' : ' people') : 'Start one';
   return '<button type="button" class="b-plate b-plate-wide" data-action="circle-open" '+
       'aria-label="'+escapeHtml('Your circle, '+big)+'" style="--rd-base:var(--cherry);">'+
       '<span class="b-plate-k">Your Circle</span>'+
-      '<span class="b-plate-v" style="--pv-ch:'+plateValueChars(big)+';">'+escapeHtml(big)+'</span>'+
+      (circle.status === 'member' ? plateCountHtml(n, 'person', 'people') : plateWordsHtml('Start one'))+
     '</button>';
 }
 /* Inside the app only. Founder: "I don't want them going to the phone." One
@@ -77004,6 +77090,8 @@ document.addEventListener('click', function(e){
     case 'circle-start': circleSubmit('start'); break;
     case 'circle-join': circleSubmit('join'); break;
     case 'circle-join-open': openCircleJoinSheet(); break;
+    case 'circle-start-open': handleCircleStartOpen(); break;
+    case 'circle-signin': openCircleSheet({ kind:'signin' }, circleSigninSheetHtml()); break;
     case 'circle-day': openCircleDaySheet(target.getAttribute('data-user'), target.getAttribute('data-date')); break;
     case 'circle-nice-work': handleCircleNiceWork(target.getAttribute('data-user'), target.getAttribute('data-date')); break;
     case 'circle-sheet-close': closeCircleSheet(); break;

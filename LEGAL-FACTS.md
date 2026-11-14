@@ -368,8 +368,8 @@ foreign keys reference `auth.users`:
   function takes no arguments and every statement in it is scoped to the
   caller's own verified id. An unauthenticated caller cannot execute it at all.
 - Deletion is immediate, not queued.
-- **Circles** (not live yet; `supabase-circles.sql`, proven on a fresh cluster
-  by `tools/db-proof/`). Deleting an account removes the athlete's circle
+- **Circles** (applied to production on 14 November 2026; `supabase-circles.sql`,
+  proven on a fresh cluster by `tools/db-proof/`). Deleting an account removes the athlete's circle
   membership, and with it, by cascade through the membership, every day they
   shared (`circle_days`) and every "Nice work" they gave or received
   (`circle_cheers`), plus any invites they made and their circle consent log.
@@ -505,5 +505,7 @@ It becomes publishable on the day the first real subscription locks a price.
 - That the founding-price guarantee is in effect.
 - That Garmin is supported or coming on a date.
 - That signup is open.
-- That circles exist or are coming. The database is designed and proven, not applied.
+- That circles exist, until the privacy policy has a section on them. The database
+  is live (14 November 2026) and what a circle sees is listed in section 6; the
+  website copy has not caught up.
 - Any price as chargeable today.
