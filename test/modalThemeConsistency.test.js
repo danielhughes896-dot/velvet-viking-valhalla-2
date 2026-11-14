@@ -161,6 +161,7 @@ const WORK_SURFACES = [
      no declaration is made and the plan is untouched. */
   ['openRestrictionModal', 'declaring an injury or illness restriction'],
   ['openRestrictionPanel', 'the injury or illness page, opened from Today'],
+  ['openCirclePage', 'the circle page: the weekly table, starting or joining with consent'],
   /* Context Insight. A work surface by this list's own test: it has a close
      control, closing it costs the athlete nothing, and it asks for no
      decision at all -- it is the one entry here that only ever explains. It

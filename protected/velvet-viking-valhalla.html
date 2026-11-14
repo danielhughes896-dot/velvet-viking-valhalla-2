@@ -11140,6 +11140,88 @@
   .hq-full.stg-panel{display:flex; flex-direction:column;}
   /* The injury page keeps its two answers at the foot, however short it is. */
   .modal-card.restriction-panel{display:flex; flex-direction:column;}
+  /* ---------- CIRCLES ----------
+     The table the founder approved: one row per person in the order they
+     joined, Monday to Sunday, green for done, a white ring for missed, a
+     small dot for rest, a faint ring for still to come. Completion is
+     green, today's letter and anything the athlete presses are cherry. */
+  .modal-card.circle-page{display:flex; flex-direction:column;}
+  .modal-card.circle-page > .modal-head{flex:none;}
+  .modal-card.circle-page > .modal-body{flex:1 0 auto;}
+  .cc-lede{margin:2px 0 6px;}
+  .cc-grid{display:grid; grid-template-columns:minmax(58px,1.25fr) repeat(7,minmax(0,1fr)) minmax(62px,1.1fr);
+    align-items:center; row-gap:16px; column-gap:3px; margin-top:6px;}
+  .cc-h{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF; text-align:center;}
+  .cc-h.is-today{color:var(--cherry-text);}
+  .cc-name{font-family:var(--label-face); font-size:.875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF; line-height:1.15; overflow-wrap:anywhere;}
+  .cc-note{display:block; font-family:var(--text-face); text-transform:none; letter-spacing:0;
+    font-size:.75rem; color:#FFFFFF; margin-top:3px;}
+  .cc-paused{grid-column:span 8; font-size:.8125rem; color:#FFFFFF; padding-left:6px;}
+  .cc-c{display:flex; justify-content:center; align-items:center; height:30px;}
+  .cc-d{position:relative; width:20px; height:20px; border-radius:50%; flex:none; padding:0;}
+  .cc-done{background:var(--ok); border:0; cursor:pointer;
+    box-shadow:0 0 10px color-mix(in srgb, var(--ok) 45%, transparent);}
+  /* The tap reaches 44 without the dot growing. */
+  .cc-done::after{content:''; position:absolute; left:50%; top:50%; width:var(--tap-min); height:var(--tap-min);
+    transform:translate(-50%,-50%);}
+  .cc-miss{border:2px solid #FFFFFF;}
+  .cc-next{border:1.5px solid rgba(255,255,255,.28);}
+  .cc-next.is-today{border-color:var(--cherry-text);}
+  .cc-rest{width:6px; height:6px; background:rgba(255,255,255,.55);}
+  .cc-heart{position:absolute; right:-7px; top:-7px; width:13px; height:13px; color:var(--cherry-text);}
+  .cc-heart svg{width:13px; height:13px; display:block; fill:currentColor; stroke:none;}
+  .cc-sum{text-align:right; font-family:var(--num-face); font-size:.8125rem; color:#FFFFFF; line-height:1.3;}
+  .cc-sum b{display:block; font-size:.9375rem; white-space:nowrap;}
+  .cc-key{margin-top:18px; font-size:.8125rem; color:#FFFFFF; line-height:1.5;}
+  .cc-kept, .cc-past{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:8px;
+    padding:13px 16px; border-radius:var(--tile-radius); border:1px solid var(--t-tile-rim); background:var(--t-tile);
+    font-size:.8125rem; color:#FFFFFF;}
+  .cc-kept{border-color:color-mix(in srgb, var(--ok) 55%, transparent);
+    background:color-mix(in srgb, var(--ok) 10%, var(--t-tile));}
+  .cc-kept-k, .cc-past-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); flex:none;}
+  .cc-kept-k{color:var(--ok);}
+  .cc-kept-v{text-align:right;}
+  .cc-error{margin-top:14px; color:var(--cherry-text); font-size:.875rem;}
+  .cc-share{margin-top:6px;}
+  .cc-share p{margin:4px 0 12px; font-size:.875rem; line-height:1.5; color:#FFFFFF;}
+  .cc-share-k{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track);
+    font-size:var(--fs-label); color:#FFFFFF; margin-top:10px;}
+  .cc-consent{display:flex; align-items:center; gap:12px; min-height:var(--tap-min); margin-top:6px;
+    font-size:.9375rem; color:#FFFFFF; cursor:pointer;}
+  .cc-consent input{width:22px; height:22px; accent-color:var(--cherry); flex:none;}
+  .cc-who{margin-top:12px; font-size:.875rem; color:#FFFFFF;}
+  .cc-nice{margin-top:16px; background:var(--cherry-fill); color:var(--cherry-btn-ink);}
+  .cc-given{margin-top:16px; color:var(--cherry-text); font-size:.9375rem;}
+  .cc-quiet{margin-top:12px; text-align:center; font-size:.8125rem; color:#FFFFFF;}
+  .cc-code{margin:16px 0 4px; text-align:center; font-size:1.625rem; letter-spacing:.12em; color:#FFFFFF;}
+  .cc-leave{margin-top:18px;}
+  /* A 320 phone: the seven days keep a clear gap between them, and both
+     actions stay on one line. */
+  .modal-card.circle-page .page-foot .btn{white-space:nowrap; padding-left:10px; padding-right:10px;}
+  @media (max-width:380px){
+    .cc-grid{grid-template-columns:minmax(46px,1fr) repeat(7,minmax(0,1fr)) max-content; column-gap:2px;}
+    .cc-sum{font-size:.75rem;}
+    .cc-sum b{font-size:.8125rem;}
+    .cc-d{width:16px; height:16px;}
+    .cc-rest{width:5px; height:5px;}
+    .cc-name{font-size:.8125rem;}
+    .cc-heart{right:-6px; top:-6px;}
+  }
+  .cc-sheet-body{padding:4px 0 6px;}
+  .cc-sheet{max-height:92vh; overflow-y:auto; overscroll-behavior:contain;}
+  .cc-sheet .field{margin-top:12px;}
+  .cc-join-go{margin-top:14px;}
+  /* The sheets sit outside the builder's theme, so they say their colours
+     out loud: the action is cherry, the fields are glass, never the gold. */
+  .cc-sheet .btn-primary{background:var(--cherry-fill); color:var(--cherry-btn-ink); border-color:transparent;}
+  .cc-sheet .field label{color:#FFFFFF;}
+  .cc-sheet .field input{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16);
+    color:#FFFFFF; border-radius:12px; min-height:var(--tap-min);}
+  .cc-sheet .field input:focus-visible{outline-color:var(--cherry-text);}
+  .cc-say{font-size:1.0625rem; line-height:1.45; color:#FFFFFF; font-weight:600;}
+  .cc-sheet .stg-row{margin-top:8px;}
   .modal-card.restriction-panel > .modal-head{flex:none;}
   .modal-card.restriction-panel > .modal-body{flex:1 0 auto;}
   .hq-full.stg-panel > .modal-head{flex:none;}
@@ -28995,6 +29077,7 @@ function cloudSignOut(){
   }catch(e){}
   entitlementInfo = null;
   lastEntitlementAt = 0;
+  circle = circleFresh();
   cloudSession = null;
   landingDismissed = false;   // the next arrival is a new arrival
   writeStored(CLOUD_SESSION_KEY, null);
@@ -29068,7 +29151,7 @@ function scheduleCloudPush(){
     cloudPushTimer = null;
     cloudRefreshIfNeeded().then(function(ok){
       if (!ok) return null;
-      return cloudPutPlan().then(function(){ cloudStatus='synced'; patchCloudCard(); });
+      return cloudPutPlan().then(function(){ cloudStatus='synced'; patchCloudCard(); circlePushSoon(); });
     }).catch(function(err){
       cloudStatus='error'; patchCloudCard();
       // Said once per session, not on every debounced push, so a revoked
@@ -58752,6 +58835,8 @@ function openModal(html, extraClass, key){
   try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
 }
 function closeModal(){
+  // A circle sheet belongs to the circle page; it never outlives it.
+  try { closeCircleSheetLayer(); circleSheet = null; } catch(e){}
   // whatever the overlay held, it is not a Record panel any more -- see
   // refreshOpenRecordPanel(), which must never redraw over a modal that
   // replaced one (openRecalibrateModal() does exactly that).
@@ -68797,6 +68882,7 @@ function renderTodayView(){
   html += renderHealthConsentCard();
   html += renderWelcomeCard();
   html += renderUnloggedYesterdayCard();
+  html += renderCircleTodayLine();
   var report = coachAnalyse();
   /* NEXT MOVE SITS BELOW THE SESSION, BY RULING. The cards above it stay
      above: a declared restriction, the race-outcome question, the checkpoint
@@ -71246,7 +71332,7 @@ function renderSacoroInstruments(){
   var plates = SACORO_PLATES.map(function(k){
     return facts[k] ? statusPlateHtml(facts[k]) : '';
   }).join('');
-  if (plates) plates += activityHistoryPlateHtml();
+  if (plates) plates += activityHistoryPlateHtml() + circlePlateHtml();
   if (!circles && !plates) return '';
   /* ---------- A RAIL OF THREE, THEN THE GRAPH, THEN THE PLATES ----------
      Founder, with the approved design: "horizontal coaching-circle rail,
@@ -71316,6 +71402,636 @@ function activityHistoryPlateHtml(){
       '<span class="b-plate-v'+(n ? '' : ' rec-none')+'" style="--pv-ch:'+plateValueChars(big)+';">'+escapeHtml(big)+'</span>'+
     '</button>';
 }
+/* =========================================================
+   CIRCLES -- A SMALL PRIVATE GROUP THAT SEES WHO DID THEIR PLAN
+   ---------------------------------------------------------
+   Founder: "a private circle experience to make users accountable. Not
+   open socials ... a table of completed workouts. Not score matrix simply
+   to see you're doing the work and getting the miles in." Refined: km
+   optional and off by default, "Nice work" with a small cherry heart,
+   nothing sent to the phone, and privacy non-negotiable.
+
+   EVERY RULE LIVES IN THE DATABASE (supabase-circles.sql): who can see
+   what, one circle each, eight at most, consent before joining, pausing,
+   leaving. This page draws what the database lets this athlete see and
+   asks it to act; it never decides a permission itself.
+
+   HIDDEN UNTIL IT EXISTS. The page and its Coach box appear only once the
+   database answers circle_my_id(), so shipping this code before the
+   migration is applied changes nothing anyone sees.
+
+   THE PROGRAMME IS UNTOUCHED. The circle receives a copy of each day's
+   outcome (circleMyDayRows); nothing read from a circle is ever written
+   into state, and state.days is never changed here.
+   ========================================================= */
+var CIRCLE_CONSENT_VERSION = 'circles_v1';
+var CIRCLE_MAX = 8;
+var CIRCLE_PAST_WEEKS = 3;
+function circleFresh(){
+  return { status:'unknown', id:null, name:'', members:[], days:[], cheers:[],
+           view:'table', error:'', busy:false, loading:null };
+}
+var circle = circleFresh();
+
+function circleMe(){ return (cloudSession && cloudSession.user_id) || null; }
+function circleMember(uid){
+  for (var i = 0; i < circle.members.length; i++) if (circle.members[i].user_id === uid) return circle.members[i];
+  return null;
+}
+function circleMyMember(){ return circleMember(circleMe()); }
+function circleWeekStart(dateStr){ return addDays(dateStr, -isoWeekday(dateStr)); }
+function circleFromDate(){ return addDays(circleWeekStart(todayStr()), -7 * CIRCLE_PAST_WEEKS); }
+
+/* ---- talking to the database ----
+   Errors come back as the database's own sentence ("That circle is full. A
+   circle holds up to 8 people.") so the athlete is told exactly what it said. */
+function circleRpc(name, args){
+  return cloudFetch('/rest/v1/rpc/' + name, { method:'POST', body: JSON.stringify(args || {}) })
+    .then(function(resp){
+      return resp.text().then(function(t){
+        var j = null;
+        try { j = t ? JSON.parse(t) : null; } catch(e){ j = null; }
+        if (!resp.ok){
+          var e = new Error((j && j.message) || 'The circle could not be reached. Try again');
+          e.status = resp.status; e.code = j && j.code;
+          throw e;
+        }
+        return j;
+      });
+    });
+}
+function circleGet(path){
+  return cloudFetch('/rest/v1/' + path).then(function(resp){
+    if (!resp.ok) throw new Error('The circle could not be reached. Try again');
+    return resp.json();
+  });
+}
+/* A missing function (the migration is not applied) reads as "not here
+   yet", which hides the feature; anything else is a passing failure. */
+function circleMissing(err){
+  return !!err && (err.status === 404 || err.code === 'PGRST202' || err.code === '42883');
+}
+
+function circleLoad(){
+  if (!cloudConfigured() || !cloudSignedIn()){ circle = circleFresh(); circle.status = 'signedout'; return Promise.resolve(circle); }
+  if (circle.loading) return circle.loading;
+  var before = circle.status;
+  circle.loading = cloudRefreshIfNeeded().then(function(){
+    return circleRpc('circle_my_id');
+  }).then(function(id){
+    if (!id){
+      var keepView = circle.view;
+      circle = circleFresh();
+      circle.status = 'none';
+      circle.view = keepView === 'start' ? 'start' : 'intro';
+      return circle;
+    }
+    var from = circleFromDate();
+    return Promise.all([
+      circleGet('circles?select=id,name&id=eq.' + encodeURIComponent(id)),
+      circleGet('circle_members?select=user_id,display_name,sharing,show_km,joined_at&circle_id=eq.' +
+                encodeURIComponent(id) + '&order=joined_at.asc'),
+      circleGet('circle_days?select=user_id,day,state,session_label,km&day=gte.' + from),
+      circleGet('circle_cheers?select=from_user,to_user,day,seen_at&day=gte.' + addDays(from, -7))
+    ]).then(function(r){
+      circle.status = 'member';
+      circle.id = id;
+      circle.name = (r[0] && r[0][0] && r[0][0].name) || 'Your circle';
+      circle.members = r[1] || [];
+      circle.days = r[2] || [];
+      circle.cheers = r[3] || [];
+      if (circle.view !== 'table') circle.view = 'table';
+      return circle;
+    });
+  }).catch(function(err){
+    if (circleMissing(err)){ circle = circleFresh(); circle.status = 'unavailable'; }
+    else if (circle.status === 'unknown') circle.status = 'unavailable';
+    return circle;
+  }).then(function(c){
+    circle.loading = null;
+    if (c.status !== before) circleRepaint();
+    return c;
+  });
+  return circle.loading;
+}
+/* Redraw whatever on screen shows the circle: its page if open, otherwise
+   the Coach box or the Today line through the normal render. */
+function circleRepaint(){
+  var card = (typeof document !== 'undefined' && document.querySelector) ? document.querySelector('.modal-card.circle-page') : null;
+  if (card){
+    var y = card.scrollTop;
+    card.innerHTML = circlePageHtml();
+    card.scrollTop = y;
+    return;
+  }
+  if (typeof document !== 'undefined' && document.getElementById && document.getElementById('modal-overlay')) return;
+  try { renderApp(); } catch(e){}
+}
+
+/* ---- what this athlete sends: one line per day, from the plan ----
+   done, missed (a past day with a session that was not run), rest,
+   restricted ("Resting by plan", never why) or planned. km only on a done
+   day and only when the athlete has switched km on -- the database drops
+   it otherwise, but it is not sent in the first place either. */
+function circleDayState(dd, today){
+  if (dayRestricted(dd)) return 'restricted';
+  if (dd.completed) return 'done';
+  if (dd.type === 'rest') return 'rest';
+  return dd.date < today ? 'missed' : 'planned';
+}
+function circleMyDayRows(){
+  var me = circleMe(), mine = circleMyMember();
+  if (!me) return [];
+  var today = todayStr(), from = circleFromDate(), to = addDays(circleWeekStart(today), 6);
+  var showKm = !!(mine && mine.show_km);
+  return ((state && state.days) || []).filter(function(dd){
+    return dd && dd.date >= from && dd.date <= to;
+  }).map(function(dd){
+    var st = circleDayState(dd, today);
+    var label = null;
+    if (st === 'done' || st === 'missed' || st === 'planned'){
+      label = optionalRunLogged(dd) ? 'Run' : (((TYPE_META[dd.type] || {}).label) || 'Session');
+      label = String(label).slice(0, 40);
+    }
+    var km = null;
+    if (st === 'done' && showKm){
+      var k = activityKm(dd);
+      if (k > 0 && k <= 300) km = Math.round(k * 100) / 100;
+    }
+    return { user_id: me, day: dd.date, state: st, session_label: label, km: km };
+  });
+}
+function circlePush(){
+  var mine = circleMyMember();
+  if (circle.status !== 'member' || !mine || !mine.sharing) return Promise.resolve(false);
+  var rows = circleMyDayRows();
+  if (!rows.length) return Promise.resolve(false);
+  return cloudFetch('/rest/v1/circle_days', {
+    method:'POST',
+    headers:{ 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(rows)
+  }).then(function(resp){ return !!(resp && resp.ok); }, function(){ return false; });
+}
+var circlePushTimer = null;
+function circlePushSoon(){
+  if (circle.status !== 'member') return;
+  if (circlePushTimer) clearTimeout(circlePushTimer);
+  circlePushTimer = setTimeout(function(){ circlePushTimer = null; circlePush(); }, 1500);
+}
+/* Open the page fresh: send today's outcomes first, then read the circle,
+   so the athlete's own row is never a step behind what they just logged. */
+function circleRefresh(){
+  return circleLoad().then(function(){
+    if (circle.status !== 'member') return null;
+    return circlePush().then(function(){ return circleLoad(); });
+  });
+}
+
+/* ---- reading the table ---- */
+function circleDayFor(uid, day){
+  for (var i = 0; i < circle.days.length; i++){
+    var d = circle.days[i];
+    if (d.user_id === uid && d.day === day) return d;
+  }
+  return null;
+}
+function circleCheersFor(uid, day){
+  return circle.cheers.filter(function(c){ return c.to_user === uid && c.day === day; });
+}
+function circleName(uid){
+  if (uid === circleMe()) return 'You';
+  var m = circleMember(uid);
+  return m ? m.display_name : 'Someone';
+}
+/* A member's week: sessions done out of sessions set, km if they share it,
+   and whether it was kept (nothing missed). */
+function circleWeekSummary(uid, weekStart){
+  var done = 0, set = 0, missed = 0, km = 0, restricted = false, any = false;
+  for (var i = 0; i < 7; i++){
+    var d = circleDayFor(uid, addDays(weekStart, i));
+    if (!d) continue;
+    any = true;
+    if (d.state === 'done'){ done++; set++; if (d.km) km += Number(d.km); }
+    else if (d.state === 'missed'){ missed++; set++; }
+    else if (d.state === 'planned') set++;
+    else if (d.state === 'restricted') restricted = true;
+  }
+  return { any:any, done:done, set:set, missed:missed, km:km, restricted:restricted, kept: any && missed === 0 };
+}
+function circleListNames(names){
+  if (names.length <= 1) return names.join('');
+  return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+}
+
+/* ---- the page ---- */
+function circleCellHtml(uid, day, today){
+  var d = circleDayFor(uid, day);
+  var heart = '';
+  if (d && d.state === 'done' && circleCheersFor(uid, day).length)
+    heart = '<span class="cc-heart" aria-hidden="true">'+ICONS.heart+'</span>';
+  if (d && d.state === 'done')
+    return '<div class="cc-c"><button type="button" class="cc-d cc-done" data-action="circle-day" '+
+      'data-user="'+escapeHtml(uid)+'" data-date="'+day+'" aria-label="'+escapeHtml(circleName(uid)+', '+(d.session_label||'session')+' done, '+dow(day))+'">'+heart+'</button></div>';
+  if (d && d.state === 'missed') return '<div class="cc-c"><span class="cc-d cc-miss" aria-label="Missed"></span></div>';
+  if (d && (d.state === 'rest' || d.state === 'restricted')) return '<div class="cc-c"><span class="cc-d cc-rest" aria-label="Rest"></span></div>';
+  if (d && d.state === 'planned') return '<div class="cc-c"><span class="cc-d cc-next'+(day === today ? ' is-today' : '')+'" aria-label="To come"></span></div>';
+  return '<div class="cc-c"></div>';
+}
+function circleTableHtml(){
+  var today = todayStr(), ws = circleWeekStart(today);
+  var letters = ['M','T','W','T','F','S','S'];
+  var html = '<div class="cc-grid" role="table" aria-label="This week">'+
+    '<div></div>'+letters.map(function(l, i){
+      return '<div class="cc-h'+(addDays(ws, i) === today ? ' is-today' : '')+'">'+l+'</div>';
+    }).join('')+'<div></div>';
+  circle.members.forEach(function(m){
+    var uid = m.user_id, you = uid === circleMe();
+    var name = '<div class="cc-name">'+escapeHtml(you ? 'You' : m.display_name);
+    if (!m.sharing){
+      html += name + '</div><div class="cc-paused">Not sharing right now</div>';
+      return;
+    }
+    var s = circleWeekSummary(uid, ws);
+    if (s.restricted) name += '<span class="cc-note">Resting by plan</span>';
+    html += name + '</div>';
+    for (var i = 0; i < 7; i++) html += circleCellHtml(uid, addDays(ws, i), today);
+    html += '<div class="cc-sum"><b>'+s.done+' of '+s.set+'</b>'+
+      (m.show_km && s.km > 0 ? fmtDist(s.km) : '')+'</div>';
+  });
+  return html + '</div>';
+}
+function circlePastWeeksHtml(){
+  var ws = circleWeekStart(todayStr()), out = '';
+  for (var w = 1; w <= CIRCLE_PAST_WEEKS; w++){
+    var start = addDays(ws, -7 * w), end = addDays(start, 6);
+    var counted = 0, kept = 0;
+    circle.members.forEach(function(m){
+      if (!m.sharing) return;
+      var s = circleWeekSummary(m.user_id, start);
+      if (!s.any) return;
+      counted++;
+      if (s.kept) kept++;
+    });
+    if (!counted) continue;
+    var when = escapeHtml(dShort(start) + ' to ' + dShort(end));
+    out += (kept === counted)
+      ? '<div class="cc-kept"><span class="cc-kept-k">'+when+'</span><span class="cc-kept-v">Week kept. '+
+          (counted === 1 ? 'The plan was done' : 'All '+counted+' of you did your plan')+'</span></div>'
+      : '<div class="cc-past"><span class="cc-past-k">'+when+'</span><span>'+kept+' of '+counted+' kept their week</span></div>';
+  }
+  return out ? sectionRule('Past Weeks', true) + out : '';
+}
+/* What is shared, said once, in plain words, on both the start and join
+   screens and nowhere hidden. The tick is the consent. */
+function circleConsentHtml(agreed){
+  return '<div class="cc-share">'+
+      '<div class="cc-share-k">Your circle will see</div>'+
+      '<p>The name you choose, and for each day whether you ran your session, missed it, rested or are resting by plan, with the session name. Kilometres only if you turn them on.</p>'+
+      '<div class="cc-share-k">Your circle will never see</div>'+
+      '<p>Your pace, heart rate, readiness, notes, your plan, or why you are resting.</p>'+
+      '<p>You can stop sharing or leave at any time. Your programme is never changed by your circle.</p>'+
+    '</div>'+
+    '<label class="cc-consent"><input type="checkbox" id="circle-consent"'+(agreed ? ' checked' : '')+'> '+
+      '<span>I agree to share this with my circle</span></label>';
+}
+function circlePageHtml(){
+  var head = function(title){
+    return '<div class="modal-head"><h2 class="font-head">'+escapeHtml(title)+'</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>';
+  };
+  var err = circle.error ? '<div class="cc-error" role="alert">'+escapeHtml(circle.error)+'</div>' : '';
+  var myName = escapeHtml((athleteFirstName() || '').slice(0, 24));
+  if (circle.status === 'member'){
+    var mine = circleMyMember();
+    var full = circle.members.length >= CIRCLE_MAX;
+    return head(circle.name)+
+      '<div class="modal-body">'+
+        '<div class="rp-hero-say cc-lede">Everyone runs their own plan. This shows who has done theirs. Tap a green day to say nice work.</div>'+
+        sectionRule('This Week, ' + dShort(circleWeekStart(todayStr())) + ' to ' + dShort(addDays(circleWeekStart(todayStr()), 6)), true)+
+        circleTableHtml()+
+        '<div class="cc-key">Green is done. A white ring is missed. A small dot is rest. A heart is a nice work.</div>'+
+        circlePastWeeksHtml()+ err +
+      '</div>'+
+      '<div class="page-foot">'+
+        '<button type="button" class="btn btn-ghost" data-action="circle-sharing">Your Sharing</button>'+
+        (full ? '' : '<button type="button" class="btn btn-primary" data-action="circle-invite"'+(circle.busy ? ' disabled' : '')+'>Invite Someone</button>')+
+      '</div>';
+  }
+  if (circle.view === 'start'){
+    return head('Start a Circle')+
+      '<div class="modal-body">'+
+        '<div class="field"><label for="circle-name">Circle name</label>'+
+          '<input id="circle-name" type="text" maxlength="40" placeholder="The Sunday Runners" autocomplete="off"></div>'+
+        '<div class="field"><label for="circle-me-name">Your name in the circle</label>'+
+          '<input id="circle-me-name" type="text" maxlength="24" value="'+myName+'" autocomplete="given-name"></div>'+
+        circleConsentHtml()+ err +
+      '</div>'+
+      '<div class="page-foot">'+
+        '<button type="button" class="btn btn-ghost" data-action="circle-view" data-view="intro">Back</button>'+
+        '<button type="button" class="btn btn-primary" data-action="circle-start"'+(circle.busy ? ' disabled' : '')+'>Start a Circle</button>'+
+      '</div>';
+  }
+  return head('Your Circle')+
+    '<div class="modal-body">'+
+      '<div class="rp-hero-say cc-lede">A small private group, two to eight people you choose. Each of you runs your own plan, and the circle sees who has done theirs this week. No rankings, no chat, and nothing sent to your phone.</div>'+
+      sectionRule('How It Works', true)+
+      '<div class="pt-say">Each person is a row and each day is a dot: green when the session is done, a ring when it is missed, a small dot on a rest day. When everyone keeps their plan, the week turns green. Tap a green day to say nice work.</div>'+
+      err+
+    '</div>'+
+    '<div class="page-foot">'+
+      '<button type="button" class="btn btn-ghost" data-action="circle-join-open">Join with a Code</button>'+
+      '<button type="button" class="btn btn-primary" data-action="circle-view" data-view="start">Start a Circle</button>'+
+    '</div>';
+}
+function openCirclePage(){
+  circle.error = '';
+  openModal(circlePageHtml(), 'modal-themed builder-light hq-panel rp-cherry hq-full circle-page');
+  circleRefresh().then(circleRepaint);
+}
+function handleCircleView(view){
+  circle.view = view; circle.error = '';
+  circleRepaint();
+}
+function circleFieldVal(id){
+  var el = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById(id) : null;
+  return el ? String(el.value || '').trim() : '';
+}
+function circleConsented(){
+  var el = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('circle-consent') : null;
+  return !!(el && el.checked);
+}
+/* Start and join share one shape: check the form, ask the database, show
+   its sentence if it says no. Consent is checked here for a clear message,
+   and enforced by the database regardless. */
+function circleSubmit(kind){
+  if (circle.busy) return Promise.resolve();
+  var name = circleFieldVal('circle-me-name');
+  var group = circleFieldVal('circle-name');
+  var code = circleFieldVal('circle-code').toLowerCase().replace(/[^a-f0-9]/g, '');
+  var problem = !name ? 'Add the name your circle will see.'
+    : (kind === 'start' && !group) ? 'Give your circle a name.'
+    : (kind === 'join' && code.length !== 12) ? 'An invite code is 12 letters and numbers.'
+    : !circleConsented() ? 'Tick the box to agree to what your circle will see.' : '';
+  var repaint = function(){ if (!(kind === 'join' && circleJoinRepaint())) circleRepaint(); };
+  if (problem){ circle.error = problem; repaint(); return Promise.resolve(); }
+  circle.busy = true; circle.error = ''; repaint();
+  var call = kind === 'start'
+    ? circleRpc('circle_create', { p_name: group, p_display_name: name, p_consent_version: CIRCLE_CONSENT_VERSION })
+    : circleRpc('circle_join',   { p_code: code,  p_display_name: name, p_consent_version: CIRCLE_CONSENT_VERSION });
+  return call.then(function(){
+    circle.busy = false; circle.view = 'table';
+    if (kind === 'join'){ circleSheet = null; closeCircleSheetLayer(); }
+    return circleRefresh().then(circleRepaint);
+  }, function(err){
+    circle.busy = false; circle.error = (err && err.message) || 'That did not work. Try again';
+    repaint();
+  });
+}
+
+/* ---- joining: a glass sheet over the first page ----
+   Founder: "Start a Circle: full-page setup, because it includes naming,
+   privacy and consent. Join with a Code: glass bottom sheet." The same
+   three things are asked -- the code, the name to show, and the consent,
+   said in full -- in a sheet over the page that offered it. */
+function circleJoinSheetHtml(v){
+  v = v || {};
+  return circleSheetShell('Join with a Code',
+    '<div class="field"><label for="circle-code">Invite code</label>'+
+      '<input id="circle-code" type="text" maxlength="12" placeholder="12 letters and numbers" autocomplete="off" '+
+        'autocapitalize="none" spellcheck="false" value="'+escapeHtml(v.code || '')+'"></div>'+
+    '<div class="field"><label for="circle-me-name">Your name in the circle</label>'+
+      '<input id="circle-me-name" type="text" maxlength="24" value="'+escapeHtml(v.name != null ? v.name : (athleteFirstName() || '').slice(0, 24))+'" autocomplete="given-name"></div>'+
+    circleConsentHtml(!!v.agreed)+
+    (circle.error ? '<div class="cc-error" role="alert">'+escapeHtml(circle.error)+'</div>' : '')+
+    '<button type="button" class="btn btn-primary btn-block cc-join-go" data-action="circle-join"'+(circle.busy ? ' disabled' : '')+'>Join Circle</button>');
+}
+function openCircleJoinSheet(){
+  circle.error = '';
+  openCircleSheet({ kind:'join' }, circleJoinSheetHtml());
+}
+/* Redraw the join sheet without losing what was typed. */
+function circleJoinRepaint(){
+  var layer = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('circle-sheet') : null;
+  if (!layer || !circleSheet || circleSheet.kind !== 'join') return false;
+  layer.innerHTML = circleJoinSheetHtml({ code: circleFieldVal('circle-code'), name: circleFieldVal('circle-me-name'),
+                                          agreed: circleConsented() });
+  return true;
+}
+
+/* ---- a day, and Nice work ---- */
+function circleDaySheetHtml(uid, day){
+  var d = circleDayFor(uid, day) || {};
+  var m = circleMember(uid) || {};
+  var you = uid === circleMe();
+  var what = (d.session_label || 'Session') + (m.show_km && d.km ? ', ' + fmtDist(Number(d.km)) : '') +
+    ', ' + dow(day) + ' ' + dShort(day) + '.';
+  var cheers = circleCheersFor(uid, day);
+  var mineGiven = cheers.some(function(c){ return c.from_user === circleMe(); });
+  var others = cheers.filter(function(c){ return c.from_user !== circleMe(); }).map(function(c){ return circleName(c.from_user); });
+  var who = others.length ? circleListNames(others) + ' said nice work.' : (you ? 'No nice work on this one yet.' : '');
+  var recent = day <= todayStr() && day >= addDays(todayStr(), -6);
+  var action = '';
+  if (!you){
+    action = mineGiven
+      ? '<div class="cc-given">You said nice work.</div>'
+      : recent
+        ? '<button type="button" class="btn btn-primary btn-block cc-nice" data-action="circle-nice-work" '+
+            'data-user="'+escapeHtml(uid)+'" data-date="'+day+'">Nice work</button>'+
+          '<div class="cc-quiet">'+escapeHtml(m.display_name || 'They')+' finds it on Today. Nothing is sent to the phone.</div>'
+        : '<div class="cc-quiet">Nice work is for the last 7 days.</div>';
+  }
+  return circleSheetShell(you ? 'Your Session' : (m.display_name || 'Session'),
+    '<div class="cc-say">'+escapeHtml(what)+'</div>'+
+    (who ? '<div class="cc-who">'+escapeHtml(who)+'</div>' : '')+
+    action);
+}
+/* THE SHEETS RISE OVER THE PAGE, NOT INSTEAD OF IT. A day, Nice work, your
+   sharing, an invite and leaving are quick answers, so they are glass sheets
+   (the interaction-style rule) on their own layer above the circle page, the
+   way the time wheel sits above whatever page it was opened from. Closing
+   one leaves the table exactly where it was, redrawn with what changed. */
+var circleSheet = null;
+function circleSheetShell(title, body){
+  return '<div class="tw-sheet cc-sheet" role="dialog" aria-modal="true" aria-label="'+escapeHtml(title)+'">'+
+      '<div class="tw-head"><h2 class="font-head">'+escapeHtml(title)+'</h2>'+
+        '<button type="button" class="icon-btn" data-action="circle-sheet-close" aria-label="Close">'+ICONS.close+'</button></div>'+
+      '<div class="cc-sheet-body">'+body+'</div>'+
+    '</div>';
+}
+function openCircleSheet(sheet, html){
+  closeCircleSheetLayer();
+  circleSheet = sheet;
+  var layer = document.createElement('div');
+  layer.className = 'tw-layer cc-layer';
+  layer.id = 'circle-sheet';
+  layer.innerHTML = html;
+  layer.addEventListener('mousedown', function(e){ if (e.target === layer) closeCircleSheet(); });
+  document.body.appendChild(layer);
+}
+function closeCircleSheetLayer(){
+  var l = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('circle-sheet') : null;
+  if (l && l.parentNode) l.parentNode.removeChild(l);
+}
+function closeCircleSheet(){
+  circleSheet = null;
+  closeCircleSheetLayer();
+  circleRepaint();
+}
+function openCircleDaySheet(uid, day){
+  openCircleSheet({ kind:'day', uid:uid, day:day }, circleDaySheetHtml(uid, day));
+}
+function handleCircleNiceWork(uid, day){
+  if (circle.busy) return Promise.resolve();
+  circle.busy = true;
+  return circleRpc('circle_nice_work', { p_to: uid, p_day: day }).then(function(){
+    circle.busy = false;
+    circle.cheers.push({ from_user: circleMe(), to_user: uid, day: day, seen_at: null });
+    closeCircleSheet();
+  }, function(err){
+    circle.busy = false;
+    showToast((err && err.message) || 'That did not send. Try again');
+  });
+}
+
+/* ---- invite ---- */
+function handleCircleInvite(){
+  if (circle.busy) return Promise.resolve();
+  circle.busy = true; circleRepaint();
+  return circleRpc('circle_invite_create').then(function(code){
+    circle.busy = false;
+    circleRepaint();
+    openCircleSheet({ kind:'invite', code:String(code || '') }, circleInviteSheetHtml(String(code || '')));
+  }, function(err){
+    circle.busy = false; circle.error = (err && err.message) || 'No invite could be made. Try again';
+    circleRepaint();
+  });
+}
+function circleInviteText(code){
+  return 'Join my SACORO circle, ' + circle.name + '. In SACORO open Coach, then Your Circle, then Join with a code, and enter ' +
+    code + '. The code works for 7 days.';
+}
+function circleInviteSheetHtml(code){
+  return circleSheetShell('Invite Someone',
+    '<div class="cc-say">Send this code to someone you want in your circle. It works for 7 days, and a circle holds up to 8 people.</div>'+
+    '<div class="cc-code font-mono">'+escapeHtml(code)+'</div>'+
+    '<div class="unlogged-actions">'+
+      '<button type="button" class="btn btn-ghost" data-action="circle-invite-copy">Copy</button>'+
+      '<button type="button" class="btn btn-primary" data-action="circle-invite-share">Share</button>'+
+    '</div>');
+}
+function handleCircleInviteShare(copyOnly){
+  var code = circleSheet && circleSheet.code;
+  if (!code) return Promise.resolve();
+  var text = circleInviteText(code);
+  var Share = nativePlugin('Share');
+  if (!copyOnly && isNativeApp() && Share && Share.share)
+    return Share.share({ text:text, dialogTitle:'Invite to your circle' }).catch(function(){});
+  if (!copyOnly && typeof navigator !== 'undefined' && navigator.share)
+    return navigator.share({ text:text }).catch(function(){});
+  try {
+    return navigator.clipboard.writeText(text).then(function(){ showToast('Invite copied'); },
+      function(){ showToast('Copy did not work. The code is ' + code); });
+  } catch(e){ showToast('The code is ' + code); return Promise.resolve(); }
+}
+
+/* ---- your sharing: km, pause, leave ---- */
+function circleSharingSheetHtml(){
+  var m = circleMyMember() || {};
+  var sw = function(action, on, label){
+    return '<span class="stg-row-switch"><label class="switch"><input type="checkbox" data-action="'+action+'" '+
+      'aria-label="'+label+'"'+(on ? ' checked' : '')+'><span class="switch-track"></span></label></span>';
+  };
+  return circleSheetShell('Your Sharing',
+      stgRow({ title:'Share my training', chevron:false, still:true,
+        sub: m.sharing ? 'Your circle sees your days' : 'Paused. Your circle sees your name only',
+        trail: sw('circle-toggle-sharing', !!m.sharing, 'Share my training') })+
+      stgRow({ title:'Show my kilometres', chevron:false, still:true,
+        sub: m.show_km ? 'Shown on your done days' : 'Off. Turning it off removes any already shared',
+        trail: sw('circle-toggle-km', !!m.show_km, 'Show my kilometres') })+
+      '<div class="cc-quiet">Your programme is never changed by your circle.</div>'+
+      '<button type="button" class="btn btn-ghost btn-block cc-leave" data-action="circle-leave-ask">Leave circle</button>');
+}
+function openCircleSharingSheet(){
+  openCircleSheet({ kind:'sharing' }, circleSharingSheetHtml());
+}
+function handleCircleSetting(which, on){
+  var m = circleMyMember();
+  if (!m) return Promise.resolve();
+  var args = which === 'km' ? { p_sharing: null, p_show_km: !!on } : { p_sharing: !!on, p_show_km: null };
+  return circleRpc('circle_set_sharing', args).then(function(){
+    if (which === 'km') m.show_km = !!on; else m.sharing = !!on;
+    // Resuming sends today's outcomes; km on resends the week with km.
+    return (on ? circlePush() : Promise.resolve()).then(function(){ return circleLoad(); });
+  }, function(err){
+    showToast((err && err.message) || 'That did not save. Try again');
+  }).then(function(){
+    var layer = document.getElementById('circle-sheet');
+    if (circleSheet && circleSheet.kind === 'sharing' && layer) layer.innerHTML = circleSharingSheetHtml();
+  });
+}
+function circleLeaveSheetHtml(){
+  return circleSheetShell('Leave '+circle.name+'?',
+    '<div class="cc-say">Your days and every nice work you gave or received are removed from the circle. Your programme is not affected.</div>'+
+    '<div class="unlogged-actions">'+
+      '<button type="button" class="btn btn-ghost" data-action="circle-sheet-close">Stay</button>'+
+      '<button type="button" class="btn btn-primary" data-action="circle-leave">Leave</button>'+
+    '</div>');
+}
+function handleCircleLeave(){
+  return circleRpc('circle_leave').then(function(){
+    circleSheet = null;
+    closeCircleSheetLayer();
+    circle = circleFresh(); circle.status = 'none'; circle.view = 'intro';
+    closeModal();
+    showToast('You have left the circle');
+    try { renderApp(); } catch(e){}
+  }, function(err){ showToast((err && err.message) || 'That did not work. Try again'); });
+}
+
+/* ---- the Coach box and the line on Today ---- */
+function circlePlateHtml(){
+  if (circle.status !== 'member' && circle.status !== 'none') return '';
+  var big = circle.status === 'member'
+    ? circle.members.length + (circle.members.length === 1 ? ' person' : ' people') : 'Start one';
+  return '<button type="button" class="b-plate b-plate-wide" data-action="circle-open" '+
+      'aria-label="'+escapeHtml('Your circle, '+big)+'" style="--rd-base:var(--cherry);">'+
+      '<span class="b-plate-k">Your Circle</span>'+
+      '<span class="b-plate-v" style="--pv-ch:'+plateValueChars(big)+';">'+escapeHtml(big)+'</span>'+
+    '</button>';
+}
+/* Inside the app only. Founder: "I don't want them going to the phone." One
+   line, gone once read. */
+function circleUnseenCheers(){
+  var me = circleMe();
+  return circle.status === 'member'
+    ? circle.cheers.filter(function(c){ return c.to_user === me && !c.seen_at; }) : [];
+}
+function renderCircleTodayLine(){
+  var fresh = circleUnseenCheers();
+  if (!fresh.length) return '';
+  var names = [], days = [];
+  fresh.forEach(function(c){
+    var n = circleName(c.from_user);
+    if (names.indexOf(n) === -1) names.push(n);
+    if (days.indexOf(c.day) === -1) days.push(c.day);
+  });
+  var on = days.length === 1
+    ? 'your ' + String(((circleDayFor(circleMe(), days[0]) || {}).session_label) || 'session').toLowerCase()
+    : days.length + ' of your sessions';
+  return '<div class="today-checkin circle-line">'+
+    '<button type="button" class="checkin-row" data-action="circle-open-seen">'+
+      '<span class="checkin-row-k font-head">Your circle</span>'+
+      '<span class="checkin-row-v">'+escapeHtml(circleListNames(names) + ' said nice work on ' + on)+'</span>'+
+      '<span class="rs-chev">'+ICONS.chevronRight+'</span>'+
+    '</button></div>';
+}
+function handleCircleOpenSeen(){
+  var now = new Date().toISOString();
+  circleUnseenCheers().forEach(function(c){ c.seen_at = now; });
+  circleRpc('circle_nice_work_seen').catch(function(){});
+  openCirclePage();
+}
+
 function activityClock(sec){
   if (!(sec > 0)) return null;
   sec = Math.round(sec);
@@ -76282,6 +76998,21 @@ document.addEventListener('click', function(e){
     case 'bld-next': handleBldNext(); break;
     case 'bld-back': handleBldBack(); break;
     case 'bld-restart': handleBldRestart(); break;
+    case 'circle-open': openCirclePage(); break;
+    case 'circle-open-seen': handleCircleOpenSeen(); break;
+    case 'circle-view': handleCircleView(target.getAttribute('data-view')); break;
+    case 'circle-start': circleSubmit('start'); break;
+    case 'circle-join': circleSubmit('join'); break;
+    case 'circle-join-open': openCircleJoinSheet(); break;
+    case 'circle-day': openCircleDaySheet(target.getAttribute('data-user'), target.getAttribute('data-date')); break;
+    case 'circle-nice-work': handleCircleNiceWork(target.getAttribute('data-user'), target.getAttribute('data-date')); break;
+    case 'circle-sheet-close': closeCircleSheet(); break;
+    case 'circle-invite': handleCircleInvite(); break;
+    case 'circle-invite-share': handleCircleInviteShare(false); break;
+    case 'circle-invite-copy': handleCircleInviteShare(true); break;
+    case 'circle-sharing': openCircleSharingSheet(); break;
+    case 'circle-leave-ask': openCircleSheet({ kind:'leave' }, circleLeaveSheetHtml()); break;
+    case 'circle-leave': handleCircleLeave(); break;
     case 'bld-jump': handleBldJump(target); break;
     case 'bld-skip-hr': handleBldSkipHR(); break;
     case 'suggest-goals': handleSuggestGoals(); break;
@@ -76390,6 +77121,8 @@ document.addEventListener('change', function(e){
   else if (action === 'slog-field') handleStructuredSplitChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-seg'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
+  else if (action === 'circle-toggle-sharing') handleCircleSetting('sharing', !!t.checked);
+  else if (action === 'circle-toggle-km') handleCircleSetting('km', !!t.checked);
   else if (action === 'toggle-support-work') handleSetSupportWork(!!t.checked);
   /* The Settings switch is a form field and belongs on `change`; the one-time
      card's two buttons are buttons and are registered on `click`. Separate
@@ -76923,6 +77656,9 @@ function init(){
          honoured on this path and on resume alike -- and the server refuses
          /api/strava-sync regardless of what this page believes. */
       stravaRefreshStatus().then(function(ok){ if (ok) stravaAutoPull(); });
+      /* The circle: is it here yet, am I in one, has anyone said nice work.
+         One read on opening; it draws only once the answer is in. */
+      try { circleRefresh(); } catch(e){}
     });
   }catch(e){}
 }
