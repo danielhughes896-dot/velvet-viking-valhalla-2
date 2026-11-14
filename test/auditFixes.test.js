@@ -396,3 +396,55 @@ test('typing a run on a rest day lights the cherry ring, never the old gold', ()
   assert.match(css, rule);
   assert.ok(css.search(rule) > css.indexOf('\n  :focus-visible{'), 'it must come after the global gold ring to win');
 });
+
+/* ---------- SHARE NEVER FAILS IN SILENCE ---------- */
+function shareRig(fs, share){
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  const toasts = [];
+  a.showToast = m => toasts.push(m);
+  a.setTimeout = setTimeout; a.clearTimeout = clearTimeout;
+  a.setInterval = setInterval; a.clearInterval = clearInterval;
+  a.nativePlugin = n => (n === 'Filesystem' ? fs : n === 'Share' ? share : null);
+  a.shareBlobToBase64 = () => Promise.resolve(BIG);
+  a.document.hasFocus = () => true;
+  return { a, toasts };
+}
+const BIG = Buffer.from(Array.from({ length: 1200 * 1024 }, (_, i) => i % 251)).toString('base64');
+test('a large share image is written in whole pieces that rebuild the exact file', async () => {
+  const bytes = [];
+  const fs = {
+    writeFile: o => { bytes.length = 0; bytes.push(Buffer.from(o.data, 'base64')); return Promise.resolve({ uri: 'file:///cache/' + o.path }); },
+    appendFile: o => { assert.equal(o.encoding, undefined, 'appended as text, not bytes'); bytes.push(Buffer.from(o.data, 'base64')); return Promise.resolve(); }
+  };
+  let shared = null;
+  const { a, toasts } = shareRig(fs, { share: o => { shared = o; return Promise.resolve({}); } });
+  await a.nativeSaveBinaryFile({ blob: {}, filename: 'x.png', done: 'Image ready to share' });
+  assert.ok(bytes.length > 1, 'written in one call');
+  assert.equal(Buffer.concat(bytes).toString('base64'), BIG, 'the pieces do not rebuild the image');
+  assert.equal(shared.url, 'file:///cache/x.png');
+  assert.equal(toasts[toasts.length - 1], 'Image ready to share');
+});
+test('a write that never answers ends in a message, not nothing', async () => {
+  const { a, toasts } = shareRig({ writeFile: () => new Promise(() => {}), appendFile: () => new Promise(() => {}) },
+                                 { share: () => Promise.resolve({}) });
+  a.SHARE_STEP_MS.write = 60;
+  await a.nativeSaveBinaryFile({ blob: {}, filename: 'x.png', done: 'ok' });
+  assert.match(toasts[toasts.length - 1], /could not be prepared to share\. Save it instead/);
+});
+test('a share sheet that never appears ends in a message; one that does is left alone', async () => {
+  const fs = { writeFile: o => Promise.resolve({ uri: 'file:///c/' + o.path }), appendFile: () => Promise.resolve() };
+  const stuck = shareRig(fs, { share: () => new Promise(() => {}) });
+  stuck.a.SHARE_STEP_MS.sheet = 300;
+  await stuck.a.nativeSaveBinaryFile({ blob: {}, filename: 'x.png', done: 'ok' });
+  assert.match(stuck.toasts[stuck.toasts.length - 1], /share options did not open/);
+
+  let finish;
+  const open = shareRig(fs, { share: () => new Promise(r => { finish = r; }) });
+  open.a.SHARE_STEP_MS.sheet = 300;
+  open.a.document.hasFocus = () => false;          // the sheet has the screen
+  const p = open.a.nativeSaveBinaryFile({ blob: {}, filename: 'x.png', done: 'Image ready to share' });
+  await new Promise(r => setTimeout(r, 700));      // well past the deadline
+  finish({});
+  await p;
+  assert.equal(open.toasts[open.toasts.length - 1], 'Image ready to share', 'an open sheet was reported as failed');
+});

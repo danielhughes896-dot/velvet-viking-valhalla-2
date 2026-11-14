@@ -28335,20 +28335,91 @@ function saveBinaryFile(o){
   } catch(err){ showToast('Could not save the image. Try again'); }
   return Promise.resolve();
 }
+/* ---------- SHARE MUST NEVER FAIL IN SILENCE ----------
+   Founder, on the phone: "no share options work", and asked what happens:
+   "Nothing happens" -- no sheet and no message. Every refusal on this path
+   already said so in a toast, so the only way to get nothing at all is a
+   step that never answers. Filesystem.writeFile is known to do exactly that
+   on Android with a large base64 payload, and a full-size share image is
+   several megabytes of it in one bridge call (Save to photos goes through
+   the Media plugin instead, which is why saving works).
+   So the file is written in pieces -- one writeFile, then appendFile, each
+   piece a whole number of base64 quads so it decodes on its own -- and each
+   step has a deadline. A step that does not answer now ends in a plain
+   message naming what did not happen, never in nothing. */
+var SHARE_WRITE_CHUNK = 512 * 1024;           // base64 characters; a multiple of 4
+var SHARE_STEP_MS = { write: 20000, sheet: 8000 };
+function shareStepWithin(p, ms, label){
+  return new Promise(function(res, rej){
+    var done = false;
+    var t = setTimeout(function(){
+      if (done) return;
+      done = true;
+      var e = new Error(label); e.stalled = label; rej(e);
+    }, ms);
+    Promise.resolve(p).then(function(v){ if (done) return; done = true; clearTimeout(t); res(v); },
+                            function(e){ if (done) return; done = true; clearTimeout(t); rej(e); });
+  });
+}
+function nativeWriteBase64(FS, path, b64){
+  if (b64.length <= SHARE_WRITE_CHUNK || !FS.appendFile)
+    return FS.writeFile({ path:path, data:b64, directory:'CACHE' });
+  var first = FS.writeFile({ path:path, data:b64.slice(0, SHARE_WRITE_CHUNK), directory:'CACHE' });
+  var chain = first;
+  for (var at = SHARE_WRITE_CHUNK; at < b64.length; at += SHARE_WRITE_CHUNK){
+    (function(piece){
+      chain = chain.then(function(){
+        // No `encoding`: appended as base64, decoded to bytes, like writeFile.
+        return FS.appendFile({ path:path, data:piece, directory:'CACHE' });
+      });
+    })(b64.slice(at, at + SHARE_WRITE_CHUNK));
+  }
+  // writeFile is the call that returns the file's uri; appendFile does not.
+  return chain.then(function(){ return first; });
+}
 function nativeSaveBinaryFile(o){
   var FS = nativePlugin('Filesystem'), Share = nativePlugin('Share');
+  var sheetShown = false;
+  var onAway = function(){ sheetShown = true; };
+  var unbind = function(){
+    try{ document.removeEventListener('visibilitychange', onAway); window.removeEventListener('blur', onAway); }catch(e){}
+  };
+  showToast('Getting your image ready');
   return shareBlobToBase64(o.blob).then(function(b64){
-    // No `encoding` -- that is how the bridge is told the payload is base64.
-    return FS.writeFile({ path:o.filename, data:b64, directory:'CACHE' });
+    return shareStepWithin(nativeWriteBase64(FS, o.filename, b64), SHARE_STEP_MS.write, 'write');
   }).then(function(res){
+    if (!res || !res.uri) throw new Error('The image file was not written.');
+    try{ document.addEventListener('visibilitychange', onAway); window.addEventListener('blur', onAway); }catch(e){}
     // url + title only; adding `text` makes Android share plain text and drop
     // the image -- the same lesson nativeSaveTextFile() records.
-    return Share.share({ title:o.title || o.filename, url:res.uri,
-                         dialogTitle:o.dialog || 'Share workout' });
-  }).then(function(){ showToast(o.done); })
+    var sharing = Share.share({ title:o.title || o.filename, url:res.uri,
+                                dialogTitle:o.dialog || 'Share workout' });
+    /* The promise only settles when the athlete comes back from the sheet,
+       which can be minutes. The deadline is for the sheet APPEARING: once
+       the app has lost the screen to it, it is left to take its time. */
+    var appeared = new Promise(function(res2, rej2){
+      var waited = 0;
+      var tick = setInterval(function(){
+        // A sheet over the app takes its focus, even where no event says so.
+        var away = sheetShown;
+        try{ if (!away && document.hasFocus && !document.hasFocus()) away = true; }catch(e){}
+        if (away){ clearInterval(tick); res2(); return; }
+        waited += 250;
+        if (waited >= SHARE_STEP_MS.sheet){
+          clearInterval(tick);
+          var e = new Error('sheet'); e.stalled = 'sheet'; rej2(e);
+        }
+      }, 250);
+      sharing.then(function(){ clearInterval(tick); res2(); }, function(){ clearInterval(tick); res2(); });
+    });
+    return appeared.then(function(){ return sharing; });
+  }).then(function(){ unbind(); showToast(o.done); })
     .catch(function(err){
+      unbind();
       var msg = (err && (err.message || err.errorMessage)) || '';
       if (/cancel/i.test(msg)) return;
+      if (err && err.stalled === 'write'){ showToast('The image could not be prepared to share. Save it instead and share it from your photos'); return; }
+      if (err && err.stalled === 'sheet'){ showToast('The share options did not open. Save the image and share it from your photos'); return; }
       showToast('Could not share the image. Try again');
     });
 }
