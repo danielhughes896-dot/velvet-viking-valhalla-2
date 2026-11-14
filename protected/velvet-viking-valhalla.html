@@ -1408,7 +1408,8 @@
      around these boxes when selected. Cherry please." Gold is the brand and
      the destination; a tab under the thumb is an interaction, and on a phone
      the rim stays on the tab last tapped. Keyboard focus takes the same rim. */
-  .sess-tab:hover, .sess-tab:focus-visible{border-color:var(--cherry);}
+  .sess-tab:focus-visible{border-color:var(--cherry);}
+  @media (hover:hover){ .sess-tab:hover{border-color:var(--cherry);} }
   .sess-tab:focus-visible{outline:none;}
   /* CENTRED IN THE ROW, NOT IN WHAT IS LEFT OF IT. The chevron sits at the
      end and is 19px of asymmetry; a title centred in the remaining space
@@ -1819,7 +1820,7 @@
     width:var(--tap-min); height:var(--tap-min); border-radius:999px; border:1px solid var(--line);
     background:var(--bg-2); color:var(--mark-dim); transition:.2s;
   }
-  .icon-btn:hover{color:var(--ink); border-color:var(--bronze);}
+  @media (hover:hover){ .icon-btn:hover{color:var(--ink); border-color:var(--bronze);} }
   .icon-btn svg{width:18px; height:18px;}
   /* ---------- THE X IS GLASS, LIKE THE COMPLETION CIRCLE ----------
      Founder, of the round close buttons on Settings, Edit Session and the
@@ -1843,7 +1844,7 @@
      numbered circles use, for the same reason -- a colour already proven to
      read correctly here rather than a new one invented for this button. */
   .hq-panel .icon-btn{color:var(--cherry-text); border-color:var(--cherry);}
-  .hq-panel .icon-btn:hover{color:var(--cherry-ink); border-color:var(--cherry); background:var(--cherry-soft);}
+  @media (hover:hover){ .hq-panel .icon-btn:hover{color:var(--cherry-ink); border-color:var(--cherry); background:var(--cherry-soft);} }
 
   /* ---------- hero / progress ---------- */
   .hero{padding:32px 0 18px; text-align:center; position:relative;}
@@ -2022,9 +2023,9 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions svg{
     width:18px; height:18px; stroke-width:2.1;
     filter:drop-shadow(0 0 5px rgba(255,255,255,.30));}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions button:hover{
+  @media (hover:hover){ :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions button:hover{
     color:var(--gold-bright); background:none;
-    filter:drop-shadow(0 0 6px rgba(227,177,90,.55));}
+    filter:drop-shadow(0 0 6px rgba(227,177,90,.55));} }
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-date{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-targets{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-title{display:none;}
@@ -4183,7 +4184,7 @@
   .phase-divider .r{flex:1; height:1px; min-width:0;
                     background:linear-gradient(to right, var(--line) 0%, transparent 100%);}
   .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink); transition:background .15s ease;}
-  .week-head:hover{background:var(--bg-3);}
+  @media (hover:hover){ .week-head:hover{background:var(--bg-3);} }
   .week-head:active{background:var(--bg-4);}
   .week-num{font-family:var(--num-face); font-weight:700; font-size:1.25rem; color:var(--bronze-text); flex:none; width:34px;}
   .week-meta{flex:1; min-width:0;}
@@ -4228,7 +4229,7 @@
      page colour would have dissolved it. Light gets the fine rule the rest of
      the containers already had; the semantic 4px type bar on the left is
      untouched, and dark keeps the fill it always had. */
-  .day:hover{background:var(--bg-4);}
+  @media (hover:hover){ .day:hover{background:var(--bg-4);} }
   .day.type-easy{border-left-color:var(--c-easy);}
   .day.type-tempo{border-left-color:var(--c-tempo);}
   .day.type-threshold{border-left-color:var(--c-threshold);}
@@ -4533,7 +4534,7 @@
      control it reserves for means the two cannot drift apart. */
   .wk-rail-act{min-height:var(--tap-min);}
   .day-actions button{background:none; border:none; color:var(--ink-faint); padding:4px; border-radius:6px; display:flex;}
-  .day-actions button:hover{color:var(--bronze); background:var(--bg-4);}
+  @media (hover:hover){ .day-actions button:hover{color:var(--bronze); background:var(--bg-4);} }
   .day-actions svg{width:16px; height:16px;}
 
   .actual-panel{margin-top:10px; padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;}
@@ -4601,7 +4602,8 @@
     content:''; position:absolute; left:50%; top:50%;
     width:var(--tap-min); height:var(--tap-min);
     transform:translate(-50%,-50%); border-radius:8px;}
-  .notes-wand:hover, .notes-wand:focus-visible{opacity:1; border-color:var(--modal-active); transform:translateY(-1px);}
+  .notes-wand:focus-visible{opacity:1; border-color:var(--modal-active); transform:translateY(-1px);}
+  @media (hover:hover){ .notes-wand:hover{opacity:1; border-color:var(--modal-active); transform:translateY(-1px);} }
   .note-chips{grid-column:1/-1; margin-top:7px;}
   .note-chips-head{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px; font-weight:var(--label-weight);}
   .note-chip-row{display:flex; flex-wrap:wrap; gap:5px;}
@@ -4616,14 +4618,14 @@
     background:none; border:none; color:var(--ink-faint); font-size:.75rem; line-height:1;
     padding:0 2px; cursor:pointer;
   }
-  .note-chip-x:hover{color:var(--ink);}
+  @media (hover:hover){ .note-chip-x:hover{color:var(--ink);} }
   .note-chips-none{ color:var(--ink-faint);}
   .note-chips-head{display:flex; align-items:center; gap:8px;}
   .note-undo{
     background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;
     font-size:.5625rem; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint);
   }
-  .note-undo:hover{color:var(--ink);}
+  @media (hover:hover){ .note-undo:hover{color:var(--ink);} }
   /* ---------- FEEL SPEAKS THE PRODUCT'S OWN LANGUAGE ----------
      This was the last control still built out of boxes and fills: a 9px
      label at 0.5px tracking inside a 6px-radius slab, which selected itself
@@ -4686,7 +4688,8 @@
     padding:4px; min-width:var(--tap-min); min-height:var(--tap-min);
     cursor:pointer; border-radius:6px;
   }
-  .split-remove:hover, .split-remove:focus-visible{color:var(--gold-deep); background:var(--bg-4);}
+  .split-remove:focus-visible{color:var(--gold-deep); background:var(--bg-4);}
+  @media (hover:hover){ .split-remove:hover{color:var(--gold-deep); background:var(--bg-4);} }
   .splits-add{
     background:none; border:1px dashed var(--line); border-radius:6px; color:var(--ink-dim);
     font-size:.6875rem; padding:6px 10px; margin-top:2px; cursor:pointer;
@@ -4878,9 +4881,9 @@
      it exists to sit inline beside a row of text, and giving it 44px would
      make those rows taller than the content they belong to. */
   .btn:not(.btn-sm){min-height:44px;}
-  .btn:hover{border-color:var(--bronze);}
+  @media (hover:hover){ .btn:hover{border-color:var(--bronze);} }
   .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink); border:none;}
-  .btn-primary:hover{filter:brightness(1.08);}
+  @media (hover:hover){ .btn-primary:hover{filter:brightness(1.08);} }
   /* THE BUILDER'S PRIMARY ACTION, and only the builder's. Continue and Build
      My Training Block / Regenerate Plan are the forward motion of a flow that
      is already marked in Cherry Lacquer by its progress rail, so the button
@@ -4925,7 +4928,7 @@
     background:var(--ctl-disabled-bg); border-color:var(--ctl-disabled-border);
     color:var(--ctl-disabled-text); cursor:default; filter:none;
   }
-  .btn:disabled:hover, .btn[disabled]:hover{border-color:var(--ctl-disabled-border);}
+  @media (hover:hover){ .btn:disabled:hover, .btn[disabled]:hover{border-color:var(--ctl-disabled-border);} }
   .btn-block{width:100%;}
   /* Legal/support rows are real links, not buttons that fake it: an <a> can be
      long-pressed, copied and opened in a new tab, which is what somebody reading
@@ -5258,7 +5261,7 @@
     cursor:pointer;
   }
   .voice-btn svg{width:15px; height:15px; flex:none;}
-  .voice-btn:hover{color:var(--cherry-text); border-color:var(--cherry);}
+  @media (hover:hover){ .voice-btn:hover{color:var(--cherry-text); border-color:var(--cherry);} }
   .voice-btn:active{transform:translateY(1px);}
   /* .voice-why is retired: the adaptive-reason line no longer appears on
      Today. The rule kept only so a stale cached page cannot render unstyled. */
@@ -5461,7 +5464,7 @@
     color:var(--ink-faint); background:transparent;
     border:1px solid var(--ctl-border); border-radius:99px; cursor:pointer;
   }
-  .ask-chip:hover{color:var(--ink); }
+  @media (hover:hover){ .ask-chip:hover{color:var(--ink); } }
   .ask-proposal{
     margin:4px 0 10px; padding:11px; border-radius:var(--tile-radius);
     background:var(--surface-2, var(--surface-3)); border:1px solid var(--tile-border);
@@ -5593,7 +5596,7 @@
     box-shadow:none;
     transition:color .2s, border-color .2s, box-shadow .2s;
   }
-  .opt-grid button:hover:not(.active):not(:disabled){border-color:var(--bronze);}
+  @media (hover:hover){ .opt-grid button:hover:not(.active):not(:disabled){border-color:var(--bronze);} }
   .opt-grid button::before{
     content:''; position:absolute; inset:0; border-radius:inherit;
     pointer-events:none; z-index:0;
@@ -5601,7 +5604,7 @@
       rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
     opacity:0; transition:opacity .34s ease;}
   .opt-grid button > *{position:relative; z-index:1;}
-  .opt-grid button:hover:not(.active):not(:disabled)::before{opacity:.38;}
+  @media (hover:hover){ .opt-grid button:hover:not(.active):not(:disabled)::before{opacity:.38;} }
   .opt-grid button .sub{display:block; font-family:var(--text-face); font-weight:400;
     font-size:var(--fs-support); letter-spacing:0; color:var(--ink-faint); margin-top:3px;}
   .opt-grid button:disabled{opacity:.5;}
@@ -5836,7 +5839,7 @@
     background:var(--t-tile); color:var(--ink-dim); box-shadow:var(--t-lift);
     transition:color .18s, border-color .18s, box-shadow .18s;
   }
-  .bld-purpose button:hover:not(.active){border-color:var(--bronze);}
+  @media (hover:hover){ .bld-purpose button:hover:not(.active){border-color:var(--bronze);} }
   /* The coaching rail's radial pool, which is what "chosen" looks like in
      this product. It reaches the full width of the row, so the light runs
      to both edges of the card rather than stopping at a tile's rim. */
@@ -5847,7 +5850,7 @@
       rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
     opacity:0; transition:opacity .34s ease;}
   .bld-purpose button > *{position:relative; z-index:1;}
-  .bld-purpose button:hover:not(.active)::before{opacity:.38;}
+  @media (hover:hover){ .bld-purpose button:hover:not(.active)::before{opacity:.38;} }
   .bld-purpose button:active{transform:scale(.995);}
   .bpc-text{flex:1 1 auto; min-width:0;}
   .bpc-tick{flex:none; display:inline-flex; align-items:center; justify-content:center;
@@ -5897,7 +5900,7 @@
     opacity:.75; cursor:pointer; padding:4px; border-radius:6px;
     filter:invert(41%) sepia(38%) saturate(720%) hue-rotate(6deg) brightness(92%);
   }
-  .bld-date input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1;}
+  @media (hover:hover){ .bld-date input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1;} }
   .bld-date input[type="date"]::-webkit-datetime-edit{padding:0;}
   /* Placed HERE, beside the rule it overrides, rather than up with the
      builder's shell. Up there it sat before .bld-purpose{ in source order,
@@ -6096,6 +6099,13 @@
   .bld-actions{display:flex; gap:10px; margin-top:22px;}
   .bld-actions .btn{flex:1 1 0;}
   .bld-actions .btn-back{flex:0 0 104px;}
+  /* The two legal links under the builder were 19px tall: each is its own
+     block now, with a 44px band and no change to how the line reads. */
+  .bld-legal a{display:inline-block; padding:13px 2px; margin:-13px 0;}
+  .bld-resume{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px;
+    font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
+  .bld-resume-btn{min-height:44px; padding:0 4px; background:none; border:0; color:var(--cherry-text);
+    font:inherit; text-decoration:underline; text-underline-offset:3px; cursor:pointer;}
   /* THE BUILDER'S BUTTONS STAY WHERE THE THUMB IS. Audit: Continue sat
      wherever each step's content ended, from 562px to 930px down the screen,
      and on the last step Build My Training Block was below the fold. They
@@ -6153,6 +6163,10 @@
     background:var(--t-tile);
   }
   .bld-review-row + .bld-review-row{margin-top:8px;}
+  /* Editing a plan: the same rows, made the way back to their screen. */
+  button.bld-review-row{width:100%; font:inherit; color:inherit; text-align:left; cursor:pointer;}
+  button.bld-review-hero{display:block; width:100%; background:none; border:0; font:inherit; color:inherit; cursor:pointer;}
+
 
   /* ---------- THE LAST FOUR SCREENS TAKE THE BOX TOO ----------
      Founder: "I think these 4 pages should now follow the same rules."
@@ -7034,7 +7048,7 @@
   .connect-row .name{font-size:.9375rem; font-weight:600; color:#FFFFFF; line-height:1.25;}
   .connect-row .desc{ color:var(--ink-faint);}
   .strava-connect-btn{background:var(--strava-orange); color:#fff; border:none;}
-  .strava-connect-btn:hover{filter:brightness(1.08); border-color:transparent;}
+  @media (hover:hover){ .strava-connect-btn:hover{filter:brightness(1.08); border-color:transparent;} }
   .strava-connect-btn:active{filter:brightness(0.92);}
   .strava-connect-btn:disabled{opacity:.6; filter:none; cursor:default;}
   .status-pill{display:inline-flex; align-items:center; gap:4px; font-size:.6875rem; font-weight:600; padding:2px 8px; border-radius:99px;}
@@ -8866,7 +8880,7 @@
     background:var(--tile-sheen), var(--surface-2); border-color:var(--tile-border);
     box-shadow:0 1px 2px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.06);
   }
-  .hub-card.tile-card .btn-ghost:hover{background:var(--bg-3);}
+  @media (hover:hover){ .hub-card.tile-card .btn-ghost:hover{background:var(--bg-3);} }
   .hub-card.tile-card .btn-ghost:active{background:var(--bg-4); box-shadow:inset 0 1px 2px rgba(0,0,0,.14);}
   /* ---------- Adaptive AI Coach ----------
      Built on the existing .hub-card/.callout primitives so it inherits the
@@ -9003,7 +9017,8 @@
     content:''; position:absolute; left:0; right:0;
     top:50%; height:44px; transform:translateY(-50%);
     pointer-events:auto;}
-  .coach-why-btn:hover, .coach-why-btn:focus-visible{color:var(--bronze);}
+  .coach-why-btn:focus-visible{color:var(--bronze);}
+  @media (hover:hover){ .coach-why-btn:hover{color:var(--bronze);} }
   .coach-why-list{
     margin:8px 0 0; padding:9px 11px 9px 26px; list-style:disc;
     background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);
@@ -9015,7 +9030,8 @@
      already used for a Key session and for .evo-k's own section labels --
      no new colour, border/text only, nothing animated. */
   .evo-link.is-progress{color:var(--bronze-text);}
-  .evo-link.is-progress:hover, .evo-link.is-progress:focus-visible{color:var(--bronze);}
+  .evo-link.is-progress:focus-visible{color:var(--bronze);}
+  @media (hover:hover){ .evo-link.is-progress:hover{color:var(--bronze);} }
   .evo-panel{margin-top:9px; padding:10px 11px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .evo-sec + .evo-sec{margin-top:9px;}
   .evo-k{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px; font-weight:var(--label-weight);}
@@ -9386,7 +9402,7 @@
     display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);
     padding:10px 12px; margin:14px 0; cursor:pointer; transition:background .15s ease, border-color .15s ease;
   }
-  .plan-summary-bar:hover{background:var(--bg-3); border-color:var(--bronze-2);}
+  @media (hover:hover){ .plan-summary-bar:hover{background:var(--bg-3); border-color:var(--bronze-2);} }
   .plan-summary-bar:active{background:var(--bg-4);}
   .plan-summary-bar .psb-main{flex:1; min-width:0;}
   .plan-summary-bar .psb-title{font-family:var(--label-face); font-size:.78125rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink); font-weight:var(--label-weight);}
@@ -10523,7 +10539,7 @@
   }
   /* The press feedback moves to the illumination, because the background is
      now carrying the rim and cannot also carry a hover fill. */
-  .ev-card:hover{box-shadow:0 0 14px color-mix(in srgb, var(--gold) 16%, transparent), var(--tile-shadow);}
+  @media (hover:hover){ .ev-card:hover{box-shadow:0 0 14px color-mix(in srgb, var(--gold) 16%, transparent), var(--tile-shadow);} }
   .ev-card:active{box-shadow:0 0 10px color-mix(in srgb, var(--gold) 24%, transparent), var(--tile-shadow);}
   /* THE RESTRICTION PICKS -- the .ev-card shell, two stacked lines of
      content, and the swap-session picker's own chosen state.
@@ -10546,6 +10562,15 @@
      foot of the view so it is findable without competing with the session. */
   .today-injury{text-align:center; padding:14px 0 4px;}
   .today-injury .coach-why-btn{padding-top:0;}
+  /* WELCOME TO WEEK 1: compact, the Coach's Note's own frame, one action. */
+  .welcome-card{margin:0 0 18px; padding:16px; border:1px solid var(--line-strong, rgba(255,255,255,.18));
+    border-radius:18px; background:var(--bg-2, transparent);}
+  .welcome-k{font-size:.75rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF;}
+  .welcome-say{margin:6px 0 14px; font-size:var(--fs-body); line-height:var(--lh-body); color:#FFFFFF;}
+  .welcome-ok{min-height:44px; width:100%; margin:0;}
+  .hero-signin{margin-top:10px;}
+  /* Cherry, the colour of the thing to do now, as Today's Accept is. */
+  .welcome-card .welcome-ok{background:var(--cherry-fill); color:var(--cherry-btn-ink);}
   /* YESTERDAY, NOT LOGGED: the sheet's two answers, side by side. */
   .unlogged-actions{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;}
   .unlogged-actions .btn{min-height:48px; margin:0;}
@@ -10654,10 +10679,10 @@
   .view-settings .ev-card.stg-row{padding:15px 0; border-top:0;}
   .view-settings .ev-card.stg-row + .ev-card.stg-row{
     border-top:1px solid var(--line-soft);}
-  .view-settings .ev-card.stg-row:hover,
   .view-settings .ev-card.stg-row:active{background:none;}
+  @media (hover:hover){ .view-settings .ev-card.stg-row:hover{background:none;} }
   .view-settings .ev-card.stg-nav{padding:15px 0; margin:0;}
-  .ev-card.stg-row:hover{box-shadow:none; background:var(--bg-3);}
+  @media (hover:hover){ .ev-card.stg-row:hover{box-shadow:none; background:var(--bg-3);} }
   .ev-card.stg-row:active{background:var(--bg-4);}
   .stg-row-text{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
   .stg-row-title{font-size:.9375rem; font-weight:600; color:#FFFFFF; line-height:1.25;}
@@ -10799,7 +10824,7 @@
     background:none; border:1px solid var(--line); border-radius:var(--radius-sm);
     color:var(--ink); transition:background .15s ease, border-color .15s ease;
   }
-  .act-tile:hover{background:var(--bg-2); border-color:var(--bronze-2);}
+  @media (hover:hover){ .act-tile:hover{background:var(--bg-2); border-color:var(--bronze-2);} }
   .act-tile:active{background:var(--bg-3);}
   .act-tile svg{width:19px; height:19px; color:var(--bronze-text); flex:none;}
   .act-lab{
@@ -10839,7 +10864,7 @@
     background:var(--t-card); color:var(--cherry-text);
     border:1px solid color-mix(in srgb, var(--cherry) 62%, transparent);
     box-shadow:0 0 14px color-mix(in srgb, var(--cherry) 22%, transparent);}
-  .btn-recal:hover{filter:brightness(1.08);}
+  @media (hover:hover){ .btn-recal:hover{filter:brightness(1.08);} }
 
   /* ---------- THE PANEL WEARS THE COLOUR OF THE CIRCLE THAT OPENED IT ----------
      Nine circles on Sacoro, each a fixed identity, and every one of them
@@ -11136,6 +11161,10 @@
      a rule there would be a box edge and the page has none. */
   .modal-card.hq-full{overscroll-behavior:contain;}
   .hq-full.stg-panel{display:flex; flex-direction:column;}
+  /* The injury page keeps its two answers at the foot, however short it is. */
+  .modal-card.restriction-panel{display:flex; flex-direction:column;}
+  .modal-card.restriction-panel > .modal-head{flex:none;}
+  .modal-card.restriction-panel > .modal-body{flex:1 0 auto;}
   .hq-full.stg-panel > .modal-head{flex:none;}
   .hq-full.stg-panel > .modal-body{flex:1 0 auto;}
   /* The foot carries the home-indicator inset itself, so the card must not
@@ -29239,6 +29268,7 @@ function adoptCloudState(remote, keepDevicePrefs){
      unstamped paces labelled km and read as a completely different run. */
   migrateActualPaceUnits(remote);
   migrateScoringEvidenceFrom(remote);
+  migrateDashCopy(remote);
   var prefs = keepDevicePrefs ? {
     theme: state.theme, units: state.units,
     view: state.view, notifyEnabled: state.notifyEnabled
@@ -30011,6 +30041,7 @@ function loadState(){
              Concise is brought back to the one level everybody gets. */
           parsed.guidanceLevel = GUIDANCE_LEVEL_DEFAULT;
           migrateThemePreference(parsed);
+          migrateDashCopy(parsed);
           migrateActualPaceUnits(parsed);
           migrateScoringEvidenceFrom(parsed);
           state = parsed;
@@ -30082,6 +30113,27 @@ var THEME_MIRROR_KEY = 'vvv_theme';
    they keep adoptCloudState() -- cloud-sync authority -- out of this change,
    and they mean the decision is reversible without having destroyed anyone's
    recorded choice. */
+/* ---------- THE RENAME: STORED COPY LOSES ITS DASHES ----------
+   Founder: "do the rename". The audit's wording pass changed what new plans
+   are built with ("Long Run: Rolling"), but a plan already saved keeps the
+   titles and descriptions it was written with ("Long Run \u2014 Rolling").
+   On load, once: a dash in a session's title becomes a colon, and a dash in
+   its description becomes a full stop with a capital after it. Idempotent,
+   so a second load finds nothing to do; nothing else about a day moves. */
+function dashToPlain(text, inTitle){
+  if (typeof text !== 'string' || text.indexOf('\u2014') === -1) return text;
+  if (inTitle) return text.replace(/\s*\u2014\s*/g, ': ');
+  return text.replace(/\s+\u2014\s+([a-z])?/g, function(m, c){ return '. ' + (c ? c.toUpperCase() : ''); })
+             .replace(/\s*\u2014\s*/g, ', ');
+}
+function migrateDashCopy(st){
+  if (!st || !Array.isArray(st.days)) return;
+  st.days.forEach(function(dd){
+    if (!dd) return;
+    if (typeof dd.title === 'string') dd.title = dashToPlain(dd.title, true);
+    if (typeof dd.desc === 'string') dd.desc = dashToPlain(dd.desc, false);
+  });
+}
 function migrateThemePreference(st){
   if (!st || typeof st !== 'object') return st;
   st.theme = DEFAULT_THEME;
@@ -31607,6 +31659,12 @@ function renderHero(){
          builder itself, which is the only reason it is allowed to promise. */
       '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time. Get a full pace-zoned training block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">Build My Plan</button>'+
+      /* A WAY BACK IN FOR SOMEONE WHO ALREADY HAS ONE. Founder-approved
+         audit fix: a reinstall offered only Build My Plan, and signing in
+         sat behind the shield, then Account & Backup. */
+      (cloudConfigured() && !cloudSignedIn()
+        ? '<button type="button" class="btn btn-ghost btn-block hero-signin" data-action="open-signin-sheet">I already have an account</button>'
+        : '')+
       /* The preview promise, stated once. No payment language, and nothing
          implying the trial has begun -- it has not, and saying so here would
          be the first dishonest sentence in the journey. */
@@ -48341,7 +48399,19 @@ function isOptionalRunDay(dd){ return optionalRunDayState(dd) != null; }
    because that is the rule about an activity RECORD rather than about a
    prescription, and correcting what you actually ran must always stay open. */
 function canLogOptionalRun(dd){
-  return !!dd && dd.type === 'rest' && isCompletionDay(dd) && isOptionalRunDay(dd);
+  return !!dd && dd.type === 'rest' && isCompletionDay(dd) && (isOptionalRunDay(dd) || canLogRunAnyway(dd));
+}
+/* RAN ANYWAY. Founder-approved audit fix: a run on a day the athlete never
+   offered, or one recovery was protecting, had nowhere to go. It is logged
+   through the same optional-run record -- no prescription, so it never
+   enters volume, adherence or progression -- but it is not INVITED: the day
+   says nothing until the athlete taps the quiet "Ran anyway? Log it". Today
+   only, like every completion; never inside a declared restriction. */
+function canLogRunAnyway(dd){
+  if (!dd || dd.type !== 'rest' || !isCompletionDay(dd)) return false;
+  if (dd.restricted || isOptionalRunDay(dd)) return false;
+  try { if (openRestriction()) return false; } catch(e){}
+  return true;
 }
 function canEditOptionalRun(dd){
   return optionalRunLogged(dd) && dd.date <= todayStr();
@@ -54855,9 +54925,9 @@ function restrictionDaysLeftText(untilDate){
 }
 /* One sentence about the goal, from SYSTEM's own verdict. Absent entirely
    where there is no race goal ahead or the restriction took nothing away. */
-function restrictionViabilityLine(){
+function restrictionViabilityWords(){
   var v = restrictionViability();
-  if (!v) return '';
+  if (!v) return null;
   var lost = v.sessionsLost === 1 ? 'One prescribed session'
                                   : v.sessionsLost + ' prescribed sessions';
   var head = lost + ' fell inside this period' +
@@ -54873,8 +54943,9 @@ function restrictionViabilityLine(){
         : a.verdict === 'preparation_short'
           ? 'The programme is short of what this event asks for. Nothing has been changed for you.'
           : 'None of your current targets is supported by the evidence yet. Nothing has been changed for you.';
-  return '<div class="yr-why">'+escapeHtml(head)+' '+escapeHtml(said)+'</div>';
+  return { head:head, said:said };
 }
+
 /* ---------- "INJURED OR ILL?" ON TODAY ----------
    A SIGNPOST, NOT A SECOND CONTROL. An athlete who has just been told to
    stop running opens Today, not Settings, and nothing on Today said this was
@@ -54907,6 +54978,47 @@ function restrictionViabilityLine(){
    Shown for the day before today only: a week-old session is This Week's
    business, and a card for every gap would be nagging. A restricted day, a
    coach-adjusted day and a rest day are never asked about. */
+/* ---------- WELCOME TO WEEK 1 ----------
+   Founder: "I agree the athlete needs orientation, but not another
+   compulsory full-screen experience. A compact welcome card explaining the
+   first session and programme start would be better. Once acknowledged, it
+   disappears." A new athlete used to land on "No run needed today" and
+   nothing else. This card says when the first run is and what week 1 is for,
+   until Got it, or until the first run is logged, or two weeks pass. */
+var WELCOME_MAX_DAYS = 14;
+function welcomeFirstRun(){
+  if (!state || !state.setup || !state.days || !state.days.length) return null;
+  var today = todayStr();
+  return state.days.filter(function(dd){ return dd && dd.date >= today && dd.type !== 'rest'; })
+    .sort(function(a, b){ return a.date < b.date ? -1 : 1; })[0] || null;
+}
+function welcomeCardDue(){
+  if (!state || !state.setup || !state.days || !state.days.length) return false;
+  var su = state.setup;
+  if (su.startDate && daysBetween(su.startDate, todayStr()) >= WELCOME_MAX_DAYS) return false;
+  if (state.welcomeAck && state.welcomeAck === insightBlockKey()) return false;
+  if (state.days.some(function(dd){ return sessionRan(dd) || optionalRunLogged(dd); })) return false;
+  try { if (openRestriction()) return false; } catch(e){}
+  return !!welcomeFirstRun();
+}
+function renderWelcomeCard(){
+  if (!welcomeCardDue()) return '';
+  var first = welcomeFirstRun();
+  var when = first.date === todayStr() ? 'today' : dow(first.date) + ' ' + dShort(first.date);
+  var name = first.title || ((TYPE_META[first.type] || {}).label) || 'your first session';
+  return '<div class="welcome-card">'+
+    '<div class="welcome-k font-head">Welcome to week 1</div>'+
+    '<div class="welcome-say">Your first run is '+escapeHtml(when)+': '+escapeHtml(name)+
+      (first.km ? ', '+escapeHtml(fmtDist(first.km)) : '')+'. Week 1 starts gently on purpose. '+
+      'Log each run and SACORO learns how you respond.</div>'+
+    '<button type="button" class="btn btn-primary welcome-ok" data-action="welcome-ack">Got it</button>'+
+  '</div>';
+}
+function handleWelcomeAck(){
+  state.welcomeAck = insightBlockKey();
+  scheduleSave();
+  renderApp();
+}
 function unloggedYesterday(){
   if (!state || !state.days || !state.days.length) return null;
   if (openRestriction()) return null;
@@ -55050,6 +55162,7 @@ function handleInjuryHint(){
    computes training, and nothing claims more than the engine supports: see
    insightCopy()'s own note on grounded language.
    ========================================================= */
+var INSIGHT_PROGRAMME_MAX_DAYS = 21;  // the programme explainer, first three weeks only
 var INSIGHT_MIN_PLAN_DAYS = 7;        // "not in the opening week"
 var INSIGHT_DISMISS_LIMIT = 3;        // dismissals without an acknowledgement
 
@@ -55096,7 +55209,12 @@ function insightCandidates(){
   if (raceToday) out.push({ kind:'race_day', key:'raceday:'+today, day:raceToday });
 
   /* 1. A PROGRAMME HAS JUST BEEN BUILT. */
-  out.push({ kind:'programme', key:'programme:'+blockId });
+  /* ONLY WHILE IT IS STILL TRUE. Founder-approved audit fix: this one talks
+     about "the first fortnight", so it is offered in a block's first three
+     weeks and not after -- an athlete who restores a plan in week 6, or
+     comes back after a month away, is not told the block "starts" now. */
+  if (!su.startDate || daysBetween(su.startDate, today) < INSIGHT_PROGRAMME_MAX_DAYS)
+    out.push({ kind:'programme', key:'programme:'+blockId });
 
   /* 2. A PHASE BOUNDARY. Keyed per block and per phase, so the same athlete
         meets Build again in their next block -- a year on, that is a
@@ -55719,51 +55837,99 @@ function maybeOpenContextInsight(){
 function renderRestrictionCard(){
   var r = restrictionRecord();
   if (!r) return '';
-  var today = todayStr();
   var meta = RESTRICTION_META[r.level] || RESTRICTION_META.easy;
-
-  /* ---- the window has run out and nobody has said they are back ---- */
+  /* ---- ONE ROW ON TODAY, THE PAGE BEHIND IT ----
+     Founder, with the mock: the injury card as "similar design structure to
+     the new coach page pages behind the circles". Today carries one row in
+     the check-in's own style, saying what is in force and for how long; the
+     page behind it (restrictionPanelHtml) carries the rest and both answers.
+     Nothing is lost from what the card said: every line moved to the page. */
+  var k, v;
   if (restrictionAwaitingReturn()){
-    return '<div class="hub-card yr-outcome">'+
-      '<div class="coach-next-head">'+
-        '<span class="coach-next-title">Are you back?</span></div>'+
-      '<div class="yr-outcome-q">You told SACORO you could not train normally until '+
-        dShort(r.until)+'. Nothing resumes until you say so. The days since are '+
-        'restricted too, and none of them is counted against you.</div>'+
-      '<div class="yr-choices">'+
-        '<button type="button" class="btn btn-primary btn-block" data-action="restriction-end">Yes, I am back</button>'+
-        '<button type="button" class="btn btn-ghost btn-block" data-action="restriction-open">Not yet, still restricted</button>'+
-      '</div>'+
-      '<div class="yr-foot">Nothing you missed is made up. SACORO does not yet decide how quickly you come back. If you are not ready, say so rather than resuming.</div>'+
-    '</div>';
+    k = 'Are you back?';
+    v = 'Your restriction ended on ' + dShort(r.until);
+  } else if (activeRestriction()){
+    k = meta.label;
+    var left = restrictionDaysLeftText(r.until);
+    v = 'Until ' + dShort(r.until) + '. ' + left.charAt(0).toUpperCase() + left.slice(1);
+  } else {
+    /* lifted. THERE IS NO THIRD CARD, because there is nothing to say that
+       would be true: Sacoro does not size a return. */
+    return '';
   }
-
-  /* ---- open, and today is inside it ---- */
-  if (activeRestriction()){
-    return '<div class="hub-card yr-outcome">'+
-      '<div class="coach-next-head">'+
-        '<span class="coach-next-title">Training restricted</span>'+
-        '<span class="yr-lead-pill">'+escapeHtml(meta.short)+'</span></div>'+
-      '<div class="yr-outcome-q">Until '+dShort(r.until)+'. '+
-        escapeHtml(restrictionDaysLeftText(r.until))+'. '+escapeHtml(meta.applied)+'</div>'+
-      restrictionViabilityLine()+
-      '<div class="yr-choices">'+
-        '<button type="button" class="btn btn-primary btn-block" data-action="restriction-end">I am back, resume training</button>'+
-        '<button type="button" class="btn btn-ghost btn-block" data-action="restriction-open">Change or extend</button>'+
-      '</div>'+
-      '<div class="yr-foot">These days are not counted against you, and nothing missed is made up.</div>'+
-    '</div>';
-  }
-
-  /* ---- lifted. THERE IS NO THIRD CARD, because there is nothing to say
-     that would be true. Sacoro does not size a return (see the
-     open-authority note on RETURN TO TRAINING) and a card implying it was
-     managing one would be the product claiming a coaching act it is not
-     performing. The athlete was told what happens when they tapped, and the
-     restored plan is the rest of the answer. */
-  return '';
+  return '<div class="today-checkin is-ask restriction-row">'+
+    '<button type="button" class="checkin-row" data-action="restriction-view">'+
+      '<span class="checkin-row-k font-head">'+escapeHtml(k)+'</span>'+
+      '<span class="checkin-row-v">'+escapeHtml(v)+'</span>'+
+      '<span class="rs-chev">'+ICONS.chevronRight+'</span>'+
+    '</button></div>';
 }
-
+/* THE PAGE: hero circle with the word in it, three tiles, the evidence as
+   rows, SACORO's read, and the two answers pinned at the foot. Cherry, the
+   colour of what is in force now; no pill, no gold button. */
+function restrictionPanelHtml(){
+  var r = restrictionRecord();
+  if (!r) return '';
+  var meta = RESTRICTION_META[r.level] || RESTRICTION_META.easy;
+  var awaiting = restrictionAwaitingReturn();
+  var col = 'var(--cherry-text)';
+  var total = Math.max(1, daysBetween(r.from, r.until) + 1);
+  var left = Math.max(0, daysBetween(todayStr(), r.until));
+  var v = null;
+  try { v = restrictionViability(); } catch(e){ v = null; }
+  var lost = v ? v.sessionsLost : 0, qual = v ? v.qualityLost : 0;
+  var word = awaiting ? 'Back?' : meta.short;
+  var say = awaiting
+    ? 'Your restriction ended on ' + dShort(r.until) + '. Nothing resumes until you say so.'
+    : meta.label + ' until ' + dShort(r.until) + '.';
+  var hero = '<div class="rp-hero is-word" data-tone="watch">'+
+      '<span class="b-dial" data-rank="0" aria-label="'+escapeHtml('Injury or illness, '+word)+'" '+
+        'style="--rd-base:var(--cherry); --rd-tint:var(--cherry-tint);">'+
+        panelRingSvg(awaiting ? 1 : left / total, 'var(--cherry)', 6)+
+        '<span class="b-medal"><span class="rd-val"><b class="rp-word">'+escapeHtml(word)+'</b></span></span>'+
+      '</span>'+
+      '<div class="rp-hero-text"><div class="rp-hero-say">'+escapeHtml(say)+'</div></div>'+
+    '</div>';
+  var tiles = panelTilesHtml([
+    { fig: awaiting ? '0' : String(left), frac: awaiting ? 0 : left / total, col: col,
+      label: 'Days left', say: 'of ' + total },
+    { fig: String(lost), frac: lost ? 1 : 0, col: col, label: 'Sessions', say: 'inside this period' },
+    { fig: String(qual), frac: lost ? qual / lost : 0, col: col, label: 'Quality',
+      say: r.level === 'none' ? 'now rest' : 'eased to easy' }
+  ]);
+  var row = function(k, val){
+    return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(k)+'</span>'+
+      '<span class="hq-row-v is-words">'+escapeHtml(val)+'</span></div>';
+  };
+  var rows = '<div class="rp-rows">'+
+    row('Level', meta.label)+
+    row('Started', dow(r.from)+' '+dShort(r.from))+
+    row(awaiting ? 'Ended' : 'Ends', dow(r.until)+' '+dShort(r.until))+
+    row('Counted against you', 'No')+
+  '</div>';
+  var words = restrictionViabilityWords();
+  var read = (words ? words.head + ' ' + words.said + ' ' : '') +
+    'These days are not counted against you, and nothing missed is made up.' +
+    (awaiting ? ' SACORO does not yet decide how quickly you come back. If you are not ready, say so rather than resuming.' : '');
+  var foot = awaiting
+    ? '<button type="button" class="btn btn-ghost" data-action="restriction-open">Not yet</button>'+
+      '<button type="button" class="btn btn-primary" data-action="restriction-end">Yes, I’m back</button>'
+    : '<button type="button" class="btn btn-ghost" data-action="restriction-open">Change or extend</button>'+
+      '<button type="button" class="btn btn-primary" data-action="restriction-end">I’m back</button>';
+  return '<div class="modal-head"><h2 class="font-head">Injury or illness</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+hero+
+      (awaiting ? '' : sectionRule('Your Restriction', true)+tiles)+
+      sectionRule('The Evidence', true)+rows+
+      sectionRule('SACORO’s Read', true)+'<div class="pt-say">'+escapeHtml(read)+'</div>'+
+    '</div>'+
+    '<div class="page-foot">'+foot+'</div>';
+}
+function openRestrictionPanel(){
+  var html = restrictionPanelHtml();
+  if (!html) return;
+  openModal(html, 'modal-themed builder-light hq-panel rp-cherry hq-full restriction-panel');
+}
 /* ---------- declaring it ----------
    The draft is module state and nothing else: it exists only between
    opening the modal and confirming, is never persisted, and is cleared on
@@ -58399,7 +58565,11 @@ function openRaceGoalPreparationModal(adm, distanceKey){
 function raceGoalPreparationHtml(adm, distanceKey){
   var lbl = (DISTANCE_PROFILES[distanceKey] || {}).label || 'race';
   var pre = adm.preparation || {};
-  var purpose = adm.recommend || 'base';
+  /* raceGoalAdmission() names the too-short route 'aerobic_base', which is
+     not a block purpose: the label read "Race Build" and the button handed
+     handleStartBlock() a purpose it refuses, so the recommendation did
+     nothing when tapped. It is the Aerobic Base block, so it is called one. */
+  var purpose = adm.recommend === 'aerobic_base' ? 'base' : (adm.recommend || 'base');
   var purposeLabel = blockPurposeLabel(purpose);
   /* The Marathon shortfall route recommends its own length; everything else
      keeps the builder's default. See MARATHON_PREP_BASE_WEEKS. */
@@ -58421,7 +58591,7 @@ function raceGoalPreparationHtml(adm, distanceKey){
       '<h2 class="font-head">Your ' + escapeHtml(lbl) + ' preparation</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
     '<div class="modal-body modal-decision-body">'+
-      '<p>Across ' + adm.weeksToRace + ' weeks, ' + gap + '. Your current running '+
+      '<p>Across ' + adm.weeksToRace + (adm.weeksToRace === 1 ? ' week, ' : ' weeks, ') + gap + '. Your current running '+
         'capacity and the time available mean SACORO does not expect you to '+
         'safely reach the full preparation standard for this event.</p>'+
       '<div class="decision-rec">'+
@@ -58542,7 +58712,22 @@ function closeModal(){
     openInsightKey = null;
     try { insightRecord(insightKey, false); } catch(e){}
   }
+  /* A NEW ATHLETE'S ANSWERS ARE KEPT. Founder-approved audit fix: closing
+     the builder part-way threw every answer away and reopening began again
+     at 01. Before there is a plan, the builder is parked rather than
+     discarded -- the same elements, values and listeners -- and
+     openSetupModal() puts it back where it was. */
+  if (existing && !bldParkSkip && existing.querySelector && existing.querySelector('.bld-modal') &&
+      !planHasContent()) bldParked = existing;
+  bldParkSkip = false;
   if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+}
+var bldParked = null, bldParkSkip = false;
+function handleBldRestart(){
+  bldParked = null;
+  bldParkSkip = true;
+  closeModal();
+  openSetupModal();
 }
 
 /* =========================================================
@@ -58781,6 +58966,20 @@ function vtOpenEdit(target, dayId){
    PLAN BUILDER / SETUP MODAL
    ========================================================= */
 function openSetupModal(){
+  if (bldParked && !planHasContent()){
+    var parked = bldParked;
+    bldParked = null;
+    closeModal();
+    document.body.appendChild(parked);
+    var panel = parked.querySelector('.bld-panel:not([hidden])');
+    if (panel && bldCurrentStage > 0 && !panel.querySelector('.bld-resume')){
+      panel.insertAdjacentHTML('afterbegin',
+        '<div class="bld-resume">Picked up where you left off. '+
+        '<button type="button" class="bld-resume-btn" data-action="bld-restart">Start again</button></div>');
+    }
+    return;
+  }
+  bldParked = null;
   var su = state.setup || {};
   var distOptions = DISTANCE_ORDER.map(function(k){
     var p = DISTANCE_PROFILES[k];
@@ -59309,11 +59508,11 @@ function openSetupModal(){
         : '')+
       '<div class="bld-actions">'+
         '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">Back</button>'+
-        '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Build My Training Block')+'</button>'+
+        '<button type="button" class="btn btn-primary" data-action="generate-plan">'+(state.setup?'Regenerate Plan':'Build My Training Block')+'</button>'+
       '</div>'+
       (state.setup
         ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history. Only untouched future days are replaced.</div>'
-        : '<div class="field-hint" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
+        : '<div class="field-hint bld-legal" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
           '<a href="'+LEGAL_URLS.privacy+'" data-action="open-external" data-href="'+LEGAL_URLS.privacy+'">Privacy Policy</a> and '+
           '<a href="'+LEGAL_URLS.terms+'" data-action="open-external" data-href="'+LEGAL_URLS.terms+'">'+escapeHtml(legalTermsLabel())+'</a>. '+
           'Both are always in Settings.</div>')+
@@ -59483,7 +59682,8 @@ function openSetupModal(){
   }
 
   bldSyncLongDay();
-  bldStage(0);
+  bldReviewReturn = false;
+  bldStage(planHasContent() && state.setup ? BLD_STAGE_NAMES.length - 1 : 0);
 }
 
 /* ---- THE SHORT-RUNWAY NOTE, KEPT IN STEP WITH EVERY FIELD RACEGOALADMISSION() READS ----
@@ -60111,20 +60311,36 @@ function bldRenderReview(){
     return v ? k + ' ' + v : null;
   }).filter(Boolean);
 
-  function row(k, v){
-    return '<div class="bld-review-row"><span class="bld-review-k">'+k+'</span>'+
-           '<span class="bld-review-v'+(valueIsFigure(v) ? '' : ' is-words')+'">'+escapeHtml(v)+'</span></div>';
+  /* EDITING A PLAN STARTS HERE. Founder-approved audit fix: Edit Plan
+     Settings used to walk all eleven screens to change one answer. With a
+     plan in place the builder opens on this summary and every line is a
+     way back to the one screen that asks it; Continue there comes straight
+     back. The target screen is found from the field itself, so a reorder
+     of the stages cannot point a line at the wrong screen. */
+  var editing = planHasContent();
+  function stageOf(fieldId){
+    var el = document.getElementById(fieldId);
+    var panel = el && el.closest('.bld-panel');
+    return panel ? parseInt(panel.getAttribute('data-stage'), 10) : -1;
+  }
+  function row(k, v, fieldId){
+    var inner = '<span class="bld-review-k">'+k+'</span>'+
+           '<span class="bld-review-v'+(valueIsFigure(v) ? '' : ' is-words')+'">'+escapeHtml(v)+'</span>';
+    var to = editing && fieldId ? stageOf(fieldId) : -1;
+    return to >= 0
+      ? '<button type="button" class="bld-review-row bld-review-edit" data-action="bld-jump" data-stage="'+to+'" aria-label="Change '+escapeHtml(k.toLowerCase())+'">'+inner+'</button>'
+      : '<div class="bld-review-row">'+inner+'</div>';
   }
   var rows = '';
   rows += hasEvent
-    ? row('Event date', vvCalIsIso(document.getElementById('su-racedate').value) ? vvCalShown(document.getElementById('su-racedate').value) : '\u2013')
-    : row('Block length', document.getElementById('su-weeks').value + ' weeks');
-  rows += row('Experience', EXPERIENCE_META[athleteExperience()].short);
-  if (weekdayNames.length) rows += row('Running days', weekdayNames.join(', '));
-  rows += row('Long run day', longLabel);
+    ? row('Event date', vvCalIsIso(document.getElementById('su-racedate').value) ? vvCalShown(document.getElementById('su-racedate').value) : '\u2013', 'su-racedate')
+    : row('Block length', document.getElementById('su-weeks').value + ' weeks', 'su-weeks');
+  rows += row('Experience', EXPERIENCE_META[athleteExperience()].short, 'su-experience');
+  if (weekdayNames.length) rows += row('Running days', weekdayNames.join(', '), 'su-weekdays');
+  rows += row('Long run day', longLabel, 'su-longday');
   var benchTimeVal = document.getElementById('su-bench-time').value.trim();
   rows += row('Benchmark', document.getElementById('su-bench-dist').value.toUpperCase() +
-              (benchTimeVal ? ', ' + benchTimeVal : ', time not set'));
+              (benchTimeVal ? ', ' + benchTimeVal : ', time not set'), 'su-bench-dist');
   /* REVIEW MUST DESCRIBE WHAT WILL ACTUALLY BE SAVED. handleGeneratePlan()
      only stores lthr/maxHR when healthConsentGranted() -- the exact same
      predicate checked here, not a second opinion of it -- because typed
@@ -60144,16 +60360,16 @@ function bldRenderReview(){
     var hrWillBeSaved = consentBox ? !!consentBox.checked : healthConsentGranted();
     rows += row('Heart rate', (lthr ? 'LTHR ' + lthr + lthrProvenanceSuffix() : '') +
       (lthr && maxhr ? ', ' : '') + (maxhr ? 'Max ' + maxhr : '') +
-      (hrWillBeSaved ? '' : ' (not saved, because health data sharing is off)'));
+      (hrWillBeSaved ? '' : ' (not saved, because health data sharing is off)'), 'su-lthr');
   }
-  if (goals.length) rows += row('Goals', goals.join(', '));
+  if (goals.length) rows += row('Goals', goals.join(', '), 'su-goal-A');
   /* SUPPORTING WORK, CONFIRMED RATHER THAN ASKED. Read from the stage 07 tick
      that is still in the DOM -- the same element Generate itself reads -- so
      what this row says and what gets stored cannot disagree. Falls back to the
      stored preference for a caller that has no builder on screen. */
   var supportBoxForReview = document.getElementById('su-support-work');
   var supportOnForReview = supportBoxForReview ? !!supportBoxForReview.checked : supportWorkEnabled();
-  rows += row(SUPPORT_COPY.reviewKey, supportOnForReview ? 'On' : 'Off');
+  rows += row(SUPPORT_COPY.reviewKey, supportOnForReview ? 'On' : 'Off', 'su-support-work');
   /* No Units row: the hero above already reads "42 km / week", so a separate
      "Units  KM" line restated it. Review answers "has Sacoro understood me",
      and saying the same thing twice is what makes a check sheet feel like a
@@ -60167,14 +60383,27 @@ function bldRenderReview(){
   var heroSub = builderAsksWeeklyVolume(reviewPurposeSel)
     ? (volume || '0') + ' ' + units + ' / week, ' + days + ' running days'
     : days + ' running days';
+  var heroInner = '<div class="d">'+escapeHtml(profile ? profile.label : '\u2013')+'</div>'+
+      '<div class="s">'+escapeHtml(heroSub)+'</div>';
+  var heroTo = editing ? stageOf('su-distance') : -1;
+  var reviewLede = host.closest('.bld-panel') && host.closest('.bld-panel').querySelector('.bld-lede');
+  if (reviewLede && editing) reviewLede.textContent = 'Check this reads like your training. Tap any line to change it.';
   host.innerHTML =
-    '<div class="bld-review-hero"><div class="d">'+escapeHtml(profile ? profile.label : '\u2013')+'</div>'+
-      '<div class="s">'+escapeHtml(heroSub)+'</div></div>'+
+    (heroTo >= 0
+      ? '<button type="button" class="bld-review-hero bld-review-edit" data-action="bld-jump" data-stage="'+heroTo+'" aria-label="Change distance">'+heroInner+'</button>'
+      : '<div class="bld-review-hero">'+heroInner+'</div>')+
     '<div style="margin-top:14px;">'+rows+'</div>';
 }
 
 function bldStage(n){
   bldCurrentStage = Math.max(0, Math.min(BLD_STAGE_NAMES.length - 1, n));
+  if (bldCurrentStage === BLD_STAGE_NAMES.length - 1) bldReviewReturn = false;
+  document.querySelectorAll('.bld-panel .bld-actions [data-action="bld-next"]').forEach(function(b){
+    b.textContent = bldReviewReturn ? 'Done' : 'Continue';
+  });
+  document.querySelectorAll('.bld-panel .bld-actions [data-action="bld-back"]').forEach(function(b){
+    b.textContent = bldReviewReturn ? 'Summary' : 'Back';
+  });
   document.querySelectorAll('.bld-panel').forEach(function(p){
     p.hidden = (parseInt(p.getAttribute('data-stage'), 10) !== bldCurrentStage);
   });
@@ -60195,9 +60424,23 @@ function bldStage(n){
 
 function handleBldNext(){
   if (!bldValidateStage(bldCurrentStage)) return;
+  if (bldReviewReturn){ bldStage(BLD_STAGE_NAMES.length - 1); return; }
   bldStage(bldCurrentStage + 1);
 }
-function handleBldBack(){ bldClearErrors(); bldStage(bldCurrentStage - 1); }
+function handleBldBack(){
+  if (bldReviewReturn){ handleBldNext(); return; }
+  bldClearErrors(); bldStage(bldCurrentStage - 1);
+}
+/* A line on the summary was tapped: open the screen that asks it, with both
+   of its buttons leading back to the summary. Back validates too, so a
+   half-changed answer cannot reach Regenerate unchecked. */
+var bldReviewReturn = false;
+function handleBldJump(el){
+  var to = parseInt(el && el.getAttribute('data-stage'), 10);
+  if (!(to >= 0)) return;
+  bldReviewReturn = true;
+  bldStage(to);
+}
 
 /* THE NO-HR PATH, MADE VISIBLE -- not a new one.
 
@@ -61008,7 +61251,14 @@ async function handleGeneratePlan(){
        silence cover ten and eleven weeks as well.
        MARATHON ONLY. Half and 5K/10K keep the behaviour they were measured
        with; their floors have not moved and this is not their ruling. */
-    if (adm && !adm.admitted && adm.decision === 'too_short' && distanceKey === 'full'){
+    /* ---- AND NOW EVERY DISTANCE WITH A DEDICATED WINDOW ----
+       Founder, on the audit's one-week half marathon: "The system needs to
+       apply your existing admission and safety rules, not simply produce a
+       seven-day schedule." The too-short decision was wired for the marathon
+       alone, so a half under ten weeks, or a 5K/10K under eight that the
+       evidence floor did not admit, was built in silence. The same surface
+       now tells all four, unchanged, and Continue is still theirs. */
+    if (adm && !adm.admitted && adm.decision === 'too_short'){
       setRaceDestination(distanceKey, raceDate, {}, null);
       pendingAdmissionSig = admSig;
       openRaceGoalPreparationModal(adm, distanceKey);
@@ -62021,6 +62271,7 @@ function applyBackupJson(text){
 }
 function installBackupState(parsed, me){
   state = Object.assign({}, makeDefaultState(), parsed);
+  migrateDashCopy(state);
   // Ownership follows the athlete who accepted the import, never the file.
   if (me) stampPlanOwner(me); else delete state.ownerUid;
   closeModal();
@@ -62461,8 +62712,14 @@ function renderSupportCheck(dd, checked, label){
    one step quieter, because supporting work is prescribed and this is not. */
 function renderOptionalRunCompanion(dd){
   var st = optionalRunDayState(dd);
-  if (!st) return '';
   var open = !!optionalLogOpen[dd.id];
+  if (!st){
+    if (!canLogRunAnyway(dd)) return '';
+    return '<div class="optional-block">'+(open ? optionalRunFormHtml(dd)
+      : '<div class="optional-actions"><button type="button" class="btn btn-sm btn-ghost" '+
+          'data-action="optional-run-log" data-day="'+dd.id+'" aria-expanded="false">Ran anyway? Log it</button></div>')+
+    '</div>';
+  }
   var body = open ? optionalRunFormHtml(dd)
            : st === 'logged' ? optionalRunRecordHtml(dd)
            : optionalRunOfferHtml(dd);
@@ -68482,6 +68739,7 @@ function renderTodayView(){
      It removes itself the moment either button is pressed and never returns
      -- Settings is the permanent home. */
   html += renderHealthConsentCard();
+  html += renderWelcomeCard();
   html += renderUnloggedYesterdayCard();
   var report = coachAnalyse();
   /* NEXT MOVE SITS BELOW THE SESSION, BY RULING. The cards above it stay
@@ -73171,6 +73429,21 @@ function handleRestorePlan(key, confirmed){
   renderApp();
   showToast('Plan restored: '+done.goal+' block');
 }
+/* WELCOME BACK: the sign-in, risen as a glass sheet over the first screen.
+   The same field and the same button the Account page uses, so it is the
+   one sign-in path (handleCloudSignIn) and the plan returns by the existing
+   restore once the link is opened. */
+function openSigninSheet(){
+  openModal('<div class="modal-head"><h2 class="font-head">Welcome back</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="stg-sheet-say">Enter the email you signed in with. We send you a link, and your plan comes back as soon as you open it on this phone.</div>'+
+      '<div class="field" style="margin:14px 0 10px;"><label>Email</label>'+
+        '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">Email me a sign-in link</button>'+
+      '<div class="field-hint" style="margin-top:10px;">No password. Nothing on this phone is changed until your plan arrives.</div>'+
+    '</div>', 'modal-themed stg-sheet signin-sheet');
+}
 function handleCloudSignIn(){
   var el = document.getElementById('cloud-email');
   var email = el ? el.value.trim() : '';
@@ -74295,6 +74568,70 @@ function timeWheelParse(mode, str){
   return { m: Math.floor(sec / 60), s: sec % 60 };
 }
 var TIME_WHEEL_START = { hms:{ h:0, m:45, s:0 }, pace:{ m:5, s:0 }, ms:{ m:4, s:0 } };
+/* WHERE AN EMPTY WHEEL STARTS. Founder-approved audit fix: an empty field
+   opened on 45:00 or 5:00 whoever the athlete was, so a marathon goal began
+   three hours away from anything sensible. The wheel now starts near the
+   likely answer. It is only where the columns rest when the sheet opens:
+   nothing is written until Use is tapped, a field that already holds a
+   value always opens on that value, and when nothing better is known the
+   old fixed start still applies.
+     Benchmark  a typical time for the chosen experience at the benchmark
+                distance (TIME_WHEEL_TYPICAL_VDOT, a starting point only).
+     Goals      the same A/B/C arithmetic as Suggest from benchmark when a
+                benchmark is entered, else the typical time at the race
+                distance.
+     Log pace   the middle of the session's own target band, in the units
+                on screen; a logged section uses its own band. */
+var TIME_WHEEL_TYPICAL_VDOT = { novice:34, experienced:42, advanced:50 };
+function timeWheelLikelyStart(input, field){
+  try {
+    var sec = null, id = input.id || '';
+    var pre = id.indexOf('rc-') === 0 ? 'rc-' : 'su-';
+    var val = function(x){ var el = document.getElementById(pre + x); return el ? el.value : ''; };
+    var expBtn = document.querySelector('#su-experience button.active');
+    var exp = (expBtn && expBtn.getAttribute('data-experience')) || athleteExperience();
+    var typical = function(distKey){
+      var prof = DISTANCE_PROFILES[distKey];
+      var vd = TIME_WHEEL_TYPICAL_VDOT[exp] || TIME_WHEEL_TYPICAL_VDOT.experienced;
+      return prof ? equivalentTimeSec(vd, prof.raceKm * 1000) : null;
+    };
+    if (/bench-time$/.test(id)){
+      sec = typical(val('bench-dist') || BUILDER_SPEC.benchmarkDistances.default);
+    } else if (/goal-[ABC]$/.test(id)){
+      var k = id.slice(-1);
+      var raceKey = (document.getElementById('su-distance') && document.getElementById('su-distance').value) ||
+                    (state.setup && state.setup.distance);
+      var raceProf = DISTANCE_PROFILES[raceKey];
+      var benchSec = parseBenchmarkTime(String(val('bench-time') || '').trim());
+      var benchProf = DISTANCE_PROFILES[val('bench-dist')];
+      if (raceProf && benchSec && benchProf){
+        var vd = vdotFromPerformance(benchProf.raceKm * 1000, benchSec);
+        sec = equivalentTimeSec(vd * BUILDER_SPEC.goals.ambitionMult[k], raceProf.raceKm * 1000);
+      } else sec = typical(raceKey);
+    } else if (field.mode === 'pace' && input.getAttribute('data-day')){
+      var dd = findDay(input.getAttribute('data-day'));
+      var band = null;
+      var segId = input.getAttribute('data-seg');
+      if (dd && segId){
+        var p = prescriptionOf(dd), seg = null;
+        if (segId.indexOf('p.') === 0){
+          var phs = strategyPhasesFor(dd, p, segmentsFor(p));
+          seg = phs && phs[parseInt(segId.slice(2), 10)];
+        } else {
+          seg = (orderedSegments(p) || []).filter(function(x){ return x.segId === segId; })[0];
+        }
+        band = segmentPaceBand(seg, getActivePaces(), getGoalPaceSecPerKm(), dd.type === 'race');
+      } else if (dd) band = executionPaceTarget(dd);
+      if (band && band.fast != null && band.slow != null)
+        sec = Math.round(paceSecToDisplay((band.fast + band.slow) / 2));
+    }
+    if (!(sec > 0)) return null;
+    sec = Math.round(sec);
+    return field.mode === 'hms'
+      ? { h: Math.floor(sec / 3600), m: Math.floor(sec / 60) % 60, s: sec % 60 }
+      : { m: Math.floor(sec / 60), s: sec % 60 };
+  } catch(e){ return null; }
+}
 function timeWheelSheetHtml(field, v){
   var cols = TIME_WHEEL_COLS[field.mode];
   return '<div class="tw-sheet" role="dialog" aria-modal="true" aria-label="'+escapeHtml(field.title)+'">'+
@@ -74320,7 +74657,8 @@ function openTimeWheel(input){
   var field = timeWheelFieldFor(input);
   if (!field || typeof document === 'undefined') return;
   closeTimeWheel();
-  var v = timeWheelParse(field.mode, input.value) || JSON.parse(JSON.stringify(TIME_WHEEL_START[field.mode]));
+  var v = timeWheelParse(field.mode, input.value) || timeWheelLikelyStart(input, field) ||
+          JSON.parse(JSON.stringify(TIME_WHEEL_START[field.mode]));
   var cols = TIME_WHEEL_COLS[field.mode];
   cols.forEach(function(c){ v[c.key] = Math.max(c.min, Math.min(c.max, v[c.key] || 0)); });
   var layer = document.createElement('div');
@@ -74336,6 +74674,7 @@ function openTimeWheel(input){
     timeWheelMark(col, v[key] - min);
     var settle = null;
     col.addEventListener('scroll', function(){
+      if (!timeWheelOpen || timeWheelOpen.layer !== layer) return;   // a scroll that lands after the sheet closed
       var idx = Math.round(col.scrollTop / TIME_WHEEL_ROW);
       var n = Math.max(min, Math.min(min + col.querySelectorAll('.tw-item').length - 1, min + idx));
       if (n !== timeWheelOpen.value[key]){
@@ -74346,6 +74685,7 @@ function openTimeWheel(input){
       }
       clearTimeout(settle);
       settle = setTimeout(function(){              // and it rests exactly on a row
+        if (!timeWheelOpen || timeWheelOpen.layer !== layer) return;
         var want = (timeWheelOpen.value[key] - min) * TIME_WHEEL_ROW;
         if (Math.abs(col.scrollTop - want) > 1) col.scrollTo({ top: want, behavior: 'smooth' });
       }, 140);
@@ -74605,7 +74945,25 @@ function fieldFocusOut(){
 /* The keyboard moving (and the viewport with it) or the field growing as it
    is typed in: measure again once it is still. */
 function fieldViewportMoved(){ if (fieldView.el) fieldSoon(120); }
-function fieldTyped(e){ if (fieldView.el && e && e.target === fieldView.el) fieldSoon(120); }
+function fieldTyped(e){
+  optionalSaveLive(e && e.target);
+  if (fieldView.el && e && e.target === fieldView.el) fieldSoon(120);
+}
+/* SAVE RUN WAKES AS THE DISTANCE IS TYPED. Found while building "Ran
+   anyway? Log it": the optional-run form drew Save disabled until a distance
+   existed and nothing redrew it while typing, so Save stayed grey with 5km
+   in the box. The button and its note now follow the field as it changes;
+   applyOptionalRunLog() still refuses a run with no distance. */
+function optionalSaveLive(t){
+  if (!t || !t.closest || !t.matches || !t.matches('[data-action="actual-field"][data-field="km"]')) return;
+  var block = t.closest('.optional-block');
+  if (!block) return;
+  var ok = parseFloat(t.value) > 0;
+  var btn = block.querySelector('[data-action="optional-run-save"]');
+  if (btn) btn.disabled = !ok;
+  var note = block.querySelector('.optional-note');
+  if (note) note.hidden = ok;
+}
 function initFieldInView(){
   document.addEventListener('focusin', fieldFocusIn, true);
   document.addEventListener('focusout', fieldFocusOut, true);
@@ -75741,8 +76099,11 @@ document.addEventListener('click', function(e){
     /* The Today signpost. It only ever opens its own sentence -- declaring
        and changing a restriction lives in Settings and nowhere else. */
     case 'injury-hint': handleInjuryHint(); break;
+    case 'restriction-view': openRestrictionPanel(); break;
     case 'unlogged-ack': handleUnloggedAck(target.getAttribute('data-day')); break;
     case 'unlogged-open': openUnloggedSheet(target.getAttribute('data-day')); break;
+    case 'welcome-ack': handleWelcomeAck(); break;
+    case 'open-signin-sheet': openSigninSheet(); break;
     case 'swap-show-more': handleSwapShowMore(target); break;
     case 'history-open': handleHistoryOpen(target.getAttribute('data-day')); break;
     case 'unlogged-log': handleUnloggedLog(target.getAttribute('data-day')); break;
@@ -75865,6 +76226,8 @@ document.addEventListener('click', function(e){
     case 'open-contact': openContact(); break;
     case 'bld-next': handleBldNext(); break;
     case 'bld-back': handleBldBack(); break;
+    case 'bld-restart': handleBldRestart(); break;
+    case 'bld-jump': handleBldJump(target); break;
     case 'bld-skip-hr': handleBldSkipHR(); break;
     case 'suggest-goals': handleSuggestGoals(); break;
     case 'generate-plan': handleGeneratePlan(); break;

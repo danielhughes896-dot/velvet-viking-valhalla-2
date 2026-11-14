@@ -26,12 +26,12 @@ test('bldRenderReview computes the selected weekday names from the same checkbox
 });
 
 test('a "Running days" row is added, guarded against an empty selection', () => {
-  assert.match(FN, /if \(weekdayNames\.length\) rows \+= row\('Running days', weekdayNames\.join\(', '\)\);/);
+  assert.match(FN, /if \(weekdayNames\.length\) rows \+= row\('Running days', weekdayNames\.join\(', '\), 'su-weekdays'\);/);
 });
 
 test('the existing day-count (hero) and long-run-day row are both still present', () => {
   assert.match(FN, /var days = document\.querySelectorAll\('#su-weekdays input\[type=checkbox\]:checked'\)\.length;/);
-  assert.match(FN, /row\('Long run day', longLabel\)/);
+  assert.match(FN, /row\('Long run day', longLabel, 'su-longday'\)/);
   assert.match(FN, /days \+ ' running days'/);
 });
 

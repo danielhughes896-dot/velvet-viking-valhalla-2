@@ -539,6 +539,9 @@ test('nothing on the log, and no tab, takes a gold rim when it is selected', () 
   const logRules = [...CSS.matchAll(/\n  ([^{}\n]*(?:\.log-body|\.yl|\.slog|\.log-totals)[^{}\n]*(?::focus|:hover|\.active)[^{}\n]*)\{([^}]*)\}/g)];
   logRules.forEach(m => assert.ok(!/(outline|border)[^;]*var\(--(gold|bronze)[^)]*\)/.test(m[2]), m[1] + ' is gold when selected'));
   /* The tabs: Share, Session Details, Your Log, and Edit Session's two. */
-  assert.equal(rule('.sess-tab:hover, .sess-tab:focus-visible'), '.sess-tab:hover, .sess-tab:focus-visible{border-color:var(--cherry);');
+  /* Hover is gated to devices that hover (founder-approved audit fix), so
+     the two states are written as two rules with the same cherry. */
+  assert.equal(rule('.sess-tab:focus-visible'), '.sess-tab:focus-visible{border-color:var(--cherry);');
+  assert.match(CSS, /@media \(hover:hover\)\{ \.sess-tab:hover\{border-color:var\(--cherry\);\} \}/);
   assert.doesNotMatch(CSS, /\.sess-tab:hover\{border-color:var\(--bronze\)/);
 });

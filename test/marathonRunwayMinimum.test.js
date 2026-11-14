@@ -76,8 +76,10 @@ test('ELEVEN WEEKS — and Continue Marathon is genuinely available', () => {
      carries both answers. */
   const gen = CODE.slice(CODE.indexOf('function handleGeneratePlan'));
   const body = gen.slice(0, gen.indexOf('\nfunction '));
-  assert.match(body, /decision === 'too_short' && distanceKey === 'full'/,
-    'a short-runway marathon is still built in silence');
+  /* Every distance with a dedicated window now (founder, on the audit's
+     one-week half marathon), so the marathon is no longer named here. */
+  assert.match(body, /if \(adm && !adm\.admitted && adm\.decision === 'too_short'\)\{/,
+    'a short-runway race is still built in silence');
   assert.match(body, /openRaceGoalPreparationModal\(adm, distanceKey\)/);
   /* And that surface offers the route AND the continue, as it already did. */
   const a = athlete('full', 11, 45);

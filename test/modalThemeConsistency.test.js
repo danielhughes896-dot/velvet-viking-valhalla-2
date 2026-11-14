@@ -121,6 +121,8 @@ const WORK_SURFACES = [
   ['openCheckinSheet', 'the daily check-in sheet'],
   /* Yesterday not logged: a quick question on Today, the same glass sheet. */
   ['openUnloggedSheet', 'the yesterday-not-logged sheet'],
+  /* Welcome back: sign-in from the first screen, the same glass sheet. */
+  ['openSigninSheet', 'the welcome-back sign-in sheet'],
   /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
      it, picks how much the card says and then approves it -- that is working
      in a modal, not answering an interrupt, and it has a close control and
@@ -158,6 +160,7 @@ const WORK_SURFACES = [
      how long before choosing anything, and closing it costs them nothing --
      no declaration is made and the plan is untouched. */
   ['openRestrictionModal', 'declaring an injury or illness restriction'],
+  ['openRestrictionPanel', 'the injury or illness page, opened from Today'],
   /* Context Insight. A work surface by this list's own test: it has a close
      control, closing it costs the athlete nothing, and it asks for no
      decision at all -- it is the one entry here that only ever explains. It

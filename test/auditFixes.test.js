@@ -146,3 +146,198 @@ test('Build My Plan, the sign-in link and Tell SACORO carry words only', () => {
   assert.match(src, /data-action="close-record-panel" aria-label="Close">'\+ICONS\.close/);
   assert.match(src, /\{key:'planhq', label:'Coach', icon:ICONS\.target\}/, 'the navigation lost its icon');
 });
+
+/* ---------- WELCOME TO WEEK 1 ---------- */
+test('a new block opens with a compact welcome naming the first run, until Got it', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 16, distanceKey: 'half', startDate: TODAY });
+  const first = a.welcomeFirstRun();
+  const card = a.renderWelcomeCard();
+  assert.match(card, /Welcome to week 1/);
+  assert.match(card, new RegExp(a.escapeHtml(first.title).replace(/[()+]/g, '\\$&')));
+  assert.match(card, /data-action="welcome-ack">Got it</);
+  assert.doesNotMatch(card, /modal|full-screen/);
+  assert.match(a.renderTodayView(), /Welcome to week 1/);
+  a.handleWelcomeAck();
+  assert.equal(a.renderWelcomeCard(), '', 'it came back after Got it');
+});
+test('the welcome stands down once running has started or two weeks have passed', () => {
+  const a = athlete();   // six weeks in, sessions logged
+  assert.equal(a.renderWelcomeCard(), '');
+});
+
+/* ---------- THE INJURY CARD: A ROW, AND A PAGE IN THE COACH STRUCTURE ---------- */
+test('the injury page has the circle, three tiles, the evidence, the read and two answers', () => {
+  const a = athlete();
+  a.declareRestriction('easy', a.addDays(TODAY, 6));
+  const page = a.restrictionPanelHtml();
+  ['class="rp-hero is-word"', 'Your Restriction', 'class="pt-tiles"', '>Days left<', '>Sessions<', '>Quality<',
+   'The Evidence', 'SACORO’s Read', 'class="page-foot"'].forEach(s => assert.ok(page.indexOf(s) > -1, s + ' is missing'));
+  const opened = [];
+  a.openModal = (h, c) => opened.push(c);
+  a.openRestrictionPanel();
+  assert.match(opened[0], /\brp-cherry\b/);
+  assert.match(opened[0], /\bhq-full\b/);
+});
+
+/* ---------- RAN ANYWAY ---------- */
+test('a rest day nobody offered can still log a run, quietly, and it stays optional', () => {
+  const a = loadApp({ pinnedDate: '2026-05-22T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 16, distanceKey: 'half', startDate: a.addDays('2026-05-22', -42) });
+  const d = a.state.days.find(x => x.date === '2026-05-22');
+  assert.equal(d.type, 'rest');
+  if (a.isOptionalRunDay(d)) return;   // fixture offered it after all: nothing to prove here
+  assert.equal(a.canLogRunAnyway(d), true);
+  assert.match(a.renderOptionalRunCompanion(d), /data-action="optional-run-log"[^>]*>Ran anyway\? Log it</);
+  d.actual = a.emptyActual(); d.actual.km = 5;
+  assert.equal(a.applyOptionalRunLog(d, true), true);
+  assert.equal(a.optionalRunLogged(d), true);
+  assert.equal(d.type, 'rest', 'the day became a prescription');
+  // and never inside a restriction
+  const r = a.state.days.find(x => x.date > '2026-05-22' && x.type === 'rest');
+  a.declareRestriction('none', a.addDays('2026-05-22', 5));
+  assert.equal(a.canLogRunAnyway(a.state.days.find(x => x.date === '2026-05-22')), false);
+});
+
+/* ---------- THE RENAME ---------- */
+test('a saved plan loses the dashes from its session names and descriptions, once', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  const st = { days: [{ title: 'Long Run — Rolling', desc: 'On tired legs — this specificity works.' },
+                      { title: 'Easy Aerobic', desc: 'Plain.' }] };
+  a.migrateDashCopy(st);
+  assert.equal(st.days[0].title, 'Long Run: Rolling');
+  assert.equal(st.days[0].desc, 'On tired legs. This specificity works.');
+  assert.equal(st.days[1].title, 'Easy Aerobic');
+  a.migrateDashCopy(st);
+  assert.equal(st.days[0].title, 'Long Run: Rolling', 'not idempotent');
+});
+
+/* ---------- HOVER ONLY WHERE THERE IS A POINTER ---------- */
+test('no hover effect can stick on a touch screen', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  const css = src.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  // every :hover selector sits inside @media (hover:hover)
+  const re = /[^{}]*:hover[^{}]*\{/g; let m, loose = [];
+  while ((m = re.exec(css))){
+    if (/\(hover:hover\)/.test(m[0])) continue;   // the gate itself
+    const before = css.slice(Math.max(0, m.index - 24), m.index);
+    if (!/@media \(hover:hover\)\{\s*$/.test(before)) loose.push(m[0].trim().slice(0, 60));
+  }
+  assert.equal(loose.join(' | '), '');
+});
+
+/* ---------- RACE TOO SOON: THE EXISTING DECISION, FOR EVERY DISTANCE ---------- */
+test('a half, 10K or 5K too close to build for gets the same decision the marathon does', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  const gen = src.slice(src.indexOf('async function handleGeneratePlan'));
+  const body = gen.slice(0, gen.indexOf('\nfunction '));
+  assert.match(body, /if \(adm && !adm\.admitted && adm\.decision === 'too_short'\)\{\s*setRaceDestination[\s\S]{0,120}openRaceGoalPreparationModal\(adm, distanceKey\)/);
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  ['half', '10k', '5k', 'full'].forEach(dk => {
+    const adm = a.raceGoalAdmission(dk, 1, 30, {});
+    assert.equal(adm.decision, 'too_short', dk + ' one week out was admitted');
+    const html = a.raceGoalPreparationHtml(adm, dk);
+    assert.match(html, /data-action="prep-route" data-purpose="base"/, dk + ': the recommendation is not a real block');
+    assert.match(html, />Build Aerobic Base</);
+    assert.match(html, /Across 1 week, /, 'one week is written as weeks');
+  });
+});
+
+/* ---------- SIGN-IN FROM THE FIRST SCREEN ---------- */
+test('the first screen offers sign-in to somebody who already has an account', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.cloudConfigured = () => true; a.cloudSignedIn = () => false;
+  assert.match(a.renderHero(), /data-action="open-signin-sheet"[^>]*>I already have an account</);
+  a.cloudConfigured = () => false;
+  assert.doesNotMatch(a.renderHero(), /open-signin-sheet/, 'offered with no account service to sign in to');
+  const opened = [];
+  a.openModal = (html, cls) => opened.push({ html, cls });
+  a.openSigninSheet();
+  assert.match(opened[0].html, /id="cloud-email"/);
+  assert.match(opened[0].html, /data-action="cloud-sign-in"/);
+  assert.match(opened[0].cls, /stg-sheet/);
+});
+
+/* ---------- THE BUILDER KEEPS A NEW ATHLETE'S ANSWERS ---------- */
+function builderOverlay(){
+  const o = { parentNode: { removeChild(){} }, querySelector: s => (s === '.bld-modal' ? {} : null) };
+  return o;
+}
+test('closing the builder part-way keeps it, and opening it again puts it back', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  const parked = builderOverlay();
+  let current = parked;
+  a.document.getElementById = id => (id === 'modal-overlay' ? current : null);
+  a.closeModal();
+  assert.equal(a.bldParked, parked, 'the answers were thrown away');
+  current = null;
+  const appended = [];
+  a.document.body.appendChild = el => { appended.push(el); current = el; };
+  a.openSetupModal();
+  assert.equal(appended[0], parked, 'the same builder did not come back');
+  assert.equal(a.bldParked, null);
+});
+test('a builder over a real plan is never parked, and Start again begins afresh', () => {
+  const a = athlete();
+  let current = builderOverlay();
+  a.document.getElementById = id => (id === 'modal-overlay' ? current : null);
+  a.closeModal();
+  assert.equal(a.bldParked, null, 'Edit Plan Settings kept stale answers');
+  const b = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  current = builderOverlay();
+  b.document.getElementById = id => (id === 'modal-overlay' ? current : null);
+  b.closeModal();
+  assert.ok(b.bldParked);
+  let opened = 0;
+  b.openSetupModal = () => { opened++; };
+  b.handleBldRestart();
+  assert.equal(b.bldParked, null, 'Start again brought the old answers back');
+  assert.equal(opened, 1);
+});
+
+/* ---------- EDIT PLAN SETTINGS STARTS ON THE SUMMARY ---------- */
+test('a line on the summary opens its screen, and Done comes straight back', () => {
+  const a = athlete();
+  const last = a.BLD_STAGE_NAMES.length - 1;
+  const went = [];
+  a.bldStage = n => { went.push(n); a.bldCurrentStage = n; };
+  a.bldValidateStage = () => true;
+  a.handleBldJump({ getAttribute: () => '7' });
+  assert.equal(a.bldReviewReturn, true);
+  a.handleBldNext();
+  a.handleBldJump({ getAttribute: () => '4' });
+  a.handleBldBack();
+  assert.deepEqual(JSON.stringify(went), JSON.stringify([7, last, 4, last]));
+  const fs = require('node:fs'), path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  assert.match(src, /bldStage\(planHasContent\(\) && state\.setup \? BLD_STAGE_NAMES\.length - 1 : 0\);/);
+});
+
+/* ---------- AN EMPTY TIME WHEEL STARTS NEAR THE LIKELY ANSWER ---------- */
+test('an empty pace field starts on the session target, and nothing is written', () => {
+  const a = athlete();
+  const easy = a.state.days.find(d => d.type === 'easy' && d.date > TODAY);
+  const band = a.executionPaceTarget(easy);
+  const input = { id: '', value: '', getAttribute: k => (k === 'data-day' ? easy.id : null) };
+  const v = a.timeWheelLikelyStart(input, { mode: 'pace' });
+  const sec = v.m * 60 + v.s;
+  assert.ok(sec >= band.fast && sec <= band.slow, 'started outside the session band');
+  assert.equal(input.value, '');
+});
+test('an empty goal starts from the benchmark, and an empty benchmark from experience', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  const f = { 'su-bench-dist': '10k', 'su-bench-time': '45:00', 'su-distance': 'half' };
+  a.document.getElementById = id => (id in f ? { value: f[id] } : null);
+  a.document.querySelector = () => null;
+  const goal = a.timeWheelLikelyStart({ id: 'su-goal-B', getAttribute: () => null }, { mode: 'hms' });
+  const want = Math.round(a.equivalentTimeSec(a.vdotFromPerformance(10000, 2700) * a.BUILDER_SPEC.goals.ambitionMult.B, a.DISTANCE_PROFILES.half.raceKm * 1000));
+  assert.equal(goal.h * 3600 + goal.m * 60 + goal.s, want);
+  f['su-bench-time'] = '';
+  const bench = a.timeWheelLikelyStart({ id: 'su-bench-time', getAttribute: () => null }, { mode: 'hms' });
+  const t = bench.h * 3600 + bench.m * 60 + bench.s;
+  assert.ok(t > 40 * 60 && t < 60 * 60, 'a typical 10K benchmark start is ' + t + 's');
+});

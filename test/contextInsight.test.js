@@ -19,7 +19,10 @@ function app(startOffset){
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
   buildPlan(a, { distanceKey:'half', volume:55, weeks:14, lthr:172, maxHR:188,
-                 startDate: a.addDays(TODAY, startOffset == null ? -35 : startOffset) });
+                 startDate: a.addDays(TODAY, startOffset == null ? -14 : startOffset) });
+  /* Day 14 by default: past the quiet opening week, and inside the first
+     three weeks, the only window the programme explanation now speaks in
+     (INSIGHT_PROGRAMME_MAX_DAYS, a founder-approved audit fix). */
   a.state.setup.purpose = 'race';
   return a;
 }

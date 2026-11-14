@@ -508,10 +508,18 @@ test('the card renders nothing until there is something to say', () => {
   const a = app();
   assert.equal(a.renderRestrictionCard(), '');
   a.declareRestriction('easy', a.addDays(TODAY, 14));
+  /* One row on Today, the page behind it (founder, with the mock: "similar
+     design structure to the new coach page pages behind the circles"). */
   const open = a.renderRestrictionCard();
-  assert.match(open, /Training restricted/);
-  assert.match(open, /not counted against you/);
-  assert.match(open, /nothing missed is made up/);
+  assert.match(open, /class="checkin-row" data-action="restriction-view"/);
+  assert.match(open, />Easy running only</);
+  assert.match(open, /Until \d+ \w+\. \d+ days left/);
+  const page = a.restrictionPanelHtml();
+  assert.match(page, /not counted against you/);
+  assert.match(page, /nothing missed is made up/);
+  assert.match(page, /data-action="restriction-end">I\u2019m back</);
+  assert.match(page, /data-action="restriction-open">Change or extend</);
+  assert.doesNotMatch(page, /pill/, 'a pill came back');
   a.state.setup.restriction.from = a.addDays(TODAY, -12);   // twelve days out
   a.endRestriction();
   assert.equal(a.renderRestrictionCard(), '',
@@ -523,7 +531,7 @@ test('nothing on screen promises a return SACORO does not size', () => {
   a.declareRestriction('easy', a.addDays(TODAY, 3));
   a.state.setup.restriction.from = a.addDays(TODAY, -18);
   a.state.setup.restriction.until = a.addDays(TODAY, -1);
-  const card = a.renderRestrictionCard();
+  const card = a.renderRestrictionCard() + a.restrictionPanelHtml();
   assert.match(card, /Are you back\?/);
   assert.doesNotMatch(card, /eased in/i);
   assert.match(card, /does not yet decide how quickly you come back/);
@@ -533,8 +541,8 @@ test('Today leads with availability, and Settings is the permanent home', () => 
   const a = app();
   a.declareRestriction('none', a.addDays(TODAY, 14));
   const today = a.renderTodayView();
-  assert.ok(today.indexOf('Training restricted') !== -1);
-  assert.ok(today.indexOf('Training restricted') < today.indexOf('Next Move') ||
+  assert.ok(today.indexOf('No running at all') !== -1);
+  assert.ok(today.indexOf('No running at all') < today.indexOf('Next Move') ||
             today.indexOf('Next Move') === -1,
             'the restriction is not established before the coach speaks');
   const settings = a.renderSettingsHubView();
@@ -1162,7 +1170,8 @@ test('it stands down while a declaration is open, so nothing is duplicated', () 
     'a second route to Settings is offered under the card that already has one');
   const today = a.renderTodayView();
   assert.doesNotMatch(today, /Injured or ill\?/);
-  assert.match(today, /Change or extend/);   // the card's own control is the one on screen
+  assert.match(today, /data-action="restriction-view"/);   // the row on screen leads to the page
+  assert.match(a.restrictionPanelHtml(), /Change or extend/);   // and the page holds the controls
   // and it comes back once the athlete is training normally again
   a.endRestriction();
   assert.notEqual(a.renderInjuryPointer(), '');
