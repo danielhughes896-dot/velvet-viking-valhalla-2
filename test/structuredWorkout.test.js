@@ -2236,14 +2236,15 @@ test('why, feel and watch for left the screen — Why for its own section, the r
          somebody adds it to the table. */
       const APPROVED_EASY_SUBS = [
         'Finish wanting more',
-        'Let yesterday\u2019s session settle',
-        'Nothing to prove the day after a hard one',
-        'Save the effort for tomorrow',
-        'Tomorrow is the hard one',
-        'Let the long run settle',
-        'Loosen the legs, nothing more',
-        'That was the biggest one, so go gently',
-        'Recover from it, do not add to it',
+        // the role lines say what to do today; the Why says why (founder, option B)
+        'Conversational from the first step',
+        'Easy enough to talk the whole way',
+        'Hold back, even if you feel good',
+        'Finish with plenty left',
+        'Short, light strides the whole way',
+        'Relaxed and unhurried, no pick-ups',
+        'Slower than usual is right today',
+        'Gentle from start to finish',
         'This is the running that builds the engine',
         'Most of your running should feel like this',
         'Easy days are what let the hard ones land',

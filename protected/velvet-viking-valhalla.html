@@ -10108,6 +10108,33 @@
      fact's own identity colour, exactly as its circle wore it, so for
      Fitness and Progress the shape changed and the vocabulary did not. */
   .b-plates{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:16px 0 10px;}
+  /* Activity History: the fifth plate, the full width of the four above it. */
+  .b-plates .b-plate-wide{grid-column:1 / -1;}
+  /* ---- ACTIVITY HISTORY'S CARDS ----
+     The plan's own card shell and type rail. No fixed height anywhere, so a
+     long session name wraps and the card grows with it. The score is white:
+     green means complete in this product, and cherry means active. */
+  .ah-week{display:block; margin:16px 0 8px; font-size:.6875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF;}
+  .ah-card{display:block; width:100%; height:auto; min-height:0; text-align:left; cursor:pointer;
+    padding:14px 16px; margin:0 0 8px; font:inherit; color:#FFFFFF;}
+  .ah-top, .ah-main{display:flex; justify-content:space-between; align-items:baseline;}
+  .ah-top{gap:10px;}
+  .ah-date, .ah-score{font-size:.75rem; color:#FFFFFF;}
+  .ah-when{display:flex; align-items:baseline; gap:8px; min-width:0; flex-wrap:wrap;}
+  /* Small and quiet, in white: the product has no grey, so quiet is size
+     and weight, not a dimmer colour. */
+  .ah-src{font-family:var(--label-face); font-weight:400; font-size:.6875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF;}
+  .ah-main{gap:12px; margin-top:4px;}
+  .ah-name{flex:1 1 auto; min-width:0; overflow-wrap:anywhere; font-family:var(--label-face);
+    font-weight:600; font-size:1.0625rem; line-height:1.35; color:#FFFFFF;}
+  .ah-dist{flex:none; white-space:nowrap; font-size:1.375rem; font-weight:700; color:#FFFFFF;}
+  .ah-figs{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:10px;}
+  .ah-fig{display:block;}
+  .ah-fig-k{display:block; font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF;}
+  .ah-fig-v{display:block; margin-top:2px; font-size:.9375rem; color:#FFFFFF;}
   /* Centred on instruction: "GOAL / A" and "BENCHMARK / 45:00" read down
      the middle of their own box rather than off its left edge. */
   .b-plate{
@@ -10836,6 +10863,7 @@
   .modal-card.hq-panel.stg-panel{
     border:1px solid var(--t-tile-rim); box-shadow:var(--shadow);}
   .modal-card.rp-green{--rp-accent:var(--z-easy);}
+  .modal-card.rp-done{--rp-accent:var(--ok);}
   .modal-card.rp-cherry{--rp-accent:var(--cherry);}
   .modal-card.rp-white{--rp-accent:var(--ink);}
   .modal-card.rp-blue{--rp-accent:var(--z-mp);}
@@ -31578,7 +31606,7 @@ function renderHero(){
          them, and states what comes back. Every clause is checkable against the
          builder itself, which is the only reason it is allowed to promise. */
       '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time. Get a full pace-zoned training block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">Build My Plan</button>'+
       /* The preview promise, stated once. No payment language, and nothing
          implying the trial has begun -- it has not, and saying so here would
          be the first dishonest sentence in the journey. */
@@ -34855,15 +34883,23 @@ function singleCardSession(dd){
    why pool does. */
 var COACHING_SOLO_SUB = {
   easy: {
+    /* WHAT TO DO TODAY, NOT WHY. Founder, on the note and WHY THIS SESSION
+       saying the same thing the day after a hard session: "Rewrite the four
+       lines so they complement each other rather than repeat information.
+       Coach's Note: What the athlete should do today. Why This Session: Why
+       the workout belongs in the training programme. Keep both sections."
+       The Why already names yesterday or tomorrow; these lines only say how
+       to run today. All eight role lines are rewritten, because before a
+       hard day and after the long run repeated it in the same way. */
     role: {
-      after_quality:   ['Let yesterday\u2019s session settle',
-                        'Nothing to prove the day after a hard one'],
-      before_quality:  ['Save the effort for tomorrow',
-                        'Tomorrow is the hard one'],
-      after_long:      ['Let the long run settle',
-                        'Loosen the legs, nothing more'],
-      after_long_max:  ['That was the biggest one, so go gently',
-                        'Recover from it, do not add to it']
+      after_quality:   ['Conversational from the first step',
+                        'Easy enough to talk the whole way'],
+      before_quality:  ['Hold back, even if you feel good',
+                        'Finish with plenty left'],
+      after_long:      ['Short, light strides the whole way',
+                        'Relaxed and unhurried, no pick-ups'],
+      after_long_max:  ['Slower than usual is right today',
+                        'Gentle from start to finish']
     },
     phase: {
       /* 'Finish wanting more' is the approved line and is kept IN the
@@ -55774,7 +55810,7 @@ function openRestrictionModal(){
   '</div>'+
   '<div class="page-foot">'+
     (open ? '<button type="button" class="btn btn-ghost" data-action="restriction-end">I am back</button>' : '')+
-    '<button type="button" class="btn btn-primary" data-action="restriction-confirm">'+ICONS.check+' '+(open?'Update':'Tell SACORO')+'</button>'+
+    '<button type="button" class="btn btn-primary" data-action="restriction-confirm">'+(open?'Update':'Tell SACORO')+'</button>'+
   '</div>';
   /* Keyed: every level and duration pick calls straight back in here, and
      without this each one rebuilt the sheet and replayed its entrance. */
@@ -69281,6 +69317,7 @@ function handlePlanOpenSession(id){
   try{ window.scrollTo(0, 0); }catch(e){}
 }
 function handlePlanBack(){
+  if (historyReturn && planSessionOpen){ historyReturnBack(); return; }
   var y = 0;
   if (planSessionOpen){ planSessionOpen = null; y = planScrollMemo.week || 0; planScrollMemo.week = null; }
   else { planWeekOpen = null; y = planScrollMemo.plan || 0; planScrollMemo.plan = null; }
@@ -70896,6 +70933,7 @@ function renderSacoroInstruments(){
   var plates = SACORO_PLATES.map(function(k){
     return facts[k] ? statusPlateHtml(facts[k]) : '';
   }).join('');
+  if (plates) plates += activityHistoryPlateHtml();
   if (!circles && !plates) return '';
   /* ---------- A RAIL OF THREE, THEN THE GRAPH, THEN THE PLATES ----------
      Founder, with the approved design: "horizontal coaching-circle rail,
@@ -70925,6 +70963,147 @@ function plateValueChars(text){
    panel, same identity colour as its circle carried -- only the shape and
    the room for a long value differ. Two per row and even, because a goal
    time and a benchmark time do not rank against each other. */
+/* =========================================================
+   ACTIVITY HISTORY -- WHAT HAS BEEN RUN, NEWEST FIRST
+   =========================================================
+   Founder: "At the minute SACORO focuses on future but nothing is easy to
+   see past runs. So a box under the 4 on coach page. Then when opened a
+   simple list of the past days sessions. No need to have rest days. Just
+   the workouts." Then, approving the mock: keep the execution scores but in
+   neutral white, let every card grow with its name, "No social features, no
+   likes, no comments. Just a clean training record that links directly to
+   SACORO's analysis", and "tapping any activity should open its actual
+   completed log and analysis, not merely the original prescribed session."
+
+   WHAT COUNTS. A run that happened: sessionRan() -- the predicate the rest
+   of the app reads, so a Strava-attached run counts and an unlogged one never
+   does -- plus an optional run logged on a rest day, which is real running
+   with no prescription. Rest days and anything still to come are not in it.
+
+   GROUPED AS THE BLOCK WAS LIVED: the phase as a heading, the week inside it
+   with its dates, the runs inside that, newest first.
+
+   READ-ONLY. Nothing here edits, scores or shares. The figures are the log's
+   own; the score is computeExecutionScore(), the one the analysis reads. */
+function activityHistoryRuns(){
+  if (!state || !state.days) return [];
+  var today = todayStr();
+  return state.days.filter(function(dd){
+    if (!dd || dd.date > today) return false;
+    return sessionRan(dd) || optionalRunLogged(dd);
+  }).sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+}
+function activityHistoryPlateHtml(){
+  var n = activityHistoryRuns().length;
+  var big = n ? (n + (n === 1 ? ' run' : ' runs')) : 'None yet';
+  return '<button type="button" class="b-plate b-plate-wide" '+
+      'data-action="open-record" data-record="history" '+
+      'aria-label="'+escapeHtml('Activity history, '+big)+'" style="--rd-base:var(--ok);">'+
+      '<span class="b-plate-k">Activity History</span>'+
+      '<span class="b-plate-v'+(n ? '' : ' rec-none')+'" style="--pv-ch:'+plateValueChars(big)+';">'+escapeHtml(big)+'</span>'+
+    '</button>';
+}
+function activityClock(sec){
+  if (!(sec > 0)) return null;
+  sec = Math.round(sec);
+  var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60;
+  return (h ? h + ':' + (m < 10 ? '0' : '') + m : String(m)) + ':' + (x < 10 ? '0' : '') + x;
+}
+function activityKm(dd){
+  var a = dd.actual || {};
+  if (a.km != null) return a.km;
+  return optionalRunLogged(dd) ? null : (dd.km || null);
+}
+function activityCardHtml(dd){
+  var a = dd.actual || {};
+  var optional = optionalRunLogged(dd);
+  var km = activityKm(dd);
+  var paceSec = actualPaceToSecPerKm(dd);
+  var time = (paceSec && km) ? activityClock(paceSec * km) : null;
+  var pace = actualPaceDisplayStr(dd);
+  var hr = (a.hr && healthConsentGranted()) ? a.hr + ' bpm' : null;
+  var score = null;
+  try { score = optional ? null : computeExecutionScore(dd); } catch(e){ score = null; }
+  var name = optional ? 'Optional run' : (dd.title || ((TYPE_META[dd.type] || {}).label) || 'Run');
+  var tm = TYPE_META[dd.type] || {};
+  var fig = function(k, v){
+    return v ? '<span class="ah-fig"><span class="ah-fig-k">'+escapeHtml(k)+'</span>'+
+      '<span class="ah-fig-v font-mono">'+escapeHtml(v)+'</span></span>' : '';
+  };
+  var figs = fig('Time', time) + fig('Pace', pace ? pace + '/' + displayUnit() : null) + fig('Avg HR', hr);
+  return '<button type="button" class="ah-card day type-'+(optional ? 'easy' : (tm.cls || 'easy'))+'" '+
+      'data-action="history-open" data-day="'+dd.id+'">'+
+      /* THE SOURCE, UNDERSTATED. Founder: "Add a small, muted 'From Strava'
+         label beside the date ... No Strava orange or extra icon." */
+      '<span class="ah-top"><span class="ah-when"><span class="ah-date font-mono">'+escapeHtml(dow(dd.date)+' '+dShort(dd.date))+'</span>'+
+        (dd.stravaActivityId ? '<span class="ah-src">From Strava</span>' : '')+'</span>'+
+        (score != null ? '<span class="ah-score font-mono">Execution '+score+'</span>' : '')+'</span>'+
+      '<span class="ah-main"><span class="ah-name">'+escapeHtml(name)+'</span>'+
+        (km ? '<span class="ah-dist font-mono">'+escapeHtml(fmtDist(km))+'</span>' : '')+'</span>'+
+      (figs ? '<span class="ah-figs">'+figs+'</span>' : '')+
+    '</button>';
+}
+function recordPanelHistory(){
+  var runs = activityHistoryRuns();
+  var body;
+  if (!runs.length){
+    body = '<div class="rec-lede">Nothing run yet. Every session you log appears here, newest first, '+
+      'and opens its log and SACORO’s analysis.</div>';
+  } else {
+    var total = runs.reduce(function(s, dd){ return s + (activityKm(dd) || 0); }, 0);
+    body = '<div class="rec-lede">'+runs.length+(runs.length === 1 ? ' run, ' : ' runs, ')+
+      escapeHtml(fmtDist(Math.round(total)))+' logged this block. Newest first.</div>';
+    var phase, week, started = false;
+    runs.forEach(function(dd){
+      var ph = null;
+      try { ph = dd.week ? trainingPhase(dd.week) : null; } catch(e){ ph = null; }
+      if (!started || ph !== phase){ started = true; phase = ph; week = undefined; body += sectionRule(ph || 'Earlier', true); }
+      if (dd.week !== week){
+        week = dd.week;
+        var wd = state.days.filter(function(x){ return x.week === dd.week; });
+        body += '<div class="ah-week font-head">'+(dd.week && wd.length ? 'Week '+dd.week+', '+
+          escapeHtml(dShort(wd[0].date))+' to '+escapeHtml(dShort(wd[wd.length-1].date)) : 'Other days')+'</div>';
+      }
+      body += activityCardHtml(dd);
+    });
+  }
+  return recordPanelShell('Activity History', '<div class="ah-list">'+body+'</div>');
+}
+/* THE RUN ITSELF, NOT ITS PRESCRIPTION. A card opens that day's session page
+   -- the same canonical renderDayCard() Full Plan shows -- with Your Log and
+   SACORO Analysis already open, so the first thing on screen is what was run
+   and what SACORO made of it. Back returns to this list, where the athlete
+   left it. Any other way out (a tab, a swipe) simply forgets the way back. */
+var historyReturn = null;
+function handleHistoryOpen(id){
+  var dd = findDay(id);
+  if (!dd) return;
+  var card = null;
+  try { card = document.querySelector('#modal-overlay .modal-card'); } catch(e){}
+  var y = card ? card.scrollTop : 0;
+  openRecordPanelKey = null;
+  closeModal();
+  handleSetView('full');
+  planWeekOpen = dd.week || null;
+  planSessionOpen = dd.id;
+  logOpenFor[dd.id] = true;
+  analysisOpenFor[dd.id] = true;
+  historyReturn = { scroll:y };
+  insightHoldOnce = true;
+  renderApp();
+  try { window.scrollTo(0, 0); } catch(e){}
+}
+function historyReturnBack(){
+  var r = historyReturn;
+  historyReturn = null;
+  planSessionOpen = null; planWeekOpen = null;
+  handleSetView('planhq');
+  openRecordPanel('history');
+  try {
+    var card = document.querySelector('#modal-overlay .modal-card');
+    if (card && r) card.scrollTop = r.scroll || 0;
+  } catch(e){}
+}
 function statusPlateHtml(f){
   var big = f.big != null ? f.big : f.value;
   return '<button type="button" class="b-plate" '+
@@ -71304,7 +71483,8 @@ var RECORD_PANELS = {
   fitness: recordPanelFitness,
   benchmark: recordPanelBenchmark,
   zones: recordPanelZones,
-  progress: recordPanelProgress
+  progress: recordPanelProgress,
+  history: recordPanelHistory
 };
 /* Every Plan HQ panel -- the four Record facts, the five Reading
    interpretations, and the two action destinations -- is built by one of these
@@ -71329,7 +71509,8 @@ var openRecordPanelKey = null;
 var PANEL_ACCENT_CLASS = {
   recovery:'rp-cyan', evolution:'rp-green', readiness:'rp-cherry',
   patterns:'rp-white', adaptation:'rp-blue',
-  goal:'rp-gold', fitness:'rp-cherry', benchmark:'rp-white', progress:'rp-gold'
+  goal:'rp-gold', fitness:'rp-cherry', benchmark:'rp-white', progress:'rp-gold',
+  history:'rp-done'
 };
 function openHQPanel(key){
   /* Used, so it no longer needs saying. Marked here rather than on the
@@ -72901,7 +73082,7 @@ function renderCloudCard(){
         (stHint ? '' : 'Sign in to back your plan up and use it on more than one device. ')+
         'We email you a link. There is no password.</div>'+
       '<div class="field" style="margin-bottom:8px;"><label>Email</label><input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">Email me a sign-in link</button>'+
       restoreBtn;
   }
   var st = planStorageStatus();
@@ -72953,7 +73134,7 @@ function openRestoreModal(){
         '<div class="field" style="margin-bottom:8px;"><label>Email</label>'+
           '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
         '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+
-          ICONS.link+' Email me a sign-in link</button>';
+          'Email me a sign-in link</button>';
   openModal(
     '<div class="modal-head"><h2 class="font-head">Restore a Plan</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
@@ -73294,6 +73475,7 @@ function renderBottomNavStack(){
   return '<div class="bn-stack">'+renderBottomNav()+'</div>';
 }
 function handleSetView(view){
+  historyReturn = null;
   /* BEFORE THE EARLY RETURN BELOW, and that position is the fix rather than an
      accident. Asking is latched and idempotent, so it costs nothing to do it
      here -- but doing it after the return meant "set the view to Today when
@@ -73761,7 +73943,7 @@ function renderSignedOutLanding(st){
     '<h2 class="font-display">'+(back ? 'Welcome back' : 'SACORO')+'</h2>'+
     (back
       ? '<button type="button" class="btn btn-primary btn-block" data-action="landing-continue">Continue this device’s training block</button>'
-      : '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>')+
+      : '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">Build My Plan</button>')+
   '</div></div>';
 }
 
@@ -75562,6 +75744,7 @@ document.addEventListener('click', function(e){
     case 'unlogged-ack': handleUnloggedAck(target.getAttribute('data-day')); break;
     case 'unlogged-open': openUnloggedSheet(target.getAttribute('data-day')); break;
     case 'swap-show-more': handleSwapShowMore(target); break;
+    case 'history-open': handleHistoryOpen(target.getAttribute('data-day')); break;
     case 'unlogged-log': handleUnloggedLog(target.getAttribute('data-day')); break;
     case 'restriction-level': handleRestrictionLevel(target.getAttribute('data-level')); break;
     case 'restriction-days': handleRestrictionDays(target.getAttribute('data-days')); break;

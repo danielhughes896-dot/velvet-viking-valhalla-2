@@ -121,7 +121,11 @@ test('RECORD: Sacoro carries exactly four Record facts, each its own tappable pl
 test('RECORD: the four are separate circles, not one combined container', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
-  assert.equal((html.match(/data-action="open-record"/g) || []).length, 4);
+  /* Four Record facts, plus Activity History beneath them -- the founder's
+     fifth box, the full width of the four, which opens a list rather than a
+     fact (see activityHistory.test.js). */
+  assert.equal((html.match(/data-action="open-record"/g) || []).length, 5);
+  assert.equal((html.match(/data-action="open-record" data-record="(?!history)/g) || []).length, 4);
   const region = html.slice(html.indexOf('data-action="open-record"'));
   assert.doesNotMatch(region.slice(0, region.indexOf('</button>')),
     /class="b-dial[^"]*"/, 'a Record circle is nested inside another Record circle');

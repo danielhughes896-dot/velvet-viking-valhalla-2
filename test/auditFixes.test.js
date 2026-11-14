@@ -111,3 +111,38 @@ test('the coaching never names an unlogged session as the reason for today', () 
     a.coachingIsQuality(a.state.days.find(p => p.date === a.addDays(d.date, -1)) || {}));
   if (later) assert.equal(a.coachingContextFor(later).role, 'after_quality');
 });
+
+/* ---------- THE NOTE SAYS WHAT TO DO; THE WHY SAYS WHY ----------
+   Founder, option B: "Coach's Note: What the athlete should do today. Why
+   This Session: Why the workout belongs in the training programme. Keep
+   both sections." */
+test('the note’s role lines say how to run today and never restate the reason', () => {
+  const a = athlete();
+  const roles = a.COACHING_SOLO_SUB.easy.role;
+  Object.keys(roles).forEach(r => roles[r].forEach(line => {
+    assert.doesNotMatch(line, /yesterday|tomorrow|long run|hard one|hard session|biggest/i,
+      r + ': "' + line + '" restates why, which is the Why’s job');
+  }));
+  // both sections still render on the day after a hard session
+  const today = a.state.days.find(d => d.date === TODAY);
+  assert.equal(a.coachingContextFor(today).role, 'after_quality');
+  const card = a.renderDayCard(today);
+  assert.match(card, /class="why-session"/, 'WHY THIS SESSION went');
+  assert.ok(roles.after_quality.some(l => card.indexOf(l.replace(/'/g, '&#39;')) > -1), 'the note line went');
+});
+
+/* ---------- ICONS COMMUNICATE A FUNCTION ----------
+   Founder: "Build My Plan: Remove the target. Sign-in: Remove the link
+   icon. Tell SACORO: Remove the tick. Back, Close, Edit, Share and
+   navigation: Keep their icons." */
+test('Build My Plan, the sign-in link and Tell SACORO carry words only', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  assert.doesNotMatch(src, /ICONS\.target\+' Build My Plan/);
+  assert.doesNotMatch(src, /ICONS\.link\+' Email me a sign-in link/);
+  assert.doesNotMatch(src, /data-action="restriction-confirm">'\+ICONS\./);
+  // the functional ones stay
+  assert.match(src, /data-action="plan-back" aria-label="Back">'\+\s*\n?\s*ICONS\.chevronRight/);
+  assert.match(src, /data-action="close-record-panel" aria-label="Close">'\+ICONS\.close/);
+  assert.match(src, /\{key:'planhq', label:'Coach', icon:ICONS\.target\}/, 'the navigation lost its icon');
+});
