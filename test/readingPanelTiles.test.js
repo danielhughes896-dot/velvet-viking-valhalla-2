@@ -63,7 +63,7 @@ test('RECOVERY: each tile ring is the share it says', () => {
   const rec = a.coachRecovery();
   assert.match(p, new RegExp(rec.hardStreak + ' Strain Hard days? in a row'));
   const b = a.easyHRBaseline();
-  assert.match(p, b.sufficient ? /Easy HR bpm vs baseline/ : /Easy HR Building baseline/);
+  assert.match(p, b.sufficient ? /Easy HR bpm vs baseline/ : a.easyRunsLackHeartRate() ? /Easy HR Needs heart rate on easy runs/ : /Easy HR Building baseline/);
 });
 
 test('PATTERNS: three rings, the evidence each needs, the questions, never a score', () => {
@@ -187,4 +187,19 @@ test('COLOUR: every graph on a panel wears the colour of the card that opens it'
     const tiles = (a.readingPanel(k).match(/class="pt-tile" style="--pt-col:([^;]+);/g) || []);
     tiles.forEach(t => assert.ok(t.indexOf(a.READING_ACCENT[k]) !== -1, k + ' has a tile in another colour'));
   });
+});
+
+test('WORDS: without heart rate on easy runs the tiles say why they are waiting', () => {
+  /* Founder: "I'd change the words to 'Needs heart rate on easy runs' so it
+     says why." The fixture logs easy runs with no heart rate. */
+  const a = athlete();
+  assert.equal(a.easyRunsLackHeartRate(), true);
+  const t = s => s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  assert.match(t(a.readingPanel('adaptation')), /Aerobic Needs heart rate on easy runs/);
+  assert.match(t(a.readingPanel('recovery')), /Easy HR Needs heart rate on easy runs/);
+  assert.match(t(a.readingPanel('evolution')), /Aerobic Needs heart rate on easy runs/);
+  // once easy runs carry a heart rate, the ordinary word comes back
+  a.state.days.filter(d => d.completed && d.type === 'easy').forEach(d => { d.actual.hr = 148; });
+  assert.equal(a.easyRunsLackHeartRate(), false);
+  assert.doesNotMatch(t(a.readingPanel('adaptation')), /Needs heart rate/);
 });

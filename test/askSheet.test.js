@@ -51,7 +51,13 @@ test('quick choices rise as the glass sheet; management opens as a page', () => 
     const body = CODE.slice(i, CODE.indexOf('\nfunction ', i + 10));
     assert.match(body, /openModal\([^;]*'modal-themed stg-sheet/, fn + ' is not a glass sheet');
   });
-  const i = CODE.indexOf('function openSettingsModal(');
-  assert.match(CODE.slice(i, CODE.indexOf('\nfunction ', i + 10)), /openModal\(html, 'modal-themed builder-light '\+STG_PAGE\)/,
-    'the onboarding Settings is not a full page');
+  // The onboarding shield opens the Settings screen itself, as a page.
+  const a = loadApp({ pinnedDate: '2026-05-20T09:00:00Z' });
+  let got = null;
+  a.openModal = (html, cls) => { got = { html, cls }; };
+  a.openSettingsModal();
+  assert.match(got.cls, /hq-full/, 'the onboarding Settings is not a full page');
+  assert.match(got.html, /class="view-settings"/, 'the shield opens something other than the Settings screen');
+  assert.match(got.html, /<h2 class="font-head">Settings<\/h2>/);
+  assert.doesNotMatch(got.html, /view-heading font-head">Settings/, 'the title is said twice');
 });

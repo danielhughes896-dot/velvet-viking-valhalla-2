@@ -193,8 +193,11 @@ test('EVERY Reset Plan control, not just the one on the hub', () => {
      drifts away from the other. Scanned at source, so both are covered
      wherever they live. */
   const buttons = CODE.match(/<button[^>]*data-action=\\?"reset-plan\\?"[^>]*>/g) || [];
-  assert.ok(buttons.length >= 2,
-    'expected Reset Plan on both Settings surfaces, found ' + buttons.length);
+  /* The older Settings pop-up that carried the second copy is gone: the
+     onboarding shield opens the Settings screen itself now. One remains,
+     on the Reset page, and it is checked the same way. */
+  assert.ok(buttons.length >= 1,
+    'expected Reset Plan on the Reset page, found ' + buttons.length);
   buttons.forEach((b, i) => {
     assert.doesNotMatch(b, /btn-danger/, 'Reset Plan #' + (i + 1) + ' still reads as destruction');
     assert.match(b, /btn-ghost/, 'Reset Plan #' + (i + 1) + ' has lost its ordinary treatment');

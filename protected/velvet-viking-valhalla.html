@@ -11158,16 +11158,21 @@
      else, so the table reads on alignment and spacing like the rest of the
      product. The cell padding stays; it is what does the separating now. */
   .pace-table th, .pace-table td{padding:9px 6px; text-align:center;}
-  .pace-table th{font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--ink-faint); font-weight:var(--label-weight);}
-  .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:var(--num-face); color:var(--ink-dim);}
-  .pace-table td{font-family:var(--num-face); color:var(--ink);}
-  .pace-table tr:last-child td{border-bottom:none; font-weight:700; color:var(--gold);}
+  .pace-table th{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; font-weight:var(--label-weight);}
+  .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:var(--num-face); color:#FFFFFF;}
+  .pace-table td{font-family:var(--num-face); color:#FFFFFF;}
+  /* The finish is the row the eye goes to; it says so by weight, in the
+     same white as every figure (gold is the brand, not a highlight). */
+  .pace-table tr:last-child td{border-bottom:none; font-weight:700; color:#FFFFFF;}
   /* Gold now means exactly one thing on this table -- the destination
      (Finish) row. The primary goal column (A) is distinguished instead by
      weight and a quiet column tint, so the two kinds of emphasis (this is
      the goal you're chasing / this is the finish line) read as different
      signals rather than competing for the same colour. */
-  .pace-table .goal-col-a{font-weight:700; background:var(--tile-sheen), rgba(var(--modal-active-rgb),0.06);}
+  /* The active goal's column: cherry, because cherry is what is on. */
+  .pace-table .goal-col-on{font-weight:700; background:color-mix(in srgb, var(--cherry) 18%, transparent);}
+  .pace-table th.goal-col-on{border-radius:10px 10px 0 0;}
+  .pace-table tr:last-child td.goal-col-on{border-radius:0 0 10px 10px;}
 
   .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   /* ---------- PROPOSAL: THE TARGET IS THE HERO ----------
@@ -53569,6 +53574,20 @@ function renderBlockSection(b, bts){
       return hqRow(dShort(dd.date), (dd.title||dd.type)+', '+computeExecutionScore(dd)+'%');
     }).join('');
 }
+/* SAY WHY IT IS WAITING. Founder: "I'd change the words to 'Needs heart
+   rate on easy runs' so it says why." Aerobic development and easy heart
+   rate against baseline are both read from heart rate on easy runs; an
+   athlete who logs easy runs without it would otherwise see "Learning"
+   for ever. True once easy runs are being logged and none carries a heart
+   rate the coach can read. */
+var NEEDS_EASY_HR = 'Needs heart rate on easy runs';
+function easyRunsLackHeartRate(){
+  var easies = athleteMemory(42).filter(function(r){ return r.completed && r.type === 'easy'; });
+  return easies.length >= 2 && !easies.some(hrIsReadable);
+}
+function aerobicWord(d){
+  return (!d || !d.direction) && easyRunsLackHeartRate() ? NEEDS_EASY_HR : blockDirectionWord(d);
+}
 function blockDirectionWord(d){
   return !d || !d.direction ? 'Learning'
        : d.direction === 'positive' ? 'Improving'
@@ -55294,7 +55313,7 @@ function insightCopy(c){
     if (pg.isRace){
       out.paras = [
         'Your '+distLabel+' plan is built, and it runs to '+dShort(su.raceDate)+'.',
-        'It does not start by making you fitter. It starts by making the week hold — '+
+        'It does not start by making you fitter. It starts by making the week hold: '+
           'getting your running days consistent and your easy running genuinely easy, '+
           'so that when the hard work arrives there is something underneath it.',
         'That is deliberate, and it is the part people skip. If the first fortnight '+
@@ -55517,7 +55536,9 @@ function handleInsightDismiss(){
    never over a modal that is already up, because the athlete is in the
    middle of something. */
 var openInsightKey = null;
+var insightHoldOnce = false;
 function maybeOpenContextInsight(){
+  if (insightHoldOnce){ insightHoldOnce = false; return false; }
   if (document.getElementById('modal-overlay')) return false;
   /* NOT OVER THE ARRIVAL. Filmed while fixing the splash: an explanation that
      had just fallen due opened 40ms after the greeting, on top of it, and the
@@ -60050,7 +60071,7 @@ function openRecalibrateModal(){
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Re-calibrate Training Zones</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="field-hint" style="margin-bottom:12px;">Fitness changes over a block. Update your benchmark or goal times here any time \u2014 your schedule, dates and logged history stay exactly as they are; only your target paces move.</div>'+
+    '<div class="field-hint" style="margin-bottom:12px;">Fitness changes over a block. Update your benchmark or goal times here any time. Your schedule, dates and logged history stay exactly as they are; only your target paces move.</div>'+
     '<div class="setup-section-title">Current Benchmark</div>'+
     '<div class="benchmark-row">'+
       '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="rc-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
@@ -60058,7 +60079,7 @@ function openRecalibrateModal(){
     '</div>'+
     '<div class="field-hint">Tap the time to set it.</div>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
-    '<div class="setup-section-title">Goal A / B / C \u2014 for '+escapeHtml(profile.label)+'</div>'+
+    '<div class="setup-section-title">'+escapeHtml(profile.label)+' Goals</div>'+
     goalRows+
   '</div>'+
   '<div class="page-foot">'+
@@ -61596,49 +61617,15 @@ function handleResetDay(dayId){
 /* =========================================================
    SETTINGS MODAL
    ========================================================= */
+/* THE SHIELD OPENS SETTINGS, NOT A SECOND SETTINGS. Before a plan exists
+   there is no tab bar, so the onboarding bar's shield is the way in. It
+   used to open an older pop-up of its own that duplicated half of
+   Settings; it now opens the Settings screen itself, as a full page, with
+   every row behind it the same row the tab opens. */
 function openSettingsModal(){
-  var html = ''+
-  '<div class="modal-head"><h2 class="font-head">Settings</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
-  '<div class="modal-body">'+
-    (state.setup ? (
-      '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="open-pacing">'+ICONS.ruler+' '+vGoalDay()+' Pacing Strategy</button>'+
-      '<div class="divider-or"><div class="rule"></div>Export<div class="rule"></div></div>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="print-plan">'+ICONS.ruler+' Print / Save as PDF</button>'
-    ) : '')+
-    '<div class="divider-or"><div class="rule"></div>Backup<div class="rule"></div></div>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Backup File</button>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="import-json" data-target="import-json-input">'+ICONS.upload+' Import Backup File</button>'+
-    '<input type="file" accept=".json,application/json" id="import-json-input" class="file-input-offscreen">'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
-    '<div class="field-hint" style="margin-bottom:14px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
-    '<div class="divider-or"><div class="rule"></div>Sync<div class="rule"></div></div>'+
-    '<div class="connect-row"><div><div class="name">Strava &amp; Garmin</div><div class="desc">'+(isStravaConnected()?'Strava connected':'Connect or import a file')+'</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="open-import">'+ICONS.link+' Tools &amp; Import</button></div>'+
-    /* THIS SENTENCE WAS FALSE, and it was false one tap away from a dialog
-       saying the opposite. It promised that resetting clears "your whole plan,
-       schedule and logged runs" -- written when a plan WAS the athlete record.
-       Since training evidence moved to state.athlete, handleResetPlan archives
-       every completed session before clearing anything, and its own confirm
-       dialog says so. An athlete reading this hint would have been talked out
-       of a safe action by a warning about a consequence that no longer exists.
-
-       "Danger Zone" went with it, for the same reason: a new prescription is
-       not a dangerous act. Deleting the account still is, and that lives on
-       the Account card where it belongs -- the two must not read alike. */
-    (state.setup ? (
-      '<div class="divider-or"><div class="rule"></div>Start Over<div class="rule"></div></div>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="reset-plan">'+ICONS.refresh+' Reset Plan \u2014 Start Over</button>'+
-      '<div class="field-hint" style="margin-top:8px; text-align:center;">'+RESET_PLAN_HINT+'</div>'
-    ) : '')+
-    '<div class="build-tag">Build '+BUILD_ID+'</div>'+
-  '</div>';
-  /* The shield on the onboarding bar opens this: account, backup and
-     plan tools, which is management, so it is a full page like every
-     other Settings page. */
-  openModal(html, 'modal-themed builder-light '+STG_PAGE);
+  var hub = renderSettingsHubView()
+    .replace('<div class="view-heading font-head">Settings</div>', '');
+  openModal(recordPanelShell('Settings', hub), 'modal-themed builder-light '+STG_PAGE);
 }
 /* RESET IS A NEW BLOCK, NOT AMNESIA.
 //
@@ -61956,7 +61943,7 @@ function openPacingModal(){
       if (!g || !g.timeSec) return '<td>\u2014</td>';
       var vdot = vdotFromPerformance(profile.raceKm*1000, g.timeSec);
       var pace = goalPaceSecPerKm(vdot, profile.raceKm*1000);
-      var cls = k==='A' ? ' class="goal-col-a"' : '';
+      var cls = k===state.setup.activeGoal ? ' class="goal-col-on"' : '';
       return '<td'+cls+'>'+(pace?secToClock(pace*cp):'\u2014')+'</td>';
     }).join('');
     var isFinish = cp===checkpoints[checkpoints.length-1];
@@ -61965,9 +61952,18 @@ function openPacingModal(){
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">'+vGoalDay()+' Pacing Strategy</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="field-hint" style="margin-bottom:6px;">'+escapeHtml(profile.label)+' \u2014 even-effort cumulative splits for each goal.</div>'+
-    '<div class="pace-table-card"><table class="pace-table"><thead><tr><th>Checkpoint</th><th>Goal A</th><th>Goal B</th><th>Goal C</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    '<div class="callout" style="margin-top:16px;">'+ICONS.info+'<div>Even splits are a starting strategy, not a rule \u2014 many runners run a controlled first half and let the second half follow feel. Adjust for course profile, weather and how you feel on the day.</div></div>'+
+    /* THE CURRENT RULES. Founder: "Goal day pacing strategy. Needs the new
+       rules putting in." No em dashes, no icon, white text; the goal the
+       plan is built on is the active column and wears cherry; the finish
+       is white like every other figure; the note is SACORO's Read. */
+    '<div class="rp-hero-say" style="margin:4px 0 14px;">'+escapeHtml(profile.label)+'. Even-effort cumulative splits for each goal.</div>'+
+    sectionRule('Splits', true)+
+    '<div class="pace-table-card"><table class="pace-table"><thead><tr><th>Checkpoint</th>'+
+      GOAL_KEYS.map(function(k){ return '<th'+(k===state.setup.activeGoal ? ' class="goal-col-on"' : '')+'>Goal '+k+'</th>'; }).join('')+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    sectionRule('SACORO\u2019s Read', true)+
+    '<div class="pt-say">Even splits are a starting strategy, not a rule. Many runners run a controlled first half and let '+
+      'the second half follow feel. Adjust for course profile, weather and how you feel on the day.</div>'+
   '</div>';
   /* CONSISTENCY PASS: builder-light -- same centred/keyboard-safe positioning
      as Re-calibrate and the builder itself, so a reference surface an
@@ -71583,7 +71579,7 @@ function recoverySignalsHtml(rec){
       say: rec.hardStreak === 1 ? 'Hard day in a row' : 'Hard days in a row' },
     { col:col, frac: b.sufficient ? Math.min(1, Math.abs(b.delta) / 4) : 0,
       fig: b.sufficient ? (b.delta > 0 ? '+' : '')+b.delta : '–', label:'Easy HR',
-      say: b.sufficient ? 'bpm vs baseline' : 'Building baseline' }
+      say: b.sufficient ? 'bpm vs baseline' : easyRunsLackHeartRate() ? NEEDS_EASY_HR : 'Building baseline' }
   ]);
 }
 
@@ -71628,7 +71624,7 @@ function evolutionDevelopmentHtml(d){
   var col = READING_ACCENT.evolution, n = d.easy ? d.easy.samples || 0 : 0;
   return sectionRule('Phase Development', true)+panelTilesHtml([
     { col:col, frac:Math.min(1, n / BASELINE_MIN_SAMPLES), fig: n ? String(n) : '–',
-      label:'Aerobic', say:blockDirectionWord(d.easy) },
+      label:'Aerobic', say:aerobicWord(d.easy) },
     { col:col, frac: d.execution == null ? 0 : d.execution / 100,
       fig: d.execution == null ? '–' : d.execution+'%', label:'Execution',
       say: d.sessions ? d.sessions+' session'+(d.sessions === 1 ? '' : 's')+' this phase' : 'Awaiting runs' },
@@ -71643,7 +71639,9 @@ function evolutionReadHtml(d){
   var mid = (d.execution != null && aero)
       ? 'Sessions this phase average '+d.execution+'% execution, and easy aerobic efficiency is '+aero+'.'
     : d.execution != null
-      ? 'Sessions this phase average '+d.execution+'% execution. There isn’t enough yet to assess aerobic development.'
+      ? 'Sessions this phase average '+d.execution+'% execution. '+(easyRunsLackHeartRate()
+          ? 'Aerobic development needs heart rate on your easy runs.'
+          : 'There isn\u2019t enough yet to assess aerobic development.')
     : aero
       ? 'Easy aerobic efficiency is '+aero+'. There are no scored sessions in this phase yet.'
       : 'There isn’t enough logged training yet to assess aerobic development or execution.';
@@ -71739,14 +71737,14 @@ function patternHeadlineSentence(t){
 function adaptationTilesHtml(b, bts){
   var col = READING_ACCENT.adaptation;
   var dim = function(id){ return b ? b.dimensions.filter(function(d){ return d.id === id; })[0] : null; };
-  var tile = function(d, label){
+  var tile = function(d, label, word){
     var n = d ? d.samples || 0 : 0;
     return { col:col, frac:Math.min(1, n / BASELINE_MIN_SAMPLES), fig: n ? String(n) : '–',
-             label:label, say:blockDirectionWord(d) };
+             label:label, say:(word || blockDirectionWord)(d) };
   };
   var nb = (bts || []).length;
   return sectionRule('Your Adaptation', true)+panelTilesHtml([
-    tile(dim('easy'), 'Aerobic'),
+    tile(dim('easy'), 'Aerobic', aerobicWord),
     tile(dim('recovery'), 'Tolerance'),
     { col:col, frac: b && b.qualifyingSessions ? Math.min(1, nb / b.qualifyingSessions) : 0, fig:String(nb),
       label:'Breakthroughs', say:'in '+(b ? b.windowDays : 28)+' days' }
@@ -72536,9 +72534,18 @@ function handleGoToCheckpoint(){
   closeRecordPanel();
   state.view = 'full';
   expandedWeeks[chk.week] = true;
+  /* THE WEEK ITSELF. Founder: "Open week 9 does link to week 9?" It did
+     not, quite: Full Plan opens a week as its own page now, and this only
+     expanded the week in the list and scrolled, which landed short of it.
+     It opens that week's page, at the top, the way tapping the week does,
+     and Back returns to the list. Nothing is allowed to rise over the
+     place the athlete asked to go. */
+  planScrollMemo.plan = 0; planScrollMemo.week = null;
+  planWeekOpen = chk.week; planSessionOpen = null;
+  weekSelectedDate = chk.date;          // on the checkpoint day itself
+  insightHoldOnce = true;
   renderApp();
-  var el = document.getElementById('day-'+chk.id) || document.getElementById('week-'+chk.week);
-  if (el && el.scrollIntoView){ try { el.scrollIntoView({ block:'center' }); } catch(err){ el.scrollIntoView(); } }
+  try{ window.scrollTo(0, 0); }catch(e){}
 }
 
 /* SACORO / COACH / RECORD -- three views over Plan HQ's existing
