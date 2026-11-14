@@ -153,7 +153,7 @@ test('THE RECOMMENDATION IS EIGHT WEEKS, AND ONLY HERE', () => {
 test('BOTH ANSWERS ARE REAL, AND CONTINUE IS NOT AN APOLOGY', () => {
   const html = modalApp().raceGoalPreparationHtml(ADM, 'full');
   assert.match(html, /Your Full Marathon preparation/);
-  assert.match(html, /Recommended — Build Aerobic Base/);
+  assert.match(html, /Recommended: Build Aerobic Base/);
   assert.match(html, /data-action="prep-route"/);
   assert.match(html, /data-action="prep-continue"/);
   assert.match(html, /safest useful Full Marathon programme/);

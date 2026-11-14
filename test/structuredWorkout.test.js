@@ -1892,7 +1892,13 @@ test('no device-integration surface has been added', () => {
        garminFoundation.test.js sweeps Today, This Week, Full Plan, Plan HQ and
        the day card to prove. Naming them here keeps this assertion meaningful
        rather than widening the pattern until it catches nothing. */
-    'garmin-connect', 'garmin-disconnect'
+    'garmin-connect', 'garmin-disconnect',
+    /* The Share page's two actions: a picture composed on the phone and handed
+       to the phone's own share sheet or photo library. Not a device push and
+       not a workout export. It always existed; this sweep only missed it
+       because the photo picker's accept="image/*" reads as the start of a
+       comment to the stripper above, which hid everything up to the next one. */
+    'share-export'
   ];
   const actions = [...new Set([...code.matchAll(/data-action="([^"]+)"/g)].map(m => m[1]))];
   const offending = actions.filter(x =>

@@ -341,3 +341,48 @@ test('an empty goal starts from the benchmark, and an empty benchmark from exper
   const t = bench.h * 3600 + bench.m * 60 + bench.s;
   assert.ok(t > 40 * 60 && t < 60 * 60, 'a typical 10K benchmark start is ' + t + 's');
 });
+
+/* ---------- SHARE IS A FULL PAGE ---------- */
+test('the share page reads picture, then where it comes from, design, format, with the actions pinned', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  const i = src.indexOf('function shareComposerHtml()');
+  const body = src.slice(i, src.indexOf('\n}\n', i));
+  const at = s => body.indexOf(s);
+  assert.ok(at('share-stage') < at("sectionRule('Picture'"), 'the picture comes first');
+  assert.ok(at("sectionRule('Picture'") < at("sectionRule('Design'"));
+  assert.ok(at("sectionRule('Design'") < at("sectionRule('Format'"));
+  assert.ok(at("sectionRule('Format'") < at('page-foot share-foot'), 'the actions sit at the foot');
+  assert.doesNotMatch(body, /ICONS\./, 'a decorative icon is back on the page');
+  assert.match(src, /\.modal-card\.share-page \.share-overlays\{display:flex; flex-wrap:nowrap;[^}]*overflow-x:auto/,
+    'the designs are one row you swipe');
+});
+
+test('the share page opens on the last design and format, kept on this device only', () => {
+  const a = athlete();
+  const store = {};
+  a.readStored = k => (k in store ? JSON.parse(store[k]) : null);
+  a.writeStored = (k, v) => { store[k] = JSON.stringify(v); };
+  const dd = a.state.days.filter(d => d.completed && d.type !== 'rest').slice(-1)[0];
+  a.openShareModal(dd);
+  assert.equal(a.shareState.overlay, 'frame');
+  assert.equal(a.shareState.format, 'story');
+  a.handleShareSet('overlay', 'railright');
+  a.handleShareSet('format', 'post');
+  const before = JSON.stringify(a.state);
+  a.openShareModal(dd);
+  assert.equal(a.shareState.overlay, 'railright');
+  assert.equal(a.shareState.format, 'post');
+  assert.equal(JSON.stringify(a.state), before, 'sharing wrote to the training record');
+  store[a.SHARE_LAST_KEY] = JSON.stringify({ overlay: 'nonsense', format: 'banner' });
+  a.openShareModal(dd);
+  assert.equal(a.shareState.overlay, 'frame', 'an unknown design was trusted');
+  assert.equal(a.shareState.format, 'story');
+});
+
+test('the verdict on the share image is lit from its first letter', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  const hp = a.shareHeadParts({ sessionLabel: 'INTERVAL', verdict: 'DIALED' });
+  assert.equal(hp.text, 'INTERVAL: DIALED');
+  assert.equal(hp.text.slice(hp.accentFrom), 'DIALED');
+});

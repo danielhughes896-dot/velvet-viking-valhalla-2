@@ -178,15 +178,15 @@ test('the verdict reads label, word, sentence, with nothing before the label', (
  * 3. THE SHARE COMPOSER IS A TAB BODY
  * ==================================================================== */
 
-test('the composer runs the width its sibling tab bodies run', () => {
-  assert.match(rule('.share-inline .share-body'), /padding:\s*14px 0 15px/,
-    'side padding here is what made this one tab a narrower column than ' +
-    'the log and the details beside it');
-  const open = rule('.share-inline.is-open');
-  assert.ok(!/border:/.test(open) && !/background:/.test(open),
-    'the open composer must be the tab\'s body, not a panel under the tab');
-  assert.ok(!/share-inline\.is-open\)\s*\.sess-tab\s*\{/.test(CSS),
-    'squaring the tab\'s corners only made sense against a panel below it');
+/* ---- THE COMPOSER IS A PAGE NOW ----
+   Founder: "Go, build the share composer full page." It was a tab body,
+   unfolding inside the session card; it is the Share page, with the
+   picture first and the actions pinned at the foot like every full page. */
+test('Share opens a full page, and the in-card composer is gone', () => {
+  assert.ok(!/share-inline/.test(CSS), 'the in-card composer styling is back');
+  assert.ok(!/function toggleShareInline/.test(SRC), 'the in-card composer is back');
+  assert.match(SRC, /case 'share-workout': openShareModal\(/);
+  assert.match(SRC, /openModal\(shareModalHtml\(\), 'modal-themed builder-light share-modal share-page '\+STG_PAGE\)/);
 });
 
 /* ---- THIS LAW HAS CHANGED SIDES ----
@@ -224,27 +224,13 @@ test('the withholding note is prose on the card, not an alert in a tray', () => 
   assert.match(n, /padding:\s*2px 0 0/, 'it runs the tab\'s full width like everything else');
 });
 
-test('neither share action is a slab', () => {
-  const b = rule('.share-actions .btn');
-  assert.match(b, /background:\s*var\(--t-card\)/, 'the card\'s own ground, as .wk-open has');
-  assert.match(b, /border:\s*1px solid var\(--t-tile-rim\)/);
-  /* ---- AND THIS ONE HAS CHANGED SIDES TOO ----
-     It required the primary to carry the four-layer illumination. That light
-     means SELECTED in this product -- the nav tab you are on, the unit you
-     chose -- and neither of these is selected: they are two ways to get the
-     same image out, and the athlete picks one by pressing it. Both read in
-     plain gold now, and Share leads by sitting first. What the test still
-     protects, and the whole reason it exists, is that neither is a slab. */
-  /* ---- AND THE WORDS HAVE CHANGED COLOUR ----
-     Founder, in the same ruling as the toggles: "Share and save to photos
-     again." Pressing either is something the athlete does, so the words are
-     cherry. Everything else this test protects stands. */
-  const p = rule('.share-actions .btn-primary,\n  .share-actions .btn-ghost');
-  assert.match(p, /color:\s*var\(--cherry-text\)/);
-  assert.doesNotMatch(p, /gold/);
-  assert.match(p, /text-shadow:\s*none/, 'the actions are lit as though one were chosen');
-  assert.ok(!/background/.test(p),
-    'a ground on the actions is the bronze gradient coming back');
+test('the two share actions are the page foot every full page has', () => {
+  /* Share and Save to device sit pinned at the foot, the builder's cherry
+     primary beside a ghost, as on every other full page. Neither is the old
+     bronze slab, and the words stay on one line at 320. */
+  assert.ok(!/share-actions/.test(SRC), 'the old in-card action rules are back');
+  assert.match(SRC, /<div class="page-foot share-foot">'\+\s*'<button type="button" class="btn btn-primary" data-action="share-export" data-mode="share">/);
+  assert.match(rule('.modal-card.share-page .share-foot .btn'), /white-space:\s*nowrap/);
 });
 
 test('the save button names the place the file actually lands', () => {

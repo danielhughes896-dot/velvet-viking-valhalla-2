@@ -6393,22 +6393,6 @@
   .exec-review-mount:empty{display:none;}
   /* Open, the tab joins the panel beneath it into one object rather than
      floating above it. */
-  .share-caret{display:inline-flex; margin-left:2px; transition:transform .18s;}
-  .share-caret svg{width:17px; height:17px;}
-  .btn-share[aria-expanded="true"] .share-caret{transform:rotate(180deg);}
-  .share-inline{display:none;}
-  /* ---------- A TAB BODY, NOT A PANEL UNDER A TAB ----------
-     Measured against its three siblings: the Session Details body, the log
-     body and the analysis all open flush at the card's own edge, 380px of a
-     380px card. The composer alone opened inside a rimmed, filled panel with
-     13px of its own padding, so its content ran 352px between x=30 and x=382
-     -- a narrower column than anything else in the stack, which is what made
-     this one tab read as older than the rest.
-     It loses the rim, the ground and the side padding and becomes what the
-     other three are: the tab's body, continuing at the tab's width. The tab
-     above keeps its full radius for the same reason Session Details does. */
-  .share-inline.is-open{display:block;}
-  .share-inline .share-body{padding:14px 0 15px;}
   /* A TAB, NOT A SLAB. This was a full-width gold gradient with near-black
      text and a cast shadow -- the loudest control in the product, built when
      it sat at the foot of the completion card competing with two buttons
@@ -6556,9 +6540,9 @@
      the choice and not a slab behind it.
      The recipe below is .tb-unit-toggle's, rim for rim and alpha for alpha,
      so the three cannot drift. Only the padding differs: "My photos" is a
-     word and a half where "KM" is two letters. This composer renders only
-     inside the dark session card (openShareModal is unreferenced), so the
-     white resting label has a dark ground under it wherever it appears. */
+     word and a half where "KM" is two letters. The composer is its own
+     full page (openShareModal) on the dark card ground, so the white resting
+     label always has a dark ground under it. */
   /* align-self so it keeps its own width: inline-flex inside the controls'
      flex COLUMN still stretches to the full track, and the unit toggle this
      copies is a small closed control, not a full-width bar. Stretched, the
@@ -6595,37 +6579,26 @@
      piece of explanatory prose in this app sits directly on the card. */
   .share-note{display:flex; gap:0;
     background:none; border:0; border-radius:0; padding:2px 0 0;}
-  .share-actions{display:flex; flex-direction:column; gap:8px;}
-  @media (min-width:560px){ .share-actions{flex-direction:row;} .share-actions .btn{flex:1;} }
-  /* ---------- NO SLABS LEFT IN THIS TAB ----------
-     Share was a full-width bronze gradient with near-black text -- the old
-     primary-button language, and the loudest thing on a screen whose point
-     is the session, not the posting of it. Save sat beneath it as a ghost
-     outline on --line, the hairline the rest of the app has stopped using.
-     Both write out the neutral button recipe -- the card's own ground, the
-     rim every bordered control wears, and gold in the WORDS. It used to be
-     described as ".wk-open's recipe"; .wk-open has since become session
-     NAVIGATION and wears .sess-nav's velvet rim and cherry ink, so the
-     neutral recipe is these rules' own and the reference would now point
-     at the wrong thing. Nothing about these two buttons changed. They are the same shape because they are
-     the same rank of thing -- two ways to get the image out.
-     The words carried gold until the founder's ruling above ("Share and
-     save to photos again"): pressing one of these is something the athlete
-     does, and what the athlete does is cherry. */
-  .share-actions .btn{
-    display:flex; width:100%; align-items:center; justify-content:center; gap:8px;
-    background:var(--t-card); border:1px solid var(--t-tile-rim); border-radius:14px;
-    font-family:var(--text-face); font-size:.90625rem; font-weight:600;
-    letter-spacing:.01em; padding:11px 16px; box-shadow:none;}
-  /* ---------- NEITHER OF THESE IS A CHOICE, SO NEITHER IS LIT ----------
-     Share carried the four-layer illumination the nav puts on the tab you
-     are ON and the hero puts on the unit you CHOSE. That light means
-     selected in this product, and neither of these buttons is selected --
-     they are two ways to get the same image out, and the athlete picks one
-     by pressing it. Both read in plain cherry; Share leads by sitting first,
-     which is the only ordering a pair of actions needs. */
-  .share-actions .btn-primary,
-  .share-actions .btn-ghost{color:var(--cherry-text); text-shadow:none;}
+  /* ---------- THE SHARE PAGE ----------
+     Founder: "Go, build the share composer full page." The page every other
+     full page is: head, a body that scrolls, the actions pinned at the foot
+     (.page-foot, with the builder's cherry primary beside a ghost). The
+     picture first, then where it comes from, the design, the format.
+     DESIGN IS A ROW YOU SWIPE. Eleven designs in a grid made three rows of
+     thumbnails before Picture could be reached; in one row they stay the
+     same size, and the edge of the next one says there is more. */
+  .modal-card.share-page .share-body{gap:18px;}
+  .modal-card.share-page .share-controls{gap:22px;}
+  .modal-card.share-page .share-group{gap:12px;}
+  .modal-card.share-page .share-group .sec-rule{margin:0;}
+  .modal-card.share-page .share-overlays{display:flex; flex-wrap:nowrap; gap:10px;
+    overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x mandatory;
+    margin:0 -24px; padding:2px 24px 6px; scroll-padding:0 24px; scrollbar-width:none;}
+  .modal-card.share-page .share-overlays::-webkit-scrollbar{display:none;}
+  .modal-card.share-page .share-ov{flex:0 0 78px; scroll-snap-align:start; min-height:44px;}
+  .modal-card.share-page .share-bds{grid-template-columns:repeat(3, minmax(0, 1fr));}
+  /* "Save to device" on one line at 320: the two actions share the foot. */
+  .modal-card.share-page .share-foot .btn{white-space:nowrap; padding-left:10px; padding-right:10px;}
   /* opacity:.65 stood on every form label in the product, which made each
      one a grey. Founder: "The grey text I'm not keen on. I think white text
      is best ... Space needs to do the talking." -- and the builder page in
@@ -39770,7 +39743,10 @@ function shareStrapText(data){
 }
 function shareHeadParts(data){
   var head = data.verdict ? (data.sessionLabel + ': ' + data.verdict) : data.sessionLabel;
-  return { text:head, accentFrom: data.verdict ? (data.sessionLabel.length + 3) : -1 };
+  /* The verdict starts after "LABEL: ", two characters on. It was three
+     when the separator was a spaced dash, and the colon left the first
+     letter of the verdict white. */
+  return { text:head, accentFrom: data.verdict ? (data.sessionLabel.length + 2) : -1 };
 }
 
 var SHARE_OVERLAYS = [
@@ -40732,14 +40708,44 @@ function openShareModal(dd){
   if (!dd) return;
   var data = shareCardData(dd);
   if (!data) return;
-  shareState = { dd:dd, data:data, img:null, overlay:'frame', format:'story',
+  var last = shareRemembered();
+  shareState = { dd:dd, data:data, img:null, overlay:last.overlay, format:last.format,
                  source:'sacoro', backdrop:SHARE_BACKDROPS[0].key,
                  transform:{ scale:1, x:0, y:0 }, busy:false };
-  openModal(shareModalHtml(), 'modal-themed share-modal');
+  /* A FULL PAGE. Founder: "Go, build the share composer full page." The
+     picture needs the room, the choices are a small workflow rather than one
+     quick answer, and the phone's own share sheet is the only glass sheet
+     that should rise over it. */
+  openModal(shareModalHtml(), 'modal-themed builder-light share-modal share-page '+STG_PAGE);
+  /* The remembered design may be far along the row: open with it in view. */
+  var row = document.querySelector('.share-page .share-overlays');
+  var on = row && row.querySelector('.share-ov.active');
+  if (on && on.getBoundingClientRect){
+    var gap = on.getBoundingClientRect().left - row.getBoundingClientRect().left;
+    if (gap > row.clientWidth - on.offsetWidth) row.scrollLeft = gap - 24;
+  }
   shareBindPhoto();
   shareLoadBackdrop().then(function(){
     return shareFontsReady();
   }).then(shareRepaint);
+}
+/* THE LAST DESIGN AND FORMAT, KEPT. Somebody who always posts a Story with
+   the Rail design should not choose them again every time: the page opens
+   on what they used last, so Share is one tap for anyone happy with it. Only
+   the two choices are kept -- never the picture, which is a photo of theirs
+   or a backdrop picked for this session. They are kept on this device, not
+   in the training record: sharing never writes to the plan (see the share
+   path's own law), and a look is a device's preference, not training. */
+var SHARE_LAST_KEY = 'sacoro.shareLast.v1';
+function shareRemembered(){
+  var r = readStored(SHARE_LAST_KEY) || {};
+  var okOverlay = SHARE_OVERLAYS.some(function(o){ return o.key === r.overlay; });
+  return { overlay: okOverlay ? r.overlay : 'frame',
+           format: SHARE_SIZES[r.format] ? r.format : 'story' };
+}
+function shareRemember(){
+  var st = shareState; if (!st) return;
+  writeStored(SHARE_LAST_KEY, { overlay: st.overlay, format: st.format });
 }
 /* The default picture is a Sacoro backdrop, so the editor opens on a
    finished-looking card rather than an empty black frame the athlete has to
@@ -40788,7 +40794,7 @@ function shareLoadBackdropPhoto(){
    and the picker's aspect ratio follows the chosen format so a square Post
    is not previewed in a portrait box. */
 function shareModalHtml(){
-  return '<div class="modal-head"><h2 class="font-head">Share your workout</h2>'+
+  return '<div class="modal-head"><h2 class="font-head">Share Your Workout</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
     shareComposerHtml();
 }
@@ -40814,7 +40820,7 @@ function shareComposerHtml(){
     }).join('')+'</div>';
   };
   var thumbAR = SHARE_SIZES[st.format].square ? '1 / 1' : '9 / 16';
-  var overlays = '<div class="share-overlays" role="group" aria-label="Overlay" '+
+  var overlays = '<div class="share-overlays" role="group" aria-label="Design" '+
       'style="--share-thumb-ar:'+thumbAR+'">'+
     SHARE_OVERLAYS.map(function(o){
       return '<button type="button" class="share-ov'+(st.overlay===o.key?' active':'')+'" '+
@@ -40838,26 +40844,31 @@ function shareComposerHtml(){
         '<div class="share-empty">Choose a picture</div>'+
       '</div>'+
       '<div class="share-controls">'+
-        '<div class="share-group"><div class="share-k">Overlay</div>'+overlays+'</div>'+
-        '<div class="share-group"><div class="share-k">Picture</div>'+
+        '<div class="share-group">'+sectionRule('Picture', true)+
           seg('source', st.source, [['sacoro','SACORO'],['photo','My photos']])+
           (st.source === 'sacoro'
             ? '<div class="share-bds">'+backdrops+'</div>'
-            : '<label class="btn btn-ghost btn-block share-pick">'+ICONS.sparkles+
+            : '<label class="btn btn-ghost btn-block share-pick">'+
               (st.img ? 'Change photo' : 'Choose photo')+
               '<input type="file" accept="image/*" id="share-photo" hidden></label>')+
-          (st.img ? '<div class="share-hint">Drag to reposition. Pinch or scroll to zoom</div>' : '')+
+          /* Always emitted, shown by shareRepaint() once a picture is on the
+             canvas. Decided here, it was missing on first open: the default
+             backdrop loads after the page is drawn. */
+          '<div class="share-hint"'+(st.img ? '' : ' hidden')+'>Drag to reposition. Pinch or scroll to zoom</div>'+
         '</div>'+
-        '<div class="share-row"><span>Format</span>'+
+        '<div class="share-group">'+sectionRule('Design', true)+overlays+'</div>'+
+        '<div class="share-group">'+sectionRule('Format', true)+
           seg('format', st.format, [['story','Story'],['post','Post']])+'</div>'+
         withheldNote+
-        '<div class="share-actions">'+
-          '<button type="button" class="btn btn-primary btn-block" data-action="share-export" data-mode="share">'+
-            'Share</button>'+
-          '<button type="button" class="btn btn-ghost btn-block" data-action="share-export" data-mode="save">'+
-            escapeHtml(saveImageLabel())+'</button>'+
-        '</div>'+
       '</div>'+
+    '</div>'+
+    /* Pinned at the foot like every full page's actions, so the picture can
+       be judged and sent without scrolling back down to find the button. */
+    '<div class="page-foot share-foot">'+
+      '<button type="button" class="btn btn-primary" data-action="share-export" data-mode="share">'+
+        'Share</button>'+
+      '<button type="button" class="btn btn-ghost" data-action="share-export" data-mode="save">'+
+        escapeHtml(saveImageLabel())+'</button>'+
     '</div>';
 }
 function shareWithheldPhrase(list){
@@ -40879,6 +40890,8 @@ function shareRepaint(){
   shareCardPaint(ctx, shareCardLayout(st.data, st.overlay, size), size.w);
   var stage = cv.parentNode;
   if (stage && stage.classList) stage.classList.toggle('has-img', !!st.img);
+  var hint = document.querySelector('.share-hint');
+  if (hint) hint.hidden = !st.img;
   sharePaintThumbs();
 }
 /* Each picker thumbnail is the real overlay over the real picture, at 1/10
@@ -40909,13 +40922,15 @@ function sharePaintThumbs(){
    instead, which is why this cannot stay hard-wired to .share-modal. */
 function shareRerender(){
   var card = document.querySelector('.modal-card.share-modal');
-  if (card){
-    card.innerHTML = shareModalHtml();
-  } else {
-    var inline = document.querySelector('.share-inline.is-open');
-    if (!inline) return;
-    inline.innerHTML = shareComposerHtml();
-  }
+  if (!card) return;
+  /* The Design row is swiped sideways; redrawing the page must leave it
+     where the athlete had swiped it, not throw it back to the start. */
+  var row = card.querySelector('.share-overlays');
+  var rowX = row ? row.scrollLeft : 0, pageY = card.scrollTop;
+  card.innerHTML = shareModalHtml();
+  row = card.querySelector('.share-overlays');
+  if (row) row.scrollLeft = rowX;
+  card.scrollTop = pageY;
   shareBindPhoto(); shareRepaint();
 }
 function shareBindPhoto(){
@@ -40974,6 +40989,7 @@ function handleShareSet(k, v){
      the picker is for, and losing their crop each time would make it
      unusable. Only the chosen design changes. */
   shareState[k] = v;
+  if (k === 'overlay' || k === 'format') shareRemember();
   if (k === 'source'){
     shareState.img = null;
     shareState.transform = { scale:1, x:0, y:0 };
@@ -41634,56 +41650,16 @@ function renderShareLaunch(dd){
      see the .wk-open rule. */
   return '<div class="share-launch">'+
     '<button type="button" class="sess-tab sess-tab-btn btn-share" data-action="share-workout" '+
-      'data-day="'+id+'" aria-expanded="false" aria-controls="share-inline-'+id+'">'+
-      sessionTabHtml('Share')+
+      'data-day="'+id+'" aria-haspopup="dialog">'+
+      /* The same tab as the other three; its chevron points right because
+         it opens a page rather than unfolding beneath itself. */
+      sessionTabHtml('Share').replace(ICONS.chevronDown, ICONS.chevronRight)+
     '</button>'+
-    '<div class="share-inline" id="share-inline-'+id+'"></div>'+
   '</div>';
 }
-/* THE TAB OPENS WHAT IT NAMES, IN PLACE. It used to launch a modal over the
-   whole app; the composer now unfolds directly beneath the button that asked
-   for it, so the card the athlete is looking at stays on screen behind their
-   choices.
-
-   Built on open rather than rendered with the card: the composer needs
-   shareState for the day in question, loads a backdrop and paints a canvas,
-   and doing that for every completed session on the page would be a lot of
-   work for a panel nobody has asked to see. */
-function toggleShareInline(dd, btn){
-  if (!dd || !btn) return;
-  /* ---------- THE HOST BESIDE THE BUTTON THAT WAS PRESSED ----------
-     This was a getElementById, which returns ONE element -- and the
-     finished session's panel can now be on screen twice on This Week: once
-     in the canonical card inside .wk-full and once on the day's own slide.
-     Pressing Share on the slide opened the composer into the hidden copy.
-     The host is always a sibling inside the panel the button belongs to, so
-     that is what is asked for; the id lookup stays as the fallback for any
-     caller whose button is not inside one. */
-  var panel = btn.closest ? btn.closest('.actual-panel') : null;
-  var host = (panel && panel.querySelector('.share-inline')) ||
-    document.getElementById('share-inline-' +
-      String(dd.id != null ? dd.id : dd.date));
-  if (!host) return;
-  if (host.classList.contains('is-open')){
-    host.classList.remove('is-open');
-    host.innerHTML = '';
-    btn.setAttribute('aria-expanded', 'false');
-    shareState = null;
-    return;
-  }
-  var data = shareCardData(dd);
-  if (!data) return;
-  shareState = { dd:dd, data:data, img:null, overlay:'frame', format:'story',
-                 source:'sacoro', backdrop:SHARE_BACKDROPS[0].key,
-                 transform:{ scale:1, x:0, y:0 }, busy:false };
-  host.innerHTML = shareComposerHtml();
-  host.classList.add('is-open');
-  btn.setAttribute('aria-expanded', 'true');
-  shareBindPhoto();
-  shareLoadBackdrop().then(function(){
-    return shareFontsReady();
-  }).then(shareRepaint);
-}
+/* The tab used to unfold the composer in place, inside the session card.
+   It opens the full Share page now (openShareModal), so the card the athlete
+   is reading stays as it is and the picture gets the whole screen. */
 
 
 /* =========================================================
@@ -58595,7 +58571,7 @@ function raceGoalPreparationHtml(adm, distanceKey){
         'capacity and the time available mean SACORO does not expect you to '+
         'safely reach the full preparation standard for this event.</p>'+
       '<div class="decision-rec">'+
-        '<div class="decision-rec-tag">Recommended \u2014 Build ' + escapeHtml(purposeLabel) + '</div>'+
+        '<div class="decision-rec-tag">Recommended: Build ' + escapeHtml(purposeLabel) + '</div>'+
         '<div class="decision-rec-body">' + weeks + ' weeks to develop aerobic durability, '+
           'consistency and weekly running capacity.</div>'+
       '</div>'+
@@ -69268,11 +69244,10 @@ function weekSlideHtml(dd, i){
                the same reason as the ring gradient and the captions above:
                the canonical card is still in the document behind this
                carousel, so every id the panel carries would exist twice.
-               Measured before this line: share-inline-2026-11-02 and
-               exec-review-2026-11-02, both doubled. */
+               Measured before this line: exec-review-2026-11-02, doubled.
+               (Share no longer carries an id here: it opens its own page.) */
             var panel = renderCompletedPanel(dd, depth);
-            return panel.split('exec-review-'+dd.id).join('exec-review-'+dd.id+'-w'+i)
-                        .split('share-inline-'+dd.id).join('share-inline-'+dd.id+'-w'+i);
+            return panel.split('exec-review-'+dd.id).join('exec-review-'+dd.id+'-w'+i);
           })()
         : depth)+
     '</div></div>';
@@ -76049,7 +76024,7 @@ document.addEventListener('click', function(e){
     /* SHARING. 'share-workout' opens the composer; the other two only ever
        change what the athlete is looking at, or hand the finished PNG to the
        device. Nothing here touches the plan or the log. */
-    case 'share-workout': toggleShareInline(findDay(target.getAttribute('data-day')), target); break;
+    case 'share-workout': openShareModal(findDay(target.getAttribute('data-day'))); break;
     case 'view-analysis': handleViewAnalysis(target.getAttribute('data-day')); break;
     case 'toggle-log': handleToggleLog(target.getAttribute('data-day')); break;
     /* Continue means "I am done with this moment". In the popup that closes
