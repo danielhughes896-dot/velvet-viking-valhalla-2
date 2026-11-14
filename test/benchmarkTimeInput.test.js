@@ -171,7 +171,8 @@ test('COPY: the in-app builder\'s Benchmark Time field shows the format hint and
      builder and in Re-calibrate, which is what the second test below is
      for. The toast after a REJECTED entry keeps the long wording: an
      error message is the one place worth spelling it out. */
-  assert.match(html, /Minutes and seconds, like 23:25 or 23\.25\./);
+  // Nobody types it now: the time wheel sets it (test/timeWheel.test.js).
+  assert.match(html, /Tap the time to set it\./);
 });
 
 test('COPY: the Re-calibrate modal\'s benchmark field carries the same hint and keyboard', () => {
@@ -194,7 +195,8 @@ test('COPY: the Re-calibrate modal\'s benchmark field carries the same hint and 
      builder and in Re-calibrate, which is what the second test below is
      for. The toast after a REJECTED entry keeps the long wording: an
      error message is the one place worth spelling it out. */
-  assert.match(html, /Minutes and seconds, like 23:25 or 23\.25\./);
+  // Nobody types it now: the time wheel sets it (test/timeWheel.test.js).
+  assert.match(html, /Tap the time to set it\./);
 });
 
 // ===========================================================================

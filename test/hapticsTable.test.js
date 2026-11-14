@@ -92,8 +92,11 @@ test('closing a page and scrolling are felt as nothing', () => {
      founder added with the micro-interactions -- "Once a run is logged ... a
      single haptic confirms success" (ticking the session off): nothing else
      feels. */
+  /* And the time wheel's: "a subtle haptic click as each number settles"
+     (founder). One tick per number under the band, never per scroll event:
+     test/timeWheel.test.js holds that. */
   const calls = SRC.match(/sacoroHaptic\('(?:tick|light|success|firm)'\)/g) || [];
-  assert.equal(calls.length, 8, 'a haptic was added or lost: ' + calls.join(', '));
+  assert.equal(calls.length, 9, 'a haptic was added or lost: ' + calls.join(', '));
 });
 
 test('the plugin ships with the app', () => {

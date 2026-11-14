@@ -358,8 +358,7 @@
     --glow-done-blur:18px;
     /* And the compact form, for a mark rather than a band. */
     --glow-done-mark:0 0 16px color-mix(in srgb, var(--ok) 36%, transparent);
-    /* ================= TWO RULES, AND ONLY TWO =================
-       ONE FACE FOR EVERY WORD, ONE FOR EVERY STANDALONE FIGURE. The product
+    /* ================= TWO RULES, AND ONLY TWO ==========       ONE FACE FOR EVERY WORD, ONE FOR EVERY STANDALONE FIGURE. The product
        ran four: Oswald on labels, Inter on prose, JetBrains Mono on figures
        and Cinzel on the wordmark -- so the same row could carry a title in
        one face and its sentence in another, and "is the text style the same
@@ -9843,6 +9842,47 @@
   .rp-hero.is-word .rd-val b{font-family:var(--text-face);}
   .rp-hero .b-dial.is-torus .b-medal{inset:15%;}
   .day-check.day-check-hold{visibility:hidden; pointer-events:none;}
+=======
+  /* ---------- THE TIME WHEEL ----------
+     The Settings glass sheet, holding one scroll-snap column per unit. The
+     band is the one place a number is read; above and below it the rows
+     fade, so the eye goes to the band the way it does on the platform's own
+     picker. */
+  .tw-field{cursor:pointer; caret-color:transparent;}
+  .tw-layer{position:fixed; inset:0; z-index:140; display:flex; align-items:flex-end; justify-content:center;
+    background:rgba(10,8,6,.55); animation:fadein .2s ease;}
+  .tw-sheet{width:100%; max-width:560px; box-sizing:border-box; padding:0 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    color:#FFFFFF; border-radius:24px 24px 0 0; border:1px solid rgba(255,255,255,.14); border-bottom:0;
+    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%), rgba(16,16,20,.86);
+    -webkit-backdrop-filter:blur(22px) saturate(150%); backdrop-filter:blur(22px) saturate(150%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 -12px 40px rgba(0,0,0,.5);
+    animation:slideup .34s cubic-bezier(.2,.8,.2,1);}
+  .tw-head{display:flex; align-items:center; justify-content:space-between; padding:18px 0 6px;}
+  .tw-head h2{margin:0; color:#FFFFFF; font-size:1.25rem; letter-spacing:.06em; text-transform:uppercase;}
+  .tw-head .icon-btn{color:#FFFFFF;}
+  .tw-labels{display:flex; gap:8px; padding:8px 0 6px;}
+  .tw-labels span{flex:1 1 0; text-align:center; color:#FFFFFF; font-family:var(--label-face);
+    font-weight:var(--label-weight); font-size:.75rem; letter-spacing:.08em; text-transform:uppercase;}
+  .tw-wheels{position:relative; display:flex; gap:8px; height:calc(var(--tw-row) * 5);}
+  .tw-band{position:absolute; left:0; right:0; top:calc(var(--tw-row) * 2); height:var(--tw-row); pointer-events:none;
+    border-radius:14px; border:1px solid color-mix(in srgb, var(--cherry-text) 70%, transparent);
+    background:color-mix(in srgb, var(--cherry) 22%, transparent);}
+  .tw-col{position:relative; flex:1 1 0; height:100%; overflow-y:scroll; overscroll-behavior:contain;
+    scroll-snap-type:y mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; outline:none;
+    -webkit-mask-image:linear-gradient(180deg, transparent, #000 32%, #000 68%, transparent);
+            mask-image:linear-gradient(180deg, transparent, #000 32%, #000 68%, transparent);}
+  .tw-col::-webkit-scrollbar{display:none;}
+  .tw-pad{height:calc(var(--tw-row) * 2);}
+  .tw-item{height:var(--tw-row); display:flex; align-items:center; justify-content:center; scroll-snap-align:center;
+    color:#FFFFFF; opacity:.45; font-family:var(--text-face); font-size:1.25rem; font-variant-numeric:tabular-nums;
+    transition:opacity .15s, font-size .15s; cursor:pointer;}
+  .tw-item.is-near{opacity:.7;}
+  .tw-item.is-on{opacity:1; font-size:1.75rem; font-weight:700;}
+  .tw-use{margin-top:16px; min-height:52px; color:#FFFFFF; border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.03) 60%),
+               color-mix(in srgb, var(--cherry) 55%, transparent);
+    border:1px solid color-mix(in srgb, var(--cherry-text) 70%, transparent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 18px color-mix(in srgb, var(--cherry) 35%, transparent);}
   /* ---------- THE RECORD PANELS: TWO FIGURES, BARS, ITEMS ---------- */
   .rec-stats{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin:4px 0 18px;}
   .rec-stat{padding:14px 10px 12px; text-align:center; border-radius:16px; border:1px solid rgba(255,255,255,.07);
@@ -58870,7 +58910,7 @@ function openSetupModal(){
       '</div>'+
       '<div class="field"><label>Time</label>'+
         '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
-      '<div class="field-hint">Minutes and seconds, like 23:25 or 23.25.</div>'+
+      '<div class="field-hint">Tap the time to set it.</div>'+
       '<div class="field-hint">A reference you give SACORO, not a measurement of your fitness. Plan HQ measures that from the races and checkpoints you actually run, and you can change this any time in Re-calibrate.</div>'+
       navBtns(6)+
     '</section>'+
@@ -59910,7 +59950,7 @@ function openRecalibrateModal(){
       '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="rc-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
       '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="rc-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
     '</div>'+
-    '<div class="field-hint">Minutes and seconds, like 23:25 or 23.25.</div>'+
+    '<div class="field-hint">Tap the time to set it.</div>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
     '<div class="setup-section-title">Goal A / B / C \u2014 for '+escapeHtml(profile.label)+'</div>'+
     goalRows+
@@ -73572,6 +73612,177 @@ function pagerReducedMotion(){
    short buzz; anything else gets nothing. Every call is wrapped: a haptic is
    never worth an error. */
 var HAPTIC_WEB_MS = { tick:8, light:12, success:[14,50,14], firm:22 };
+/* =========================================================
+   THE TIME WHEEL
+   =========================================================
+   Founder: "flick each column vertically with momentum, like Apple's
+   native time picker, with a subtle haptic click as each number settles",
+   and "the same component anywhere an athlete enters a race time,
+   benchmark or checkpoint result ... build or log time input."
+
+   ONE COMPONENT, NO KEYBOARD. Every time and pace field in the app is
+   named once, in TIME_WHEEL_FIELDS, and stays the field it was: the same
+   id, the same data-action, the same parser reading its value on save.
+   The field is made read-only so the keyboard never rises; tapping it
+   raises a glass sheet with one column per unit. Each column is a native
+   scroll-snap list, so a flick carries momentum and lands on a number the
+   way the platform's own picker does. One haptic tick per number that
+   settles under the band, never during the travel between them. "Use"
+   writes the value back and fires the field's own change event, so every
+   reader downstream is the one that already existed.
+
+   The sheet is its own layer over whatever page is open, because a quick
+   choice made inside a page must not close the page it is made in. */
+var TIME_WHEEL_FIELDS = [
+  { sel:'#su-goal-A, #su-goal-B, #su-goal-C, #rc-goal-A, #rc-goal-B, #rc-goal-C', mode:'hms', title:'Goal Time' },
+  { sel:'#su-bench-time, #rc-bench-time', mode:'hms', title:'Benchmark Time' },
+  { sel:'[data-action="actual-field"][data-field="pace"], [data-action="slog-field"][data-field="pace"]', mode:'pace', title:'Average Pace' },
+  { sel:'.pzr-input', mode:'pace', title:'Zone Pace' },
+  { sel:'[data-action="split-field"][data-field="sec"]', mode:'ms', title:'Lap Time' }
+];
+var TIME_WHEEL_ROW = 44;
+var TIME_WHEEL_COLS = {
+  hms:  [ { key:'h', label:'Hours',   min:0, max:23 }, { key:'m', label:'Minutes', min:0, max:59 }, { key:'s', label:'Seconds', min:0, max:59 } ],
+  pace: [ { key:'m', label:'Minutes', min:2, max:15 }, { key:'s', label:'Seconds', min:0, max:59 } ],
+  ms:   [ { key:'m', label:'Minutes', min:0, max:59 }, { key:'s', label:'Seconds', min:0, max:59 } ]
+};
+function timeWheelFieldFor(el){
+  if (!el || !el.matches) return null;
+  for (var i = 0; i < TIME_WHEEL_FIELDS.length; i++)
+    if (el.matches(TIME_WHEEL_FIELDS[i].sel)) return TIME_WHEEL_FIELDS[i];
+  return null;
+}
+function twPad(n){ return (n < 10 ? '0' : '') + n; }
+/* The value each field already understands: h:mm:ss, or m:ss when the
+   hour is nought (the benchmark's own "23:25" form); pace is always m:ss. */
+function timeWheelFormat(mode, v){
+  if (mode === 'hms') return v.h ? v.h + ':' + twPad(v.m) + ':' + twPad(v.s) : v.m + ':' + twPad(v.s);
+  return v.m + ':' + twPad(v.s);
+}
+function timeWheelParse(mode, str){
+  var sec = parseBenchmarkTime(str);
+  if (sec == null){
+    var digits = String(str || '').replace(/\D/g, '');
+    if (digits) sec = parseInt(digits.slice(0, -2) || '0', 10) * 60 + parseInt(digits.slice(-2), 10);
+  }
+  if (sec == null || !(sec >= 0)) return null;
+  if (mode === 'hms') return { h: Math.floor(sec / 3600), m: Math.floor(sec / 60) % 60, s: sec % 60 };
+  return { m: Math.floor(sec / 60), s: sec % 60 };
+}
+var TIME_WHEEL_START = { hms:{ h:0, m:45, s:0 }, pace:{ m:5, s:0 }, ms:{ m:4, s:0 } };
+function timeWheelSheetHtml(field, v){
+  var cols = TIME_WHEEL_COLS[field.mode];
+  return '<div class="tw-sheet" role="dialog" aria-modal="true" aria-label="'+escapeHtml(field.title)+'">'+
+    '<div class="tw-head"><h2 class="font-head">'+escapeHtml(field.title)+'</h2>'+
+      '<button type="button" class="icon-btn" data-action="time-wheel-close" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="tw-labels">'+cols.map(function(c){ return '<span>'+c.label+'</span>'; }).join('')+'</div>'+
+    '<div class="tw-wheels" style="--tw-row:'+TIME_WHEEL_ROW+'px;">'+
+      '<div class="tw-band" aria-hidden="true"></div>'+
+      cols.map(function(c){
+        var items = '';
+        for (var n = c.min; n <= c.max; n++)
+          items += '<div class="tw-item" data-v="'+n+'">'+(field.mode === 'pace' && c.key === 'm' ? n : twPad(n))+'</div>';
+        return '<div class="tw-col" data-col="'+c.key+'" data-min="'+c.min+'" tabindex="0" role="listbox" '+
+          'aria-label="'+c.label+'"><div class="tw-pad"></div>'+items+'<div class="tw-pad"></div></div>';
+      }).join('')+
+    '</div>'+
+    '<button type="button" class="btn btn-primary btn-block tw-use" data-action="time-wheel-use">Use '+
+      escapeHtml(timeWheelFormat(field.mode, v))+'</button>'+
+  '</div>';
+}
+var timeWheelOpen = null;
+function openTimeWheel(input){
+  var field = timeWheelFieldFor(input);
+  if (!field || typeof document === 'undefined') return;
+  closeTimeWheel();
+  var v = timeWheelParse(field.mode, input.value) || JSON.parse(JSON.stringify(TIME_WHEEL_START[field.mode]));
+  var cols = TIME_WHEEL_COLS[field.mode];
+  cols.forEach(function(c){ v[c.key] = Math.max(c.min, Math.min(c.max, v[c.key] || 0)); });
+  var layer = document.createElement('div');
+  layer.className = 'tw-layer';
+  layer.id = 'time-wheel';
+  layer.innerHTML = timeWheelSheetHtml(field, v);
+  layer.addEventListener('mousedown', function(e){ if (e.target === layer) closeTimeWheel(); });
+  document.body.appendChild(layer);
+  timeWheelOpen = { input:input, field:field, value:v, layer:layer };
+  layer.querySelectorAll('.tw-col').forEach(function(col){
+    var key = col.getAttribute('data-col'), min = parseInt(col.getAttribute('data-min'), 10);
+    col.scrollTop = (v[key] - min) * TIME_WHEEL_ROW;
+    timeWheelMark(col, v[key] - min);
+    var settle = null;
+    col.addEventListener('scroll', function(){
+      var idx = Math.round(col.scrollTop / TIME_WHEEL_ROW);
+      var n = Math.max(min, Math.min(min + col.querySelectorAll('.tw-item').length - 1, min + idx));
+      if (n !== timeWheelOpen.value[key]){
+        timeWheelOpen.value[key] = n;
+        timeWheelMark(col, n - min);
+        sacoroHaptic('tick');                       // one click per number that passes the band
+        timeWheelRelabel();
+      }
+      clearTimeout(settle);
+      settle = setTimeout(function(){              // and it rests exactly on a row
+        var want = (timeWheelOpen.value[key] - min) * TIME_WHEEL_ROW;
+        if (Math.abs(col.scrollTop - want) > 1) col.scrollTo({ top: want, behavior: 'smooth' });
+      }, 140);
+    }, { passive:true });
+    col.addEventListener('click', function(e){
+      var it = e.target.closest && e.target.closest('.tw-item');
+      if (it) col.scrollTo({ top: (parseInt(it.getAttribute('data-v'), 10) - min) * TIME_WHEEL_ROW, behavior: 'smooth' });
+    });
+    col.addEventListener('keydown', function(e){
+      var d = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+      if (!d) return;
+      e.preventDefault();
+      col.scrollTo({ top: col.scrollTop + d * TIME_WHEEL_ROW, behavior: 'smooth' });
+    });
+  });
+}
+function timeWheelMark(col, idx){
+  col.querySelectorAll('.tw-item').forEach(function(it, i){
+    it.classList.toggle('is-on', i === idx);
+    it.classList.toggle('is-near', Math.abs(i - idx) === 1);
+  });
+}
+function timeWheelRelabel(){
+  var o = timeWheelOpen;
+  var b = o && o.layer.querySelector('.tw-use');
+  if (b) b.textContent = 'Use ' + timeWheelFormat(o.field.mode, o.value);
+}
+function useTimeWheel(){
+  var o = timeWheelOpen;
+  if (!o) return;
+  o.input.value = timeWheelFormat(o.field.mode, o.value);
+  closeTimeWheel();
+  try{
+    o.input.dispatchEvent(new Event('input', { bubbles:true }));
+    o.input.dispatchEvent(new Event('change', { bubbles:true }));
+  }catch(e){}
+}
+function closeTimeWheel(){
+  if (timeWheelOpen && timeWheelOpen.layer && timeWheelOpen.layer.parentNode)
+    timeWheelOpen.layer.parentNode.removeChild(timeWheelOpen.layer);
+  timeWheelOpen = null;
+}
+/* The fields themselves: read-only, so no keyboard, and a tap raises the
+   wheel. Marked once per render rather than at each render site, so a new
+   time field is one line in TIME_WHEEL_FIELDS. */
+function markTimeWheelFields(root){
+  if (!root || !root.querySelectorAll) return;
+  TIME_WHEEL_FIELDS.forEach(function(f){
+    root.querySelectorAll(f.sel).forEach(function(el){
+      el.readOnly = true;
+      el.setAttribute('inputmode', 'none');
+      el.classList.add('tw-field');
+    });
+  });
+}
+/* The tap and the key reach the wheel through the app's one click
+   delegate and its one keydown delegate (see both, below). */
+if (typeof document !== 'undefined' && document.addEventListener){
+  if (typeof MutationObserver !== 'undefined')
+    new MutationObserver(function(){ markTimeWheelFields(document); })
+      .observe(document.documentElement, { childList:true, subtree:true });
+}
 function sacoroHaptic(kind){
   try{
     var h = nativePlugin('Haptics');
@@ -74815,6 +75026,7 @@ function clickOwnedByDisclosure(eventTarget, actionEl){
          !(disclosure.contains && disclosure.contains(actionEl));
 }
 document.addEventListener('click', function(e){
+  if (timeWheelFieldFor(e.target)){ e.preventDefault(); openTimeWheel(e.target); return; }
   var target = e.target.closest ? e.target.closest('[data-action]') : null;
   if (!target) return;
   if (clickOwnedByDisclosure(e.target, target)) return;
@@ -74847,6 +75059,8 @@ document.addEventListener('click', function(e){
     case 'check-app-update': checkForAppUpdate(); break;
     case 'apply-app-update': applyAppUpdate(); break;
     case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) closeModal(); }); break;
+    case 'time-wheel-use': useTimeWheel(); break;
+    case 'time-wheel-close': closeTimeWheel(); break;
     /* SHARING. 'share-workout' opens the composer; the other two only ever
        change what the athlete is looking at, or hand the finished PNG to the
        device. Nothing here touches the plan or the log. */
@@ -75087,8 +75301,10 @@ document.addEventListener('click', function(e){
    also re-fire .day-top's toggle. Reduced to a synthetic .click(), so this
    reuses the click switch above rather than duplicating it. */
 document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape' && timeWheelOpen){ closeTimeWheel(); return; }
   if (e.key !== 'Enter' && e.key !== ' ') return;
   var target = e.target;
+  if (timeWheelFieldFor(target)){ e.preventDefault(); openTimeWheel(target); return; }
   if (!target || !target.matches || !target.matches('[data-action][role="button"]')) return;
   e.preventDefault();
   target.click();
