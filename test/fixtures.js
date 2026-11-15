@@ -62,11 +62,16 @@ function buildPlan(app, opts) {
      block was built, so a fixture asking for a Developing athlete was built
      as Established and only labelled Developing afterwards. */
   if (opts.experience) app.state.experience = opts.experience;
+  /* THE HARD SESSIONS A WEEK THE ATHLETE CHOSE (5K and 10K, founder 15
+     November 2026). Unset, the engine's own default (two) applies. */
+  const realChoice = app.builderQualityChoice;
+  if (opts.qualitySessions != null) app.builderQualityChoice = opts.qualitySessions;
   try {
     blockResult = app.buildBlockWeeks(distanceKey, volume, weeks);
     days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
   } finally {
     app.athleteResponseModel = realModel; app.blockEffectiveness = realBlock;
+    app.builderQualityChoice = realChoice;
   }
 
   app.state = app.makeDefaultState();
@@ -92,6 +97,7 @@ function buildPlan(app, opts) {
     // buildPlan()-then-mutate-state.setup.experience pattern several other
     // test files already use around this exact gap.
     experience: opts.experience || 'experienced',
+    qualitySessions: opts.qualitySessions != null ? opts.qualitySessions : null,
   };
   app.state.days = days;
   /* HEALTH AND READINESS CONSENT — WHY THE FIXTURE GRANTS IT.

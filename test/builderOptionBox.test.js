@@ -155,7 +155,9 @@ test('a worded grid never asks for columns, on either surface', () => {
     /* The eight day counts are a slider on both surfaces now -- founder:
        "Change build a plan to have this 4 areas as the slider options" --
        so only the weekday codes ask for columns. */
-    app: ['bld-longday-grid'],
+    /* And the hard-sessions choice for 5K and 10K (founder, 15 November
+       2026): numbers, so a token grid. */
+    app: ['bld-longday-grid', 'bld-quality-grid'],
     '/start': ['bld-longday'],
   };
   SURFACES.forEach(([name, src]) => {

@@ -199,7 +199,9 @@ test('long-run destinations are read verbatim from the pathway table, at every a
      invent its own number regardless of what the table says, so it is
      re-pointed at the table's current value rather than a frozen one. */
   const a = app();
-  [['5k','advanced',16], ['10k','advanced',18], ['half','advanced',22], ['full','advanced',32]].forEach(([dist, exp, expectLong]) => {
+  /* 5K Advanced 16 -> 15: the founder's long-run range (12-15km), approved
+     15 November 2026. */
+  [['5k','advanced',15], ['10k','advanced',18], ['half','advanced',22], ['full','advanced',32]].forEach(([dist, exp, expectLong]) => {
     const pathway = a.raceGoalPathway(dist, exp);
     assert.equal(pathway.buildLongKm, expectLong, `${dist} ${exp} pathway table long-run destination must be unchanged`);
     [4,5,6].forEach(days => {
@@ -359,11 +361,14 @@ test('raceGoalAvailabilityLimited: never fires from a raw kilometre threshold --
      days -- the opposite of what a reading keyed on raw weekly kilometres
      would predict, because it is each pathway's long-run coherence share,
      not its total, that is actually being read. */
+  /* Re-read at the founder's 5K/10K ranges (15 November 2026): Advanced 10K
+     (80km, 18km long) is still larger than Advanced 5K (75km, 15km long), and
+     it is still the 10K that resolves first, now at eleven days. */
   const a = app();
-  const bigger = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:10, easyPaceSecPerKm:330 });
-  const biggerOneLess = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:9, easyPaceSecPerKm:330 });
-  const smaller = a.raceGoalAvailabilityLimited('5k', 'advanced', null, 12, { availableDays:10, easyPaceSecPerKm:330 });
-  assert.equal(bigger.limited, false, 'the larger pathway resolves by 10 days');
+  const bigger = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:11, easyPaceSecPerKm:330 });
+  const biggerOneLess = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:10, easyPaceSecPerKm:330 });
+  const smaller = a.raceGoalAvailabilityLimited('5k', 'advanced', null, 12, { availableDays:11, easyPaceSecPerKm:330 });
+  assert.equal(bigger.limited, false, 'the larger pathway resolves by 11 days');
   assert.equal(biggerOneLess.limited, true, 'and had not yet resolved one day earlier');
   assert.equal(smaller.limited, true, 'the smaller pathway is still flagged at the same day count the larger one already resolved at');
 });

@@ -211,8 +211,11 @@ test('the race the athlete named is recorded before they are routed', () => {
   assert.ok(at > 0 && gen.length > 0);
   assert.ok(/setRaceDestination\(distanceKey, raceDate, goals, activeGoal\)/.test(gen),
     'the destination must be kept, with its goals, before the offer is shown');
-  assert.ok(gen.indexOf('setRaceDestination(') < gen.indexOf('openPathwayOfferSheet('));
-  assert.ok(/openPathwayOfferSheet/.test(gen) && /openRaceGoalEntryModal/.test(gen));
+  /* 0-3km (founder, 15 November 2026): below the entry the programme is
+     Developing. A Developing athlete builds straight away; any other level is
+     asked once, in a glass sheet, whether to switch to Developing. */
+  assert.ok(gen.indexOf('setRaceDestination(') < gen.indexOf('openEntryPathwaySheet('));
+  assert.ok(/athleteExperience\(\) === EXPERIENCE_LEVELS\[0\]/.test(gen));
   assert.ok(/return;/.test(gen), 'and nothing may be built past it');
 });
 

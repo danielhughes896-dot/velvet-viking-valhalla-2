@@ -33,9 +33,11 @@ function app(pin, before){
      the rep and sustained families. Since 14 November 2026 an Established
      five-day 10K Build week holds two quality sessions (the 10K joined the
      tier rule), which would bring rep sessions round weekly; this fixture is
-     about the fortnightly rhythm. */
+     about the fortnightly rhythm. Since 15 November 2026 a 5K or 10K athlete
+     chooses how many hard sessions a week (default two), so this one
+     chooses one. */
   buildPlan(a, { distanceKey: '10k', volume: 45, weeks: 12, lthr: 172, maxHR: 188, startDate: '2026-09-07', healthConsent: true,
-                 experience: 'novice' });
+                 experience: 'novice', qualitySessions: 1 });
   /* `before`: it is the morning of `pin`, and today's session is still to run. */
   a.state.days.filter(d => (before ? d.date < pin : d.date <= (pin || PIN)) && d.type !== 'rest')
     .forEach(d => logAsPrescribed(a, d, { quality: 1 }));

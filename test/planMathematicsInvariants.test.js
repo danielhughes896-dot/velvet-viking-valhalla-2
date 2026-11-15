@@ -452,13 +452,16 @@ test('the engine cannot build a week smaller than its own component floors', () 
   const runs = w1.sessions.filter(s => s.km > 0);
   assert.equal(runs.length, 1,
     'the week is written across the days it can express, not across availability');
-  assert.equal(w1.actualVolume, a.EASY_MIN_KM,
+  /* FOUNDER RULING, 15 NOVEMBER 2026: no run under 5km, 0 to 3km starters
+     included, so the floor is one 5km run (WEEK_FIT_MIN_EASY_KM), run/walk
+     if the athlete needs it; it was one EASY_MIN_KM run. */
+  assert.equal(w1.actualVolume, a.WEEK_FIT_MIN_EASY_KM,
     'a 1km/week athlete is prescribed ' + w1.actualVolume + 'km in week one');
   assert.equal(w1.accounting.floorExcess > 0, true, 'and the floor that did it is declared');
   assert.equal(w1.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long').length, 0,
     'a structured session survives in a week that cannot pay for one');
-  assert.ok(runs.every(s => s.km === a.EASY_MIN_KM),
-    'every remaining session should be sitting exactly on the easy floor');
+  assert.ok(runs.every(s => s.km === a.WEEK_FIT_MIN_EASY_KM),
+    'every remaining session should be sitting exactly on the 5km floor');
   /* AND THE ATHLETE IS ROUTED, so this plan is measured rather than given. */
   assert.equal(c.routed, true);
 });
@@ -1113,7 +1116,11 @@ test('the aerobic-dominance ceiling is unchanged; it just no longer grants', () 
   assert.equal(a.qualitySlotCeilingForDayCount(6), 2);
 });
 
-test('outside Build, a 5K race week still carries ONE demanding session, at any day count', () => {
+test('outside Build and Peak, a 5K race week still carries ONE demanding session, at any day count', () => {
+  /* PEAK JOINED BUILD ON 15 NOVEMBER 2026 (the founder's 5K/10K
+     methodology): the athlete chooses how many hard sessions a week, default
+     two, and Build and Peak both carry them. Base, the taper and race week
+     keep one. */
   /* Stated availability, stated volume, the race goal and the week being
      structurally able to hold two are none of them evidence -- that half of
      the rule is unchanged.
@@ -1135,7 +1142,7 @@ test('outside Build, a 5K race week still carries ONE demanding session, at any 
       c.weeks.forEach(w => {
         if (w.isRace) return;
         const q = w.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long');
-        const cap = w.phase === 'Build' ? 2 : 1;
+        const cap = (w.phase === 'Build' || w.phase === 'Peak') ? 2 : 1;
         assert.ok(q.length <= cap,
           c.id + ' wk' + w.week + ' (' + w.phase + ') carries ' + q.map(s => s.type + ':' + s.km).join(' '));
       });

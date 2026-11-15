@@ -44,7 +44,13 @@ test('RACE GOAL — the declared week sets week one, and logged evidence does no
     const hi = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks, stated:60 }, c.ev));
     assert.equal(lo.blk.weeks[0].bottomUp.entrySource, 'stated', c.key + ': logged evidence overrode the declaration');
     assert.equal(lo.blk.weeks[0].bottomUp.entryKm, 30, c.key + ': week one did not open from the declaration');
-    assert.ok(wk1(hi) > wk1(lo), c.key + ': 60km declared opened no bigger than 30km');
+    /* EXCEPT WHERE THE LONG-RUN STEP HOLDS WEEK ONE (founder, 15 November
+       2026: a long run at most 10% (Half/Marathon 15%) over the longest of
+       the last 30 days). An athlete who has LOGGED a 10km longest run and
+       declares 60km a week used to open on a 26km long run; their long run is
+       now held to the step, and the week with it. */
+    const held = hi.dd.some(d => d.week === 1 && d.type === 'long' && d.stepWantKm > d.km);
+    if (!held) assert.ok(wk1(hi) > wk1(lo), c.key + ': 60km declared opened no bigger than 30km');
   });
 });
 

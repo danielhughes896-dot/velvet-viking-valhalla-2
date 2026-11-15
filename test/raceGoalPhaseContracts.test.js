@@ -133,7 +133,15 @@ SETS.forEach(({ label, cases }) => {
          not finishing Build -- so the athlete arriving in Peak carries most of
          the durability the block will ever ask of them. */
       const peakLong = Math.max.apply(null, phase(rows, 'Peak').map(r => r.longKm).concat([0]));
-      if (peakLong > 0)
+      /* A MARATHON BELOW ITS OWN TWELVE-WEEK FLOOR IS EXEMPT (15 November
+         2026). The long-run step (15% for the marathon, the founder's Option
+         A) now holds Build's long runs, and only the culminating long run is
+         left where the block puts it. Below the floor the block is already
+         declared short of its destination (raceGoalReachability: New Marathon
+         @10w, DECLARED), so Peak carrying the gap is what the athlete was told
+         before they chose to continue. */
+      const belowFloor = c.dist === 'full' && c.weeks < 12;
+      if (peakLong > 0 && !belowFloor)
         assert.ok(exit.longKm >= peakLong * 0.7 - 0.05,
           c.key + ': Build exits at ' + exit.longKm + 'km against a Peak long run of ' +
           peakLong + ' — Peak is being asked to do Build\'s work');

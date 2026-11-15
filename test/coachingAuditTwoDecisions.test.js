@@ -126,15 +126,88 @@ test('A4: below the entry, the builder asks the pathway question instead of refu
   const at = body.indexOf('!raceEntry.allowed');
   assert.ok(at > 0, 'the entry boundary is still read');
   const branch = body.slice(at, at + 900);
-  assert.match(branch, /pathwayRecommendation\(/);
-  assert.match(branch, /openPathwayOfferSheet\(/);
-  assert.ok(branch.indexOf('pathwayRecommendation(') < branch.indexOf('openRaceGoalEntryModal('),
-    'the old explanation is only the fallback');
-  /* The recommendation it asks for: Developing (New) where reachable, Aerobic
-     Base where not, and the athlete may keep their choice. */
+  /* Refined the same day: below the entry the programme is Developing. An
+     athlete on Developing builds straight away; any other level is offered
+     Developing and may keep their own. Nothing below the entry is refused. */
+  assert.match(branch, /athleteExperience\(\) === EXPERIENCE_LEVELS\[0\]/);
+  assert.match(branch, /openEntryPathwaySheet\(distanceKey, volume, admSig\)/);
+  assert.doesNotMatch(branch, /openRaceGoalEntryModal\(/, 'the old refusal is still reachable');
+});
+
+/* ---------------------------------------------------------------- 0 TO 3KM
+   Founder, 15 November 2026: "1-3km (should be 0-3) week starting - we start
+   on the normal developing programme or the new rules that no run is lower
+   than 5km ... We add in coaches note run walk if needed". And of pre-race
+   shakeouts: "these offer a different stimulation to normal runs so they are
+   completely fine" under 5km. */
+function a0(){ return loadApp({ pinnedDate: '2026-11-16T09:00:00Z' }); }
+test('0-3km: the low start reads as three runs, and the long run starts at 6km', () => {
+  const a = a0();
+  a.pendingEntryEvidence = { weeklyKm: 2, runDaysPerWeek: 3, longestRunKm: 2,
+    longestRunDate: '2026-11-10', recordedAt: '2026-11-16T09:00:00Z' };
+  const st = a.statedEntryEvidence();
+  assert.equal(st.lowStart, true);
+  assert.equal(st.weeklyKm, 17);
+  assert.equal(st.longKm, 6);
+  a.pendingEntryEvidence = { weeklyKm: 20, runDaysPerWeek: 3, longestRunKm: 8,
+    longestRunDate: '2026-11-10', recordedAt: '2026-11-16T09:00:00Z' };
+  assert.equal(a.statedEntryEvidence().lowStart, false, 'only 0 to 4km a week is a low start');
+});
+test('0-3km: every run is 5km or more and carries run/walk until it has learned', () => {
   const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
-  const low = a.pathwayRecommendation('half', 'experienced', 4, 15);
-  assert.ok(low && (low.recommend || low.recommendBase));
-  const copy = a.pathwayOfferCopy(low, 'half');
-  if (low.recommendBase) assert.match(copy.hint, /You can still keep this plan/);
+  ['renderApp', 'showToast', 'flushSave', 'scheduleSave'].forEach(f => { a[f] = () => {}; });
+  buildPlan(a, { distanceKey: '5k', volume: 2, weeks: 10, experience: 'novice',
+    startDate: '2026-11-16', schedule: { activeDays: [1, 3, 6], longRunDay: 6 } });
+  const runs = a.state.days.filter(d => d.km > 0 && d.type !== 'race' && !/Shakeout/.test(d.title || ''));
+  assert.ok(runs.length > 0);
+  runs.forEach(d => assert.ok(d.km >= 5 || a.isQualityType(d.type),
+    'a ' + d.km + 'km ' + d.type + ' run in week ' + d.week + ' of a 2km/week plan'));
+  a.state.setup.runWalkStart = true;
+  const next = a.state.days.filter(d => d.km > 0 && d.type !== 'race')[0];
+  assert.match(a.coachNoteText(next), /Run\/walk is fine if you need it/);
+  /* Three logged 5km runs and SACORO has learned: the note stops. */
+  a.state.days.filter(d => d.km > 0 && d.type !== 'race').slice(0, 3).forEach(d => {
+    d.completed = true; d.actual = { km: 5.2 }; });
+  const later = a.state.days.filter(d => d.km > 0 && d.type !== 'race' && !d.completed)[0];
+  assert.doesNotMatch(a.coachNoteText(later) || '', /Run\/walk/);
+  /* Never on a plan that did not start under 5km. */
+  a.state.setup.runWalkStart = false;
+  assert.equal(a.runWalkNote(next), '');
+});
+
+test('0-3km: zero is an answer in the builder, and the plan opens on three runs', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.match(src, /0 if you are not running yet/);
+  assert.doesNotMatch(src, /\(!volume \|\| volume <= BUILDER_SPEC\.validation\.volumeMustExceed\)/, 'zero is still refused');
+  /* Founder, 15 November 2026: "1 run a week isn't enough stimuli". Week one
+     is a 5km, a 6km and a 6km long run, the hard session short and sharp. */
+  assert.match(src, /if \(runWalkStart\) volume = LOW_START_WEEK_KM;/);
+  assert.equal(a0().LOW_START_WEEK_KM, 17);
+  assert.equal(a0().LOW_START_LONG_KM, 6);
+  assert.match(src, /runWalkStart: runWalkStart,/);
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  assert.equal(a.baseWeeklyVolumeEvidence(0).source, 'declared');
+  assert.equal(a.baseWeeklyVolumeEvidence(null).source !== 'declared', true);
+});
+
+test('0-3km: below the entry the offer is the Developing programme, never a refusal', () => {
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  a.athleteExperience = () => 'experienced';
+  const c = a.entryPathwayCopy('10k', 2);
+  assert.match(c.say, /Developing 10K programme with one 5km run a week, run\/walk if you need it/);
+  assert.equal(c.yes, 'Switch to Developing');
+  assert.equal(c.no, 'Keep Established');
+});
+
+test('pre-race shakeouts may stay under 5km; they are a different stimulus', () => {
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  ['renderApp', 'showToast', 'flushSave', 'scheduleSave'].forEach(f => { a[f] = () => {}; });
+  buildPlan(a, { distanceKey: 'half', volume: 40, weeks: 12, experience: 'experienced', hasEvent: true,
+    /* Saturday is a running day, so the day before the race has its shakeout. */
+    startDate: '2026-11-16', schedule: { activeDays: [0, 1, 3, 5, 6], longRunDay: 6 } });
+  const shake = a.state.days.filter(d => /Shakeout/.test(d.title || '') && d.km > 0);
+  assert.ok(shake.length >= 1, 'the race week has its shakeout');
+  assert.ok(shake.some(d => d.km < 5), 'the shakeout keeps its short shape');
+  const other = a.state.days.filter(d => d.type === 'easy' && d.km > 0 && !/Shakeout/.test(d.title || ''));
+  other.forEach(d => assert.ok(d.km >= 5, 'an ordinary easy run of ' + d.km + 'km in week ' + d.week));
 });

@@ -55,15 +55,20 @@ function withHistory(a, weeklyKm, longKm, weeks){
 
 /* ---------- 1. THE PATHWAY TABLE MATCHES HQ'S APPROVED STANDARDS ---------- */
 
+/* THE FOUNDER'S 5K/10K METHODOLOGY (approved 15 November 2026) replaced the
+   destinations with ranges: 5K 25-35 / 40-55 / 55-75km with long runs 8-10 /
+   10-12 / 12-15km; 10K 30-40 / 45-60 / 60-80km with 10-12 / 13-15 / 15-18km.
+   The block aims for the top of each range. Entries are unchanged. See
+   test/fiveTenMethodology.test.js. */
 test('5K pathway: start/useful-peak volume and LR ladder match HQ\'s table', () => {
   const a = app();
   const nov = a.raceGoalPathway('5k', 'novice');
   const exp = a.raceGoalPathway('5k', 'experienced');
   const adv = a.raceGoalPathway('5k', 'advanced');
-  assert.equal(nov.entryVolumeKm, 15); assert.equal(nov.buildVolumeKm, 30);
-  assert.equal(exp.entryVolumeKm, 25); assert.equal(exp.buildVolumeKm, 50);
-  assert.equal(adv.entryVolumeKm, 35); assert.equal(adv.buildVolumeKm, 70);
-  assert.equal(nov.peakLongKm, 8); assert.equal(exp.peakLongKm, 12); assert.equal(adv.peakLongKm, 16);
+  assert.equal(nov.entryVolumeKm, 15); assert.equal(nov.buildVolumeKm, 35);
+  assert.equal(exp.entryVolumeKm, 25); assert.equal(exp.buildVolumeKm, 55);
+  assert.equal(adv.entryVolumeKm, 35); assert.equal(adv.buildVolumeKm, 75);
+  assert.equal(nov.peakLongKm, 10); assert.equal(exp.peakLongKm, 12); assert.equal(adv.peakLongKm, 15);
 });
 
 test('10K pathway: start/useful-peak volume sit above 5K at Experienced/Advanced', () => {
@@ -73,13 +78,14 @@ test('10K pathway: start/useful-peak volume sit above 5K at Experienced/Advanced
   const adv = a.raceGoalPathway('10k', 'advanced');
   assert.equal(nov.entryVolumeKm, 15, '10K New opens at the same entry as 5K New');
   assert.equal(exp.entryVolumeKm, 30); assert.equal(exp.buildVolumeKm, 60);
-  assert.equal(adv.entryVolumeKm, 45); assert.equal(adv.buildVolumeKm, 75);
+  assert.equal(adv.entryVolumeKm, 45); assert.equal(adv.buildVolumeKm, 80);
 });
 
-test('7. 10K New long run is exactly race distance, never below it', () => {
+test('7. 10K New long run is never below race distance', () => {
   const a = app();
   const p = a.raceGoalPathway('10k', 'novice');
-  assert.equal(p.peakLongKm, 10, 'HQ explicitly rejected an 8km New 10K long run as below race distance');
+  assert.equal(p.peakLongKm, 12, 'the top of the founder\'s 10-12km Developing range');
+  assert.equal(p.longRangeKm[0], 10, 'and its bottom is the race distance itself');
   assert.ok(p.peakLongKm >= a.DISTANCE_PROFILES['10k'].raceKm);
 });
 
@@ -132,16 +138,17 @@ test('3. weak evidence for an Advanced-labelled athlete is not evidence-blind ad
 
 /* ---------- 4. THE RUNWAY WINDOW IS 8-12 WEEKS ---------- */
 
-test('4. 5K/10K admission window is eight to twelve weeks, not ten to fifteen', () => {
+test('4. 5K/10K admission window is eight to sixteen weeks (founder, 15 November 2026)', () => {
   const a = app();
   ['5k', '10k'].forEach(dk => {
     const b = a.raceGoalRunwayBounds(dk);
-    assert.equal(b.min, 8); assert.equal(b.max, 12);
+    assert.equal(b.min, 8); assert.equal(b.max, 16);
     assert.equal(a.raceGoalAdmission(dk, 7, null, {}).admitted, false);
     assert.equal(a.raceGoalAdmission(dk, 7, null, {}).decision, 'too_short');
     assert.equal(a.raceGoalAdmission(dk, 8, null, {}).admitted, true);
-    assert.equal(a.raceGoalAdmission(dk, 13, null, {}).admitted, false);
-    assert.equal(a.raceGoalAdmission(dk, 13, null, {}).decision, 'too_far');
+    assert.equal(a.raceGoalAdmission(dk, 16, null, {}).admitted, true);
+    assert.equal(a.raceGoalAdmission(dk, 17, null, {}).admitted, false);
+    assert.equal(a.raceGoalAdmission(dk, 17, null, {}).decision, 'too_far');
   });
 });
 
@@ -241,7 +248,9 @@ test('8. non-race purposes at 5K/10K keep the shared pools, unchanged', () => {
 
 /* ---------- 9. EVENT-ANCHORED TAPER, NOT A FLAT TWO WEEKS ---------- */
 
-test('9. 5K tapers at D-8 and 10K at D-9, distinct from the half\'s D-10', () => {
+/* 10K D-9 -> D-11 (founder-approved methodology, 15 November 2026: the 10K
+   taper runs 10 to 14 days, the 5K's 7 to 10). */
+test('9. 5K tapers at D-8 and 10K at D-11', () => {
   const a = app();
   /* Not the audit's literal five/seven-day hypothesis: race week is a fixed
      seven days for every distance (§16, untouched) and scaled by its own
@@ -251,12 +260,12 @@ test('9. 5K tapers at D-8 and 10K at D-9, distinct from the half\'s D-10', () =>
      genuine pre-race-week split, ordered the same way the hypothesis was:
      10K longer than 5K, both shorter than the half's ten. */
   assert.equal(a.raceGoalTaperAnchorDaysFor('5k'), 8);
-  assert.equal(a.raceGoalTaperAnchorDaysFor('10k'), 9);
+  assert.equal(a.raceGoalTaperAnchorDaysFor('10k'), 11);
   assert.ok(a.raceGoalTaperAnchorDaysFor('5k') > 7, 'the anchor must clear race week\'s fixed seven days');
   assert.ok(a.raceGoalTaperAnchorDaysFor('10k') > 7);
   assert.equal(a.raceGoalTaperAnchorDaysFor('half'), a.HALF_TAPER_ANCHOR_DAYS);
   assert.equal(a.blockArcFor('race', 12, '5k', 'novice').taperAnchorDays, 8);
-  assert.equal(a.blockArcFor('race', 12, '10k', 'novice').taperAnchorDays, 9);
+  assert.equal(a.blockArcFor('race', 12, '10k', 'novice').taperAnchorDays, 11);
 });
 
 test('9. the day-level taper genuinely reaches into the week before race week', () => {

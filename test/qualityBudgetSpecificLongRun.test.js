@@ -169,6 +169,10 @@ test('10K now reaches two standalone Build sessions by tier at its five-day floo
      week. It now has the 5K's shape at the Half's five-day floor: Build holds
      two standalone sessions for Established/Advanced, every other phase one,
      and the long run stays aerobic. */
+  /* 15 NOVEMBER 2026, THE FOUNDER'S 5K/10K METHODOLOGY: the athlete chooses
+     how many hard sessions a week (default two), and Build AND Peak carry
+     them; two need four running days, for the 10K as for the 5K. Base, the
+     taper and race week keep one. */
   ['10k'].forEach(d => {
     [5,6,7].forEach(nd => {
       const { a, blk, days } = plan(d, nd, true);
@@ -176,7 +180,7 @@ test('10K now reaches two standalone Build sessions by tier at its five-day floo
       assert.equal(rows.filter(r => r.specificLong).length, 0,
         d + ': its long runs must stay aerobic under the current methodology');
       rows.forEach(r => {
-        const cap = r.phase === 'Build' ? 2 : 1;
+        const cap = (r.phase === 'Build' || r.phase === 'Peak') ? 2 : 1;
         assert.ok(r.standalone <= cap,
           d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone + ' standalone sessions, cap ' + cap);
       });
@@ -196,6 +200,10 @@ test('5K now reaches two standalone Build sessions by tier at its own 4-day floo
      evidence (the 'without evidence' test below proves this fixture is
      genuinely unearned and still reaches two). Outside Build the phase
      itself still caps at one, so the bound here is phase-aware, not flat. */
+  /* 15 NOVEMBER 2026, THE FOUNDER'S 5K/10K METHODOLOGY: the athlete chooses
+     how many hard sessions a week (default two), and Build AND Peak carry
+     them; two need four running days, for the 10K as for the 5K. Base, the
+     taper and race week keep one. */
   ['5k'].forEach(d => {
     [5,6,7].forEach(nd => {
       const { a, blk, days } = plan(d, nd, true);
@@ -203,7 +211,7 @@ test('5K now reaches two standalone Build sessions by tier at its own 4-day floo
       assert.equal(rows.filter(r => r.specificLong).length, 0,
         d + ': its long run must stay aerobic under the current methodology');
       rows.forEach(r => {
-        const cap = r.phase === 'Build' ? 2 : 1;
+        const cap = (r.phase === 'Build' || r.phase === 'Peak') ? 2 : 1;
         assert.ok(r.standalone <= cap,
           d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone +
           ' standalone sessions, cap ' + cap);
@@ -215,16 +223,20 @@ test('5K now reaches two standalone Build sessions by tier at its own 4-day floo
   });
 });
 
-test('10K below its five-day floor keeps one session; above it the tier rule applies without evidence', () => {
+test('10K below its four-day floor keeps one session; above it the chosen count applies without evidence', () => {
+  /* 15 NOVEMBER 2026, THE FOUNDER'S 5K/10K METHODOLOGY: the athlete chooses
+     how many hard sessions a week (default two), and Build AND Peak carry
+     them; two need four running days, for the 10K as for the 5K. Base, the
+     taper and race week keep one. */
   ['10k'].forEach(d => {
-    [3,4].forEach(nd => {
+    [3].forEach(nd => {
       const { a, blk, days } = plan(d, nd, false);
       weekRows(a, blk, days).forEach(r => assert.ok(r.standalone <= 1,
-        d + '/' + nd + 'd week ' + r.week + ': ' + r.standalone + ' standalone sessions below the five-day floor'));
+        d + '/' + nd + 'd week ' + r.week + ': ' + r.standalone + ' standalone sessions below the four-day floor'));
     });
-    [5,6,7].forEach(nd => {
+    [4,5,6,7].forEach(nd => {
       const { a, blk, days } = plan(d, nd, false);
-      weekRows(a, blk, days).forEach(r => assert.ok(r.standalone <= (r.phase === 'Build' ? 2 : 1),
+      weekRows(a, blk, days).forEach(r => assert.ok(r.standalone <= ((r.phase === 'Build' || r.phase === 'Peak') ? 2 : 1),
         d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone + ' standalone sessions'));
     });
   });
@@ -245,7 +257,7 @@ test('5K without evidence still reaches two standalone Build sessions at its own
       const rows = weekRows(a, blk, days);
       const buildCap = nd >= 4 ? 2 : 1;
       rows.forEach(r => {
-        const cap = r.phase === 'Build' ? buildCap : 1;
+        const cap = (r.phase === 'Build' || r.phase === 'Peak') ? buildCap : 1;
         assert.ok(r.standalone <= cap,
           d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone +
           ' standalone sessions without the earned exposure, cap ' + cap);

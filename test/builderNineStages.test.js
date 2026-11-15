@@ -254,7 +254,8 @@ test('no validation rule was added, removed or loosened', () => {
   assert.match(body, /Event date needs to be in the future\./);
   assert.match(body, /wks < wRange\[0\] \|\| wks > wRange\[1\]/);
   assert.match(body, /BUILDER_SPEC\.validation\.weeksRange/);
-  assert.match(body, /!volume \|\| volume <= BUILDER_SPEC\.validation\.volumeMustExceed/);
+  // 0 is an answer (founder, 15 November 2026: "should be 0-3"); blank is not.
+  assert.match(body, /volume == null \|\| !\(volume >= BUILDER_SPEC\.validation\.volumeMustExceed\)/);
   assert.match(body, /checked < dRange\[0\] \|\| checked > dRange\[1\]/);
   assert.match(body, /BUILDER_SPEC\.validation\.daysRange/);
   assert.match(body, /Choose a long run day\./);
@@ -566,7 +567,7 @@ test('a choice stacks by default, and only token grids ask for columns', () => {
   /* The eight day counts left this list when they became a slider. Founder:
      "Change build a plan to have this 4 areas as the slider options." See
      test/builderSliders.test.js. */
-  assert.deepEqual(withCols.sort(), ['bld-longday-grid'].sort(),
+  assert.deepEqual(withCols.sort(), ['bld-longday-grid', 'bld-quality-grid'].sort(),
     'a grid that is not short tokens (single digits, three-letter weekdays) ' +
     'is asking for columns: ' + withCols.join(', '));
 });
