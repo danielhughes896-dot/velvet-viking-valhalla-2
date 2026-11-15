@@ -285,9 +285,13 @@ test('the three surfaces that were drawers are keyboard-safe: all three are page
      Founder: "when you first click the edit button this pops up. Full page
      please." A page is the full height of the screen and scrolls, which is
      the same worry answered better. */
-  assert.match(callOf('openEditModal'), /openModal\(html, 'modal-themed builder-light hq-panel hq-full rp-cherry es-full'\);/,
-    'Edit Session (openEditModal) does not open as a full page. It holds a field an ' +
-    'athlete types into, and a card or drawer over the screen is what the founder asked to be rid of.');
+  /* ...AND MOVED AGAIN. Founder, 15 November 2026: "should edit session be on a bottom glass screen? Then change workout edit details and reschedule be the 3 box choices. Then they all open as bottom?" -- and, shown the mock-up, "Yes".
+     A glass sheet, capped to the dynamic viewport so a field typed into
+     stays above the keyboard. */
+  assert.match(callOf('openEditModal'), /openModal\(html, 'modal-themed stg-sheet es-sheet'\);/,
+    'Edit Session (openEditModal) does not open as the glass sheet.');
+  assert.match(CSS, /\.modal-card\.es-sheet\{max-height:88vh; max-height:88dvh;/,
+    'the Edit Session sheet has no keyboard-safe height');
   assert.doesNotMatch(callOf('openEditModal'), /openModal\([^;]*modal-centred/, 'Edit Session is a centred card again');
   /* ---- TWO OF THE THREE CHANGED SIDES ----
      Tools & Import and Restore a Plan were held to the centred shell for
@@ -352,7 +356,9 @@ test('no section head in the sheet leads with a glyph', () => {
      is the same in all three: two call sites pass these by position, so a
      parameter added or dropped still shifts a title into a subtitle
      silently. */
-  assert.equal(helper[1].replace(/\s/g, ''), 'id,title,sub,body',
+  /* Two arguments were added at the END (the box's one-line hint, and the
+     page's own action), so no existing argument moved position. */
+  assert.equal(helper[1].replace(/\s/g, ''), 'id,title,sub,body,hint,go',
     'section() signature changed. Its arguments are positional and two call sites pass ' +
     'them, so a parameter added or dropped here silently shifts a title into a subtitle. ' +
     'Found: (' + helper[1] + ')');
@@ -371,7 +377,10 @@ test('no section head in the sheet leads with a glyph', () => {
  * (This reverses "Reschedule -- has tabs!! Remove them all." Flat, the swap
  * list ran straight into the title field and the two jobs read as one form.)
  * ------------------------------------------------------------------------- */
-test('Reschedule and Edit details are two closed tabs, the completed session\'s own', () => {
+test('Edit Session is three boxes: Change Workout, Reschedule and Edit details, each shut until asked', () => {
+  /* Founder, 15 November 2026: "should edit session be on a bottom glass
+     screen? Then change workout edit details and reschedule be the 3 box
+     choices. Then they all open as bottom?" Shown the mock-up: "Yes". */
   const { loadApp } = require('./harness.js');
   const { buildPlan } = require('./fixtures.js');
   const a = loadApp({ pinnedDate: '2026-11-12T09:00:00Z' });
@@ -380,26 +389,33 @@ test('Reschedule and Edit details are two closed tabs, the completed session\'s 
   let html = '';
   a.openModal = h => { html = h; };
   const dd = a.state.days.filter(d => d.type !== 'rest' && d.date > '2026-11-12')[0];
+  assert.ok(a.wkCanChange(dd), 'the fixture session cannot change its workout');
   a.openEditModal(dd.id);
 
-  const tabs = [...html.matchAll(/<button type="button" class="sess-tab sess-tab-btn es-tab" data-action="es-tab" aria-expanded="(true|false)" aria-controls="([a-z-]+)">([\s\S]*?)<\/button>/g)];
-  assert.equal(tabs.length, 2, 'not two tabs');
-  assert.deepEqual(tabs.map(m => m[2]), ['ef-sec-reschedule-body', 'ef-sec-edit-body']);
-  assert.deepEqual(tabs.map(m => m[1]), ['false', 'false'], 'a tab is open before it is asked for');
-  /* The same component as Share, Session Details and Your Log on a completed card. */
-  assert.equal(tabs[0][3], a.sessionTabHtml('Reschedule'));
-  assert.equal(tabs[1][3], a.sessionTabHtml('Edit details'));
-  assert.ok(!/>Edit session</i.test(tabs[1][3]), 'the second tab repeats the sheet\'s own heading');
+  const boxes = [...html.matchAll(/<button type="button" class="es-tab es-choice" data-action="es-tab" aria-expanded="(true|false)" aria-controls="([a-z-]+)">([\s\S]*?)<\/button>/g)];
+  assert.deepEqual(boxes.map(m => m[2]), ['ef-sec-workout-body', 'ef-sec-reschedule-body', 'ef-sec-edit-body']);
+  assert.deepEqual(boxes.map(m => m[1]), ['false', 'false', 'false'], 'a box is open before it is asked for');
+  [['Change Workout', 'Swap for another workout, or make your own'],
+   ['Reschedule', 'Move it to another day this week or next'],
+   ['Edit details', 'Title, distance, notes and completion']].forEach(([t, hint], i) => {
+    assert.match(boxes[i][3], new RegExp('<span class="es-choice-t">' + t + '</span>'), t + ' box is not titled');
+    assert.ok(boxes[i][3].indexOf(hint) !== -1, t + ' box does not say what it does');
+  });
 
-  /* Each drops down to exactly what was there: the swap list under one, every field under the other. */
   const body = id => { const at = html.indexOf('<div class="es-tab-body" id="' + id + '" hidden>'); assert.ok(at !== -1, id + ' is not shut, or is gone'); return at; };
-  const r = body('ef-sec-reschedule-body'), e = body('ef-sec-edit-body');
-  const at = s => { const i = html.indexOf(s); assert.ok(i !== -1, s + ' is gone from the sheet'); return i; };
+  const w = body('ef-sec-workout-body'), r = body('ef-sec-reschedule-body'), e = body('ef-sec-edit-body');
+  const at = s2 => { const i = html.indexOf(s2); assert.ok(i !== -1, s2 + ' is gone from the sheet'); return i; };
+  assert.ok(w < at('id="wk-pick"') && at('id="wk-pick"') < r, 'the workouts are not under Change Workout');
   assert.ok(r < at('Move or swap this session with another day.') && at('Move or swap this session with another day.') < e, 'the swap list is not under Reschedule');
   ['id="ef-title"', 'id="ef-km"', 'id="ef-mp"', 'id="ef-completed"', 'id="ef-desc"', 'data-action="reset-day"'].forEach(f =>
     assert.ok(at(f) > e, f + ' is not under Edit details'));
-  assert.ok(at('data-action="save-edit"') > at('id="ef-desc"'), 'Save is not at the foot');
-  assert.ok(at('class="es-sum') < r || /es-sum/.test(html.slice(0, r)), 'the session\'s own tile is not above the tabs');
+  /* The type is chosen with its workout now; the list of types is gone. */
+  assert.ok(!/id="ef-type-list"/.test(html), 'the list of session types is still in Edit details');
+  assert.ok(at('id="ef-type"') > e, 'Save has no type to read');
+  /* Back and the page's action, at the foot. */
+  assert.ok(at('id="es-back"') > at('id="ef-desc"') && at('id="es-primary"') > at('id="es-back"'), 'Back and the action are not at the foot');
+  assert.match(html, /id="es-primary" data-action="save-edit"/);
+  assert.ok(at('class="es-sum') < w, 'the session\'s own tile is not above the boxes');
 
   /* Opening one draws nothing: the body is already there and is only shown. */
   ['handleEditTab', 'editPageSet', 'handleEditPageClose'].forEach(f => {
@@ -408,18 +424,19 @@ test('Reschedule and Edit details are two closed tabs, the completed session\'s 
     assert.ok(!/renderApp|openEditModal|innerHTML|openModal/.test(fn), f + ' redraws the sheet, which would lose a half-typed title');
   });
   assert.match(SRC, /case 'es-tab': handleEditTab\(target\); break;/);
-  assert.match(CSS, /\.es-tab-body\[hidden\]\{display:none;\}/, 'a shut tab can be shown by another rule');
+  assert.match(CSS, /\.es-tab-body\[hidden\]\{display:none;\}/, 'a shut box can be shown by another rule');
 
-  /* A session that has already happened can still be moved: the tab is there, shut, like the other. */
+  /* A session that has already happened can still be moved, but its workout is history. */
   const past = a.state.days.filter(d => d.type !== 'rest' && d.date < '2026-11-12')[0];
-  if (past){ a.openEditModal(past.id); assert.match(html, /id="ef-sec-reschedule"/); assert.match(html, /aria-controls="ef-sec-reschedule-body"/); }
+  if (past){
+    a.openEditModal(past.id);
+    assert.match(html, /aria-controls="ef-sec-reschedule-body"/);
+    assert.doesNotMatch(html, /aria-controls="ef-sec-workout-body"/, 'a past session offers to change its workout');
+  }
 });
 
 /* ---------------------------------------------------------------------------
- * AND EACH TAB OPENS AS A PAGE
- *
- * Founder: "Can edit session and reschedule open in full screen same
- * behaviours and the coaching circles."
+ * AND EACH BOX OPENS ITS PAGE IN THE SAME SHEET
  * ------------------------------------------------------------------------- */
 function sheetDom(a){
   /* The handful of elements editPageSet() touches, recording what is done. */
@@ -429,102 +446,90 @@ function sheetDom(a){
   const el = extra => Object.assign({ attrs: {}, classList: cl(),
     getAttribute(k){ return k in this.attrs ? this.attrs[k] : null; },
     setAttribute(k, v){ this.attrs[k] = String(v); }, removeAttribute(k){ delete this.attrs[k]; } }, extra || {});
-  const tabs = { 'ef-sec-reschedule': el({ attrs: { 'aria-expanded': 'false', 'aria-controls': 'ef-sec-reschedule-body' } }),
-                 'ef-sec-edit': el({ attrs: { 'aria-expanded': 'false', 'aria-controls': 'ef-sec-edit-body' } }) };
-  const card = el({ classList: cl(['modal-card', 'hq-full', 'es-full']), style: { transform: 'translateX(390px)' }, scrollTop: 240 });
+  const ids = ['ef-sec-workout', 'ef-sec-reschedule', 'ef-sec-edit'];
+  const tabs = {};
+  ids.forEach(id => { tabs[id] = el({ attrs: { 'aria-expanded': 'false', 'aria-controls': id + '-body' } }); });
+  const card = el({ classList: cl(['modal-card', 'stg-sheet', 'es-sheet']), style: { transform: 'translateY(300px)' }, scrollTop: 240 });
+  const sec = (id, title, go, act, back) => el({ attrs: { 'data-title': title, 'data-go': go, 'data-go-action': act, 'data-back': back },
+    querySelector: () => tabs[id] });
   const dom = {
-    'ef-sec-reschedule': el({ attrs: { 'data-title': 'Reschedule' }, querySelector: () => tabs['ef-sec-reschedule'] }),
-    'ef-sec-edit': el({ attrs: { 'data-title': 'Edit details' }, querySelector: () => tabs['ef-sec-edit'] }),
-    'ef-sec-reschedule-body': el({ attrs: { hidden: '' } }),
-    'ef-sec-edit-body': el({ attrs: { hidden: '' } }),
+    'ef-sec-workout': sec('ef-sec-workout', 'Change Workout', 'Use This Workout', 'wk-use', 'Keep Planned Workout'),
+    'ef-sec-reschedule': sec('ef-sec-reschedule', 'Reschedule', 'Move Session', 'save-edit', 'Back'),
+    'ef-sec-edit': sec('ef-sec-edit', 'Edit details', 'Save', 'save-edit', 'Back'),
     'es-head-title': el({ textContent: 'Edit Session' }),
     'es-close': el({ attrs: { 'data-action': 'close-modal', 'aria-label': 'Close' } }),
+    'es-back': el({ attrs: { 'data-action': 'es-page-close', 'data-sec': '' }, textContent: 'Back' }),
+    'es-primary': el({ attrs: { 'data-action': 'save-edit' }, textContent: 'Save' }),
     'modal-overlay': el({ querySelector: () => card })
   };
+  ids.forEach(id => { dom[id + '-body'] = el({ attrs: { hidden: '' } }); });
   a.document.getElementById = id => dom[id] || null;
   return { dom, tabs, card };
 }
-test('a tab opens as a page in the Coach page\'s shell, and closes back to the two tabs', () => {
+test('a box opens its page in the same glass sheet, and Back returns to the three', () => {
   const { loadApp } = require('./harness.js');
   const a = loadApp({ pinnedDate: '2026-11-12T09:00:00Z' });
   const { dom, tabs, card } = sheetDom(a);
   const shut = id => 'hidden' in dom[id].attrs;
+  const opened = /openModal\(html, 'modal-themed stg-sheet es-sheet'\);\n\}/;
+  assert.match(SRC.slice(SRC.indexOf('\nfunction openEditModal('), SRC.indexOf('\nfunction editPageSet(')), opened, 'Edit Session does not open as the glass sheet');
 
-  /* EDIT SESSION IS A PAGE BEFORE ANY TAB IS PRESSED. Founder: "when you
-     first click the edit button this pops up. Full page please." It opens in
-     the shell the coaching circles open theirs in -- the classes
-     openHQPanel() gives a Coach panel -- and a tab changes only what is put
-     away. */
-  const opened = /openModal\(html, 'modal-themed builder-light hq-panel hq-full rp-cherry es-full'\);\n\}/;
-  assert.match(SRC.slice(SRC.indexOf('\nfunction openEditModal('), SRC.indexOf('\nfunction editPageSet(')), opened, 'Edit Session does not open as a page');
-  const coach = /openModal\(html, 'modal-themed builder-light hq-panel '\+\s*\(PANEL_ACCENT_CLASS\[key\] \|\| 'rp-cherry'\)\+\(coachPanel \? ' hq-full' : ''\)\);/;
-  assert.match(SRC, coach, 'the Coach panels no longer open in the shell this law compares against');
-  assert.deepEqual(card.classList.list(), ['es-full', 'hq-full', 'modal-card'], 'the fixture is not the page as opened');
   a.handleEditTab(tabs['ef-sec-reschedule']);
-  assert.deepEqual(card.classList.list(), ['es-full', 'es-page', 'hq-full', 'modal-card'], 'opening a tab changed the shell');
-  /* Only the tab that was pressed is open, and the heading is its name. */
+  assert.deepEqual(card.classList.list(), ['es-page', 'es-sheet', 'modal-card', 'stg-sheet'], 'opening a box changed the shell');
   assert.equal(shut('ef-sec-reschedule-body'), false);
-  assert.equal(shut('ef-sec-edit-body'), true, 'the other tab opened with it');
-  assert.ok(dom['ef-sec-reschedule'].classList.contains('is-page'));
-  assert.ok(!dom['ef-sec-edit'].classList.contains('is-page'));
+  assert.equal(shut('ef-sec-edit-body'), true, 'another page opened with it');
+  assert.equal(shut('ef-sec-workout-body'), true, 'another page opened with it');
   assert.equal(dom['es-head-title'].textContent, 'Reschedule');
   assert.equal(tabs['ef-sec-reschedule'].attrs['aria-expanded'], 'true');
   assert.equal(card.scrollTop, 0, 'the page opened part-way down');
-  /* The ring closes the PAGE now, not the sheet -- and a swipe presses the ring. */
-  assert.equal(dom['es-close'].attrs['data-action'], 'es-page-close');
-  assert.equal(dom['es-close'].attrs['data-sec'], 'ef-sec-reschedule');
-  assert.equal(dom['es-close'].attrs['aria-label'], 'Back to Edit Session');
-  assert.match(SRC, /case 'es-page-close': handleEditPageClose\(target\); break;/);
-  const swipe = SRC.slice(SRC.indexOf('\nfunction pageSwipeEnd('), SRC.indexOf('\n}\n', SRC.indexOf('\nfunction pageSwipeEnd(')));
-  /* The swipe finds the ring through pageSwipeCloseOf(), which looks in the
-     page head first (founder, 15 November 2026: every openable page swipes). */
-  assert.match(swipe, /pageSwipeCloseOf\(card\)/, 'a swipe no longer closes through the page\'s own ring');
-  assert.match(SRC.slice(SRC.indexOf('function pageSwipeCloseOf'), SRC.indexOf('function pageSwipeCloseOf') + 400),
-    /card\.querySelector\('\.modal-head \.icon-btn, /, 'the page head\'s own ring is not the first one pressed');
-  assert.match(SRC.slice(SRC.indexOf('\nfunction pageSwipeStart('), SRC.indexOf('\nfunction pageSwipeMove(')), /closest\('\.modal-card\.hq-full'\)/);
-
-  /* Closed: the sheet again, exactly as it was, and nothing left pushed off screen. */
-  card.style.transform = 'translateX(390px)'; card.classList.add('is-settling');
-  let closedWhole = 0; a.closeModal = () => { closedWhole++; };
-  a.handleEditPageClose(dom['es-close']);
-  assert.equal(closedWhole, 0, 'closing a page closed the whole sheet, and whatever was typed with it');
-  assert.deepEqual(card.classList.list(), ['es-full', 'hq-full', 'modal-card'], 'closing a tab did not return to the Edit Session page');
-  assert.equal(card.style.transform, '', 'the card was left where the swipe pushed it');
-  assert.equal(shut('ef-sec-reschedule-body'), true);
-  assert.ok(!dom['ef-sec-reschedule'].classList.contains('is-page'));
-  assert.equal(dom['es-head-title'].textContent, 'Edit Session');
+  /* Back returns to the three; the page's own action is named for it. */
+  assert.equal(dom['es-back'].attrs['data-sec'], 'ef-sec-reschedule');
+  assert.equal(dom['es-back'].textContent, 'Back');
+  assert.equal(dom['es-primary'].textContent, 'Move Session');
+  assert.equal(dom['es-primary'].attrs['data-action'], 'save-edit');
+  /* THE CROSS ALWAYS CLOSES THE SHEET, and a swipe down presses it. */
   assert.equal(dom['es-close'].attrs['data-action'], 'close-modal');
   assert.equal(dom['es-close'].attrs['aria-label'], 'Close');
+  assert.match(SRC, /case 'es-page-close': handleEditPageClose\(target\); break;/);
+  assert.match(SRC.slice(SRC.indexOf('function pageSwipeCloseOf'), SRC.indexOf('function pageSwipeCloseOf') + 400),
+    /card\.querySelector\('\.modal-head \.icon-btn, /, 'the sheet head\'s own cross is not the one a swipe presses');
+
+  /* Back: the three boxes again, exactly as they were, nothing left pushed off screen. */
+  card.classList.add('is-settling');
+  let closedWhole = 0; a.closeModal = () => { closedWhole++; };
+  a.handleEditPageClose(dom['es-back']);
+  assert.equal(closedWhole, 0, 'Back closed the whole sheet, and whatever was typed with it');
+  assert.deepEqual(card.classList.list(), ['es-sheet', 'modal-card', 'stg-sheet']);
+  assert.equal(card.style.transform, '', 'the card was left where the swipe pushed it');
+  assert.equal(shut('ef-sec-reschedule-body'), true);
+  assert.equal(dom['es-head-title'].textContent, 'Edit Session');
   assert.equal(tabs['ef-sec-reschedule'].attrs['aria-expanded'], 'false');
 
-  /* The other tab is its own page. */
   a.handleEditTab(tabs['ef-sec-edit']);
   assert.equal(dom['es-head-title'].textContent, 'Edit details');
-  assert.equal(shut('ef-sec-edit-body'), false); assert.equal(shut('ef-sec-reschedule-body'), true);
-  assert.equal(dom['es-close'].attrs['data-sec'], 'ef-sec-edit');
-  /* A ring with no page behind it closes the sheet, as it always did. */
+  assert.equal(dom['es-primary'].textContent, 'Save');
+  a.handleEditPageClose(dom['es-back']);
+
+  a.handleEditTab(tabs['ef-sec-workout']);
+  assert.equal(dom['es-head-title'].textContent, 'Change Workout');
+  assert.equal(dom['es-primary'].textContent, 'Use This Workout');
+  assert.equal(dom['es-primary'].attrs['data-action'], 'wk-use');
+  assert.equal(dom['es-back'].textContent, 'Keep Planned Workout');
+  /* Back with no page behind it closes the sheet. */
   a.handleEditPageClose({ getAttribute: () => '' });
   assert.equal(closedWhole, 1);
 });
 
-test('on a page the other tab is put away, the session stays at the top and Save at the foot', () => {
+test('on a page the other boxes are put away, the session stays at the top and Back and the action at the foot', () => {
   const rule = sel => { const at = CSS.indexOf(sel + '{'); assert.ok(at !== -1, sel + ' has no rule'); return CSS.slice(at, CSS.indexOf('}', at)); };
   assert.match(rule('.modal-card.es-page .es-sec:not(.is-page)'), /display:none/);
-  assert.match(rule('.modal-card.es-page .es-sec.is-page > .es-tab'), /display:none/, 'the tab\'s own word is printed under the heading that now says it');
-  /* Save is at the foot of the page whether or not a tab is open: the body
-     fills the screen and the action is pushed to the bottom of it. */
-  assert.match(rule('.modal-card.es-full .es-actions'), /position:sticky; bottom:0/);
-  assert.match(rule('.modal-card.es-full .es-actions'), /margin:auto -24px 0/, 'Save floats under the tabs instead of sitting at the foot');
-  assert.match(rule('.modal-card.es-full'), /display:flex; flex-direction:column/);
-  assert.match(rule('.modal-card.es-full > .es-body'), /flex:1 0 auto/);
+  assert.match(rule('.modal-card.es-page .es-sec.is-page > .es-tab'), /display:none/, 'the box\'s own word is printed under the heading that now says it');
+  assert.match(rule('.modal-card.es-sheet .es-actions'), /position:sticky; bottom:0/);
+  assert.match(rule('.modal-card.es-sheet:not(.es-page) .es-actions'), /display:none/, 'the three boxes carry a Save of their own');
   assert.doesNotMatch(CSS, /\.es-page[^{]*\.es-sum[^{]*\{[^}]*display:none/, 'the page does not say which session it is about');
-  /* The list of days runs the length of the page: no box of its own to scroll. */
   assert.match(rule('.modal-card.es-page .swap-list'), /max-height:none; overflow:visible/);
   assert.match(rule('.modal-card.es-page .swap-week'), /position:static; background:none/, 'the week headings are still a bar');
-  /* A name is never cut short for its date. */
   assert.match(rule('.modal-card.es-page .swap-day .swap-name'), /white-space:normal/);
-  /* A page is never a card on top of the screen: nothing in the sheet or
-     its tabs puts the centred shell back. */
   const whole = SRC.slice(SRC.indexOf('\nfunction openEditModal('), SRC.indexOf('\nfunction findDay(')).replace(/\/\*[\s\S]*?\*\//g, '');
   assert.doesNotMatch(whole, /modal-centred/, 'Edit Session can be a centred card again');
 });

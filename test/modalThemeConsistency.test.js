@@ -218,8 +218,11 @@ test('Edit Session in particular, because it is the one that regressed', () => {
      that card over Today: "the tabs inside them fully open. But when you
      first click the edit button this pops up. Full page please."
      So it is a page, in the shell the Coach page's panels open in. */
-  assert.match(body, /openModal\(html, 'modal-themed builder-light hq-panel hq-full rp-cherry es-full'\);/,
-    'Edit Session is a card over the screen again');
+  /* ...AND A THIRD TIME. Founder, 15 November 2026: "should edit session be on a bottom glass screen? Then change workout edit details and reschedule be the 3 box choices. Then they all open as bottom?" -- and, shown the mock-up, "Yes".
+     A glass sheet from the bottom: the session's tile and three boxes, each
+     opening its own page in the same sheet. Still themed. */
+  assert.match(body, /openModal\(html, 'modal-themed stg-sheet es-sheet'\);/,
+    'Edit Session is not the glass sheet');
   assert.doesNotMatch(body, /openModal\([^;]*\bmodal-centred\b/, 'Edit Session is a centred card again');
   // And the fix moved the token ramp only. Every field, id and action stays.
   ['ef-title', 'ef-type', 'ef-km', 'ef-mp', 'ef-desc', 'ef-swap']
@@ -231,6 +234,9 @@ test('Edit Session in particular, because it is the one that regressed', () => {
   /* Reschedule is its own section now rather than a fieldset/legend -- same
      job, same place in the modal, different container. */
   assert.match(body, /'Reschedule',\n\s*'Move or swap this session with another day\.'/);
+  /* Session type is chosen in Change Workout now; the select stays, hidden,
+     so Save reads the day's own type. */
+  assert.match(body, /<select id="ef-type" class="bld-mirror"/);
 });
 
 test('a modal that does not opt in keeps the fixed dark ramp', () => {
@@ -409,8 +415,13 @@ test('theming and positioning are two separate opt-ins, both available to any su
   // Coach page's shell, full height -- which answers the keyboard worry
   // better than centring did -- and still themed. .modal-centred stays in the
   // stylesheet as the opt-in it is, asserted by the rule above.
-  assert.match(fnBody('openEditModal'), /\bhq-full\b/,
-    'Edit Session went back to a card or a bottom drawer');
+  /* Founder, 15 November 2026: "should edit session be on a bottom glass screen? Then change workout edit details and reschedule be the 3 box choices. Then they all open as bottom?" -- and, shown the mock-up, "Yes".
+     So it is the glass bottom sheet (.stg-sheet), and what keeps a field
+     above the keyboard is the sheet's dynamic-viewport height cap. */
+  assert.match(fnBody('openEditModal'), /'modal-themed stg-sheet es-sheet'/,
+    'Edit Session is not the glass bottom sheet');
+  assert.match(CODE, /\.modal-card\.es-sheet\{max-height:88vh; max-height:88dvh;/,
+    'the Edit Session sheet has no keyboard-safe height');
   assert.match(fnBody('openEditModal'), /\bmodal-themed\b/,
     'Edit Session lost its theme opt-in');
 });

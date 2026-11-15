@@ -6949,18 +6949,6 @@
   .modal-card.es-page .es-sec:not(.is-page){display:none;}
   .modal-card.es-page .es-sec.is-page > .es-tab{display:none;}
   .modal-card.es-page .es-tab-body{margin-top:0;}
-  /* THE WHOLE OF EDIT SESSION IS A PAGE (.es-full), tab open or not. Its
-     body fills the screen so Save sits at the foot of it even when the two
-     tabs above are all there is, and stays there as a longer page scrolls. */
-  .modal-card.es-full{display:flex; flex-direction:column;}
-  .modal-card.es-full > .modal-head{flex:none;}
-  .modal-card.es-full > .es-body{flex:1 0 auto; gap:22px; padding-bottom:0;}
-  .modal-card.es-full .es-actions{position:sticky; bottom:0; z-index:2; margin:auto -24px 0;
-    padding:28px 24px calc(22px + env(safe-area-inset-bottom, 0px));
-    background:linear-gradient(to bottom, transparent, var(--t-card) 28px);}
-  .modal-card.es-full .es-actions > .btn-primary{font-size:1.0625rem; min-height:56px;}
-  /* The tile and the two tabs sit at one interval on a page. */
-  .modal-card.es-full .es-sec + .es-sec{margin-top:0;}
   /* On a page the list of days IS the page: it runs its full length and the
      page scrolls, where the card kept it in a 310px box of its own. The week
      headings stop being a bar that sticks -- "no raised black boxes" -- and
@@ -6976,6 +6964,77 @@
      "Threshold: ..." with the day beside it. */
   .modal-card.es-page .swap-day .swap-line{flex-wrap:wrap; row-gap:2px;}
   .modal-card.es-page .swap-day .swap-name{overflow:visible; text-overflow:clip; white-space:normal;}
+  /* ---- EDIT SESSION IS A GLASS SHEET (founder, 15 November 2026) ----
+     The session's tile and three boxes: Change Workout, Reschedule, Edit
+     details. A box opens its page in the same sheet; Back and the page's own
+     action are pinned to its foot, so a long list scrolls behind them. The
+     three choices need no action of their own, so the foot is put away. */
+  .modal-card.es-sheet{max-height:88vh; max-height:88dvh; overscroll-behavior:contain;}
+  .modal-card.es-sheet > .es-body{gap:12px; padding-bottom:0;}
+  .modal-card.es-sheet:not(.es-page) > .es-body{padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px));}
+  .modal-card.es-sheet:not(.es-page) .es-actions{display:none;}
+  .modal-card.es-sheet .es-sec + .es-sec{margin-top:0;}
+  .modal-card.es-sheet .es-actions{position:sticky; bottom:0; z-index:2; display:flex; gap:10px;
+    margin:6px -15px 0; padding:10px 15px calc(14px + env(safe-area-inset-bottom, 0px));
+    background:#141418; box-shadow:0 -12px 18px -6px rgba(0,0,0,.45);}
+  .modal-card.es-sheet .es-actions .btn{flex:1 1 0; width:auto; min-height:48px;}
+  .es-choice{display:flex; align-items:center; gap:14px; width:100%; text-align:left; padding:14px 16px;
+    border-radius:16px; color:#FFFFFF; border:1px solid rgba(255,255,255,.12);
+    background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));}
+  .es-choice-m{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px;}
+  .es-choice-t{font-family:var(--label-face); font-weight:700; font-size:1.0625rem; letter-spacing:.06em;
+    text-transform:uppercase; color:#FFFFFF;}
+  .es-choice-s{font-size:.8125rem; line-height:1.35; color:#FFFFFF;}
+  .es-choice-c{flex:none; display:flex; color:var(--gold);}
+  .es-choice-c svg{width:18px; height:18px;}
+  /* ---- CHANGE WORKOUT ----
+     Text tabs, not pills: the chosen one is underlined in cherry. Four cards,
+     the chosen one ringed in cherry with its one-line purpose; nothing else
+     grows when it is tapped. */
+  .wo-tabs{display:flex; gap:18px; margin:0 0 10px;
+    overflow-x:auto; scrollbar-width:none;}
+  .wo-tabs::-webkit-scrollbar{display:none;}
+  .wo-tab{flex:none; padding:8px 0 7px; font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:.875rem; letter-spacing:.08em; text-transform:uppercase; color:#FFFFFF; background:none;
+    border:0; border-bottom:2px solid transparent; border-radius:0; min-height:40px;}
+  .wo-tab.on{border-bottom-color:var(--cherry);}
+  .wo-say{font-size:.875rem; line-height:1.35; color:#FFFFFF; margin:0 0 10px;}
+  .wo-list{display:grid; gap:8px;}
+  .wo-card{display:flex; gap:12px; align-items:center; text-align:left; width:100%; padding:10px 14px;
+    border-radius:14px; color:#FFFFFF; border:1px solid rgba(255,255,255,.10);
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.015));}
+  .wo-card.on{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
+  .wo-rail{flex:none; width:3px; align-self:stretch; border-radius:2px; background:var(--c-easy);}
+  .wo-card.type-tempo .wo-rail{background:var(--c-tempo);}
+  .wo-card.type-threshold .wo-rail{background:var(--c-threshold);}
+  .wo-card.type-track .wo-rail{background:var(--c-track);}
+  .wo-card.type-long .wo-rail{background:var(--c-long);}
+  .wo-main{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .wo-name{font-family:var(--label-face); font-weight:700; font-size:1rem; letter-spacing:.02em;}
+  .wo-dose{font-family:var(--num-face); font-size:.875rem;}
+  .wo-why{font-size:.8125rem; line-height:1.35; margin-top:2px;}
+  .wo-tick{flex:none; width:24px; height:24px; border-radius:50%; border:2px solid rgba(255,255,255,.22);}
+  .wo-card.on .wo-tick{border:0; background:var(--cherry) center/13px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E");}
+  .wo-own{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; margin-top:8px;
+    padding:12px 14px; border-radius:14px; border:1px dashed rgba(255,255,255,.22); background:none; color:#FFFFFF;
+    font-family:var(--label-face); font-weight:700; letter-spacing:.06em; text-transform:uppercase; font-size:.875rem;}
+  .wo-own-sub{font-family:var(--text-face); text-transform:none; letter-spacing:0; font-weight:400; font-size:.8125rem;}
+  .wo-own-kinds{display:flex; gap:8px; margin:0 0 10px;}
+  .wo-own-kind{flex:1 1 0; min-height:44px; padding:8px 6px; border-radius:12px; border:1px solid rgba(255,255,255,.14);
+    background:none; color:#FFFFFF; font-size:.875rem;}
+  .wo-own-kind.on{border-color:var(--cherry); box-shadow:0 0 12px var(--cherry-dim);}
+  .wo-own-rows{display:grid; gap:8px; margin:0 0 10px;}
+  .wo-own-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; margin:0;
+    border-radius:14px; border:1px solid rgba(255,255,255,.10);
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.015));}
+  .wo-own-k{font-family:var(--label-face); font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    font-size:.9375rem; color:#FFFFFF;}
+  .es-body .wo-own-row input.wo-own-v{flex:none; width:112px; min-height:44px; text-align:center; padding:8px 10px;
+    border-radius:12px; font-family:var(--num-face); font-size:1.0625rem; color:#FFFFFF; cursor:pointer;
+    -webkit-text-fill-color:#FFFFFF; background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.18); box-shadow:none;}
+  .wo-own-sum{font-size:.875rem; line-height:1.4; color:#FFFFFF;}
+  .wo-own-sum b{font-family:var(--num-face); font-weight:700;}
+  @media (max-width:360px){ .wo-dose{font-size:.8125rem;} .wo-card{padding:9px 12px;} .wo-own-sub{display:none;} }
   /* ---- RESET IS A BRIGHTER RED ----
      Founder: "rest session is good as it's red danger haha maybe make it a
      brighter red so it stands out?" --c-threshold is the SEMANTIC threshold
@@ -64420,6 +64479,7 @@ function handleSetGoal(key){
 function openEditModal(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
+  wkState = null;
   /* PRESCRIPTION VS EXECUTION, ENFORCED IN ONE MODAL RATHER THAN TWO SCREENS.
      Cloning this into a second "Edit Activity" modal would be a second place
      to keep the same fields in sync; instead the fields that describe what
@@ -64458,25 +64518,6 @@ function openEditModal(dayId){
      real form element, and handleSaveEdit() reads
      document.getElementById('ef-type').value without knowing anything
      changed. No new state, no second source of truth. */
-  var typeFieldHtml = function(dd, editable){
-    var rows = Object.keys(TYPE_META).filter(function(t){ return t!=='race'; })
-      .map(function(t){
-        var tm = TYPE_META[t] || {};
-        var on = dd.type === t;
-        return '<button type="button" class="ev-card stg-nav stg-row ef-type-row type-'+(tm.cls||'rest')+
-            (on?' is-picked':'')+'" role="radio" aria-checked="'+(on?'true':'false')+'" '+
-            (editable ? 'data-action="ef-type-pick" data-type="'+escapeHtml(t)+'"' : 'disabled')+'>'+
-          '<span class="ef-type-rail" aria-hidden="true"></span>'+
-          '<span class="stg-row-text"><span class="stg-row-title">'+escapeHtml(tm.label||t)+'</span></span>'+
-          '<span class="swap-tick" aria-hidden="true">'+ICONS.check+'</span>'+
-        '</button>';
-      }).join('');
-    return '<div class="field"><label id="ef-type-label">Session Type</label>'+
-      '<select id="ef-type" class="bld-mirror" tabindex="-1" aria-hidden="true"'+(editable?'':' disabled')+'>'+
-        typeOptions+'</select>'+
-      '<div class="ef-type-list" id="ef-type-list" role="radiogroup" aria-labelledby="ef-type-label">'+
-        rows+'</div></div>';
-  };
   /* ---- CHOOSING THE OTHER DAY, IN THE APP'S OWN LANGUAGE ----
      THIS WAS A NATIVE <select>, AND ON A PHONE A NATIVE SELECT IS NOT OURS.
      iOS and Android draw their own full-height picker: system grey, a system
@@ -64645,10 +64686,21 @@ function openEditModal(dayId){
      opened, Save reads every field from either, and there is no pop-up on a
      pop-up. Closing a page returns to the two tabs; Save is at the foot of
      both. */
-  var section = function(id, title, sub, body){
-    return '<div class="es-sec" id="'+id+'" data-title="'+escapeHtml(title)+'">'+
-      '<button type="button" class="sess-tab sess-tab-btn es-tab" data-action="es-tab" '+
-        'aria-expanded="false" aria-controls="'+id+'-body">'+sessionTabHtml(title)+'</button>'+
+  /* ---- THREE CHOICES ON A GLASS SHEET (founder, 15 November 2026) ----
+     "should edit session be on a bottom glass screen? Then change workout
+     edit details and reschedule be the 3 box choices. Then they all open as
+     bottom?" Each section is one box with a line saying what it does; a box
+     opens its page in the same sheet, with Back to the three and its own
+     action at the foot (data-go / data-go-action / data-back). */
+  var section = function(id, title, sub, body, hint, go){
+    return '<div class="es-sec" id="'+id+'" data-title="'+escapeHtml(title)+'"'+
+        ' data-go="'+escapeHtml((go && go[0]) || 'Save')+'" data-go-action="'+((go && go[1]) || 'save-edit')+'"'+
+        ' data-back="'+escapeHtml((go && go[2]) || 'Back')+'">'+
+      '<button type="button" class="es-tab es-choice" data-action="es-tab" '+
+        'aria-expanded="false" aria-controls="'+id+'-body">'+
+        '<span class="es-choice-m"><span class="es-choice-t">'+escapeHtml(title)+'</span>'+
+          (hint ? '<span class="es-choice-s">'+escapeHtml(hint)+'</span>' : '')+'</span>'+
+        '<span class="es-choice-c" aria-hidden="true">'+ICONS.chevronRight+'</span></button>'+
       '<div class="es-tab-body" id="'+id+'-body" hidden>'+
         (sub ? '<div class="es-sec-sub">'+escapeHtml(sub)+'</div>' : '')+
         body+
@@ -64661,7 +64713,10 @@ function openEditModal(dayId){
     '<div class="field-row">'+
       '<div class="field"><label>Distance ('+displayUnit()+')</label><input type="number" step="0.1" min="0" id="ef-km" value="'+kmToDisplay(dd.km)+'"'+lock+'></div>'+
     '</div>'+
-    typeFieldHtml(dd, editable)+
+    /* SESSION TYPE MOVED TO CHANGE WORKOUT, where a type is chosen with the
+       workout that goes with it. The select stays, hidden, so Save reads the
+       day's own type and changes nothing it was not asked to. */
+    '<select id="ef-type" class="bld-mirror" tabindex="-1" aria-hidden="true"'+lock+'>'+typeOptions+'</select>'+
     /* The inline width:auto is gone deliberately: it was there to stop the
    field-wide input rule stretching a native checkbox across the row, and it
    would now beat the circular component's own 22px. Spacing moved to CSS
@@ -64679,11 +64734,18 @@ function openEditModal(dayId){
   '<div class="modal-head"><h2 class="font-head" id="es-head-title">Edit Session</h2><button type="button" class="icon-btn" id="es-close" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body es-body">'+
     summary+
+    (wkCanChange(dd)
+      ? section('ef-sec-workout', 'Change Workout', '', '<div id="wk-pick" class="wo-pick">'+wkPickerHtml(dd)+'</div>',
+                'Swap for another workout, or make your own', ['Use This Workout', 'wk-use', 'Keep Planned Workout'])
+      : '')+
     section('ef-sec-reschedule', 'Reschedule',
-            'Move or swap this session with another day.', reschedule)+
-    section('ef-sec-edit', 'Edit details', '', fields)+
+            'Move or swap this session with another day.', reschedule,
+            'Move it to another day this week or next', ['Move Session', 'save-edit', 'Back'])+
+    section('ef-sec-edit', 'Edit details', '', fields,
+            'Title, distance, notes and completion', ['Save', 'save-edit', 'Back'])+
     '<div class="modal-actions es-actions">'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="save-edit" data-day="'+dd.id+'">Save</button>'+
+      '<button type="button" class="btn btn-ghost" id="es-back" data-action="es-page-close" data-sec="">Back</button>'+
+      '<button type="button" class="btn btn-primary" id="es-primary" data-action="save-edit" data-day="'+dd.id+'">Save</button>'+
     '</div>'+
   '</div>';
   /* THEMED, because this is a surface an athlete works IN.
@@ -64718,8 +64780,15 @@ function openEditModal(dayId){
      its two tabs open as pages of the same card. One surface from the edit
      button to Save, with no card over the screen at any point. The
      keyboard-safe height that centring was chosen for comes with the page:
-     it is the full visual viewport. es-full is what holds Save to the foot. */
-  openModal(html, 'modal-themed builder-light hq-panel hq-full rp-cherry es-full');
+     it is the full visual viewport. es-full is what holds Save to the foot.
+
+     AND NOW A GLASS SHEET (founder, 15 November 2026): "should edit session
+     be on a bottom glass screen? Then change workout edit details and
+     reschedule be the 3 box choices. Then they all open as bottom?" Shown the
+     mock-up: "Yes". The page above is history too. The sheet is capped to the
+     dynamic viewport (.es-sheet), so a field typed into stays above the
+     keyboard, and Back and the page's action are pinned to its foot. */
+  openModal(html, 'modal-themed stg-sheet es-sheet');
 }
 
 /* Opens one of Edit Session's two tabs as a page, or closes it back to the
@@ -64735,13 +64804,22 @@ function editPageSet(secId, open){
   if (tab) tab.setAttribute('aria-expanded', open ? 'true' : 'false');
   /* The heading names the page, and the ring that closed the sheet now
      closes the page -- which is also what a swipe presses. */
-  var head = document.getElementById('es-head-title'), x = document.getElementById('es-close');
+  var head = document.getElementById('es-head-title');
   if (head) head.textContent = open ? (sec.getAttribute('data-title') || ES_SHEET_TITLE) : ES_SHEET_TITLE;
-  if (x){
-    x.setAttribute('data-action', open ? 'es-page-close' : 'close-modal');
-    x.setAttribute('aria-label', open ? 'Back to Edit Session' : 'Close');
-    x.setAttribute('data-sec', open ? secId : '');
+  /* THE SHEET'S CROSS ALWAYS CLOSES THE SHEET, and a swipe down presses it.
+     Back, at the foot, is what returns to the three choices; the page's own
+     action sits beside it (Use This Workout, Move Session, Save). */
+  var back = document.getElementById('es-back'), go = document.getElementById('es-primary');
+  if (back){
+    back.setAttribute('data-sec', open ? secId : '');
+    back.setAttribute('data-action', 'es-page-close');
+    back.textContent = (open && sec.getAttribute('data-back')) || 'Back';
   }
+  if (go){
+    go.textContent = (open && sec.getAttribute('data-go')) || 'Save';
+    go.setAttribute('data-action', (open && sec.getAttribute('data-go-action')) || 'save-edit');
+  }
+  if (open && secId === 'ef-sec-workout') wkSyncActions();
   var overlay = document.getElementById('modal-overlay');
   var card = (overlay && overlay.querySelector) ? overlay.querySelector('.modal-card') : null;
   if (card && card.classList){
@@ -64765,6 +64843,446 @@ function handleEditPageClose(btn){
   if (id) editPageSet(id, false); else closeModal();
 }
 var ES_SHEET_TITLE = 'Edit Session';
+
+/* =========================================================
+   CHANGE WORKOUT
+   =========================================================
+   Founder, 15 November 2026: "When you edit a session. And say pick tempo,
+   but it could be any of them.... Would it be possible to then have a way of
+   picking from the workout library for that session type?" And, of the
+   mock-ups: four workouts, no shape bar, a sheet that does not rise too
+   high, and "my beta user changed a session. He did a 4 min run 4 min walk.
+   But it wasn't easy to add that in."
+
+   WHAT IS OFFERED IS SACORO'S OWN LIBRARY, SIZED FOR THIS DAY. Each option is
+   built by the generator's own structure function (struct*), sized to the
+   session's distance the way the plan sizes it (the largest dose that fits),
+   and written by textFor() -- so a swapped workout reads exactly like one the
+   plan wrote, in the same words, and the day's distance does not move.
+   WORKOUT_LIBRARY decides what this week's phase allows: a workout the
+   library marks 'disallowed' for the phase is not offered at all.
+
+   THE PLAN'S CHOICE IS FIRST AND TICKED, and keeping it changes nothing.
+
+   PROVENANCE. A library workout keeps its Sacoro structure (it is Sacoro's)
+   and is marked athleteModified with what it was derived from; Run/Walk,
+   Easy Progression and Make Your Own are athlete-authored (athletePrescription),
+   so nothing downstream claims to know more about them than their type and
+   distance. Either way manualEdit.from keeps what was planned, and while it
+   does, Change Workout offers it back first: "Back to the Plan". */
+var WK_FAMILIES = [['easy','Easy'], ['tempo','Tempo'], ['threshold','Threshold'], ['interval','Interval']];
+var WK_MAX_OPTIONS = 4;
+var WK_FAMILY_OF_TYPE = { easy:'easy', long:'long', tempo:'tempo', threshold:'threshold',
+  over_under:'threshold', interval:'interval', repetition:'interval' };
+var WK_FAMILY_TYPE = { easy:'easy', long:'long', tempo:'tempo', threshold:'threshold', interval:'interval' };
+var WK_FAMILY_OPTIONS = {
+  easy:      ['easy_run', 'run_walk', 'easy_strides', 'easy_progression'],
+  long:      ['long_run', 'run_walk'],
+  tempo:     ['progressive_tempo', 'steady_tempo', 'split_tempo', 'goal_pace_block'],
+  threshold: ['threshold_continuous', 'over_under'],
+  interval:  ['track_reps', 'ladder', 'deuce', 'hill_repeats', 'fartlek', 'goal_pace_reps']
+};
+var WK_NAMES = {
+  easy_run:'Easy Run', long_run:'Long Run', easy_strides:'Easy with Strides',
+  run_walk:'Run/Walk', easy_progression:'Easy Progression',
+  steady_tempo:'Steady Tempo', progressive_tempo:'Progressive Tempo', split_tempo:'Split Tempo',
+  goal_pace_block:'Goal Pace Block', threshold_continuous:'Threshold Run', over_under:'Over-Under',
+  track_reps:'Track Reps', short_reps:'Short Reps', ladder:'Ladder', deuce:'Deuce',
+  hill_repeats:'Hill Repeats', fartlek:'Fartlek', goal_pace_reps:'Goal Pace Reps'
+};
+var WK_PURPOSE = {
+  run_walk: 'The same time on your feet, with walking breaks built in. The walking counts.',
+  easy_progression: 'Starts easy and finishes at a comfortable, steady effort.'
+};
+var WK_GENERATORS = {
+  steady_tempo:         { kind:'tempo', make:function(p, e){ return structSteadyTempo(p, e); } },
+  progressive_tempo:    { kind:'tempo', make:function(p, e){ return structProgressiveTempo(p, e); } },
+  split_tempo:          { kind:'tempo', make:function(p, e){ return structSplitTempo(p, e); } },
+  goal_pace_block:      { kind:'tempo', goal:true, make:function(p, e){ return structGoalPaceBlock(p, e); } },
+  threshold_continuous: { kind:'tempo', make:function(p, e){ return structThresholdContinuous(p, e); } },
+  over_under:           { kind:'tempo', make:function(p){ var c = Math.round(lerp(3, 6, p)); return { type:'over_under', cycles:c, km:c * 2 }; } },
+  track_reps:           { kind:'interval', make:function(p, e){ var s = structTrackIntervals(p, e); s.t = 'interval'; return s; } },
+  ladder:               { kind:'interval', make:function(p, e){ return structLadder(p, e); } },
+  deuce:                { kind:'interval', make:function(p, e){ return structDeuce(p, e); } },
+  hill_repeats:         { kind:'interval', make:function(p, e){ return structHillRepeats(p, e); } },
+  fartlek:              { kind:'interval', make:function(p, e){ return structFartlek(p, e); } },
+  goal_pace_reps:       { kind:'interval', goal:true, make:function(p, e){ return structGoalPaceIntervals(p, e); } }
+};
+/* Walking, for the run/walk arithmetic only: a brisk walk, about 6.3 km/h. */
+var WK_WALK_SEC_PER_KM = 570;
+var WK_LIBRARY_RANK = { preferred:0, allowed:1, discouraged:2 };
+/* Easy-day shapes that are not a library archetype of their own: the phase
+   rules of WORKOUT_LIBRARY do not speak for them (easy_strides' entry is the
+   race-week sharpener, not an easy run with strides at the end). */
+var WK_NOT_LIBRARY = { run_walk:true, easy_progression:true, easy_strides:true };
+var WK_OWN_KINDS = [['run_walk','Run/Walk'], ['reps','Reps'], ['steady','Steady']];
+
+function wkCanChange(dd){
+  if (!dd || !(dd.km > 0) || !WK_FAMILY_OF_TYPE[dd.type]) return false;
+  if (/Shakeout/.test(dd.title || '')) return false;
+  try { return canEditPrescription(dd); } catch(e){ return false; }
+}
+function wkFamilyOf(dd){ return WK_FAMILY_OF_TYPE[dd && dd.type] || 'easy'; }
+function wkPhaseOf(dd){
+  try {
+    var su = state.setup || {};
+    return phaseForWeek(dd.week, su.planWeeks, planPurpose(su), su.distanceKey, su.experience);
+  } catch(e){ return null; }
+}
+function wkPaceSec(intensity){
+  try {
+    var s = midPaceForIntensity(intensity, getActivePaces(), getGoalPaceSecPerKm());
+    return s > 0 ? s : null;
+  } catch(e){ return null; }
+}
+function wkAt(intensity){
+  var s = wkPaceSec(intensity);
+  return s ? ' @ ' + fmtPaceFromSecPerKm(s) : '';
+}
+/* The dose a card shows: the work itself and its pace, in the athlete's units. */
+function wkDose(p){
+  var q = (p && p.params) || {};
+  switch (p && p.archetype){
+    case 'easy_run': case 'long_run': return fmtDist(q.km) + wkAt('easy');
+    case 'easy_strides': return fmtDist(q.easyKm) + ' easy, then ' + q.reps + ' x ' + q.m + 'm strides';
+    case 'steady_tempo': return q.min + ' min' + wkAt('steady');
+    case 'progressive_tempo':
+      var from = wkPaceSec('easy'), to = wkPaceSec('tempo');
+      return q.min + ' min' + (from && to
+        ? ', ' + secToPace(paceSecToDisplay((from + to) / 2)) + ' to ' + fmtPaceFromSecPerKm(to) : '');
+    case 'split_tempo': return (q.split || 2) + ' x ' + Math.round(q.min / (q.split || 2)) + ' min' + wkAt('tempo');
+    case 'threshold_continuous': return fmtDist(q.km) + wkAt('threshold');
+    case 'goal_pace_block': return fmtDist(q.km) + wkAt('goal_pace');
+    case 'over_under': return q.cycles + ' x (' + fmtDist(1) + ' tempo, ' + fmtDist(1) + ' threshold)';
+    case 'track_reps': return q.reps + ' x ' + q.m + 'm' + wkAt('interval');
+    case 'short_reps': return q.reps + ' x ' + q.m + 'm' + wkAt('repetition');
+    case 'goal_pace_reps': return q.reps + ' x ' + q.m + 'm' + wkAt('goal_pace');
+    case 'ladder': return (q.rungs || []).join(', ') + 'm' + wkAt('interval');
+    case 'deuce': return (q.sets > 1 ? q.sets + ' sets of ' : '') + q.reps + ' x ' + q.m + 'm' + wkAt('interval');
+    case 'hill_repeats': return q.reps + ' x ' + q.sec + ' sec uphill';
+    case 'fartlek': return q.reps + ' x ' + q.min + ' min surges';
+  }
+  if (p && p.archetype === ATHLETE_ARCHETYPE) return q.dose || fmtDist(q.km);
+  return '';
+}
+/* The largest dose of a structure that fits the day, as the plan sizes one. */
+function wkSizedSpec(gen, km, emphasis){
+  var cost = function(s){ return gen.kind === 'interval' ? intervalSessionKm(s) : tempoSessionKm(s); };
+  for (var i = 20; i >= 0; i--){
+    var s = gen.make(i / 20, emphasis);
+    if (cost(s) <= km + 1e-9) return s;
+  }
+  var low = gen.make(0, emphasis);
+  var shrunk = gen.kind === 'interval' ? shrinkIntervalSpec(low, km) : shrinkTempoSpec(low, km);
+  return cost(shrunk) <= km + 0.5 ? shrunk : null;
+}
+/* Run/walk sized to the same time on the feet as the run it replaces. */
+function wkRunWalkOption(km, runMin, walkMin, reps){
+  var easy = wkPaceSec('easy') || 390;
+  if (!(reps > 0)) reps = Math.max(3, Math.round((km * easy / 60) / (runMin + walkMin)));
+  var outKm = round1(Math.round(reps * (runMin * 60 / easy + walkMin * 60 / WK_WALK_SEC_PER_KM) * 2) / 2);
+  var mins = Math.round(reps * (runMin + walkMin));
+  var dose = 'Run ' + runMin + ' min, walk ' + walkMin + ' min, ' + reps + ' times';
+  return { km:outKm, mins:mins, dose:dose, type:'easy',
+    title:'Run/Walk: ' + runMin + ' min run, ' + walkMin + ' min walk',
+    desc:dose + '. About ' + mins + ' minutes on your feet, around ' + dtok(outKm) + '. The walking counts.',
+    structure:{ kind:'run_walk', runMin:runMin, walkMin:walkMin, reps:reps } };
+}
+function wkCustomPrescription(o, name, from){
+  var p = athletePrescription({ km:o.km, type:o.type, name:name });
+  p.derivedFrom = from || null;
+  p.params.dose = o.dose;
+  p.params.structure = o.structure || null;
+  return p;
+}
+function wkPlannedName(dd){
+  var p = dd.prescription;
+  if (p && p.archetype === ATHLETE_ARCHETYPE) return (p.params && p.params.name) || dd.title;
+  return (p && WK_NAMES[p.archetype]) || dd.title;
+}
+function wkOption(dd, id, purpose){
+  var km = dd.km, from = dd.prescription ? dd.prescription.archetype : null;
+  var lib = (typeof WORKOUT_LIBRARY !== 'undefined' && WORKOUT_LIBRARY[id]) || null;
+  var why = WK_PURPOSE[id] || (lib && lib.purpose) || '';
+  var o = { id:id, name:WK_NAMES[id] || id, why:why };
+  if (id === 'run_walk'){
+    var rw = wkRunWalkOption(km, 4, 1);
+    o.dose = rw.dose;
+    o.apply = { type:dd.type === 'long' ? 'long' : 'easy', title:rw.title, desc:rw.desc, km:rw.km,
+      prescription:wkCustomPrescription({ km:rw.km, type:dd.type === 'long' ? 'long' : 'easy', dose:rw.dose, structure:rw.structure }, 'Run/Walk', from) };
+    return o;
+  }
+  if (id === 'easy_progression'){
+    o.dose = fmtDist(km) + ', the last 10 min steadier';
+    o.apply = { type:'easy', title:'Easy Progression', km:km,
+      desc:dtok(km) + ' @ Easy pace, the last 10 minutes at a comfortable, steady effort.',
+      prescription:wkCustomPrescription({ km:km, type:'easy', dose:o.dose }, 'Easy Progression', from) };
+    return o;
+  }
+  var p = null;
+  if (id === 'easy_run' || id === 'long_run') p = { archetype:id, params:{ km:km } };
+  else if (id === 'easy_strides'){
+    /* An easy run that finishes with strides, as the Marathon Base writes it
+       (addDevelopingMarathonStrides): still an easy day. The easy_strides
+       archetype is the race-week sharpener and is typed as quality. */
+    o.dose = fmtDist(km) + ' easy, then 6 x 100m strides';
+    o.apply = { type:'easy', title:'Easy Aerobic + Strides', km:km,
+      desc:easyRunText(km).desc + BASE_STRIDES_NOTE,
+      prescription:{ v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:km },
+                     athleteModified:true, derivedFrom:from } };
+    return o;
+  } else {
+    var gen = WK_GENERATORS[id];
+    if (!gen) return null;
+    if (gen.goal && !wkPaceSec('goal_pace')) return null;
+    var prof = (state.setup && DISTANCE_PROFILES[state.setup.distanceKey]) || {};
+    var spec = wkSizedSpec(gen, km, prof.emphasis);
+    if (!spec) return null;
+    p = prescriptionFromSpec(spec, gen.kind);
+  }
+  var t = null;
+  try { t = textFor(p, null, km); } catch(e){ t = null; }
+  if (!t) return null;
+  o.dose = wkDose(p);
+  o.apply = { type:t.type, title:t.title, desc:t.desc, km:km, mpSegment:!!t.mpSegment,
+    prescription:{ v:PRESCRIPTION_VERSION, archetype:p.archetype, params:p.params,
+                   athleteModified:true, derivedFrom:from } };
+  return o;
+}
+/* Up to four: the plan's choice first where this is its family, then what
+   the library prefers for this week's phase. */
+function wkOptions(dd, fam){
+  var out = [], planned = wkFamilyOf(dd) === fam;
+  var plannedArch = dd.prescription && dd.prescription.archetype;
+  if (planned) out.push({ id:'planned', planned:true, name:wkPlannedName(dd),
+    dose:wkDose(prescriptionOf(dd) || dd.prescription) || fmtDist(dd.km),
+    why:dd.manualEdit ? 'Your change to this session.' : 'The plan’s choice for this session.' });
+  /* The plan's own session, offered back while the day carries an edit. */
+  var was = dd.manualEdit && dd.manualEdit.from;
+  if (was && was.type && WK_FAMILY_OF_TYPE[was.type] === fam && was.km > 0)
+    out.push({ id:'original', restore:true, name:'Back to the Plan', apply:{},
+      dose:was.title + ', ' + fmtDist(was.km), why:'The session the plan wrote for this day.' });
+  var phase = wkPhaseOf(dd);
+  var ids = (WK_FAMILY_OPTIONS[fam] || []).filter(function(id){
+    if (planned && id === plannedArch) return false;
+    if (WK_NOT_LIBRARY[id]) return true;
+    var lib = (typeof WORKOUT_LIBRARY !== 'undefined' && WORKOUT_LIBRARY[id]) || null;
+    return !(lib && phase && lib.phase && lib.phase[phase] === 'disallowed');
+  });
+  ids.sort(function(a, b){
+    var la = WK_NOT_LIBRARY[a] ? null : WORKOUT_LIBRARY[a], lb = WK_NOT_LIBRARY[b] ? null : WORKOUT_LIBRARY[b];
+    var ra = la && phase && la.phase ? WK_LIBRARY_RANK[la.phase[phase]] : 1;
+    var rb = lb && phase && lb.phase ? WK_LIBRARY_RANK[lb.phase[phase]] : 1;
+    return (ra == null ? 1 : ra) - (rb == null ? 1 : rb);
+  });
+  for (var i = 0; i < ids.length && out.length < WK_MAX_OPTIONS; i++){
+    var o = null;
+    try { o = wkOption(dd, ids[i]); } catch(e){ o = null; }
+    if (o) out.push(o);
+  }
+  return out;
+}
+/* ---- WHAT IS ON THE SHEET ---- */
+var wkState = null;
+function wkStateFor(dd){
+  if (!wkState || wkState.dayId !== dd.id)
+    wkState = { dayId:dd.id, fam:wkFamilyOf(dd), picked:'planned', mode:'list', opts:[],
+                own:{ kind:'run_walk', a:4, b:4, n:5 } };
+  return wkState;
+}
+function wkTabsFor(dd){
+  return (dd.type === 'long' ? [['long','Long']] : []).concat(WK_FAMILIES);
+}
+function wkPickerHtml(dd){
+  var st = wkStateFor(dd);
+  if (st.mode === 'own') return wkOwnHtml(dd, st);
+  st.opts = wkOptions(dd, st.fam);
+  if (!st.opts.some(function(o){ return o.id === st.picked; })) st.picked = st.opts.length ? st.opts[0].id : null;
+  var cls = (TYPE_META[WK_FAMILY_TYPE[st.fam]] || {}).cls || 'easy';
+  var same = st.fam === wkFamilyOf(dd);
+  var say = same
+    ? (st.fam === 'easy' || st.fam === 'long' ? 'Same day, same time on your feet.'
+       : (dd.week ? 'Week ' + dd.week + ' of your plan. ' : '') + 'Same ' + fmtDist(dd.km) + ', same weekly load.')
+    : (WK_FAMILIES.concat([['long','Long']]).filter(function(f){ return f[0] === st.fam; })[0] || ['', 'This'])[1] +
+      ' instead of ' + ((TYPE_META[dd.type] || {}).label || 'this session').toLowerCase() + ' this week. Same ' + fmtDist(dd.km) + '.';
+  return '<div class="wo-tabs" role="tablist">'+
+      wkTabsFor(dd).map(function(f){
+        return '<button type="button" class="wo-tab'+(f[0] === st.fam ? ' on' : '')+'" role="tab" aria-selected="'+
+          (f[0] === st.fam ? 'true' : 'false')+'" data-action="wk-tab" data-fam="'+f[0]+'">'+escapeHtml(f[1])+'</button>';
+      }).join('')+
+    '</div>'+
+    '<p class="wo-say">'+escapeHtml(say)+'</p>'+
+    '<div class="wo-list" role="radiogroup" aria-label="Workouts">'+
+      st.opts.map(function(o){
+        var on = o.id === st.picked;
+        return '<button type="button" class="wo-card type-'+cls+(on ? ' on' : '')+'" role="radio" aria-checked="'+
+            (on ? 'true' : 'false')+'" data-action="wk-pick" data-wk="'+escapeHtml(o.id)+'">'+
+          '<span class="wo-rail" aria-hidden="true"></span>'+
+          '<span class="wo-main"><span class="wo-name">'+escapeHtml(o.name)+'</span>'+
+            '<span class="wo-dose">'+escapeHtml(o.dose || '')+'</span>'+
+            (on && o.why ? '<span class="wo-why">'+escapeHtml(o.why)+'</span>' : '')+'</span>'+
+          '<span class="wo-tick" aria-hidden="true"></span>'+
+        '</button>';
+      }).join('')+
+    '</div>'+
+    '<button type="button" class="wo-own" data-action="wk-own"><span>Make Your Own</span>'+
+      '<span class="wo-own-sub">Run, walk or reps your way</span></button>';
+}
+/* ---- MAKE YOUR OWN ----
+   Three shapes cover what athletes build: run/walk, reps with recoveries and
+   one steady block. Every figure is chosen on the app's time wheel, never a
+   keyboard. The distance is estimated from the athlete's own zone paces, and
+   where it differs from the planned session the sheet says so, because the
+   week's total moves with it. */
+function wkOwnOption(dd, own){
+  var easy = wkPaceSec('easy') || 390;
+  var a = own.a, b = own.b, n = own.n, o;
+  if (own.kind === 'run_walk'){
+    o = wkRunWalkOption(0, a, b, n);
+  } else if (own.kind === 'reps'){
+    var hard = wkPaceSec('interval') || easy * 0.8;
+    var kmR = round1(Math.round(n * (a * 60 / hard + b * 60 / easy) * 2) / 2);
+    var doseR = n + ' x ' + a + ' min hard, ' + b + ' min easy';
+    o = { km:kmR, mins:n * (a + b), dose:doseR, type:'interval', title:'Reps: ' + doseR,
+      desc:doseR + '. Hard is a strong, controlled effort; easy is a gentle jog. About ' + n * (a + b) + ' minutes, around ' + dtok(kmR) + '.',
+      structure:{ kind:'reps', workMin:a, easyMin:b, reps:n } };
+  } else {
+    var steady = wkPaceSec('steady') || easy * 0.9;
+    var kmS = round1(Math.round(a * 60 / steady * 2) / 2);
+    var doseS = a + ' min steady';
+    o = { km:kmS, mins:a, dose:doseS, type:'tempo', title:'Steady: ' + a + ' min',
+      desc:a + ' minutes at a strong, steady effort, around ' + dtok(kmS) + '.',
+      structure:{ kind:'steady', min:a } };
+  }
+  return { id:'own', name:'Your Own Workout', dose:o.dose, own:o,
+    apply:{ type:o.type, title:o.title, desc:o.desc, km:o.km,
+      prescription:wkCustomPrescription(o, 'Your Own Workout', dd.prescription ? dd.prescription.archetype : null) } };
+}
+function wkOwnSummary(dd, own){
+  var o = wkOwnOption(dd, own).own;
+  var diff = round1(o.km - dd.km);
+  return '<b>'+o.mins+' min</b> in total, about <b>'+escapeHtml(fmtDist(o.km))+'</b>.'+
+    (Math.abs(diff) >= 0.5 ? ' That is '+escapeHtml(fmtDist(Math.abs(diff)))+(diff < 0 ? ' less' : ' more')+
+      ' than planned, so this week’s total moves with it.' : '');
+}
+function wkOwnHtml(dd, st){
+  var own = st.own;
+  var row = function(label, key, wheel, val){
+    return '<label class="wo-own-row"><span class="wo-own-k">'+label+'</span>'+
+      '<input type="text" class="wo-own-v tw-field" readonly inputmode="none" data-wheel="'+wheel+'" '+
+        'data-action="wk-own-field" data-own="'+key+'" data-wheel-title="'+label+'" value="'+escapeHtml(timeWheelFormat(wheel, wheel === 'count' ? { n:val } : { m:val }))+'"></label>';
+  };
+  var rows = own.kind === 'run_walk' ? row('Run', 'a', 'min', own.a) + row('Walk', 'b', 'min', own.b) + row('Repeat', 'n', 'count', own.n)
+           : own.kind === 'reps' ? row('Hard', 'a', 'min', own.a) + row('Easy', 'b', 'min', own.b) + row('Repeat', 'n', 'count', own.n)
+           : row('Steady', 'a', 'min', own.a);
+  return '<div class="wo-own-kinds" role="radiogroup" aria-label="Kind of workout">'+
+      WK_OWN_KINDS.map(function(k){
+        var on = k[0] === own.kind;
+        return '<button type="button" class="wo-own-kind'+(on ? ' on' : '')+'" role="radio" aria-checked="'+(on ? 'true' : 'false')+'" '+
+          'data-action="wk-own-kind" data-kind="'+k[0]+'">'+k[1]+'</button>';
+      }).join('')+
+    '</div>'+
+    '<div class="wo-own-rows">'+rows+'</div>'+
+    '<div class="wo-own-sum" id="wk-own-sum">'+wkOwnSummary(dd, own)+'</div>';
+}
+/* The sheet's own Back and primary follow the view: in Make Your Own, Back
+   returns to the list rather than to Edit Session. */
+function wkSyncActions(){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  var back = document.getElementById('es-back'), go = document.getElementById('es-primary');
+  var own = wkState && wkState.mode === 'own';
+  if (back){
+    back.textContent = own ? 'Back' : 'Keep Planned Workout';
+    back.setAttribute('data-action', own ? 'wk-own-back' : 'es-page-close');
+  }
+  if (go){ go.textContent = 'Use This Workout'; go.setAttribute('data-action', 'wk-use'); }
+}
+function wkRender(){
+  if (!wkState || typeof document === 'undefined' || !document.getElementById) return;
+  var host = document.getElementById('wk-pick'), dd = findDay(wkState.dayId);
+  if (!host || !dd) return;
+  host.innerHTML = wkPickerHtml(dd);
+  wkSyncActions();
+}
+function handleWkTab(fam){
+  if (!wkState || !WK_FAMILY_OPTIONS[fam]) return;
+  wkState.fam = fam; wkState.picked = null; wkState.mode = 'list';
+  wkRender();
+}
+function handleWkPick(id){
+  if (!wkState) return;
+  wkState.picked = id;
+  wkRender();
+}
+function handleWkOwn(open){
+  if (!wkState) return;
+  wkState.mode = open ? 'own' : 'list';
+  wkRender();
+}
+function handleWkOwnKind(kind){
+  if (!wkState) return;
+  var own = wkState.own;
+  if (kind === own.kind) return;
+  own.kind = kind;
+  if (kind === 'run_walk'){ own.a = 4; own.b = 4; own.n = 5; }
+  else if (kind === 'reps'){ own.a = 3; own.b = 2; own.n = 6; }
+  else { own.a = 20; }
+  wkRender();
+}
+function handleWkOwnField(el){
+  if (!wkState || !el || !el.getAttribute) return;
+  var key = el.getAttribute('data-own'), wheel = el.getAttribute('data-wheel');
+  var v = timeWheelParse(wheel, el.value);
+  var n = v ? (wheel === 'count' ? v.n : v.m) : null;
+  if (!(n > 0) || (key !== 'a' && key !== 'b' && key !== 'n')) return;
+  wkState.own[key] = n;
+  var sum = document.getElementById('wk-own-sum'), dd = findDay(wkState.dayId);
+  if (sum && dd) sum.innerHTML = wkOwnSummary(dd, wkState.own);
+}
+/* Writing it to the day. The planned session is kept in manualEdit.from the
+   first time, exactly as Save does. "Back to the Plan" writes that back and
+   the day is the plan's again, with no edit left on it. */
+function wkApply(dd, opt){
+  if (!dd || !opt || !opt.apply || !canEditPrescription(dd)) return false;
+  var a = opt.apply;
+  if (opt.restore){
+    var f = dd.manualEdit && dd.manualEdit.from;
+    if (!f) return false;
+    dd.type = f.type; dd.title = f.title; dd.km = f.km; dd.desc = f.desc; dd.mpSegment = !!f.mpSegment;
+    if (f.prescription) dd.prescription = JSON.parse(JSON.stringify(f.prescription)); else delete dd.prescription;
+    delete dd.manualEdit;
+    return true;
+  }
+  var before = { title:dd.title, type:dd.type, km:dd.km, desc:dd.desc, mpSegment:!!dd.mpSegment,
+                 prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+  var changed = ['workout'];
+  if (a.type !== dd.type) changed.push('type');
+  if (a.title !== dd.title) changed.push('title');
+  if (a.km > 0 && a.km !== dd.km) changed.push('km');
+  changed.push('desc');
+  dd.type = a.type; dd.title = a.title; dd.desc = a.desc;
+  if (a.km > 0) dd.km = a.km;
+  dd.mpSegment = !!a.mpSegment;
+  dd.prescription = a.prescription;
+  delete dd.athleteReset;
+  if (!dd.manualEdit) dd.manualEdit = { at:new Date().toISOString(), fields:[], from:before };
+  dd.manualEdit.at = new Date().toISOString();
+  changed.forEach(function(f){ if (dd.manualEdit.fields.indexOf(f) === -1) dd.manualEdit.fields.push(f); });
+  return true;
+}
+function handleWkUse(){
+  var st = wkState, dd = st ? findDay(st.dayId) : null;
+  if (!dd) return;
+  var opt = st.mode === 'own' ? wkOwnOption(dd, st.own)
+          : (st.opts || []).filter(function(o){ return o.id === st.picked; })[0];
+  if (!opt || opt.planned){ closeModal(); return; }
+  if (!wkApply(dd, opt)) return;
+  showToast(opt.restore ? 'Back to the plan\u2019s session' : 'Workout changed to ' + (st.mode === 'own' ? 'your own' : opt.name));
+  wkState = null;
+  closeModal();
+  scheduleSave();
+  renderApp();
+}
 
 function findDay(dayId){
   var found = null;
@@ -78149,13 +78667,18 @@ var TIME_WHEEL_FIELDS = [
   { sel:'#su-bench-time, #rc-bench-time', mode:'hms', title:'Benchmark Time' },
   { sel:'[data-action="actual-field"][data-field="pace"], [data-action="slog-field"][data-field="pace"]', mode:'pace', title:'Average Pace' },
   { sel:'.pzr-input', mode:'pace', title:'Zone Pace' },
-  { sel:'[data-action="split-field"][data-field="sec"]', mode:'ms', title:'Lap Time' }
+  { sel:'[data-action="split-field"][data-field="sec"]', mode:'ms', title:'Lap Time' },
+  /* Make Your Own (Change Workout): whole minutes, and how many times. */
+  { sel:'[data-wheel="min"]', mode:'min', title:'Minutes' },
+  { sel:'[data-wheel="count"]', mode:'count', title:'Repeats' }
 ];
 var TIME_WHEEL_ROW = 44;
 var TIME_WHEEL_COLS = {
   hms:  [ { key:'h', label:'Hours',   min:0, max:23 }, { key:'m', label:'Minutes', min:0, max:59 }, { key:'s', label:'Seconds', min:0, max:59 } ],
   pace: [ { key:'m', label:'Minutes', min:2, max:15 }, { key:'s', label:'Seconds', min:0, max:59 } ],
-  ms:   [ { key:'m', label:'Minutes', min:0, max:59 }, { key:'s', label:'Seconds', min:0, max:59 } ]
+  ms:   [ { key:'m', label:'Minutes', min:0, max:59 }, { key:'s', label:'Seconds', min:0, max:59 } ],
+  min:  [ { key:'m', label:'Minutes', min:1, max:90 } ],
+  count:[ { key:'n', label:'Times',   min:1, max:40 } ]
 };
 function timeWheelFieldFor(el){
   if (!el || !el.matches) return null;
@@ -78167,10 +78690,17 @@ function twPad(n){ return (n < 10 ? '0' : '') + n; }
 /* The value each field already understands: h:mm:ss, or m:ss when the
    hour is nought (the benchmark's own "23:25" form); pace is always m:ss. */
 function timeWheelFormat(mode, v){
+  if (mode === 'min') return v.m + ' min';
+  if (mode === 'count') return v.n + (v.n === 1 ? ' time' : ' times');
   if (mode === 'hms') return v.h ? v.h + ':' + twPad(v.m) + ':' + twPad(v.s) : v.m + ':' + twPad(v.s);
   return v.m + ':' + twPad(v.s);
 }
 function timeWheelParse(mode, str){
+  if (mode === 'min' || mode === 'count'){
+    var whole = parseInt(String(str || '').replace(/\D/g, ''), 10);
+    if (!(whole > 0)) return null;
+    return mode === 'min' ? { m:whole } : { n:whole };
+  }
   var sec = parseBenchmarkTime(str);
   if (sec == null){
     var digits = String(str || '').replace(/\D/g, '');
@@ -78180,7 +78710,7 @@ function timeWheelParse(mode, str){
   if (mode === 'hms') return { h: Math.floor(sec / 3600), m: Math.floor(sec / 60) % 60, s: sec % 60 };
   return { m: Math.floor(sec / 60), s: sec % 60 };
 }
-var TIME_WHEEL_START = { hms:{ h:0, m:45, s:0 }, pace:{ m:5, s:0 }, ms:{ m:4, s:0 } };
+var TIME_WHEEL_START = { hms:{ h:0, m:45, s:0 }, pace:{ m:5, s:0 }, ms:{ m:4, s:0 }, min:{ m:4 }, count:{ n:5 } };
 /* WHERE AN EMPTY WHEEL STARTS. Founder-approved audit fix: an empty field
    opened on 45:00 or 5:00 whoever the athlete was, so a marathon goal began
    three hours away from anything sensible. The wheel now starts near the
@@ -78256,7 +78786,7 @@ function timeWheelSheetHtml(field, v){
       cols.map(function(c){
         var items = '';
         for (var n = c.min; n <= c.max; n++)
-          items += '<div class="tw-item" data-v="'+n+'">'+(field.mode === 'pace' && c.key === 'm' ? n : twPad(n))+'</div>';
+          items += '<div class="tw-item" data-v="'+n+'">'+((field.mode === 'pace' && c.key === 'm') || field.mode === 'min' || field.mode === 'count' ? n : twPad(n))+'</div>';
         return '<div class="tw-col" data-col="'+c.key+'" data-min="'+c.min+'" tabindex="0" role="listbox" '+
           'aria-label="'+c.label+'"><div class="tw-pad"></div>'+items+'<div class="tw-pad"></div></div>';
       }).join('')+
@@ -78269,6 +78799,9 @@ var timeWheelOpen = null;
 function openTimeWheel(input){
   var field = timeWheelFieldFor(input);
   if (!field || typeof document === 'undefined') return;
+  /* A field may name its own wheel (Make Your Own: Run, Walk, Repeat). */
+  var named = input.getAttribute && input.getAttribute('data-wheel-title');
+  if (named) field = { sel:field.sel, mode:field.mode, title:named };
   closeTimeWheel();
   var v = timeWheelParse(field.mode, input.value) || timeWheelLikelyStart(input, field) ||
           JSON.parse(JSON.stringify(TIME_WHEEL_START[field.mode]));
@@ -79666,6 +80199,12 @@ document.addEventListener('click', function(e){
     case 'set-goal': handleSetGoal(target.getAttribute('data-goal')); break;
     case 'ef-swap-pick': handleEditSwapPick(target.getAttribute('data-swap')); break;
     case 'ef-type-pick': handleEditTypePick(target.getAttribute('data-type')); break;
+    case 'wk-tab': handleWkTab(target.getAttribute('data-fam')); break;
+    case 'wk-pick': handleWkPick(target.getAttribute('data-wk')); break;
+    case 'wk-own': handleWkOwn(true); break;
+    case 'wk-own-back': handleWkOwn(false); break;
+    case 'wk-own-kind': handleWkOwnKind(target.getAttribute('data-kind')); break;
+    case 'wk-use': handleWkUse(); break;
     case 'checkpoint-accept': handleCheckpointAccept(target.getAttribute('data-goal')); break;
     case 'checkpoint-decline': handleCheckpointDecline(); break;
     case 'open-edit': vtOpenEdit(target, target.getAttribute('data-day')); break;
@@ -79977,6 +80516,7 @@ document.addEventListener('change', function(e){
   else if (action === 'split-field') handleSplitFieldChange(actionEl.getAttribute('data-day'), parseInt(actionEl.getAttribute('data-index'),10), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'slog-field') handleStructuredSplitChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-seg'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
+  else if (action === 'wk-own-field') handleWkOwnField(actionEl);
   else if (action === 'toggle-notify') handleToggleNotify();
   else if (action === 'circle-toggle-sharing') handleCircleSetting('sharing', !!t.checked);
   else if (action === 'circle-toggle-km') handleCircleSetting('km', !!t.checked);
