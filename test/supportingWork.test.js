@@ -773,19 +773,23 @@ test('the Settings control reflects and toggles the stored preference', () => {
 });
 
 test('logging is additive and declining is remembered', () => {
-  const a = app({});
-  const items = week(a, a.currentWeekNum());
-  if (!items.length) return;
   /* THE DAY HAS TO BE TODAY NOW. Supporting work inherits the running
      session's date rule, so handleSupportDone() refuses a day that has not
-     arrived -- which is the point of that change, and used to be the bug. The
-     week's first companion is not necessarily today's, so the day under test
-     is moved onto today rather than the rule being worked around. */
-  const dd = a.state.days.filter(d => d.id === items[0].dayId)[0];
-  dd.date = a.todayStr(); dd.id = dd.date;
+     arrived -- which is the point of that change, and used to be the bug.
+     The athlete is placed on the day of a companion rather than the day being
+     moved, because a companion is chosen by its neighbours: moved, it is no
+     longer the same day. */
+  const start = '2026-07-30';
+  const probe = app({ plan: { startDate: start } });
+  const items = week(probe, probe.currentWeekNum()).concat(week(probe, probe.currentWeekNum() + 1));
+  if (!items.length) return;
+  const on = probe.state.days.filter(d => d.id === items[0].dayId)[0].date;
+  const a = app({ today: on, plan: { startDate: start } });
+  const dd = a.state.days.filter(d => d.date === on)[0];
+  assert.ok(a.supportForDay(dd), 'the companion moved with the day it was read on');
   const km = dd.km, type = dd.type, completed = dd.completed;
   a.handleSupportDone(dd.id);
-  assert.ok(dd.support.completedAt, 'nothing was logged');
+  assert.ok(dd.support && dd.support.completedAt, 'nothing was logged');
   assert.equal(dd.km, km); assert.equal(dd.type, type); assert.equal(dd.completed, completed);
   const dd2 = a.state.days.filter(d => d.type === 'easy')[1];
   a.handleSupportSkip(dd2.id);

@@ -189,18 +189,15 @@ test('LONG RUNWAY — a half hands its surplus off rather than growing a Base', 
                JSON.stringify(a.marathonRunwayPlan(24, 40, 'full')));
 });
 
-test('CURRENT WEEKLY VOLUME — a Race Goal block no longer reads the typed number', () => {
-  /* THE CONTRACT APP IS PARKED ON. The builder will remove the Current Weekly
-     Volume field, and it can only do so once nothing in Race Goal generation
-     depends on it. Asserted the only way that can be asserted: build the same
-     athlete's block at wildly different typed volumes and compare the weeks
-     the athlete actually receives.
-
-     THREE FIELDS ARE ALLOWED TO DIFFER and all three are the legacy ramp
-     talking about itself -- peakVolume and startVolume on the block, rampVolume
-     on the week. They are recorded, nothing reads them, and the accounting
-     keeps them so the difference between the old architecture and this one
-     stays inspectable. */
+test('CURRENT WEEKLY VOLUME — a Race Goal block opens from the declared number, toward the same destination', () => {
+  /* ---- SUPERSEDED 14 NOVEMBER 2026 ----
+     This contract used to prove a Race Goal block ignored the typed figure
+     (the builder was going to remove the field). The founder has ruled the
+     declared weekly volume the starting authority, so it now proves the
+     opposite half and keeps the half that still matters: the block OPENS
+     from the declaration, and the pathway's destination is the same at
+     every declaration below it -- a smaller number never lowers the
+     preparation the block is building toward. */
   const path = require('path');
   const { loadApp } = require(path.join(__dirname, 'harness.js'));
   const build = (dist, exp, vol) => {
@@ -210,16 +207,14 @@ test('CURRENT WEEKLY VOLUME — a Race Goal block no longer reads the typed numb
     return a.buildBlockWeeks(dist, vol, 15,
       { purpose:'race', availableDays:6, experience:exp, easyPaceSecPerKm:330 });
   };
-  const strip = w => { const c = Object.assign({}, w); delete c.rampVolume; return c; };
-
   [['half','novice'], ['half','experienced'], ['half','advanced'],
    ['full','novice'], ['full','experienced'], ['full','advanced']].forEach(([d, e]) => {
-    const ref = build(d, e, 20);
-    [null, 5, 40, 80, 200].forEach(v => {
-      const got = build(d, e, v);
-      assert.equal(JSON.stringify(got.weeks.map(strip)),
-                   JSON.stringify(ref.weeks.map(strip)),
-        d + '/' + e + ': a typed volume of ' + v + ' changed the prescribed weeks');
+    const ref = build(d, e, 20).weeks[0].bottomUp;
+    [10, 20, 30].forEach(v => {
+      const got = build(d, e, v).weeks[0].bottomUp;
+      assert.equal(got.entryKm, v, d + '/' + e + ': did not open from ' + v + 'km');
+      assert.equal(got.longDestKm + '/' + got.buildVolumeDestKm, ref.longDestKm + '/' + ref.buildVolumeDestKm,
+        d + '/' + e + ': a declaration of ' + v + 'km moved the destination');
     });
   });
 });

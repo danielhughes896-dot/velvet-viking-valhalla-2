@@ -56,6 +56,8 @@ function weeksOf(p, W, ignoreAdmission){
              taper:!!wk.isTaper, race:!!wk.isRace,
              km: Math.round(mand.reduce((t, d) => t + d.km, 0) * 10) / 10,
              lr: run.filter(d => d.type === 'long').reduce((m, d) => Math.max(m, d.km), 0),
+             easyKm: mand.filter(d => d.type === 'easy').reduce((t, d) => t + d.km, 0),
+             easyDays: mand.filter(d => d.type === 'easy').length,
              days: mand.length };
   });
 }
@@ -120,12 +122,21 @@ test('CUTBACK — an absorption week is a reduction, and it is roughly the one t
   assert.ok(n >= 56, 'only ' + n + ' cutbacks examined');
 });
 
+/* A5 (founder, 15 November 2026): "I don't want no 3km easy runs", and yes,
+   that means cutback weeks too: a week loses a run instead. So an absorption
+   week may run fewer days, and only as many fewer as its easy kilometres
+   force: it must keep every easy run those kilometres can fill at 5km or more
+   (allowing the kilometre of rounding up), up to the days the week before
+   ran. Advanced Half, twelve weeks, week four: 13km of easy running is two
+   runs of 6.5km, not four of 3.5km. */
+const cutbackMayLoseDay = (w, prev) =>
+  w.easyDays >= Math.min(prev.days - (w.days - w.easyDays), Math.floor((w.easyKm + 1 + 1e-9) / 5));
 test('CUTBACK — it reduces the dose and never the athlete\'s frequency', () => {
   each((key, wks) => {
     const dev = development(wks);
     dev.forEach((w, i) => {
       if (!w.cutback || i === 0) return;
-      assert.ok(w.days >= dev[i - 1].days,
+      assert.ok(w.days >= dev[i - 1].days || cutbackMayLoseDay(w, dev[i - 1]),
         key + ' week ' + w.w + ': the absorption week runs on ' + w.days +
         ' days against ' + dev[i - 1].days + ' the week before');
     });
@@ -160,7 +171,7 @@ test('CONTINUE MARATHON — a short runway still builds, and still builds safely
       assert.ok(w.km >= prev.km * 0.55,
         key + ' week ' + w.w + ': a cutback to ' + w.km + 'km from ' + prev.km +
         ' is not an absorption week, it is a week off');
-      assert.ok(w.days >= prev.days,
+      assert.ok(w.days >= prev.days || cutbackMayLoseDay(w, prev),
         key + ' week ' + w.w + ': the absorption week runs on ' + w.days +
         ' days against ' + prev.days + ' the week before');
     });

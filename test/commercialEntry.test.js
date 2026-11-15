@@ -123,13 +123,18 @@ test('the builder refuses input that would abuse the engine', () => {
     [{ weeks: 500 }, 'weeks_out_of_range'],
     [{ weeks: 1 }, 'weeks_out_of_range'],
     [{ volume: 9999 }, 'volume_out_of_range'],
-    [{ activeDays: [1] }, 'training_days_out_of_range'],
+    /* A5 (founder, 15 November 2026): the builder accepts one to seven
+       running days, so the refusal is now no days at all. */
+    [{ activeDays: [] }, 'training_days_out_of_range'],
+    [{ activeDays: [6] }, null],
     /* De-duplicated to seven distinct days -- once ABOVE the endpoint's own
        (looser) days:[2,7], now above the canonical builder's own 3-6, which
        assets/builder-spec.js's validation.daysRange makes this endpoint
        enforce too. Accepting eight running days was the drift this file's
        own header describes: a build the app itself could never generate. */
-    [{ activeDays: [1,2,3,4,5,6,0,1] , longRunDay: 6 }, 'training_days_out_of_range'],
+    /* ...and seven distinct days (eight entries, one repeated) is now inside
+       the canonical range the endpoint reads, so it is accepted. */
+    [{ activeDays: [1,2,3,4,5,6,0,1] , longRunDay: 6 }, null],
     [{ longRunDay: 4 }, 'long_run_day_not_a_training_day'],
     [{ benchmarkSeconds: 5 }, 'benchmark_out_of_range']
   ];

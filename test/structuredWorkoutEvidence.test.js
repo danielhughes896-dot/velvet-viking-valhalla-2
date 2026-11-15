@@ -147,12 +147,26 @@ test('carriesCovered looks inside the laps, so a seam cannot pass itself', () =>
 // =====================================================================
 
 const TODAY = '2026-09-02';
+/* The plan starts on TODAY and the athlete is on the day of its first
+   interval session: a 10K's opening weeks are aerobic, so that session is no
+   longer in the first week, and an import is only adopted on a day that has
+   happened. */
+let INTERVAL_DAY = null;
 function athlete(){
-  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
-  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
-  buildPlan(a, { distanceKey: '10k', volume: 50, weeks: 12, lthr: 172, maxHR: 188, startDate: TODAY });
+  const make = pin => {
+    const a = loadApp({ pinnedDate: pin + 'T09:00:00Z' });
+    a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+    buildPlan(a, { distanceKey: '10k', volume: 50, weeks: 12, lthr: 172, maxHR: 188, startDate: TODAY });
+    return a;
+  };
+  if (!INTERVAL_DAY){
+    const probe = make(TODAY).state.days.filter(d => d.type === 'interval')[0];
+    assert.ok(probe, 'no interval session to test against');
+    INTERVAL_DAY = probe.date;
+  }
+  const a = make(INTERVAL_DAY);
   const dd = a.state.days.filter(d => d.type === 'interval')[0];
-  assert.ok(dd, 'no interval session to test against');
+  assert.ok(dd && dd.date === INTERVAL_DAY, 'the plan moved with the day it was read on');
   return { a, dd };
 }
 /* The app's own ingest path, given the server's OWN normalised output -- the

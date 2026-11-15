@@ -203,11 +203,16 @@ test('the boundary is Race Goal entry, so the other purposes are untouched by it
 /* ---------- 5. THE RACE SURVIVES THE ROUTING ---------- */
 
 test('the race the athlete named is recorded before they are routed', () => {
-  const gen = SRC.slice(SRC.indexOf('var raceEntry = raceGoalEntry(volume);'),
-                        SRC.indexOf('MORE RUNWAY THAN THE RACE PROGRAMME WANTS'));
+  /* A4 (founder, 15 November 2026): the entry question is now the Choose
+     Your Pathway sheet, asked once the admission signature is known; the old
+     explanation is its fallback. The destination is still recorded first. */
+  const at = SRC.indexOf('A4: BELOW THE RACE GOAL ENTRY');
+  const gen = SRC.slice(at, SRC.indexOf('if (runwayOfferAnsweredFor !== admSig', at));
+  assert.ok(at > 0 && gen.length > 0);
   assert.ok(/setRaceDestination\(distanceKey, raceDate, goals, activeGoal\)/.test(gen),
     'the destination must be kept, with its goals, before the offer is shown');
-  assert.ok(/openRaceGoalEntryModal/.test(gen));
+  assert.ok(gen.indexOf('setRaceDestination(') < gen.indexOf('openPathwayOfferSheet('));
+  assert.ok(/openPathwayOfferSheet/.test(gen) && /openRaceGoalEntryModal/.test(gen));
   assert.ok(/return;/.test(gen), 'and nothing may be built past it');
 });
 

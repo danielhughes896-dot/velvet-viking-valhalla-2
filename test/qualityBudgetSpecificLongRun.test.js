@@ -161,17 +161,28 @@ test('half and marathon now stack two standalone Build sessions onto a specific 
   });
 });
 
-test('10K keeps its evidence-gated two standalone quality sessions and an aerobic long run', () => {
-  /* 10K was never part of the 5K quality-architecture correction -- it still
-     reads secondQualityExposurePermission() exactly as before. */
+test('10K now reaches two standalone Build sessions by tier at its five-day floor, with an aerobic long run throughout', () => {
+  /* 10K JOINED THE TIER RULE ON 14 NOVEMBER 2026 (founder authorisation,
+     "incorrect quality-session frequency"). It used to read
+     secondQualityExposurePermission() alone, which a first block can never
+     satisfy: the coaching audit found no 10K plan in 490 with a two-quality
+     week. It now has the 5K's shape at the Half's five-day floor: Build holds
+     two standalone sessions for Established/Advanced, every other phase one,
+     and the long run stays aerobic. */
   ['10k'].forEach(d => {
     [5,6,7].forEach(nd => {
       const { a, blk, days } = plan(d, nd, true);
       const rows = weekRows(a, blk, days);
       assert.equal(rows.filter(r => r.specificLong).length, 0,
         d + ': its long runs must stay aerobic under the current methodology');
-      assert.ok(rows.filter(r => r.standalone >= 2).length > rows.length / 2,
-        d + '/' + nd + 'd: a capable athlete must still reach two standalone quality sessions');
+      rows.forEach(r => {
+        const cap = r.phase === 'Build' ? 2 : 1;
+        assert.ok(r.standalone <= cap,
+          d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone + ' standalone sessions, cap ' + cap);
+      });
+      const build = rows.filter(r => r.phase === 'Build');
+      assert.ok(build.length > 0 && build.filter(r => r.standalone === 2).length > build.length / 2,
+        d + '/' + nd + 'd: a capable athlete must reach two standalone Build sessions in most Build weeks');
     });
   });
 });
@@ -204,13 +215,17 @@ test('5K now reaches two standalone Build sessions by tier at its own 4-day floo
   });
 });
 
-test('10K with no exposure evidence is completely unchanged', () => {
+test('10K below its five-day floor keeps one session; above it the tier rule applies without evidence', () => {
   ['10k'].forEach(d => {
-    [3,4,5,6,7].forEach(nd => {
+    [3,4].forEach(nd => {
       const { a, blk, days } = plan(d, nd, false);
       weekRows(a, blk, days).forEach(r => assert.ok(r.standalone <= 1,
-        d + '/' + nd + 'd week ' + r.week + ': ' + r.standalone +
-        ' standalone sessions without the earned exposure'));
+        d + '/' + nd + 'd week ' + r.week + ': ' + r.standalone + ' standalone sessions below the five-day floor'));
+    });
+    [5,6,7].forEach(nd => {
+      const { a, blk, days } = plan(d, nd, false);
+      weekRows(a, blk, days).forEach(r => assert.ok(r.standalone <= (r.phase === 'Build' ? 2 : 1),
+        d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone + ' standalone sessions'));
     });
   });
 });

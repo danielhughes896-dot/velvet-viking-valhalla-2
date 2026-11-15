@@ -137,9 +137,14 @@ test('current mileage does not become a permanent cap on the requirement', () =>
   });
   /* And the bound is still applied where it belongs: to each block as it is
      built, against the evidence that exists then. */
+  /* THE BOUND READS WHAT THE ATHLETE CARRIES, declared or demonstrated
+     (founder ruling, 14 November 2026: logs must not silently cap a block
+     below the athlete's declared volume). Here they declare 25 against a
+     demonstrated 24, so the bound is 25 x PEAK_OVER_DEMONSTRATED. */
   const blk = a.buildBlockWeeks('half', 25, 14, {});
-  assert.ok(blk.peakVolume <= a.demonstratedSustainableVolume() * a.PEAK_OVER_DEMONSTRATED + 0.05,
-    'buildBlockWeeks still bounds the peak by demonstrated capacity');
+  const carried = Math.max(a.demonstratedSustainableVolume(), 25);
+  assert.ok(blk.peakVolume <= carried * a.PEAK_OVER_DEMONSTRATED + 0.05,
+    'buildBlockWeeks still bounds the peak by what the athlete carries');
 });
 
 test('Maintain, Base and Speed are not subjected to race-readiness rejection', () => {

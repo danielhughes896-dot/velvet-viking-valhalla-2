@@ -29,7 +29,13 @@ function app(pin, before){
   const a = loadApp({ pinnedDate: (pin || PIN) + 'T07:00:00Z' });
   ['renderApp', 'showToast', 'flushSave', 'scheduleSave', 'replaceCard', 'patchDerivedStats', 'patchExecutionUI', 'patchSplitsTotal']
     .forEach(f => { a[f] = () => {}; });
-  buildPlan(a, { distanceKey: '10k', volume: 45, weeks: 12, lthr: 172, maxHR: 188, startDate: '2026-09-07', healthConsent: true });
+  /* A DEVELOPING ATHLETE, so one quality session a week alternates between
+     the rep and sustained families. Since 14 November 2026 an Established
+     five-day 10K Build week holds two quality sessions (the 10K joined the
+     tier rule), which would bring rep sessions round weekly; this fixture is
+     about the fortnightly rhythm. */
+  buildPlan(a, { distanceKey: '10k', volume: 45, weeks: 12, lthr: 172, maxHR: 188, startDate: '2026-09-07', healthConsent: true,
+                 experience: 'novice' });
   /* `before`: it is the morning of `pin`, and today's session is still to run. */
   a.state.days.filter(d => (before ? d.date < pin : d.date <= (pin || PIN)) && d.type !== 'rest')
     .forEach(d => logAsPrescribed(a, d, { quality: 1 }));

@@ -3659,8 +3659,23 @@ test('a plain long run draws no rail and keeps its fuel figures in its box', () 
   assert.ok(paired >= 2 && railed >= 2,
     'the block built ' + paired + ' one-stage long runs and ' + railed +
     ' goal-pace ones — this law needs both sides');
+  /* THE UNFUELLED SIDE, FROM ITS OWN FIXTURE. This marathon block used to
+     carry one (a 13km cutback long run, with 3km easy runs beside it); since
+     filler runs were merged into real easy days, every long run in it is long
+     enough to be fuelled. A 10K block still has short long runs, and they
+     must carry no fuel figures at all. */
+  if (unfuelled === 0){
+    const b = loadApp({ pinnedDate: '2026-11-08T09:00:00Z' });
+    b.showToast = () => {}; b.renderApp = () => {}; b.flushSave = () => {}; b.scheduleSave = () => {};
+    buildPlan(b, { weeks: 10, startDate: '2026-09-04', distanceKey: '10k', volume: 30 });
+    b.state.athlete = b.makeAthleteRecord();
+    const plain = b.state.days.filter(d => d.type === 'long' && !b.longRunIsFuelRail(d));
+    plain.forEach(d => assert.equal(b.renderDayCard(d).indexOf('hn-fuel'), -1,
+      d.date + ': an unfuelled long run prints fuel lines'));
+    unfuelled = plain.length;
+  }
   assert.ok(unfuelled >= 1,
-    'the fixture no longer has a long run without fuel, which is the case that keeps its stages');
+    'no fixture has a long run without fuel, which is the case that keeps its stages');
 
   /* THE HEAD WORDS WENT WITH THE CARDS. "Carb intake" read as FUEL on a
      head line and "Gels" as TAKE; there is no head line on a long run any
@@ -3923,8 +3938,12 @@ test('wherever fuel rides a rail, it rides it paired', () => {
   assert.ok(seen >= 2, 'the fixture exercises only ' + seen + ' fuelled sessions');
 
   /* AND THE SESSION WITH BOTH -- a blueprint AND fuel -- is one of them. */
+  /* A solo-note session (an easy or plain long run) draws no rail at all and
+     prints its fuel in its box -- see "a plain long run draws no rail" -- so
+     it is not a session whose rail could pair anything. */
   const both = a.state.days.filter(d => {
-    try { return d.type !== 'rest' && a.hasWorkoutBlueprint(d) && a.needsFueling(d); } catch (e) { return false; }
+    try { return d.type !== 'rest' && a.hasWorkoutBlueprint(d) && a.needsFueling(d) && !a.soloNoteSession(d); }
+    catch (e) { return false; }
   });
   assert.ok(both.length >= 1,
     'the fixture has no session with both a blueprint and fuel, which is the case a ' +

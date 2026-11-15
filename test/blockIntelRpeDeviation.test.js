@@ -36,8 +36,13 @@ const mid = b => Math.round((b[0] + b[1]) / 2);
 /* A 12-week block with 35 days behind it, every session logged at the middle
    of its own prescribed band and on its pace target, so RPE deviation is the
    only variable. `shape(i, n)` offsets the i-th of n quality sessions. */
+/* THE DEFAULT DAY IS 8 SEPTEMBER (was 3 September). The
+   shapes below address the eighth-last quality session onwards, so the
+   28-day window has to hold eight. A 10K's first week is now aerobic (its
+   tier rule gives Base one session a week), and on 3 September the window
+   held seven: every shape slid one session out of the block it is about. */
 function block(shape, day){
-  const app = loadApp({ pinnedDate: (day || '2026-09-03') + 'T09:00:00Z' });
+  const app = loadApp({ pinnedDate: (day || '2026-09-08') + 'T09:00:00Z' });
   /* THE ATHLETE THIS FILE IS ABOUT HAS EARNED THEIR SECOND QUALITY SESSION,
      and now has to say so. The defect under test is that blockDimensions()
      POOLED RAW RPE ACROSS DIFFERENT PRESCRIBED BANDS, which requires a block

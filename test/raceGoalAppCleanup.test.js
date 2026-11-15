@@ -65,19 +65,23 @@ test('the panel, the validator and the generator read ONE predicate', () => {
   assert.match(RUNTIME, /bld-volume-question/, 'the field carries no class the panel can hide it by');
 });
 
-test('a Race Goal programme is identical at every typed volume, and with none', () => {
-  /* The removal is only safe because the answer stopped mattering. This is
-     that claim, tested rather than asserted, across all four distances and
-     all three pathways. */
+/* ---- SUPERSEDED 14 NOVEMBER 2026: THE ATHLETE SETS THE STARTING POINT ----
+   This used to prove a Race Goal ignored the typed figure. The founder ruled
+   the declared weekly volume the starting authority, so the law now proves
+   the programme follows it -- and that with no figure the pathway's own entry
+   still answers, exactly as before. */
+test('a Race Goal programme opens from the declared volume, and with none from the pathway', () => {
   ['5k', '10k', 'half', 'full'].forEach(dk => {
     ['novice', 'experienced', 'advanced'].forEach(exp => {
       const N = dk === 'full' ? 16 : 12;
-      const seen = [10, 25, 40, 60, 90, null].map(v => {
+      const open = v => {
         const a = bare(dk, exp);
-        return shape(a.buildBlockWeeks(dk, v, N, { purpose: 'race', experience: exp }));
-      });
-      assert.equal(new Set(seen).size, 1,
-        dk + '/' + exp + ': the typed weekly volume still moves the programme');
+        return a.buildBlockWeeks(dk, v, N, { purpose: 'race', experience: exp }).weeks[0].bottomUp.entryKm;
+      };
+      [25, 40, 60].forEach(v => assert.equal(open(v), v, dk + '/' + exp + ': week one did not open from ' + v + 'km'));
+      const a = bare(dk, exp);
+      assert.equal(open(null), a.raceGoalPathway(dk, exp).entryVolumeKm,
+        dk + '/' + exp + ': with no figure the pathway entry no longer answers');
     });
   });
 });
@@ -94,14 +98,17 @@ test('absent and zero are different answers, and only absent is what APP sends',
     'the generator must send null, never 0, when the field is not asked');
 });
 
-test('a stale persisted volume cannot steer a rebuilt Race Goal', () => {
+test('a rebuild reads the declaration the plan was built on, so the same answers give the same plan', () => {
+  /* Founder, 14 November 2026: correct "inconsistent regeneration from
+     identical inputs". The persisted figure is the athlete's declaration, so
+     a rebuild from it is the plan the athlete was given. */
   const a = bare('half');
   const N = 14;
   const asBuilt = shape(a.buildBlockWeeks('half', 45, N, { purpose:'race', experience:'experienced' }));
-  a.state.setup.currentVolume = 200;              // a legacy value, wildly wrong
+  a.state.setup.currentVolume = 45;
   const rebuilt = shape(a.buildBlockWeeks('half', a.state.setup.currentVolume, N,
     { purpose:'race', experience:'experienced' }));
-  assert.equal(rebuilt, asBuilt, 'a persisted figure moved a Race Goal destination');
+  assert.equal(rebuilt, asBuilt, 'the same declaration rebuilt a different Race Goal');
 });
 
 test('the legacy field is retained, not deleted, so nothing downstream loses it', () => {

@@ -139,7 +139,9 @@ test('the goal-ambition mapping is identical across the app, the spec and the se
 // ---------------------------------------------------------------------------
 test('validation thresholds are the same numbers, read from the same object, everywhere', () => {
   assert.deepEqual(BUILDER_SPEC.validation.weeksRange, [4, 24]);
-  assert.deepEqual(BUILDER_SPEC.validation.daysRange, [3, 6]);
+  /* A5 (founder, 15 November 2026): one to seven running days, provided no
+     easy run falls under 5km (the week-fit check and the merge solver). */
+  assert.deepEqual(BUILDER_SPEC.validation.daysRange, [1, 7]);
   assert.equal(BUILDER_SPEC.validation.volumeMustExceed, 0);
 
   // The server -- fixed here to match, closing the drift the investigation
@@ -173,15 +175,21 @@ test('validation thresholds are the same numbers, read from the same object, eve
   assert.match(svBody, /BS\.validation\.benchmarkSecondsRange/);
 });
 
-test('a preview request the app builder would refuse (7 running days) is refused by the server too', () => {
-  // The concrete regression: before this reconciliation, LIMITS.days=[2,7]
-  // let a 7-day build preview fine and then fail silently at adoption --
-  // see adoptPendingBuildIfAny()'s own 3-6 check. That gap is now closed at
-  // the source both sides read.
-  const v = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 40,
+test('the server accepts exactly the day counts the app builder accepts', () => {
+  // The concrete regression: LIMITS.days=[2,7] once let a 7-day build preview
+  // fine and then fail silently at adoption (adoptPendingBuildIfAny() reads
+  // the same range). Both sides read one source, so when A5 (founder, 15
+  // November 2026) opened the range to 1-7, the server moved with it: seven
+  // days and one day are accepted, and no days at all is still refused.
+  const seven = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 40,
     activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 0, benchmarkSeconds: 2700 });
-  assert.equal(v.ok, false);
-  assert.equal(v.code, 'training_days_out_of_range');
+  assert.equal(seven.ok, true, 'seven running days are accepted');
+  const one = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 10,
+    activeDays: [6], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.equal(one.ok, true, 'one running day is accepted');
+  const none = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 10,
+    activeDays: [], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.equal(none.ok, false);
 });
 
 test('a preview request with ZERO weekly volume is accepted, because zero is an answer', () => {

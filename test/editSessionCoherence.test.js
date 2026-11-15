@@ -281,7 +281,14 @@ test('5. reload/persistence retains the corrected identity and guidance', () => 
 
 test('6. Reset restores a coherent (Rest) identity -- no leftover Easy guidance, and no leftover edit provenance', () => {
   const a = plannedApp();
-  const dd = findEasyDay(a);
+  /* A rest day's note is chosen by what ran the day before (after a quality
+     session it says so), so the day reset here is one whose neighbour gives
+     the ordinary rest note, and the untouched day compared against below
+     follows the same kind of session. */
+  const dayBefore = d => a.state.days.find(x => x.date === a.addDays(d.date, -1));
+  const kindBefore = d => { const p = dayBefore(d); return !p ? null : p.type === 'long' ? 'long' :
+    ['rest', 'easy', 'recovery'].includes(p.type) ? 'ordinary' : 'quality'; };
+  const dd = a.state.days.find(d => d.type === 'easy' && kindBefore(d) === 'ordinary');
   mockEditModalDom(a, dd, {
     'ef-title': { value: 'Lavidia race race' }, 'ef-km': { value: '10' },
     'ef-mp': { checked: true }, 'ef-desc': { value: '10km best effort' },
@@ -301,9 +308,18 @@ test('6. Reset restores a coherent (Rest) identity -- no leftover Easy guidance,
      the stronger assertion: byte-identical to a rest day the athlete never
      touched, which fails on leftover Easy guidance AND on rest guidance
      that differs for having been edited. */
-  const virginRest = a.state.days.filter(d => d.type === 'rest' && d.id !== after.id && !d.manualEdit)[0];
-  assert.ok(virginRest, 'sanity: the fixture has an untouched rest day to compare against');
-  assert.equal(a.renderCoachingDepth(after), a.renderCoachingDepth(virginRest),
+  /* The untouched counterpart is THE SAME DAY in an identical plan, made a
+     generated rest day from that plan's own rest-day record. A rest day's note
+     depends on its neighbours (after a quality session it says so) and rotates
+     its wording by position, so any other rest day is a different question. */
+  const twin = plannedApp();
+  const tmpl = twin.state.days.filter(d => d.type === 'rest' && !d.manualEdit && d.week === after.week)[0] ||
+               twin.state.days.filter(d => d.type === 'rest' && !d.manualEdit)[0];
+  assert.ok(tmpl, 'sanity: the fixture has an untouched rest day to compare against');
+  const twinDay = twin.findDay(dd.id);
+  Object.keys(twinDay).forEach(k => { delete twinDay[k]; });
+  Object.assign(twinDay, JSON.parse(JSON.stringify(tmpl)), { id: after.id, date: after.date, week: after.week });
+  assert.equal(a.renderCoachingDepth(after), twin.renderCoachingDepth(twinDay),
     'a reset rest day no longer renders what an untouched rest day renders');
   assert.match(a.renderCoachingDepth(after), /Rest is part of the plan/,
     'the reset rest day carries no rest coaching at all');

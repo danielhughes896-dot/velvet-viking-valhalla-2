@@ -263,10 +263,10 @@ test('10c -- a build missing required fields is not adopted, and is cleared', ()
 test('10d -- a build that fails the real builder\'s own validation rules is refused', () => {
   const app = loadApp({ pinnedDate: PINNED });
   const { build } = realPreview(RAW_INPUT);
-  // 7 active days -- /start's mini-builder now refuses this client-side too
-  // (see start.html), but the app must refuse it independently regardless of
-  // what reaches localStorage.
-  const badBuild = Object.assign({}, build, { activeDays: [0,1,2,3,4,5,6] });
+  // No active days at all -- outside BUILDER_SPEC.validation.daysRange (1-7
+  // since A5, 15 November 2026). /start refuses it client-side too, but the
+  // app must refuse it independently regardless of what reaches localStorage.
+  const badBuild = Object.assign({}, build, { activeDays: [] });
   bankPending(app, badBuild);
   assert.equal(app.adoptPendingBuildIfAny(), false, 'an out-of-range day count was adopted');
   assert.equal(app.state.setup, null);

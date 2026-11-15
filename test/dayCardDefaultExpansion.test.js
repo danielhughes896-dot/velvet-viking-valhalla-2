@@ -24,7 +24,11 @@ const app = () => loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
 
 function plannedApp() {
   const a = app();
-  buildPlan(a, { weeks: 4, startDate: a.addDays(TODAY, -14) });
+  /* 60km a week so the Tuesday is a running day. Since A5 (founder, 15
+     November 2026) a short week runs fewer, longer runs rather than easy runs
+     under 5km, so at the default 40km this week's taper keeps three runs and
+     Tuesday rests. */
+  buildPlan(a, { weeks: 4, volume: 60, startDate: a.addDays(TODAY, -14) });
   a.showToast = () => {};
   return a;
 }

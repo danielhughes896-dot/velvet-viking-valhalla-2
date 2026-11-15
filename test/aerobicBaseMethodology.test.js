@@ -64,30 +64,36 @@ test('F-1: blank typed volume no longer erases real demonstrated evidence', () =
   assert.ok(blk.weeks[0].volume > 10, 'week 1 must not collapse to the old ~3km/week defect: ' + blk.weeks[0].volume);
 });
 
-test('F-1: demonstrated evidence outranks a typed figure, not merely fills gaps', () => {
+/* ---- SUPERSEDED 14 NOVEMBER 2026: THE ATHLETE SETS THE STARTING POINT ----
+   Founder: "The athlete's declared current sustainable weekly running volume
+   is the starting-volume authority ... Historical logs and incomplete Strava
+   data must not silently override declared capacity." These two laws used to
+   say the opposite (demonstrated evidence outranks a typed figure). The
+   coaching audit showed what that cost: three partly logged 13km weeks turned
+   a 50km athlete's base block into 3km easy runs and a 4km long run. */
+test('F-1: a declaration is the starting authority; logged evidence never silently overrides it', () => {
   const a = app();
   const t = a.todayStr(), m = a.addDays(t, -a.isoWeekday(t));
   const sessions = [];
   for (let w = 1; w <= 8; w++){
     [0, 2, 4].forEach(d => sessions.push({ date: a.addDays(m, -7 * w + d), completed: true,
-      actualKm: 15, plannedKm: 15, type: 'easy', actual: { km: 15, rpe: 3, pace: 400, hr: 135 }, feel: 'good' }));
+      actualKm: 4.3, plannedKm: 4.3, type: 'easy', actual: { km: 4.3, rpe: 3, pace: 400, hr: 135 }, feel: 'good' }));
   }
-  a.state.athlete = { sessions, blocks: [] };
-  // strong demonstrated evidence (~45km/wk) present; typed field says a misleading 10
-  const evLow = a.baseWeeklyVolumeEvidence(10);
-  assert.equal(evLow.source, 'demonstrated', 'strong evidence must not be erased by a misleading low typed figure');
-  assert.ok(evLow.km > 30, 'evidence must win outright: ' + evLow.km);
-  // and an aggressive high typed figure cannot buy unsupported capacity either
-  const evHigh = a.baseWeeklyVolumeEvidence(200);
-  assert.equal(evHigh.source, 'demonstrated');
-  assert.ok(evHigh.km < 60, 'a high typed figure must not override demonstrated evidence: ' + evHigh.km);
+  a.state.athlete = { sessions, blocks: [] };          // about 13km a week logged
+  const ev = a.baseWeeklyVolumeEvidence(50);
+  assert.equal(ev.source, 'declared');
+  assert.equal(ev.km, 50, 'partly logged weeks overrode the declaration');
+  const blk = a.buildBlockWeeks('10k', ev.km, 10, { purpose: 'base', availableDays: 5 });
+  assert.ok(blk.weeks[0].volume >= 45, 'the founder case is back: week 1 ' + blk.weeks[0].volume);
+  // With nothing declared, the evidence still answers.
+  assert.equal(a.baseWeeklyVolumeEvidence(null).source, 'demonstrated');
 });
 
-test('F-1: typed CWV remains useful fallback/on-ramp evidence when nothing stronger exists', () => {
+test('F-1: a declared volume is used as declared when nothing else exists', () => {
   const a = app();
   a.state.athlete = { sessions: [], blocks: [] };
   const ev = a.baseWeeklyVolumeEvidence(28);
-  assert.equal(ev.source, 'typed');
+  assert.equal(ev.source, 'declared');
   assert.equal(ev.km, 28);
 });
 
@@ -103,11 +109,23 @@ test('F-1: with genuinely no evidence at all, nothing is invented', () => {
    §3 — THE CAPACITY-DEVELOPMENT OBJECTIVE (baseCapacityObjective)
    Replaces entry x BASE_VOLUME_MULT (1.25).
    ========================================================== */
-test('destination: with no demonstrated evidence, growth is the conservative one-step rate, not 1.25x', () => {
+/* A3 (founder, 15 November 2026): a Base block's destination is the declared
+   week grown at the 8% pathway equation (PATHWAY_FEASIBLE_RATE over the
+   block's progressing weeks), capped at the experience's build volume for the
+   distance it builds towards, and never less than the old one-step growth. */
+function a3BaseDestination(a, dk, vol, weeks){
+  const zone = a.raceGoalPathway(dk === 'ultra' ? 'full' : dk, a.athleteExperience());
+  const top = zone.buildVolumeKm || zone.peakVolumeKm || zone.entryVolumeKm;
+  let grow = vol * a.VOLUME_BLOCK_GROWTH_CAP;
+  if (vol < top) grow = Math.max(grow, Math.min(top, vol * Math.pow(a.PATHWAY_FEASIBLE_RATE, a.pathwayProgressingWeeks('base', weeks))));
+  return a.round1(Math.min(grow, a.volumeCeilingFor(dk)));
+}
+test('destination: with no demonstrated evidence, growth is the 8% pathway equation to the build volume, not 1.25x', () => {
   const a = app();
   a.state.athlete = { sessions: [], blocks: [] };
   const blk = a.buildBlockWeeks('half', 40, 10, { purpose: 'base', availableDays: 4 });
-  assert.equal(blk.peakVolume, a.round1(40 * a.VOLUME_BLOCK_GROWTH_CAP));
+  assert.equal(blk.peakVolume, a3BaseDestination(a, 'half', 40, 10));
+  assert.ok(blk.peakVolume > a.round1(40 * a.VOLUME_BLOCK_GROWTH_CAP), 'more than one 10% step (A3)');
   assert.notEqual(blk.peakVolume, a.round1(40 * 1.25), 'must not silently reproduce the old multiplier');
 });
 
@@ -155,14 +173,28 @@ test('destination: evidence exists but a step is not earned this cycle — holds
    F-2 — BASE-NATIVE LONG RUN (severed from DISTANCE_PROFILES[distKey])
    ========================================================== */
 test('F-2: the long-run destination no longer varies with an arbitrary distanceKey', () => {
+  /* Invariant across every distance whose experience zone the athlete is
+     already in. Since 14 November 2026 the experience pathway for the distance
+     a base block builds towards is its destination (founder: "The selected
+     experience pathway defines where the athlete is aiming to train"), so an
+     Established 40km athlete building towards a marathon (zone from 52km)
+     develops further than one building towards a 5K, 10K or half -- that is
+     the ruling, not distKey leaking into the long run. */
   const a = app();
   a.state.athlete = { sessions: [], blocks: [] };
-  const targets = ['5k', '10k', 'half', 'full', 'ultra'].map(dk => {
+  /* SINCE A3 (15 November 2026) each distance's build volume is the Base
+     destination, so the weekly volumes differ by distance by design. What
+     must not vary is the long run's SHARE of each week: distKey reaches the
+     long run only through the volume, never through DISTANCE_PROFILES. */
+  const targets = ['5k', '10k', 'half'].map(dk => {
     const blk = a.buildBlockWeeks(dk, 40, 10, { purpose: 'base', availableDays: 4 });
-    return blk.weeks.map(w => w.longTarget).join(',');
+    return blk.weeks.map(w => (w.longTarget / w.volume).toFixed(2)).join(',');
   });
   targets.slice(1).forEach(t => assert.equal(t, targets[0],
-    'Base long-run targets must be distKey-invariant: ' + targets.join(' | ')));
+    'Base long-run shares must be distKey-invariant: ' + targets.join(' | ')));
+  const full = a.buildBlockWeeks('full', 40, 10, { purpose: 'base', availableDays: 4 });
+  const half = a.buildBlockWeeks('half', 40, 10, { purpose: 'base', availableDays: 4 });
+  assert.ok(full.peakVolume > half.peakVolume, 'a marathon base block develops towards the marathon zone');
 });
 
 test('F-2: the long-run fraction is pinned to the endurance emphasis regardless of distKey', () => {
@@ -193,7 +225,7 @@ test('frequency: availability is a ceiling, not an instruction — more days nev
   a.state.athlete = { sessions: [], blocks: [] };
   [3, 4, 5, 6].forEach(days => {
     const blk = a.buildBlockWeeks('half', 40, 10, { purpose: 'base', availableDays: days });
-    assert.equal(blk.peakVolume, a.round1(40 * a.VOLUME_BLOCK_GROWTH_CAP),
+    assert.equal(blk.peakVolume, a3BaseDestination(a, 'half', 40, 10),
       'destination volume must not change with availability at ' + days + ' days');
   });
 });

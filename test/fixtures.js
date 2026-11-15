@@ -57,6 +57,11 @@ function buildPlan(app, opts) {
     app.blockEffectiveness = () => ({ state: 'ADAPTING' });
   }
   let blockResult, days;
+  /* THE EXPERIENCE THE PLAN IS BUILT FOR, read by the generator itself
+     (athleteExperience()). It used to be written to state.setup only after the
+     block was built, so a fixture asking for a Developing athlete was built
+     as Established and only labelled Developing afterwards. */
+  if (opts.experience) app.state.experience = opts.experience;
   try {
     blockResult = app.buildBlockWeeks(distanceKey, volume, weeks);
     days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);

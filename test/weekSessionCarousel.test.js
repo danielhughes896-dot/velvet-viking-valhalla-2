@@ -26,6 +26,17 @@ const rule = sel => {
   assert.ok(i > -1, 'rule not found: ' + sel);
   return bare.slice(i + sel.length + 1, bare.indexOf('}', i));
 };
+/* A WEEK WITH A REST DAY IN IT. Since the athlete's declared volume became
+   the starting point (founder, 14 November 2026), this seven-day fixture runs
+   every day of its current week, so the laws that compare a rest day with a
+   session day look back for the nearest week that has both. */
+function weekWithRest(a){
+  for (let x = a.currentWeekNum(); x >= 1; x--){
+    const ds = a.weekSessionDays(x);
+    if (ds.some(d => d.type === 'rest') && ds.some(d => d.type !== 'rest' && !a.soloNoteSession(d))) return x;
+  }
+  return a.currentWeekNum();
+}
 function app(){
   const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {};
@@ -161,7 +172,7 @@ test('the card and the day circles cannot disagree', () => {
  */
 test('no week reserves a slot for a button that can no longer appear', () => {
   const a = app();
-  const w = a.currentWeekNum();
+  const w = weekWithRest(a);
   const days = a.weekSessionDays(w);
   const rest = days.filter(d => d.type === 'rest')[0];
   /* A DAY THAT STILL HAS SOMETHING TO OPEN. Founder: "On easy sessions the
@@ -292,7 +303,7 @@ test('an open session always keeps a way back out', () => {
   /* The ghost is for the COLLAPSED rest day only. If a rest day is ever open,
      a hidden "Hide full session" would be a trap with no exit. */
   const a = app();
-  const w = a.currentWeekNum();
+  const w = weekWithRest(a);
   const rest = a.weekSessionDays(w).filter(d => d.type === 'rest')[0];
   a.weekSelectedDate = rest.date;
   a.weekSessionOpen = true;

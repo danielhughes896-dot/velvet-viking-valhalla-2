@@ -191,7 +191,13 @@ test('long run and quality-session sizes are unchanged by the wider day count', 
   const narrow = buildFor(a, 'full', 'novice', 16, 3, 40);
   const wPeak = wide.weeks.filter(w => w.phase === 'Peak' && !w.isCutback)[0];
   const nPeak = narrow.weeks.filter(w => w.phase === 'Peak' && !w.isCutback)[0];
-  assert.equal(wPeak.longTarget, nPeak.longTarget, 'the long run is a property of the pathway, not the day count');
+  /* THE PATHWAY'S LONG-RUN REQUIREMENT, measured where it is a requirement:
+     the block's peak long run. Since the athlete's declared week became the
+     starting point (founder, 14 November 2026) the OPENING long run reflects
+     how that week is spread -- 40km on three days opens at 16km, on six at
+     12.3km -- and both reach the same pathway peak. */
+  const peakLong = blk => Math.max(...blk.weeks.filter(w => !w.isRace && w.phase !== 'Taper').map(w => w.longTarget));
+  assert.equal(peakLong(wide), peakLong(narrow), 'the long run is a property of the pathway, not the day count');
   assert.equal(wPeak.soloSpec ? wPeak.soloSpec.type : null, nPeak.soloSpec ? nPeak.soloSpec.type : null,
     'quality family must not change because more days are available');
 });

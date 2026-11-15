@@ -1032,7 +1032,23 @@ test('the no-running level is unchanged by the delivery definition', () => {
      every horizon, because every part of the correction is gated on
      usesMarathonArc(). The 0.90/0.70 bands are untouched, the verdict reads
      MARGINAL on both sides, and the dimension's definition is again unaltered.
-     NO DEFECT RATCHET AND NO METHODOLOGY WAS CHANGED TO ACCOMMODATE THIS. */
+     NO DEFECT RATCHET AND NO METHODOLOGY WAS CHANGED TO ACCOMMODATE THIS.
+
+     ---- 7 DAYS 0.92 -> 0.93 AND 42 DAYS 0.52 -> 0.53, FOUNDER RULING 14 NOVEMBER 2026 ----
+     "The athlete's declared current sustainable weekly running volume is the
+     starting-volume authority." This 70km marathon fixture used to open at
+     the Established pathway's 52km entry; it now opens at the 70km it
+     declares, so the first weeks carry more prescribed running and the same
+     seven or forty-two days remove a slightly smaller share of the block.
+     21 days is unchanged, the bands are unchanged and every verdict is
+     unchanged (READY, MARGINAL, INSUFFICIENT).
+     ---- 7 DAYS 0.93 -> 0.92, FOUNDER RULING 15 NOVEMBER 2026 (A5) ----
+     "I don't want no 3km easy runs": the block's short easy runs (its cutback
+     and taper weeks) are now written as fewer runs of 5km or more, so the
+     block prescribes slightly less outside the first week and the same seven
+     days remove a hair more of it. 7 days 0.93 -> 0.92 and 42 days 0.53 ->
+     0.52 both sit on the two-decimal boundary; 21 days, the bands and every
+     verdict are unchanged (7 days still reads READY, 42 INSUFFICIENT). */
   const expect = { 7:0.92, 21:0.79, 42:0.52 };
   Object.keys(expect).forEach(days => {
     const a = raceApp('full', 70, 16);

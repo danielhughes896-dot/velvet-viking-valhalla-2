@@ -140,7 +140,9 @@ test('scoring still requires enough real data, not merely a completion flag', ()
      whatever any flag says. */
   const a = app();
   buildPlan(a, { weeks: 10, startDate: a.addDays(TODAY, -28) });
-  const dd = a.state.days.filter(d => d.date < TODAY && d.type !== 'rest').pop();
+  /* A continuous run: a structured session needs its sections, not one pace,
+     which is a different gate (test/structuredWorkoutEvidence). */
+  const dd = a.state.days.filter(d => d.date < TODAY && (d.type === 'easy' || d.type === 'long')).pop();
   dd.completed = true;
   dd.actual = Object.assign(a.emptyActual(), { km: dd.km });          // no pace
   assert.equal(a.computeExecutionScore(dd), null,

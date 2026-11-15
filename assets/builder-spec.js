@@ -292,7 +292,7 @@ var BUILDER_SPEC = {
        which routes a below-minimum race request to a base block server-side so
        the pre-auth surface cannot produce a state the app would not build. */
     raceGoalMinWeeklyKm: 6,
-    daysRange: [3, 6],
+    daysRange: [1, 7],   // A5, founder 15 November 2026: open to 1-7; the week-fit check keeps every easy run 5km or more
     benchmarkSecondsRange: [300, 40000]
   }
 };

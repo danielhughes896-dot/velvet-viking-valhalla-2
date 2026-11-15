@@ -68,7 +68,10 @@ test('a gap within what the climbing costs is in line with the route; a gap beyo
   const lo = Math.round(within.tr.slow * 20 * 0.0010), hi = Math.round(within.tr.slow * 20 * 0.0015);
   assert.deepEqual(JSON.parse(JSON.stringify(within.ctx.cost)), { lo, hi });
   assert.ok(8 <= hi && 30 > hi, 'the fixture does not straddle the allowance');
-  const route = '180 m of climbing over ' + within.a.fmtDist(within.dd.actual.km);
+  /* The gain is 20 m per km of the fixture's easy run, whatever its length:
+     the run grew from 9km to 11.5km when the declared volume became the
+     starting point, and the sentence under test is unchanged. */
+  const route = Math.round(within.dd.actual.km * 20) + ' m of climbing over ' + within.a.fmtDist(within.dd.actual.km);
   const typical = 'Climbing like that typically costs around ' + lo + '–' + hi + 's/km';
   assert.equal(within.r.coachNoticed, 'Pace ran 8s/km outside the window on ' + route + '. ' + typical + ', so the gap is in line with the route.');
   assert.equal(beyond.r.coachNoticed, 'Pace ran 30s/km outside the window on ' + route + '. ' + typical + ': part of the gap, not all of it.');
@@ -210,8 +213,9 @@ test('it is kept with the review and the memory, and printed on the card', () =>
   const c = easy(30, climb(20));
   assert.deepEqual(JSON.parse(JSON.stringify(c.r.elevation)), JSON.parse(JSON.stringify(c.ctx)));
   const mem = Array.from(c.a.athleteMemory(40)).filter(m => m.date === c.dd.date)[0];
-  assert.deepEqual(JSON.parse(JSON.stringify(mem.elevation)), { gainM: 180, perKm: 20, band: 'hilly', use: 'whole', source: 'entered' });
-  assert.match(c.a.sessionReadoutHtml(c.dd), /180 m of climbing/);
+  const gain = Math.round(c.dd.actual.km * 20);   // 20 m a km of the fixture's easy run
+  assert.deepEqual(JSON.parse(JSON.stringify(mem.elevation)), { gainM: gain, perKm: 20, band: 'hilly', use: 'whole', source: 'entered' });
+  assert.match(c.a.sessionReadoutHtml(c.dd), new RegExp(gain + ' m of climbing'));
   const flat = easy(30, climb(3));
   assert.doesNotMatch(flat.a.sessionReadoutHtml(flat.dd), /climbing/, 'a flat route is printed as a climb');
   assert.equal(Array.from(easy(30).a.athleteMemory(40)).filter(m => m.date === c.dd.date)[0].elevation, null);
