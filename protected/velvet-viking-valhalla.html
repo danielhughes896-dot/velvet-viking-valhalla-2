@@ -12030,6 +12030,52 @@
     .is-completing .actual-done-i, .is-completing .day-check input:checked{ animation:none; }
   }
 
+  /* =======================================================
+     ONE ACTION STYLE (founder, 15 November 2026)
+     =======================================================
+     "Standardise SACORO's action buttons using the existing Hear Today / Ask
+     Coach design: liquid glass, thin cherry outline, and white text." Every
+     primary action (Generate Plan, Update Plan, Invite Someone, Save, Accept
+     Progression and the rest) is the same glass inside a thin cherry rim
+     with white words, whatever surface it sits on; the earlier fills (bronze,
+     cherry lacquer) are superseded here, at the end of the sheet. Secondary
+     buttons keep their own quieter style, so the hierarchy stands. */
+  .btn.btn-primary, .btn-primary{
+    background:var(--glass-sheen), var(--glass-tint) !important;
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    border:1px solid var(--cherry) !important;
+    color:#FFFFFF !important;
+    box-shadow:var(--glass-rim), 0 0 16px var(--cherry-dim) !important;
+    filter:none;
+  }
+  .btn.btn-primary svg, .btn-primary svg{color:#FFFFFF;}
+  .btn.btn-primary:disabled, .btn-primary:disabled{opacity:.55; box-shadow:var(--glass-rim) !important;}
+  @media (hover:hover){ .btn.btn-primary:hover, .btn-primary:hover{box-shadow:var(--glass-rim), 0 0 22px var(--cherry-dim) !important;} }
+  /* THE ROUND GLASS X, THROUGHOUT. Every close keeps its own ring colour;
+     the ground under it is the glass disc everywhere, the photographed
+     decision card included. */
+  :is(.modal-card, .tw-sheet, .modal-overlay, body) .icon-btn[aria-label="Close"]{
+    background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%), var(--glass-tint) !important;
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 6px rgba(0,0,0,.35);
+  }
+  /* THE ADJUSTMENT BOX IS GLASS (founder, 15 November 2026, of the Execution
+     Review's "Suggested: run ... easy instead" with Accept Adjustment and Keep
+     Original): the same glass as the Coach plates, its own border kept, and
+     its Accept the one action style above. */
+  .cr-adjust, .coach-adjust{
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    box-shadow:var(--glass-rim);
+    border-radius:var(--tile-radius);
+  }
+  /* THE BOXES ARE GLASS TOO. The Coach plates keep their own coloured rims
+     and lit corners; only the ground under them becomes the same glass. */
+  .b-plate{
+    background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    box-shadow:var(--glass-rim), 0 0 16px color-mix(in srgb, var(--rd-base) 14%, transparent);
+  }
   /* ---------- THE 11px FLOOR FOR WORDS THAT INFORM ----------
      Responsive correction 9. The audit read these at 9 to 10.5px on every
      phone: Injured or ill (a safety link), the Coach hero's captions (TO
@@ -61470,7 +61516,10 @@ function openSetupModal(){
 
   bldSyncLongDay();
   bldReviewReturn = false;
-  bldStage(planHasContent() && state.setup ? BLD_STAGE_NAMES.length - 1 : 0);
+  /* EDIT PLAN SETTINGS OPENS ON ITS FIRST PAGE (founder, 15 November 2026),
+     every answer already filled in from the plan; the summary is still the
+     last page, reached by Continue. */
+  bldStage(0);
 }
 
 /* ---- THE SHORT-RUNWAY NOTE, KEPT IN STEP WITH EVERY FIELD RACEGOALADMISSION() READS ----
@@ -77812,11 +77861,27 @@ function pageSwipeOwnedElsewhere(node, card){
   }
   return false;
 }
+/* The control a swipe presses: the surface's own close, so whatever it does on
+   the way out (keeping a draft, recording an explainer as seen) happens either
+   way. */
+function pageSwipeCloseOf(card){
+  if (!card || !card.querySelector) return null;
+  return card.querySelector('.modal-head .icon-btn, .tw-head .icon-btn, .icon-btn[aria-label="Close"]');
+}
 function pageSwipeStart(e){
   if (pageSwipeState) return;
   if (!e.touches || e.touches.length !== 1) return;
   var card = (e.target && e.target.closest) ? e.target.closest('.modal-card.hq-full') : null;
-  if (!card) return;
+  /* EVERY OPENABLE PAGE CLOSES ON A SWIPE (founder, 15 November 2026). A
+     glass bottom sheet or a pop-up card is pushed back down the way it rose,
+     from its top; a full page keeps its sideways and downward close. Each
+     still closes through its own X. */
+  var sheet = false;
+  if (!card){
+    card = (e.target && e.target.closest) ? e.target.closest('.tw-sheet, .modal-card') : null;
+    if (!card || !pageSwipeCloseOf(card)) return;
+    sheet = true;
+  }
   if (document.querySelector('.vvcal')) return;          /* a calendar owns the screen */
   /* THE BUILDER, ONCE IT HOLDS ANSWERS. It became a page (founder: "Build
      your training block full page") and pages swipe away -- but the builder
@@ -77827,7 +77892,7 @@ function pageSwipeStart(e){
   if (pageSwipeOwnedElsewhere(e.target, card)) return;
   var t = e.touches[0];
   pageSwipeState = { card:card, x0:t.clientX, y0:t.clientY, axis:null, dist:0, v:0,
-    last:0, lastT:Date.now(), atTop:(card.scrollTop <= 0) };
+    last:0, lastT:Date.now(), atTop:(card.scrollTop <= 0), sheet:sheet };
 }
 function pageSwipeMove(e){
   var p = pageSwipeState;
@@ -77837,7 +77902,7 @@ function pageSwipeMove(e){
   if (p.axis === null){
     var axis = pageSwipeAxis(dx, dy, p.atTop);
     if (axis === null) return;
-    if (axis === 'none'){ pageSwipeState = null; return; }
+    if (axis === 'none' || (p.sheet && axis !== 'y')){ pageSwipeState = null; return; }
     p.axis = axis;
     p.sign = (axis === 'x' && dx < 0) ? -1 : 1;
     p.card.classList.remove('is-settling');
@@ -77867,7 +77932,7 @@ function pageSwipeEnd(){
     return;
   }
   var close = function(){
-    var x = card.querySelector('.modal-head .icon-btn');
+    var x = pageSwipeCloseOf(card);
     if (x && x.click) x.click(); else closeModal();
   };
   if (reduced){ close(); return; }

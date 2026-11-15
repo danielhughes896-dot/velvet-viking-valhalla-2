@@ -249,15 +249,23 @@ test('it can be changed of mind: short and slow settles back, far or flicked lea
   assert.equal(a.pageSwipeCommits(0, 390, 2), false);
 });
 
-test('the swipe is on full-screen pages only, and leaves through the page’s own X', () => {
+test('every openable page swipes, and leaves through the page’s own X', () => {
+  /* Founder, 15 November 2026: "Make sure that every openable page has the
+     swipe close function also." A full page closes sideways or down as
+     before; a glass bottom sheet or pop-up card closes downwards only, the
+     way it rose, and only where it has its own X to press. */
   const start = fnBody('pageSwipeStart');
-  assert.match(start, /closest\('\.modal-card\.hq-full'\)/, 'the swipe is not scoped to full-screen pages');
+  assert.match(start, /closest\('\.modal-card\.hq-full'\)/, 'a full page no longer swipes');
+  assert.match(start, /closest\('\.tw-sheet, \.modal-card'\)/, 'a sheet or a pop-up card does not swipe');
+  assert.match(start, /!pageSwipeCloseOf\(card\)\) return;/, 'a surface with no X of its own can be swiped away');
+  assert.match(fnBody('pageSwipeMove'), /p\.sheet && axis !== 'y'/, 'a sheet can be pushed sideways');
   assert.match(start, /e\.touches\.length !== 1/, 'a pinch can close the page');
   assert.match(start, /pageSwipeOwnedElsewhere\(e\.target, card\)/, 'a slider or a wide table cannot be dragged without closing the page');
   assert.match(fnBody('pageSwipeOwnedElsewhere'), /input\[type="range"\], textarea/);
   const end = fnBody('pageSwipeEnd');
-  assert.match(end, /querySelector\('\.modal-head \.icon-btn'\)/,
+  assert.match(end, /pageSwipeCloseOf\(card\)/,
     'the swipe closes by a route of its own, so a page’s exit work can be skipped');
+  assert.match(fnBody('pageSwipeCloseOf'), /\.modal-head \.icon-btn, \.tw-head \.icon-btn/);
   assert.match(end, /if \(x && x\.click\) x\.click\(\); else closeModal\(\);/,
     'the swipe finds the X and then does not press it');
   assert.match(fnBody('init'), /initPageSwipe\(\);/, 'the swipe is never bound');

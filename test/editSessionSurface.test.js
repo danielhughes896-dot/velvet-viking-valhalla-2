@@ -476,7 +476,11 @@ test('a tab opens as a page in the Coach page\'s shell, and closes back to the t
   assert.equal(dom['es-close'].attrs['aria-label'], 'Back to Edit Session');
   assert.match(SRC, /case 'es-page-close': handleEditPageClose\(target\); break;/);
   const swipe = SRC.slice(SRC.indexOf('\nfunction pageSwipeEnd('), SRC.indexOf('\n}\n', SRC.indexOf('\nfunction pageSwipeEnd(')));
-  assert.match(swipe, /card\.querySelector\('\.modal-head \.icon-btn'\)/, 'a swipe no longer closes through the page\'s own ring');
+  /* The swipe finds the ring through pageSwipeCloseOf(), which looks in the
+     page head first (founder, 15 November 2026: every openable page swipes). */
+  assert.match(swipe, /pageSwipeCloseOf\(card\)/, 'a swipe no longer closes through the page\'s own ring');
+  assert.match(SRC.slice(SRC.indexOf('function pageSwipeCloseOf'), SRC.indexOf('function pageSwipeCloseOf') + 400),
+    /card\.querySelector\('\.modal-head \.icon-btn, /, 'the page head\'s own ring is not the first one pressed');
   assert.match(SRC.slice(SRC.indexOf('\nfunction pageSwipeStart('), SRC.indexOf('\nfunction pageSwipeMove(')), /closest\('\.modal-card\.hq-full'\)/);
 
   /* Closed: the sheet again, exactly as it was, and nothing left pushed off screen. */

@@ -314,7 +314,9 @@ test('a line on the summary opens its screen, and Done comes straight back', () 
   assert.deepEqual(JSON.stringify(went), JSON.stringify([7, last, 4, last]));
   const fs = require('node:fs'), path = require('node:path');
   const src = fs.readFileSync(path.join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
-  assert.match(src, /bldStage\(planHasContent\(\) && state\.setup \? BLD_STAGE_NAMES\.length - 1 : 0\);/);
+  /* Founder, 15 November 2026: Edit Plan Settings opens on its first page,
+     every answer filled in; the summary is still the last page. */
+  assert.match(src, /bldStage\(0\);/);
 });
 
 /* ---------- AN EMPTY TIME WHEEL STARTS NEAR THE LIKELY ANSWER ---------- */
