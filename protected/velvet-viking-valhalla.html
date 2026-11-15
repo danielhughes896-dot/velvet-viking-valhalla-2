@@ -9118,6 +9118,14 @@
   .yl-sec > .yl-q > .yl-q-head .yl-q-t{font-family:var(--label-face); font-weight:var(--label-weight);
     font-size:1.1875rem; letter-spacing:1.6px; text-transform:uppercase;}
   .yl-fig{font-size:1.375rem; color:#FFFFFF; white-space:nowrap;}
+  .yl-q-head:has(.yl-yn){align-items:center;}
+  .yl-yn{display:flex; gap:6px; flex:none;}
+  .yl-yn-b{min-width:56px; min-height:44px; padding:0 14px; font-family:var(--num-face);
+    font-size:var(--fs-data); font-weight:700; letter-spacing:.4px; color:#FFFFFF;
+    border:1px solid var(--tile-border); border-radius:var(--tile-radius);
+    background:var(--tile-sheen), var(--bg-2); transition:border-color .2s, color .2s;}
+  .yl-yn-b.active{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
+  .yl-yn-b:active{transform:scale(.98);}
   .yl-note{font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF; margin-top:4px;}
   .yl-range{-webkit-appearance:none; appearance:none; display:block; width:100%;
     height:44px; min-height:44px; margin:0; padding:0; background:transparent;
@@ -18501,6 +18509,72 @@ var SHORT_RACE_EASY_MAX_FRACTION_OF_LONG = 0.70;
 function shortRaceEasyCeilingKm(longKm){
   return Math.max(WEEK_FIT_MIN_EASY_KM, Math.floor(longKm * SHORT_RACE_EASY_MAX_FRACTION_OF_LONG * 2 + 1e-9) / 2);
 }
+/* ---- A HALF OR MARATHON STARTED FROM 0 TO 3KM A WEEK ----
+   Founder, 15 November 2026: "1 run a week isn't enough stimuli", and of the
+   Half and Marathon low start: the same week one as the 5K and 10K, a 6km run,
+   the short hard session and a 6km long run. The marathon's capacity rule
+   wrote 5 + 5 + 6 and then a recovery week of two runs; the half wrote a
+   5.5km easy run beside its 6km long run. So, for the opening weeks
+   (LOW_START_SHARP_WEEKS and the recovery week after them):
+     week one   the easy run is 6km (never above the long run);
+     every week three runs, the added one a 5km easy run on a free day the
+                athlete offered, never the day before the long run if another
+                day will do.
+   Every kilometre added is named in the accounting (floor:low_start). */
+function shapeLowStartWeeks(days, weeks, blockResult, schedule){
+  if (!blockResult || blockResult.purpose !== 'race') return 0;
+  if (blockResult.distKey !== 'half' && blockResult.distKey !== 'full') return 0;
+  var low = false;
+  try { low = !!(statedEntryEvidence() || {}).lowStart; } catch(e){ low = false; }
+  if (!low || !days || !days.length || !weeks || !weeks.length) return 0;
+  var minKm = WEEK_FIT_MIN_EASY_KM, first = weeks[0].week;
+  var active = {};
+  ((schedule && schedule.activeDays) || []).forEach(function(d){ active[d] = true; });
+  if (schedule && schedule.longRunDay != null) active[schedule.longRunDay] = true;
+  var dowOf = function(iso){ return (new Date(iso + 'T12:00:00Z').getUTCDay() + 6) % 7; };
+  var lifted = 0;
+  weeks.forEach(function(wk){
+    if (wk.isTaper || wk.isRace || wk.week > first + LOW_START_SHARP_WEEKS) return;
+    var list = days.filter(function(dd){ return dd && dd.week === wk.week; });
+    var runs = function(){ return list.filter(function(dd){ return dd.type !== 'rest' && dd.km > 0; }); };
+    var longD = list.filter(function(dd){ return dd.type === 'long' && dd.km > 0; })[0] || null;
+    var add = 0;
+    if (runs().length < 3){
+      var free = list.filter(function(dd){
+        return dd.type === 'rest' && !(dd.km > 0) && !dd.completed && !dd.manualEdit && active[dowOf(dd.date)]; })
+        .sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+      if (longD){
+        var longDow = dowOf(longD.date);
+        free.sort(function(a, b){
+          var pa = ((dowOf(a.date) + 1) % 7 === longDow) ? 1 : 0, pb = ((dowOf(b.date) + 1) % 7 === longDow) ? 1 : 0;
+          return pa - pb; });
+      }
+      while (runs().length < 3 && free.length){
+        var dd = free.shift();
+        var t = easyRunText(minKm);
+        dd.type = t.type; dd.title = t.title; dd.km = minKm; dd.desc = t.desc;
+        dd.mpSegment = false; delete dd.availableUnused;
+        dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:minKm } };
+        add = round1(add + minKm);
+      }
+    }
+    if (wk.week === first){
+      var top = longD ? Math.min(LOW_START_LONG_KM, longD.km) : LOW_START_LONG_KM;
+      list.filter(function(dd){
+        return dd.type === 'easy' && dd.km > 0 && dd.km < top && !dd.completed && !dd.manualEdit && !/Shakeout/.test(dd.title || ''); })
+        .slice(0, 1).forEach(function(dd){
+          add = round1(add + (top - dd.km));
+          dd.km = top;
+          dd.desc = (dd.desc && dd.desc.indexOf(BASE_STRIDES_NOTE) !== -1)
+            ? easyRunText(dd.km).desc + BASE_STRIDES_NOTE : easyRunText(dd.km).desc;
+          if (dd.prescription && dd.prescription.archetype === 'easy_run')
+            dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:dd.km } };
+        });
+    }
+    if (add > 0){ wk.lowStartLiftKm = round1((wk.lowStartLiftKm || 0) + add); lifted = round1(lifted + add); }
+  });
+  return lifted;
+}
 function shapeShortRaceEasyRuns(days, weeks, blockResult, schedule, onlyWeek){
   if (!blockResult || blockResult.purpose !== 'race') return 0;
   if (blockResult.distKey !== '5k' && blockResult.distKey !== '10k') return 0;
@@ -21884,6 +21958,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      below that is the HALF's coaching rather than the shared one. */
   var blockArch = raceGoalArch(purpose, distKey);
   var halfArc = blockArch === 'half';
+  /* A HALF OR MARATHON STARTED FROM 0 TO 3KM A WEEK (founder, 15 November
+     2026: "the hard session short and sharp"). See LOW_START_SHARP_WEEKS. */
+  var lowStartOpen = false;
+  if (purpose === 'race' && (distKey === 'half' || distKey === 'full')){
+    try { lowStartOpen = !!(statedEntryEvidence() || {}).lowStart; } catch(e){ lowStartOpen = false; }
+  }
   /* The long run the half's first Peak exposure actually reached. Null until
      that week is built; read only by the Peak weeks after it. */
   var rgPeakLongKm = null;
@@ -23167,6 +23247,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
             ? shrinkIntervalSpec(fivekPeakRaw, weekFitCeil)
             : shrinkTempoSpec(fivekPeakRaw, weekFitCeil);
         }
+      }
+      /* THE LOW START'S HARD SESSION IS SHORT AND SHARP. A runner who began
+         at 0 to 3km a week meets hill repeats inside an easy run for the
+         opening weeks, the same session a 10K low start opens on, not a
+         steady block they have no base for yet. The plan's own sequence
+         takes over after the first recovery week. */
+      if (lowStartOpen && phase === 'Base' && w <= LOW_START_SHARP_WEEKS && !isCheckpoint && !isCalibration){
+        soloKind = 'interval';
+        soloSpec = structHillRepeats(0, profile.emphasis);
       }
       soloSpec = shortRaceFastWorkCap(soloSpec, soloKind, volume, distKey, purpose);
         soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
@@ -28844,6 +28933,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     clampTaperBelowPrevious(days, weeks, WEEK_FIT_MIN_EASY_KM);
   enforceEasyRunMinimum(days, WEEK_FIT_MIN_EASY_KM, weeks);
   shapeShortRaceEasyRuns(days, weeks, blockResult, schedule);
+  shapeLowStartWeeks(days, weeks, blockResult, schedule);
   recordVolumeAccounting(days, weeks);
   var weekIndex2 = {};
   weeks.forEach(function(wk){ weekIndex2[wk.week] = wk; });
@@ -29120,6 +29210,11 @@ function recordVolumeAccounting(days, weeks){
         floorExcess = round1(floorExcess + wk.easyCeilingLiftKm);
         causes.push('floor:declared_week');
       }
+      /* The low start's third run and its 6km easy run (shapeLowStartWeeks()). */
+      if (wk.lowStartLiftKm > 0){
+        floorExcess = round1(floorExcess + wk.lowStartLiftKm);
+        causes.push('floor:low_start');
+      }
       /* A5's 5km long-run floor: it explains at most its own lift, and only
          the part of it the week's other terms have not already counted (the
          distributor sees a lift made before it, and a later hold can absorb
@@ -29154,7 +29249,8 @@ function recordVolumeAccounting(days, weeks){
                      .concat(wk.qualityDayFloorKm > 0 ? ['quality_day_floor'] : [])
                      .concat(wk.qualityDayRetainedKm > 0 ? ['quality_day_retained'] : [])
                      .concat(longRunFloorNamed ? ['long_run_minimum'] : [])
-                     .concat(wk.easyCeilingLiftKm > 0 ? ['declared_week'] : []),
+                     .concat(wk.easyCeilingLiftKm > 0 ? ['declared_week'] : [])
+                     .concat(wk.lowStartLiftKm > 0 ? ['low_start'] : []),
       capRecovered: capRecovered,
       prescribedTotal: prescribedTotal,
       roundingResidual: residual,
@@ -37252,6 +37348,7 @@ function logRangeHtml(dd, o){
   return '<div class="yl-q">'+
     '<div class="yl-q-head"><span class="yl-q-t">'+escapeHtml(o.label)+'</span>'+
       (fig != null ? '<span class="yl-fig font-mono" data-yl-fig>'+escapeHtml(fig)+'</span>' : '')+
+      (o.yesNo ? logYesNoHtml(dd, o.field, set ? (v <= o.yesNo ? 'yes' : 'no') : null, o.label) : '')+
     '</div>'+
     /* data-hswipe: a drag on a slider is the slider's, not a swipe between
        tabs or along the week -- both pagers stand down for it. */
@@ -37266,6 +37363,22 @@ function logRangeHtml(dd, o){
     (o.ends ? '<div class="yl-ends"><span>'+escapeHtml(o.ends[0])+'</span><span>'+escapeHtml(o.ends[1])+'</span></div>' : '')+
     (o.words ? '<div class="yl-ans'+(set ? '' : ' is-unset')+'" data-yl-ans>'+escapeHtml(word)+'</div>' : '')+
     (set ? '<button type="button" class="yl-clear" data-action="log-clear"'+at+'>Clear</button>' : '')+
+  '</div>';
+}
+/* Founder, 15 November 2026: "did you hold pace -- a box saying yes no
+   needs to be there and then the slider. Make the yes / no box in line with
+   the title." The quick answer sits on the question's own line; the slider
+   under it says how much. They are one answer, not two: Yes is the slider at
+   Even or better, No is a fade, so the box is read from the slider's value
+   and a tap on it moves the slider (Yes to Even, No to Slight fade) unless
+   the slider already says so. A second tap on the chosen box clears both. */
+function logYesNoHtml(dd, field, on, label){
+  return '<div class="yl-yn" role="group" aria-label="'+escapeHtml(label)+'">'+
+    [['yes','Yes'],['no','No']].map(function(x){
+      return '<button type="button" class="yl-yn-b'+(on === x[0] ? ' active' : '')+'" '+
+        'aria-pressed="'+(on === x[0] ? 'true' : 'false')+'" data-action="log-pick" '+
+        'data-field="'+field+'" data-value="'+x[0]+'" data-day="'+dd.id+'">'+x[1]+'</button>';
+    }).join('')+
   '</div>';
 }
 function logTilesHtml(dd, o){
@@ -37628,7 +37741,7 @@ function renderYourLogAnswers(dd){
         label:(shape.hills ? 'Did your effort hold?' : 'Did your pace hold?'), min:1, max:5,
         value:(typeof a.mainSetHeld === 'number' ? a.mainSetHeld : null), start:3,
         words:(shape.hills ? LOG_HELD_EFFORT : LOG_HELD_PACE),
-        ends:[(shape.hills ? 'Got stronger' : 'Got faster'), 'Faded'] })
+        ends:[(shape.hills ? 'Got stronger' : 'Got faster'), 'Faded'], yesNo:3 })
     : '';
   var effortQ = logRangeHtml(dd, { field:'rpe', label:'Overall effort', min:1, max:10,
     value:(typeof a.rpe === 'number' ? a.rpe : null), start:5, of:10, ends:['Very easy', 'All out'] });
@@ -37782,6 +37895,12 @@ function handleLogPick(dayId, field, value){
   } else if (field === 'hurting'){
     if (!healthConsentGranted() || !known(LOG_HURTING)) return;
     if (a.hurting === value) delete a.hurting; else a.hurting = value;
+  } else if (field === 'mainSetHeld'){
+    /* The Yes / No box beside "Did your pace hold?" -- see logYesNoHtml(). */
+    if (value !== 'yes' && value !== 'no') return;
+    var held = (typeof a.mainSetHeld === 'number') ? (a.mainSetHeld <= 3 ? 'yes' : 'no') : null;
+    if (held === value) delete a.mainSetHeld;
+    else a.mainSetHeld = (value === 'yes') ? 3 : 4;
   } else if (field === 'stopReason'){
     if (!known(LOG_STOP)) return;
     if (LOG_STOP_HEALTH.indexOf(value) !== -1 && !healthConsentGranted()) return;
@@ -51750,6 +51869,9 @@ var RUN_WALK_LEARNED_RUNS = 3;
    with the hard session short and sharp inside a 5km run. */
 var LOW_START_WEEK_KM = 17;
 var LOW_START_LONG_KM = 6;
+/* The weeks before a low start's first recovery week, in which a Half or
+   Marathon keeps its hard session to short hill repeats. */
+var LOW_START_SHARP_WEEKS = 3;
 var RUN_WALK_NOTE = 'Run/walk is fine if you need it: run 4 minutes, walk 1, and repeat. The walking counts, and covering the distance is the session.';
 function runWalkLearned(){
   var n = 0;
@@ -61250,9 +61372,10 @@ function runwayOfferHtml(plan, distanceKey){
   return '<div class="modal-head"><h2 class="font-head">You have ' + plan.weeksToRace + ' weeks</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
     '<div class="modal-body">'+
+      /* Founder, 15 November 2026: no claim that extra weeks only dilute the
+         training. The weeks are offered, not argued against. */
       '<p>A ' + lbl + ' programme is ' + plan.dedicatedWeeks + ' weeks. That leaves ' +
-        prep.weeks + ' before it starts, and stretching the race programme across them '+
-        'would not build anything extra. It would just spread the same work thinner.</p>'+
+        prep.weeks + ' before it starts.</p>'+
       '<p>' + escapeHtml(why) + '</p>'+
       '<div class="yr-choices">'+
         '<button type="button" class="btn btn-primary btn-block" data-action="runway-prep" '+
@@ -78748,7 +78871,13 @@ function pageSwipeStart(e){
      keeps no draft, so a sideways flick while choosing a tile would throw
      every answer away. On its first screen it swipes like any page; after
      that the ring is the way out. */
-  if (card.classList.contains('bld-modal') && typeof bldCurrentStage === 'number' && bldCurrentStage > 0) return;
+  /* Founder, 15 November 2026: "The build a plan still doesn't swipe out?"
+     It does now, downwards, at every stage: pulled down from its top, the
+     way a sheet goes, which is a deliberate gesture and not something a
+     thumb does while choosing a tile. Sideways stays off past the first
+     screen for the reason above. A new athlete's answers are parked by
+     closeModal() either way, so nothing is lost by the swipe. */
+  if (card.classList.contains('bld-modal') && typeof bldCurrentStage === 'number' && bldCurrentStage > 0) sheet = true;
   if (pageSwipeOwnedElsewhere(e.target, card)) return;
   var t = e.touches[0];
   pageSwipeState = { card:card, x0:t.clientX, y0:t.clientY, axis:null, dist:0, v:0,

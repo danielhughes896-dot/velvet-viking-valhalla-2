@@ -375,6 +375,34 @@ test('reps, the hold and the recoveries are read back in the analysis, in words,
   assert.ok(!/faded|stronger/.test(a.sessionReadoutHtml(dd)), 'an even set was reported as a change');
 });
 
+test('the pace hold has a Yes / No box on the question line, and it is the slider answer', () => {
+  const a = app();
+  const dd = session(a, 'reps');
+  const head = () => {
+    const html = answers(a, dd);
+    const at = html.indexOf('Did your pace hold?');
+    return html.slice(at, html.indexOf('</div></div>', at));
+  };
+  assert.match(head(), /class="yl-yn"/, 'the Yes / No box is not on the question line');
+  assert.ok(answers(a, dd).indexOf('class="yl-yn"') < answers(a, dd).indexOf('data-action="log-slide" data-field="mainSetHeld"'),
+    'the slider comes before the box');
+  assert.ok(!/yl-yn-b active/.test(head()), 'an unanswered hold shows a box pressed');
+  a.handleLogPick(dd.id, 'mainSetHeld', 'yes');
+  assert.equal(dd.actual.mainSetHeld, 3, 'Yes is not Even on the slider');
+  a.handleLogAnswer(dd.id, 'mainSetHeld', '1');
+  a.handleLogPick(dd.id, 'mainSetHeld', 'no');
+  assert.equal(dd.actual.mainSetHeld, 4, 'No is not a slight fade');
+  a.handleLogAnswer(dd.id, 'mainSetHeld', '5');
+  assert.match(head(), /yl-yn-b active" aria-pressed="true" data-action="log-pick" data-field="mainSetHeld" data-value="no"/);
+  a.handleLogPick(dd.id, 'mainSetHeld', 'no');
+  assert.equal(dd.actual.mainSetHeld, undefined, 'a second tap on the chosen box does not clear it');
+  a.handleLogPick(dd.id, 'mainSetHeld', 'maybe');
+  assert.equal(dd.actual.mainSetHeld, undefined);
+  /* Hills: the same box beside the effort question. */
+  const h = session(a, 'hills');
+  assert.match(answers(a, h), /Did your effort hold\?<\/span><div class="yl-yn"/);
+});
+
 test('the five-position hold is read by the assessment as built, held or faded', () => {
   const a = app();
   assert.equal(a.logHeldWord(null), null);

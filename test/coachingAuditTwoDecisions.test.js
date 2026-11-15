@@ -211,3 +211,50 @@ test('pre-race shakeouts may stay under 5km; they are a different stimulus', () 
   const other = a.state.days.filter(d => d.type === 'easy' && d.km > 0 && !/Shakeout/.test(d.title || ''));
   other.forEach(d => assert.ok(d.km >= 5, 'an ordinary easy run of ' + d.km + 'km in week ' + d.week));
 });
+
+/* Founder, 15 November 2026, of the Half and Marathon low start: the same
+   week one as the 5K and 10K (a 6km run, the short hard session, a 6km long
+   run), run/walk if needed, and the Half's early hard session short and
+   sharp rather than a tempo. */
+function lowStart(dist, exp){
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  ['renderApp', 'showToast', 'flushSave', 'scheduleSave'].forEach(f => { a[f] = () => {}; });
+  a.pendingEntryEvidence = { weeklyKm: 0, runDaysPerWeek: 3, recordedAt: '2026-11-16T09:00:00Z' };
+  buildPlan(a, { distanceKey: dist, volume: a.LOW_START_WEEK_KM, weeks: 16, experience: exp,
+    startDate: '2026-11-16', schedule: { activeDays: [1, 3, 6], longRunDay: 6 } });
+  return a;
+}
+['half', 'full'].forEach(dist => ['novice', 'experienced'].forEach(exp => {
+  test('0-3km ' + dist + ' (' + exp + '): week one is 6 + 5 + 6, three runs through the first recovery week', () => {
+    const a = lowStart(dist, exp);
+    const wk1 = runs(a, 1);
+    assert.equal(wk1.length, 3, 'week one is not three runs');
+    assert.equal(Math.round(wk1.reduce((t, d) => t + d.km, 0) * 10) / 10, 17, 'week one is not 17km');
+    assert.equal(wk1.find(d => d.type === 'long').km, 6);
+    assert.ok(wk1.some(d => d.type === 'easy' && d.km === 6), 'no 6km run in week one');
+    for (let w = 1; w <= 4; w++){
+      const r = runs(a, w);
+      assert.ok(r.length >= 3, 'week ' + w + ' has ' + r.length + ' runs');
+      r.forEach(d => assert.ok(d.km >= 5 || a.isQualityType(d.type), 'a ' + d.km + 'km run in week ' + w));
+    }
+    (a.planVolumeAccounting || []).filter(x => x.week <= 4).forEach(x =>
+      assert.ok(x.reconciled, 'week ' + x.week + ' carries kilometres nobody named'));
+  });
+}));
+test('0-3km half: the early hard session is short hill repeats, never a tempo', () => {
+  ['novice', 'experienced'].forEach(exp => {
+    const a = lowStart('half', exp);
+    for (let w = 1; w <= a.LOW_START_SHARP_WEEKS; w++){
+      const hard = runs(a, w).filter(d => a.isQualityType(d.type));
+      assert.equal(hard.length, 1, exp + ' week ' + w);
+      assert.equal(hard[0].prescription.archetype, 'hill_repeats', exp + ' week ' + w + ' is ' + hard[0].title);
+      assert.ok(hard[0].km <= 5.5, exp + ' week ' + w + ' hill session is ' + hard[0].km + 'km');
+    }
+  });
+  /* A half that did not start low keeps its own sequence. */
+  const b = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  ['renderApp', 'showToast', 'flushSave', 'scheduleSave'].forEach(f => { b[f] = () => {}; });
+  buildPlan(b, { distanceKey: 'half', volume: 30, weeks: 16, experience: 'novice',
+    startDate: '2026-11-16', schedule: { activeDays: [1, 3, 6], longRunDay: 6 } });
+  assert.ok(runs(b, 1).some(d => d.type === 'tempo'), 'a 30km half lost its opening tempo');
+});

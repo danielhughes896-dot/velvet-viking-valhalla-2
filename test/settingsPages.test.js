@@ -233,11 +233,14 @@ test('a page follows the finger the way it was pushed, and leaves that way', () 
   assert.equal(clicked, 2);
 });
 
-test('the builder swipes away only before it holds an answer', () => {
-  /* It became a page (founder: "Build your training block full page"), and
-     it keeps no draft, so a stray flick on step three would lose the lot. */
+test('the builder swipes down to close at every stage, sideways only on its first screen', () => {
+  /* It became a page (founder: "Build your training block full page"); a
+     stray sideways flick while choosing a tile must not close it. Founder,
+     15 November 2026: "The build a plan still doesn't swipe out?" A pull
+     down from its top is deliberate, so that closes it at every stage. */
   const start = fnBody('pageSwipeStart');
-  assert.match(start, /card\.classList\.contains\('bld-modal'\) && typeof bldCurrentStage === 'number' && bldCurrentStage > 0\) return;/);
+  assert.match(start, /card\.classList\.contains\('bld-modal'\) && typeof bldCurrentStage === 'number' && bldCurrentStage > 0\) sheet = true;/);
+  assert.doesNotMatch(start, /bldCurrentStage > 0\) return;/, 'a builder past its first screen still refuses the swipe');
 });
 
 test('it can be changed of mind: short and slow settles back, far or flicked leaves', () => {
