@@ -10928,6 +10928,7 @@
   .modal-card.rp-green{--rp-accent:var(--z-easy);}
   .modal-card.rp-done{--rp-accent:var(--ok);}
   .modal-card.rp-cherry{--rp-accent:var(--cherry);}
+  .modal-card.rp-plain{--rp-accent:rgba(255,255,255,.6);}
   .modal-card.rp-white{--rp-accent:var(--ink);}
   .modal-card.rp-blue{--rp-accent:var(--z-mp);}
   /* ---- RECOVERY'S PANEL FOLLOWS RECOVERY'S CIRCLE ----
@@ -12176,6 +12177,20 @@
     background:transparent; border-bottom:0; -webkit-backdrop-filter:none; backdrop-filter:none;}
   .modal-overlay:has(> .hq-full) > .hq-full:has(> .modal-body) > .modal-body{flex:1 1 auto; min-height:0;
     overflow-y:auto; overscroll-behavior:contain;}
+  /* COLOUR MEANS A COACHING METRIC; A FORM IS PLAIN GLASS. Founder, asked
+     whether every panel should wear coloured sides: "Yes, plain glass for
+     all three and activity". A coloured edge now says only "this opened
+     from a coloured circle on the Coach page". Settings pages (and what
+     shares their shell: the builder, Share), the injury page, Your Circle
+     and Activity History are glass with the same lit top edge as every
+     other form sheet, and white where the accent was cherry. The main
+     action keeps its cherry. */
+  .modal-overlay:has(> .hq-full.rp-plain) > .hq-full.rp-plain{border:0; position:relative;}
+  .modal-overlay:has(> .hq-full.rp-plain) > .hq-full.rp-plain::before{content:''; position:absolute; inset:0; z-index:4;
+    border-radius:inherit; pointer-events:none; padding:1px;
+    background:linear-gradient(180deg, rgba(255,255,255,.70), rgba(255,255,255,.14) 16%, rgba(255,255,255,.05) 55%, rgba(255,255,255,0));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite:exclude;}
   .wr-sheet{display:flex; flex-direction:column; overflow:hidden;}
   .wr-sheet > .tw-head{position:relative; flex:none; background:transparent;
     -webkit-backdrop-filter:none; backdrop-filter:none;}
@@ -60281,7 +60296,7 @@ function restrictionPanelHtml(){
 function openRestrictionPanel(){
   var html = restrictionPanelHtml();
   if (!html) return;
-  openModal(html, 'modal-themed builder-light hq-panel rp-cherry hq-full restriction-panel');
+  openModal(html, 'modal-themed builder-light hq-panel rp-plain hq-full restriction-panel');
 }
 /* ---------- declaring it ----------
    The draft is module state and nothing else: it exists only between
@@ -77360,7 +77375,7 @@ function circleIntroSheetHtml(){
 }
 function openCirclePageNow(){
   closeCircleSheetLayer(); circleSheet = null;
-  openModal(circlePageHtml(), 'modal-themed builder-light hq-panel rp-cherry hq-full circle-page');
+  openModal(circlePageHtml(), 'modal-themed builder-light hq-panel rp-plain hq-full circle-page');
 }
 function openCirclePage(){
   circle.error = '';
@@ -78239,7 +78254,7 @@ var PANEL_ACCENT_CLASS = {
   recovery:'rp-cyan', evolution:'rp-green', readiness:'rp-cherry',
   patterns:'rp-white', adaptation:'rp-blue',
   goal:'rp-green', fitness:'rp-cherry', benchmark:'rp-blue', progress:'rp-cyan',
-  history:'rp-done'
+  history:'rp-plain'
 };
 function openHQPanel(key){
   /* Used, so it no longer needs saying. Marked here rather than on the
@@ -79618,7 +79633,7 @@ function openSettingsPanel(key){
    in here: test/modalThemeConsistency reads every openModal() call for the
    theme it asks for, and a surface whose theme is decided somewhere else is
    a surface that law cannot see. */
-var STG_PAGE = 'hq-panel stg-panel hq-full rp-cherry';
+var STG_PAGE = 'hq-panel stg-panel hq-full rp-plain';
 /* What a page needs settled before it is drawn, and what it does once it is
    up. Kept beside the opener so a page's own state cannot survive from the
    last time it was open: a reset left armed, or yesterday's update answer. */

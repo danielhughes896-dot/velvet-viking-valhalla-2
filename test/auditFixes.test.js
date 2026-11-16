@@ -177,7 +177,7 @@ test('the injury page has the circle, three tiles, the evidence, the read and tw
   const opened = [];
   a.openModal = (h, c) => opened.push(c);
   a.openRestrictionPanel();
-  assert.match(opened[0], /\brp-cherry\b/);
+  assert.match(opened[0], /\brp-plain\b/);   // a form: plain glass
   assert.match(opened[0], /\bhq-full\b/);
 });
 

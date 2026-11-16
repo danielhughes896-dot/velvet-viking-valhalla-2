@@ -50,10 +50,12 @@ function opened(a) {
 
 /* ---------- one page, whichever row it started on ---------- */
 
-test('a Settings page is the Coach page: the same full-screen class, and cherry', () => {
+test('a Settings page is the Coach page\u2019s shell, in plain glass', () => {
   const a = athlete();
   const cls = a.STG_PAGE.split(' ');
-  ['hq-panel', 'stg-panel', 'hq-full', 'rp-cherry'].forEach(c =>
+  /* Founder: "Yes, plain glass for all three and activity" -- colour is
+     for coaching metrics, so a Settings page takes rp-plain, not rp-cherry. */
+  ['hq-panel', 'stg-panel', 'hq-full', 'rp-plain'].forEach(c =>
     assert.ok(cls.indexOf(c) > -1, 'a Settings page is missing .' + c));
   /* hq-full is the Coach panels' own class, taken rather than copied. */
   assert.match(fnBody('openHQPanel'), /coachPanel \? ' hq-full' : ''/,
@@ -100,11 +102,11 @@ test('the close ring is the Coach page’s, not a neutral one of Settings’ own
   assert.doesNotMatch(CSS, /\n  \.hq-panel\.stg-panel \.icon-btn\{/,
     'Settings pages have a close ring of their own again');
   /* Both rules that draw the Coach ring say cherry, one by name and one
-     through the page's accent, which rp-cherry sets. */
+     through the page's accent, which rp-plain sets to white. */
   const rings = CSS.match(/\n  \.hq-panel \.icon-btn\{[^}]*\}/g) || [];
   assert.ok(rings.length >= 1, 'the Coach page\u2019s close ring is gone');
-  rings.forEach(r => assert.match(r, /var\(--cherry\)|var\(--rp-accent\)/, 'a close ring that is not cherry: ' + r.trim()));
-  assert.match(rule('.modal-card.rp-cherry'), /--rp-accent:var\(--cherry\)/);
+  rings.forEach(r => assert.match(r, /var\(--cherry\)|var\(--rp-accent\)/, 'a close ring that ignores the page accent: ' + r.trim()));
+  assert.match(rule('.modal-card.rp-plain'), /--rp-accent:rgba\(255,255,255,\.6\)/);
 });
 
 /* ---------- the main action is at the bottom ---------- */

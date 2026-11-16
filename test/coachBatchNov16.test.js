@@ -93,3 +93,19 @@ test('each sheet’s hero ring wears its small circle’s colour, and so does th
     assert.equal(RIM[a.PANEL_ACCENT_CLASS[k]], WANT[k], k + '’s sheet rim');
   });
 });
+
+test('forms and ways in are plain glass; only Coach metric sheets wear a colour', () => {
+  /* Founder: "Yes, plain glass for all three and activity". */
+  const a = athlete('half');
+  assert.match(a.STG_PAGE, /\brp-plain\b/);
+  assert.doesNotMatch(a.STG_PAGE, /\brp-cherry\b/);
+  assert.equal(a.PANEL_ACCENT_CLASS.history, 'rp-plain');
+  assert.match(SRC, /openModal\(html, 'modal-themed builder-light hq-panel rp-plain hq-full restriction-panel'\)/);
+  assert.match(SRC, /openModal\(circlePageHtml\(\), 'modal-themed builder-light hq-panel rp-plain hq-full circle-page'\)/);
+  const plain = SRC.indexOf('.modal-overlay:has(> .hq-full.rp-plain) > .hq-full.rp-plain{');
+  assert.ok(plain !== -1);
+  assert.match(SRC.slice(plain, SRC.indexOf('}', plain)), /border:0/, 'a plain page still has a coloured edge');
+  assert.ok(SRC.indexOf('.modal-overlay:has(> .hq-full.rp-plain) > .hq-full.rp-plain::before{') !== -1, 'no lit edge');
+  ['recovery','evolution','adaptation','patterns','readiness','fitness','progress','goal','benchmark']
+    .forEach(k => assert.notEqual(a.PANEL_ACCENT_CLASS[k], 'rp-plain', k + ' lost its colour'));
+});
