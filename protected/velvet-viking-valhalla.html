@@ -12186,6 +12186,16 @@
     filter:none;
   }
   .btn.btn-primary svg, .btn-primary svg{color:#FFFFFF;}
+  /* THE SAFETY NET (renderMissingWorkoutNet). White words, both buttons glass,
+     the choice on the right. */
+  .mw-net{margin:18px 0 6px;}
+  .mw-net-say{margin:0; font-size:var(--fs-body); line-height:var(--lh-body); font-weight:600; color:#FFFFFF;}
+  .mw-net-actions{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;}
+  .mw-net-actions.is-one{grid-template-columns:1fr;}
+  .mw-net-actions .btn{min-height:52px; margin:0;}
+  .mw-net .btn-ghost{background:var(--glass-sheen), var(--glass-tint);
+    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
+    border:1px solid rgba(255,255,255,.28); color:#FFFFFF; box-shadow:var(--glass-rim);}
   .btn.btn-primary:disabled, .btn-primary:disabled{opacity:.55; box-shadow:var(--glass-rim) !important;}
   @media (hover:hover){ .btn.btn-primary:hover, .btn-primary:hover{box-shadow:var(--glass-rim), 0 0 22px var(--cherry-dim) !important;} }
   /* THE ROUND GLASS X, THROUGHOUT, AND ONE OF IT. The audit counted four:
@@ -16453,6 +16463,61 @@ function recentDeclaredWeeklyKm(){
   var age = null;
   try { age = at ? daysBetween(at, todayStr()) : null; } catch(err){ age = null; }
   return (age != null && age >= 0 && age <= CALIBRATION_EVIDENCE_DAYS) ? e.weeklyKm : null;
+}
+/* ---- BASE, MAINTAIN AND SPEED OPEN WHERE THE ATHLETE SAYS THEY ARE ----
+   Founder, 16 November 2026: "Use them". The builder asks every athlete how
+   many days they run and their longest recent run, and until now only a race
+   block read the two answers: Base, Maintain and Speed opened on the schedule
+   and the volume formula alone, so a three day runner with a 12km long run and
+   a six day runner with a 20km long run got the same first week.
+
+   THE DAYS. The block opens on the days the athlete runs now (never fewer
+   than two, never more than they made available) and gains one day after
+   each lighter week, the point where a new cycle starts, until it reaches
+   their availability. See nonRaceEntryRunDayCap().
+
+   THE LONG RUN. The longest recent run counts only while it is evidence
+   (dated within CALIBRATION_EVIDENCE_DAYS, which statedEntryEvidence() already
+   checks). It is held to LONG_RUN_ENTRY_SHARE of the declared week, except
+   for an athlete running one or two days, whose long run is most of the week
+   by definition, and to BASE_LONG_CAP_KM. It is never under the 5km rule.
+   From there the block's own long run takes over, and the long-run step cap
+   (applyLongRunStepCap()) holds every rise to its usual step.
+
+   NO ANSWER, NO CHANGE: with neither answer given this returns null and the
+   three purposes build exactly as they did. */
+var NON_RACE_ENTRY_PURPOSES = ['base', 'maintain', 'speed'];
+function nonRaceEntryOpening(purpose, availableDays){
+  if (NON_RACE_ENTRY_PURPOSES.indexOf(purpose) === -1) return null;
+  var st = null;
+  try { st = statedEntryEvidence(); } catch(e){ st = null; }
+  if (!st) return null;
+  var avail = (availableDays > 0) ? availableDays : null;
+  var days = null;
+  if (st.runDays != null && st.runDays > 0){
+    days = Math.max(2, Math.round(st.runDays));
+    if (avail != null) days = Math.min(days, avail);
+  }
+  var longKm = null;
+  if (st.longKm != null && st.longKm > 0){
+    longKm = st.longKm;
+    var shareWeek = (st.declaredWeeklyKm > 0) ? st.declaredWeeklyKm : st.weeklyKm;
+    if (shareWeek > 0 && !(st.runDays != null && st.runDays <= 2))
+      longKm = Math.min(longKm, shareWeek * LONG_RUN_ENTRY_SHARE);
+    longKm = Math.min(longKm, BASE_LONG_CAP_KM);
+    longKm = round1(Math.max(WEEK_FIT_MIN_EASY_KM, longKm));
+  }
+  if (days == null && longKm == null) return null;
+  return { days: days, longKm: longKm, statedDays: st.runDays, statedLongKm: st.longKm };
+}
+/* The day count for one week of such a block: the opening days, plus one for
+   each lighter week already behind it. Null where the athlete gave no day
+   count, so the week reads exactly what it read before. */
+function nonRaceEntryRunDayCap(opening, weeks, wIdx){
+  if (!opening || !(opening.days > 0)) return null;
+  var lighterBehind = 0;
+  for (var i = 0; i < wIdx; i++) if (weeks[i] && weeks[i].isCutback) lighterBehind++;
+  return opening.days + lighterBehind;
 }
 function raceGoalEntryState(distKey, experience, statedVolumeKm){
   var path = raceGoalPathway(distKey, experience);
@@ -22732,6 +22797,9 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
       permission: mDevPerm
     };
   }
+  /* T1/T2: what a Base, Maintain or Speed athlete said they run now. Null for
+     a race block and for an athlete who gave neither answer. */
+  var nrOpen = nonRaceEntryOpening(purpose, opts && opts.availableDays);
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
     var isTaper = !steady && (!isRace && w>buildWeeks);
@@ -23984,6 +24052,24 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
     /* AND NEVER SHORTER THAN AN EASY RUN. A 6km base week gave a 2km "long
        run" beside a 3km easy run. The long run is at least the easy floor. */
     if (purpose === 'base' && longTarget > 0 && longTarget < EASY_MIN_KM) longTarget = EASY_MIN_KM;
+    /* T2: THE OPENING LONG RUN IS THE ATHLETE'S OWN (nonRaceEntryOpening()).
+       Week one opens on it, and is never below an even share of the week over
+       the days it is written across, so the long run stays the longest run.
+       After that a normal week never takes the athlete below it; the block's
+       own long run grows from there and applyLongRunStepCap() holds the step.
+       A lighter week keeps its own lighter long run. */
+    var nrLongFrom = null;
+    if (nrOpen && nrOpen.longKm > 0 && longTarget > 0 && !isRace && !isTaper){
+      if (w === 1){
+        var nrDaysW1 = nrOpen.days || (opts && opts.availableDays) || 0;
+        var nrEven = nrDaysW1 > 0 ? round1(volume / nrDaysW1) : 0;
+        nrLongFrom = longTarget;
+        longTarget = round1(Math.max(nrOpen.longKm, nrEven));
+      } else if (!isCutback && longTarget < nrOpen.longKm){
+        nrLongFrom = longTarget;
+        longTarget = nrOpen.longKm;
+      }
+    }
     /* THE LONG RUN IS ITS OWN AUTHORITY. Not volume x a share -- see
        marathonLongRunDestination(). The share is computed afterwards and used
        to DIAGNOSE the week's shape, which is the only job it has. */
@@ -25058,6 +25144,9 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
       intendedVolume:intendedVolume, reductionCause:reductionCause,
       deliberateReduction:round1(Math.max(0, (intendedVolume==null?volume:intendedVolume) - volume)),
       volume:volume, qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
+      /* T2: the long run the formula gave, where the athlete's own long run
+         replaced it (null otherwise), so the change is readable. */
+      entryLongFromKm: nrLongFrom != null ? round1(nrLongFrom) : null,
       longTarget:round1(longTarget), b2bEligible:b2bEligible, longShape:longShape,
       hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, goalSegFrac:goalSegFrac, raceDayKm:raceDayKm,
       longStructure:longStructure, longBrokenSegments:longBrokenSegments
@@ -25097,6 +25186,9 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
     }
   }
   return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume), peakCapKm:peakCapKm, peakCapBy:peakCapBy,
+           /* T1/T2: the stated days and long run a Base, Maintain or Speed
+              block opened on (nonRaceEntryOpening()), or null. */
+           entryOpening: nrOpen,
            /* ---- A CALIBRATION THAT NEVER FOUND A WEEK IS DECLARED ----
               The test is deferred until the athlete can safely and meaningfully
               perform it, and for a low-volume athlete on a short runway there
@@ -28514,6 +28606,22 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        their demonstrated capacity by having a good fortnight. */
     if (!wk.bottomUp && currentFreq != null && !wk.isRace)
       runCap = Math.min(runCap, Math.max(2, currentFreq));
+    /* T1: A BASE, MAINTAIN OR SPEED BLOCK OPENS ON THE DAYS THE ATHLETE RUNS
+       NOW, and gains a day after each lighter week until it reaches their
+       availability (nonRaceEntryRunDayCap()). Only lowers: availability,
+       feasibility and the athlete's own evidence above still bind. */
+    var nrDayCap = (!wk.bottomUp && !wk.isRace)
+      ? nonRaceEntryRunDayCap(blockResult.entryOpening, weeks, wIdx) : null;
+    /* ...but never fewer days than the week needs with no run longer than
+       its long run: a week the stated days cannot carry gets the day back
+       rather than being cut. */
+    /* Measured against the larger of the week's long run and the athlete's
+       own, so a lighter week never comes out with more days than a full one. */
+    var nrCarryL = Math.max(wk.longTarget || 0, (blockResult.entryOpening && blockResult.entryOpening.longKm) || 0);
+    if (nrDayCap != null && nrCarryL > 0 && wk.volume > 0)
+      nrDayCap = Math.max(nrDayCap, Math.ceil(wk.volume / nrCarryL - 1e-9));
+    wk.statedDaysBound = (nrDayCap != null && nrDayCap < runCap) ? nrDayCap : null;
+    if (nrDayCap != null) runCap = Math.min(runCap, nrDayCap);
     /* ---- EXPERIENCE, AS A SECONDARY PRIOR, ONLY WHERE EVIDENCE IS SILENT ----
        HQ's methodology ruling: Experience may inform frequency-development
        CONFIDENCE where evidence cannot yet resolve the athlete; it must never
@@ -28596,6 +28704,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     wk.runDayCap = runCap;
     wk.frequencyEvidence = { availability: activeDays.length, expressible: feasibleDays,
                              capacity: demonstratedFreq, current: currentFreq,
+                             stated: nrDayCap,
                              /* WHICH AUTHORITY BOUND THIS WEEK, readable rather than
                                 inferred. `coherent` is null everywhere the marathon
                                 rule does not apply, and carries the range itself
@@ -28763,6 +28872,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     // this week's real easy-day pool: drop the b2b day from it on weeks where b2b actually fires,
     // since that day's volume comes from secondLongKm instead, not the generic easy budget
     var easyDays = b2bActive ? easyDaysBase.filter(function(d){return d!==b2bDay;}) : easyDaysBase;
+    /* The available days the run-day cap rested this week (T1 may give one back). */
+    var easyDaysRestedList = [];
     /* THE DAY THE LONG RUN BOUGHT BACK IS STILL A RUNNING DAY. A slot the
        aerobic-dominance ceiling removes takes its day with it and that day
        rests -- correctly, because the cap says the athlete has not demonstrated
@@ -28796,6 +28907,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       var easyAllowed = Math.max(1, runCap - committedDays);
       if (easyAllowed < easyDays.length){
         wk.easyDaysRested = easyDays.length - easyAllowed;
+        easyDaysRestedList = easyDays.slice(easyAllowed);
         easyDays = easyDays.slice(0, easyAllowed);
       }
     }
@@ -29061,6 +29173,22 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         if (rShrunkKm > 0){
           if (reloadBuildIngredient) wk.reloadIngredientShrunkKm = round1(rShrunkKm);
           else wk.devIngredientShrunkKm = round1(rShrunkKm);
+        }
+      }
+      /* T2: THE ATHLETE'S OWN LONG RUN DOES NOT COST THE WEEK ITS SESSION.
+         Where the stated long run raised this week's long run above the
+         block's own figure (wk.entryLongFromKm) and the week can no longer
+         pay for its quality session, the long run gives back what the session
+         needs, never below the block's own figure. The session keeps its
+         place; the 5km rule then decides the easy days as usual. */
+      if (wk.entryLongFromKm != null && !b2bActive && longKm > wk.entryLongFromKm &&
+          qualitySlotsThisWeek > pinned){
+        var nrOver = floorCostFor(qualitySlotsThisWeek, singleSlotKind) - wk.volume;
+        if (nrOver > 1e-9){
+          var nrLongTo = round1(Math.max(wk.entryLongFromKm, longKm - nrOver));
+          wk.entryLongYieldedKm = round1(longKm - nrLongTo);
+          longKm = nrLongTo;
+          wk.longTarget = nrLongTo;
         }
       }
       while (qualitySlotsThisWeek > pinned &&
@@ -29331,6 +29459,32 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     /* A5: an easy run is at least 5km, so the distributor's floor is 5km
        (the merge above has already left no run that would need more than a
        kilometre of lifting to reach it). */
+    /* T1: FEWER DAYS DO NOT MEAN A SMALLER WEEK. Where the athlete's stated
+       day count is what holds this week below their availability, the week
+       is the same week on fewer runs, so the long run carries an even share
+       of what the session leaves (an easy run is never longer than the long
+       run). Without this the week was cut and the athlete told they needed
+       more days than they had made available. */
+    if (wk.statedDaysBound != null && !noLongRun && !b2bActive && !wk.isRace && longKm > 0){
+      var nrEasyMax = function(L){ return Math.max(WEEK_FIT_MIN_EASY_KM, roundTo(L, 1) - EASY_QUANTUM_KM); };
+      /* The smallest whole-km long run that carries the week on n easy runs,
+         each held a quantum under it. */
+      var nrCarryOn = function(n){ return Math.ceil((wk.volume - qualityKm + n * EASY_QUANTUM_KM) / (n + 1) - 1e-9); };
+      /* The long run may carry up to the athlete's own longest run (or the
+         block's, where that is longer). Past that the week gets back one of
+         the days the cap rested, and only then is the long run lifted. */
+      var nrLiftTo = Math.max(longKm, roundTo((blockResult.entryOpening && blockResult.entryOpening.longKm) || 0, 1));
+      var nrSpare = easyDaysRestedList.slice();
+      while (nrSpare.length && qualityKm + nrLiftTo + easyDays.length * nrEasyMax(nrLiftTo) < wk.volume - 0.5){
+        easyDays = easyDays.concat([nrSpare.shift()]).sort(function(a, b){ return a - b; });
+        wk.statedDaysGivenBack = (wk.statedDaysGivenBack || 0) + 1;
+      }
+      var nrCarryKm = nrCarryOn(easyDays.length);
+      if (nrCarryKm > longKm + 1e-9){
+        wk.statedDaysLongLiftKm = round1(nrCarryKm - longKm);
+        longKm = nrCarryKm;
+      }
+    }
     var dist = distributeWeekVolume(wk.volume, qualityKm, longKm, secondLongKm,
                                      easyDays.length, profile.longCapKm,
                                      (easyFloorKm != null ? easyFloorKm : (noLongRun ? null : WEEK_FIT_MIN_EASY_KM)),
@@ -29606,7 +29760,11 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   if (blockResult.purpose === 'race') clampTaperBelowPrevious(days, weeks, WEEK_FIT_MIN_EASY_KM);
   /* The long-run step, and the taper clamp read again behind it: a capped
      week before the taper can leave the taper a kilometre above it. */
-  var stepScoped = (blockResult.purpose === 'race' && blockResult.distKey !== 'ultra') || blockResult.purpose === 'base';
+  /* Maintain and Speed keep the step too once they open on the athlete's own
+     long run (T2), so a long run that opened below the block's figure climbs
+     to it at the usual step rather than in one jump. */
+  var stepScoped = (blockResult.purpose === 'race' && blockResult.distKey !== 'ultra') || blockResult.purpose === 'base' ||
+    !!(blockResult.entryOpening && blockResult.entryOpening.longKm > 0);
   if (stepScoped && applyLongRunStepCap(days, weeks, blockResult.distKey) > 0 && blockResult.purpose === 'race')
     clampTaperBelowPrevious(days, weeks, WEEK_FIT_MIN_EASY_KM);
   enforceEasyRunMinimum(days, WEEK_FIT_MIN_EASY_KM, weeks);
@@ -37816,6 +37974,65 @@ function renderDayHeroDistance(dd){
   if (!m) return '<div class="th-dist"><span>'+escapeHtml(txt)+'</span></div>';
   return '<div class="th-dist"><span>'+escapeHtml(m[1])+'</span><em>'+escapeHtml(m[2])+'</em></div>';
 }
+/* ---------- THE SAFETY NET: A SESSION CHANGED TO A TYPE WITH NO WORKOUT ----------
+   Founder, 16 November 2026: "build the safety net". Changing a session's
+   type in Edit Details drops the workout the day carried (no structure we
+   hold describes the new type), so a day could read REPETITION with nothing
+   to run: measured on a live plan, a week three session changed to
+   repetition with no prescription. The day now says so, and offers the two
+   ways out: the plan's own session back (manualEdit.from, the same restore
+   Change Workout offers) or a workout of that type from the library.
+
+   WHAT COUNTS. A type that is run from a workout (MISSING_WORKOUT_TYPES), on
+   a day the athlete changed the type of, with no Sacoro workout and no
+   workout of their own on it, not yet run, and still editable. A day whose
+   instructions the athlete rewrote is their own workout and is left alone. */
+var MISSING_WORKOUT_TYPES = ['tempo', 'threshold', 'interval', 'repetition', 'over_under'];
+function missingWorkoutOf(dd){
+  if (!dd || dd.completed || !dd.manualEdit || !(dd.km > 0)) return null;
+  if (MISSING_WORKOUT_TYPES.indexOf(dd.type) === -1) return null;
+  var me = dd.manualEdit, from = me.from || null, fields = me.fields || [];
+  var typeChanged = fields.indexOf('type') !== -1 || !!(from && from.type && from.type !== dd.type);
+  if (!typeChanged) return null;
+  if (fields.indexOf('desc') !== -1) return null;
+  var p = dd.prescription;
+  if (p && p.archetype === ATHLETE_ARCHETYPE){ if (p.params && p.params.name) return null; }
+  else if (prescriptionOf(dd)) return null;
+  var editable = false;
+  try { editable = canEditPrescription(dd); } catch(e){ editable = false; }
+  if (!editable) return null;
+  return { type: dd.type, label: (TYPE_META[dd.type] || {}).label || 'a new session',
+           canRestore: !!(from && from.type) };
+}
+function renderMissingWorkoutNet(dd){
+  var m = missingWorkoutOf(dd);
+  if (!m) return '';
+  return '<div class="mw-net" role="group" aria-label="Session without a workout">'+
+    '<p class="mw-net-say">This session was changed to '+escapeHtml(m.label)+', but no workout came with it.</p>'+
+    '<div class="mw-net-actions'+(m.canRestore ? '' : ' is-one')+'">'+
+      (m.canRestore ? '<button type="button" class="btn btn-ghost" data-action="mw-back" data-day="'+escapeHtml(dd.id)+'">Back to the Plan</button>' : '')+
+      '<button type="button" class="btn btn-primary" data-action="mw-choose" data-day="'+escapeHtml(dd.id)+'">Choose a Workout</button>'+
+    '</div>'+
+  '</div>';
+}
+function handleMissingWorkoutBack(dayId){
+  var dd = findDay(dayId);
+  if (!missingWorkoutOf(dd)) return;
+  if (!wkApply(dd, { restore:true, apply:{} })) return;
+  wkState = null;
+  showToast('Back to the plan’s session');
+  scheduleSave();
+  renderApp();
+}
+/* Edit Session, open on Change Workout, on the tab for this day's type. */
+function handleMissingWorkoutChoose(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !wkCanChange(dd)) return;
+  wkState = null;
+  openEditModal(dayId);
+  var tab = document.querySelector('[aria-controls="ef-sec-workout-body"]');
+  if (tab) tab.click();
+}
 function renderDayHeroBlock(dd, targets){
   var ring = renderDayTargetRing(dd, targets);
   var dist = renderDayHeroDistance(dd);
@@ -37871,7 +38088,10 @@ function renderDayHeroBlock(dd, targets){
       dist+
     '</div>'+
     (ring ? '<div class="th-ring-wrap">'+ring+'</div>' : '')+
-  '</div>';
+  '</div>'+
+  /* The safety net sits under the hero it is about, in every view, because
+     the hero is the one string all three views share. */
+  renderMissingWorkoutNet(dd);
 }
 /* ---------- THE FINISHED SESSION IS A PANEL, AND IT IS ONE PANEL ------
    Founder: "A completed run on today should be moved on this week and full
@@ -38925,7 +39145,9 @@ function renderDayCard(dd){
     /* AND the two the table holds back now go to the Coach's Note instead
        of sitting here -- see descMovesToNote, which is the other half of
        this line and the only other thing that reads it. */
-    return (workoutCoversDescription(dd) || descMovesToNote(dd))
+    /* The safety net's day keeps the old session's words ("10.5km @ Easy
+       pace.") under a Repetition title, so they say nothing here. */
+    return (workoutCoversDescription(dd) || descMovesToNote(dd) || missingWorkoutOf(dd))
       ? ''
       : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>';
   })();
@@ -66704,7 +66926,9 @@ function wkOption(dd, id, purpose){
 /* Up to four: the plan's choice first where this is its family, then what
    the library prefers for this week's phase. */
 function wkOptions(dd, fam){
-  var out = [], planned = wkFamilyOf(dd) === fam;
+  /* A day the safety net is showing has no workout to offer back as "your
+     change", so nothing is listed, or ticked, as the current session. */
+  var out = [], planned = wkFamilyOf(dd) === fam && !missingWorkoutOf(dd);
   var plannedArch = dd.prescription && dd.prescription.archetype;
   if (planned) out.push({ id:'planned', planned:true, name:wkPlannedName(dd),
     dose:wkDose(prescriptionOf(dd) || dd.prescription) || fmtDist(dd.km),
@@ -66749,7 +66973,8 @@ function wkPickerHtml(dd){
   var st = wkStateFor(dd);
   if (st.mode === 'own') return wkOwnHtml(dd, st);
   st.opts = wkOptions(dd, st.fam);
-  if (!st.opts.some(function(o){ return o.id === st.picked; })) st.picked = st.opts.length ? st.opts[0].id : null;
+  if (!st.opts.some(function(o){ return o.id === st.picked; }))
+    st.picked = (st.opts.length && !missingWorkoutOf(dd)) ? st.opts[0].id : null;
   var cls = (TYPE_META[WK_FAMILY_TYPE[st.fam]] || {}).cls || 'easy';
   var same = st.fam === wkFamilyOf(dd);
   var say = same
@@ -82004,6 +82229,8 @@ document.addEventListener('click', function(e){
     case 'open-edit': vtOpenEdit(target, target.getAttribute('data-day')); break;
     case 'save-edit': handleSaveEdit(target.getAttribute('data-day')); break;
     case 'reset-day': handleResetDay(target.getAttribute('data-day')); break;
+    case 'mw-back': handleMissingWorkoutBack(target.getAttribute('data-day')); break;
+    case 'mw-choose': handleMissingWorkoutChoose(target.getAttribute('data-day')); break;
     case 'reset-plan': handleResetPlan(); break;
     case 'reset-plan-keep': handleResetPlanArm(false); break;
     case 'reset-plan-confirm': handleResetPlanConfirm(); break;
