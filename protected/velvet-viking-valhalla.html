@@ -12228,6 +12228,82 @@
     -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
     box-shadow:var(--glass-rim), 0 0 16px color-mix(in srgb, var(--rd-base) 14%, transparent);
   }
+  /* ---------- CLEAR GLASS, ON THE SHEET ONLY ----------
+     Founder, shown the sheets side by side: "I don't like blurred full page
+     behind? But I want it like glass still", then "I want the one you
+     recommend". The page above a sheet stays sharp under a light dim; only
+     what is under the sheet is blurred, through a sheet that is nearly
+     clear (12% tint), with a bright edge along the top that fades down the
+     sides, as light catches the edge of a pane. backdrop-filter is drawn per
+     element, so every sheet gets it at its own height.
+     One recipe for every glass sheet: the settings-style sheets (check-in,
+     Edit Session, sign-in, the preparation offer and the rest of
+     .stg-sheet), the time wheel and weekly review (.tw-sheet), and the tall
+     Coach sheets (.hq-full, which keep their coloured rim). Their sticky
+     headings and button rows become glass inside the glass, so what scrolls
+     under them is blurred rather than hidden behind a solid bar.
+     The tint was chosen for SACORO's dark screens; over a white screen the
+     white words would need a darker tint (mocked and shown). Stated late so
+     it outranks the earlier, more solid recipes without editing them. */
+  :root{
+    --sheet-scrim:rgba(8,8,11,.20);
+    --sheet-glass:radial-gradient(140% 60% at 50% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 60%), rgba(30,30,38,.12);
+    --sheet-blur:blur(34px) saturate(180%);
+    --sheet-light:inset 0 1.5px 0 rgba(255,255,255,.50), inset 0 24px 30px -26px rgba(255,255,255,.35);
+  }
+  .modal-overlay:has(> .stg-sheet), .modal-overlay:has(> .hq-full), .tw-layer{background:var(--sheet-scrim);}
+  .modal-card.stg-sheet, .tw-sheet, .modal-overlay:has(> .hq-full) > .hq-full{
+    background:var(--sheet-glass);
+    -webkit-backdrop-filter:var(--sheet-blur); backdrop-filter:var(--sheet-blur);
+    box-shadow:var(--sheet-light), 0 -20px 60px rgba(0,0,0,.5);}
+  .modal-card.stg-sheet, .tw-sheet{border:0; position:relative;}
+  /* The lit edge: a hairline that is brightest along the top and fades
+     down the sides, drawn in a ::before because a border cannot hold a
+     gradient and keep its rounded corners. */
+  .modal-card.stg-sheet::before, .tw-sheet::before{content:''; position:absolute; inset:0; z-index:4;
+    border-radius:inherit; pointer-events:none; padding:1px;
+    background:linear-gradient(180deg, rgba(255,255,255,.70), rgba(255,255,255,.14) 16%, rgba(255,255,255,.05) 55%, rgba(255,255,255,0));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite:exclude;}
+  /* ONE SHEET, NOT A TITLE BOX ON TOP OF ONE. Founder, of Edit Session:
+     "there appears to be a separate title box? Instead of 1 sheet?" The
+     heading carries no tint, no blur and no dividing line, and it never
+     needs one: the heading stands still and only what is between it and
+     the buttons scrolls (.modal-body, or .wr-body in the weekly review),
+     so nothing ever passes under the title. The X stays on screen, which
+     is what the sticky heading was for (Audit III UX3-03 and UX3-21). */
+  .modal-card.stg-sheet:has(> .modal-body){display:flex; flex-direction:column; overflow:hidden;}
+  .modal-card.stg-sheet:has(> .modal-body) > .modal-head,
+  .modal-card.stg-sheet.es-sheet > .modal-head{position:relative; flex:none; background:transparent; border-bottom:0;
+    -webkit-backdrop-filter:none; backdrop-filter:none;}
+  .modal-card.stg-sheet:has(> .modal-body) > .modal-body{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;}
+  .wr-sheet{display:flex; flex-direction:column; overflow:hidden;}
+  .wr-sheet > .tw-head{position:relative; flex:none; background:transparent;
+    -webkit-backdrop-filter:none; backdrop-filter:none;}
+  .wr-sheet > .wr-body{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;}
+  .wr-sheet > .wr-acts{position:relative; flex:none; background:transparent;}
+  /* The buttons under a long list (Change Workout) stay at the foot of
+     the list as glass: a blur, no tint, no line. */
+  .modal-card.es-sheet .es-actions{background:transparent; box-shadow:none;
+    -webkit-backdrop-filter:blur(24px) saturate(160%); backdrop-filter:blur(24px) saturate(160%);}
+  /* The choices inside a sheet catch the light on their top edge. */
+  .modal-card.stg-sheet .readiness-btn, .modal-card.stg-sheet .readiness-opts button{
+    background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
+    border-color:rgba(255,255,255,.18); box-shadow:inset 0 1px 0 rgba(255,255,255,.25);}
+  /* Where glass cannot be drawn, or the athlete has asked for less
+     transparency, the sheet is the solid surface it used to be. */
+  @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+    .modal-card.stg-sheet, .tw-sheet, .modal-overlay:has(> .hq-full) > .hq-full,
+    .modal-card.stg-sheet.es-sheet > .modal-head, .wr-sheet > .tw-head,
+    .modal-card.es-sheet .es-actions, .wr-sheet > .wr-acts{background:rgba(18,19,22,.96);}
+  }
+  @media (prefers-reduced-transparency: reduce){
+    .modal-card.stg-sheet, .tw-sheet, .modal-overlay:has(> .hq-full) > .hq-full,
+    .modal-card.stg-sheet.es-sheet > .modal-head, .wr-sheet > .tw-head,
+    .modal-card.es-sheet .es-actions, .wr-sheet > .wr-acts{background:rgba(18,19,22,.96);
+      -webkit-backdrop-filter:none; backdrop-filter:none;}
+    .modal-overlay:has(> .stg-sheet), .modal-overlay:has(> .hq-full), .tw-layer{background:rgba(8,8,11,.65);}
+  }
   /* ---------- THE 11px FLOOR FOR WORDS THAT INFORM ----------
      Responsive correction 9. The audit read these at 9 to 10.5px on every
      phone: Injured or ill (a safety link), the Coach hero's captions (TO
@@ -54395,6 +54471,7 @@ function weeklyChoiceSheetHtml(rv, c, picked){
   return '<div class="tw-sheet stg-sheet wr-sheet" role="dialog" aria-modal="true" aria-label="'+escapeHtml(c.head)+'">'+
     '<div class="tw-head"><h2 class="font-head">'+escapeHtml(c.eyebrow)+'</h2>'+
       '<button type="button" class="icon-btn" data-action="weekly-later" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="wr-body">'+
     '<div class="wr-head">'+escapeHtml(c.head)+'</div>'+
     '<div class="stg-sheet-say wr-why">'+escapeHtml(c.lede)+'</div>'+
     '<ul class="wr-seen">'+c.seen.map(function(t){ return '<li>'+escapeHtml(t)+'</li>'; }).join('')+'</ul>'+
@@ -54410,6 +54487,7 @@ function weeklyChoiceSheetHtml(rv, c, picked){
         '<span class="wr-km">'+escapeHtml(fmtDist(ch[3]))+'</span></button>';
     }).join('')+'</div>'+
     '<div class="field-hint wr-note">'+escapeHtml(c.note)+'</div>'+
+    '</div>'+
     '<div class="stg-sheet-acts wr-acts wr-acts-one">'+
       '<button type="button" class="btn btn-primary" data-action="weekly-accept">'+escapeHtml(c.yes)+'</button>'+
     '</div>'+
@@ -54426,6 +54504,7 @@ function weeklyReviewSheetHtml(rv, picked){
   return '<div class="tw-sheet stg-sheet wr-sheet" role="dialog" aria-modal="true" aria-label="'+escapeHtml(c.head)+'">'+
     '<div class="tw-head"><h2 class="font-head">'+escapeHtml(c.eyebrow)+'</h2>'+
       '<button type="button" class="icon-btn" data-action="weekly-later" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="wr-body">'+
     '<div class="wr-head">'+escapeHtml(c.head)+'</div>'+
     '<div class="stg-sheet-say wr-why">'+escapeHtml(c.why)+'</div>'+
     '<div class="wr-figs">'+c.figures.map(function(f){
@@ -54437,6 +54516,7 @@ function weeklyReviewSheetHtml(rv, picked){
          : Math.abs(r.to - r.from) >= 0.25 ? escapeHtml(fmtDist(r.from))+' to '+escapeHtml(fmtDist(r.to)) : escapeHtml(fmtDist(r.to)))+'</span></div>';
     }).join('')+'</div>' : '')+
     (c.note ? '<div class="field-hint wr-note">'+escapeHtml(c.note)+'</div>' : '')+
+    '</div>'+
     (!c.no
       /* Both answers give the same week: there is nothing to choose, so
          there is one button. Pressing it records the recommendation. */
