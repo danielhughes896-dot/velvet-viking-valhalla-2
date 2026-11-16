@@ -12345,6 +12345,10 @@
   /* Save at the end of Your Log: the same plain glass button as Ask Coach
      on Today, full width; Saved keeps the shape and drops the light. */
   .log-save{grid-column:1 / -1; margin:0;}
+  .log-undo{grid-column:1 / -1; text-align:center;}
+  .log-body.is-revealing{animation:logreveal .42s cubic-bezier(.22,.61,.36,1);}
+  @keyframes logreveal{from{opacity:0; transform:translate3d(0,-10px,0);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .log-body.is-revealing{animation:none;} }
   .th-title-last{white-space:nowrap;}
   .th-title-last :is(.day-act-plan, .day-act-log){position:relative; display:inline-flex; align-items:center; justify-content:center;
     vertical-align:-2px; width:30px; height:30px; min-width:0; min-height:0; margin:-8px -8px -8px 2px; padding:0;
@@ -39089,11 +39093,17 @@ function renderCompletedPanel(dd, detailHtml){
          The body carries its own two-column grid, because it is no longer a
          child of .actual-panel's. */
       '<div class="log-tab">'+
+        /* ONE WAY INTO THE LOG ON TODAY. Founder: "you can see 2 your logs?
+           So do we need the grey box now? If you remove it and just have the
+           1 new your log it could still open as a slow transition". Until the
+           log is saved, Log Run on the tray is the way in, so the tab is not
+           drawn; once saved it returns, closed, to look back or correct. */
+        (todayTrayOwnsLog(dd) ? '' :
         '<button type="button" class="sess-tab sess-tab-btn" data-action="toggle-log" '+
           'data-day="'+dd.id+'" aria-expanded="'+(logTabOpen(dd)?'true':'false')+'">'+
           sessionTabHtml('Your Log')+
-        '</button>'+
-        (logTabOpen(dd) ? '<div class="log-body">'+
+        '</button>')+
+        (logTabOpen(dd) ? '<div class="log-body'+(takeLogReveal(dd) ? ' is-revealing' : '')+'">'+
       /* THE WHOLE SESSION'S THREE FIGURES, ON ONE ROW. Distance, average pace
          and average heart rate are the three numbers any watch gives, and
          three short fields side by side cost one row where they used to cost
@@ -39165,6 +39175,7 @@ function renderCompletedPanel(dd, detailHtml){
          directly under Save. An answer is corrected by changing it; a run
          marked done by mistake is undone in Edit Session, Edit Details. */
       logSaveButtonHtml(dd)+
+      logUndoHtml(dd)+
         '</div>' : '')+
       '</div>'+
       /* ---------- THE ANALYSIS COMES LAST ----------
@@ -67388,7 +67399,7 @@ function renderEditCompletion(dd){
   var allowed = canEditCompletion(dd);
   var why = dd.type==='rest' ? 'Rest days are not workouts.'
           : !allowed ? 'This session has not happened yet.'
-          : dd.date===todayStr() ? 'You can also tick this on the card.'
+          : dd.date===todayStr() ? 'You can also undo it at the foot of Your Log.'
           : 'Correcting a session you have already run.';
   return '<fieldset class="ef-completed"><legend>Completed</legend>'+
     '<div class="field" style="margin-bottom:0;">'+
@@ -72066,11 +72077,12 @@ function handleTodayLogRun(dayId){
     if (!dd || !sessionRan(dd)) return;
   }
   logOpenFor[dd.id] = true;
+  logRevealFor[dd.id] = true;
   replaceCard(dd);
   patchTodayTray();
   try {
-    var tab = document.querySelector('[data-action="toggle-log"][data-day="'+dd.id+'"]');
-    if (tab && tab.scrollIntoView) tab.scrollIntoView({ block:'start', behavior:'smooth' });
+    var body = document.querySelector('#day-'+dd.id+' .log-body');
+    if (body && body.scrollIntoView) body.scrollIntoView({ block:'start', behavior:'smooth' });
   } catch(e){}
 }
 
@@ -73609,6 +73621,37 @@ function handleToggleComplete(dayId){
    and a sync, and it is the same step for a run that came in from Strava,
    which brings the numbers but never the effort or how it felt.
    Changing an answer afterwards puts the button back to Save. */
+/* NOT RUN? UNDO. Founder: "there is now no way to understand tick the
+   session?" and "Yes add the undo link". The tick left the card, so a run
+   marked done by mistake is undone here, at the foot of the log it opened,
+   in the same quiet underlined style as "Injured or ill?". It undoes what
+   Log Run did: the day is no longer done, the log closes, and the tray offers
+   Log Run again. Anything typed into the log is kept. Today only, as the
+   tick always was (canToggleCompletion). */
+function logUndoHtml(dd){
+  if (!dd || !dd.completed || !canToggleCompletion(dd)) return '';
+  return '<div class="log-undo"><button type="button" class="coach-why-btn" data-action="log-undo" data-day="'+dd.id+'">Not run? Undo</button></div>';
+}
+function handleLogUndo(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !dd.completed || !canToggleCompletion(dd)) return;
+  delete dd.logSavedAt;
+  logOpenFor[dd.id] = false;
+  handleToggleComplete(dayId);
+}
+/* The tray is the way into today's log until it is saved. */
+function todayTrayOwnsLog(dd){
+  var t = todayTrayDay();
+  return !!(t && dd && t.id === dd.id && todayTrayRunDay(dd) && !dd.logSavedAt);
+}
+/* Log Run opens the log with a slow reveal rather than a jump; the class is
+   used once, on the render that opens it. */
+var logRevealFor = {};
+function takeLogReveal(dd){
+  if (!dd || !logRevealFor[dd.id]) return false;
+  delete logRevealFor[dd.id];
+  return true;
+}
 function logSaveButtonHtml(dd){
   if (!dd) return '';
   var saved = !!dd.logSavedAt;
@@ -73630,8 +73673,11 @@ function handleLogSave(dayId){
   if (!dd || !sessionRan(dd)) return;
   dd.logSavedAt = new Date().toISOString();
   scheduleSave();
-  replaceCard(dd);
   paintLogSave(dd);
+  /* Saved is shown for a moment, then the log folds away and its Your Log
+     tab returns, closed, under Session Details. */
+  logOpenFor[dd.id] = false;
+  setTimeout(function(){ try { var d = findDay(dayId); if (d && d.logSavedAt){ replaceCard(d); patchTodayTray(); } } catch(e){} }, 900);
   /* No haptic here: the one success haptic for logging fires when the run
      is marked done (Log Run), and the app's haptics are a fixed table. */
   patchTodayTray();
@@ -82884,6 +82930,7 @@ document.addEventListener('click', function(e){
     case 'voice-listen': handleVoiceListen(target.getAttribute('data-day')); break;
     case 'today-log-run': handleTodayLogRun(target.getAttribute('data-day')); break;
     case 'log-save': handleLogSave(target.getAttribute('data-day')); break;
+    case 'log-undo': handleLogUndo(target.getAttribute('data-day')); break;
     case 'voice-stop': handleVoiceStopPress(); break;
     case 'set-coach-voice': handleSetCoachVoice(target.getAttribute('data-voice')); break;
     case 'preview-coach-voice': coachVoicePreview(target.getAttribute('data-voice')); break;

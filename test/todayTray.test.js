@@ -189,3 +189,43 @@ test('the tray moves with Today during a swipe and settles with it (founder: "an
   const clean = src.slice(src.indexOf('function pagerCleanup('), src.indexOf('function pagerFinish('));
   assert.match(clean, /tray\.style\.transform = ''; tray\.classList\.remove\('is-settling'\)/);
 });
+
+test('one way into today\'s log: no Your Log tab until Save, then it returns', () => {
+  const pin = runDayPin();
+  const a = athlete(pin);
+  const dd = a.findDayByDate(pin);
+  a.handleTodayLogRun(dd.id);
+  let card = a.renderDayCard(dd);
+  assert.doesNotMatch(card, /data-action="toggle-log"/, 'a second Your Log beside the tray');
+  assert.match(card, /class="log-body/, 'the log is open');
+  a.handleLogSave(dd.id);
+  card = a.renderDayCard(dd);
+  assert.match(card, /data-action="toggle-log"[^>]*aria-expanded="false"/, 'the tab returns, closed');
+});
+
+test('Log Run opens the log with a reveal, once', () => {
+  const pin = runDayPin();
+  const a = athlete(pin);
+  const dd = a.findDayByDate(pin);
+  a.logRevealFor[dd.id] = true; a.logOpenFor[dd.id] = true; dd.completed = true;
+  assert.match(a.renderDayCard(dd), /class="log-body is-revealing"/);
+  assert.doesNotMatch(a.renderDayCard(dd), /is-revealing/, 'only on the render that opens it');
+});
+
+test('Not run? Undo at the foot of the log undoes the day and brings Log Run back', () => {
+  const pin = runDayPin();
+  const a = athlete(pin);
+  const dd = a.findDayByDate(pin);
+  a.handleTodayLogRun(dd.id);
+  assert.match(a.renderDayCard(dd), /data-action="log-undo"[^>]*>Not run\? Undo</);
+  a.handleLogUndo(dd.id);
+  assert.equal(!!a.findDayByDate(pin).completed, false);
+  assert.match(a.renderTodayTray(), /data-action="today-log-run"/);
+  assert.doesNotMatch(a.renderDayCard(dd), /log-undo/, 'no undo on a run not done');
+});
+
+test('Edit Details no longer points at a tick on the card', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.doesNotMatch(src, /You can also tick this on the card/);
+  assert.match(src, /You can also undo it at the foot of Your Log\./);
+});
