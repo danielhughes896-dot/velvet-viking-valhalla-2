@@ -131,35 +131,23 @@ test('it is not put to an athlete who has not agreed to health questions', () =>
    session. Founder: "Once daily check in is done. Can it move to under ill
    or injured. Pure white text." A question belongs where the day starts; a
    receipt was holding the top of Today all day. */
-test('answered in full, its one confirming line moves under the Injured or ill signpost', () => {
+test('answered in full, the check-in leaves Today (founder: "After completion: Remove it from Today")', () => {
   const app = concernedMorning();
   app.handleSetReadiness('legs', 'heavy');
   app.handleSetReadiness('sleep', 'ok');
   app.handleSetReadiness('health', 'good');
   const html = app.renderTodayView();
-  assert.equal((html.match(/class="today-checkin/g) || []).length, 1, 'drawn in one place, never two');
-  assert.match(html, /class="today-checkin is-done"><div class="readiness-done">/);
-  /* Founder: "fix the check-in symbols" -- the answers stand apart by space,
-     not on middle dots. */
-  assert.match(html, /<span>Heavy legs<\/span><span>Sleep OK<\/span><span>Health good<\/span>/);
   assert.doesNotMatch(html, /How are you today\?/);
-  const receipt = html.indexOf('class="today-checkin');
-  assert.ok(receipt > html.indexOf('class="day-top"'), 'no longer above the session');
-  assert.ok(receipt > html.indexOf('Injured or ill?'), 'under the signpost');
-  assert.match(html.slice(receipt), /Health good<\/span><\/span><\/button><\/div><\/div><\/div>$/,
-    'and it is the last thing on Today');
+  assert.doesNotMatch(html, /today-checkin is-done|readiness-done/, 'the answered check-in is still on Today');
 });
 
-test('reopened to change an answer, it opens where it was tapped, at the foot', () => {
+test('changed later from Recovery on the Coach page, the answers are three lines under The Evidence', () => {
   const app = concernedMorning();
   ['legs:heavy', 'sleep:ok', 'health:good'].forEach((p) => app.handleSetReadiness.apply(app, p.split(':')));
   const got = [];
   app.openModal = (h, cls) => got.push({ h, cls });
-  app.handleReadinessEdit();
-  const html = app.renderTodayView();
-  const panel = html.indexOf('class="today-checkin');
-  assert.ok(panel > html.indexOf('Injured or ill?'), 'the line stays at the foot');
-  assert.equal(got.length, 1, 'tapping it raises the sheet');
+  app.handleRecoveryCheckinEdit();
+  assert.equal(got.length, 1, 'tapping a line raises the sheet');
   assert.equal((got[0].h.match(/data-action="set-readiness"/g) || []).length, 8);
 });
 

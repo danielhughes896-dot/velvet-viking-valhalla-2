@@ -1259,8 +1259,10 @@ test('the edit control sits in the rail, clear of the ring, in both states; the 
       'completed=' + done + ': the tick is back on the day card');
     assert.ok(html.indexOf('data-action="open-edit"') > -1,
       'completed=' + done + ': there is no edit control on the day card');
-    assert.ok(html.indexOf('class="day-rail"') > -1,
-      'completed=' + done + ': the two controls are no longer in one rail');
+    /* The pencil moved into the title (founder: "Yes to the pencil"), so
+       the open card has no corner rail left to hold it. */
+    assert.match(html, /<span class="th-title-last">[^<]+<button[^>]*data-action="open-edit"/,
+      'completed=' + done + ': the edit control is not beside the title');
   });
   today.completed = false;
 

@@ -180,3 +180,12 @@ test('the tray copy follows the product rules', () => {
     assert.ok(/^([A-Z][^\s]*)(\s[A-Z][^\s]*)*$/.test(label), 'Title Case: ' + label);
   }
 });
+
+test('the tray moves with Today during a swipe and settles with it (founder: "an obvious delay")', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const off = src.slice(src.indexOf('function pagerSetOffset('), src.indexOf('function pagerCleanup('));
+  assert.match(off, /getElementById\('today-tray'\)[^;]*;[^\n]*tray\.style\.transform = 'translate3d\(' \+ dx/);
+  assert.match(src, /\.today-tray\.is-settling\{transition:transform \.22s/);
+  const clean = src.slice(src.indexOf('function pagerCleanup('), src.indexOf('function pagerFinish('));
+  assert.match(clean, /tray\.style\.transform = ''; tray\.classList\.remove\('is-settling'\)/);
+});

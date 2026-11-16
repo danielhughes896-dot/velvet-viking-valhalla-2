@@ -8868,8 +8868,10 @@
      for the settle at the end of the gesture. */
   .view-pager.is-settling, .view-peek.is-settling{
     transition:transform .22s cubic-bezier(.22,.61,.36,1);}
+  /* Today's tray settles with its page (see pagerSetOffset). */
+  .today-tray.is-settling{transition:transform .22s cubic-bezier(.22,.61,.36,1);}
   @media (prefers-reduced-motion: reduce){
-    .view-pager.is-settling, .view-peek.is-settling{transition:none;}
+    .view-pager.is-settling, .view-peek.is-settling, .today-tray.is-settling{transition:none;}
   }
   /* The horizontal regions that own their own gesture say so in CSS as well
      as being detected at runtime: pan-x lets the browser scroll them
@@ -12316,6 +12318,9 @@
     -webkit-backdrop-filter:blur(18px) saturate(150%); backdrop-filter:blur(18px) saturate(150%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.38);}
   .today-tray .btn{flex:1 1 0; width:auto; min-height:52px;}
+  .today-tray.is-arriving{animation:trayin .18s ease-out;}
+  @keyframes trayin{from{opacity:0; transform:translate3d(0,8px,0);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .today-tray.is-arriving{animation:none;} }
   @media (min-width:640px){ .today-tray{ left:50%; right:auto; width:calc(var(--maxw) - 24px); transform:translateX(-50%); } }
   @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){ .today-tray{ background:rgba(16,16,20,.94); } }
   @media (prefers-reduced-transparency: reduce){ .today-tray{ background:rgba(16,16,20,.96); -webkit-backdrop-filter:none; backdrop-filter:none; } }
@@ -12326,6 +12331,9 @@
   /* The page clears the tray as it clears the tab bar. */
   .app-root:has(> #today-tray){padding-bottom:calc(127px + 80px + env(safe-area-inset-bottom, 0px));}
   .app-root:has(> #today-tray) #voice-card .voice-btn:is([data-action="voice-listen"], [data-action="voice-stop"]){display:none;}
+  /* Ask Coach moved to the Coach page (coachAskHtml). */
+  .view-today #voice-card .voice-btn[data-action="voice-ask-open"]{display:none;}
+  .hq-row-btn{width:100%; background:none; border:0; margin:0; text-align:left; color:inherit; font:inherit; cursor:pointer; -webkit-appearance:none; appearance:none;}
   /* And Share: once the tray carries it, the card's own Share tab steps
      aside on Today, so the screen offers it once. */
   .app-root:has(> #today-tray [data-action="share-workout"]) .view-today .share-launch{display:none;}
@@ -12337,11 +12345,21 @@
   /* Save at the end of Your Log: the same plain glass button as Ask Coach
      on Today, full width; Saved keeps the shape and drops the light. */
   .log-save{grid-column:1 / -1; margin:0;}
-  .log-save-btn{display:flex; align-items:center; justify-content:center; width:100%; height:48px; border-radius:24px;
+  .th-title-last{white-space:nowrap;}
+  .th-title-last :is(.day-act-plan, .day-act-log){position:relative; display:inline-flex; align-items:center; justify-content:center;
+    vertical-align:-2px; width:30px; height:30px; min-width:0; min-height:0; margin:-8px -8px -8px 2px; padding:0;
+    background:none; border:0; color:#FFFFFF;}
+  .th-title-last :is(.day-act-plan, .day-act-log)::after{content:''; position:absolute; inset:-7px;}
+  .th-title-last :is(.day-act-plan, .day-act-log) svg{width:18px; height:18px;}
+  .coach-ask{margin:6px 0 20px;}
+  .log-save-btn, .coach-ask-btn{display:flex; align-items:center; justify-content:center; width:100%; height:48px; border-radius:24px;
     border:1px solid rgba(255,255,255,.18); box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
     background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
     font-family:var(--label-face); font-weight:700; font-size:.8125rem; letter-spacing:var(--label-track);
     text-transform:uppercase; color:#FFFFFF; cursor:pointer; -webkit-appearance:none; appearance:none;}
+  /* Ask Coach on the Coach page keeps the cherry rim and glow it wore on
+     Today (founder: "Ask coach should be a cherry outlined box?"). */
+  .coach-ask-btn{border:1.5px solid var(--cherry); box-shadow:0 0 16px var(--cherry-dim); background:#121316; color:var(--cherry-btn-ink);}
   .log-save-btn.is-saved{border-color:color-mix(in srgb, var(--ok) 60%, transparent); box-shadow:none; background:transparent;}
   /* ---------- TAP AREAS, MEASURED ----------
      The accessibility scan, by test taps around each control: KM and MI
@@ -38155,7 +38173,19 @@ function handleMissingWorkoutChoose(dayId){
   var tab = document.querySelector('[aria-controls="ef-sec-workout-body"]');
   if (tab) tab.click();
 }
-function renderDayHeroBlock(dd, targets){
+/* THE PENCIL BELONGS TO THE TITLE. Founder, from the mock-up: "placed the
+   edit pencil immediately to the right of the EASY AEROBIC heading. That
+   visually associates it with editing the session rather than having it
+   floating in empty space" -- "Yes to the pencil". It is joined to the
+   last word so it never drops onto a line of its own, and keeps a 44px tap
+   area while drawn at 18px. Only the open session's card passes one. */
+function heroTitleWithPencil(title, pencil){
+  if (!pencil) return escapeHtml(title);
+  var t = String(title), i = t.lastIndexOf(' ');
+  var head = i > 0 ? t.slice(0, i + 1) : '', last = i > 0 ? t.slice(i + 1) : t;
+  return escapeHtml(head)+'<span class="th-title-last">'+escapeHtml(last)+pencil+'</span>';
+}
+function renderDayHeroBlock(dd, targets, pencil){
   var ring = renderDayTargetRing(dd, targets);
   var dist = renderDayHeroDistance(dd);
   /* ---------- A REST DAY IS A DAY IN THE PLAN, SO IT LOOKS LIKE ONE ------
@@ -38206,7 +38236,7 @@ function renderDayHeroBlock(dd, targets){
      same way the Coach's Note has two positions. One string, every view. */
   return '<div class="th-hero'+(hasRail?'':' th-hero-solo')+(isRest?' th-hero-rest':'')+'">'+
     '<div class="th-hero-main">'+
-      '<div class="th-hero-title">'+escapeHtml(heroCardTitle(dd))+'</div>'+
+      '<div class="th-hero-title">'+heroTitleWithPencil(heroCardTitle(dd), pencil)+'</div>'+
       dist+
     '</div>'+
     (ring ? '<div class="th-ring-wrap">'+ring+'</div>' : '')+
@@ -39375,7 +39405,9 @@ function renderDayCard(dd){
         /* An empty .day-actions still occupies a rail slot and its gap, so a
            day with nothing to edit left a 16px hole beside the tick. The
            container is emitted only when it has something in it. */
-        var act = dayActionButton(dd);
+        /* The pencil moved into the hero title (heroTitleWithPencil); the
+           rail keeps it only where there is no hero to carry it. */
+        var act = renderDayHeroBlock(dd, targets) ? '' : dayActionButton(dd);
         /* NO COMPLETION DOT ON A REST DAY. Founder: "On a rest day. No
            completion dot is needed ... just needs to be hidden." There is
            nothing to tick off, so the hero's top-right corner holds nothing. */
@@ -39397,7 +39429,7 @@ function renderDayCard(dd){
       '<div class="day-main">'+
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
-        renderDayHeroBlock(dd, targets)+
+        renderDayHeroBlock(dd, targets, focused ? dayActionButton(dd) : '')+
         /* ---------- THE ORDER INVERTS ONCE THE SESSION IS DONE ----------
            Before it is run the prescription IS the card, and sits here
            under the hero. Once it is run, what you did leads and the
@@ -53403,6 +53435,8 @@ function handleSetReadiness(key, value){
   }
   flushSave();
   renderApp();
+  /* Answered from the Recovery panel: show the change there at once. */
+  if (openRecordPanelKey === 'recovery') { try { refreshOpenRecordPanel(); } catch(e){} }
 }
 /* Reopen the finished check-in, or fold it back up. The answers are already
    saved; this moves nothing but the panel. */
@@ -61094,10 +61128,44 @@ function renderReadinessCheck(dec){
    Injured or ill? signpost, and reopening it to change an answer opens it
    there, under the thumb that tapped it. `where` is which of the two places
    is asking: exactly one of them ever draws it. */
+/* TODAY'S CHECK-IN, KEPT IN RECOVERY. The three morning answers, shown
+   and changeable in the Recovery panel on the Coach page: the same buttons
+   and the same handler as the morning sheet (each answer stored the moment
+   it is tapped, tapping it again clears it), and nothing without health
+   consent. */
+/* Founder, on the first version (a grid of answer buttons): "It doesn't
+   need to look like that. Morning feel good is still there. So can it not
+   feed into that? Then under the evidence have 3 lines similar to the
+   current text." So the answers feed the Morning tile as they always did,
+   and The Evidence carries one line each for Legs, Sleep and Health. A tap
+   on any of them opens the morning check-in to change it, and closing that
+   returns to Recovery. */
+var checkinReturnToRecovery = false;
+function recoveryCheckinRows(){
+  if (!state.setup || !healthConsentGranted()) return '';
+  var r = coachReadinessToday() || {};
+  return READINESS_QUESTIONS.map(function(q){
+    var o = q.options.filter(function(x){ return x[0] === r[q.key]; })[0];
+    var v = o ? o[1] : 'Not answered';
+    return '<button type="button" class="hq-row hq-row-btn" data-action="recovery-checkin-edit" '+
+      'aria-label="'+escapeHtml(q.label+': '+v+'. Change today\u2019s check-in')+'">'+
+      '<span class="hq-row-l">'+escapeHtml(q.label)+'</span>'+
+      '<span class="hq-row-v is-words">'+escapeHtml(v)+'</span></button>';
+  }).join('');
+}
+function handleRecoveryCheckinEdit(){
+  checkinReturnToRecovery = true;
+  openCheckinSheet();
+}
 function renderTodayCheckIn(where){
   if (!state.setup || !state.days || !state.days.length) return '';
   var done = readinessIsComplete(coachReadinessToday());
-  if ((where === 'foot') !== done) return '';
+  /* GONE FROM TODAY ONCE ANSWERED. Founder: "Before completion: Display the
+     check-in prompt. After completion: Remove it from Today. Retain the
+     recorded answers within Recovery on the Coach page." The answers live
+     in the Recovery panel now (recoveryCheckinLead), where they can be
+     changed if the day changes; Today keeps only the question. */
+  if (done || where === 'foot') return '';
   /* THE QUESTION RISES AS A SHEET. Founder: "Make daily check in behave
      like the settings bottom pops up we have just designed." Unanswered,
      Today keeps one slim row that raises it again; the sheet itself rises
@@ -61257,6 +61325,7 @@ function readingSections(report){
     })());
 
   var recoveryBody =
+    recoveryCheckinRows()+
     hqRow('Effort above band', report.recovery.overRPE+' this week')+
     hqRow('HR above zone', report.recovery.overHR+' this week')+
     (report.recovery.stoppedTired ? hqRow('Stopped for fatigue', report.recovery.stoppedTired+' this week') : '')+
@@ -63265,7 +63334,13 @@ function closeModal(){
       !planHasContent()) bldParked = existing;
   bldParkSkip = false;
   var wasBuilder = !!(existing && existing.querySelector && existing.querySelector('.bld-modal'));
+  var wasCheckin = !!(existing && existing.querySelector && existing.querySelector('.checkin-sheet'));
   if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  /* A check-in changed from Recovery goes back to Recovery. */
+  if (wasCheckin && checkinReturnToRecovery){
+    checkinReturnToRecovery = false;
+    setTimeout(function(){ try { openHQPanel('recovery'); } catch(e){} }, 0);
+  }
   if (wasBuilder && planHasContent() && state.setup && state.setup.experienceBuiltFor &&
       state.setup.experienceBuiltFor !== state.setup.experience)
     setTimeout(function(){ try { maybeAskExperienceRebuild(); } catch(e){} }, 0);
@@ -71858,6 +71933,8 @@ function renderAskProposal(){
 
 function patchVoiceCard(){
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  /* The Coach page's Ask Coach follows the same availability, on any view. */
+  try { var ask = document.getElementById('coach-ask-mount'); if (ask) ask.innerHTML = coachAskHtml(); } catch(e){}
   var nodes = document.querySelectorAll('#voice-card');
   if (!nodes.length) return;
   var dd = findDayByDate(todayStr());
@@ -71924,6 +72001,8 @@ function voiceListenButtonHtml(dd, cls, debriefOnly){
     'data-day="'+subject.id+'" aria-label="'+(live ? (speaking ? 'Stop speaking' : 'Hide the briefing') : listenLabel)+'">'+
     '<span>'+word+'</span></button>';
 }
+/* Set when a swipe lands on Today, so the tray rises in with the page. */
+var todayTrayArriving = false;
 function renderTodayTray(){
   var dd = todayTrayDay();
   if (!dd) return '';
@@ -71946,7 +72025,8 @@ function renderTodayTray(){
     listen = voiceListenButtonHtml(dd, 'btn btn-primary');
   }
   if (!primary && !listen) return '';
-  return '<div class="today-tray'+(primary && listen ? '' : ' is-one')+'" id="today-tray" role="group" aria-label="Today">'+
+  var arriving = todayTrayArriving; todayTrayArriving = false;
+  return '<div class="today-tray'+(primary && listen ? '' : ' is-one')+(arriving ? ' is-arriving' : '')+'" id="today-tray" role="group" aria-label="Today">'+
     listen+primary+'</div>';
 }
 /* The tray sits on the tab bar's top edge, measured rather than assumed,
@@ -76821,12 +76901,22 @@ function renderSacoroInstruments(){
   var shown = SACORO_CIRCLES.filter(function(k){ return !!reading[k]; }).length;
   return (circles ? '<div class="b-dials"><div class="b-rail" data-hswipe="1"><div class="b-grid">'+circles+'</div></div>'+
             coachRailDots(shown, 3)+'</div>' : '')+
+         '<div id="coach-ask-mount">'+coachAskHtml()+'</div>'+
          renderCoachGraph()+
          (plates ? '<div class="b-plates">'+plates+'</div>' : '');
 }
 /* THE LONGEST UNBREAKABLE RUN, which is what has to fit -- the same thing
    dialFaceFontPx measures for a circle face, and measured the same way, so
    a value with a space in it is not sized as though it were one word. */
+/* ASK COACH LIVES ON THE COACH PAGE. Founder: "Also move Ask Coach to the
+   Coach page." One plain glass button under the circles, drawn only where
+   a coach is configured (voiceCoachAvailable), and redrawn by
+   patchVoiceCard when that answer arrives. Today's own copy is hidden. */
+function coachAskHtml(){
+  if (!voiceCoachAvailable) return '';
+  return '<div class="coach-ask"><button type="button" class="coach-ask-btn" data-action="voice-ask-open" '+
+    'aria-label="Ask your coach a question"><span>Ask Coach</span></button></div>';
+}
 function plateValueChars(text){
   var words = String(text == null ? '' : text).split(' ').filter(Boolean);
   var longest = words.reduce(function(m, w){ return Math.max(m, w.length); }, 0);
@@ -81516,6 +81606,12 @@ function pagerBuildPeek(view, dir, html){
 function pagerSetOffset(dx){
   var p = pagerState; if (!p) return;
   if (p.mount) p.mount.style.transform = 'translate3d(' + dx + 'px,0,0)';
+  /* THE TRAY LEAVES WITH ITS PAGE. Founder: "Swipe from today to this week.
+     There is a obvious delay on the hear today and log run". The tray is
+     fixed to the screen, so it stood still while Today slid away and only
+     vanished once the next page was drawn. It is Today's, so it moves with
+     Today, finger for finger, and settles with it. */
+  try { var tray = document.getElementById('today-tray'); if (tray) tray.style.transform = 'translate3d(' + dx + 'px,0,0)'; } catch(e){}
   if (p.peek){
     var base = p.dir > 0 ? p.w : -p.w;
     p.peek.style.transform = 'translate3d(' + (base + dx) + 'px,0,0)';
@@ -81532,6 +81628,7 @@ function pagerCleanup(){
     if (p.mount){ p.mount.style.transform = ''; p.mount.classList.remove('is-settling', 'is-paging'); }
     if (p.peek && p.peek.parentNode) p.peek.parentNode.removeChild(p.peek);
   }catch(e){}
+  try { var tray = document.getElementById('today-tray'); if (tray){ tray.style.transform = ''; tray.classList.remove('is-settling'); } } catch(e){}
 }
 function pagerFinish(commit){
   var p = pagerState;
@@ -81546,6 +81643,7 @@ function pagerFinish(commit){
   var end = commit ? (p.dir > 0 ? -p.w : p.w) : 0;
   p.mount.classList.add('is-settling');
   p.peek.classList.add('is-settling');
+  try { var trayS = document.getElementById('today-tray'); if (trayS) trayS.classList.add('is-settling'); } catch(e){}
   /* The transform is read back before the class lands so the browser has a
      start value to interpolate from; without it the settle jumps. */
   void p.mount.offsetWidth;
@@ -81557,6 +81655,7 @@ function pagerFinish(commit){
        between them, and the peek is showing the very page the new mount draws
        -- so the swap is invisible instead of a blink back to the old page. */
     if (commit && to){
+      if (to === 'today') todayTrayArriving = true;
       pagerSuppressFade = true;
       pagerCommitTo({ to:to, back:back });
       /* THE PEEK ALWAYS SHOWED THE DESTINATION FROM ITS TOP, because it is a
@@ -82704,6 +82803,7 @@ document.addEventListener('click', function(e){
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
     case 'readiness-edit': handleReadinessEdit(); break;
     case 'open-checkin-sheet': openCheckinSheet(); break;
+    case 'recovery-checkin-edit': handleRecoveryCheckinEdit(); break;
     case 'open-reading': vtOpenReading(target, target.getAttribute('data-reading')); break;
     case 'open-new-block': openHQPanel('newblock'); break;
     case 'go-checkpoint': handleGoToCheckpoint(); break;

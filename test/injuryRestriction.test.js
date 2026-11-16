@@ -1174,9 +1174,12 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
   ['legs:fresh', 'sleep:good', 'health:good'].forEach((p) => a.handleSetReadiness.apply(a, p.split(':')));
   const after = a.renderTodayView();
   const tail = after.slice(after.indexOf('Injured or ill?'));
-  assert.match(tail, /^Injured or ill\?(?:<\/[a-z]+>)*<div class="today-checkin is-done">/,
-    'only the answered check-in may follow the signpost');
-  assert.equal((tail.match(/<div class="today-checkin/g) || []).length, 1);
+  /* Founder, later: "After completion: Remove it from Today. Retain the
+     recorded answers within Recovery on the Coach page." So the answered
+     check-in no longer follows the signpost either: nothing does. */
+  assert.match(tail, /^Injured or ill\?(?:<\/[a-z]+>)*$/,
+    'the answered check-in is back on Today');
+  assert.equal((after.match(/today-checkin is-done|readiness-done/g) || []).length, 0, 'the answered check-in summary is on Today');
   // the two surfaces this screen no longer carries, held so they cannot creep back
   assert.equal(html.indexOf('pace-ref-card'), -1, 'the Pace Reference belongs to SACORO -> Coach');
   assert.equal(html.indexOf('coach-next-title'), -1, 'Next Move is not on Today');
