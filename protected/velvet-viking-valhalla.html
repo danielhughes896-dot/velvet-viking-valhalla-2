@@ -12279,6 +12279,12 @@
   .modal-card.stg-sheet.es-sheet > .modal-head{position:relative; flex:none; background:transparent; border-bottom:0;
     -webkit-backdrop-filter:none; backdrop-filter:none;}
   .modal-card.stg-sheet:has(> .modal-body) > .modal-body{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;}
+  /* Nothing inside the scrolling middle is squeezed to fit it: it scrolls.
+     Founder, of Reschedule: "The top of reschedule doesn't look right" --
+     .es-body lays its parts out in a column, and the session summary at its
+     top (overflow:hidden, so no minimum height) was being shrunk from 48px
+     to 28px, cutting the date and title in half. */
+  .modal-card.stg-sheet:has(> .modal-body) > .modal-body > *{flex-shrink:0;}
   .wr-sheet{display:flex; flex-direction:column; overflow:hidden;}
   .wr-sheet > .tw-head{position:relative; flex:none; background:transparent;
     -webkit-backdrop-filter:none; backdrop-filter:none;}

@@ -229,3 +229,8 @@ test('Edit Details no longer points at a tick on the card', () => {
   assert.doesNotMatch(src, /You can also tick this on the card/);
   assert.match(src, /You can also undo it at the foot of Your Log\./);
 });
+
+test('nothing in a sheet\'s scrolling middle is squeezed (founder: "The top of reschedule doesn\'t look right")', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.match(src, /\.modal-card\.stg-sheet:has\(> \.modal-body\) > \.modal-body > \*\{flex-shrink:0;\}/);
+});
