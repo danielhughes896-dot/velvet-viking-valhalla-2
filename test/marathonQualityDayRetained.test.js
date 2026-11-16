@@ -58,7 +58,12 @@ test('the retained day carries sensible easy running, not a second long effort',
   const runs = runsIn(d, wk);
   const lr = runs.filter(x => x.type === 'long')[0];
   const easy = runs.filter(x => x.type === 'easy');
-  assert.ok(easy.length >= 3, 'the week has fewer easy runs than the retained day should give it');
+  /* THE PEAK WEEK NOW CARRIES TWO SESSIONS (founder, 16 November 2026, "Take
+     turns, add tempo"), so a five-day peak week is the long run, two sessions
+     and two easy runs. What this asserts is unchanged: every prescribed day
+     is still run. */
+  assert.ok(runs.length >= 5, 'the week runs ' + runs.length + ' of its five days');
+  assert.ok(easy.length >= 2, 'the week has fewer easy runs than the retained day should give it');
   assert.ok(Math.max.apply(null, easy.map(x => x.km)) < lr.km * 0.75,
     'an "easy" run is still most of the long run: ' +
     easy.map(x => x.km).join('/') + ' against ' + lr.km);

@@ -121,7 +121,11 @@ SETS.forEach(({ label, cases }) => {
       const build = phase(rows, 'Build'), base = phase(rows, 'Base');
       assert.ok(build.length === alloc.build,
         c.key + ': Build is ' + build.length + ' weeks, geometry says ' + alloc.build);
-      const exit = lastOf(build);
+      /* THE LAST FULL BUILD WEEK (founder, 16 November 2026: "Lighter week
+         before peak", and for short novice plans "Same rule for all"). The
+         last Build week is now the lighter week in front of Peak, so the
+         athlete Build hands over is the one in its last full week. */
+      const exit = lastOf(build.filter(r => !r.isCutback)) || lastOf(build);
       assert.ok(exit, c.key + ': no Build phase at all');
       /* BUILD MUST HAVE BUILT. Its job is to develop the athlete materially
          toward the event, so the athlete leaving it must be carrying more than

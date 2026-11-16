@@ -163,9 +163,14 @@ test('no share equation generates the long run or the week', () => {
     const onShare = nr.filter(w => Math.abs(w.longTarget - w.volume * f) <= 0.05).length;
     assert.ok(onShare < nr.length / 2,
       v + ' km: ' + onShare + ' of ' + nr.length + ' weeks still sit exactly on volume x share');
-    const peak = nr.reduce((m, w) => w.volume > m.volume ? w : m, nr[0]);
-    assert.ok(Math.abs(peak.longTarget - peak.volume * f) > 0.05,
-      v + ' km: the peak week is still exactly volume x share');
+    /* THE TOP OF THE BLOCK, NOT ONE WEEK OF IT (16 November 2026). With the
+       peak block unbroken, the 50km athlete's last peak week is 93.9km with
+       the pathway's fixed 30km long run, and 93.9 x 0.32 is 30.05: a
+       coincidence of one week in thirteen. The share equation would put every
+       one of the top weeks on it, so that is what is asserted. */
+    const top = nr.slice().sort((x, y) => y.volume - x.volume).slice(0, 3);
+    assert.ok(top.some(w => Math.abs(w.longTarget - w.volume * f) > 0.05),
+      v + ' km: the peak weeks are still exactly volume x share');
   });
 });
 

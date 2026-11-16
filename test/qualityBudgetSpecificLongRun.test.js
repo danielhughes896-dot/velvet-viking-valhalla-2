@@ -111,6 +111,15 @@ function weekRows(a, blk, days){
     });
 }
 
+/* MARATHON PEAK CARRIES TWO SESSIONS (founder, 16 November 2026: "Take turns,
+   add tempo"), where five or more days allow it and the easy runs stay at or
+   above SUPPORT_SHARE_MIN of the long run; the week records which it got in
+   bottomUp.qSlots. The half's Peak keeps one. */
+const peakTwo = (d, blk, week) => {
+  const wk = blk.weeks.find(w => w.week === week);
+  return d === 'full' && wk && wk.phase === 'Peak' && wk.bottomUp && wk.bottomUp.qSlots === 2;
+};
+
 test('the signal is the one the generator already raises, not a new one', () => {
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.state = a.makeDefaultState();
@@ -152,7 +161,7 @@ test('half and marathon now stack two standalone Build sessions onto a specific 
       const specific = rows.filter(r => r.specificLong);
       assert.ok(specific.length > 0, d + '/' + nd + 'd: the fixture must contain specific long runs');
       specific.forEach(r => {
-        const want = r.phase === 'Build' ? 2 : 1;
+        const want = (r.phase === 'Build' || peakTwo(d, blk, r.week)) ? 2 : 1;
         assert.equal(r.standalone, want,
           d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone +
           ' standalone quality sessions alongside a race-specific long run, wanted ' + want);
@@ -289,7 +298,9 @@ test('half/marathon Build no longer reads exposure evidence at all -- the tier r
       build.forEach(r => assert.equal(r.standalone, 2,
         d + '/' + nd + 'd week ' + r.week + ': ' + r.standalone +
         ' standalone sessions in Build with no exposure evidence -- the tier rule should not care'));
-      rows.filter(r => r.phase !== 'Build').forEach(r => assert.equal(r.standalone, 1,
+      if (d === 'full') assert.ok(rows.some(r => peakTwo(d, blk, r.week)),
+        d + '/' + nd + 'd: no marathon Peak week carries its second session');
+      rows.filter(r => r.phase !== 'Build').forEach(r => assert.equal(r.standalone, peakTwo(d, blk, r.week) ? 2 : 1,
         d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone + ' standalone sessions'));
     });
   });
@@ -396,7 +407,7 @@ test('the OLD gates still exist and still decide for everyone the tier rule does
   specific.forEach(w => {
     assert.ok(w.qualityBudget, 'week ' + w.week + ' records no budget');
     assert.equal(w.qualityBudget.specificLongRun, true);
-    const want = w.phase === 'Build' ? 2 : 1;
+    const want = (w.phase === 'Build' || peakTwo('full', blk, w.week)) ? 2 : 1;
     assert.equal(w.qualityBudget.prescribed, want,
       'week ' + w.week + ' (' + w.phase + '): prescribed ' + w.qualityBudget.prescribed + ', wanted ' + want);
   });

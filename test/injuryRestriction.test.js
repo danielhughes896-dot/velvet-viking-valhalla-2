@@ -1090,8 +1090,17 @@ test('the no-running level is unchanged by the delivery definition', () => {
          7 days    872.4/942.4 = 0.926
          21 days   747.4/942.4 = 0.793
          42 days   516.4/942.4 = 0.548
+     Every verdict holds: 7 days READY, 21 MARGINAL, 42 INSUFFICIENT.
+     ---- 7 DAYS 0.93 -> 0.92 AND 42 DAYS 0.55 -> 0.56, FOUNDER RULINGS 16 NOVEMBER 2026 ----
+     "Lighter week before peak" and "Take turns, add tempo": the peak block
+     runs unbroken after a lighter week at the end of Build, and the peak
+     weeks carry a second session, so this block prescribes 948km and its
+     weeks fall differently across the restricted days:
+         7 days    875/948 = 0.923
+         21 days   746/948 = 0.787
+         42 days   534/948 = 0.563
      Every verdict holds: 7 days READY, 21 MARGINAL, 42 INSUFFICIENT. */
-  const expect = { 7:0.93, 21:0.79, 42:0.55 };
+  const expect = { 7:0.92, 21:0.79, 42:0.56 };
   Object.keys(expect).forEach(days => {
     const a = raceApp('full', 70, 16);
     a.declareRestriction('none', a.addDays(TODAY, Number(days) - 1));

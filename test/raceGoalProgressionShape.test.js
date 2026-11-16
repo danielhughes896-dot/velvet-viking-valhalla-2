@@ -119,7 +119,13 @@ test('CUTBACK — an absorption week is a reduction, and it is roughly the one t
      assertions above, unchanged. The floor tracks the population the current
      authority admits, so that this test keeps failing if the sweep ever stops
      examining a meaningful number of absorption weeks. */
-  assert.ok(n >= 56, 'only ' + n + ' cutbacks examined');
+  /* 56 -> 54 (16 November 2026, founder: "Lighter week before peak"). A
+     three-week Peak no longer holds a lighter week; its lighter week is the
+     last Build week, and where that falls on a week the every-fourth cadence
+     already used, the two are one week, so two of the swept programmes carry
+     one absorption week fewer. Every cutback examined is held to the same two
+     assertions above. */
+  assert.ok(n >= 54, 'only ' + n + ' cutbacks examined');
 });
 
 /* A5 (founder, 15 November 2026): "I don't want no 3km easy runs", and yes,
@@ -321,7 +327,13 @@ test('CONTRACT — Build leaves the athlete able to complete that run safely', (
     if (!peak.length || !build.length) return;
     const endBuild = Math.max.apply(null, build.map(w => w.lr));
     const culm = Math.max.apply(null, peak.map(w => w.lr));
-    const reachable = endBuild * Math.pow(1.10, peak.length);
+    /* THE APP'S OWN LONG-RUN STEP (16 November 2026, founder: "Same rule for
+       all" short novice plans, after "Lighter week before peak"). The lighter
+       week now ends Build, so Peak's loaded weeks carry the climb to the
+       culminating run. The rate they may climb at is the long-run step cap
+       the founder set (item 54): 10% plus a kilometre a week, not a bare 10%. */
+    let reachable = endBuild;
+    peak.forEach(() => { reachable = reachable * 1.10 + 1; });
     assert.ok(culm <= reachable + 1.0001,
       p.key + ' @' + W + 'w: Build ended at ' + endBuild + 'km and Peak asks for ' + culm +
       'km, which is beyond the ' + reachable.toFixed(1) + 'km its own rate reaches');
@@ -364,7 +376,14 @@ test('CONTRACT — weekly workload is still owed by the end of Build', () => {
     if (!wks) return;
     const build = wks.filter(w => w.phase === 'Build' || w.phase === 'Base');
     const reached = Math.max.apply(null, build.map(w => w.km));
-    assert.ok(reached >= WANT[p.dist][p.exp] * 0.95,
+    /* THE LAST FULL BUILD WEEK IS ONE STEP EARLIER (16 November 2026, founder:
+       "Lighter week before peak" and "Same rule for all"). Where the lighter
+       week now ends Build, the workload is owed by the first Peak week instead,
+       which is the week the athlete arrives in after it. */
+    const firstPeak = wks.filter(w => w.phase === 'Peak')[0];
+    const lastBuild = build[build.length - 1];
+    const owed = (lastBuild && lastBuild.cutback && firstPeak) ? Math.max(reached, firstPeak.km) : reached;
+    assert.ok(owed >= WANT[p.dist][p.exp] * 0.95,
       p.key + ' @' + W + 'w: Build reached ' + reached + 'km/week against ' +
       WANT[p.dist][p.exp]);
   }));

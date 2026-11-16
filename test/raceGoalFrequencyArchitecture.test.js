@@ -56,8 +56,16 @@ test('Advanced Marathon: additional availability increases prescribed frequency 
   const at5 = buildFor('full', 'advanced', 15, 5);
   const at6 = buildFor('full', 'advanced', 15, 6);
   const p4 = peakWeek(at4.blk), p5 = peakWeek(at5.blk), p6 = peakWeek(at6.blk);
+  /* THE PEAK WEEK NOW HOLDS TWO SESSIONS AT FIVE DAYS AND MORE (founder, 16
+     November 2026: "Take turns, add tempo"), and the second one takes an
+     easy run's day rather than adding a day. So the frequency claim is read
+     as the running days the week prescribes: long run + sessions + supporting
+     runs, which is what availability raises. */
+  const runDays = w => 1 + w.bottomUp.qSlots + w.bottomUp.supportDays;
   assert.equal(p4.bottomUp.supportDays, 2, '4 days: no longer stalls -- 2 is what 4 raw days can carry');
-  assert.equal(p5.bottomUp.supportDays, 3, '5 days: a real day genuinely used');
+  assert.equal(runDays(p4), 4, '4 days: four running days');
+  assert.equal(p5.bottomUp.qSlots, 2, '5 days: the second Peak session');
+  assert.equal(runDays(p5), 5, '5 days: a real day genuinely used');
   /* HQ PRESCRIBED-FREQUENCY RULING SUPERSEDES THE 5-DAY ADVANCED CAP.
      This assertion previously read 3 -- "capped at the tier ceiling of 5
      selected days, same as 5" -- which was the RACE_GOAL_MAX_DAYS behaviour
@@ -66,7 +74,8 @@ test('Advanced Marathon: additional availability increases prescribed frequency 
      Established 5, Advanced 6), so an Advanced athlete offering a sixth day
      genuinely receives it: long run + 2 quality + 4 supporting = six.
      The half is unchanged and still reads the old table. */
-  assert.equal(p6.bottomUp.supportDays, 4, '6 days: the sixth day is now the pathway requirement, and is used');
+  assert.equal(runDays(p6), 6, '6 days: the sixth day is now the pathway requirement, and is used');
+  assert.equal(p6.bottomUp.supportDays, 3, '6 days: long run + 2 sessions + 3 supporting');
 });
 
 test('5K/10K/Half Novice-Experienced: additional availability CAN raise frequency where it was previously invisible to the seed', () => {
@@ -185,8 +194,15 @@ test('Marathon: additional prescribed support running in Peak is only introduced
     const pk = peakWeek(blk);
     const taper = blk.weeks.find(w => w.isTaper);
     assert.ok(taper, 'a taper week must exist');
-    assert.equal(taper.bottomUp.supportDays, pk.bottomUp.supportDays,
-      `${dist} taper must retain Peak's own supportDays (${pk.bottomUp.supportDays}), got ${taper.bottomUp.supportDays}`);
+    /* RETAINED AS RUNNING DAYS (16 November 2026). A marathon Peak week now
+       carries two sessions and the taper one, so the taper's freed session day
+       is an easy run: the frequency the block established is the count of
+       running days, and that is what must carry into the taper. */
+    const runDays = w => 1 + (w.bottomUp.qSlots || 0) + w.bottomUp.supportDays;
+    if (dist === 'full') assert.equal(runDays(taper), runDays(pk),
+      `${dist} taper must retain Peak's own running days (${runDays(pk)}), got ${runDays(taper)}`);
+    else assert.equal(taper.bottomUp.supportDays, pk.bottomUp.supportDays,
+        `${dist} taper must retain Peak's own supportDays (${pk.bottomUp.supportDays}), got ${taper.bottomUp.supportDays}`);
     assert.ok(taper.volume < pk.volume, 'taper volume must be lower than Peak volume');
   });
 });
@@ -215,7 +231,11 @@ test('long-run destinations are read verbatim from the pathway table, at every a
 test('quality-session count (qSlots) is untouched by the frequency repair -- it is decided before supportDays and never re-derived by it', () => {
   [4,5,6].forEach(days => {
     const { blk } = buildFor('full', 'advanced', 15, days);
-    assert.equal(peakWeek(blk).bottomUp.qSlots, 1, `qSlots must be independent of availableDays at ${days}d`);
+    /* The frequency repair still never re-derives it. What sets it in Peak
+       now is the founder's ruling of 16 November 2026 ("Take turns, add
+       tempo"): two sessions where five days or more allow, as in Build, and
+       one at four. */
+    assert.equal(peakWeek(blk).bottomUp.qSlots, days >= 5 ? 2 : 1, `qSlots at ${days}d`);
   });
 });
 

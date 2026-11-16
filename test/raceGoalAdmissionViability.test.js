@@ -413,7 +413,11 @@ test('NO EVIDENCE — the pathway supplies the entry, and that does not guarante
   assert.equal(o.verdict, 'INSUFFICIENT');
   assert.equal(o.requiredWeekKm, 80, 'the locked Established peak week');
   assert.equal(o.requiredLongKm, 30, 'the locked Established peak long run');
-  assert.equal(o.reachWeekKm, 74, 'what ten weeks from the pathway entry actually delivers');
+  /* 74 -> 73 (16 November 2026, founder: "Take turns, add tempo"): the hard
+     sessions now take turns, so this four-day block's peak week is written
+     from a slightly different session; the verdict and both locked
+     destinations are unchanged. */
+  assert.equal(o.reachWeekKm, 73, 'what ten weeks from the pathway entry actually delivers');
   assert.equal(o.reachLongKm, 30, 'the long run reaches its locked destination exactly');
   assert.deepEqual(o.shortfall, ['workload']);
 });

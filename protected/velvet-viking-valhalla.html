@@ -14076,6 +14076,17 @@ function structGoalPaceIntervals(pos, emphasis){
   var m = emphasis==='speed' ? 800 : (emphasis==='endurance'||emphasis==='timeonfeet' ? 1600 : 1200);
   return { reps:Math.round(lerp(3,5,pos)), m:m, t:'goalpace' };
 }
+/* THE MARATHON'S ONE VO2 SESSION IN PEAK, AND A SHORT ONE (founder, 16
+   November 2026, "Take turns, add tempo"). The peak weeks belong to
+   marathon pace and threshold; VO2 work stays, once, at the short end of its
+   range, rather than 8 x 1200m in the biggest week of the block. */
+function structShortVO2(pos, emphasis){
+  /* The short end of the range, kept above 400m reps so it is a VO2 session
+     and not a sharpener: 5 x 800m at the marathon's endurance emphasis. */
+  var r = EMPHASIS_INTERVAL_RANGE[emphasis] || EMPHASIS_INTERVAL_RANGE.threshold;
+  return { reps: Math.max(4, r.repsLo + 2), m: Math.max(800, r.mLo), t: 'interval' };
+}
+structShortVO2.oncePerPhase = true;
 var INTERVAL_STRUCTURE_POOL = {
   Base:  [structHillRepeats, structFartlek],
   Build: [structTrackIntervals, structLadder, structDeuce],
@@ -14214,7 +14225,10 @@ var BASE_INTERVAL_POOL = {
 var MARATHON_BASE_TEMPO_POOL = {
   Base:  [structSteadyTempo],
   Build: [structProgressiveTempo, structSplitTempo, structThresholdContinuous],
-  Peak:  TEMPO_STRUCTURE_POOL.Peak,
+  /* Threshold first, so each peak week pairs one marathon-pace session with
+     one threshold session rather than two marathon-pace sessions (founder,
+     16 November 2026, "Take turns, add tempo"). */
+  Peak:  [structThresholdContinuous, structGoalPaceBlock],
   Maintain: TEMPO_STRUCTURE_POOL.Maintain
 };
 
@@ -14373,10 +14387,19 @@ var TENK_TEMPO_POOL = {
    5K and 10K apart on its own -- both answer 'short' -- so this is the one
    place, exactly as raceGoalArch()'s own comment says, that asks distKey
    directly rather than the arch value. */
+var MARATHON_INTERVAL_POOL = {
+  Base:  INTERVAL_STRUCTURE_POOL.Base,
+  Build: INTERVAL_STRUCTURE_POOL.Build,
+  /* The short VO2 session first, so the last peak week and the taper that
+     holds it are goal-pace work. */
+  Peak:  [structShortVO2, structGoalPaceIntervals],
+  Maintain: INTERVAL_STRUCTURE_POOL.Maintain
+};
 function intervalPoolFor(purpose, distKey){
   if (purpose === 'base') return BASE_INTERVAL_POOL;
   var arch = raceGoalArch(purpose, distKey);
   if (arch === 'half') return HALF_INTERVAL_POOL;
+  if (arch === 'marathon') return MARATHON_INTERVAL_POOL;
   if (arch === 'short') return distKey === '10k' ? TENK_INTERVAL_POOL : FIVEK_INTERVAL_POOL;
   return INTERVAL_STRUCTURE_POOL;
 }
@@ -14486,6 +14509,11 @@ function halfBuildTrackRepSpec(blockExp, weekNum, alloc){
   var idx = Math.round(((bi - lateStart) / Math.max(1, lateLen - 1)) *
                         (HALF_BUILD_TRACK_REPS.length - 1));
   idx = Math.max(0, Math.min(HALF_BUILD_TRACK_REPS.length - 1, idx));
+  /* THE LAST BUILD WEEK IS NOW THE LIGHTER WEEK before a Peak of three
+     weeks (founder, 16 November 2026), so it holds the step before the
+     table's last rather than the biggest session of Build: with the long run
+     stepping back, 7 x 800m was a longer day than the long run. */
+  if (bi === buildWeeks && alloc.peak >= 3 && idx > 0) idx -= 1;
   var step = HALF_BUILD_TRACK_REPS[idx];
   return { reps:step.reps, m:step.m, t:'interval' };
 }
@@ -14847,14 +14875,48 @@ function fitQualityStructure(pool, kind, phase, weekNum, pos, emphasis, rotation
      its factor is one, and every non-taper week keeps the rotation it had. */
   if (holdToPrev && prevSpec)
     return shrink(copySpec(prevSpec), Math.min(size(prevSpec) * factor, hardCeil));
-  var best = null;
+  /* EACH SESSION TAKES ITS TURN (founder, 16 November 2026: "The variety of
+     sessions should be balanced", then "Take turns, add tempo"). The pool
+     used to be indexed by the week number, so a lighter week or a Fitness
+     Checkpoint skipped a turn: one plan ran 3 x 1000m twice and the ladder
+     twice while progressive tempo and the two-in-one session never came
+     round. Inside a block build the turn now moves on only when a session of
+     that kind is written, from the one the week actually used, so every
+     structure in a phase appears before any repeats. Asked twice for the
+     same week (a week that falls back to one session), the same turn is
+     read again. Outside a block build the week number still decides. */
+  var turnKey = null, turnRec = null, turnBase = weekNum;
+  if (QUALITY_TURNS && QUALITY_TURN_WEEK === weekNum){
+    turnKey = kind + '|' + phase + '|' + candidates.map(function(f){ return f.name; }).join(',');
+    /* A pool's first turn is where the week number would have put it, so a
+       phase opens on the same session as before and only the turns a
+       lighter week or a test used to skip are different. */
+    /* Peak starts at its designed first turn (the short VO2 session and
+       threshold), so the last peak week is goal-pace work. */
+    var turnStart = phase === 'Peak' ? 0 : weekNum;
+    turnRec = QUALITY_TURNS[turnKey] || { week: null, base: turnStart, next: turnStart, used: {} };
+    turnBase = turnRec.week === weekNum ? turnRec.base : turnRec.next;
+  }
+  var pickAt = function(i){ return (turnBase + (rotation || 0) + i) % candidates.length; };
+  var noteTurn = function(i){
+    if (!turnKey) return;
+    var f = candidates[pickAt(i)];
+    var used = Object.assign({}, turnRec.used);
+    if (f && f.oncePerPhase && turnRec.week !== weekNum) used[f.name] = (used[f.name] || 0) + 1;
+    QUALITY_TURNS[turnKey] = { week: weekNum, base: turnBase, next: turnBase + i + 1, used: used };
+  };
+  var best = null, bestI = 0;
   for (var i = 0; i < candidates.length; i++){
-    var raw = candidates[(weekNum + (rotation || 0) + i) % candidates.length](pos, emphasis);
+    var fn = candidates[pickAt(i)];
+    /* A structure allowed once per phase is not offered a second time. */
+    if (turnRec && fn.oncePerPhase && turnRec.used[fn.name] && !(turnRec.week === weekNum && turnRec.base === turnBase)) continue;
+    var raw = fn(pos, emphasis);
     // the taper's own factor still does the sizing; the ceiling only bounds it
     var s = shrink(raw, Math.min(size(raw) * factor, hardCeil));
-    if (size(s) <= hardCeil + 1e-9) return s;
-    if (best === null || size(s) < size(best)) best = s;
+    if (size(s) <= hardCeil + 1e-9){ noteTurn(i); return s; }
+    if (best === null || size(s) < size(best)){ best = s; bestI = i; }
   }
+  if (best) noteTurn(bestI);
   // defensive: the pools are literal arrays and are never empty, so this only
   // matters if a future pool is built dynamically
   if (!best) return prevSpec ? copySpec(prevSpec)
@@ -15515,6 +15577,12 @@ function applyWeekProgressionGate(days, weeks, floorKm){
           wk.reductionCause = wk.reductionCause || 'wind_down_from_delivered_peak';
           wk.windDownBoundedKm = tHeld;
           wk.volume = tAfter;
+          /* THE TARGET IS NOW WHAT THE DAYS SAY, shakeout included, so the cap
+             booked when the lead-up was first written is already inside it.
+             Left on the week it was subtracted a second time: found when the
+             peak block stopped ending on a lighter week (16 November 2026)
+             and a race week first met this bound. */
+          if (wk.isRace) wk.shakeoutCapKm = 0;
           if (tLongest > 0) wk.longTarget = round1(tLongest);
           if (wk.dist){ wk.dist.undistributedKm = 0; wk.dist.floorExcessKm = 0; wk.dist.floorCauses = []; }
           wk.qualityDayFloorKm = 0;
@@ -17201,6 +17269,32 @@ function raceGoalCutbackWeekOf(alloc, w){
   var buildW = alloc.base + alloc.build + alloc.peak;
   if (w > buildW || w < 1) return false;
   var ps = alloc.base + alloc.build;          // the last Build week
+  /* THE LAST LIGHTER WEEK COMES BEFORE PEAK, NOT INSIDE IT (founder, 16
+     November 2026: "I all have what appears to be a reload week in the peak
+     weeks? Surly that shouldn't be a thing?", then "Lighter week before
+     peak"). Coaching practice runs the peak as two or three unbroken weeks
+     straight into a two-week taper, and the taper is the recovery after them
+     (Bosquet et al. 2007, Med Sci Sports Exerc: a two-week taper, volume cut
+     41 to 60%, intensity kept). So with a Peak of three weeks or more (a
+     two-week Peak never held a lighter week, and moving its block's lighter
+     week to the end of Build left five loaded weeks at the start of a
+     ten-week plan):
+       - no lighter week inside Peak;
+       - the last Build week is the lighter week;
+       - an every-fourth-week lighter week one or two weeks before it moves a
+         week earlier where that keeps three weeks between lighter weeks, and
+         otherwise goes, so two lighter weeks never sit side by side. */
+  if (alloc.peak >= 3 && ps >= 4){
+    if (w > ps) return false;
+    if (w === ps) return true;
+    var modCut = function(x){ return x >= 1 && x % 4 === 0; };
+    if (w === ps - 1 || w === ps - 2) return false;
+    /* The one moved a week earlier: an every-fourth week at ps-2 lands at
+       ps-3 when the lighter week before it is at least three weeks back. */
+    if (w === ps - 3 && modCut(ps - 2) && !modCut(w) && w - 4 >= 1 && w >= 3) return true;
+    if (w === ps - 3 && modCut(ps - 2)) return modCut(w);
+    return modCut(w) && w >= 3;
+  }
   if (alloc.peak > 0 && w > ps && w <= ps + alloc.peak)
     return alloc.peak >= 3 && w === ps + 2;
   var cut = (w % 4 === 0);
@@ -21581,7 +21675,13 @@ function raceGoalWeekQualitySlots(distKey, exp, phase, availDays, fallback){
     return want10;
   }
   if (distKey !== 'half' && distKey !== 'full') return fallback;
-  if (phase !== 'Build') return 1;
+  /* PEAK KEEPS TWO SESSIONS (founder, 16 November 2026, "Take turns, add
+     tempo"): marathon-pace or goal-pace work and a threshold session side by
+     side, the shape the peak weeks of published marathon and half plans
+     take. Developing keeps one. The marathon only: the half's Peak is its
+     own designed progression, ending on threshold, and two sessions in its
+     smaller peak weeks put quality over 40% of the week. */
+  if (phase !== 'Build' && !(phase === 'Peak' && distKey === 'full')) return 1;
   var want = RACE_GOAL_BUILD_QUALITY_SLOTS[exp] || 1;
   if (want >= 2 && !(availDays >= 5)) want = 1;
   return want;
@@ -22346,7 +22446,20 @@ function raceGoalAvailabilityLimited(distKey, blockExp, currentVolume, N, opts){
     longDestKm: s.longDestKm, reasons: reasons
   };
 }
+/* The turn each pool is on, for the block being built (see
+   fitQualityStructure). Null outside a build. Saved and restored, so a block
+   built while another is being built keeps its own turns. */
+var QUALITY_TURNS = null;
+/* The two-session week being written. The one-session path already counts
+   its own occurrences (soloOcc) and is left to do so. */
+var QUALITY_TURN_WEEK = null;
 function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
+  var savedTurns = QUALITY_TURNS, savedWeek = QUALITY_TURN_WEEK;
+  QUALITY_TURNS = {}; QUALITY_TURN_WEEK = null;
+  try { return buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts); }
+  finally { QUALITY_TURNS = savedTurns; QUALITY_TURN_WEEK = savedWeek; }
+}
+function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
   var profile = DISTANCE_PROFILES[distKey];
   /* WHAT THIS BLOCK IS FOR, carried explicitly rather than inferred.
      'race' is the default for the two callers that predate year-round training
@@ -23293,6 +23406,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       var taperHold = (isTaper && usesBottomUpArc(purpose, distKey)) || reloadHold;
       var seedQ = (taperSeed || taperHold) ? prevQSpec : null;
       var seedT = (taperSeed || taperHold) ? prevTSpec : null;
+      /* Turns for the half and the marathon. The 5K and 10K keep their own
+         execution-gated ladders (founder, 15 November 2026), and taking turns
+         there changed the session their taper carries. */
+      QUALITY_TURN_WEEK = (distKey === 'half' || distKey === 'full') ? w : null;
       qSpec = fitQualityStructure(qPool, 'interval', qualityStructPhase, w, qPos,
                                   profile.emphasis, rotation,
                                   Math.min(taperCeilQ, weekFitCeil), seedQ,
@@ -23301,6 +23418,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                                   profile.emphasis, rotation,
                                   Math.min(taperCeilT, weekFitCeil), seedT,
                                   taperShrink, taperHold);
+      QUALITY_TURN_WEEK = null;
     }
     /* HQ APPROVED CORRECTION -- HALF BUILD TRACK REPS substitute for
        whatever fitQualityStructure just chose/sized on the weeks/tiers the
@@ -23529,6 +23647,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       if (isCalibration){ calibrationPlaced = true; calLastWeek = w; }
     } else if (calibrationPlaced && calLastWeek != null && (calibrate || calibrateWhenViable) &&
                !isRace && !isTaper && calInformsDevelopment && !isCutback && !isCheckpoint &&
+               /* Not in Peak either: with no lighter week inside Peak any
+                  more, a repeat test would take one of the race-specific
+                  sessions. The Fitness Checkpoint already reads that stretch. */
+               phase !== 'Peak' &&
                w >= calLastWeek + CALIBRATION_REPEAT_WEEKS && calFitsWeek &&
                (!mBottomUp || calSlotEligible) &&
                !(arc.hasCheckpoint && checkpointTargetWeek != null &&
@@ -23810,7 +23932,16 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          weeks, moving the calibration into week eight handed the wind-down
          week goal-pace reps the block had never once asked for. A test week
          leaves the seed on the last family the athlete actually ran. */
-      if (!isCalibration && !isCheckpoint && !reloadHold){
+      /* A WEEK THAT WROTE TWO SESSIONS IS NOT OVERWRITTEN BY THE ONE IT
+         WOULD HAVE WRITTEN WITH ONE. Peak now carries two (founder, 16
+         November 2026), so the one-slot bookkeeping here would hand the taper
+         a session the athlete never ran. The taper holds the goal-pace one. */
+      var wroteTwo = !!(mWeek && mWeek.qSlots >= 2 && distKey === 'full' && phase === 'Peak');
+      if (wroteTwo && !isCalibration && !isCheckpoint && !reloadHold){
+        prevSoloKind = (qSpec && qSpec.t === 'goalpace') ? 'interval'
+                     : (tSpec && tSpec.type === 'goalpace') ? 'tempo'
+                     : 'tempo';
+      } else if (!isCalibration && !isCheckpoint && !reloadHold){
         if (soloKind === 'interval') prevQSpec = soloSpec; else prevTSpec = soloSpec;
         prevSoloKind = soloKind;
       }
@@ -24189,6 +24320,24 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                     qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
                     isCheckpoint:isCheckpoint, isCalibration:isCalibration,
                     emphasis:profile.emphasis };
+      /* ---- THE SECOND PEAK SESSION ONLY WHERE THE WEEK CAN STILL SUPPORT
+         THE LONG RUN ----
+         Peak carries two sessions (founder, 16 November 2026), but not at the
+         price of the supporting runs: where two would leave the easy runs
+         under SUPPORT_SHARE_MIN of the long run, the long run would be half
+         the week, so the week keeps one session. */
+      if (phase === 'Peak' && distKey === 'full' && mWeek.qSlots >= 2 &&
+          mWeek.capacityKm != null && mWeek.longKm > 0 && mWeek.supportDays > 0){
+        var mTwoKm = qualityDeliveredKm(mQSel, 'interval', 2) + qualityDeliveredKm(mQSel, 'tempo', 2);
+        var mTwoSupport = (mWeek.capacityKm - mWeek.longKm - mTwoKm) / mWeek.supportDays;
+        /* Nor where two sessions would be more than 40% of the week, the line
+           the plan audit draws (quality_dominates_week): two sessions in a
+           small peak week is a week of quality, not a peak week. */
+        var mTwoDays = Math.max(1, mWeek.supportDays - 1);
+        var mTwoWeek = mWeek.longKm + mTwoKm + mTwoDays * Math.max(EASY_MIN_KM, (mWeek.capacityKm - mWeek.longKm - mTwoKm) / mTwoDays);
+        if (mTwoSupport < mWeek.longKm * SUPPORT_SHARE_MIN ||
+            mTwoKm > mTwoWeek * RECOVERY_QUALITY_SHARE_MAX) mWeek.qSlots = 1;
+      }
       var mQBase = mWeek.qSlots >= 2
         ? (qualityDeliveredKm(mQSel, 'interval', 2) + qualityDeliveredKm(mQSel, 'tempo', 2))
         : mWeek.qSlots === 1 ? qualityDeliveredKm(mQSel, mQKind, 1) : 0;
@@ -24210,6 +24359,14 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                   : raceGoalWeekQualitySlots(distKey, blockExp, phase, mBottomUp.days, mBottomUp.qSlots),
                   supportDays: mBottomUp.supportDays,
                   qualityNotYetEligible: false, qualityDeferred: false };
+        /* THE SECOND PEAK SESSION TAKES AN EASY RUN'S DAY, it is not added on
+           top of the week (16 November 2026). The guard above may already
+           have kept the week to one session; the solve respects it. */
+        if (phase === 'Peak' && distKey === 'full'){
+          if (mWeek && mWeek.qSlots != null) r.qSlots = Math.min(r.qSlots, mWeek.qSlots);
+          if (r.qSlots >= 2 && mBottomUp.days > 0)
+            r.supportDays = Math.max(1, Math.min(r.supportDays, mBottomUp.days - 1 - r.qSlots));
+        }
         /* ---- QUALITY WAITS UNTIL THE WEEK CAN CARRY IT ----
            "At most one demanding session without evidence" was never "must
            prescribe one". For an athlete whose whole week is smaller than a
@@ -35356,6 +35513,9 @@ var STAGE_CUES = {
     goal_pace:   'Prepare to hit goal pace smoothly.',        /* the founder's */
     interval:    'Get the legs ready for the first rep, not tired by it.',
     tempo:       'Arrive at the tempo already warm.',
+    /* THRESHOLD HAD NO LINE (found when the marathon's peak weeks began to
+       carry a threshold session, 16 November 2026). */
+    threshold:   'Arrive warm and settled, ready to hold a strong effort.',
     steady:      'Ease in. The work starts when it starts.',
     hard_effort: 'Loosen off. The effort will take care of itself.',
     easy:        'Ease in. Nothing here needs forcing.'
@@ -35364,6 +35524,7 @@ var STAGE_CUES = {
     goal_pace:   'Keep it controlled. Familiar, not hard.',   /* the founder's */
     interval:    'Hold the same shape on the last rep as the first.',
     tempo:       'Comfortably hard, and held. Not a race.',
+    threshold:   'Strong and even. Hard enough to focus, never straining.',
     steady:      'One gear below tempo, the whole way.',
     hard_effort: 'Commit to it. This is the one that counts.',
     easy:        'Conversational. Nothing to prove here.',

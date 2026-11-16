@@ -35,9 +35,20 @@ test('week one, then every six weeks, never in a recovery week, the taper or bes
       const tag = dk + '/' + exp + ' ' + weeks + 'w';
       assert.equal(tw[0], 1, tag + ': the first test is not in week one: ' + tw);
       tw.slice(1).forEach((w, i) => assert.ok(w - tw[i] >= 6, tag + ': tests in weeks ' + tw[i] + ' and ' + w));
-      if (weeks >= 14) assert.ok(tw.length >= 2, tag + ': only one test in ' + weeks + ' weeks');
       const info = w => blk.weeks.find(x => x.week === w) || {};
       const cps = a.state.days.filter(d => d.type === 'checkpoint').map(d => d.week);
+      /* THE FITNESS CHECKPOINT IS A READING TOO (16 November 2026). With the
+         lighter week now ending Build ("Lighter week before peak") and no
+         repeat test in Peak, a sixteen-week marathon's six-week repeat would
+         sit two weeks from its Fitness Checkpoint, which already carries a
+         maximal effort, so the checkpoint is that reading. Readings are the
+         tests and the checkpoints together: at least two in a block of
+         fourteen weeks or more, never more than eight weeks apart (six, plus
+         the two-week gap kept from the checkpoint). */
+      const readings = tw.concat(cps).sort((x, y) => x - y);
+      if (weeks >= 14) assert.ok(readings.length >= 2, tag + ': only one reading in ' + weeks + ' weeks');
+      readings.slice(1).forEach((w, i) => assert.ok(w - readings[i] <= 8,
+        tag + ': no reading between weeks ' + readings[i] + ' and ' + w));
       tw.slice(1).forEach(w => {
         const i = info(w);
         assert.ok(!i.isCutback && !i.isTaper && !i.isRace, tag + ': a repeat test in week ' + w + ', a ' +

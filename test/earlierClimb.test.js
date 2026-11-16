@@ -13,6 +13,34 @@ const { buildPlan } = require('./fixtures.js');
    to the next full week, so a recovery week in between is skipped over the
    way the athlete's legs skip over it. */
 
+/* THE STEP INTO PEAK (founder, 16 November 2026: "Lighter week before peak",
+   and for short novice plans "Same rule for all"). The last Build week is now
+   the lighter week, so the first Peak week returns from it to the climb. That
+   one step spans the lighter week and is held to the Nielsen two-week
+   backstop (SESSION_TWO_WEEK_GROWTH_CAP) rather than the one-week bound; every
+   other step keeps the bound it had. */
+const intoPeak = (full, i) => full[i + 1].wk.phase === 'Peak' && full[i].wk.phase !== 'Peak';
+/* AND THE STEP ACROSS THE LIGHTER WEEK THAT MOVED (16 November 2026). Where an
+   every-fourth-week lighter week would sit two weeks before the end-of-Build
+   lighter week, it moves a week earlier, and the step across it carries two
+   weeks of climb: measured, experienced 52km at fifteen weeks goes 63.5 ->
+   (44.5) -> 73.1km, +15% against the one-week bound. A known cost of the
+   ruling, reported to the founder; held to the same two-week backstop. */
+const acrossMoved = (full, i) => {
+  const lastBuild = Math.max(...full.filter(f => f.wk.phase === 'Build').map(f => f.week).concat([0]));
+  const psWeek = lastBuild + 1;          // the end-of-Build lighter week follows the last full Build week
+  return full[i + 1].week - full[i].week === 2 && full[i].week + 1 === psWeek - 3;
+};
+function stepsOf(full, n, a, bound){
+  const out = [];
+  full.slice(1, n + 1).forEach((f, i) => {
+    const s = f.km / full[i].km - 1;
+    if (intoPeak(full, i) || acrossMoved(full, i)) assert.ok(s <= a.SESSION_TWO_WEEK_GROWTH_CAP - 1 + 1e-9,
+      'the step into Peak is ' + Math.round(s * 100) + '%, past the two-week backstop');
+    else out.push(s);
+  });
+  return out;
+}
 function block(dk, exp, vol, weeks){
   const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
   ['renderApp', 'showToast', 'flushSave', 'scheduleSave'].forEach(f => { a[f] = () => {}; });
@@ -30,16 +58,16 @@ test('a marathon that can climb at 8% climbs evenly from week one, with no catch
   const peak = Math.max(...full.map(f => f.km));
   const n = full.findIndex(f => f.km >= peak - 0.5);
   assert.ok(n >= 3, 'the fixture has no climb');
-  const steps = full.slice(1, n + 1).map((f, i) => f.km / full[i].km - 1);
+  const steps = stepsOf(full, n, a);
   assert.ok(Math.max(...steps) <= 0.08 + 0.02, 'a full week still jumps ' + Math.round(Math.max(...steps) * 100) + '%');
   assert.ok(steps.slice(0, 2).every(s => s > 0.03), 'the opening weeks still sit flat: ' + steps.slice(0, 2).map(s => Math.round(s * 100)));
 });
 
 test('where 8% cannot arrive in time, the step is even rather than flat then steep', () => {
-  const { full } = block('full', 'novice', 21, 15);
+  const { full, a } = block('full', 'novice', 21, 15);
   const peak = Math.max(...full.map(f => f.km));
   const n = full.findIndex(f => f.km >= peak - 0.5);
-  const steps = full.slice(1, n + 1).map((f, i) => f.km / full[i].km - 1);
+  const steps = stepsOf(full, n, a);
   /* Before: +26% and +22% over the last full week after a recovery week. */
   assert.ok(Math.max(...steps) <= 0.18, 'a step of ' + Math.round(Math.max(...steps) * 100) + '% is still a catch-up jump');
 });

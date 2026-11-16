@@ -1451,7 +1451,9 @@ test('a week slide carries its rail and its solo note, and never the Coach\u2019
      was taken out. Measured after: 35 of the 50 non-rest previews still
      carry one (the rest days, the solo notes and the fuel-rail long runs),
      where 40+ did before. The floor is set below that, not at it. */
-  assert.ok(previewed >= 45 && soloBoxes >= 25 && fuelRailed >= 3 && disclosed >= 30,
+  /* Lowered to 25 disclosures (16 November 2026): the peak weeks now hold two
+     sessions, so fewer of this block's days are solo-note days. Measured 28. */
+  assert.ok(previewed >= 45 && soloBoxes >= 25 && fuelRailed >= 3 && disclosed >= 25,
     'the block exercised ' + previewed + ' previews, ' + soloBoxes +
     ' solo notes, ' + fuelRailed + ' goal-pace long runs and ' +
     disclosed + ' disclosures');
@@ -1719,8 +1721,15 @@ test('a description that leaves the face arrives under the rail', () => {
      said twice on the insert"; the answer was "Go". Both staged long runs
      joined WORKOUT_COVERS_DESCRIPTION, so their cards are their
      description. */
-  assert.equal(n, 6,
-    n + ' days moved a description to the note, not the 6 this block builds');
+  /* AND EIGHT (16 November 2026, founder: "Take turns, add tempo"). The
+     marathon's peak work is goal pace now, not 8 x 1200m VO2 reps: this
+     block's week nine is Goal Pace 5 x 1600m and the week-ten taper holds it
+     at 3 x 1600m. Track reps are a session whose cards say its description
+     (WORKOUT_COVERS_DESCRIPTION); goal-pace reps are not, so both days move
+     their description under the rail like every other such session. Listed:
+     four long runs, the time trial, the shakeout and the two goal-pace days. */
+  assert.equal(n, 8,
+    n + ' days moved a description to the note, not the 8 this block builds');
   /* Named instructions that must still be on the card. The point is not that
      the DESCRIPTION survives -- for the timed four it deliberately does not --
      but that the instruction does, wherever it now lives: a step, the gold
