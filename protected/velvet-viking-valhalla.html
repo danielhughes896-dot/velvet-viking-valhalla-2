@@ -53196,6 +53196,19 @@ function weeklyCoachingReview(week){
       out.lighterTaken = true; out.reasons.push('lighter_week_taken');
     }
   }
+  /* A LIGHTER WEEK THAT IS NOT LIGHTER (Audit III learning re-run, 20 reds).
+     After the coach has held the athlete below the plan for a few weeks, the
+     plan's own lighter week can be bigger than what they just ran: 28km after
+     23km, a 22% rise with no sheet, because a planned cutback was never
+     asked about. The athlete has already had their lighter weeks, so this
+     week is read as an ordinary week from last week's figure: the usual
+     evidence decides the step, never above the lighter week the plan wrote,
+     and the sheet says why. */
+  if (reducing && !out.lighterTaken && info && info.isCutback && !info.isTaper && !info.isRace &&
+      thisKm > lastKm + 0.5){
+    reducing = false; out.reducing = false;
+    out.lighterAboveRecent = true; out.reasons.push('lighter_week_above_recent');
+  }
 
   /* 1. SAFETY FIRST. Pain or illness is never a progression question. */
   if (sig.restricted) { out.kind = 'none'; out.reasons.push('restriction'); return out; }
@@ -53762,7 +53775,7 @@ function weeklyReviewCopy(rv){
   var c = weeklyReviewCopyFor(rv);
   if (c && rv && rv.kind !== 'recovery' && rv.delivered && rv.delivered.same){
     c = Object.assign({}, c, { yes: 'Continue', no: null,
-      note: String(c.note || '').replace(/\s*(Part of this week is already run, so staying comes to|Staying keeps this week to) [^.]*\./, '').trim() });
+      note: String(c.note || '').replace(/\s*(Part of this week is already run, so staying comes to|Staying keeps this week to) (?:[^.]|\.(?=\d))*\./, '').trim() });
   }
   return c;
 }
@@ -53788,6 +53801,7 @@ function weeklyReviewCopyFor(rv){
   if (rv.kind === 'progress'){
     var why = 'Last week you completed ' + dist(ev.doneKm) + ' of ' + dist(ev.dueKm) + '.';
     if (rv.lighterTaken) why = 'Last week was your lighter week, taken when you needed it. This week picks up from your last full week, ' + dist(rv.baseKm) + '.';
+    else if (rv.lighterAboveRecent) why = 'Your plan has a lighter week here, ' + dist(rv.plannedKm) + ', but your recent weeks have been lighter still, so it would be a step up. ' + why;
     var tsLine = weeklyTimeStopLine(ev);
     if (tsLine) why += ' ' + tsLine;
     /* A set that did not hold, in a week with no hard session to repeat, is
@@ -53811,7 +53825,7 @@ function weeklyReviewCopyFor(rv){
     else if (s.recovery === 'strained') why += ' Your recovery readings are strained, so the step is a small one.';
     if (ev.overEffort === 0 && ev.done > 0 && ev.effortLogged > 0) why += ' Your reported effort stayed where each session asked for it.';
     if (s.adaptation === 'ADAPTING') why += ' Your training is showing it is adapting.';
-    var planWhy = rv.lighterTaken ? null : weeklyPlanReason(rv);
+    var planWhy = (rv.lighterTaken || rv.lighterAboveRecent) ? null : weeklyPlanReason(rv);
     if (planWhy) why += ' ' + planWhy;
     if (rv.baseHillsId){
       var hdDay = (state.days || []).filter(function(d){ return d.id === rv.baseHillsId; })[0];
