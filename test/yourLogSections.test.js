@@ -272,7 +272,7 @@ test('heart rate, elevation and notes are on every log, once, with nothing to op
     }
     assert.ok(at('data-group="conditions"') < at('data-action="actual-field" data-field="elevationGainM"'));
     assert.ok(at('data-action="actual-field" data-field="elevationGainM"') < at('data-field="notes"'));
-    assert.ok(at('data-field="notes"') < at('data-action="clear-actual"'));
+    assert.ok(at('data-field="notes"') < at('data-action="log-save"'));
   });
 });
 
@@ -543,7 +543,7 @@ test('every log runs in the founder\'s order, whatever the session', () => {
     const html = log(c);
     const at = s => html.indexOf(s);
     const order = ['data-part="warmup"', 'data-part="main"', 'data-part="cooldown"', 'data-group="feedback"',
-                   'data-group="conditions"', 'data-field="elevationGainM"', 'data-field="notes"', 'data-action="clear-actual"']
+                   'data-group="conditions"', 'data-field="elevationGainM"', 'data-field="notes"', 'data-action="log-save"']
       .filter(m => at(m) !== -1);
     assert.deepEqual(order.slice().sort((x, y) => at(x) - at(y)), order, c.arch + ': the sections are out of order');
     assert.ok(at('data-group="feedback"') !== -1 && at('data-group="conditions"') !== -1, c.arch + ': a group is missing');

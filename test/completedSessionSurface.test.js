@@ -174,7 +174,7 @@ test('the completion green is a named token, not an invented colour', () => {
     'the glow hand-sets a colour that belongs to no token');
 });
 
-test('clearing a log comes last inside the log it would undo', () => {
+test('Save comes last inside the log it saves; Clear log is gone (founder: "just get rid of it")', () => {
   /* THIS ASSERTION FOLLOWED THE CARD. It used to require Clear log AFTER
      the execution review -- correct while both were loose on the card and
      the review sat directly above the fields: undoing a log is a recovery
@@ -189,8 +189,9 @@ test('clearing a log comes last inside the log it would undo', () => {
      produced, and inside the tab that holds it. */
   const a = app();
   const html = a.renderDayCard(completedDayWithLogOpen(a));
-  const clear = html.indexOf('actual-clear');
-  assert.ok(clear > -1, 'Clear log is gone');
+  assert.doesNotMatch(html, /clear-actual|actual-clear/, 'Clear log is back');
+  const clear = html.indexOf('data-action="log-save"');
+  assert.ok(clear > -1, 'Save is gone');
   assert.ok(clear > html.indexOf('data-field="km"'),
     'Clear log is wedged above the fields it would undo');
   assert.ok(clear > html.indexOf('splits-block') || html.indexOf('splits-block') === -1,
@@ -199,8 +200,6 @@ test('clearing a log comes last inside the log it would undo', () => {
   const logTab = html.indexOf('class="log-tab"');
   assert.ok(logTab > -1 && logTab < clear,
     'Clear log escaped Your Log and is loose on the card again');
-  assert.match(rule(F + ' .actual-clear'), /text-align:center/,
-    'Clear log drifted back to the edge of the screen');
 });
 
 /* ---- CHANGED SIDES ----
@@ -443,6 +442,9 @@ test('a finished session leads with what you did, then the two tabs', () => {
   const d = a.state.days.filter(x => x.week === cur && x.type !== 'rest')[0];
   assert.ok(d, 'no current-week session in the fixture');
   logAsPrescribed(a, d, { quality: 1 });
+  /* Saved, as the athlete does at the end of Your Log: on today's run Share
+     is held until Save (founder: "hold Share until Save"). */
+  d.logSavedAt = '2026-11-16T10:00:00Z';
   const html = a.renderDayCard(d);
   const at = (re, what) => {
     const i = html.search(re);
@@ -702,6 +704,7 @@ test('every shape of finished session gets the same four tabs on the slide', () 
   a.state.days.forEach(d => {
     if (d.type === 'rest' || !(d.km > 0) || d.type === 'race') return;
     logAsPrescribed(a, d, { quality: 1 });
+    d.logSavedAt = '2026-11-16T10:00:00Z';   // saved: today's Share waits for Save
     const slide = a.weekSlideHtml(d, a.state.days.indexOf(d));
     const tabs = slideTabs(slide);
     assert.deepEqual(tabs, want,

@@ -211,7 +211,9 @@ test('every evidence field the panel ever offered is still reachable', () => {
     assert.ok(has(html, f), 'evidence field removed: ' + f));
   assert.ok(has(html, 'mainSetFelt'), 'feel removed');
   assert.match(html, /data-action="slog-field"/, 'segment logging removed');
-  assert.match(html, /data-action="clear-actual"/, 'clear log removed');
+  /* Clear log was removed by the founder; Save ends the log instead. */
+  assert.doesNotMatch(html, /data-action="clear-actual"/, 'Clear log is back');
+  assert.match(html, /data-action="log-save"/, 'Save removed');
 });
 
 test('rich evidence is not flattened to the simplified surface', () => {

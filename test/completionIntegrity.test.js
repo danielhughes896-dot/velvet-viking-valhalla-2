@@ -185,7 +185,10 @@ test('a displaced plan keeps its provenance through the conflict path', () => {
  * is every day but today -- and that is where both of its reasons live.
  */
 const todayOf = a => a.state.days.filter(d => d.date === a.todayStr() && d.type !== 'rest')[0];
-const tickChecked = (a, d) => /<input type="checkbox" checked/.test(a.renderDayCard(d));
+/* The tick itself (renderDayCheck), which list rows still draw. The session
+   card no longer carries one (founder: "Do we need a tick? The day circles go
+   green or red?"), so reading it off the card would test nothing. */
+const tickChecked = (a, d) => /<input type="checkbox" checked/.test(a.renderDayCheck(d));
 
 test('the tick on an imported run moves when it is pressed', () => {
   const a = block(app());

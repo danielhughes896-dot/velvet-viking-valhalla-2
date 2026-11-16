@@ -487,7 +487,7 @@ test('the notes say what they are for once, in the box', () => {
   const { a, dd } = fresh('easy_run');
   const html = log(a, dd);
   const at = html.indexOf('class="actual-field full notes-field"');
-  const notes = html.slice(at, html.indexOf('data-action="clear-actual"'));
+  const notes = html.slice(at, html.indexOf('data-action="log-save"'));
   assert.match(notes, /placeholder="Anything the numbers don’t show: heavy legs, poor sleep, illness, a sensor fault\."/);
   assert.doesNotMatch(notes, /class="field-hint"/, 'the sentence under the notes is back');
   assert.equal((notes.match(/numbers don/g) || []).length, 1, 'the notes explain themselves twice');

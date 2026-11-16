@@ -1241,7 +1241,7 @@ test('no day offers a full session to open, goal day included', () => {
    onto the ring. It is a right-aligned row of its own now, above the hero,
    so the two states are identical and nothing can collide with the ring
    however many controls the rail ends up holding. */
-test('the tick and the edit control sit together, clear of the ring, in both states', () => {
+test('the edit control sits in the rail, clear of the ring, in both states; the tick is gone', () => {
   const a = railApp();
   const today = a.state.days.filter(d => d.date === a.todayStr())[0];
   assert.ok(today, 'the block has no day that is today');
@@ -1252,8 +1252,11 @@ test('the tick and the edit control sit together, clear of the ring, in both sta
   [false, true].forEach(done => {
     today.completed = done;
     const html = a.renderDayCard(today);
-    assert.ok(html.indexOf('data-action="toggle-complete"') > -1,
-      'completed=' + done + ': the tick is gone from the day card');
+    /* Founder: "Do we need a tick? The day circles go green or red?" The
+       session card carries no tick; Log Run on Today's tray marks the run
+       done and the day circles show it. */
+    assert.equal(html.indexOf('data-action="toggle-complete"'), -1,
+      'completed=' + done + ': the tick is back on the day card');
     assert.ok(html.indexOf('data-action="open-edit"') > -1,
       'completed=' + done + ': there is no edit control on the day card');
     assert.ok(html.indexOf('class="day-rail"') > -1,

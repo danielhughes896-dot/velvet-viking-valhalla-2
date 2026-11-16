@@ -447,11 +447,10 @@ test('the workout cells carry figures, and the stage name is still spoken', () =
   assert.ok(checked >= 6, 'the fixture no longer exercises the stage cells (' + checked + ')');
 });
 
-test('Clear log sits on the panel grid like every other row', () => {
-  const F = CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/)[0];
-  assert.match(rule(F + ' .actual-clear'), /margin-top:\s*0/,
-    'a margin here is ADDED to the grid row gap -- measured at 52px above ' +
-    'Clear log against 26px between every other pair of rows');
+test('Save sits on the panel grid like every other row (it replaced Clear log)', () => {
+  assert.match(CSS, /\.log-save\{grid-column:1 \/ -1; margin:0;\}/,
+    'a margin here is ADDED to the grid row gap, as it was measured on Clear log ' +
+    '(52px above it against 26px between every other pair of rows)');
 });
 
 test('the rail panel reads on one axis', () => {

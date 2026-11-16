@@ -12304,6 +12304,52 @@
       -webkit-backdrop-filter:none; backdrop-filter:none;}
     .modal-overlay:has(> .stg-sheet), .modal-overlay:has(> .hq-full), .tw-layer{background:rgba(8,8,11,.65);}
   }
+  /* ---------- THE TODAY TRAY (see renderTodayTray) ----------
+     The tab bar's own glass, one pane above it with the same inset and
+     radius family, so tray and tabs read as one dock. Two buttons share the
+     width, the primary on the right; one button takes all of it. */
+  :root{--bn-h:62px;}
+  .today-tray{position:fixed; z-index:55; left:12px; right:12px;
+    bottom:calc(10px + env(safe-area-inset-bottom, 0px) + var(--bn-h) + 8px);
+    display:flex; gap:10px; padding:10px; border-radius:24px;
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0) 60%), rgba(8,8,11,.55);
+    -webkit-backdrop-filter:blur(18px) saturate(150%); backdrop-filter:blur(18px) saturate(150%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.06), 0 10px 28px rgba(0,0,0,.38);}
+  .today-tray .btn{flex:1 1 0; width:auto; min-height:52px;}
+  @media (min-width:640px){ .today-tray{ left:50%; right:auto; width:calc(var(--maxw) - 24px); transform:translateX(-50%); } }
+  @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){ .today-tray{ background:rgba(16,16,20,.94); } }
+  @media (prefers-reduced-transparency: reduce){ .today-tray{ background:rgba(16,16,20,.96); -webkit-backdrop-filter:none; backdrop-filter:none; } }
+  @media (pointer:coarse){
+    .today-tray{ transition:opacity .2s ease, visibility 0s linear 0s; }
+    html.is-typing .today-tray{ opacity:0; visibility:hidden; pointer-events:none; transition:opacity .2s ease, visibility 0s linear .2s; }
+  }
+  /* The page clears the tray as it clears the tab bar. */
+  .app-root:has(> #today-tray){padding-bottom:calc(127px + 80px + env(safe-area-inset-bottom, 0px));}
+  .app-root:has(> #today-tray) #voice-card .voice-btn:is([data-action="voice-listen"], [data-action="voice-stop"]){display:none;}
+  /* And Share: once the tray carries it, the card's own Share tab steps
+     aside on Today, so the screen offers it once. */
+  .app-root:has(> #today-tray [data-action="share-workout"]) .view-today .share-launch{display:none;}
+  /* Ask Coach, alone in the page beneath the coaching, is a plain glass
+     button: Log Run on the tray is the one primary on Today. */
+  .app-root:has(> #today-tray) .view-today .day.is-today .voice-row .voice-btn{
+    border:1px solid rgba(255,255,255,.18); box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+    background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));}
+  /* Save at the end of Your Log: the same plain glass button as Ask Coach
+     on Today, full width; Saved keeps the shape and drops the light. */
+  .log-save{grid-column:1 / -1; margin:0;}
+  .log-save-btn{display:flex; align-items:center; justify-content:center; width:100%; height:48px; border-radius:24px;
+    border:1px solid rgba(255,255,255,.18); box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+    background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+    font-family:var(--label-face); font-weight:700; font-size:.8125rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF; cursor:pointer; -webkit-appearance:none; appearance:none;}
+  .log-save-btn.is-saved{border-color:color-mix(in srgb, var(--ok) 60%, transparent); box-shadow:none; background:transparent;}
+  /* ---------- TAP AREAS, MEASURED ----------
+     The accessibility scan, by test taps around each control: KM and MI
+     took a tap 35 to 37px wide and Change Workout's "Easy" tab 33px. Each is
+     now at least 44 wide (Apple's minimum) without changing how it looks:
+     the words and their spacing are as they were. */
+  .tb-unit-toggle button{min-width:44px;}
+  .wo-tab{min-width:44px; text-align:center;}
   /* ---------- THE 11px FLOOR FOR WORDS THAT INFORM ----------
      Responsive correction 9. The audit read these at 9 to 10.5px on every
      phone: Injured or ill (a safety link), the Coach hero's captions (TO
@@ -38983,7 +39029,10 @@ function renderCompletedPanel(dd, detailHtml){
          exactly that, directly beneath "Session complete", and the composer
          unfolds in place underneath it. Still offered, never urged: no badge,
          no streak, no prompt that returns if ignored. */
-      renderShareLaunch(dd)+
+      /* HELD UNTIL SAVE ON TODAY'S RUN. Founder: "hold Share until Save".
+         The order on the day is log, save, share; a past day keeps its
+         Share as it always had it. */
+      (dd.date === todayStr() && !dd.logSavedAt ? '' : renderShareLaunch(dd))+
       /* The prescription, as reference, under what you did. Spans the log's
          two columns like Share and the analysis above and below it. */
       '<div class="sess-details-mount">'+detailHtml+'</div>'+
@@ -39081,8 +39130,11 @@ function renderCompletedPanel(dd, detailHtml){
       /* LAST, UNDER THE JUDGEMENT -- and now inside the tab with the log it
          undoes, rather than loose at the foot of the card where it would be
          the only thing left outside the four tabs. */
-      logSavedLine(dd)+
-      '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
+      /* No Clear log. Founder: "The clear log? Do we need it? Or just get
+         rid of it." It wiped every answer in one tap, with no confirmation,
+         directly under Save. An answer is corrected by changing it; a run
+         marked done by mistake is undone in Edit Session, Edit Details. */
+      logSaveButtonHtml(dd)+
         '</div>' : '')+
       '</div>'+
       /* ---------- THE ANALYSIS COMES LAST ----------
@@ -39327,7 +39379,13 @@ function renderDayCard(dd){
         /* NO COMPLETION DOT ON A REST DAY. Founder: "On a rest day. No
            completion dot is needed ... just needs to be hidden." There is
            nothing to tick off, so the hero's top-right corner holds nothing. */
-        var tick = dd.type === 'rest' ? '' : renderDayCheck(dd);
+        /* NO TICK ON THE SESSION CARD. Founder: "Yeh, remove it on Today. Do
+           we need a tick? The day circles go green or red?" They do: This
+           Week's day circles go green when a run is logged and red when a
+           run day is missed, Full Plan's rows carry the same mark, and Today
+           marks a run done with Log Run on the tray. A run marked done by
+           mistake is undone in Edit Session, Edit Details. */
+        var tick = '';
         if (!tick && !act) return '';
         return '<div class="day-rail">'+tick+
           (act ? '<div class="day-actions">'+act+'</div>' : '')+'</div>';
@@ -44287,6 +44345,7 @@ function handleToggleLog(dayId){
   /* The whole card, because the log is most of it: patchExecutionUI only
      owns the analysis mount. */
   replaceCard(dd);
+  patchTodayTray();
 }
 var analysisOpenFor = {};
 function isAnalysisOpen(dd){
@@ -71553,6 +71612,9 @@ function renderVoiceCardBody(dd){
                 : (debrief ? 'Read how it went' : 'Read today'));
   var bits = '';
 
+  /* On Today the tray above the tabs carries the same button (see
+     renderTodayTray); this one stays in the card, hidden there by CSS while
+     the tray is drawn, so the page never offers it twice. */
   if (script){
     var live = speaking || shown;
     bits += '<button type="button" class="voice-btn" data-action="'+
@@ -71802,6 +71864,134 @@ function patchVoiceCard(){
   if (!dd) return;
   for (var i=0; i<nodes.length; i++) nodes[i].innerHTML = renderVoiceCardBody(dd);
   voiceBindAskInput();
+  patchTodayTray();
+}
+
+/* ---------- THE TODAY TRAY: ONE ACTION, UNDER THE THUMB ----------
+   Founder, on the design research ("one primary action per screen ... the
+   most used buttons should sit in the bottom third of the screen"), chose
+   from the mock-ups: "Option 1 and straight into Your Log", and of Ask
+   Coach: "Keep it on Today".
+   A glass tray sits just above the tab bar on Today, in the same glass, so
+   the two read as one dock. It holds at most two buttons:
+     run day, not yet run          Hear Today | Log Run (primary)
+     run, Your Log open, unsaved   nothing: Save at the end of the log is
+                                   the one thing to press
+     run, log closed, unsaved      Log Run (opens the log; a Strava run
+                                   arrives here, done but not logged)
+     run, saved                    Hear How It Went | Share (primary), or
+                                   Share alone where there is no spoken
+                                   debrief (nothing to analyse, or a run
+                                   from Strava, which the coach may not
+                                   discuss)
+     rest or optional day          Hear Today (primary, alone)
+   Founder: once the run is done "you wouldn't need hear today ... unless it
+   is hear analysis", so the briefing is never offered after the run.
+   Log Run marks the run done and opens Your Log, because the log is what
+   tells the coach how it went. Ask Coach stays in the page as one plain
+   button. The tray is its own element, not part of .bn-stack, which holds
+   the tab bar and nothing else. */
+function todayTrayDay(){
+  if ((state.view || 'today') !== 'today') return null;
+  if (typeof appStateAllowsNav === 'function' && !appStateAllowsNav()) return null;
+  var dd = findDayByDate(todayStr());
+  return voiceMayRender(dd) ? dd : null;
+}
+function todayTrayRunDay(dd){
+  return !!(dd && dd.type !== 'rest' && dd.km > 0 && !isOptionalRunDay(dd));
+}
+/* The tray's listen button: the same states and labels as the card's own
+   (renderVoiceCardBody), with the label in Title Case, as every other
+   button in the app is. */
+function voiceListenButtonHtml(dd, cls, debriefOnly){
+  var imported = isStravaDerived(dd);
+  var subject = imported ? askLocalNextSession() : dd;
+  var script = subject ? voiceScriptFor(subject) : null;
+  if (!script) return '';
+  if (debriefOnly && (imported || script.kind !== 'debrief')) return '';
+  var speaking = voiceState.status === 'speaking';
+  var shown = voiceState.status === 'shown' || voiceState.status === 'unavailable';
+  var canSpeak = voiceAvailable();
+  var debrief = script.kind === 'debrief';
+  var listenLabel = imported
+    ? (canSpeak ? 'Hear what\u2019s next' : 'Read what\u2019s next')
+    : (canSpeak ? (debrief ? 'Hear how it went' : 'Hear today')
+                : (debrief ? 'Read how it went' : 'Read today'));
+  var live = speaking || shown;
+  var word = live ? (speaking ? 'Stop' : 'Hide') : listenLabel;
+  if (cls.indexOf('btn') === 0) word = word.replace(/(^|\s)([a-z])/g, function(m, sp, c){ return sp + c.toUpperCase(); });
+  return '<button type="button" class="'+cls+'" data-action="'+(live ? 'voice-stop' : 'voice-listen')+'" '+
+    'data-day="'+subject.id+'" aria-label="'+(live ? (speaking ? 'Stop speaking' : 'Hide the briefing') : listenLabel)+'">'+
+    '<span>'+word+'</span></button>';
+}
+function renderTodayTray(){
+  var dd = todayTrayDay();
+  if (!dd) return '';
+  var id = escapeHtml(String(dd.id));
+  var logRun = '<button type="button" class="btn btn-primary" data-action="today-log-run" data-day="'+id+'">Log Run</button>';
+  var primary = '', listen = '';
+  if (todayTrayRunDay(dd)){
+    if (!sessionRan(dd)){
+      if (!canToggleCompletion(dd)) return '';
+      primary = logRun;
+      listen = voiceListenButtonHtml(dd, 'btn btn-ghost');
+    } else if (!dd.logSavedAt){
+      if (isLogOpen(dd)) return '';
+      primary = logRun;
+    } else {
+      primary = '<button type="button" class="btn btn-primary" data-action="share-workout" data-day="'+id+'" aria-haspopup="dialog">Share</button>';
+      listen = voiceListenButtonHtml(dd, 'btn btn-ghost', true);
+    }
+  } else {
+    listen = voiceListenButtonHtml(dd, 'btn btn-primary');
+  }
+  if (!primary && !listen) return '';
+  return '<div class="today-tray'+(primary && listen ? '' : ' is-one')+'" id="today-tray" role="group" aria-label="Today">'+
+    listen+primary+'</div>';
+}
+/* The tray sits on the tab bar's top edge, measured rather than assumed,
+   so a larger text size that makes the bar taller never puts the two on
+   top of each other. */
+function syncTodayTrayOffset(){
+  try {
+    var stack = document.querySelector('.bn-stack');
+    if (stack && stack.offsetHeight) document.documentElement.style.setProperty('--bn-h', stack.offsetHeight+'px');
+  } catch(e){}
+}
+function patchTodayTray(){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  try {
+    var el = document.getElementById('today-tray');
+    var stack = document.querySelector('.bn-stack');
+    var html = stack ? renderTodayTray() : '';
+    if (el){
+      if (html) el.outerHTML = html;
+      else el.parentNode.removeChild(el);
+    } else if (html && stack){
+      stack.insertAdjacentHTML('afterend', html);
+    }
+    syncTodayTrayOffset();
+  } catch(e){}
+}
+/* Log Run: the run is marked done exactly as the circle marks it, then Your
+   Log opens and comes into view, ready to fill in. On a run already marked
+   done it simply opens the log. */
+function handleTodayLogRun(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  if (!sessionRan(dd)){
+    if (!canToggleCompletion(dd)) return;
+    handleToggleComplete(dayId);
+    dd = findDay(dayId);
+    if (!dd || !sessionRan(dd)) return;
+  }
+  logOpenFor[dd.id] = true;
+  replaceCard(dd);
+  patchTodayTray();
+  try {
+    var tab = document.querySelector('[data-action="toggle-log"][data-day="'+dd.id+'"]');
+    if (tab && tab.scrollIntoView) tab.scrollIntoView({ block:'start', behavior:'smooth' });
+  } catch(e){}
 }
 
 /* ---------- the presses ----------
@@ -73323,31 +73513,65 @@ function handleToggleComplete(dayId){
   if (!applyCompletion(dd, !dd.completed)) return;
   replaceCard(dd);
   patchDerivedStats();
+  patchTodayTray();
   scheduleSave();
   /* "A single haptic confirms success": on the athlete's own tick, not when
      a run arrives from Strava -- a buzz from nowhere reads as a fault. */
   if (dd.completed) sacoroHaptic('success');
 }
-/* ---------- THE LOG SAYS IT IS SAVED ----------
-   Audit: Your Log saves every answer the moment it is given, and said
-   nothing, so with no Save button an athlete could not tell. One quiet line
-   at the foot of the log says how it works, and once something has been
-   entered this visit, that it is saved. Presentation only: the save itself
-   is unchanged. */
-var logSavedFor = {};
-function logSavedLine(dd){
+/* ---------- SAVE, AT THE END OF YOUR LOG ----------
+   Founder: "at the end of log session there should be a saved button same
+   design as ask coach ... When it saves that changes to saved and then it
+   should do the share". And of Strava: "You still need to manually do it."
+   Every answer is still written the moment it is given, so nothing is lost
+   to an app closed before Save; Save is the athlete saying the log is done.
+   It is recorded on the day (dd.logSavedAt), so it holds across a restart
+   and a sync, and it is the same step for a run that came in from Strava,
+   which brings the numbers but never the effort or how it felt.
+   Changing an answer afterwards puts the button back to Save. */
+function logSaveButtonHtml(dd){
   if (!dd) return '';
-  var saved = !!logSavedFor[dd.id];
-  return '<div class="log-saved'+(saved ? ' is-saved' : '')+'" data-log-saved="'+dd.id+'" aria-live="polite">'+
-    (saved ? 'Saved' : 'Your log saves as you go.')+'</div>';
+  var saved = !!dd.logSavedAt;
+  return '<div class="log-save"><button type="button" class="log-save-btn'+(saved ? ' is-saved' : '')+'" '+
+    'data-action="log-save" data-day="'+dd.id+'" data-log-save="'+dd.id+'" aria-live="polite">'+
+    '<span>'+(saved ? 'Saved' : 'Save')+'</span></button></div>';
 }
-function markLogSaved(dayId){
-  if (!dayId) return;
-  logSavedFor[dayId] = true;
+function paintLogSave(dd){
   try {
-    var el = document.querySelector('[data-log-saved="'+dayId+'"]');
-    if (el){ el.textContent = 'Saved'; el.classList.add('is-saved'); }
+    var el = document.querySelector('[data-log-save="'+dd.id+'"]');
+    if (!el) return;
+    var saved = !!dd.logSavedAt;
+    el.innerHTML = '<span>'+(saved ? 'Saved' : 'Save')+'</span>';
+    if (saved) el.classList.add('is-saved'); else el.classList.remove('is-saved');
   } catch(e){}
+}
+function handleLogSave(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !sessionRan(dd)) return;
+  dd.logSavedAt = new Date().toISOString();
+  scheduleSave();
+  replaceCard(dd);
+  paintLogSave(dd);
+  /* No haptic here: the one success haptic for logging fires when the run
+     is marked done (Log Run), and the app's haptics are a fixed table. */
+  patchTodayTray();
+}
+/* An answer changed: the log is unsaved again until Save is pressed. */
+function markLogEdited(dayId){
+  var dd = dayId && findDay(dayId);
+  if (!dd || !dd.logSavedAt) return;
+  delete dd.logSavedAt;
+  scheduleSave();
+  paintLogSave(dd);
+  /* Share waits for Save again. Hidden in place rather than redrawn, so the
+     field being typed in keeps its focus. */
+  try {
+    if (dd.date === todayStr()){
+      var sh = document.querySelectorAll('.share-launch .btn-share[data-day="'+dd.id+'"]');
+      for (var i=0; i<sh.length; i++){ var box = sh[i].closest('.share-launch'); if (box) box.hidden = true; }
+    }
+  } catch(e){}
+  patchTodayTray();
 }
 function handleActualFieldChange(dayId, field, value){
   var dd = findDay(dayId);
@@ -79636,7 +79860,9 @@ function stravaRowLine(){
    are the same control rather than two that have to be kept in step. */
 function healthConsentSwitchHtml(){
   var on = healthConsentGranted();
-  return '<label class="switch"><input type="checkbox" data-action="toggle-health-consent" '+
+  /* Named, so a screen reader says what the switch is (accessibility scan:
+     the row's title sat beside it but was not its label). */
+  return '<label class="switch"><input type="checkbox" data-action="toggle-health-consent" aria-label="Health & Readiness" '+
     (on?'checked':'')+'><span class="switch-track"></span></label>';
 }
 /* ---------- NOTHING IN FRONT OF A SETTINGS TITLE ----------
@@ -80449,7 +80675,8 @@ function renderApp(){
   app.innerHTML =
     (arriving ? '' : renderTopbar())+
     '<div class="view-pager" id="view-pager"><div class="wrap"><div id="view-mount" class="'+viewMountClass(arriving)+'">'+renderMainContent()+'</div></div></div>'+
-    (navAllowed ? renderBottomNavStack() : '');
+    (navAllowed ? renderBottomNavStack() + renderTodayTray() : '');
+  if (navAllowed) syncTodayTrayOffset();
   clearBootSplash();
   programmeEntryBindName();
   programmeEntryAutoAdvance();
@@ -82347,7 +82574,7 @@ document.addEventListener('click', function(e){
     case 'coach-graph': handleCoachGraph(target.getAttribute('data-graph')); break;
     case 'es-tab': handleEditTab(target); break;
     case 'es-page-close': handleEditPageClose(target); break;
-    case 'log-pick': handleLogPick(target.getAttribute('data-day'), target.getAttribute('data-field'), target.getAttribute('data-value')); markLogSaved(target.getAttribute('data-day')); break;
+    case 'log-pick': handleLogPick(target.getAttribute('data-day'), target.getAttribute('data-field'), target.getAttribute('data-value')); markLogEdited(target.getAttribute('data-day')); break;
     case 'log-clear': handleLogClear(target.getAttribute('data-day'), target.getAttribute('data-field')); break;
     case 'log-mark': handleLogMark(target.getAttribute('data-day'), target.getAttribute('data-rep')); break;
     /* A tap on an untouched slider exactly where its thumb already sits
@@ -82555,6 +82782,8 @@ document.addEventListener('click', function(e){
     case 'set-support-work': handleSetSupportWork(target.getAttribute('data-on') === '1'); break;
     case 'support-skip': handleSupportSkip(target.getAttribute('data-day')); break;
     case 'voice-listen': handleVoiceListen(target.getAttribute('data-day')); break;
+    case 'today-log-run': handleTodayLogRun(target.getAttribute('data-day')); break;
+    case 'log-save': handleLogSave(target.getAttribute('data-day')); break;
     case 'voice-stop': handleVoiceStopPress(); break;
     case 'set-coach-voice': handleSetCoachVoice(target.getAttribute('data-voice')); break;
     case 'preview-coach-voice': coachVoicePreview(target.getAttribute('data-voice')); break;
@@ -82647,7 +82876,7 @@ document.addEventListener('change', function(e){
      single name would record the decision twice. */
   else if (action === 'toggle-health-consent') handleHealthConsentDecision(!!actionEl.checked);
   if (action === 'actual-field' || action === 'log-slide' || action === 'split-field' || action === 'slog-field')
-    markLogSaved(actionEl.getAttribute('data-day'));
+    markLogEdited(actionEl.getAttribute('data-day'));
 });
 
 /* drag-and-drop reschedule (desktop enhancement; mobile uses the Swap-with dropdown in Edit Session) */
