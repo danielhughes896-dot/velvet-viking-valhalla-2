@@ -1048,8 +1048,18 @@ test('the no-running level is unchanged by the delivery definition', () => {
      block prescribes slightly less outside the first week and the same seven
      days remove a hair more of it. 7 days 0.93 -> 0.92 and 42 days 0.53 ->
      0.52 both sit on the two-decimal boundary; 21 days, the bands and every
-     verdict are unchanged (7 days still reads READY, 42 INSUFFICIENT). */
-  const expect = { 7:0.92, 21:0.79, 42:0.52 };
+     verdict are unchanged (7 days still reads READY, 42 INSUFFICIENT).
+     ---- 7 DAYS 0.92 -> 0.93 AND 42 DAYS 0.52 -> 0.55, FOUNDER RULING 16 NOVEMBER 2026 (C8) ----
+     "Above only if earned": a Marathon's top weeks stop at what the race
+     needs at the athlete's level unless they already run above it. This
+     70km athlete's block now prescribes 940.9km, not 1129.4km, so the same
+     restricted days remove a smaller share of it:
+         7 days   1041.9/1129.4 = 0.923  ->  870.9/940.9 = 0.926
+         21 days   887.9/1129.4 = 0.786  ->  745.9/940.9 = 0.793
+         42 days   586.9/1129.4 = 0.520  ->  516.4/940.9 = 0.549
+     The rule is unchanged; only the block it reads is smaller. Every verdict
+     holds: 7 days READY, 21 MARGINAL, 42 INSUFFICIENT. */
+  const expect = { 7:0.93, 21:0.79, 42:0.55 };
   Object.keys(expect).forEach(days => {
     const a = raceApp('full', 70, 16);
     a.declareRestriction('none', a.addDays(TODAY, Number(days) - 1));

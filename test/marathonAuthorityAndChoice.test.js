@@ -89,16 +89,22 @@ test('ADVANCED — starting frequency cannot alter destination authority', () =>
   });
 });
 
-test('80 IS A MINIMUM AND NOT A CEILING — capacity still delivers above it', () => {
-  /* The failure mode of a careless invariance fix is convergence on the
-     pathway floor. Capacity, not frequency, is the legitimate channel for
-     exceeding it, and it must survive. */
+test('80 IS A MINIMUM, AND ABOVE IT ONLY WHEN THE ATHLETE IS ALREADY THERE', () => {
+  /* Founder, Audit III C8 (16 November 2026), settled as "above only if
+     earned": the plan's own climb stops at the destination; it goes past it
+     only where the athlete's own week is already at or above it, by one 10%
+     block step. So an Established athlete below 80 reaches 80 and stops
+     there, and one already above it is still not held down to it. The
+     destination stays a floor: nobody is delivered short of it. */
   const high = outlook('experienced', 70, 5);
-  assert.ok(high.reachWeekKm > 80,
-    '70km/week Established delivers ' + high.reachWeekKm + ', not above the locked 80');
+  assert.ok(high.reachWeekKm >= 80 - 0.05,
+    '70km/week Established delivers ' + high.reachWeekKm + ', short of the locked 80');
   const mid = outlook('experienced', 60, 4);
-  assert.ok(mid.reachWeekKm > 80,
-    '60km/week Established delivers ' + mid.reachWeekKm + ', not above the locked 80');
+  assert.ok(mid.reachWeekKm >= 80 - 0.05,
+    '60km/week Established delivers ' + mid.reachWeekKm + ', short of the locked 80');
+  const above = outlook('experienced', 90, 5);
+  assert.ok(above.reachWeekKm > 80,
+    '90km/week Established was held to ' + above.reachWeekKm + ', down at the 80 it is already above');
 });
 
 test('A REACHABLE LOCKED STANDARD IS NEVER DELIVERED SHORT', () => {

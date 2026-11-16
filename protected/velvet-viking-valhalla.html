@@ -9968,6 +9968,9 @@
     transition:opacity .15s, font-size .15s; cursor:pointer;}
   .tw-item.is-near{opacity:.7;}
   .tw-item.is-on{opacity:1; font-size:1.75rem; font-weight:700;}
+  .tw-actions{display:flex; gap:12px; margin-top:16px;}
+  .tw-actions .btn{flex:1 1 0; min-height:52px; border-radius:14px; margin-top:0; width:auto;}
+  .tw-clear{color:#FFFFFF; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.14);}
   .tw-use{margin-top:16px; min-height:52px; color:#FFFFFF; border-radius:14px;
     background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.03) 60%),
                color-mix(in srgb, var(--cherry) 55%, transparent);
@@ -14983,6 +14986,9 @@ var CUTBACK_FACTOR = 0.78;
    Scoped to half/full only -- 5K/10K keep the single CUTBACK_FACTOR their own
    methodology was measured against. */
 var RACE_GOAL_CUTBACK_LONG_FACTOR = 0.725;
+/* The most of a recovery week the hard session may be (Audit III C7): the
+   40% line the plan audit already draws (quality_dominates_week). */
+var RECOVERY_QUALITY_SHARE_MAX = 0.40;
 /* How much shorter the second peak long run is than the first. Coaching
    methodology, recorded as such: the second exposure has to be meaningfully
    shorter to be a different session, and close enough to still be a peak
@@ -18709,6 +18715,58 @@ function shapeLowStartWeeks(days, weeks, blockResult, schedule){
   });
   return lifted;
 }
+/* THE PEAK STOPS AT THE LEVEL'S DESTINATION (founder, Audit III C8: "Don't
+   overshoot"), ON THE DAYS. A Half or Marathon block peaks at the higher of
+   the level's designed peak week and the week the athlete already runs. The
+   climb is spread rather than stopped early: every full week above the
+   opening week is drawn proportionally closer to it, so the peak still
+   arrives in the same week by a smaller step. The kilometres come off the
+   easy runs, none below the 5km floor; the long run and quality stay, and
+   each week's figure follows its days with the difference named. */
+function capRacePeakDays(days, weeks, capKm){
+  if (!(capKm > 0) || !days || !days.length || !weeks || !weeks.length) return 0;
+  var byWeek = {};
+  days.forEach(function(dd){ if (dd && dd.week != null) (byWeek[dd.week] = byWeek[dd.week] || []).push(dd); });
+  var tot = function(w){ return round1((byWeek[w] || []).reduce(function(t, dd){
+    return t + ((dd.km > 0 && dd.type !== 'race' && dd.type !== 'rest') ? dd.km : 0); }, 0)); };
+  var full = weeks.filter(function(wk){ return !wk.isTaper && !wk.isRace && (byWeek[wk.week] || []).length &&
+    !(byWeek[wk.week] || []).some(function(dd){ return dd.type === 'race'; }); });
+  if (!full.length) return 0;
+  var openV = tot(full[0].week), maxV = 0;
+  full.forEach(function(wk){ var v = tot(wk.week); if (v > maxV) maxV = v; });
+  if (!(maxV > capKm + 0.05)) return 0;
+  var k = maxV > openV ? Math.max(0, (capKm - openV) / (maxV - openV)) : 0;
+  var changed = 0;
+  full.forEach(function(wk){
+    var v = tot(wk.week);
+    var target = capKm <= openV ? Math.min(v, capKm) : (v > openV ? round1(openV + (v - openV) * k) : v);
+    if (!(v > target + 0.05)) return;
+    var guard = 0;
+    /* Never past the point where the hard sessions would be more than 40%
+       of the week: the line the plan audit draws (quality_dominates_week). */
+    var hardKm = round1((byWeek[wk.week] || []).reduce(function(t, dd){
+      return t + ((dd.km > 0 && dd.type !== 'long' && dd.type !== 'easy' && dd.type !== 'race' && dd.type !== 'rest') ? dd.km : 0); }, 0));
+    if (hardKm > 0) target = Math.max(target, round1(hardKm / RECOVERY_QUALITY_SHARE_MAX + 0.5));
+    while (tot(wk.week) > target + 0.05 && guard++ < 400){
+      var room = (byWeek[wk.week] || []).filter(function(dd){
+        return dd.type === 'easy' && !dd.completed && !dd.manualEdit && !/Shakeout/.test(dd.title || '') &&
+          dd.km - EASY_QUANTUM_KM >= WEEK_FIT_MIN_EASY_KM - 1e-9; }).sort(function(a, b){ return b.km - a.km; });
+      if (!room.length) break;
+      room[0].km = round1(room[0].km - EASY_QUANTUM_KM);
+      room[0].desc = easyRunText(room[0].km).desc;
+    }
+    var heldKm = round1(v - tot(wk.week));
+    if (heldKm > 0){
+      if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+      wk.volume = round1(wk.volume - heldKm);
+      wk.deliberateReduction = round1((wk.deliberateReduction || 0) + heldKm);
+      wk.peakCapHeldKm = round1((wk.peakCapHeldKm || 0) + heldKm);
+      wk.reshapeCause = wk.reshapeCause || 'peak_at_destination';
+      changed++;
+    }
+  });
+  return changed;
+}
 function shapeShortRaceEasyRuns(days, weeks, blockResult, schedule, onlyWeek){
   if (!blockResult || blockResult.purpose !== 'race') return 0;
   if (blockResult.distKey !== '5k' && blockResult.distKey !== '10k') return 0;
@@ -18748,6 +18806,66 @@ function shapeShortRaceEasyRuns(days, weeks, blockResult, schedule, onlyWeek){
                              blockResult.startVolume > 0 ? blockResult.startVolume : 0);
     var needEasy = round1(Math.max(easyKm, protectKm - otherKm));
     var over = easy.some(function(dd){ return dd.km > ceil + 1e-9; });
+    /* A RECOVERY WEEK TAKES ITS CUT FROM THE EASY RUNS FIRST (founder,
+       Audit III C7, as settled): every easy run is held to the ceiling and
+       the week comes in lighter. Where that leaves the hard session more
+       than 40% of the week (the line the plan audit draws), the hard session
+       is shortened the way a reload week shortens it, never the long run. A
+       run that would fall under the 5km floor is dropped and the remaining
+       run says so. */
+    var recoveryWk = wkOf[w] && wkOf[w].isCutback && !wkOf[w].isTaper;
+    if (recoveryWk){
+      if (!over) return;
+      var keep = easy.slice();
+      var eachR = Math.min(ceil, roundWorkoutKm('easy', easyKm / keep.length));
+      var droppedRun = false;
+      while (keep.length > 1 && eachR < WEEK_FIT_MIN_EASY_KM){
+        var gone = keep.pop();
+        gone.type = 'rest'; gone.km = 0; gone.title = 'Rest Day'; gone.desc = ''; gone.mpSegment = false;
+        droppedRun = true;
+        eachR = Math.min(ceil, roundWorkoutKm('easy', easyKm / keep.length));
+      }
+      var wroteR = 0;
+      keep.forEach(function(dd){ dd.km = eachR; dd.desc = easyRunText(eachR).desc; wroteR += eachR; });
+      if (droppedRun && keep[0]) keep[0].desc += ' Recovery week: one fewer easy run than usual.';
+      if (wkOf[w]){
+        var gapR = round1(easyKm - wroteR);
+        if (gapR > 0) wkOf[w].easyCeilingDroppedKm = round1((wkOf[w].easyCeilingDroppedKm || 0) + gapR);
+        if (droppedRun) wkOf[w].recoveryDroppedEasyRun = true;
+      }
+      /* The hard session, back under 40% of the week. */
+      var isHard = function(dd){ return dd.km > 0 && dd.type !== 'long' && dd.type !== 'easy' && dd.type !== 'race' && dd.type !== 'rest'; };
+      var hard = list.filter(function(dd){ return isHard(dd) && !dd.completed && !dd.manualEdit; });
+      var hardKm = round1(list.filter(isHard).reduce(function(t, dd){ return t + dd.km; }, 0));
+      var weekKm = round1(list.reduce(function(t, dd){ return t + ((dd.km > 0 && dd.type !== 'rest') ? dd.km : 0); }, 0));
+      if (hard.length && hardKm > RECOVERY_QUALITY_SHARE_MAX * weekKm + 0.05){
+        var restKm = round1(weekKm - hardKm);
+        var allowKm = round1(restKm * RECOVERY_QUALITY_SHARE_MAX / (1 - RECOVERY_QUALITY_SHARE_MAX));
+        var f = Math.max(QUALITY_STEP_BACK_FACTOR * 0.75, allowKm / hardKm);
+        var cutQ = 0;
+        hard.forEach(function(dd){
+          var was = dd.km;
+          /* Never below a session's own length: warm-up, the set, cool-down. */
+          var nk = Math.max(WEEK_FIT_MIN_EASY_KM, Math.floor(was * f * 2) / 2);
+          if (!(nk > 0) || nk >= was) return;
+          try { rescaleOrDropPrescription(dd, nk); } catch(eQ){}
+          dd.km = nk;
+          if (dd.desc) dd.desc = resolveDescForReducedDistance(dd.desc, nk);
+          cutQ += was - nk;
+        });
+        cutQ = round1(cutQ);
+        if (cutQ > 0 && wkOf[w]){
+          var wkQ = wkOf[w];
+          if (wkQ.intendedVolume == null) wkQ.intendedVolume = wkQ.volume;
+          wkQ.volume = round1(wkQ.volume - cutQ);
+          wkQ.deliberateReduction = round1((wkQ.deliberateReduction || 0) + cutQ);
+          wkQ.recoveryQualityTrimKm = cutQ;
+          wkQ.reshapeCause = wkQ.reshapeCause || 'recovery_quality_share';
+        }
+      }
+      changed++;
+      return;
+    }
     var under = needEasy > easyKm + 0.5;
     if (!over && !under) return;
     var runsNow = list.filter(function(dd){ return dd.km > 0 && dd.type !== 'rest'; }).length;
@@ -24603,7 +24721,24 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      opening week is drawn proportionally closer to it, so the peak still
      arrives in the same week by a smaller weekly step, and the taper keeps
      its share of the new peak. */
-  return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume),
+  /* ---- THE PEAK STOPS AT THE DESTINATION UNLESS THE ATHLETE IS ALREADY THERE
+     (founder, Audit III C8, as settled) ---- The plan's own climb stops at
+     the level's destination. Where the athlete's own week, declared or
+     logged, is already at or above it, the peak may go one 10% block step
+     past that week, no further. Applied to the days (capRacePeakDays): a
+     bottom-up week is the sum of its sessions. */
+  var peakCapKm = null, peakCapBy = null;
+  if (!steady && purpose === 'race' && (distKey === 'half' || distKey === 'full') && weeks.length > 1){
+    var capPath = raceGoalPathway(distKey, blockExp);
+    if (capPath && capPath.peakVolumeKm > 0){
+      var ownKm = currentVolume > 0 ? currentVolume : 0;
+      try { var demC = demonstratedSustainableVolume(); if (demC > ownKm) ownKm = demC; } catch(eC){}
+      if (weeks[0] && weeks[0].volume > ownKm) ownKm = weeks[0].volume;
+      if (ownKm >= capPath.peakVolumeKm){ peakCapKm = round1(ownKm * VOLUME_BLOCK_GROWTH_CAP); peakCapBy = 'own_week'; }
+      else { peakCapKm = round1(capPath.peakVolumeKm); peakCapBy = 'destination'; }
+    }
+  }
+  return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume), peakCapKm:peakCapKm, peakCapBy:peakCapBy,
            /* ---- A CALIBRATION THAT NEVER FOUND A WEEK IS DECLARED ----
               The test is deferred until the athlete can safely and meaningfully
               perform it, and for a low-volume athlete on a short runway there
@@ -29103,6 +29238,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   /* Week one only: the gate never revises the first week, so its accounting
      is settled here once; every other week is shaped after the gate. */
   shapeShortRaceEasyRuns(days, weeks, blockResult, schedule, weeks && weeks.length ? weeks[0].week : 1);
+  if (blockResult.peakCapKm > 0 && capRacePeakDays(days, weeks, blockResult.peakCapKm) > 0)
+    blockResult.peakCappedTo = blockResult.peakCapKm;
   if (usesMarathonArc(blockResult.purpose, blockResult.distKey) ||
       (blockResult.purpose === 'race' && usesBottomUpArc(blockResult.purpose, blockResult.distKey)))
     applyWeekProgressionGate(days, weeks, WEEK_FIT_MIN_EASY_KM);
@@ -29421,7 +29558,10 @@ function recordVolumeAccounting(days, weeks){
       isRace: !!wk.isRace,
       intendedVolume: intended,
       deliberateReduction: wk.deliberateReduction != null ? wk.deliberateReduction : 0,
-      reductionCause: wk.reductionCause || null,
+      /* A reshaping reduction (Audit III C6, C7, C8) is named here without
+         becoming a reductionCause, which the progression gate reads as "not
+         a development week". */
+      reductionCause: wk.reductionCause || wk.reshapeCause || null,
       revisedTarget: wk.volume,
       raceDistanceKm: raceDistanceKm,
       allocatorRevision: allocatorRevision,
@@ -52668,6 +52808,7 @@ function weeklyEvidence(week){
       var sc = null; try { sc = computeExecutionScore(d); } catch(e){ sc = null; }
       if (sc != null && isFinite(sc)){ ev.scores.push(sc); if (weeklyIsQuality(d)) ev.qualityScores.push(sc); }
       if (d.actual && (d.actual.rpe != null || d.actual.mainSetFelt != null || d.actual.feel != null)) ev.effortLogged = (ev.effortLogged || 0) + 1;
+      if (d.actual && d.actual.hr != null) ev.hrLogged = (ev.hrLogged || 0) + 1;
     } else if (acked[d.id]) ev.missed++;
     else ev.unknown++;
   });
@@ -52681,6 +52822,7 @@ function weeklyEvidence(week){
     var r = null; try { r = dayReadiness(d); } catch(e){ r = null; }
     if (r && r.legs === 'heavy') ev.heavyLegs++;
     if (r && r.sleep === 'poor') ev.poorSleep++;
+    if (r && (r.legs || r.sleep || r.health)) ev.checkins = (ev.checkins || 0) + 1;
     var cut = null; try { cut = sessionCutShortFor(d); } catch(e){ cut = null; }
     if (cut === 'fatigue') ev.fatigueStops++;
   });
@@ -52710,6 +52852,24 @@ function weeklyInstrumentSignals(){
         s.recovery = r ? ((r.trainingState === 'fresh' && r.state && r.state !== 'fresh') ? 'watch' : r.trainingState) : null;
         s.recoveryTraining = r ? r.trainingState : null;
         s.recoveryMorning = r ? r.state : null; s.morningFlags = (r && r.morning && r.morning.flags) ? r.morning.flags.slice() : []; } catch(e){ s.recovery = null; }
+  /* AND THE MORNING CHECKS OVER THE LAST DAYS (Audit III LA2): the same
+     reading Today cites ("Your morning check has flagged something on 5 of
+     the last 5 days you answered it"). A fresh week becomes one to watch. */
+  try {
+    var mt = athleteTrends().filter(function(t){ return t.id === 'readiness_poor' && t.confidence !== 'insufficient'; })[0];
+    if (mt){ s.morningTrend = mt.detail; if (s.recovery === 'fresh' || s.recovery == null) s.recovery = 'watch'; }
+  } catch(eT){}
+  /* AND THE LOAD SPIKE TODAY READS (Audit III, learning re-run): "This week
+     is 1.64x your four-week average" on Today, "your recovery readings are
+     fresh" on the sheet the same morning. A spike makes a fresh week one to
+     watch, and the sheet says why. */
+  try {
+    var ld = coachLoad();
+    if (ld && ld.enough && ld.band === 'spike' && ld.ratio != null){
+      s.loadSpike = 'This week is ' + ld.ratio.toFixed(2) + 'x your ' + coachLoadAverageWords(ld, true);
+      if (s.recovery === 'fresh' || s.recovery == null) s.recovery = 'watch';
+    }
+  } catch(eLd){}
   try { var b = blockEffectiveness(); s.adaptation = b ? b.state : null; s.adaptationRobust = !!(b && b.robust); } catch(e){ s.adaptation = null; }
   try { var ex = executionPattern(); s.executionPattern = ex ? ex.tier : null; } catch(e){ s.executionPattern = null; }
   try { var mi = missPattern(); s.missPattern = mi ? mi.tier : null;
@@ -53111,6 +53271,12 @@ function answerWeeklyReview(rv, accept){
       }
     } else {
       result = applyWeekTarget(rv.week, rv.lastKm, 'stay');
+      /* THE HILL SESSION IS EARNED BY RECOVERY, NOT BY THE MILEAGE (Audit III
+         LA6): staying at the current mileage keeps it. */
+      if (rv.kind === 'progress' && rv.baseHillsId){
+        var hdS = weeklyAdjustable(rv.week).filter(function(d){ return d.id === rv.baseHillsId && d.baseHillCandidate; })[0];
+        if (hdS) result.changed.push(weeklyApplyBaseHills(hdS));
+      }
     }
   } else if (rv.kind === 'new_run'){
     if (accept && rv.recommendedKm < rv.plannedKm - 0.5) result = applyWeekTarget(rv.week, rv.recommendedKm, 'progress');
@@ -53128,14 +53294,26 @@ function answerWeeklyReview(rv, accept){
         var wkDays = weekRunDays(rv.week);
         var lrKm = Math.max.apply(null, [0].concat(wkDays.filter(function(d){ return d.type === 'long'; }).map(function(d){ return d.km; })));
         var dk = state.setup && state.setup.distanceKey;
-        var easyCap = (dk === '5k' || dk === '10k') && lrKm > 0 ? shortRaceEasyCeilingKm(lrKm) : (lrKm > 0 ? lrKm : Infinity);
-        weeklyAdjustable(rv.week).filter(function(d){ return d.type === 'easy' && d !== nr; })
-          .sort(function(a, b){ return a.km - b.km; })
-          .forEach(function(d){
-            if (!(spareKm > 0)) return;
-            var add = Math.floor(Math.min(spareKm, easyCap - d.km) * 2 + 1e-9) / 2;
-            if (add > 0 && weeklySetKm(d, d.km + add, 'keep_runs')){ spareKm = round1(spareKm - add); result.changed.push(d); }
-          });
+        /* SPREAD, AS THE SHEET SAYS (Audit III, learning re-run: "Keep Five
+           Runs" put a whole 7.5km run onto one easy run, 7.5 to 15km). Half a
+           kilometre at a time to the shortest easy run, each held to the share
+           of the long run an easy run may be; what does not fit is dropped. */
+        var easyCap = (dk === '5k' || dk === '10k') && lrKm > 0 ? shortRaceEasyCeilingKm(lrKm)
+          : (lrKm > 0 ? Math.max(WEEK_FIT_MIN_EASY_KM, Math.floor(lrKm * SUPPORT_SHARE_MAX * 2 + 1e-9) / 2) : Infinity);
+        var others = weeklyAdjustable(rv.week).filter(function(d){ return d.type === 'easy' && d !== nr; });
+        var want = {};
+        others.forEach(function(d){ want[d.id] = d.km; });
+        var g = 0;
+        while (spareKm >= EASY_QUANTUM_KM - 1e-9 && g++ < 200){
+          var low = others.filter(function(d){ return want[d.id] + EASY_QUANTUM_KM <= easyCap + 1e-9; })
+                          .sort(function(a, b){ return want[a.id] - want[b.id]; })[0];
+          if (!low) break;
+          want[low.id] = round1(want[low.id] + EASY_QUANTUM_KM);
+          spareKm = round1(spareKm - EASY_QUANTUM_KM);
+        }
+        others.forEach(function(d){
+          if (want[d.id] > d.km && weeklySetKm(d, want[d.id], 'keep_runs')) result.changed.push(d);
+        });
       }
     }
   } else if (accept){
@@ -53263,12 +53441,21 @@ function weeklyReviewCopy(rv){
     var qLine = weeklyQualityEvidenceLine(ev);
     if (qLine) why += ' ' + qLine + ' SACORO keeps an eye on it, and offers to repeat the session if it happens again.';
     var mflags = s.morningFlags || [];
-    if (s.recovery === 'fresh') why += ' Your recovery readings are fresh.';
+    /* NOTHING TO READ IS SAID AS NOTHING TO READ (Audit III, learning re-run):
+       a week logged as distances only, with no check-in, effort or heart rate,
+       has no recovery readings to call fresh. */
+    var noReadings = !(ev.effortLogged > 0) && !(ev.checkins > 0) && !(ev.hrLogged > 0);
+    if (s.recovery === 'fresh' && noReadings) why += ' You logged distances only, so there were no recovery readings to go on.';
+    else if (s.recovery === 'fresh') why += ' Your recovery readings are fresh.';
     else if (mflags.length && s.recoveryTraining === 'fresh')
       why += ' This morning you reported ' + mflags.join(' and ') + ', so the step is a small one.';
+    else if (s.morningTrend && s.recoveryTraining === 'fresh')
+      why += ' ' + s.morningTrend.replace(/\.$/, '') + ', so the step is a small one.';
+    else if (s.loadSpike && s.recoveryTraining === 'fresh')
+      why += ' ' + s.loadSpike + ', so the step is a small one.';
     else if (s.recovery === 'watch') why += ' Your recovery readings are worth watching, so the step is a small one.';
     else if (s.recovery === 'strained') why += ' Your recovery readings are strained, so the step is a small one.';
-    if (ev.overEffort === 0 && ev.done > 0) why += ' Your reported effort stayed where each session asked for it.';
+    if (ev.overEffort === 0 && ev.done > 0 && ev.effortLogged > 0) why += ' Your reported effort stayed where each session asked for it.';
     if (s.adaptation === 'ADAPTING') why += ' Your training is showing it is adapting.';
     var planWhy = weeklyPlanReason(rv);
     if (planWhy) why += ' ' + planWhy;
@@ -53298,7 +53485,13 @@ function weeklyReviewCopy(rv){
       note: ((rv.recommendedKm < rv.plannedKm - 0.5
         ? 'Your plan had ' + dist(rv.plannedKm) + ' this week. SACORO recommends a smaller step from what the evidence shows.'
         : (rv.reasons.indexOf('resuming') !== -1 ? 'This picks your progression up again from where you held it.' : '')) +
-        (rv.baseHillsId ? ' Staying at your current mileage keeps the strides run as it is.' : '')).trim(),
+        (rv.baseHillsId ? ' Either way the hill session stays.' : '') +
+        /* WHAT STAYING DELIVERS, IN ITS OWN FIGURE (Audit III LA3). When
+           part of the week is already run, staying cannot take it lower. */
+        (dl.no == null ? ''
+          : dl.no > rv.lastKm + 0.5
+            ? ' Part of this week is already run, so staying comes to ' + dist(dl.no) + '.'
+            : ' Staying keeps this week to ' + dist(dl.no) + '.')).trim(),
       yes: 'Accept Progression', no: 'Stay at Current Weekly Mileage' };
   }
   if (rv.kind === 'new_run'){
@@ -53361,7 +53554,7 @@ function weeklyReviewCopy(rv){
     return { eyebrow: 'Coach’s Recommendation', head: 'Keep the mileage. Step the session back.',
       why: (weeklyQualityEvidenceLine(ev) ? weeklyQualityEvidenceLine(ev) + ' ' : '') +
         'Your quality session has fallen short two weeks running. This week it is a smaller version of last week’s session, so you can hit it well and build from there.',
-      figures: [['This week', dist(rv.plannedKm)]],
+      figures: [['This week', dist(yesKm(rv.plannedKm))]],
       note: 'Only the quality session changes. It steps up again once it goes well.',
       yes: 'Step the Session Back', no: 'Keep the Planned Session' };
   }
@@ -53370,7 +53563,7 @@ function weeklyReviewCopy(rv){
       why: (weeklyQualityEvidenceLine(ev)
         ? weeklyQualityEvidenceLine(ev) + ' Your easy running is going well, so the mileage stays and the session repeats before it progresses. That builds the same fitness with less risk.'
         : 'Your easy running is going well, but last week’s quality session felt harder than it should and fell short of its targets. Repeating it before it progresses builds the same fitness with less risk.'),
-      figures: [['This week', dist(rv.plannedKm)]],
+      figures: [['This week', dist(yesKm(rv.plannedKm))]],
       note: 'Only the quality session changes. Every other run stays as planned.',
       yes: 'Repeat Last Week’s Session', no: 'Keep the Planned Session' };
   }
@@ -54127,7 +54320,7 @@ function playbookWindowContaminated(){
   if (below.length <= scored.length * PLAYBOOK_CLEAN_WINDOW_SHARE) return null;
   return { below:below.length, of:scored.length, established:estab,
            why:'Recent sessions have improved, but '+below.length+' of the last '+
-               scored.length+' were still below par -- that is a return toward your '+
+               scored.length+' were still below par, which is a return toward your '+
                'usual level rather than a step above it.' };
 }
 
@@ -65145,9 +65338,14 @@ async function handleGeneratePlan(){
     var typedVolume = null;
     try { typedVolume = builderAsksWeeklyVolume(buildPurpose) ? parseDistInput(document.getElementById('su-volume').value) : null; } catch(eT){}
     var volumeFromRecord = volumeFromRecordFor(buildPurpose, typedVolume);
+    /* THE PEAK WAS HELD, AND THEY ARE TOLD WHY (Audit III C8). */
+    var peakNote = !(blockResult && blockResult.peakCappedTo > 0) ? ''
+      : blockResult.peakCapBy === 'own_week'
+        ? '. Your weeks top out at ' + fmtDist(blockResult.peakCappedTo) + ', one step above the week you already run'
+        : '. Your weeks top out at ' + fmtDist(blockResult.peakCappedTo) + ', all this race needs at your level, so the climb is gentler';
     var recordNote = volumeFromRecord > 0 ? '. Built from the running on your record, about ' + fmtDist(volumeFromRecord) + ' a week' : '';
     showToast('Plan generated: '+planLengthLabel(daysBetween(startDate,raceDate)+1)+toward+', starting '+dShort(startDate)+
-      recordNote+(weekFitNote ? '. '+weekFitNote : '')+historyNote);
+      recordNote+(weekFitNote ? '. '+weekFitNote : '')+peakNote+historyNote);
   }
 }
 
@@ -65494,7 +65692,14 @@ function openEditModal(dayId){
    field-wide input rule stretching a native checkbox across the row, and it
    would now beat the circular component's own 22px. Spacing moved to CSS
    with it. Same input, same id, same handler, same state. */
-    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+lock+'>Includes a Goal-Pace segment</label></div>'+
+    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" data-action="ef-mp-toggle" '+(dd.mpSegment?'checked':'')+lock+'>Includes a Goal-Pace segment</label></div>'+
+    /* HOW MUCH OF IT (founder, 16 November 2026: "include race segment then
+       doesn't let you type or select?"). Ticked, it asks how far at goal
+       pace, on the same wheel as every other figure, and the answer is
+       written into the workout instructions so the athlete and the coach
+       read the same session. */
+    '<div class="field ef-mp-km"'+(dd.mpSegment?'':' hidden')+'><label>Goal-Pace Distance ('+displayUnit()+')</label>'+
+      '<input type="text" id="ef-mp-km" placeholder="Choose" value="'+(dd.mpSegmentKm > 0 ? kmToDisplay(dd.mpSegmentKm) : '')+'"'+lock+'></div>'+
     renderEditCompletion(dd)+
     '<div class="field" style="margin-bottom:0;"><label>Workout Instructions</label><textarea id="ef-desc"'+lock+'>'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
     /* RESET LIVES WITH THE FIELDS IT UNDOES. The reference ends on a single
@@ -66107,6 +66312,18 @@ function handleSaveEdit(dayId){
     var km = parseDistInput(document.getElementById('ef-km').value);
     var mp = document.getElementById('ef-mp').checked;
     var desc = document.getElementById('ef-desc').value;
+    /* The goal-pace distance lives in the instructions as one sentence of
+       its own, replaced (never stacked) on each save and removed with the
+       tick. Never longer than the session itself. */
+    var mpKmEl = document.getElementById('ef-mp-km');
+    var mpKm = mpKmEl ? parseDistInput(mpKmEl.value) : null;
+    var kmNow = (km == null || isNaN(km)) ? 0 : km;
+    if (!(mpKm > 0) || !mp) mpKm = null;
+    else if (kmNow > 0 && mpKm > kmNow) mpKm = kmNow;
+    var gpLine = /\s*Includes [\d.]+ ?(km|mi) at goal pace\./i;
+    var descGp = String(desc || '').replace(gpLine, '').trim();
+    if (mpKm) descGp = (descGp ? descGp + ' ' : '') + 'Includes ' + fmtDist(mpKm) + ' at goal pace.';
+    if (descGp !== String(desc || '').trim()) desc = descGp;
 
     /* PROVENANCE. Manual editing is unchanged -- every field the athlete can
        already change, they still can, and their words are stored exactly as
@@ -66124,6 +66341,7 @@ function handleSaveEdit(dayId){
     if (desc !== resolveDesc(before.desc)) changed.push('desc');
 
     dd.title=title; dd.type=type; dd.km=newKm; dd.mpSegment=mp;
+    if (mpKm) dd.mpSegmentKm = mpKm; else delete dd.mpSegmentKm;
     /* THE RESET MARKER LASTS EXACTLY AS LONG AS THE REST DAY DOES. It exists
        to keep the edit modal reachable on a rest day the athlete made with
        Reset (see canEditPrescription); the moment they use it to make the day
@@ -79462,7 +79680,23 @@ var TIME_WHEEL_FIELDS = [
   { sel:'[data-action="split-field"][data-field="sec"]', mode:'ms', title:'Lap Time' },
   /* Make Your Own (Change Workout): whole minutes, and how many times. */
   { sel:'[data-wheel="min"]', mode:'min', title:'Minutes' },
-  { sel:'[data-wheel="count"]', mode:'count', title:'Repeats' }
+  { sel:'[data-wheel="count"]', mode:'count', title:'Repeats' },
+  /* EVERY NUMBER IS A WHEEL TOO (founder, 16 November 2026: "Can all number
+     inputs be the same swipe design? Not manual input?"). Distances in the
+     athlete's own unit, heart rates, elevation and weeks. Same field, same
+     id, same handler: only the way the figure is chosen changes. A field
+     that may be left empty offers Clear beside Use. */
+  { sel:'#ef-km', mode:'dist1', title:'Distance', max:120 },
+  { sel:'#ef-mp-km', mode:'dist1', title:'Goal-Pace Distance', max:60, optional:true },
+  { sel:'#su-volume', mode:'dist1', title:'Weekly Distance', max:250 },
+  { sel:'#su-entry-long', mode:'dist1', title:'Longest Recent Run', max:80, optional:true },
+  { sel:'[data-action="actual-field"][data-field="km"], [data-action="slog-field"][data-field="km"]', mode:'dist2', title:'Distance', max:120, optional:true },
+  { sel:'[data-action="split-field"][data-field="km"]', mode:'dist2', title:'Lap Distance', max:60, optional:true },
+  { sel:'[data-action="actual-field"][data-field="hr"], [data-action="slog-field"][data-field="hr"], [data-action="split-field"][data-field="hr"]', mode:'bpm', title:'Average Heart Rate', optional:true },
+  { sel:'#su-lthr', mode:'bpm', title:'Threshold Heart Rate', optional:true },
+  { sel:'#su-maxhr', mode:'bpm', title:'Max Heart Rate', optional:true },
+  { sel:'[data-action="actual-field"][data-field="elevationGainM"]', mode:'metres', title:'Elevation', optional:true },
+  { sel:'#su-weeks', mode:'weeks', title:'Programme Length' }
 ];
 var TIME_WHEEL_ROW = 44;
 var TIME_WHEEL_COLS = {
@@ -79470,8 +79704,30 @@ var TIME_WHEEL_COLS = {
   pace: [ { key:'m', label:'Minutes', min:2, max:15 }, { key:'s', label:'Seconds', min:0, max:59 } ],
   ms:   [ { key:'m', label:'Minutes', min:0, max:59 }, { key:'s', label:'Seconds', min:0, max:59 } ],
   min:  [ { key:'m', label:'Minutes', min:1, max:90 } ],
-  count:[ { key:'n', label:'Times',   min:1, max:40 } ]
+  count:[ { key:'n', label:'Times',   min:1, max:40 } ],
+  dist1:[ { key:'w', label:'Whole',   min:0, max:120 }, { key:'f', label:'Tenths', min:0, max:9 } ],
+  dist2:[ { key:'w', label:'Whole',   min:0, max:120 }, { key:'f', label:'Hundredths', min:0, max:99 } ],
+  bpm:  [ { key:'n', label:'Beats per Minute', min:30, max:230 } ],
+  metres:[ { key:'n', label:'Metres', min:0, max:3000, step:10 } ],
+  weeks:[ { key:'n', label:'Weeks',   min:1, max:52 } ]
 };
+var TIME_WHEEL_NUMBER = { dist1:1, dist2:1, bpm:1, metres:1, weeks:1 };
+/* The columns for one field: the unit on screen names the whole column, a
+   field's own max (or its own min/max attributes, for weeks) bounds it. */
+function timeWheelCols(field, input){
+  var cols = (TIME_WHEEL_COLS[field.mode] || []).map(function(c){ return Object.assign({}, c); });
+  if (field.mode === 'dist1' || field.mode === 'dist2'){
+    cols[0].label = displayUnit() === 'mi' ? 'Miles' : 'Kilometres';
+    if (field.max) cols[0].max = field.max;
+  }
+  if (field.mode === 'weeks' && input && input.getAttribute){
+    var lo = parseInt(input.getAttribute('min'), 10), hi = parseInt(input.getAttribute('max'), 10);
+    if (lo > 0) cols[0].min = lo;
+    if (hi >= cols[0].min) cols[0].max = hi;
+  }
+  return cols;
+}
+function twPad2(n){ return n < 10 ? '0' + n : String(n); }
 function timeWheelFieldFor(el){
   if (!el || !el.matches) return null;
   for (var i = 0; i < TIME_WHEEL_FIELDS.length; i++)
@@ -79482,12 +79738,35 @@ function twPad(n){ return (n < 10 ? '0' : '') + n; }
 /* The value each field already understands: h:mm:ss, or m:ss when the
    hour is nought (the benchmark's own "23:25" form); pace is always m:ss. */
 function timeWheelFormat(mode, v){
+  if (mode === 'dist1') return v.f ? v.w + '.' + v.f : String(v.w);
+  if (mode === 'dist2') return v.f ? v.w + '.' + twPad2(v.f).replace(/0$/, '') : String(v.w);
+  if (mode === 'bpm' || mode === 'metres' || mode === 'weeks') return String(v.n);
   if (mode === 'min') return v.m + ' min';
   if (mode === 'count') return v.n + (v.n === 1 ? ' time' : ' times');
   if (mode === 'hms') return v.h ? v.h + ':' + twPad(v.m) + ':' + twPad(v.s) : v.m + ':' + twPad(v.s);
   return v.m + ':' + twPad(v.s);
 }
+/* What the Use button says: the figure with its unit. */
+function timeWheelText(mode, v){
+  var f = timeWheelFormat(mode, v);
+  if (mode === 'dist1' || mode === 'dist2') return f + displayUnit();
+  if (mode === 'bpm') return f + ' bpm';
+  if (mode === 'metres') return f + ' m';
+  if (mode === 'weeks') return f + (v.n === 1 ? ' week' : ' weeks');
+  return f;
+}
 function timeWheelParse(mode, str){
+  if (mode === 'dist1' || mode === 'dist2'){
+    var x = parseFloat(String(str == null ? '' : str).replace(',', '.'));
+    if (!(x >= 0) || String(str).trim() === '') return null;
+    var scale = mode === 'dist1' ? 10 : 100, all = Math.round(x * scale);
+    return { w: Math.floor(all / scale), f: all % scale };
+  }
+  if (mode === 'bpm' || mode === 'metres' || mode === 'weeks'){
+    var k = parseInt(String(str == null ? '' : str).replace(/[^\d]/g, ''), 10);
+    if (!(k >= 0) || String(str).trim() === '') return null;
+    return { n: mode === 'metres' ? Math.round(k / 10) * 10 : k };
+  }
   if (mode === 'min' || mode === 'count'){
     var whole = parseInt(String(str || '').replace(/\D/g, ''), 10);
     if (!(whole > 0)) return null;
@@ -79502,7 +79781,8 @@ function timeWheelParse(mode, str){
   if (mode === 'hms') return { h: Math.floor(sec / 3600), m: Math.floor(sec / 60) % 60, s: sec % 60 };
   return { m: Math.floor(sec / 60), s: sec % 60 };
 }
-var TIME_WHEEL_START = { hms:{ h:0, m:45, s:0 }, pace:{ m:5, s:0 }, ms:{ m:4, s:0 }, min:{ m:4 }, count:{ n:5 } };
+var TIME_WHEEL_START = { hms:{ h:0, m:45, s:0 }, pace:{ m:5, s:0 }, ms:{ m:4, s:0 }, min:{ m:4 }, count:{ n:5 },
+  dist1:{ w:5, f:0 }, dist2:{ w:5, f:0 }, bpm:{ n:145 }, metres:{ n:0 }, weeks:{ n:12 } };
 /* WHERE AN EMPTY WHEEL STARTS. Founder-approved audit fix: an empty field
    opened on 45:00 or 5:00 whoever the athlete was, so a marathon goal began
    three hours away from anything sensible. The wheel now starts near the
@@ -79521,6 +79801,21 @@ var TIME_WHEEL_TYPICAL_VDOT = { novice:34, experienced:42, advanced:50 };
 function timeWheelLikelyStart(input, field){
   try {
     var sec = null, id = input.id || '';
+    if (TIME_WHEEL_NUMBER[field.mode]){
+      /* A number opens near the likely answer: the session's own distance,
+         a lap of one unit, a third of the session at goal pace, and the
+         usual threshold and maximum heart rates. */
+      var day = input.getAttribute && input.getAttribute('data-day') ? findDay(input.getAttribute('data-day')) : null;
+      var near = null;
+      if (id === 'su-lthr') near = 165;
+      else if (id === 'su-maxhr') near = 185;
+      else if (id === 'ef-mp-km'){
+        var efk = parseFloat((document.getElementById('ef-km') || {}).value);
+        if (efk > 0) near = Math.max(1, Math.round(efk / 3));
+      } else if (input.getAttribute && input.getAttribute('data-action') === 'split-field' && field.mode === 'dist2') near = 1;
+      else if (day && day.km > 0 && field.mode === 'dist2') near = kmToDisplay(day.km);
+      return near == null ? null : timeWheelParse(field.mode, String(near));
+    }
     var pre = id.indexOf('rc-') === 0 ? 'rc-' : 'su-';
     var val = function(x){ var el = document.getElementById(pre + x); return el ? el.value : ''; };
     var expBtn = document.querySelector('#su-experience button.active');
@@ -79567,8 +79862,9 @@ function timeWheelLikelyStart(input, field){
       : { m: Math.floor(sec / 60), s: sec % 60 };
   } catch(e){ return null; }
 }
-function timeWheelSheetHtml(field, v){
-  var cols = TIME_WHEEL_COLS[field.mode];
+function timeWheelSheetHtml(field, v, input){
+  var cols = timeWheelCols(field, input);
+  var clear = !!(field.optional && input && String(input.value || '').trim() !== '');
   return '<div class="tw-sheet" role="dialog" aria-modal="true" aria-label="'+escapeHtml(field.title)+'">'+
     '<div class="tw-head"><h2 class="font-head">'+escapeHtml(field.title)+'</h2>'+
       '<button type="button" class="icon-btn" data-action="time-wheel-close" aria-label="Close">'+ICONS.close+'</button></div>'+
@@ -79576,15 +79872,19 @@ function timeWheelSheetHtml(field, v){
     '<div class="tw-wheels" style="--tw-row:'+TIME_WHEEL_ROW+'px;">'+
       '<div class="tw-band" aria-hidden="true"></div>'+
       cols.map(function(c){
-        var items = '';
-        for (var n = c.min; n <= c.max; n++)
-          items += '<div class="tw-item" data-v="'+n+'">'+((field.mode === 'pace' && c.key === 'm') || field.mode === 'min' || field.mode === 'count' ? n : twPad(n))+'</div>';
-        return '<div class="tw-col" data-col="'+c.key+'" data-min="'+c.min+'" tabindex="0" role="listbox" '+
+        var items = '', st = c.step || 1;
+        var plain = (field.mode === 'pace' && c.key === 'm') || field.mode === 'min' || field.mode === 'count' ||
+                    field.mode === 'bpm' || field.mode === 'metres' || field.mode === 'weeks' || c.key === 'w';
+        for (var n = c.min; n <= c.max; n += st)
+          items += '<div class="tw-item" data-v="'+n+'">'+(plain ? n : c.key === 'f' ? (field.mode === 'dist2' ? '.' + twPad2(n) : '.' + n) : twPad(n))+'</div>';
+        return '<div class="tw-col" data-col="'+c.key+'" data-min="'+c.min+'" data-step="'+st+'" tabindex="0" role="listbox" '+
           'aria-label="'+c.label+'"><div class="tw-pad"></div>'+items+'<div class="tw-pad"></div></div>';
       }).join('')+
     '</div>'+
+    (clear ? '<div class="tw-actions"><button type="button" class="btn tw-clear" data-action="time-wheel-clear">Clear</button>' : '')+
     '<button type="button" class="btn btn-primary btn-block tw-use" data-action="time-wheel-use">Use '+
-      escapeHtml(timeWheelFormat(field.mode, v))+'</button>'+
+      escapeHtml(timeWheelText(field.mode, v))+'</button>'+
+    (clear ? '</div>' : '')+
   '</div>';
 }
 var timeWheelOpen = null;
@@ -79593,44 +79893,49 @@ function openTimeWheel(input){
   if (!field || typeof document === 'undefined') return;
   /* A field may name its own wheel (Make Your Own: Run, Walk, Repeat). */
   var named = input.getAttribute && input.getAttribute('data-wheel-title');
-  if (named) field = { sel:field.sel, mode:field.mode, title:named };
+  if (named) field = Object.assign({}, field, { title:named });
   closeTimeWheel();
   var v = timeWheelParse(field.mode, input.value) || timeWheelLikelyStart(input, field) ||
           JSON.parse(JSON.stringify(TIME_WHEEL_START[field.mode]));
-  var cols = TIME_WHEEL_COLS[field.mode];
-  cols.forEach(function(c){ v[c.key] = Math.max(c.min, Math.min(c.max, v[c.key] || 0)); });
+  var cols = timeWheelCols(field, input);
+  cols.forEach(function(c){
+    var st = c.step || 1;
+    v[c.key] = Math.max(c.min, Math.min(c.max, Math.round(((v[c.key] || 0) - c.min) / st) * st + c.min));
+  });
   var layer = document.createElement('div');
   layer.className = 'tw-layer';
   layer.id = 'time-wheel';
-  layer.innerHTML = timeWheelSheetHtml(field, v);
+  layer.innerHTML = timeWheelSheetHtml(field, v, input);
   layer.addEventListener('mousedown', function(e){ if (e.target === layer) closeTimeWheel(); });
   document.body.appendChild(layer);
   timeWheelOpen = { input:input, field:field, value:v, layer:layer };
   layer.querySelectorAll('.tw-col').forEach(function(col){
     var key = col.getAttribute('data-col'), min = parseInt(col.getAttribute('data-min'), 10);
-    col.scrollTop = (v[key] - min) * TIME_WHEEL_ROW;
-    timeWheelMark(col, v[key] - min);
+    var step = parseInt(col.getAttribute('data-step'), 10) || 1;
+    col.scrollTop = (v[key] - min) / step * TIME_WHEEL_ROW;
+    timeWheelMark(col, (v[key] - min) / step);
     var settle = null;
     col.addEventListener('scroll', function(){
       if (!timeWheelOpen || timeWheelOpen.layer !== layer) return;   // a scroll that lands after the sheet closed
       var idx = Math.round(col.scrollTop / TIME_WHEEL_ROW);
-      var n = Math.max(min, Math.min(min + col.querySelectorAll('.tw-item').length - 1, min + idx));
+      idx = Math.max(0, Math.min(col.querySelectorAll('.tw-item').length - 1, idx));
+      var n = min + idx * step;
       if (n !== timeWheelOpen.value[key]){
         timeWheelOpen.value[key] = n;
-        timeWheelMark(col, n - min);
+        timeWheelMark(col, idx);
         sacoroHaptic('tick');                       // one click per number that passes the band
         timeWheelRelabel();
       }
       clearTimeout(settle);
       settle = setTimeout(function(){              // and it rests exactly on a row
         if (!timeWheelOpen || timeWheelOpen.layer !== layer) return;
-        var want = (timeWheelOpen.value[key] - min) * TIME_WHEEL_ROW;
+        var want = (timeWheelOpen.value[key] - min) / step * TIME_WHEEL_ROW;
         if (Math.abs(col.scrollTop - want) > 1) col.scrollTo({ top: want, behavior: 'smooth' });
       }, 140);
     }, { passive:true });
     col.addEventListener('click', function(e){
       var it = e.target.closest && e.target.closest('.tw-item');
-      if (it) col.scrollTo({ top: (parseInt(it.getAttribute('data-v'), 10) - min) * TIME_WHEEL_ROW, behavior: 'smooth' });
+      if (it) col.scrollTo({ top: (parseInt(it.getAttribute('data-v'), 10) - min) / step * TIME_WHEEL_ROW, behavior: 'smooth' });
     });
     col.addEventListener('keydown', function(e){
       var d = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
@@ -79649,12 +79954,23 @@ function timeWheelMark(col, idx){
 function timeWheelRelabel(){
   var o = timeWheelOpen;
   var b = o && o.layer.querySelector('.tw-use');
-  if (b) b.textContent = 'Use ' + timeWheelFormat(o.field.mode, o.value);
+  if (b) b.textContent = 'Use ' + timeWheelText(o.field.mode, o.value);
 }
 function useTimeWheel(){
   var o = timeWheelOpen;
   if (!o) return;
   o.input.value = timeWheelFormat(o.field.mode, o.value);
+  closeTimeWheel();
+  try{
+    o.input.dispatchEvent(new Event('input', { bubbles:true }));
+    o.input.dispatchEvent(new Event('change', { bubbles:true }));
+  }catch(e){}
+}
+/* An optional figure can be taken back out. */
+function clearTimeWheel(){
+  var o = timeWheelOpen;
+  if (!o) return;
+  o.input.value = '';
   closeTimeWheel();
   try{
     o.input.dispatchEvent(new Event('input', { bubbles:true }));
@@ -80159,7 +80475,14 @@ function pageSwipeCommits(dist, extent, velocity){
 function pageSwipeOwnedElsewhere(node, card){
   while (node && node !== card){
     try{
-      if (node.matches && node.matches('input[type="range"], textarea, [data-no-page-swipe]')) return true;
+      /* THE WHEEL OWNS ITS DRAG (founder, 16 November 2026: "when you swipe
+         the time down it tries to close the panel"). A wheel column is a
+         vertical list, so a pull down on it turns the wheel, never the sheet. */
+      if (node.matches && node.matches('input[type="range"], textarea, .tw-col, .tw-wheels, [data-no-page-swipe]')) return true;
+      if (node.scrollTop > 0 && node.scrollHeight > node.clientHeight + 2 && window.getComputedStyle){
+        var oy = window.getComputedStyle(node).overflowY;
+        if (oy === 'auto' || oy === 'scroll') return true;
+      }
       if (node.scrollWidth > node.clientWidth + 2 && window.getComputedStyle){
         var ox = window.getComputedStyle(node).overflowX;
         if (ox === 'auto' || ox === 'scroll') return true;
@@ -80184,11 +80507,14 @@ function pageSwipeStart(e){
      glass bottom sheet or a pop-up card is pushed back down the way it rose,
      from its top; a full page keeps its sideways and downward close. Each
      still closes through its own X. */
+  /* LEFT, RIGHT AND DOWN, EVERY POP-UP (founder, 16 November 2026: "Can
+     all pop up panels be closed left right and down?"). A glass sheet or a
+     pop-up card now leaves the way a full page does. `sheet` is kept for the
+     one surface that stays down-only: the builder past its first screen. */
   var sheet = false;
   if (!card){
     card = (e.target && e.target.closest) ? e.target.closest('.tw-sheet, .modal-card') : null;
     if (!card || !pageSwipeCloseOf(card)) return;
-    sheet = true;
   }
   if (document.querySelector('.vvcal')) return;          /* a calendar owns the screen */
   /* THE BUILDER, ONCE IT HOLDS ANSWERS. It became a page (founder: "Build
@@ -81009,6 +81335,7 @@ document.addEventListener('click', function(e){
     case 'apply-app-update': applyAppUpdate(); break;
     case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) closeModal(); }); break;
     case 'time-wheel-use': useTimeWheel(); break;
+    case 'time-wheel-clear': clearTimeWheel(); break;
     case 'ask-yes': answerAskSacoro(true); break;
     case 'ask-no': answerAskSacoro(false); break;
     case 'time-wheel-close': closeTimeWheel(); break;
@@ -81306,6 +81633,10 @@ document.addEventListener('change', function(e){
   /* Supporting work is a native checkbox now, so it belongs on `change` beside
      toggle-complete rather than on `click` where its button used to live. */
   else if (action === 'support-done') handleSupportDone(actionEl.getAttribute('data-day'));
+  else if (action === 'ef-mp-toggle'){
+    var mpRow = document.querySelector('.ef-mp-km');
+    if (mpRow) mpRow.hidden = !t.checked;
+  }
   // Only real form fields belong on `change`. Buttons fire `click` and are
   // registered in the click dispatcher above -- registering set-feel /
   // notes-wand here is what made both controls render correctly and do
