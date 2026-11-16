@@ -1030,15 +1030,23 @@ test('every day in the week carousel starts its hero at the same height', () => 
      laying anything out: the row must be present on EVERY day, and the rule
      that gives it height when empty must exist. The pixel equality those two
      produce was measured in a browser and is recorded above. */
+  /* Since the pencil moved into the title (founder: "On this week and full
+     plan the pencil hasn't moved?") the corner row is drawn for NO day that
+     has a hero, so the heights still match: what is asserted is that the
+     row is the same on every day -- all or none -- never a mix. */
   const a = railApp();
   const kinds = {};
+  const withRow = [], withoutRow = [];
   a.state.days.forEach((d, i) => {
     const slide = a.weekSlideHtml(d, i);
     kinds[d.type] = (kinds[d.type] || 0) + 1;
-    assert.ok(slide.indexOf('class="day-rail wk-rail-act"') > -1,
-      d.date + ' (' + d.type + '): the slide drops the action row, so its hero ' +
-      'rides 46px higher than the days either side of it');
+    (slide.indexOf('class="day-rail wk-rail-act"') > -1 ? withRow : withoutRow).push(d.date + ' ' + d.type);
+    if (a.dayActionButton(d) && slide.indexOf('th-hero') > -1)
+      assert.match(slide, /<span class="th-title-last">[^<]+<button[^>]*data-action="open-edit"/,
+        d.date + ': the pencil is not beside the title');
   });
+  assert.ok(withRow.length === 0 || withoutRow.length === 0,
+    'some days keep the action row and some do not, so heroes step up and down: ' + JSON.stringify({ withRow, withoutRow }).slice(0, 300));
   assert.ok(kinds.rest >= 3 && Object.keys(kinds).length >= 3,
     'the block built ' + JSON.stringify(kinds) + ' — too few kinds of day to prove this');
 

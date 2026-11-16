@@ -140,6 +140,8 @@ test('.modal-head is the only border left outside Settings', () => {
     /race-event/, /race-strategy/,                     // cherry, by instruction
     /\.modal-head/,                                     // the sticky head
     /\.actual-field :is\(input, textarea\)/,            // the field, not a rule
+    /\.coach-nav-row/,                                  // Coach rows, by instruction:
+    // founder's mock, "clean tappable text rows" with a line between them
   ];
   const stray = [];
   CSS.replace(/\/\*[\s\S]*?\*\//g, ' ')

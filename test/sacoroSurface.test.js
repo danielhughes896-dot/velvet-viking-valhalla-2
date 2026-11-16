@@ -530,30 +530,26 @@ test('RING: no circle in the grid is drawn to a proportion, because none has one
     'the ring-draw keyframe is back with nothing to animate');
 });
 
-test('RING: nothing measured still reads as an absence, now on the plate', () => {
-  /* ---- CHANGED SIDES: FITNESS LEFT THE GRID ----
-     Founder: "make the fitness and progress circles the same as goal and
-     benchmark." This asked that an unmeasured fitness wear the dashed
-     gathering ring. It has no ring now, and the claim underneath it does
-     not change: an absence must still be drawn as an absence rather than as
-     a settled figure. The plate carries that in the typography the empty
-     state already owns, which is the channel Goal and Benchmark have used
-     for their own absences since they became plates. */
+test('RING: nothing measured still reads as an absence, on the small circle', () => {
+  /* ---- CHANGED SIDES: FITNESS IS A CIRCLE AGAIN, A SMALL ONE ----
+     Founder: four small circles under the main ones, in their finish. An
+     absence is drawn as an absence twice over: the broken ring the main
+     circles use while gathering, and the quiet type the empty state owns. */
   const a = planHQ();
   const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
   assert.ok(facts.fitness.none, 'the fixture has a measured fitness, so this proves nothing');
   const html = a.renderSacoroInstruments();
   const fitness = /<button[^>]*data-record="fitness"[\s\S]*?<\/button>/.exec(html)[0];
-  assert.match(fitness, /class="b-plate"/, 'Fitness is a circle again');
-  assert.match(fitness, /class="b-plate-v rec-none"/,
+  assert.match(fitness, /class="b-dial b-mini"/, 'Fitness is not a small circle');
+  assert.match(fitness, /class="rd-arc is-learning"/, 'an unmeasured fitness wears a closed ring');
+  assert.match(fitness, /<b class="rec-none"/,
     'an unmeasured fitness is stated in the same type as a real figure');
-  /* AND THE SAME ABSENCE, THE SAME WAY, AS THE FACTS IT NOW SITS BESIDE. */
   const a2 = planHQ();
   a2.state.setup.benchmark = null;
   const bench = /<button[^>]*data-record="benchmark"[\s\S]*?<\/button>/
     .exec(a2.renderSacoroInstruments())[0];
-  assert.match(bench, /class="b-plate-v rec-none"/,
-    'two absences on one row are drawn two different ways');
+  assert.match(bench, /<b class="rec-none"/, 'two absences on one row are drawn two different ways');
+  assert.match(bench, /class="rd-arc is-learning"/, 'two absences on one row are drawn two different ways');
 });
 
 test('RING: no metric Sacoro does not compute has been invented for it', () => {
@@ -594,7 +590,7 @@ test('RING: the painted rim comes off only where the ring replaces it', () => {
 // and takes a plate. Goal and Benchmark went first; this is the same rule
 // reaching the two that were left behind in the grid.
 // ===========================================================================
-test('SHAPE: the grid is readings only, and every Record fact is a plate', () => {
+test('SHAPE: the grid is readings only, and every Record fact is a small circle', () => {
   const a = withMeasuredFitness(planHQ());
   const html = a.renderSacoroInstruments();
   const grid = /<div class="b-grid">([\s\S]*?)<\/div>/.exec(html)[1];
@@ -606,9 +602,9 @@ test('SHAPE: the grid is readings only, and every Record fact is a plate', () =>
   assert.equal((grid.match(/data-action="open-reading"/g) || []).length, 4,
     'the grid no longer holds exactly the four readings');
 
-  const plateKeys = [...html.matchAll(/class="b-plate"[^>]*data-record="([a-z]+)"/g)].map(m => m[1]);
+  const plateKeys = [...html.matchAll(/class="b-dial b-mini"[^>]*data-record="([a-z]+)"/g)].map(m => m[1]);
   assert.equal(plateKeys.join(','), 'fitness,progress,goal,benchmark',
-    'the plates are not the four Record facts in the founder\u2019s order');
+    'the small circles are not the four Record facts in the founder\u2019s order');
 
   /* AND THE TWO ARRAYS THAT DECIDE IT, so a renderer that happened to agree
      by accident is not mistaken for the rule. Joined rather than deep-equal
@@ -652,46 +648,27 @@ test('SHAPE: every fact that took a plate is a number, which is why it took one'
   });
 });
 
-test('SHAPE: a plate value cannot wrap, whatever the string it is given', () => {
-  /* MEASURED, NOT GUESSED, AND THE MEASUREMENT IS WHY THIS LAW EXISTS. At
-     320px the plate is 139px wide and a fitness range broke at the dash, so
-     Fitness and Progress stood 102px tall against Goal and Benchmark's
-     84px -- four plates the founder asked to be even, in two sizes. The
-     widest value the app can produce is eleven characters ("24:10-25:24",
-     a 5K range), found by sweeping every distance rather than by reading
-     the marathon fixture, which shows nine.
-     A BROWSER IS WHERE WIDTH LIVES, so what is held here is the mechanism:
-     the count the sizing divides by, the ceiling it may never exceed, and
-     the nowrap that turns a too-long run into a visible overflow instead of
-     a silent second line. */
+test('SHAPE: a small circle holds the widest value at or above the 11px floor', () => {
+  /* The widest value the app can produce is eleven characters
+     ("24:10\u201325:24", a 5K range). In a 63px circle on one line it came
+     out at 9.6px, under the floor; a range is two lines, split after its
+     dash, and is sized by the longer line. Every circle is sized by the
+     same geometry ladder, at the --dv the small row declares. */
   const a = withMeasuredFitness(planHQ());
-  const html = a.renderSacoroInstruments();
-  const facts = {}; a.recordFacts().forEach(f => { facts[f.key] = f; });
-
-  /* THE COUNT IS THE LONGEST RUN, not the string length -- a value with a
-     space in it must not be sized as though it were one unbreakable word. */
-  assert.equal(a.plateValueChars('24:10\u201325:24'), 11);
-  assert.equal(a.plateValueChars('Goal A'), 4, 'a space is not being treated as a break');
-  assert.equal(a.plateValueChars(''), 1, 'an empty value divides by zero');
-
-  a.SACORO_PLATES.forEach(k => {
-    const plate = new RegExp('<button[^>]*data-record="' + k + '"[\\s\\S]*?</button>').exec(html)[0];
-    const ch = parseInt(/--pv-ch:(\d+)/.exec(plate)[1], 10);
-    assert.equal(ch, a.plateValueChars(String(facts[k].big)),
-      k + ' is sized against a character count that is not its own value\u2019s');
+  assert.equal(a.miniValueHtml('24:10\u201325:24'), '24:10\u2013<br>25:24');
+  assert.equal(a.miniValueHtml('45:00'), '45:00', 'a time that is not a range was split');
+  assert.equal(a.miniValueHtml('\u2013'), '\u2013', 'the absence dash was read as a range');
+  const dv = parseFloat(/\.b-minis\{[^}]*--dv:([\d.]+)/.exec(BARE)[1]);
+  ['24:10\u201325:24', '3:23\u20133:44', '1:32:10', '2:59:59', '100%', 'A'].forEach(v => {
+    const px = parseFloat(/calc\(([\d.]+)px/.exec(a.miniValueSize(v))[1]) * dv;
+    assert.ok(px >= 11, v + ' is drawn at ' + px.toFixed(1) + 'px, under the 11px floor');
   });
-
-  const rule = /\.b-plate-v\{([^}]*)\}/.exec(BARE)[1];
-  assert.match(rule, /white-space:nowrap/,
-    'a long plate value wraps again, which is what made the rows uneven');
-  assert.match(rule, /var\(--pv-ch/,
-    'the value size ignores the string it has to fit');
-  assert.match(rule, /min\(26px/,
-    'the 26px ceiling is gone, so short values grow to fill their box');
-  assert.match(rule, /100cqw/,
-    'the size is no longer measured against the plate it has to fit inside');
-  assert.match(BARE, /\.b-plate\{[^}]*container-type:inline-size/,
-    'the plate is not a query container, so 100cqw measures the wrong box');
+  /* Round at every width: the height follows the width, never set. */
+  const dial = /\.b-minis \.b-dial\[data-rank\]\{([^}]*)\}/.exec(BARE)[1];
+  assert.match(dial, /aspect-ratio:1\/1/);
+  assert.match(dial, /height:auto/);
+  assert.match(/\.b-minis\{([^}]*)\}/.exec(BARE)[1], /grid-template-columns:repeat\(4, minmax\(0, 1fr\)\)/,
+    'the four are not one row');
 });
 
 test('TYPE: this page is white, and the circles are set in the words face', () => {
@@ -729,38 +706,18 @@ test('TYPE: this page is white, and the circles are set in the words face', () =
     'the hint under the circles is dimmed again');
 });
 
-test('PLATE: each plate lights the corner that points away from the grid', () => {
-  /* Founder: "The fitness progress goal bench mark boxes could have brighter
-     boarders ... Goal brighter bottom left. Progress top right and benchmark
-     bottom right."
-     The founder wrote "top right" for Fitness and then "top right" again for
-     Progress; Fitness is the top-LEFT box, and the outer-corner reading is
-     the one that makes the set cohere, so it takes that. The four radiate
-     outward rather than all leaning the same way. */
-  const CORNERS = { fitness:['0%','0%'], progress:['100%','0%'],
-                    goal:['0%','100%'], benchmark:['100%','100%'] };
-  Object.keys(CORNERS).forEach(k => {
-    const m = new RegExp('\\.b-plate\\[data-record="' + k + '"\\]\\s*\\{([^}]*)\\}').exec(BARE);
-    assert.ok(m, k + ' no longer names a corner');
-    assert.match(m[1], new RegExp('--rim-x:' + CORNERS[k][0]), k + ' lights the wrong side');
-    assert.match(m[1], new RegExp('--rim-y:' + CORNERS[k][1]), k + ' lights the wrong edge');
-  });
-  /* THE LIT EDGE IS A MASKED GRADIENT, because a border cannot hold one and
-     border-image would drop the radius -- the same constraint the coach
-     buttons hit. If the ::before goes, every plate falls back to the flat
-     rim underneath and the four stop radiating. */
-  const before = /\.b-plate::before\{([^}]*)\}/.exec(BARE);
-  assert.ok(before, 'the lit edge is gone');
-  /* THE ONE DECLARATION THAT DECIDES WHETHER ANY OF THE REST RUNS. A
-     mutation setting content:none left the gradient, the mask and the four
-     corners all present and correct, and drew nothing at all -- the law
-     passed on a feature that had been switched off. */
-  assert.match(before[1], /content:''/,
-    'the lit edge declares no content, so the pseudo-element never renders');
-  assert.match(before[1], /radial-gradient\(.*var\(--rim-x/,
-    'the lit edge no longer reads the corner each plate names');
-  assert.match(before[1], /mask-composite:exclude/,
-    'the gradient fills the plate instead of ringing it');
+test('ROWS: the ways in are rows, not boxes, and no plate is left on the page', () => {
+  /* Founder: "No glass boxes. The circles are coaching metrics; the rows
+     are navigation." */
+  const a = planHQ();
+  const html = a.renderSacoroInstruments();
+  assert.doesNotMatch(html, /class="b-plate/, 'a plate is back on the Coach page');
+  assert.doesNotMatch(BARE, /\.b-plate[\s{:.\[-]/, 'plate styling is left in the sheet with nothing to style');
+  const rows = html.slice(html.indexOf('class="coach-nav-rows"'));
+  assert.match(rows, /class="coach-nav-row"[^>]*data-record="history"/);
+  const row = /\.coach-nav-row\{([^}]*)\}/.exec(BARE)[1];
+  assert.match(row, /min-height:60px/, 'the row is under a comfortable tap');
+  assert.match(row, /background:none/);
 });
 
 test('PANEL: a panel is rimmed in the colour of the circle that opens it', () => {
@@ -878,27 +835,20 @@ test('PANEL: one colour per panel, and everything else in it is white', () => {
 // (observation, no judgement either way). Five were already these; recovery
 // moved off --gold-bright, which Progress also wears.
 // ===========================================================================
-test('COLOUR: each instrument wears its own named token, and no two share one', () => {
+test('COLOUR: each instrument wears its named token; the small four borrow the main four', () => {
+  /* Founder: "Fitness: Cherry -- Confidence. Progress: Teal -- Recovery.
+     Goal: Green -- Evolution. Benchmark: Blue -- Adaptation." The main
+     circles stay distinct from one another; each small circle wears its
+     partner's colour on purpose, a size below it. */
   const a = planHQ();
-  const EXPECT = {
-    evolution:  'var(--z-easy)',     // green
-    adaptation: 'var(--z-mp)',       // blue
-    fitness:    'var(--cherry)',     // cherry
-    progress:   'var(--gold-bright)',// gold
-    recovery:   'var(--cyan)',       // cyan
-    patterns:   'var(--ink)'         // white / neutral
-  };
-  Object.keys(EXPECT).forEach(k => {
-    const got = a.READING_ACCENT[k] || a.STATUS_ACCENT[k];
-    assert.equal(got, EXPECT[k], k + ' is no longer ' + EXPECT[k]);
-  });
-  /* THE SIX IN THE GRID ARE SIX DIFFERENT COLOURS. Recovery and Progress
-     were both --gold-bright before this, which is the thing being fixed --
-     so the set is asserted distinct rather than only item by item. */
-  const used = Object.keys(EXPECT).map(k => EXPECT[k]);
-  assert.equal(new Set(used).size, 6,
-    'two instruments in the grid share a colour: ' + used.join(' '));
-  /* And the cyan is a colour of its own, not the adaptation blue again. */
+  const READING = { evolution:'var(--z-easy)', adaptation:'var(--z-mp)', recovery:'var(--cyan)',
+                    patterns:'var(--ink)', readiness:'var(--cherry)' };
+  Object.keys(READING).forEach(k => assert.equal(a.READING_ACCENT[k], READING[k], k + ' is no longer ' + READING[k]));
+  const used = Object.keys(READING).map(k => READING[k]);
+  assert.equal(new Set(used).size, used.length, 'two main instruments share a colour: ' + used.join(' '));
+  const PAIR = { fitness:'readiness', progress:'recovery', goal:'evolution', benchmark:'adaptation' };
+  Object.keys(PAIR).forEach(k => assert.equal(a.STATUS_ACCENT[k], a.READING_ACCENT[PAIR[k]],
+    k + ' does not wear ' + PAIR[k] + '\u2019s colour'));
   assert.match(BARE, /--cyan:#[0-9A-Fa-f]{6}/, '--cyan is not declared');
   const cyan = /--cyan:(#[0-9A-Fa-f]{6})/.exec(BARE)[1].toLowerCase();
   const blue = /--z-mp:(#[0-9A-Fa-f]{6})/.exec(BARE)[1].toLowerCase();

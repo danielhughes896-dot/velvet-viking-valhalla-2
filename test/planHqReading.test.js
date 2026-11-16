@@ -374,7 +374,8 @@ test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
     'the in-place path no longer checks it is the same modal');
   assert.match(openModalFn[0], /card\.innerHTML = html/,
     'the in-place path stopped swapping contents');
-  assert.match(openModalFn[0], /card\.scrollTop = y/,
+  /* Through modalScrollSet: a glass sheet scrolls its body, not the card. */
+  assert.match(openModalFn[0], /modalScrollSet\(card, y\)/,
     'the in-place path stopped keeping the scroll position');
   assert.match(openModalFn[0], /openRecordPanelKey = null/,
     'the in-place path skips the side effect closeModal() exists for');
@@ -692,10 +693,10 @@ test('HQ: Sacoro opens on the right question, in the right order down one page',
      wash for the same reason; this is that argument reaching the block. */
   assert.doesNotMatch(html, /class="v-call/, 'Sacoro\u2019s Call is back under the hero');
   assert.ok(at('class="v-hero"') < at('class="b-grid"'), 'the circles are above the hero');
-  assert.ok(at('class="b-grid"') < at('class="b-plates"'),
-    'the plates are above the circles');
-  assert.ok(at('class="b-plates"') < at(a.renderCoachPanel()),
-    'the coach cards are above the plates');
+  assert.ok(at('class="b-grid"') < at('class="b-grid b-minis"'),
+    'the small circles are above the main circles');
+  assert.ok(at('class="b-grid b-minis"') < at(a.renderCoachPanel()),
+    'the coach cards are above the small circles');
   assert.doesNotMatch(html, />The Reading</, 'the retired Reading heading is back');
   assert.doesNotMatch(html, />The Athlete Status</, 'the retired Athlete Status heading is back');
   assert.doesNotMatch(html, /class="act-trio/,
@@ -718,9 +719,13 @@ test('HQ: nothing on Sacoro/Coach/Record expands inline, and every card is a des
      still in the grid. The claim underneath is the one that matters and it
      is unchanged -- all four facts are destinations and none of them
      expands in place -- so only the shape they are counted in moves. */
-  const plates = (html.match(/<button type="button" class="b-plate"[\s\S]*?<\/button>/g) || []);
-  assert.equal(recordCardsHtml.length, 0, 'a Record fact is a circle again');
-  assert.equal(plates.length, 4, 'expected four Athlete Status plates');
+  /* ---- CHANGED SIDES AGAIN: FOUR SMALL CIRCLES ----
+     Founder: "Smaller circles establish a secondary visual hierarchy beneath
+     the main coaching circles. All four values are immediately accessible."
+     The claim is unchanged: four facts, each a destination, none inline. */
+  const plates = (html.match(/<button type="button" class="b-dial b-mini"[\s\S]*?<\/button>/g) || []);
+  assert.equal(recordCardsHtml.length, 4, 'expected four small Record circles');
+  assert.equal(plates.length, 4, 'expected four Athlete Status circles');
   plates.forEach(p => {
     assert.match(p, /data-action="open-record"/, 'a plate that goes nowhere');
     assert.doesNotMatch(p, /aria-expanded/, 'a plate that expands rather than opens');

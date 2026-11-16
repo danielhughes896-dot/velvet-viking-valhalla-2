@@ -71,14 +71,14 @@ const fnBody = name => { const at = SRC.indexOf('\nfunction ' + name + '('); ass
 // THE PAGE
 // ---------------------------------------------------------------------------
 
-test('the page reads hero, circle rail, graph, plates', () => {
+test('the page reads hero, circle rail, graph, small circles', () => {
   const a = evidenced();
   const html = a.renderPlanHQView();
   const at = s => { const i = html.indexOf(s); assert.ok(i !== -1, s + ' is not on the page'); return i; };
   assert.ok(at('class="v-hero"') < at('class="b-rail"'));
   assert.ok(at('class="b-rail"') < at('class="b-rail-dots"'), 'the dots are not under the rail');
   assert.ok(at('class="b-rail-dots"') < at('class="cg-card"'));
-  assert.ok(at('class="cg-card"') < at('class="b-plates"'), 'the graph is not above the plates');
+  assert.ok(at('class="cg-card"') < at('class="b-grid b-minis"'), 'the graph is not above the small circles');
   assert.equal((html.match(/class="cg-card"/g) || []).length, 1);
 });
 
@@ -706,7 +706,7 @@ test('the graph is SACORO\'s: white type, tokens for colour, no pill, no icon, n
   const card = a.renderCoachGraph();
   assert.equal((card.match(/<svg/g) || []).length, 1, 'something other than the chart is drawn');
   assert.ok(!/<img|class="[^"]*\bpill\b|<path/.test(card));
-  const css = CSS.slice(CSS.indexOf('.cg-card{'), CSS.indexOf('.b-plates{'));
+  const css = CSS.slice(CSS.indexOf('.cg-card{'), CSS.indexOf('.b-dials-arc{'));
   assert.ok(!/#[0-9A-Fa-f]{3,6}/.test(css.replace(/#FFFFFF/g, '')), 'a colour that is not white or a token is used');
   assert.ok(!/var\(--ink-(dim|faint)\)/.test(css), 'grey type');
   /* Founder: "I don't think this should be in a box. It should be full

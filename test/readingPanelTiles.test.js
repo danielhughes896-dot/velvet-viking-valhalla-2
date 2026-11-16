@@ -101,7 +101,7 @@ test('ADAPTATION: torus, tiles, the timeline from its own reviews, evidence as r
   const p = a.readingPanel('adaptation');
   assert.match(p, /class="b-dial is-torus"/);
   order(p, ['Your Adaptation', '>Aerobic<', '>Tolerance<', '>Break\u00ADthroughs<', 'Adaptation Timeline',
-            'The Evidence', 'Observation window', 'Qualifying sessions', 'Coach’s Read']);
+            'The Evidence', 'Observation window', 'Qualifying sessions', 'SACORO’s Read']);
   // one point per plan week, its latest reading: the 28th and 29th share a week
   const wk = d => a.findDayByDate(d).week;
   const pts = [...p.matchAll(/pt-tl-w">W(\d+)<\/span><span class="pt-tl-s">(\w+)</g)].map(m => [+m[1], m[2]]);
@@ -146,7 +146,7 @@ test('PATTERNS: the Coach page draws the orb, the name under it, the word inside
   assert.equal(a.patternOrbHtml(), a.patternOrbHtml());
 });
 
-test('PLAN EVOLUTION: phase, then Phase Development, the evidence, recently evolved, the Coach’s Read', () => {
+test('PLAN EVOLUTION: phase, then Phase Development, the evidence, recently evolved, the SACORO’s Read', () => {
   /* Founder, with a reference: "change plan evolution to follow this
      structure - my rules my data". */
   const a = athlete();
@@ -154,7 +154,7 @@ test('PLAN EVOLUTION: phase, then Phase Development, the evidence, recently evol
   a.state.evolutionHistory = [{ date: a.addDays(TODAY, -2), accepted: true, changes: [{ dayId: fut[1].id }] }];
   const p = a.readingPanel('evolution');
   order(p, ['Current Phase', 'Phase Development', '>Aerobic<', '>Execution<', '>Structure<',
-            'The Evidence', 'Evidence behind this', 'Recently evolved', 'Coach’s Read']);
+            'The Evidence', 'Evidence behind this', 'Recently evolved', 'SACORO’s Read']);
   const d = a.evolutionDevelopment(a.coachAnalyse());
   // execution is this phase's own logged sessions, averaged
   const sc = a.state.days.filter(x => x.type !== 'rest' && x.completed && x.date < TODAY &&
@@ -162,7 +162,7 @@ test('PLAN EVOLUTION: phase, then Phase Development, the evidence, recently evol
   assert.equal(d.execution, Math.round(sc.reduce((x, y) => x + y, 0) / sc.length));
   assert.match(text(p), new RegExp(d.execution + '% Execution ' + sc.length + ' sessions this phase'));
   assert.match(text(p), d.changes ? /Structure \d+ changes? suggested/ : /Stable Structure No change needed/);
-  const read = text(p).slice(text(p).indexOf('Coach’s Read'));
+  const read = text(p).slice(text(p).indexOf('SACORO’s Read'));
   assert.match(read, new RegExp('Your ' + d.phase.name + ' phase is in week ' + d.phase.week + ' of ' + d.phase.weeks + '\\.'));
   assert.doesNotMatch(read, /[—–]/);
 });

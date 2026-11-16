@@ -50,7 +50,7 @@ test('hidden until the database exists: no circle box when the functions are mis
   cloud(a, () => null);                                   // every call is a 404
   await a.circleLoad();
   assert.equal(a.circle.status, 'unavailable');
-  assert.equal(a.circlePlateHtml(), '', 'a box appeared for a feature that is not there');
+  assert.equal(a.circleRowHtml(), '', 'a box appeared for a feature that is not there');
   assert.equal(a.renderCircleTodayLine(), '');
 });
 
@@ -60,11 +60,11 @@ test('signed out: nothing is asked, and the box offers to sign in rather than hi
   const calls = cloud(a, () => null);
   await a.circleLoad();
   assert.equal(calls.length, 0);
-  assert.match(a.circlePlateHtml(), /data-action="circle-signin"[\s\S]*Your Circle[\s\S]*Sign in/,
+  assert.match(a.circleRowHtml(), /data-action="circle-signin"[\s\S]*Your Circle[\s\S]*Sign in/,
     'an athlete without an account never learns circles exist');
   assert.match(a.circleSigninSheetHtml(), /id="cloud-email"[\s\S]*data-action="cloud-sign-in"/);
   a.cloudConfigured = () => false;
-  assert.equal(a.circlePlateHtml(), '', 'a build with no account service offered sign-in');
+  assert.equal(a.circleRowHtml(), '', 'a build with no account service offered sign-in');
 });
 
 test('not in a circle yet: the box offers to start one', async () => {
@@ -72,7 +72,7 @@ test('not in a circle yet: the box offers to start one', async () => {
   cloud(a, p => (/rpc\/circle_my_id/.test(p) ? { status: 200, body: null } : null));
   await a.circleLoad();
   assert.equal(a.circle.status, 'none');
-  assert.match(a.circlePlateHtml(), /data-action="circle-open"[\s\S]*Your Circle[\s\S]*Start one/);
+  assert.match(a.circleRowHtml(), /data-action="circle-open"[\s\S]*Your Circle[\s\S]*Start one/);
 });
 
 test('what the athlete sends: one line a day from the plan, and never the plan', () => {

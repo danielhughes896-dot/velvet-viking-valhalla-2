@@ -10265,121 +10265,6 @@
     font-family:var(--label-face); font-weight:var(--label-weight); font-size:1.375rem;
     letter-spacing:1.6px; text-transform:uppercase; color:#FFFFFF;}
   .cg-wait-s{margin-top:10px; text-align:center; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
-  /* ---------- AND THE FOUR PLATES ----------
-     Even, because no one of these facts outranks another -- a measured
-     fitness, a progress figure, a goal time and a benchmark time are four
-     statements, not a ladder. Two columns, so the block below the grid
-     reads on the same rhythm as the circles above it. The rim is each
-     fact's own identity colour, exactly as its circle wore it, so for
-     Fitness and Progress the shape changed and the vocabulary did not. */
-  .b-plates{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:16px 0 10px;}
-  /* Activity History: the fifth plate, the full width of the four above it. */
-  .b-plates .b-plate-wide{grid-column:1 / -1;}
-  /* ---- ACTIVITY HISTORY'S CARDS ----
-     The plan's own card shell and type rail. No fixed height anywhere, so a
-     long session name wraps and the card grows with it. The score is white:
-     green means complete in this product, and cherry means active. */
-  .ah-week{display:block; margin:16px 0 8px; font-size:.6875rem; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:#FFFFFF;}
-  .ah-card{display:block; width:100%; height:auto; min-height:0; text-align:left; cursor:pointer;
-    padding:14px 16px; margin:0 0 8px; font:inherit; color:#FFFFFF;}
-  .ah-top, .ah-main{display:flex; justify-content:space-between; align-items:baseline;}
-  .ah-top{gap:10px;}
-  .ah-date, .ah-score{font-size:.75rem; color:#FFFFFF;}
-  .ah-when{display:flex; align-items:baseline; gap:8px; min-width:0; flex-wrap:wrap;}
-  /* Small and quiet, in white: the product has no grey, so quiet is size
-     and weight, not a dimmer colour. */
-  .ah-src{font-family:var(--label-face); font-weight:400; font-size:.6875rem; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:#FFFFFF;}
-  .ah-main{gap:12px; margin-top:4px;}
-  .ah-name{flex:1 1 auto; min-width:0; overflow-wrap:anywhere; font-family:var(--label-face);
-    font-weight:600; font-size:1.0625rem; line-height:1.35; color:#FFFFFF;}
-  .ah-dist{flex:none; white-space:nowrap; font-size:1.375rem; font-weight:700; color:#FFFFFF;}
-  .ah-figs{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:10px;}
-  .ah-fig{display:block;}
-  .ah-fig-k{display:block; font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:#FFFFFF;}
-  .ah-fig-v{display:block; margin-top:2px; font-size:.9375rem; color:#FFFFFF;}
-  /* Centred on instruction: "GOAL / A" and "BENCHMARK / 45:00" read down
-     the middle of their own box rather than off its left edge. */
-  .b-plate{
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:3px; min-height:84px; padding:13px 15px; text-align:center;
-    /* The query container for the value below. It also stops a long value
-       widening its own column, which in a 1fr grid it could not do anyway --
-       so this costs nothing and makes that explicit. */
-    container-type:inline-size;
-    /* ---------- THE RIM BRIGHTENS AT THE OUTER CORNER ----------
-       Founder: "The fitness progress goal bench mark boxes could have
-       brighter boarders ... Goal brighter bottom left. Progress top right
-       and benchmark bottom right."
-       Each plate lights the corner that points AWAY from the centre of the
-       2x2, so the four radiate outward rather than all leaning the same
-       way. The founder wrote "top right" for Fitness and then "top right"
-       again for Progress; Fitness is the top-LEFT box, and the outer-corner
-       reading is the one that makes the set cohere, so it takes that.
-       A BORDER CANNOT HOLD A GRADIENT, which is the same constraint the
-       coach buttons hit: border-image would drop border-radius, so the lit
-       edge is a radial gradient painted in a ::before inset by the border
-       width, and the flat border underneath stays as the floor. Each plate
-       sets --rim-x/--rim-y, so one rule serves all four. */
-    position:relative;
-    border:1px solid color-mix(in srgb, var(--rd-base) 55%, transparent);
-    border-radius:var(--tile-radius);
-    background:var(--tile-sheen), var(--bg-2);
-    box-shadow:0 0 16px color-mix(in srgb, var(--rd-base) 14%, transparent);
-    -webkit-appearance:none; appearance:none; cursor:pointer;}
-  .b-plate::before{
-    content:''; position:absolute; inset:-1px; border-radius:inherit;
-    padding:1px; pointer-events:none;
-    background:radial-gradient(120% 120% at var(--rim-x, 50%) var(--rim-y, 50%),
-      var(--rd-base) 0%,
-      color-mix(in srgb, var(--rd-base) 62%, transparent) 34%,
-      transparent 72%);
-    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0); mask-composite:exclude;}
-  /* The four corners, in the order SACORO_PLATES emits them. */
-  .b-plate[data-record="fitness"]  {--rim-x:0%;   --rim-y:0%;}
-  .b-plate[data-record="progress"] {--rim-x:100%; --rim-y:0%;}
-  .b-plate[data-record="goal"]     {--rim-x:0%;   --rim-y:100%;}
-  .b-plate[data-record="benchmark"]{--rim-x:100%; --rim-y:100%;}
-  .b-plate-k{font-family:var(--label-face); font-size:var(--fs-label);
-    letter-spacing:var(--label-track); text-transform:uppercase;
-    font-weight:var(--label-weight); color:var(--ink);}
-  /* ---------- THE VALUE FITS ON ONE LINE, WHATEVER THE STRING ----------
-     MEASURED, NOT GUESSED. A fixed 26px was right for "A", "45:00" and
-     "10%" and wrong for a fitness range: at 320px the plate is 139px wide
-     and "3:39-4:02" broke at the dash, so the Fitness and Progress row
-     stood 102px tall against Goal and Benchmark's 84px -- four plates the
-     founder asked to be even, in two different sizes. Sweeping every
-     distance for the widest value the app can actually produce gives
-     ELEVEN characters ("24:10-25:24", a 5K range), not the nine the
-     marathon fixture showed, which is why this is solved by geometry
-     rather than by a threshold somebody eyeballed.
-     THE SAME ARITHMETIC THE CIRCLES USE, done in CSS because a plate has no
-     fixed width to hand the JS ladder: a monospace run is
-     advance * chars * size, DIAL_MONO_ADVANCE is 0.6, and 100cqw is the
-     plate's own content box, so the size whose run exactly fills it is
-     100cqw / (chars * 0.6). statusPlateHtml() hands over the character
-     count; everything else is division. 26px stays the ceiling, so every
-     value that already fitted is untouched -- only a string too wide for
-     its box comes down, and it comes down exactly as far as it must.
-     FOUR PIXELS SHORT OF THE CEILING, for the reason dialFaceFontPx keeps
-     two: sub-pixel rounding and a glyph fractionally wider than its nominal
-     advance, and a run a twentieth of a pixel too long wraps as completely
-     as one 20px too long. nowrap makes that a visible overflow rather than
-     a silent second line, which is the failure a law can catch. */
-  .b-plate-v{font-family:var(--num-face); font-weight:700;
-    font-size:min(26px, calc((100cqw - 4px) / (var(--pv-ch, 5) * 0.6)));
-    white-space:nowrap;
-    line-height:1.05; color:var(--ink); font-variant-numeric:tabular-nums;}
-  .b-plate-s{font-family:var(--num-face); font-size:.6875rem; color:var(--ink-dim);}
-  .b-plate-u{font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
-    letter-spacing:var(--label-track); font-size:.5em; margin-left:.3em; color:#FFFFFF;}
-  .b-plate-v.is-words{font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
-    letter-spacing:var(--label-track); font-variant-numeric:normal;}
-  .b-plate:focus-visible{outline:2px solid var(--cherry); outline-offset:3px;}
   .b-dials-arc{display:flex; align-items:flex-start; justify-content:center; gap:5px;}
   .b-dials-arc .b-dial[data-rank="2"]{margin:5px 0;}
   /* The one hint voice: centred, faint, support size, a chevron each side so
@@ -12223,13 +12108,6 @@
     box-shadow:var(--glass-rim);
     border-radius:var(--tile-radius);
   }
-  /* THE BOXES ARE GLASS TOO. The Coach plates keep their own coloured rims
-     and lit corners; only the ground under them becomes the same glass. */
-  .b-plate{
-    background:var(--glass-sheen), var(--glass-tint);
-    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
-    box-shadow:var(--glass-rim), 0 0 16px color-mix(in srgb, var(--rd-base) 14%, transparent);
-  }
   /* ---------- CLEAR GLASS, ON THE SHEET ONLY ----------
      Founder, shown the sheets side by side: "I don't like blurred full page
      behind? But I want it like glass still", then "I want the one you
@@ -12285,6 +12163,19 @@
      top (overflow:hidden, so no minimum height) was being shrunk from 48px
      to 28px, cutting the date and title in half. */
   .modal-card.stg-sheet:has(> .modal-body) > .modal-body > *{flex-shrink:0;}
+  /* THE COACH SHEETS ARE ONE PANE TOO. Founder, of Adaptation History and
+     Goal Coach: "All the glass panels have the same boarder issue we had on
+     the other glass panels." Their heading was the modal's sticky bar: a
+     solid tint across the glass with a line under it. It is the Edit
+     Session answer again: the heading has no tint, no blur and no line, it
+     stands still, and only the body scrolls beneath it, so nothing passes
+     under the title. A Settings page's pinned foot stays at the foot the
+     same way. Scroll is read and restored through modalScrollerOf(). */
+  .modal-overlay:has(> .hq-full) > .hq-full:has(> .modal-body){display:flex; flex-direction:column; overflow:hidden;}
+  .modal-overlay:has(> .hq-full) > .hq-full:has(> .modal-body) > .modal-head{position:relative; flex:none;
+    background:transparent; border-bottom:0; -webkit-backdrop-filter:none; backdrop-filter:none;}
+  .modal-overlay:has(> .hq-full) > .hq-full:has(> .modal-body) > .modal-body{flex:1 1 auto; min-height:0;
+    overflow-y:auto; overscroll-behavior:contain;}
   .wr-sheet{display:flex; flex-direction:column; overflow:hidden;}
   .wr-sheet > .tw-head{position:relative; flex:none; background:transparent;
     -webkit-backdrop-filter:none; backdrop-filter:none;}
@@ -12378,6 +12269,50 @@
      the words and their spacing are as they were. */
   .tb-unit-toggle button{min-width:44px;}
   .wo-tab{min-width:44px; text-align:center;}
+  /* ---- ACTIVITY HISTORY'S CARDS ----
+     The plan's own card shell and type rail. No fixed height anywhere, so a
+     long session name wraps and the card grows with it. The score is white:
+     green means complete in this product, and cherry means active. */
+  .ah-week{display:block; margin:16px 0 8px; font-size:.6875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF;}
+  .ah-card{display:block; width:100%; height:auto; min-height:0; text-align:left; cursor:pointer;
+    padding:14px 16px; margin:0 0 8px; font:inherit; color:#FFFFFF;}
+  .ah-top, .ah-main{display:flex; justify-content:space-between; align-items:baseline;}
+  .ah-top{gap:10px;}
+  .ah-date, .ah-score{font-size:.75rem; color:#FFFFFF;}
+  .ah-when{display:flex; align-items:baseline; gap:8px; min-width:0; flex-wrap:wrap;}
+  /* Small and quiet, in white: the product has no grey, so quiet is size
+     and weight, not a dimmer colour. */
+  .ah-src{font-family:var(--label-face); font-weight:400; font-size:.6875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF;}
+  .ah-main{gap:12px; margin-top:4px;}
+  .ah-name{flex:1 1 auto; min-width:0; overflow-wrap:anywhere; font-family:var(--label-face);
+    font-weight:600; font-size:1.0625rem; line-height:1.35; color:#FFFFFF;}
+  .ah-dist{flex:none; white-space:nowrap; font-size:1.375rem; font-weight:700; color:#FFFFFF;}
+  .ah-figs{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:10px;}
+  .ah-fig{display:block;}
+  .ah-fig-k{display:block; font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF;}
+  .ah-fig-v{display:block; margin-top:2px; font-size:.9375rem; color:#FFFFFF;}
+  /* ---------- THE FOUR SMALL CIRCLES AND THE TWO ROWS ----------
+     The main circles' ring and glow at a quarter of the row each, round at
+     every width (aspect-ratio, never a set height), then two plain rows:
+     metrics are circles, ways in are rows. See statusMiniHtml. */
+  .b-minis{grid-template-columns:repeat(4, minmax(0, 1fr)); gap:16px 12px; margin:26px 0 8px; --dv:.7;}
+  .b-minis .b-dial[data-rank]{width:100%; height:auto; aspect-ratio:1/1; max-width:none;}
+  .b-minis .b-medal{inset:7px;}
+  .b-minis .rd-arc{stroke-width:4;}
+  .b-minis .rd-val b{line-height:1.05;}
+  .b-minis .rd-cat{font-size:.6875rem; margin-top:8px;}
+  .coach-nav-rows{margin:22px 0 8px; border-top:1px solid rgba(255,255,255,.12);}
+  .coach-nav-row{display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;
+    min-height:60px; padding:0 2px; background:none; border:0; border-bottom:1px solid rgba(255,255,255,.12);
+    color:#FFFFFF; font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
+    letter-spacing:.04em; font-size:1.0625rem; text-align:left; cursor:pointer;}
+  .coach-nav-row .cnr-v{display:flex; align-items:center; gap:8px; white-space:nowrap;}
+  .coach-nav-row svg{width:18px; height:18px; fill:none; stroke:#FFFFFF; stroke-width:2;
+    stroke-linecap:round; stroke-linejoin:round;}
+  .coach-nav-row:focus-visible{outline:2px solid var(--cherry); outline-offset:2px;}
   /* ---------- THE 11px FLOOR FOR WORDS THAT INFORM ----------
      Responsive correction 9. The audit read these at 9 to 10.5px on every
      phone: Injured or ill (a safety link), the Coach hero's captions (TO
@@ -58138,7 +58073,7 @@ function blockDirectionWord(d){
        : d.direction === 'negative' ? 'Deteriorating' : 'Steady';
 }
 function renderBlockRead(b, bts){
-  return (b ? sectionRule('Coach\u2019s Read', true)+'<div class="pt-say">'+escapeHtml(b.read)+'</div>' : '')+
+  return (b ? sectionRule('SACORO\u2019s Read', true)+'<div class="pt-say">'+escapeHtml(b.read)+'</div>' : '')+
     ((bts && bts.length) ? '' :
       '<div class="pt-note">Breakthroughs appear once a quality session lands at the fast end of its window with heart rate in zone.</div>');
 }
@@ -61231,7 +61166,6 @@ function renderCoachPanel(){
      surface on Sacoro. It is a founder call rather than a tidy-up, and if
      it should reappear anywhere, Today is the screen that would carry it. */
   return renderCoachSignalsCard(report)+
-    renderCoachNoticedCard(report)+
     renderBreakthroughCard(report);
 }
 /* ---------- a reminder, not a history screen ----------
@@ -63297,6 +63231,32 @@ function availabilityOfferHtml(rec){
    no way to say "same modal, new contents".
    Without a key the behaviour is exactly what it was: close, rebuild,
    animate. Nothing that does not opt in can take the quiet path. */
+/* WHAT SCROLLS IN A MODAL. A glass sheet holds its heading still and
+   scrolls only its .modal-body; every other card scrolls itself. Anything
+   that keeps or resets a modal's place asks here, so it keeps the place of
+   whichever one actually moves. */
+function modalScrollerOf(card){
+  if (!card) return null;
+  try{
+    var kids = card.children || [];
+    for (var i = 0; i < kids.length; i++){
+      var k = kids[i];
+      if (k.classList && k.classList.contains('modal-body') && window.getComputedStyle){
+        var oy = window.getComputedStyle(k).overflowY;
+        if (oy === 'auto' || oy === 'scroll') return k;
+      }
+    }
+  }catch(e){}
+  return card;
+}
+function modalScrollGet(card){
+  var el = modalScrollerOf(card);
+  return el ? (el.scrollTop || 0) : 0;
+}
+function modalScrollSet(card, y){
+  var el = modalScrollerOf(card);
+  if (el) el.scrollTop = y || 0;
+}
 function openModal(html, extraClass, key){
   var cls = 'modal-card'+(extraClass?(' '+extraClass):'');
   if (key){
@@ -63306,9 +63266,9 @@ function openModal(html, extraClass, key){
       /* closeModal()'s one side effect, kept: whatever the overlay held, it
          is not a Record panel any more. */
       openRecordPanelKey = null;
-      var y = card.scrollTop;
+      var y = modalScrollGet(card);
       card.innerHTML = html;
-      card.scrollTop = y;
+      modalScrollSet(card, y);
       try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
       return;
     }
@@ -74859,7 +74819,10 @@ function weekSlideHtml(dd, i){
      ring carrying "Full rest". So the branch was a workaround for a hole
      that is filled, and leaving it meant Today showed the athlete one rest
      day and This Week and Full Plan showed them another. */
-  var body = renderDayHeroBlock(dd, getDayTargets(dd));
+  /* The pencil sits beside the title here as on Today (founder: "On this
+     week and full plan the pencil hasn't moved?"). */
+  var act = dayActionButton(dd);
+  var body = renderDayHeroBlock(dd, getDayTargets(dd), act);
   /* See renderWeekSessionBox: one gradient id per slide, or every ring but
      the first paints with nothing. */
   var uid = 'th-grad-w' + i;
@@ -74928,7 +74891,6 @@ function weekSlideHtml(dd, i){
      the session at all. The control is the same dayActionButton() the day
      card builds, so there is one definition of what "edit" means here.
      NO TICK BESIDE IT: the founder put that on Today. */
-  var act = dayActionButton(dd);
   return '<div class="wk-slide" data-date="'+escapeHtml(dd.date)+'">'+
     '<div class="wk-overview">'+
       /* ---------- THE ROW IS ALWAYS THERE, THE BUTTON IS NOT ----------
@@ -74943,7 +74905,10 @@ function weekSlideHtml(dd, i){
          SO THE ROW IS EMITTED EITHER WAY and reserves its own height; only
          the button inside it is conditional. A rest day still offers no
          control, which is the existing rule and not what was asked about. */
-      '<div class="day-rail wk-rail-act">'+(act ? '<div class="day-actions">'+act+'</div>' : '')+'</div>'+
+      /* With the pencil in the title the corner row has nothing to hold, so
+         it is drawn for no day and every hero in the carousel starts at the
+         same height; only a day with no hero to carry it keeps the row. */
+      (body || !act ? '' : '<div class="day-rail wk-rail-act"><div class="day-actions">'+act+'</div></div>')+
 
       body+
       /* ---------- THE WORKOUT IS THERE WHEN YOU SWIPE TO IT ----------
@@ -75812,18 +75777,29 @@ function recordFacts(){
    state can move it. The VALUE stays in the neutral data face it has always
    been in, which is the law The Record has always held -- a fact is stated,
    never graded. */
+/* THE FOUR BORROW THE MAIN CIRCLES' COLOURS. Founder: "Fitness: Cherry --
+   Confidence. Progress: Teal -- Recovery. Goal: Green -- Evolution.
+   Benchmark: Blue -- Adaptation." Then: "Make sure all Modal Hero Rings ...
+   the top-left ring" matches. One map draws the small circle on the Coach
+   page, the ring at the top left of its sheet and (through
+   PANEL_ACCENT_CLASS) the sheet's rim, so the three cannot disagree. */
 var STATUS_ACCENT = {
-  goal:      'var(--gold-bright)',
+  goal:      'var(--z-easy)',
   fitness:   'var(--cherry)',
-  benchmark: 'var(--ink)',
-  progress:  'var(--gold-bright)'
+  benchmark: 'var(--z-mp)',
+  progress:  'var(--cyan)'
 };
 var STATUS_TINT = {
-  goal:      'var(--c-gold-soft)',
+  goal:      'var(--c-easy-soft)',
   fitness:   'var(--cherry-tint)',
-  benchmark: 'var(--c-rest-soft)',
-  progress:  'var(--c-gold-soft)'
+  benchmark: 'var(--z-mp-soft)',
+  progress:  'var(--cyan-soft)'
 };
+/* The one place a status value is written, so an absence (rec-none) has a
+   single producer whichever circle, small or hero, it appears in. */
+function statusValueFaceHtml(f, size, inner){
+  return '<span class="rd-val"><b'+(f.none?' class="rec-none"':'')+' style="font-size:'+size+';">'+inner+'</b></span>';
+}
 function statusDialHtml(f, isStatic, ring){
   var big = f.big != null ? f.big : f.value;
   var small = f.small || '';
@@ -75836,8 +75812,7 @@ function statusDialHtml(f, isStatic, ring){
         '--rd-tint:'+(STATUS_TINT[f.key]||'var(--c-rest-soft)')+';">'+
       (ring || '')+
       '<span class="b-medal">'+
-        '<span class="rd-val"><b'+(f.none?' class="rec-none"':'')+
-          ' style="font-size:'+statusValueFontSize(big)+';">'+escapeHtml(big)+'</b></span>'+
+        statusValueFaceHtml(f, statusValueFontSize(big), escapeHtml(big))+
         /* THE SLOT IS NOT RESERVED WHEN IT IS EMPTY. This emitted the sub-line
            unconditionally, on the reasoning that reserving it kept all four
            stacks one height and so aligned GOAL / FITNESS / BENCHMARK /
@@ -76935,10 +76910,17 @@ function renderSacoroInstruments(){
     }
     return '';
   }).join('');
-  var plates = SACORO_PLATES.map(function(k){
-    return facts[k] ? statusPlateHtml(facts[k]) : '';
+  /* FOUR SMALL CIRCLES, THEN TWO ROWS. Founder, with a mock: "Smaller
+     circles establish a secondary visual hierarchy beneath the main
+     coaching circles. All four values are immediately accessible ... Leave
+     Activity History and Your Circle as clean tappable text rows, with
+     their values and chevrons on the right. No glass boxes. The circles
+     are coaching metrics; the rows are navigation." */
+  var minis = SACORO_PLATES.map(function(k){
+    return facts[k] ? statusMiniHtml(facts[k]) : '';
   }).join('');
-  if (plates) plates += activityHistoryPlateHtml() + circlePlateHtml();
+  var plates = minis ? '<div class="b-grid b-minis">'+minis+'</div>'+
+    '<div class="coach-nav-rows">'+activityHistoryRowHtml()+circleRowHtml()+'</div>' : '';
   if (!circles && !plates) return '';
   /* ---------- A RAIL OF THREE, THEN THE GRAPH, THEN THE PLATES ----------
      Founder, with the approved design: "horizontal coaching-circle rail,
@@ -76954,12 +76936,13 @@ function renderSacoroInstruments(){
   return (circles ? '<div class="b-dials"><div class="b-rail" data-hswipe="1"><div class="b-grid">'+circles+'</div></div>'+
             coachRailDots(shown, 3)+'</div>' : '')+
          '<div id="coach-ask-mount">'+coachAskHtml()+'</div>'+
+         /* COACH NOTICED COMES BEFORE THE GRAPH. Founder: "Move Coach Noticed
+            above Aerobic Development. Important insights shouldn't be
+            buried." It was drawn after the record boxes, at the foot. */
+         renderCoachNoticedCard(report)+
          renderCoachGraph()+
-         (plates ? '<div class="b-plates">'+plates+'</div>' : '');
+         plates;
 }
-/* THE LONGEST UNBREAKABLE RUN, which is what has to fit -- the same thing
-   dialFaceFontPx measures for a circle face, and measured the same way, so
-   a value with a space in it is not sized as though it were one word. */
 /* ASK COACH LIVES ON THE COACH PAGE. Founder: "Also move Ask Coach to the
    Coach page." One plain glass button under the circles, drawn only where
    a coach is configured (voiceCoachAvailable), and redrawn by
@@ -76969,15 +76952,6 @@ function coachAskHtml(){
   return '<div class="coach-ask"><button type="button" class="coach-ask-btn" data-action="voice-ask-open" '+
     'aria-label="Ask your coach a question"><span>Ask Coach</span></button></div>';
 }
-function plateValueChars(text){
-  var words = String(text == null ? '' : text).split(' ').filter(Boolean);
-  var longest = words.reduce(function(m, w){ return Math.max(m, w.length); }, 0);
-  return longest || String(text == null ? '' : text).length || 1;
-}
-/* A FACT THAT IS A NUMBER GETS A PLATE. Same key, same data-action, same
-   panel, same identity colour as its circle carried -- only the shape and
-   the room for a long value differ. Two per row and even, because a goal
-   time and a benchmark time do not rank against each other. */
 /* =========================================================
    ACTIVITY HISTORY -- WHAT HAS BEEN RUN, NEWEST FIRST
    =========================================================
@@ -77008,30 +76982,10 @@ function activityHistoryRuns(){
     return sessionRan(dd) || optionalRunLogged(dd);
   }).sort(function(a, b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
 }
-/* A COUNT IS A FIGURE AND A WORD, NOT ONE STRING. Founder, of "1 run" and
-   "Start one" in the boxes: "The text on that page inside the boxes looks
-   weird." The value face is the numerals' monospace, which suits "45:33" and
-   "31%" and makes a word look like code. So a count is drawn the way Today
-   draws "10.5km": the figure in the numerals, the unit beside it smaller in
-   the label face; and a value that is only words takes the label face. */
-function plateCountHtml(n, one, many){
-  var unit = n === 1 ? one : many;
-  return '<span class="b-plate-v" style="--pv-ch:'+(String(n).length + 1.4 + unit.length * 0.42).toFixed(1)+';">'+
-    escapeHtml(String(n))+'<span class="b-plate-u">'+escapeHtml(unit)+'</span></span>';
-}
-function plateWordsHtml(text, none){
-  return '<span class="b-plate-v is-words'+(none ? ' rec-none' : '')+'" style="--pv-ch:'+(text.length * 0.72).toFixed(1)+';">'+
-    escapeHtml(text)+'</span>';
-}
-function activityHistoryPlateHtml(){
+function activityHistoryRowHtml(){
   var n = activityHistoryRuns().length;
-  var big = n ? (n + (n === 1 ? ' run' : ' runs')) : 'None yet';
-  return '<button type="button" class="b-plate b-plate-wide" '+
-      'data-action="open-record" data-record="history" '+
-      'aria-label="'+escapeHtml('Activity history, '+big)+'" style="--rd-base:var(--ok);">'+
-      '<span class="b-plate-k">Activity History</span>'+
-      (n ? plateCountHtml(n, 'run', 'runs') : plateWordsHtml('None yet', true))+
-    '</button>';
+  return coachNavRowHtml('Activity History', n ? n+(n === 1 ? ' run' : ' runs') : 'None yet',
+    'data-action="open-record" data-record="history"');
 }
 /* =========================================================
    CIRCLES -- A SMALL PRIVATE GROUP THAT SEES WHO DID THEIR PLAN
@@ -77151,9 +77105,9 @@ function circleLoad(){
 function circleRepaint(){
   var card = (typeof document !== 'undefined' && document.querySelector) ? document.querySelector('.modal-card.circle-page') : null;
   if (card){
-    var y = card.scrollTop;
+    var y = modalScrollGet(card);
     card.innerHTML = circlePageHtml();
-    card.scrollTop = y;
+    modalScrollSet(card, y);
     return;
   }
   if (typeof document !== 'undefined' && document.getElementById && document.getElementById('modal-overlay')) return;
@@ -77691,27 +77645,20 @@ function handleCircleLeave(){
   }, function(err){ showToast((err && err.message) || 'That did not work. Try again'); });
 }
 
-/* ---- the Coach box and the line on Today ---- */
-/* SIGNED OUT, THE BOX STILL SAYS IT IS THERE. Founder: "So it's on my screen
+/* ---- the Coach row and the line on Today ---- */
+/* SIGNED OUT, THE ROW STILL SAYS IT IS THERE. Founder: "So it's on my screen
    but not my mates." The box waited for the database to answer, which needs
    an account, so an athlete without one never learned circles exist. A
    circle is only possible with an account -- that is how the people you
    choose see your week -- so signed out it says Sign in and explains why. */
-function circlePlateHtml(){
+function circleRowHtml(){
   if (circle.status === 'signedout' && cloudConfigured()){
-    return '<button type="button" class="b-plate b-plate-wide" data-action="circle-signin" '+
-        'aria-label="Your circle, sign in to start or join one" style="--rd-base:var(--cherry);">'+
-        '<span class="b-plate-k">Your Circle</span>'+plateWordsHtml('Sign in')+
-      '</button>';
+    return coachNavRowHtml('Your Circle', 'Sign in', 'data-action="circle-signin"');
   }
   if (circle.status !== 'member' && circle.status !== 'none') return '';
   var n = circle.members.length;
-  var big = circle.status === 'member' ? n + (n === 1 ? ' person' : ' people') : 'Start one';
-  return '<button type="button" class="b-plate b-plate-wide" data-action="circle-open" '+
-      'aria-label="'+escapeHtml('Your circle, '+big)+'" style="--rd-base:var(--cherry);">'+
-      '<span class="b-plate-k">Your Circle</span>'+
-      (circle.status === 'member' ? plateCountHtml(n, 'person', 'people') : plateWordsHtml('Start one'))+
-    '</button>';
+  return coachNavRowHtml('Your Circle', circle.status === 'member' ? n+(n === 1 ? ' person' : ' people') : 'Start one',
+    'data-action="circle-open"');
 }
 /* Inside the app only. Founder: "I don't want them going to the phone." One
    line, gone once read. */
@@ -77823,7 +77770,7 @@ function handleHistoryOpen(id){
   if (!dd) return;
   var card = null;
   try { card = document.querySelector('#modal-overlay .modal-card'); } catch(e){}
-  var y = card ? card.scrollTop : 0;
+  var y = card ? modalScrollGet(card) : 0;
   openRecordPanelKey = null;
   closeModal();
   handleSetView('full');
@@ -77844,20 +77791,43 @@ function historyReturnBack(){
   openRecordPanel('history');
   try {
     var card = document.querySelector('#modal-overlay .modal-card');
-    if (card && r) card.scrollTop = r.scroll || 0;
+    if (card && r) modalScrollSet(card, r.scroll || 0);
   } catch(e){}
 }
-function statusPlateHtml(f){
+function statusMiniHtml(f){
   var big = f.big != null ? f.big : f.value;
-  return '<button type="button" class="b-plate" '+
-      'data-action="open-record" data-record="'+f.key+'" '+
-      'aria-label="'+escapeHtml(f.subject+', '+f.value)+'" '+
-      'style="--rd-base:'+(STATUS_ACCENT[f.key]||'var(--c-rest)')+';">'+
-      '<span class="b-plate-k">'+escapeHtml(f.chip || f.subject)+'</span>'+
-      '<span class="b-plate-v'+(f.none?' rec-none':'')+
-        '" style="--pv-ch:'+plateValueChars(big)+';">'+escapeHtml(big)+'</span>'+
-      (f.small ? '<span class="b-plate-s">'+escapeHtml(f.small)+'</span>' : '')+
-    '</button>';
+  return '<span class="b-dial-col">'+
+    '<button type="button" class="b-dial b-mini" data-rank="s" data-action="open-record" data-record="'+f.key+'" '+
+      'aria-label="'+escapeHtml(f.subject+', '+f.value)+'" style="--rd-base:'+(STATUS_ACCENT[f.key]||'var(--c-rest)')+';">'+
+      /* Not measured yet: the broken ring the main circles use for it. */
+      dialRingHtml(f.none ? 'learning' : 'solid')+
+      '<span class="b-medal">'+statusValueFaceHtml(f, miniValueSize(big), miniValueHtml(big))+'</span>'+
+    '</button>'+
+    '<span class="rd-cat">'+escapeHtml(f.chip || f.subject)+'</span></span>';
+}
+/* A RANGE IS TWO LINES IN A SMALL CIRCLE. Measured fitness is a range
+   ("3:23\u20133:44"); on one line in a 63px circle it came out at 9.6px,
+   under the 11px floor. Split after its dash it sits at 17px. */
+function miniRangeParts(big){
+  var parts = String(big).split('\u2013');
+  return (parts.length === 2 && parts[0] && parts[1]) ? parts : null;
+}
+function miniValueHtml(big){
+  var r = miniRangeParts(big);
+  return r ? escapeHtml(r[0])+'\u2013<br>'+escapeHtml(r[1]) : escapeHtml(big);
+}
+function miniValueSize(big){
+  var r = miniRangeParts(big);
+  return dialValueFontSize(r ? r[0]+'\u2013' : String(big), 's');
+}
+/* A ROW IS A WAY IN, NOT A METRIC: the name on the left, the count and a
+   chevron on the right, a hairline between, no box. */
+function coachNavRowHtml(label, value, attrs){
+  return '<button type="button" class="coach-nav-row" '+attrs+' aria-label="'+escapeHtml(label+', '+value)+'">'+
+    '<span class="cnr-k">'+escapeHtml(label)+'</span>'+
+    '<span class="cnr-v">'+escapeHtml(value)+
+      '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6"/></svg></span>'+
+  '</button>';
 }
 /* ---------- the panels ----------
    Same interaction model as Build Your Training Block: a modal-themed surface
@@ -78156,9 +78126,23 @@ function recordPanelProgress(){
   var s = computeStats();
   var week = currentWeekNum(), total = totalWeeksInPlan();
   var longestDone = 0, longestToCome = 0, maxMaterialisedWeek = 0;
+  /* THE SAME DISTANCE FULL PLAN PRINTS. Founder: "Full Plan showed
+     1,204.7km, whereas Progress shows 1,246.9km. The difference is exactly
+     42.2km ... That needs clarifying." Full Plan's block figure is training
+     (weekVolume().training, which leaves the race out); this panel added
+     every run, race included. Distance here is training now, the same
+     figure, and the race is its own line beneath, so the two screens agree
+     and the athlete can see where the race went. The longest run still to
+     come is a training run for the same reason. */
+  var raceKm = 0, raceDone = 0;
   state.days.forEach(function(dd){
     if (dd.week > maxMaterialisedWeek) maxMaterialisedWeek = dd.week;
     if (dd.type === 'rest') return;
+    if (dd.type === 'race'){
+      raceKm += dd.km || 0;
+      if (dd.completed) raceDone += (dd.actual && dd.actual.km!=null) ? dd.actual.km : (dd.km||0);
+      return;
+    }
     if (dd.completed){
       var ran = (dd.actual && dd.actual.km!=null) ? dd.actual.km : (dd.km||0);
       if (ran > longestDone) longestDone = ran;
@@ -78181,21 +78165,23 @@ function recordPanelProgress(){
      figures and as bars -- so repeating them here would fill the panel with
      the thing the athlete has just read. */
   var runsPct = s.totalRuns ? 100 * s.completedRuns / s.totalRuns : 0;
-  var kmPct = s.totalKm ? 100 * s.completedKm / s.totalKm : 0;
+  var trainKm = round1(s.totalKm - raceKm), trainDone = round1(s.completedKm - raceDone);
+  var kmPct = trainKm ? 100 * trainDone / trainKm : 0;
   var body =
     recStatsHtml([
       { k:'Runs Completed', v:s.completedRuns+'/'+s.totalRuns },
-      { k:'Distance Run', v:kmToDisplay(s.completedKm), unit:displayUnit() }
+      { k:'Distance Run', v:kmToDisplay(trainDone), unit:displayUnit() }
     ])+
     sectionRule('Block Completion', true)+
     recBarHtml('Sessions', Math.round(runsPct)+'%', runsPct)+
-    recBarHtml('Distance', kmToDisplay(s.completedKm)+' / '+fmtDist(s.totalKm), kmPct)+
+    recBarHtml('Training distance', kmToDisplay(trainDone)+' / '+fmtDist(trainKm), kmPct)+
     sectionRule('Your Block', true)+
     '<div class="rp-rows">'+
       (week && total ? hqRow('Current week', week+' of '+total) : '')+
       hqRow(sessionsLabel, (s.totalRuns - s.completedRuns)+'')+
       (longestDone ? hqRow('Longest run so far', fmtDist(longestDone)) : '')+
       (longestToCome ? hqRow(longestAheadLabel, fmtDist(longestToCome)) : '')+
+      (raceKm ? hqRow('Race day, counted separately', fmtDist(raceKm)) : '')+
       (horizonPartial ? hqRow('Rest of the block', 'shaped week by week, through week '+total) : '')+
     '</div>'+
     recReadHtml('Progress measures how much of your programme you have completed, not how well you are running. '+
@@ -78252,7 +78238,7 @@ var openRecordPanelKey = null;
 var PANEL_ACCENT_CLASS = {
   recovery:'rp-cyan', evolution:'rp-green', readiness:'rp-cherry',
   patterns:'rp-white', adaptation:'rp-blue',
-  goal:'rp-gold', fitness:'rp-cherry', benchmark:'rp-white', progress:'rp-gold',
+  goal:'rp-green', fitness:'rp-cherry', benchmark:'rp-blue', progress:'rp-cyan',
   history:'rp-done'
 };
 function openHQPanel(key){
@@ -78759,7 +78745,7 @@ function evolutionReadHtml(d){
   var end = d.changes
     ? 'SACORO suggests '+(d.changes === 1 ? 'one change' : d.changes+' changes')+' across the next '+d.horizon+' days.'
     : 'The current plan remains unchanged.';
-  return sectionRule('Coach’s Read', true)+
+  return sectionRule('SACORO’s Read', true)+
     '<div class="pt-say">Your '+escapeHtml(d.phase.name)+' phase is in week '+d.phase.week+' of '+d.phase.weeks+'. '+
       escapeHtml(mid)+' '+escapeHtml(end)+'</div>';
 }
@@ -81891,7 +81877,7 @@ function pageSwipeStart(e){
   if (pageSwipeOwnedElsewhere(e.target, card)) return;
   var t = e.touches[0];
   pageSwipeState = { card:card, x0:t.clientX, y0:t.clientY, axis:null, dist:0, v:0,
-    last:0, lastT:Date.now(), atTop:(card.scrollTop <= 0), sheet:sheet };
+    last:0, lastT:Date.now(), atTop:(modalScrollGet(card) <= 0), sheet:sheet };
 }
 function pageSwipeMove(e){
   var p = pageSwipeState;

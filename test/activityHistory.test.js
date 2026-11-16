@@ -32,14 +32,20 @@ function athlete(skip){
 }
 const ids = html => [...html.matchAll(/data-action="history-open" data-day="([^"]+)"/g)].map(m => m[1]);
 
-test('a box under the four on the Coach page, the full width, opening the history', () => {
+test('a row under the four circles on the Coach page, opening the history', () => {
+  /* Founder: "Leave Activity History and Your Circle as clean tappable text
+     rows, with their values and chevrons on the right. No glass boxes." */
   const a = athlete();
   const html = a.renderSacoroInstruments();
-  const plates = html.slice(html.indexOf('class="b-plates"'));
-  assert.match(plates, /class="b-plate b-plate-wide" data-action="open-record" data-record="history"/);
-  assert.ok(plates.indexOf('data-record="benchmark"') < plates.indexOf('data-record="history"'), 'not under the four');
-  assert.match(plates, />Activity History</);
-  assert.match(CSS, /\.b-plates \.b-plate-wide\{grid-column:1 \/ -1;\}/);
+  const rows = html.slice(html.indexOf('class="coach-nav-rows"'));
+  assert.match(rows, /class="coach-nav-row" data-action="open-record" data-record="history"/);
+  assert.ok(html.indexOf('class="b-grid b-minis"') !== -1 &&
+    html.indexOf('data-record="benchmark"') < html.indexOf('data-record="history"'), 'not under the four');
+  assert.match(rows, />Activity History</);
+  assert.match(rows, /<svg[^>]*><path d="M9 6l6 6-6 6"\/><\/svg>/, 'no chevron');
+  const row = (CSS.match(/\.coach-nav-row\{([^}]*)\}/) || [])[1] || '';
+  assert.match(row, /background:none/, 'the row is a box again');
+  assert.doesNotMatch(row, /box-shadow|backdrop-filter|border-radius/, 'the row is a box again');
   assert.equal(a.RECORD_PANELS.history, a.recordPanelHistory);
 });
 
@@ -129,11 +135,11 @@ test('leaving by a tab forgets the way back', () => {
   assert.equal(a.historyReturn, null);
 });
 
-test('with nothing run yet the box says so, and the page explains itself', () => {
+test('with nothing run yet the row says so, and the page explains itself', () => {
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {};
   buildPlan(a, { weeks: 16, distanceKey: 'half', startDate: TODAY });
-  assert.match(a.activityHistoryPlateHtml(), />None yet</);
+  assert.match(a.activityHistoryRowHtml(), />None yet</);
   assert.match(a.recordPanelHistory(), /Nothing run yet/);
 });
 

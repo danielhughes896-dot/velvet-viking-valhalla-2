@@ -586,7 +586,7 @@ test('HQ: the coach panel, the checkpoint banner and Active Goal are all still r
      the Athlete Status facts that are numbers now live. */
   assert.doesNotMatch(view, /The Athlete Status/,
     'the retired heading is back on Sacoro');
-  assert.match(view, /class="b-plates"/, 'the Athlete Status plates left Sacoro');
+  assert.match(view, /class="b-grid b-minis"/, 'the Athlete Status circles left Sacoro');
 
   assert.ok(a.recordPanelGoal().indexOf(a.renderGoalToggle()) !== -1,
     'Active Goal is in no panel either — the decision is unreachable');

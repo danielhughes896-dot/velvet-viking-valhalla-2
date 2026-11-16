@@ -55,7 +55,9 @@ test('Ask Coach is on the Coach page, not on Today', () => {
   const a = athlete();
   a.setVoiceCoachAvailable ? a.setVoiceCoachAvailable(true) : null;
   const src = fs.readFileSync(path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-  assert.match(src, /'<div id="coach-ask-mount">'\+coachAskHtml\(\)\+'<\/div>'\+\s*renderCoachGraph\(\)/, 'Ask Coach sits under the Coach circles');
+  /* Under the circles; Coach Noticed may sit between it and the graph
+     (founder: "Move Coach Noticed above Aerobic Development"). */
+  assert.match(src, /'<div id="coach-ask-mount">'\+coachAskHtml\(\)\+'<\/div>'\+[\s\S]{0,600}?renderCoachNoticedCard\(report\)\+\s*renderCoachGraph\(\)/, 'Ask Coach sits under the Coach circles');
   assert.match(src, /\.view-today #voice-card \.voice-btn\[data-action="voice-ask-open"\]\{display:none;\}/, 'Today no longer shows it');
   assert.match(src, /class="coach-ask-btn" data-action="voice-ask-open"/);
 });

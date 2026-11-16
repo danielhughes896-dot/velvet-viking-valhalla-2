@@ -359,7 +359,7 @@ test('PREVIEW: The Athlete Status shows all four facts, each one a destination',
      -- all four facts are shown and every one is a destination -- is
      untouched; only the shape two of them arrive in has changed. */
   assert.doesNotMatch(preview, /The Athlete Status</, 'the retired heading is back');
-  assert.match(preview, /class="b-plates"/);
+  assert.match(preview, /class="b-grid b-minis"/);
   /* FOUR NOW, NOT THREE. Goal joins Measured fitness, Benchmark and
      Progress -- it was always a fact of the record and had simply never had
      a surface, living only on the Record tab as a chooser. */
@@ -370,8 +370,9 @@ test('PREVIEW: The Athlete Status shows all four facts, each one a destination',
   assert.equal(facts.map(f => f.key).join(','), 'goal,fitness,benchmark,progress');
   assert.equal((preview.match(/class="b-dial b-stat"/g) || []).length, 0,
     'a Record fact is drawn as a circle again');
-  assert.equal((preview.match(/class="b-plate"/g) || []).length, 4,
-    'expected all four facts as plates');
+  /* Founder: four small circles beneath the main ones (b-mini). */
+  assert.equal((preview.match(/class="b-dial b-mini"/g) || []).length, 4,
+    'expected all four facts as small circles');
   facts.forEach(f => {
     assert.match(preview, new RegExp('data-action="open-record" data-record="' + f.key + '"'),
       f.key + ' is drawn but cannot be opened');
@@ -432,8 +433,8 @@ test('TAB: Sacoro renders the hero, then the Reading preview, then the Record pr
      see the order law in test/planHqReading, which carries the reasoning.
      The sequence this test is about is unchanged. */
   assert.ok(at('class="v-hero"') < at('class="b-grid"'), 'the circles are not below the hero');
-  assert.ok(at('class="b-grid"') < at('class="b-plates"'),
-    'the plates are not below the circles');
+  assert.ok(at('class="b-grid"') < at('class="b-grid b-minis"'),
+    'the small circles are not below the main circles');
   // New Block and Plan Settings no longer render on the daily Sacoro page
   // at all (requirement 5 relocated both to Settings).
   assert.doesNotMatch(html, /class="act-trio/, 'a management action tile is still below the Record preview');
