@@ -64,7 +64,7 @@ test('prescribed values resolve through an --ink token, so both themes work', ()
   });
 });
 
-test('gold still means what it means: headings, badges, status, the confidence figure', () => {
+test('gold still means what it means: the brand and the milestones', () => {
   /* The counterpart assertion. If a future pass "cleans up" gold by removing
      it from these, the accent system has lost its other half. */
   /* ---- CHANGED SIDES: THE CONFIDENCE FIGURE IS WHITE ----
@@ -79,8 +79,15 @@ test('gold still means what it means: headings, badges, status, the confidence f
      exists for is untouched: gold still means heading, badge and status,
      and the three below still prove it. The gauge's ring keeps the cherry
      accent, which was never the question. */
-  [['.exec-pill', 'the execution score pill'],
-   ['.coach-cue', 'the coaching cue']
+  /* ---- AND NOW GOLD IS THE BRAND AND THE MILESTONE ----
+     Founder (15 November 2026): gold lettering for the brand and for
+     destination or milestone words only. The score pill and the coaching
+     cue are information, so their words went white; what still proves the
+     counterpart claim is the brand line, the race-day countdown and the
+     current phase. */
+  [['.pe-by', 'the brand byline'],
+   ['.cd-race-day', 'the race-day countdown'],
+   ['.pp-phase.is-now .pp-name', 'the current phase']
    /* A THIRD ROW STOOD HERE: the gold dot beside a status word -- first
       Key's, then Adjusted's. Founder: "Theres a bloody pill!!! Key! Remove."
       and then "I also don't care about it say adjusted pill top right!

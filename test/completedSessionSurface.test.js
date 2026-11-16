@@ -397,9 +397,11 @@ test('FEEL: the pills speak the product\'s own language, not the old one', () =>
   /* THE WORD IS THE THING LIT. A solid fill with inverted text shouts louder
      than the figures logged above it, and this is the quiet answer at the
      end of a log rather than the headline of one. */
-  assert.match(on, /color:var\(--gold-bright\)/, 'the selected feel is no longer gold');
-  assert.match(on, /text-shadow:[^;]*rgba\(227,177,90/,
-    'the selected feel is no longer lit -- gold alone sits BELOW white in ' +
+  /* Selected is cherry now (founder: Cherry = active; gold lettering is for
+     the brand and milestones), lit the way the chosen tab is lit. */
+  assert.match(on, /color:var\(--cherry-text\)/, 'the selected feel is no longer cherry');
+  assert.match(on, /text-shadow:[^;]*rgba\(154,84,108/,
+    'the selected feel is no longer lit -- cherry alone sits BELOW white in ' +
     'luminance, so colour without illumination makes the chosen one the ' +
     'quietest word in the row');
   /* background:none is not a fill, so the old blanket /background:/ would now

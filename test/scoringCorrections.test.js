@@ -117,7 +117,7 @@ test('goal-pace work is judged against the band the card prints, and race day ag
 
 test('a long run with a goal-pace finish, logged phase by phase, is scored by phase', () => {
   const a = app();
-  const d = past(a, x => x.type === 'long' && x.title === 'Long Run + Goal Pace');
+  const d = past(a, x => x.type === 'long' && x.title === 'Long Run with Goal Pace');
   assert.ok(d);
   assert.equal(a.structuredLoggingPlan(d).source, 'phases');
   sections(a, d);

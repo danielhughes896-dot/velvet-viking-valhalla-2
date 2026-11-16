@@ -623,7 +623,7 @@ test('Save to photos writes to the photo library, not the cache', () => {
   assert.ok(i > 0, 'there is a dedicated save path');
   const body = src.slice(i, src.indexOf('\n}\n', i));
 
-  /* The failure this guards is a renamed action: "Save to photos" wired to
+  /* The failure this guards is a renamed action: "Save to Photos" wired to
      the share path, which caches the file and opens a sheet. */
   assert.match(body, /nativePlugin\('Media'\)/, 'it asks for the media library');
   assert.match(body, /savePhoto/);

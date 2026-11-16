@@ -148,7 +148,7 @@ test('the verdict draws no box', () => {
 test('the verdict takes the same label voice as the section below it', () => {
   const k = rule('.wc-verdict-k');
   assert.match(k, /--label-face/, 'the verdict label and EXECUTION REVIEW are the same rank');
-  assert.match(k, /color:\s*var\(--gold\)/);
+  assert.match(k, /color:\s*#FFFFFF/, 'labels are white; gold lettering is for the brand and milestones');
   assert.match(k, /display:\s*flex/,
     'the tick rides in the label row; in a column of its own it indents ' +
     'everything under it and the two sections stop sharing a left edge');
@@ -229,7 +229,7 @@ test('the two share actions are the page foot every full page has', () => {
      primary beside a ghost, as on every other full page. Neither is the old
      bronze slab, and the words stay on one line at 320. */
   assert.ok(!/share-actions/.test(SRC), 'the old in-card action rules are back');
-  assert.match(SRC, /<div class="page-foot share-foot">'\+\s*'<button type="button" class="btn btn-primary" data-action="share-export" data-mode="share">/);
+  assert.match(SRC, /<div class="page-foot share-foot">'\+\s*'<button type="button" class="btn btn-ghost" data-action="share-export" data-mode="save">[^]*?'<button type="button" class="btn btn-primary" data-action="share-export" data-mode="share">/);
   assert.match(rule('.modal-card.share-page .share-foot .btn'), /white-space:\s*nowrap/);
 });
 
@@ -238,13 +238,13 @@ test('the save button names the place the file actually lands', () => {
   /* No Capacitor in the harness, so nativePlugin('Media') is null -- which is
      the browser case, where the PNG is downloaded and no photo library is
      touched at all. The label must not promise one. */
-  assert.equal(a.saveImageLabel(), 'Save to device');
+  assert.equal(a.saveImageLabel(), 'Save to Device');
   const i = SRC.indexOf('function saveImageLabel');
   const fn = SRC.slice(i, SRC.indexOf('}', SRC.indexOf('return', i)));
   assert.match(fn, /Media\s*&&\s*Media\.savePhoto/,
-    '"Save to photos" is only true where the media plugin is there to make ' +
+    '"Save to Photos" is only true where the media plugin is there to make ' +
     'it true; the branch is the whole point of the function');
-  assert.match(fn, /Save to photos/);
+  assert.match(fn, /Save to Photos/);
 });
 
 /* ======================================================================
@@ -265,7 +265,7 @@ test('the feel selector is the same selector as every other selector', () => {
   assert.match(b, /border:\s*0/);
   assert.match(b, /color:\s*#FFFFFF/);
   assert.match(b, /text-shadow:[^;]*rgba\(255, ?255, ?255/);
-  assert.match(on, /color:\s*var\(--gold-bright\)/);
+  assert.match(on, /color:\s*var\(--cherry-text\)/, 'selected is cherry, as the chosen tab is');
   assert.ok(!/box-shadow:\s*0 0 0 1px var\(--gold\)/.test(on),
     'the gold ring around the chosen pill is the old shape returning');
 });

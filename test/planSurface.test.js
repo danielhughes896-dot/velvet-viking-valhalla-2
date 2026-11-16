@@ -357,8 +357,10 @@ test('every gold glow that marks selection or state names its token', () => {
      mistakes. */
   const halos = BARE.match(/box-shadow:[^;]*rgba\((?:227,177,90|245,208,97)[^;]*;/g) || [];
   const glows = halos.filter(h => !/0 0 0 \d+px|0 \d+px \d+px/.test(h));
-  assert.equal(glows.length, 3,
-    'hand-set gold glows: ' + glows.length + ' (expected the 3 the pulse owns)\n  ' +
+  /* The pulse that owned the three went cherry with the progress bars, so
+     no hand-set gold glow is left at all. */
+  assert.equal(glows.length, 0,
+    'hand-set gold glows: ' + glows.length + ' (expected none)\n  ' +
     glows.join('\n  '));
   /* ...and the pattern they should follow is in the sheet and working.
      The phase slide's gold used to be the example here; it was a rim, and
@@ -378,8 +380,11 @@ test('every gold glow that marks selection or state names its token', () => {
      simply reappear in the new colour. */
   const cherryHalos = (BARE.match(/box-shadow:[^;]*rgba\(154,84,108[^;]*;/g) || [])
     .filter(h => !/0 0 0 \d+px|0 \d+px \d+px/.test(h));
-  assert.equal(cherryHalos.length, 0,
-    'hand-set cherry glows: ' + cherryHalos.length + ' -- name --cherry/--cherry-dim\n  ' +
+  /* The three the week bar's pulse owns moved here with it (progress bars
+     to cherry): its two keyframe stops and the bar's resting shadow, tied
+     together by test/instrumentGlow, so they stay literal. Nothing else. */
+  assert.equal(cherryHalos.length, 3,
+    'hand-set cherry glows: ' + cherryHalos.length + ' (expected the 3 the pulse owns) -- name --cherry/--cherry-dim\n  ' +
     cherryHalos.join('\n  '));
 });
 

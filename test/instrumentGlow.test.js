@@ -70,7 +70,7 @@ function alphas(block) {
    is gone on instruction, so it cannot be held to having one -- it has a law
    of its own below instead, and the shared set keeps the two instruments the
    shared rule still describes. */
-const GLOWS = ['vv-glow-ring', 'vv-glow-gold'];
+const GLOWS = ['vv-glow-ring', 'vv-glow-bar'];
 const SOLO_GLOWS = ['vv-glow-gauge'];
 
 test('no glow keyframe animates geometry -- only the light moves', () => {
@@ -200,9 +200,9 @@ test('every cycle begins on the element\'s own resting appearance', () => {
   assert.match(restRing, /0 0 10px rgba\(154,84,108,\.50\)/,
     'the ring cycle no longer starts where the ring sits (--cherry-dim is .50)');
 
-  const restGold = keyframes('vv-glow-gold').split('50%')[0];
-  assert.match(rule('.wk-bar-fill'), /box-shadow:0 0 10px rgba\(227,177,90,\.34\)/);
-  assert.match(restGold, /0 0 10px rgba\(227,177,90,\.34\)/,
+  const restGold = keyframes('vv-glow-bar').split('50%')[0];
+  assert.match(rule('.wk-bar-fill'), /box-shadow:0 0 10px rgba\(154,84,108,\.34\)/);
+  assert.match(restGold, /0 0 10px rgba\(154,84,108,\.34\)/,
     'the gold bar cycle no longer starts where the bar sits');
   /* THE WHOLE LIST, NOT JUST THE FIRST SHADOW. This checked only the 10px
      edge, so when the bar gained a second resting shadow to match its 0%
@@ -304,7 +304,7 @@ test('the bar names BOTH its animations in one rule', () => {
   // shorthand, so a second rule naming one of them silently drops the other.
   const filling = rule('.wk-bar-fill.is-filling');
   assert.match(filling, /wk-fill 780ms/, 'the bar stopped filling');
-  assert.match(filling, /vv-glow-gold/, 'filling the bar drops its glow for the life of the class');
+  assert.match(filling, /vv-glow-bar/, 'filling the bar drops its glow for the life of the class');
   /* Outside the reduced-motion block, where `animation:none` is a separate
      and deliberate rule, there must be exactly one. */
   const outside = CSS.replace(/@media \(prefers-reduced-motion: reduce\)\{[\s\S]*?\n  \}/g, '');
@@ -364,7 +364,9 @@ test('no instrument puts text inside its own animated filter', () => {
     '.th-ring carries a filter — it wraps .th-ring-in, the pace and HR readout');
 });
 
-test('every gold bar in the product is the same material', () => {
+test('every progress bar in the product is the same material', () => {
+  /* Cherry now (founder: progress bars to cherry, matching the cherry
+     percentage beside them); the material rules below are unchanged. */
   /* "Have you done the same for the gold bars?" turned up two more. Runs and
      Volume in Sacoro's Progress panel are the same component as the week
      bar and carried no light at all, so they read as a different material to
@@ -382,9 +384,9 @@ test('every gold bar in the product is the same material', () => {
      are equal to each other, so converting one side of a measured
      relationship would make it unverifiable. A new glow has no such tie and
      takes the token. */
-  assert.match(pbar, /box-shadow:[^;}]*color-mix\(in srgb, var\(--gold\)/,
+  assert.match(pbar, /box-shadow:[^;}]*color-mix\(in srgb, var\(--cherry\)/,
     'the Progress panel bars lost their gold light, or hand-set it instead of naming --gold');
-  const stops = (pbar.match(/0 0 \d+px color-mix\(in srgb, var\(--gold\) \d+%, transparent\)/g) || []);
+  const stops = (pbar.match(/0 0 \d+px color-mix\(in srgb, var\(--cherry\) \d+%, transparent\)/g) || []);
   assert.equal(stops.length, 3,
     'the Progress bars should carry the same three-stop recipe as the week bar; found ' +
     stops.length);
@@ -395,8 +397,8 @@ test('every gold bar in the product is the same material', () => {
   /* And the week bar keeps three stops too, which is what brought its crest
      from +6% to +34% against the previous commit -- a bar is a far thinner
      source than a ring and the same alphas put much less light in the air. */
-  const gold = keyframes('vv-glow-gold');
-  const crestStops = (gold.slice(gold.indexOf('50%')).match(/0 0 \d+px rgba\(227,177,90,[\d.]+\)/g) || []);
+  const gold = keyframes('vv-glow-bar');
+  const crestStops = (gold.slice(gold.indexOf('50%')).match(/0 0 \d+px rgba\(154,84,108,[\d.]+\)/g) || []);
   assert.equal(crestStops.length, 3,
     'the week bar is back to two shadows; measured, two put 6% more light in the air ' +
     'where the rings got 38% and 26%');

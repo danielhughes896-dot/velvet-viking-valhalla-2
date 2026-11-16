@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SACORO — Start</title>
+<title>SACORO Start</title>
 <!--
   THE FRONT DOOR.
 
@@ -135,7 +135,7 @@
 
   /* ---------- fields ---------- */
   .field{margin-bottom:14px;}
-  .field label{display:block; font-size:.65625rem; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
+  .field label{display:block; font-size:.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); margin-bottom:5px;}
   .field input, .field select{
     width:100%; background:var(--ctl-bg); border:1px solid var(--ctl-border); border-radius:9px;
     color:var(--ctl-text); padding:10px 11px; font-size:.875rem; min-height:44px;
@@ -367,7 +367,7 @@
     border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
     transform:translate(-50%,-50%) rotate(45deg);
   }
-  .wd-name{font-family:var(--num-face); font-size:.65625rem; color:var(--ink-faint); transition:color .15s;}
+  .wd-name{font-family:var(--num-face); font-size:.6875rem; color:var(--ink-faint); transition:color .15s;}
   .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
 
   /* ---------- buttons -- the builder's own primary is Cherry Lacquer, and only
@@ -471,8 +471,8 @@
          the builder's own field-attached .bld-error. -->
     <p class="err vvv-hidden" id="build-err"></p>
     <div class="bld-actions">
-      <button type="button" class="btn btn-ghost btn-back vvv-hidden" id="bld-back">← Back</button>
-      <button type="button" class="btn btn-primary" id="bld-next">Continue →</button>
+      <button type="button" class="btn btn-ghost btn-back vvv-hidden" id="bld-back">Back</button>
+      <button type="button" class="btn btn-primary" id="bld-next">Continue</button>
     </div>
   </div>
 
@@ -504,7 +504,7 @@
       <div id="pv-paces"></div>
     </div>
 
-    <p class="say" style="margin-top:20px;">SACORO coaches this programme day by day —
+    <p class="say" style="margin-top:20px;">SACORO coaches this programme day by day:
        telling you what today is for, reading how it actually went, and adapting only when
        a real pattern appears.</p>
 
@@ -514,7 +514,7 @@
     <div class="card" id="save-card">
       <h3>Save your plan</h3>
       <p class="say" style="margin:0 0 12px;">One address is all we need. We will email you a
-         link — open it on this device and this exact plan is waiting. Nothing is charged
+         link. Open it on this device and this exact plan is waiting. Nothing is charged
          and nothing about it is lost.</p>
       <button class="vvv-btn" id="save-plan">Save My Plan</button>
     </div>
@@ -544,7 +544,7 @@
   <!-- LOCKED / EXPIRED -->
   <div id="pane-locked" class="vvv-hidden">
     <h1 class="lead">Your access has ended</h1>
-    <p class="say" id="locked-say">Everything you have done is still here — your plan, your
+    <p class="say" id="locked-say">Everything you have done is still here: your plan, your
        completed sessions and your history. Only the coaching is paused.</p>
     <a class="vvv-btn" href="/account">Restore access</a>
     <p class="quiet">Nothing has been deleted, and nothing will be.</p>
@@ -721,7 +721,7 @@
     $('firstname').classList.toggle('vvv-hidden', !isSave);
     $('firstname-label').classList.toggle('vvv-hidden', !isSave);
     $('auth-say').textContent = isSave
-      ? 'One address is all we need. We’ll send a link — open it on this device and ' +
+      ? 'One address is all we need. We’ll send a link. Open it on this device and ' +
         'your plan will be exactly as you left it. There is no password to create or remember.'
       : 'One address is all we need. We send a link; opening it signs you in. ' +
         'There is no password for you to create or remember.';
@@ -748,7 +748,11 @@
          now") resumes straight to it instead of answering the same nine
          questions twice. */
       if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
-      show('pane-build');
+      /* THE PLAN IS BUILT IN THE APP NOW. Founder: "Build my plan should not
+         build it on the website. It should take them to the app." So a
+         visitor with nothing in progress goes to the install page. Sign-in
+         returns, expired links and a banked preview are still handled here. */
+      location.replace('/get');
       return;
     }
     within(10000, establish(tok)).then(function(r){
@@ -763,8 +767,8 @@
       if (r.status >= 500){
         setAuthContext('signin');
         show('pane-auth');
-        fail('auth-err', 'SACORO is having a moment. Your account and your training are fine — ' +
-                         'reload this page in a minute and you will go straight in.');
+        fail('auth-err', 'SACORO is having a moment. Your account and your training are fine. ' +
+                         'Reload this page in a minute and you will go straight in.');
         return;
       }
       if (!b.signed_in){
@@ -791,7 +795,7 @@
       /* Signed in, no access yet, and a preview is already banked from before
          the "Save My Plan" round trip -- show it rather than the builder. */
       if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
-      show('pane-build');
+      location.replace('/get');
     }).catch(function(){
       /* Unreachable, refused, or too slow to be useful. */
       if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
@@ -876,8 +880,8 @@
     goalAmbition: 'B'
   };
   var AMBITION_SAY = {
-    A: 'A faster target than your benchmark suggests — the stretch goal.',
-    B: 'Exactly the pace your benchmark already shows — no stretch, no pullback.',
+    A: 'A faster target than your benchmark suggests: the stretch goal.',
+    B: 'Exactly the pace your benchmark already shows, with no stretch and no pullback.',
     C: 'A more conservative target, easier to hit reliably.'
   };
   function clockToSec(v){
@@ -1345,7 +1349,7 @@
      number typed here goes anywhere. */
   function renderTrainingStage(){
     $('bld-stage-body').innerHTML =
-      '<p class="bld-lede" style="margin-top:0;">Optional, and not saved yet — once you have an ' +
+      '<p class="bld-lede" style="margin-top:0;">Optional, and not saved yet. Once you have an ' +
       'account you can enter these from Settings and every session gets a target heart-rate ' +
       'range alongside its pace.</p>' +
       '<div class="benchmark-row">' +
@@ -1390,17 +1394,17 @@
     var days = Object.keys(Ans.activeDays).filter(function(d){ return Ans.activeDays[d]; }).length;
     var rows = '';
     rows += Ans.purpose === 'race' && Ans.eventMode === 'event'
-      ? reviewRow('Event date', Ans.raceDate || '—')
+      ? reviewRow('Event date', Ans.raceDate || 'Not set')
       : reviewRow('Block length', Ans.weeks + ' weeks');
     rows += reviewRow('Experience', BS.experience.meta[Ans.experience].short);
     rows += reviewRow('Long run day', BS.weekdays.isoNames[Ans.longRunDay]);
-    rows += reviewRow('Benchmark', Ans.benchDist.toUpperCase() + (Ans.benchTime ? ' · ' + Ans.benchTime : ' · —'));
+    rows += reviewRow('Benchmark', Ans.benchDist.toUpperCase() + (Ans.benchTime ? ' in ' + Ans.benchTime : ', no time yet'));
     // Short, like every other row's value -- the fuller sentence is what
     // stage 08 already showed when the choice was made.
     rows += reviewRow('Ambition', AMBITION_SHORT[Ans.goalAmbition]);
     $('bld-stage-body').innerHTML =
       '<div class="bld-review-hero"><div class="d">'+(NAME[Ans.distanceKey]||Ans.distanceKey)+'</div>' +
-        '<div class="s">'+((Ans.volume || '0') + ' ' + Ans.units + ' / week · ' + days + ' running days')+'</div></div>' +
+        '<div class="s">'+((Ans.volume || '0') + ' ' + Ans.units + ' / week, ' + days + ' running days')+'</div></div>' +
       '<div style="margin-top:14px;">' + rows + '</div>' +
       '<p class="quiet">Using SACORO in the private beta is covered by our ' +
       '<a href="https://velvetviking.co.uk/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and ' +
@@ -1654,7 +1658,7 @@
     }
     $('signin-instead').classList.toggle('vvv-hidden', bldCurrentStage !== 0);
     $('bld-back').classList.toggle('vvv-hidden', bldCurrentStage === 0);
-    $('bld-next').textContent = bldCurrentStage === BLD_STAGES.length - 1 ? 'Build my plan' : 'Continue →';
+    $('bld-next').textContent = bldCurrentStage === BLD_STAGES.length - 1 ? 'Build My Plan' : 'Continue';
     BLD_RENDERERS[bldCurrentStage]();
   }
   $('bld-back').addEventListener('click', function(){ bldGoToStage(bldCurrentStage - 1); });
@@ -1760,7 +1764,7 @@
       (!pu || pu === 'race')
         ? 'A ' + p.programme.weeks + '-week build to your ' + dist + ', on ' +
           p.programme.trainingDaysPerWeek + ' days a week.'
-        : p.purpose.label + ' — ' + p.programme.weeks + ' weeks, on ' +
+        : p.purpose.label + ': ' + p.programme.weeks + ' weeks, on ' +
           p.programme.trainingDaysPerWeek + ' days a week. ' + p.purpose.summary;
     $('pv-big').innerHTML = '';
     [[p.programme.weeks,'Weeks'], [p.programme.totalSessions,'Sessions'], [p.programme.totalKm + ' km','Total']]
@@ -1777,7 +1781,7 @@
 
     var wk = $('pv-week'); wk.innerHTML = '';
     (p.firstWeek || []).forEach(function(d){
-      wk.appendChild(row((WD[d.weekday] || '') + ' — ' + (d.title || d.type),
+      wk.appendChild(row((WD[d.weekday] || '') + ': ' + (d.title || d.type),
                          d.km ? d.km + ' km' : (d.type === 'rest' ? 'rest' : '')));
     });
 
@@ -1893,7 +1897,7 @@
       cb.disabled = false;
       if (r.status === 200){ loadCheckoutAgreements(); return; }
       cb.checked = false;
-      fail('trial-err', 'We could not record that just now — nothing has changed. Please try again.');
+      fail('trial-err', 'We could not record that just now. Nothing has changed. Please try again.');
     }).catch(function(){
       cb.disabled = false; cb.checked = false;
       fail('trial-err', 'We could not reach SACORO. Check your connection and try again.');

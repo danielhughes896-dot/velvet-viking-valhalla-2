@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>SACORO — Account</title>
+<title>SACORO Account</title>
 <!--
   THE PUBLIC SHELL.
 
@@ -59,8 +59,8 @@
     <h1 id="headline">Sign in to SACORO</h1>
     <p id="lede">SACORO now needs an account so your training block is tied to you and can follow you between devices. We email you a sign-in link, so there is no password for you to create or remember.</p>
     <label for="email">Email</label>
-    <input type="email" id="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
-    <button type="button" id="send" class="vvv-btn">Email me a sign-in link</button>
+    <input type="email" id="email" placeholder="Your email address" autocomplete="email" inputmode="email">
+    <button type="button" id="send" class="vvv-btn">Email Me a Sign-In Link</button>
     <div class="vvv-msg" id="msg"></div>
     <!-- PRIVATE BETA: named here because this is the first page a tester sees.
          A sentence, not a gate -- no checkbox, nothing pre-ticked. The documents
@@ -93,7 +93,7 @@
     <p id="locked-lede">Your training plan and history are safe and still stored.</p>
     <p id="locked-state" class="vvv-state"></p>
 
-    <button type="button" id="resubscribe" class="vvv-btn">Set up my subscription</button>
+    <button type="button" id="resubscribe" class="vvv-btn">Set Up My Subscription</button>
     <!-- The offers, rendered from the server's catalogue rather than written
          here. A price typed into a screen is a price that drifts from the one
          that will actually be charged, and an offer whose provider identifier
@@ -106,22 +106,22 @@
          come apart. -->
     <div id="agreements" class="vvv-hidden"></div>
     <div id="offer-choice" class="vvv-hidden"></div>
-    <button type="button" id="export" class="vvv-btn vvv-btn-ghost">Export my training</button>
-    <button type="button" id="signout" class="vvv-btn vvv-btn-ghost">Sign out</button>
+    <button type="button" id="export" class="vvv-btn vvv-btn-ghost">Export My Training</button>
+    <button type="button" id="signout" class="vvv-btn vvv-btn-ghost">Sign Out</button>
     <div class="vvv-msg" id="msg3"></div>
 
     <p class="vvv-quiet">
       Closing your account erases it and everything in it, permanently.
       Export first if you want to keep your training.
     </p>
-    <button type="button" id="delete" class="vvv-btn vvv-btn-ghost vvv-btn-danger">Delete my account</button>
+    <button type="button" id="delete" class="vvv-btn vvv-btn-ghost vvv-btn-danger">Delete My Account</button>
   </div>
 
   <div class="vvv-foot">
     <!-- THE CANONICAL DOCUMENTS, on the website, so this footer and the
          checkout consent above cannot point at two different contracts. The
          Terms href is replaced by whatever the server says is in force. -->
-    <a href="https://velvetviking.co.uk/privacy">Privacy</a> &nbsp;·&nbsp;
+    <a href="https://velvetviking.co.uk/privacy">Privacy</a> &nbsp;&nbsp;
     <a href="https://velvetviking.co.uk/beta-terms" id="foot-terms">Terms</a>
   </div>
 </div>
@@ -175,7 +175,7 @@
     $('lede').textContent = 'Your training plan and history are safe and still stored. Sign in to see your account, or get in touch if you think this is wrong.';
   } else if (why === 'unavailable'){
     $('headline').textContent = 'We could not check your account';
-    $('lede').textContent = 'Something on our side is not answering, so we cannot confirm your access right now. Please try again in a moment — nothing has changed on your account.';
+    $('lede').textContent = 'Something on our side is not answering, so we cannot confirm your access right now. Please try again in a moment. Nothing has changed on your account.';
   }
 
   /* ---- magic-link return ----
@@ -314,7 +314,7 @@
       var chosen = preferredPeriod && o.billingPeriod === preferredPeriod;
       b.className = 'vvv-btn' + (chosen ? '' : ' vvv-btn-ghost');
       if (chosen) b.setAttribute('aria-current', 'true');
-      b.textContent = priceLabel(o) + (cat.trialDays ? ' — ' + cat.trialDays + '-day free trial' : '');
+      b.textContent = priceLabel(o) + (cat.trialDays ? ', with a ' + cat.trialDays + '-day free trial' : '');
       b.addEventListener('click', function(){ startCheckout(o.billingPeriod, b); });
       box.appendChild(b);
 
@@ -443,7 +443,7 @@
         cb.disabled = false;
         if (r.status === 200){ refreshAndRender(); return; }
         cb.checked = false;
-        say('msg3', 'We could not record that just now — nothing has changed. Please try again.', 'err');
+        say('msg3', 'We could not record that just now. Nothing has changed. Please try again.', 'err');
       });
     }).catch(function(){
       cb.disabled = false; cb.checked = false;
@@ -483,7 +483,7 @@
             (b.existing_provider === 'apple' ? 'the App Store' :
              b.existing_provider === 'google' ? 'Google Play' : 'another store') +
             '. Manage it there.', 'err');
-        say('msg3', 'Subscriptions are not open yet — nothing has changed on your account.', 'err');
+        say('msg3', 'Subscriptions are not open yet. Nothing has changed on your account.', 'err');
       });
     }).catch(function(){
       if (button) button.disabled = false;
@@ -625,7 +625,7 @@
     var opening = box.classList.contains('vvv-hidden');
     box.classList.toggle('vvv-hidden');
     if (opening && !box.childElementCount)
-      say('msg3', 'Subscriptions are not open yet — nothing has changed on your account.', 'err');
+      say('msg3', 'Subscriptions are not open yet. Nothing has changed on your account.', 'err');
   });
 
   // data_export -- the ACCOUNT's copy, so this works from a device that never
@@ -690,7 +690,7 @@
         /* The training block stays on this device. That has been true of every
            sign-out in this product since Phase 1 and is not changing here. */
         show('signin');
-        say('msg', 'Signed out — your plan stays on this device.', 'ok');
+        say('msg', 'Signed out. Your plan stays on this device.', 'ok');
       });
   });
 
@@ -698,7 +698,7 @@
   // the athlete reaching this screen did not come here intending to.
   $('delete').addEventListener('click', function(){
     if (!window.confirm('Delete your SACORO account? This erases your account and everything stored in it. It cannot be undone.')) return;
-    if (!window.confirm('Last check — export your training first if you want to keep it. Delete permanently?')) return;
+    if (!window.confirm('Last check: export your training first if you want to keep it. Delete permanently?')) return;
     $('delete').disabled = true;
     say('msg3', 'Deleting your account…');
     authed('/api/account-delete', { method: 'POST' }).then(function(r){

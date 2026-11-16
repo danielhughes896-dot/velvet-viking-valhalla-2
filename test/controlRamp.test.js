@@ -41,11 +41,13 @@ const darkApp = n => tokenIn(APP, ':root', n);
 // NOTHING ABOUT DARK MOVED
 // ---------------------------------------------------------------------------
 test('the dark control ramp is the modal ramp, character for character', () => {
-  assert.equal(darkApp('--ctl-bg'), '#24201c');
-  assert.equal(darkApp('--ctl-border'), '#3d352b');
+  /* Neutral charcoal now, not the warm brown ramp (founder: "is that the
+     last brown box anywhere"); still one ramp shared by page and modal. */
+  assert.equal(darkApp('--ctl-bg'), '#16181D');
+  assert.equal(darkApp('--ctl-border'), '#33363D');
   assert.equal(darkApp('--ctl-text'), '#e6dfd5');
   assert.equal(darkApp('--ctl-accent'), '#c5a059');
-  assert.equal(darkApp('--modal-input-bg'), '#24201c',
+  assert.equal(darkApp('--modal-input-bg'), '#16181D',
     'the modal ramp itself is untouched — the split is additive');
 });
 

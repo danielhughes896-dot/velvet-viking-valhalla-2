@@ -409,9 +409,9 @@ test('a threshold session reads the way the founder drew it', () => {
   /* Founder: "no symbols". The middle dot became natural punctuation. */
   assert.match(main, /<div class="yl-title">Main set: Threshold, \d+(\.\d+)? km<\/div>/, 'the heading does not say what the main set is');
   /* Distance, then the two averages, named as the whole session's are. */
-  assert.match(main, /<span class="slog-k">Distance<\/span><input type="number"[^>]*placeholder="2\.0 km"/);
-  assert.match(main, /<span class="slog-k">Avg pace<\/span><input type="text" class="slog-in" placeholder="5:00 \/km"/);
-  assert.match(main, /<span class="slog-k">Avg HR<\/span><input type="number"[^>]*placeholder="155 bpm"/);
+  assert.match(main, /<span class="slog-k">Distance<\/span><input type="number"[^>]*placeholder="in km"/);
+  assert.match(main, /<span class="slog-k">Avg pace<\/span><input type="text" class="slog-in" placeholder="per km"/);
+  assert.match(main, /<span class="slog-k">Avg HR<\/span><input type="number"[^>]*placeholder="bpm"/);
   assert.ok(main.indexOf('>Distance<') < main.indexOf('>Avg pace<') && main.indexOf('>Avg pace<') < main.indexOf('>Avg HR<'));
   assert.match(main, /<div class="yl-opt">Optional\. Enter what you know\.<\/div>/);
   /* The same pattern either side of it. */
@@ -509,7 +509,7 @@ test('miles are typed as miles and stored the way the engine reads them', () => 
   const c = everyStructure().threshold_continuous, a = c.a;
   const main = Array.from(a.loggingModeFor(c.dd).plan.rows).filter(r => r.role === 'work')[0];
   a.state.units = 'mi';
-  assert.match(log(c), /placeholder="8:00 \/mi"/);
+  assert.match(log(c), /class="slog-in slog-km" placeholder="in mi"/);
   a.handleStructuredSplitChange(c.dd.id, main.segId, 'pace', '7:40');
   const s = c.dd.actual.splits.filter(x => x.segId === main.segId)[0];
   assert.ok(Math.abs(s.paceSec - 460 / 1.60934) < 0.06, 'a pace per mile was stored as a pace per km');
@@ -519,9 +519,9 @@ test('miles are typed as miles and stored the way the engine reads them', () => 
 
 test('the placeholders can be read, and the tiles are not bigger than the job', () => {
   const CSS = SRC.slice(SRC.indexOf('<style>'), SRC.indexOf('</style>')).replace(/\/\*[\s\S]*?\*\//g, ' ');
-  assert.match(CSS, /\.actual-field input::placeholder,\s*:is\([^)]*\) \.actual-field textarea::placeholder\{color:#FFFFFF; opacity:\.6;\}/,
+  assert.match(CSS, /\.actual-field input::placeholder,\s*:is\([^)]*\) \.actual-field textarea::placeholder\{color:#FFFFFF; opacity:1;\}/,
     'the placeholders on the session screens are dim again');
-  assert.match(CSS, /\.log-body input::placeholder, \.log-body textarea::placeholder\{color:#FFFFFF; opacity:\.6;\}/);
+  assert.match(CSS, /\.log-body input::placeholder, \.log-body textarea::placeholder\{color:#FFFFFF; opacity:1;\}/);
   assert.doesNotMatch(CSS, /\.actual-field input::placeholder\{color:var\(--ink-quiet\)/);
   assert.match(CSS, /\.yl \.opt-grid button\{min-height:48px/);
   assert.match(CSS, /\.yl \.slog-in\{width:100%; min-height:44px/);

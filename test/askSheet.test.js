@@ -17,11 +17,11 @@ test('no confirmation uses the system dialog', () => {
 
 test('the question is a glass sheet with the two answers, the dangerous one red', () => {
   const a = loadApp({ pinnedDate: '2026-05-20T09:00:00Z' });
-  const html = a.askSacoroHtml({ title: 'Start a New Block', say: 'Start your block?', hint: 'History is kept.', yes: 'Start block', no: 'Not now' });
+  const html = a.askSacoroHtml({ title: 'Start a New Block', say: 'Start your block?', hint: 'History is kept.', yes: 'Start Block', no: 'Not Now' });
   assert.match(html, /class="tw-sheet stg-sheet ask-sheet" role="alertdialog"/);
   assert.match(html, /<h2 class="font-head">Start a New Block<\/h2>/);
-  assert.match(html, /data-action="ask-no">Not now</);
-  assert.match(html, /class="btn btn-primary" data-action="ask-yes">Start block</);
+  assert.match(html, /data-action="ask-no">Not Now</);
+  assert.match(html, /class="btn btn-primary" data-action="ask-yes">Start Block</);
   assert.match(a.askSacoroHtml({ title: 'T', say: 's', yes: 'Delete', danger: true }), /class="btn btn-danger" data-action="ask-yes"/);
 });
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>SACORO — Training Block Generator</title>
+<title>SACORO</title>
 <link rel="icon" href="/assets/favicon.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="SACORO">
@@ -149,14 +149,16 @@
     --ink:#F4F1EA; --ink-dim:var(--ink); --ink-faint:var(--ink);
     --ink-quiet:#9D9787; --mark-faint:#9D9787; --mark-dim:#BBB4A4;
     --line:#302E36; --line-soft:#232126;
-    --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
+    --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A;
     /* Gold used as TEXT. Identical to --gold/--bronze in dark, so the dark theme
        is unchanged by construction; deepened in light, where the same gold sits on
        cream at 1.7-2.8:1. Borders, icons, the wordmark, the medallion and the
        workout-type colours deliberately do NOT use these. */
     --gold-text:var(--gold); --bronze-text:var(--bronze);
     --c-rest:#8C8272; --c-rest-soft:rgba(140,130,114,0.16);
-    --c-easy:#84A56E; --c-easy-soft:rgba(132,165,110,0.16);
+    /* Easy is the ordinary day, so it takes the neutral light rather than
+       green: Green = complete, and an easy rail read as a session done. */
+    --c-easy:#E6E0D4; --c-easy-soft:rgba(230,224,212,0.14);
     --c-tempo:#CC9245; --c-tempo-soft:rgba(204,146,69,0.16);
     --c-threshold:#B5505A; --c-threshold-soft:rgba(181,80,90,0.16);
     /* --c-track/--c-gold are semantic aliases (zone-legend / active-highlight
@@ -206,7 +208,6 @@
        ivory ground (6.0:1 / comfortably AA), so this is reuse, not a new
        colour -- and it changes nothing in light theme, where these already
        are the live values. */
-    --gold-badge-ink:#7A5C1E; --badge-caption-ink:#5D574C;
 
     /* ---------- ORDINARY CONTAINER SURFACES ----------
        An alias, not a new ramp. These are the fills of containers that hold
@@ -556,12 +557,16 @@
        control ramp the app uses for controls everywhere else. controlRamp
        asserts that ramp character for character, and it is right to. The
        card's own rim takes --t-tile-rim directly instead, below. */
-    --modal-surface:#1C1E24; --modal-input-bg:#24201c; --modal-border:#3d352b;
+    /* AND NOW THE CONTROLS FOLLOW (founder, 15 November 2026: "is that the
+       last brown box anywhere"). The warm ramp outlived the surfaces by one
+       step: every field, date button, dropdown and disabled button, and every
+       line inside a modal, was still #24201c on #3d352b. They take the same
+       near-neutral charcoal as the cards they sit on. */
+    --modal-surface:#1C1E24; --modal-input-bg:#16181D; --modal-border:#33363D;
     --modal-active:#c5a059; --modal-active-rgb:197,160,89; --modal-text:#e6dfd5;
     /* the app's one metallic-gold gradient system -- shared by the header
        title and the confidence gauge, so both read as the same finish. */
     --gold-bright:#F5D061; --gold-deep:#8A6D2B;
-    --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
     /* ---------- HOW LONG A RING TAKES TO LAY ITSELF DOWN ----------
        One figure for every ring in the product, so a second instrument
        cannot be given a second speed. 1140ms on arrival; the re-draw that
@@ -583,11 +588,11 @@
        construction. In LIGHT they belong to the cream/warm-stone/deep-bronze
        system. Inside .modal-card they are pinned back to the fixed ramp, so a
        modal looks the same in either theme exactly as it did before. */
-    --ctl-bg:#24201c; --ctl-border:#3d352b; --ctl-text:#e6dfd5;
+    --ctl-bg:#16181D; --ctl-border:#33363D; --ctl-text:#e6dfd5;
     --ctl-placeholder:#8d857a;
     --ctl-accent:#c5a059; --ctl-accent-rgb:197,160,89;
-    --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
-    --ctl-surface:#141210; --ctl-surface-border:#3d352b;
+    --ctl-disabled-bg:#18191D; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2A2C32;
+    --ctl-surface:#121316; --ctl-surface-border:#33363D;
     --danger-text:var(--c-threshold);
     color-scheme:dark;
   }
@@ -614,7 +619,7 @@
   button{font-family:inherit; cursor:pointer; color:inherit; background:none; border:none; padding:0; margin:0;}
   input,select,textarea{font-family:inherit;}
   :focus-visible{outline:2px solid var(--gold); outline-offset:2px; border-radius:4px;}
-  ::selection{background:var(--bronze); color:var(--bronze-ink);}
+  ::selection{background:var(--cherry); color:#FFFFFF;}
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;}
   }
@@ -1082,7 +1087,7 @@
   }
   .cb-icon{font-size:1.125rem; line-height:1; flex:none;}
   .cb-text{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink);}
-  .cb-text b{color:var(--gold-text);}
+  .cb-text b{color:#FFFFFF;}
   /* ---------- THE TAPER WEEK LOOKS LIKE EVERY OTHER WEEK ----------
      Founder: "Remove the gold in full week taper week. Just leave it the
      same as the rest." Two rules made it: a bronze border on the block and
@@ -1096,7 +1101,7 @@
      rule left for .week.is-taper: an empty one would read as a thing that
      might still fire. */
   .taper-note{
-    display:flex; align-items:center; gap:7px; color:var(--bronze-text);
+    display:flex; align-items:center; gap:7px; color:#FFFFFF;
     padding:8px 16px; background:var(--c-gold-soft);
   }
   .taper-note svg{width:13px; height:13px; flex:none;}
@@ -1357,7 +1362,7 @@
   .fuel-card summary:not(.sess-tab){
     display:flex; align-items:center; gap:6px; padding:8px 10px; min-height:44px;
     font-size:.6875rem; font-weight:600;
-    color:var(--bronze-text); cursor:pointer; list-style:none; user-select:none;
+    color:#FFFFFF; cursor:pointer; list-style:none; user-select:none;
     -webkit-tap-highlight-color:transparent;
   }
   .fuel-card summary::-webkit-details-marker{display:none;}
@@ -1497,7 +1502,7 @@
   .fuel-v-note{display:none;}
   .fuel-hint{font-size:var(--fs-support); color:var(--ink-faint); margin-top:6px; line-height:var(--lh-support);}
   /* Coaching depth (athlete experience) -- presentation only. */
-  .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--bronze-text);}
+  .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:var(--fs-body); line-height:var(--lh-body); color:#FFFFFF;}
   .coach-cue svg{width:13px; height:13px; flex:none; margin-top:2px;}
   /* WHY / EXECUTION / FEEL / WATCH FOR read as one recessive --ink-faint
      label at the same weight as everything else in the card, so the four
@@ -1512,7 +1517,7 @@
   .how-row:first-of-type{padding-top:0;}
   .how-row:last-of-type{border-bottom:none; padding-bottom:0;}
   .how-row .k{display:block; font-family:var(--label-face); font-size:.78125rem; font-weight:var(--label-weight);
-              letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
+              letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-bottom:5px;}
   /* overflow-wrap so a long pace range or an unbroken term cannot push the
      card sideways on a narrow phone; the page body must never scroll across. */
   .how-row .v{display:block; color:var(--ink-dim); overflow-wrap:anywhere;}
@@ -1521,7 +1526,7 @@
      upgrade as .how-row .k above, for the same reason: it is also a section
      heading (Execution, Fuel) that was reading as body text. */
   .how-row-heading{font-family:var(--label-face); font-size:.78125rem; font-weight:var(--label-weight); letter-spacing:var(--label-track);
-                   text-transform:uppercase; color:var(--bronze-text); margin:14px 0 6px; padding-top:10px;}
+                   text-transform:uppercase; color:#FFFFFF; margin:14px 0 6px; padding-top:10px;}
   .how-row-heading:first-child{margin-top:0; padding-top:0; border-top:none;}
   /* Execution Strategy phases -- a staged reading of the prescription, not a
      second set of numbers. Each phase is its own compact block so a race's
@@ -2024,7 +2029,7 @@
     width:18px; height:18px; stroke-width:2.1;
     filter:drop-shadow(0 0 5px rgba(255,255,255,.30));}
   @media (hover:hover){ :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions button:hover{
-    color:var(--gold-bright); background:none;
+    color:var(--cherry-text); background:none;
     filter:drop-shadow(0 0 6px rgba(227,177,90,.55));} }
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-date{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-targets{display:none;}
@@ -2384,13 +2389,16 @@
      circumference, so the same alphas put far less light in the air and it
      needs the extra stop to carry. Radii fixed at 10/28/48, alpha doing the
      whole cycle, exactly as above. */
-  @keyframes vv-glow-gold{
-    0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34),
-                        0 0 28px rgba(227,177,90,.18),
-                        0 0 48px rgba(227,177,90,.10); }
-    50%    { box-shadow:0 0 10px rgba(227,177,90,1),
-                        0 0 28px rgba(227,177,90,1),
-                        0 0 48px rgba(227,177,90,.88); }
+  /* CHERRY, AS ITS PERCENTAGE IS. Founder: progress bars to cherry, so the
+     bar and the figure beside it say the same thing in the same colour. The
+     radii and alphas are the gold pulse's, measured, unchanged. */
+  @keyframes vv-glow-bar{
+    0%,100%{ box-shadow:0 0 10px rgba(154,84,108,.34),
+                        0 0 28px rgba(154,84,108,.18),
+                        0 0 48px rgba(154,84,108,.10); }
+    50%    { box-shadow:0 0 10px rgba(154,84,108,1),
+                        0 0 28px rgba(154,84,108,1),
+                        0 0 48px rgba(154,84,108,.88); }
   }
   /* EACH SETTLE FOLLOWS ITS OWN ENTRANCE, and both of these entrances just
      got longer. The ring drew for 760ms, so it waited 1.26s; it now draws
@@ -2404,10 +2412,10 @@
   /* The bar's fill and its glow are on the SAME element, so the filling rule
      has to restate both: `animation` is a shorthand, and naming only the fill
      there would drop the glow for the life of that class. */
-  .wk-bar-fill{ animation:vv-glow-gold 3.6s ease-in-out 1.28s infinite; }
+  .wk-bar-fill{ animation:vv-glow-bar 3.6s ease-in-out 1.28s infinite; }
   .wk-bar-fill.is-filling{
     animation:wk-fill 780ms cubic-bezier(.22,.61,.36,1) both,
-              vv-glow-gold 3.6s ease-in-out 1.28s infinite;}
+              vv-glow-bar 3.6s ease-in-out 1.28s infinite;}
 
   /* FINAL STATE, IMMEDIATELY. Reduced motion does not get a shorter version
      of the animation -- it gets no animation, so the stroke and the bar are
@@ -2433,7 +2441,7 @@
   .th-row{display:flex; align-items:center; justify-content:center; gap:3px; color:var(--ink-dim); white-space:nowrap;}
   .th-row .th-ic{display:inline-flex; width:9px; height:9px; color:var(--gold-text);}
   .th-row .th-ic svg{width:9px; height:9px;}
-  .th-row.mp{color:var(--gold-text); font-size:.5625rem;}
+  .th-row.mp{color:#FFFFFF; font-size:.5625rem;}
 
   /* ---- BOX 2 : how to run this ---- */
   /* ---- BOX 2 IS A RAIL, NOT A BOX ----
@@ -3513,7 +3521,7 @@
   /* Founder: "The m:ss and HR placeholders are too subtle." They were a
      quiet grey at 70%; they are white, set back, and still not a value. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input::placeholder,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea::placeholder{color:#FFFFFF; opacity:.6;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea::placeholder{color:#FFFFFF; opacity:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea{padding:4px 0 8px;}
   /* ---------- THE NOTES BOX KEEPS NO RULE UNDER IT ----------
      The underline on every other field in this log marks where a figure
@@ -4107,7 +4115,7 @@
      face in the product sets its figure in. And the caption under it joins
      the one label voice rather than being a fifth near-miss at 10px/1.5px. */
   .stat .v{font-family:var(--num-face); font-size:var(--fs-title); font-weight:700;
-    letter-spacing:.02em; color:var(--gold-text);}
+    letter-spacing:.02em; color:#FFFFFF;}
   .stat .l{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     color:var(--ink-faint); text-transform:uppercase; margin-top:2px;}
@@ -4131,7 +4139,7 @@
      further up records what happens when a light meant for one moment is
      repeated down a column -- it stops reading as an event and becomes the
      background. Same material, no heartbeat. */
-  .pbar-fill{height:100%; background:linear-gradient(90deg,var(--bronze),var(--gold)); border-radius:99px; transition:width .5s ease;
+  .pbar-fill{height:100%; background:linear-gradient(90deg,var(--cherry-fill),var(--cherry)); border-radius:99px; transition:width .5s ease;
     /* color-mix on --gold, not a hand-set rgba. The literal is --gold with
        the name filed off, and a guard in planSurface counts the hand-set
        gold glows left in the sheet: the three it allows are the pulse's two
@@ -4139,9 +4147,9 @@
        asserts are EQUAL to each other -- converting one side of a measured
        relationship would make it unverifiable. This is a new glow with no
        such tie, so it takes the pattern the rest of the product uses. */
-    box-shadow:0 0 6px color-mix(in srgb, var(--gold) 34%, transparent),
-               0 0 16px color-mix(in srgb, var(--gold) 18%, transparent),
-               0 0 27px color-mix(in srgb, var(--gold) 10%, transparent);}
+    box-shadow:0 0 6px color-mix(in srgb, var(--cherry) 34%, transparent),
+               0 0 16px color-mix(in srgb, var(--cherry) 18%, transparent),
+               0 0 27px color-mix(in srgb, var(--cherry) 10%, transparent);}
   /* 56px is the space RESERVED so the two rows' numbers line up, not a cap.
      "697.7/1190.4km" is wider than that, and a fixed width made it overflow
      the row rather than the row making room for it. */
@@ -4186,9 +4194,9 @@
   .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink); transition:background .15s ease;}
   @media (hover:hover){ .week-head:hover{background:var(--bg-3);} }
   .week-head:active{background:var(--bg-4);}
-  .week-num{font-family:var(--num-face); font-weight:700; font-size:1.25rem; color:var(--bronze-text); flex:none; width:34px;}
+  .week-num{font-family:var(--num-face); font-weight:700; font-size:1.25rem; color:#FFFFFF; flex:none; width:34px;}
   .week-meta{flex:1; min-width:0;}
-  .week-phase{font-family:var(--label-face); font-size:.625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
+  .week-phase{font-family:var(--label-face); font-size:.625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; font-weight:var(--label-weight);}
   .week-range{font-family:var(--num-face); font-size:.65625rem; color:var(--ink-faint); margin-top:2px;}
   .week-vol{text-align:right; flex:none;}
   .week-vol .v{font-family:var(--num-face); font-weight:700; font-size:.9375rem; color:var(--ink);}
@@ -4199,7 +4207,7 @@
   .week-body{max-height:0; overflow:hidden; transition:max-height .35s ease;}
   .week.open .week-body{max-height:10000px;}
   .week-body-inner{padding:2px 12px 14px;}
-  .week-today-flag{display:inline-block; font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:var(--label-face);}
+  .week-today-flag{display:inline-block; font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; background:var(--cherry-fill); padding:2px 6px; border-radius:5px; font-family:var(--label-face);}
 
   /* ---------- day card ---------- */
   .day{
@@ -4448,7 +4456,9 @@
   .day-badge.type-track{background:var(--c-track-soft); color:var(--c-track);}
   .day-badge.type-long{background:var(--c-long-soft); color:var(--c-long);}
   .day-badge.type-tuneup{background:var(--c-gold-soft); color:var(--gold);}
-  .day-badge.type-race{background:var(--gold); color:var(--bronze-ink);}
+  /* No brown lettering: Race Day is the destination, so the box stays gold,
+     and its words are white like every other word in the product. */
+  .day-badge.type-race{background:color-mix(in srgb, var(--gold) 30%, transparent); color:#FFFFFF; box-shadow:inset 0 0 0 1px var(--gold);}
   /* collapsed-card execution score -- always visible in the header row
      once a workout is completed and scoreable, regardless of whether the
      actual-panel below is showing. */
@@ -4457,7 +4467,7 @@
      against this same translucent-gold background (see --gold-text's own
      comment above), while dark mode is unchanged since --gold-text==--gold
      there. */
-  .exec-pill{font-family:var(--num-face); font-size:.625rem; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
+  .exec-pill{font-family:var(--num-face); font-size:.625rem; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:#FFFFFF;}
   .day-title{font-weight:600; font-size:var(--fs-title); margin-top:3px; color:var(--ink);}
   .day-targets{font-family:var(--num-face); font-size:var(--fs-data); color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
   /* Goal pace is a pace, and it sits in a row of paces and distances -- so it
@@ -4534,7 +4544,7 @@
      control it reserves for means the two cannot drift apart. */
   .wk-rail-act{min-height:var(--tap-min);}
   .day-actions button{background:none; border:none; color:var(--ink-faint); padding:4px; border-radius:6px; display:flex;}
-  @media (hover:hover){ .day-actions button:hover{color:var(--bronze); background:var(--bg-4);} }
+  @media (hover:hover){ .day-actions button:hover{color:var(--cherry-text); background:var(--bg-4);} }
   .day-actions svg{width:16px; height:16px;}
 
   .actual-panel{margin-top:10px; padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;}
@@ -4664,10 +4674,11 @@
     transition:color .2s, text-shadow .2s, font-weight .2s;
   }
   .feel-btn.on{
-    color:var(--gold-bright); font-weight:700; background:none; box-shadow:none;
-    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
-                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);}
-  .feel-btn:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2px;}
+    color:var(--cherry-text); font-weight:700; background:none; box-shadow:none;
+    /* Selected is cherry, lit as the chosen tab is (.bn-item.active). */
+    text-shadow:0 0 1.1px rgba(196,106,137,.85), 0 0 6.6px rgba(154,84,108,.78),
+                0 0 16.5px rgba(154,84,108,.42), 0 0 30.8px rgba(154,84,108,.15);}
+  .feel-btn:focus-visible{outline:2px solid var(--cherry-text); outline-offset:2px;}
   .cr-compare{display:flex; flex-wrap:wrap; gap:6px;}
   .cr-cmp{font-size:.625rem; padding:2px 7px; border:1px solid var(--line); border-radius:99px; color:var(--ink-faint);}
   .actual-clear{text-align:right;}
@@ -4771,7 +4782,7 @@
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0;}
   .pzr:last-of-type{border-bottom:none;}
   .pzr-label{font-size:.78125rem; color:var(--ink-dim); flex:1; min-width:0;}
-  .pzr-tag{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px; font-weight:var(--label-weight);}
+  .pzr-tag{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px; font-weight:var(--label-weight);}
   /* target HR range, shown alongside the pace inputs on the same row --
      stacked under the zone label rather than a third flex column, so the
      row still fits on narrow phones without wrapping or crowding the
@@ -4812,7 +4823,7 @@
 
   /* ---------- AI post-session execution review ---------- */
   .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--surface-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .exec-review-head{display:flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
+  .exec-review-head{display:flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-bottom:8px;}
   /* title yields first so the badge can never be pushed off or overlapped
      on a narrow phone; the badge itself never shrinks */
   /* Responsive correction 10: the heading wraps at a word rather than
@@ -4844,7 +4855,7 @@
   .coach-msg-p:last-child{margin-bottom:0;}
   .coach-msg-p:first-child{color:var(--ink);}
   .coach-msg-brief{margin-top:8px;}
-  .cr-k{font-family:var(--label-face); font-size:var(--fs-label); letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
+  .cr-k{font-family:var(--label-face); font-size:var(--fs-label); letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-bottom:3px;}
   .cr-v{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .cr-sub{ color:var(--ink-faint); margin-top:2px; overflow-wrap:anywhere;}
   .cr-signal{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
@@ -4882,7 +4893,7 @@
      make those rows taller than the content they belong to. */
   .btn:not(.btn-sm){min-height:44px;}
   @media (hover:hover){ .btn:hover{border-color:var(--bronze);} }
-  .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink); border:none;}
+  .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:#FFFFFF; border:none;}
   @media (hover:hover){ .btn-primary:hover{filter:brightness(1.08);} }
   /* THE BUILDER'S PRIMARY ACTION, and only the builder's. Continue and Build
      My Training Block / Regenerate Plan are the forward motion of a flow that
@@ -4947,7 +4958,7 @@
 
   /* ---------- modal ---------- */
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(10,8,6,0.65); z-index:100;
+    position:fixed; inset:0; background:rgba(8,8,11,0.65); z-index:100;
     display:flex; align-items:flex-end; justify-content:center; padding:0;
     animation:fadein .26s ease;
   }
@@ -4976,7 +4987,7 @@
     --ctl-bg:var(--modal-input-bg); --ctl-border:var(--modal-border);
     --ctl-text:var(--modal-text); --ctl-placeholder:#8d857a;
     --ctl-accent:var(--modal-active); --ctl-accent-rgb:var(--modal-active-rgb);
-    --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
+    --ctl-disabled-bg:#18191D; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2A2C32;
     /* The --ctl-* pin above only ever covered form controls. Ordinary prose
        and .btn-ghost read the general --ink/--line family instead, which
        light theme redefines to near-black -- so a light-mode athlete got a
@@ -5082,7 +5093,7 @@
   .modal-card.modal-decision .modal-body{
     color:#F4F1EA; background:#0E0D10;
   }
-  .modal-decision-body > p{ color:#D8D2C6; }
+  .modal-decision-body > p{ color:#FFFFFF; }
   /* THE RECOMMENDATION, GIVEN ITS OWN STANDING. A translucent card over the
      fade, bronze-edged, so the recommended route is visibly the recommended
      one without the alternative being styled as a mistake. */
@@ -5096,7 +5107,7 @@
     color:#E3B15A; margin-bottom:5px;
   }
   .modal-decision .decision-rec-body{ color:#E6E1D6; }
-  .modal-decision .yr-foot{ color:#9D9787; }
+  .modal-decision .yr-foot{ color:#FFFFFF; }
   /* POSITIONING. Every other modal stays a bottom sheet -- that is right for a
      short confirm, and it is untouched. The builder is a journey with stages
      that vary a lot in height, and anchoring it to the bottom left a short
@@ -5536,6 +5547,7 @@
      off the card. The experience grid no longer claims one. */
   .opt-grid{display:grid; gap:8px; grid-template-columns:1fr;}
   .opt-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .opt-grid.rc-dist-grid{grid-template-columns:1fr 1fr;}
   /* .cols-4 is written on the day-count grid and was declared nowhere, so
      eight buttons fell back to the two-column default and ran 0..7 down
      four rows. Boxless that read as odd spacing; as boxes it is 500px of
@@ -5941,7 +5953,9 @@
     border:1px solid var(--ctl-border); border-radius:var(--tile-radius);}
   .builder-light .vvcal-open{background:var(--t-tile); border-color:var(--t-tile-rim);}
   .vvcal-open svg{width:17px; height:17px; flex:none; color:var(--cherry-text);}
-  .vvcal-shown.is-empty{color:var(--ctl-placeholder);}
+  /* "Choose a date" is words, so it takes the words' face; a chosen date is
+     a figure and keeps the figures' face from .vvcal-open. */
+  .vvcal-shown.is-empty{color:var(--ctl-text); font-family:var(--text-face); letter-spacing:normal;}
   /* The ring moves to the trigger because the input it belongs to is
      invisible: a keyboard athlete tabbing onto the field would otherwise
      see nothing happen at all. */
@@ -5986,7 +6000,7 @@
      always enforced `min` on Continue; this is the first time the athlete
      can SEE which days are out before tapping one. */
   .vvcal-cell[disabled]{color:var(--ink-quiet); opacity:.32;}
-  .vvcal-cell.is-today{border-color:var(--bronze); color:var(--gold-text);}
+  .vvcal-cell.is-today{border-color:var(--bronze); color:var(--cherry-text);}
   /* The chosen day wears the option grid's own chosen language: cherry and
      the product's cherry glow, not a colour invented for this one control. */
   .vvcal-cell.is-picked{background:var(--cherry-fill); color:var(--cherry-btn-ink);
@@ -6140,7 +6154,7 @@
   #bld-review{ padding:6px 0; }
   .bld-review-hero{text-align:center; padding:16px 0 8px; margin-bottom:2px;}
   .bld-review-hero .d{font-family:var(--label-face); text-transform:uppercase; letter-spacing:var(--label-track); font-size:1.625rem; color:var(--ink); line-height:1.1; font-weight:var(--label-weight);}
-  .bld-review-hero .s{font-family:var(--num-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
+  .bld-review-hero .s{font-family:var(--text-face); font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
   /* ---------- WHAT SACORO UNDERSTANDS, IN THE BUILD'S OWN BOX ----------
      Founder: "Page 11. Put them in the blocks."
      These were flat rows on the card -- a label, a value, and a lot of
@@ -6250,7 +6264,7 @@
   .wc-top-k{font-family:var(--label-face); font-size:var(--label-size); letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--wc-ink);}
   .wc-top-mark{width:21px; height:21px; border-radius:50%; border:1.5px solid var(--gold);
-    color:var(--gold-bright); display:flex; align-items:center; justify-content:center;}
+    color:#FFFFFF; display:flex; align-items:center; justify-content:center;}
   .wc-top-mark svg{width:12px; height:12px;}
   .wc-hero{position:relative; border:1px solid var(--wc-edge); border-radius:14px;
     overflow:hidden; background:#07080C;}
@@ -6272,7 +6286,7 @@
     color:var(--wc-faint); margin:4px 0 10px;}
   .wc-headline{font-family:var(--text-face); font-weight:700; font-size:1.0625rem;
     letter-spacing:.3px; color:var(--wc-ink);}
-  .wc-verdict-word{color:var(--gold-bright);}
+  .wc-verdict-word{color:#FFFFFF;}
   .wc-distance{display:flex; align-items:baseline; justify-content:center; gap:7px; margin:2px 0 8px;}
   .wc-distance span{font-family:var(--text-face); font-weight:700; font-size:2.875rem;
     line-height:1.04; color:var(--wc-ink);}
@@ -6318,7 +6332,7 @@
   .wc-verdict-k{display:flex; align-items:center; gap:8px; margin-bottom:9px;
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
-    text-transform:uppercase; color:var(--gold);}
+    text-transform:uppercase; color:#FFFFFF;}
   .wc-verdict-v{font-family:var(--text-face); font-size:1.0625rem; letter-spacing:.6px;
     color:var(--wc-ink); font-weight:600;}
   .wc-verdict-why{ color:var(--wc-dim); margin-top:9px;}
@@ -6336,7 +6350,7 @@
      it is a drawer that opened, not a second card sitting on the first. */
   .wc .wc-analysis{background:rgba(255,255,255,0.03); border:1px solid rgba(246,242,234,0.12);
     color:var(--wc-ink); border-radius:13px; padding:13px;}
-  .wc .wc-analysis .exec-review-head{color:var(--gold);}
+  .wc .wc-analysis .exec-review-head{color:#FFFFFF;}
   .wc .wc-analysis .cr-k{color:var(--wc-faint);}
   .wc .wc-analysis .cr-v, .wc .wc-analysis .coach-msg-review p{color:var(--wc-dim);}
   /* The drawer is dark in BOTH themes, so every control inside it that reads
@@ -6345,7 +6359,7 @@
      Named individually rather than blanket-inherited, so a control added here
      later is visibly wrong rather than quietly illegible. */
   .wc .wc-analysis .cr-sig-label{color:var(--wc-dim);}
-  .wc .wc-analysis .exec-pill{background:rgba(227,177,90,0.14); color:var(--gold-bright);
+  .wc .wc-analysis .exec-pill{background:rgba(227,177,90,0.14); color:#FFFFFF;
     border:1px solid rgba(227,177,90,0.3);}
   .wc .wc-analysis .cr-cmp{color:var(--wc-dim); border-color:rgba(246,242,234,0.18);}
   .wc .wc-analysis .cr-adjust-line{color:var(--wc-ink);}
@@ -6481,7 +6495,7 @@
      first family back to the document and leaves the second on the fixed dark
      ramp, so --modal-text on this surface is near-black ink on cream. */
   .share-stage{position:relative; display:flex; justify-content:center;
-    background:#0b0907; border:1px solid var(--line); border-radius:14px; padding:10px;}
+    background:#0B0C0F; border:1px solid var(--line); border-radius:14px; padding:10px;}
   .share-canvas{width:auto; height:min(46vh,380px); max-width:100%; border-radius:8px;
     touch-action:pinch-zoom; cursor:grab; display:block;}
   .share-canvas:active{cursor:grabbing;}
@@ -6509,7 +6523,7 @@
     display:flex; flex-direction:column; align-items:center; gap:5px;}
   .share-ov-thumb{width:100%; height:auto; aspect-ratio:var(--share-thumb-ar, 9/16);
     border-radius:7px;
-    display:block; background:#0b0907; border:1.5px solid transparent;}
+    display:block; background:#0B0C0F; border:1.5px solid transparent;}
   /* ---------- A CHOICE ON THIS PAGE IS CHERRY, LIKE EVERY OTHER CHOICE ----------
      Founder: "The share pages need changing. Low R for example when selected
      needs to be the cherry. And the SACORO / my photos. Small same size but
@@ -6601,7 +6615,7 @@
   .modal-card.share-page .share-overlays::-webkit-scrollbar{display:none;}
   .modal-card.share-page .share-ov{flex:0 0 78px; scroll-snap-align:start; min-height:44px;}
   .modal-card.share-page .share-bds{grid-template-columns:repeat(3, minmax(0, 1fr));}
-  /* "Save to device" on one line at 320: the two actions share the foot. */
+  /* "Save to Device" on one line at 320: the two actions share the foot. */
   .modal-card.share-page .share-foot .btn{white-space:nowrap; padding-left:10px; padding-right:10px;}
   /* opacity:.65 stood on every form label in the product, which made each
      one a grey. Founder: "The grey text I'm not keen on. I think white text
@@ -6985,7 +6999,7 @@
   .es-choice-t{font-family:var(--label-face); font-weight:700; font-size:1.0625rem; letter-spacing:.06em;
     text-transform:uppercase; color:#FFFFFF;}
   .es-choice-s{font-size:.8125rem; line-height:1.35; color:#FFFFFF;}
-  .es-choice-c{flex:none; display:flex; color:var(--gold);}
+  .es-choice-c{flex:none; display:flex; color:#FFFFFF;}
   .es-choice-c svg{width:18px; height:18px;}
   /* ---- CHANGE WORKOUT ----
      Text tabs, not pills: the chosen one is underlined in cherry. Four cards,
@@ -7033,7 +7047,8 @@
     border-radius:12px; font-family:var(--num-face); font-size:1.0625rem; color:#FFFFFF; cursor:pointer;
     -webkit-text-fill-color:#FFFFFF; background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.18); box-shadow:none;}
   .wo-own-sum{font-size:.875rem; line-height:1.4; color:#FFFFFF;}
-  .wo-own-sum b{font-family:var(--num-face); font-weight:700;}
+  /* A sentence is set in the sentence's face: bold, not monospace. */
+  .wo-own-sum b{font-weight:700;}
   @media (max-width:360px){ .wo-dose{font-size:.8125rem;} .wo-card{padding:9px 12px;} .wo-own-sub{display:none;} }
   /* ---- RESET IS A BRIGHTER RED ----
      Founder: "rest session is good as it's red danger haha maybe make it a
@@ -7047,7 +7062,7 @@
   .modal-actions .btn{flex:1;}
 
   fieldset{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin:0 0 14px;}
-  legend{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); padding:0 6px; font-weight:var(--label-weight);}
+  legend{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; padding:0 6px; font-weight:var(--label-weight);}
 
   /* ---------- settings extras ---------- */
   /* NO SEPARATOR. A line between two settings is a white separator, which
@@ -7398,12 +7413,12 @@
      one line on every phone and nothing changes. */
   .wk-hero-figs{flex-wrap:wrap; row-gap:4px;}
   .wk-bar-fill{height:100%; border-radius:99px;
-    background:linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-bright));
+    background:linear-gradient(90deg, var(--cherry-fill), var(--cherry), var(--cherry-text));
     /* The second stop matches the cycle's 0%, so the bar does not jump when
        the settle delay elapses -- the same rule the two rings follow. */
-    box-shadow:0 0 10px rgba(227,177,90,.34),
-               0 0 28px rgba(227,177,90,.18),
-               0 0 48px rgba(227,177,90,.10);}
+    box-shadow:0 0 10px rgba(154,84,108,.34),
+               0 0 28px rgba(154,84,108,.18),
+               0 0 48px rgba(154,84,108,.10);}
   /* The cherry hairline that sat here is gone. It was the one coloured rule
      on the screen, directly under the gold progress bar, and it separated
      the week's figures from the week's note -- two parts of the same hero
@@ -7550,7 +7565,7 @@
     background:var(--t-tile); color:var(--ink-dim); padding:0;
     transition:border-color .18s, color .18s, box-shadow .18s, background .18s;
   }
-  .wk-day-d{font-size:.625rem; letter-spacing:.04em;}
+  .wk-day-d{font-size:.6875rem; letter-spacing:.04em;}
   .wk-day-n{font-size:1rem; font-weight:600; font-variant-numeric:tabular-nums;
     color:var(--ink); line-height:1;}
   /* ---------- DONE AND MISSED ARE ONE PAIR ----------
@@ -7703,7 +7718,7 @@
   .wk-session-badges{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;}
   .wk-badge{font-size:.625rem; letter-spacing:.05em; padding:3px 9px; border-radius:99px;
     background:var(--bg-4); color:var(--ink-dim);}
-  .wk-badge.is-today{background:var(--gold); color:#20180A; font-weight:600;}
+  .wk-badge.is-today{background:var(--cherry-fill); color:#FFFFFF; font-weight:600;}
   .wk-badge.is-done{background:rgba(122,160,110,.18); color:#9BC08C;}
   /* Box 2 reused Today's hero markup and opted into a HANDFUL of Today's
      hero rules -- a flex row, a 21px title, a ring that would not stretch.
@@ -8102,7 +8117,7 @@
      carried part of it. */
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today .pw-date,
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today .pw-dow{
-    color:var(--gold-bright);}
+    color:var(--cherry-text);}
   /* ...and so are the panels either side of them. Scoped to the plan views
      and never to bare .hub-card, which Today and Sacoro also use. */
   /* The ground, the rim and the radius went; the INSET they justified did
@@ -8438,7 +8453,7 @@
   /* chevronRight turned around rather than a second arrow glyph added. */
   .pv-back{flex:none; width:var(--tap-min); height:var(--tap-min); border-radius:50%;
     display:inline-flex; align-items:center; justify-content:center;
-    background:var(--t-tile); border:1px solid var(--t-tile-rim); color:var(--gold);
+    background:var(--t-tile); border:1px solid var(--t-tile-rim); color:#FFFFFF;
     transform:scaleX(-1);}
   .pv-back svg{width:20px; height:20px;}
   /* ---------- THE BACK ARROW IS GLASS TOO ----------
@@ -8512,7 +8527,7 @@
   .pw-chev svg{width:19px; height:19px;}
   .pw-row.is-today{border-color:var(--gold);
     box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 22%, transparent);}
-  .pw-row.is-today .pw-dow{color:var(--gold-bright);}
+  .pw-row.is-today .pw-dow{color:var(--cherry-text);}
   .view-plan-week .zone-card{margin:2px 0 0;}
 
   /* ---------- THE LAST WORD ON PLAN BOXES, AND DELIBERATELY LAST ----------
@@ -8676,14 +8691,14 @@
   }
   .bn-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0;
-    padding:7px 1px; font-family:var(--label-face); font-size:.53125rem;
+    padding:7px 1px; font-family:var(--label-face); font-size:.6875rem;
     text-transform:uppercase; letter-spacing:var(--label-track); background:none; border-radius:0;
     transition:color .2s, text-shadow .2s, font-weight .2s;
     /* CRISP MEANS THE TIGHT LAYER DOES THE WORK. Pure white at full
        strength, and a 1px halo to set the glyph off the ground before any
        wide light is added -- the wide layer alone at this size stops
        reading as glow and starts reading as a blurred label. Same structure
-       as the hero distance, radii scaled to 8.5px type. */
+       as the hero distance, radii scaled to the 11px label minimum. */
     color:#FFFFFF; font-weight:var(--label-weight);
     text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
   }
@@ -8978,7 +8993,7 @@
      the checkpoint is settled -- .cp-done otherwise just dims a line of
      text. The rule below stays for it. */
   .coach-next-head svg{width:15px; height:15px; flex:none; color:var(--gold);}
-  .coach-next-title{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
+  .coach-next-title{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; font-weight:var(--label-weight);}
   .coach-next-session{font-size:var(--fs-body); color:var(--ink); line-height:var(--lh-body); margin-bottom:6px; overflow-wrap:anywhere;}
   .coach-next-rec{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
@@ -8993,7 +9008,7 @@
      adjustment is awaiting a tap (gold, active); a decided one is a record of
      what happened (muted, no action attached to it). */
   .coach-decision-flag{font-family:var(--label-face); font-size:.59375rem; letter-spacing:var(--label-track); text-transform:uppercase; display:block; margin-bottom:5px; font-weight:var(--label-weight);}
-  .coach-decision-flag.pending{color:var(--gold-text);}
+  .coach-decision-flag.pending{color:var(--cherry-text);}
   .coach-decision-flag.settled{color:var(--ink-faint);}
   /* ---------- decision state ----------
      Built on the same pill geometry as .day-badge and coloured from the
@@ -9053,8 +9068,8 @@
     content:''; position:absolute; left:0; right:0;
     top:50%; height:44px; transform:translateY(-50%);
     pointer-events:auto;}
-  .coach-why-btn:focus-visible{color:var(--bronze);}
-  @media (hover:hover){ .coach-why-btn:hover{color:var(--bronze);} }
+  .coach-why-btn:focus-visible{color:var(--cherry-text);}
+  @media (hover:hover){ .coach-why-btn:hover{color:var(--cherry-text);} }
   .coach-why-list{
     margin:8px 0 0; padding:9px 11px 9px 26px; list-style:disc;
     background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);
@@ -9065,12 +9080,12 @@
   /* PROGRESS: quietly confident, not an achievement badge. The same bronze
      already used for a Key session and for .evo-k's own section labels --
      no new colour, border/text only, nothing animated. */
-  .evo-link.is-progress{color:var(--bronze-text);}
-  .evo-link.is-progress:focus-visible{color:var(--bronze);}
-  @media (hover:hover){ .evo-link.is-progress:hover{color:var(--bronze);} }
+  .evo-link.is-progress{color:#FFFFFF;}
+  .evo-link.is-progress:focus-visible{color:var(--cherry-text);}
+  @media (hover:hover){ .evo-link.is-progress:hover{color:var(--cherry-text);} }
   .evo-panel{margin-top:9px; padding:10px 11px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .evo-sec + .evo-sec{margin-top:9px;}
-  .evo-k{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px; font-weight:var(--label-weight);}
+  .evo-k{font-family:var(--label-face); font-size:.5625rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-bottom:3px; font-weight:var(--label-weight);}
   .evo-v{ color:var(--ink-dim); overflow-wrap:anywhere;}
   .evo-list{margin:0; padding-left:17px; list-style:disc;}
   .evo-list li{ color:var(--ink); margin:2px 0; overflow-wrap:anywhere;}
@@ -9249,7 +9264,7 @@
   /* A PLACEHOLDER YOU CAN READ. They were the dimmest thing on the form and
      were being asked to do a label's job. The labels do that now; the
      example under them is white, set back, and still plainly not a value. */
-  .log-body input::placeholder, .log-body textarea::placeholder{color:#FFFFFF; opacity:.6;}
+  .log-body input::placeholder, .log-body textarea::placeholder{color:#FFFFFF; opacity:1;}
   .yl .opt-grid{margin-top:10px;}
   /* EACH REP: four to a row, a number over a word. The same tile as every
      other choice on the log -- same rim, same cherry when chosen -- at the
@@ -9529,7 +9544,7 @@
   }
   .outlook-title{
     font-family:var(--label-face); font-size:.625rem; letter-spacing:var(--label-track);
-    text-transform:uppercase; color:var(--bronze-text); font-weight:var(--label-weight);}
+    text-transform:uppercase; color:#FFFFFF; font-weight:var(--label-weight);}
   .outlook-dist{font-size:.65625rem; color:var(--ink-faint); text-align:right;}
   .outlook-track{
     position:relative; height:12px; border-radius:99px; background:var(--bg-3);
@@ -9925,7 +9940,7 @@
      picker. */
   .tw-field{cursor:pointer; caret-color:transparent;}
   .tw-layer{position:fixed; inset:0; z-index:140; display:flex; align-items:flex-end; justify-content:center;
-    background:rgba(10,8,6,.55); animation:fadein .2s ease;}
+    background:rgba(8,8,11,.55); animation:fadein .2s ease;}
   .tw-sheet{width:100%; max-width:560px; box-sizing:border-box; padding:0 20px calc(18px + env(safe-area-inset-bottom, 0px));
     color:#FFFFFF; border-radius:24px 24px 0 0; border:1px solid rgba(255,255,255,.14); border-bottom:0;
     background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%), rgba(16,16,20,.86);
@@ -11184,11 +11199,22 @@
      AND NO BOX INSIDE IT. "There should be no raised black boxes." The
      proposal on Plan Evolution sat in a filled, bordered tile within the
      card; on a page it is just the next section. */
-  .modal-overlay:has(> .hq-full){align-items:stretch; padding:0;}
+  /* ---------- AND NOW A TALL GLASS SHEET, NOT A PAGE ----------
+     Founder (Audit III, visual consistency): the full-screen pages become
+     the glass bottom sheet every other surface uses. It rises from the
+     bottom and stops short of the status bar, so the app shows above it and
+     nothing ever runs under the clock; the type scale above is unchanged.
+     A Coach panel keeps its own colour as the sheet's rim. */
+  .modal-overlay:has(> .hq-full){align-items:flex-end; padding:0;}
   .modal-overlay:has(> .hq-full) > .hq-full{
-    width:100%; max-width:560px; height:100%; max-height:none; margin:0 auto;
-    border:0; border-radius:0; box-shadow:none;
-    padding:env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+    width:100%; max-width:560px; height:auto;
+    max-height:calc(100% - env(safe-area-inset-top, 0px) - 28px); margin:0 auto;
+    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%), rgba(16,16,20,.88);
+    -webkit-backdrop-filter:blur(22px) saturate(150%); backdrop-filter:blur(22px) saturate(150%);
+    border:1.5px solid color-mix(in srgb, var(--rp-accent, #FFFFFF) 55%, transparent); border-bottom:0;
+    border-radius:24px 24px 0 0;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 -12px 40px rgba(0,0,0,.5);
+    padding:0 0 env(safe-area-inset-bottom, 0px);
     --fs-label:.875rem; --fs-support:1.0625rem; --fs-panel-row:1.1875rem;
     --fs-body:1.25rem; --lh-body:1.45; --lh-support:1.5;}
   .hq-full .modal-head{padding:26px 24px 8px; align-items:flex-start; gap:14px;}
@@ -11488,7 +11514,7 @@
   }
   .goal-input-row input::placeholder{font-size:.9375rem; font-weight:400;}
 
-  .setup-section-title{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  .setup-section-title{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin:16px 0 8px;}
   /* The opt-in white, for the surfaces the founder has taken the gold off
      one at a time. .bld-panel below does it by scope; this is for the ones
      that are a single heading rather than a whole screen. */
@@ -11702,7 +11728,7 @@
     outline:2px solid var(--cherry); outline-offset:2px;}
   .wd-initial{font-family:var(--text-face); font-size:.9375rem; font-weight:600;
     line-height:1; color:var(--ink-faint); transition:color .15s;}
-  .wd-name{font-family:var(--text-face); font-size:.59375rem; color:var(--ink-faint);
+  .wd-name{font-family:var(--text-face); font-size:.6875rem; color:var(--ink-faint);
     text-transform:uppercase; letter-spacing:.04em; transition:color .15s;}
   /* ---------- AND THEY ARE GLASS, AS THE WEEK'S DAYS ARE NOW ----------
      Founder: "match please". The week view's days took the completion
@@ -12118,14 +12144,19 @@
   .btn.btn-primary svg, .btn-primary svg{color:#FFFFFF;}
   .btn.btn-primary:disabled, .btn-primary:disabled{opacity:.55; box-shadow:var(--glass-rim) !important;}
   @media (hover:hover){ .btn.btn-primary:hover, .btn-primary:hover{box-shadow:var(--glass-rim), 0 0 22px var(--cherry-dim) !important;} }
-  /* THE ROUND GLASS X, THROUGHOUT. Every close keeps its own ring colour;
-     the ground under it is the glass disc everywhere, the photographed
-     decision card included. */
-  :is(.modal-card, .tw-sheet, .modal-overlay, body) .icon-btn[aria-label="Close"]{
+  /* THE ROUND GLASS X, THROUGHOUT, AND ONE OF IT. The audit counted four:
+     white glass on the sheets, cherry-ringed on the builder, Injury, Share
+     and Re-calibrate, teal on Recovery & Fatigue and green on Activity
+     History. Founder: keep the Coach panels' own tint, but one glass X. So
+     the ring and the cross are white glass everywhere; a panel's colour is
+     carried by the panel, not by the control that closes it. */
+  :is(.modal-card, .tw-sheet, .modal-overlay, body) .icon-btn[aria-label^="Close"]{
     background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.03) 60%), var(--glass-tint) !important;
     -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 6px rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.2) !important; color:#FFFFFF !important;
   }
+  :is(.modal-card, .tw-sheet, .modal-overlay, body) .icon-btn[aria-label^="Close"] svg{color:#FFFFFF; stroke:currentColor;}
   /* THE ADJUSTMENT BOX IS GLASS (founder, 15 November 2026, of the Execution
      Review's "Suggested: run ... easy instead" with Accept Adjustment and Keep
      Original): the same glass as the Coach plates, its own border kept, and
@@ -12154,6 +12185,20 @@
      inside fixed day circles (M T W), which are glyph labels in a circle
      that cannot grow. Stated once, last, so it outranks each rule it
      raises without editing their measured notes. */
+  /* ---------- NO PILLS ----------
+     Founder's rule: no pills. A control or a badge is a box with softened
+     corners, never a capsule. The action buttons (Hear Today and the glass
+     primaries) are the one shape this does not touch: that is the approved
+     action style. Bars and dots are drawn shapes, not controls. */
+  .tb-unit-toggle, .unit-toggle, .share-seg{border-radius:var(--radius-sm) !important;}
+  .tb-unit-toggle button, .unit-toggle button, .share-seg button{border-radius:calc(var(--radius-sm) - 3px) !important;}
+  .day-badge, .wk-badge, .status-pill, .sub-pill, .stg-pill, .yr-lead-pill, .exec-pill, .cp-tag, .pzr-tag, .note-chip, .ask-chip, .coach-state, .week-today-flag{border-radius:5px !important;}
+  .yl-yn-b, .readiness-btn, .readiness-opts button{border-radius:var(--radius-sm) !important;}
+  /* WHITE WORDS ON EVERY DAY BADGE. The box keeps its session type's tint, so
+     a Tempo still reads as a Tempo; the lettering is white, because gold
+     lettering is for the brand and for milestones, and an amber or bronze
+     label read as gold. */
+  .day-badge[class*="type-"]{color:#FFFFFF;}
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -24953,7 +24998,7 @@ function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary
   if (hasGoalSegment && goalSegKm>0){
     if (structure === 'insert'){
       var insFlankT = round1(Math.max(0, km - goalSegKm) / 2);
-      return { title:'Long Run + Goal-Pace Insert', type:'long', mpSegment:true,
+      return { title:'Long Run with Goal-Pace Insert', type:'long', mpSegment:true,
         desc: dtok(insFlankT)+' @ Easy pace, '+dtok(goalSegKm)+' @ Goal Pace, '+dtok(insFlankT)+' @ Easy pace to close.'+note };
     }
     if (structure === 'broken'){
@@ -24961,7 +25006,7 @@ function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary
       var brSegKm = (structParams && structParams.segKm) || round1(goalSegKm / brN);
       var brRecTotalT = LONG_RUN_BROKEN_RECOVERY_KM * (brN - 1);
       var brFlankT = round1(Math.max(0, km - brSegKm * brN - brRecTotalT) / 2);
-      return { title:'Long Run + Broken Goal Pace ('+brN+'x'+brSegKm+'km)', type:'long', mpSegment:true,
+      return { title:'Long Run with Broken Goal Pace ('+brN+'x'+brSegKm+'km)', type:'long', mpSegment:true,
         desc: dtok(brFlankT)+' @ Easy pace, then '+brN+' x '+dtok(brSegKm)+' @ Goal Pace with '+
               dtok(LONG_RUN_BROKEN_RECOVERY_KM)+' @ Easy pace between, '+dtok(brFlankT)+' @ Easy pace to close.'+note };
     }
@@ -24971,7 +25016,7 @@ function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary
         desc: dtok(prEasyT)+' @ Easy pace, '+dtok(PROGRESSIVE_BUILDING_KM)+' building toward Goal Pace, then '+
               dtok(goalSegKm)+' @ Goal Pace to the finish.'+note };
     }
-    return { title:'Long Run + Goal Pace', type:'long', mpSegment:true,
+    return { title:'Long Run with Goal Pace', type:'long', mpSegment:true,
       desc: dtok(km)+' @ Easy pace, last '+dtok(goalSegKm)+' @ Goal Pace.'+note };
   }
   var s = LONG_RUN_SHAPES[shape] || LONG_RUN_SHAPES.steady;
@@ -27452,7 +27497,7 @@ function addDevelopingMarathonStrides(days, weeks, blockResult){
       return dd.type === 'easy' && dd.km > 0 && !dd.completed && !dd.manualEdit && i !== longIdx - 1; })[0] ||
       list.filter(function(dd){ return dd.type === 'easy' && dd.km > 0 && !dd.completed && !dd.manualEdit; })[0];
     if (!pick || (pick.desc || '').indexOf('strides') !== -1) return;
-    pick.title = 'Easy Aerobic + Strides';
+    pick.title = 'Easy Aerobic with Strides';
     pick.desc = (pick.desc || easyRunText(pick.km).desc) + BASE_STRIDES_NOTE;
     pick.baseStrides = true;
     if (+w >= BASE_HILLS_FROM_WEEK) pick.baseHillCandidate = true;
@@ -30163,8 +30208,8 @@ function nativeSaveBinaryFile(o){
 /* ---- SAVE TO PHOTOS, WHICH MUST ACTUALLY SAVE TO PHOTOS ----
    The share path writes the PNG into the app's own CACHE and hands it to the
    system sheet. That is the right thing for "Share" and the WRONG thing for
-   "Save to photos": the file lands nowhere the athlete can find, and the OS
-   may reclaim it. A button labelled "Save to photos" that opens a share sheet
+   "Save to Photos": the file lands nowhere the athlete can find, and the OS
+   may reclaim it. A button labelled "Save to Photos" that opens a share sheet
    is a renamed action, not the action.
 
    @capacitor-community/media writes to the device photo library proper.
@@ -30179,14 +30224,14 @@ function nativeSaveBinaryFile(o){
    device's photos proper; in a native shell too old to carry the plugin the
    save is refused outright; in a browser it is an ordinary download to
    wherever that browser puts files.
-   "Save to photos" is the better of the two labels where it is TRUE -- it
+   "Save to Photos" is the better of the two labels where it is TRUE -- it
    tells the athlete exactly where to go and find the image -- so it is kept
    for that case and only that case. Everywhere else the honest word is the
    device, which is where the file does land. The button cannot promise an
    album the shell it is running in has no way to reach. */
 function saveImageLabel(){
   var Media = nativePlugin('Media');
-  return (Media && Media.savePhoto) ? 'Save to photos' : 'Save to device';
+  return (Media && Media.savePhoto) ? 'Save to Photos' : 'Save to Device';
 }
 /* ---------- THE ALBUM ANDROID INSISTS ON ----------
    Founder: "Save to photos says can't save to photos try again every time."
@@ -31912,11 +31957,18 @@ function dashToPlain(text, inTitle){
   return text.replace(/\s+\u2014\s+([a-z])?/g, function(m, c){ return '. ' + (c ? c.toUpperCase() : ''); })
              .replace(/\s*\u2014\s*/g, ', ');
 }
+/* AND ITS PLUS SIGNS. Symbols are @ & / only, so "Long Run + Goal Pace" is
+   now built as "Long Run with Goal Pace"; a plan saved before that is renamed
+   on load the same way, title only, and idempotently. */
+function plusToWith(title){
+  if (typeof title !== 'string' || title.indexOf(' + ') === -1) return title;
+  return title.replace(/\s+\+\s+/g, ' with ');
+}
 function migrateDashCopy(st){
   if (!st || !Array.isArray(st.days)) return;
   st.days.forEach(function(dd){
     if (!dd) return;
-    if (typeof dd.title === 'string') dd.title = dashToPlain(dd.title, true);
+    if (typeof dd.title === 'string') dd.title = plusToWith(dashToPlain(dd.title, true));
     if (typeof dd.desc === 'string') dd.desc = dashToPlain(dd.desc, false);
   });
 }
@@ -33011,11 +33063,12 @@ function renderTopbar(){
 
   if (!state.setup){
     // Onboarding only (before the bottom nav / five main tabs exist): the
-    // shield settings shortcut on the left. The right slot held the theme
+    // settings shortcut on the left. It is the tab bar's sliders, not the
+    // old shield, which read as privacy: one icon means Settings everywhere. The right slot held the theme
     // toggle and is now deliberately empty rather than refilled -- it keeps
     // the wordmark centred on the same three-slot grid every other bar uses.
     // KM/MI is chosen inside the setup modal instead (see #su-units).
-    var left = '<button class="icon-btn" type="button" data-action="open-settings" aria-label="Settings">'+ICONS.shieldmark+'</button>';
+    var left = '<button class="icon-btn" type="button" data-action="open-settings" aria-label="Settings">'+ICONS.settings+'</button>';
     var inner = '<div class="topbar-inner">'+
       '<div class="tb-slot-left">'+left+'</div>'+
       '<div class="tb-slot-center">'+titleHtml+'</div>'+
@@ -33572,7 +33625,7 @@ function renderZonePacesCard(inPanel){
     (inPanel ? '' : '<div class="zpc-head"><span class="font-head">Training Zone Paces</span></div>')+
     '<div class="field-hint" style="margin-bottom:10px;">Edit any pace by hand to fine-tune it. Edits stick until reset or re-calibrated from a new goal/benchmark.'+hrHint+'</div>'+
     rows+
-    (anyOverride ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px;" data-action="reset-pace-overrides">'+ICONS.zap+' Reset to Calculated Paces</button>' : '')+
+    (anyOverride ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px;" data-action="reset-pace-overrides">Reset to Calculated Paces</button>' : '')+
   '</div>';
 }
 function handlePaceOverrideChange(zone){
@@ -41183,8 +41236,11 @@ function segKmToDisplay(km){
    `bare` is a row under a heading that already names it, so the name is
    not printed twice. `quiet` is a row in a list whose two labels are
    printed once above it; the inputs keep their own aria-labels. */
+/* A HINT, NOT A NUMBER. "2.0 km", "5:00 /km" and "155 bpm" in an empty
+   field read as values the athlete had already logged. The field now names
+   what goes in it, in words, never a bare unit: "in km", "per km", "bpm". */
 function logPaceExample(){
-  return (displayUnit() === 'mi' ? '8:00' : '5:00') + ' /' + displayUnit();
+  return 'per ' + displayUnit();
 }
 function renderStructuredRow(dd, row, bare, quiet){
   var s = structuredSplitFor(dd, row.segId) || {};
@@ -41198,7 +41254,7 @@ function renderStructuredRow(dd, row, bare, quiet){
   var ownKm = (s.km != null && (s.kmEntered || !s.secSeeded)) ? kmToDisplay(s.km) : '';
   var inputs = field(' slog-f-km', 'Distance',
     '<input type="number" step="0.01" min="0" inputmode="decimal" class="slog-in slog-km" '+
-      'placeholder="'+(unit === 'mi' ? '1.2 mi' : '2.0 km')+'" '+
+      'placeholder="in '+unit+'" '+
       'aria-label="'+escapeHtml(row.label)+' distance in '+unit+'" '+
       'value="'+ownKm+'" data-action="slog-field" data-field="km" '+
       'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">');
@@ -41213,7 +41269,7 @@ function renderStructuredRow(dd, row, bare, quiet){
       'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">');
   if (healthConsentGranted())
     inputs += field(' slog-f-hr', 'Avg HR',
-      '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="155 bpm" '+
+      '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="bpm" '+
       'aria-label="'+escapeHtml(row.label)+' average heart rate" '+
       'value="'+(s.hr!=null?s.hr:'')+'" data-action="slog-field" data-field="hr" '+
       'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">');
@@ -42043,7 +42099,9 @@ function fmtShareDuration(sec){
 var SHARE_THEME = {
   gold:'#E3B15A', goldBright:'#F5D061', goldDeep:'#8A6D2B',
   ink:'#FFFFFF', panel:'rgba(10,12,16,0.62)', panelEdge:'rgba(227,177,90,0.55)',
-  head:"'Cinzel',serif", body:"'Inter',sans-serif", numeral:"'Oswald',sans-serif"
+  /* The card's words take the app's words face (Oswald, --text-face), so a
+     shared picture reads as SACORO rather than as a plain sans. */
+  head:"'Cinzel',serif", body:"'Oswald',sans-serif", numeral:"'Oswald',sans-serif"
 };
 var SHARE_SIZES = {
   story: { w:1080, h:1920, square:false, label:'Story' },
@@ -42064,8 +42122,8 @@ var SHARE_BACKDROPS = [
 function shareFontsReady(){
   if (!document.fonts || !document.fonts.load) return Promise.resolve();
   return Promise.all([
-    document.fonts.load("700 120px 'Oswald'"), document.fonts.load("700 60px 'Inter'"),
-    document.fonts.load("500 40px 'Inter'"),  document.fonts.load("600 56px 'Cinzel'")
+    document.fonts.load("700 120px 'Oswald'"), document.fonts.load("600 60px 'Oswald'"),
+    document.fonts.load("500 40px 'Oswald'"),  document.fonts.load("600 56px 'Cinzel'")
   ]).catch(function(){ /* a fallback face is better than no card */ });
 }
 /* ---- NO EMBLEM ON A SHARE IMAGE ----
@@ -42705,11 +42763,12 @@ function shareComposerHtml(){
     '</div>'+
     /* Pinned at the foot like every full page's actions, so the picture can
        be judged and sent without scrolling back down to find the button. */
+    /* Primary on the right, as every other pair in the product. */
     '<div class="page-foot share-foot">'+
-      '<button type="button" class="btn btn-primary" data-action="share-export" data-mode="share">'+
-        'Share</button>'+
       '<button type="button" class="btn btn-ghost" data-action="share-export" data-mode="save">'+
         escapeHtml(saveImageLabel())+'</button>'+
+      '<button type="button" class="btn btn-primary" data-action="share-export" data-mode="share">'+
+        'Share</button>'+
     '</div>';
 }
 function shareWithheldPhrase(list){
@@ -57320,7 +57379,7 @@ function renderCheckpointIntervention(){
         'data-action="checkpoint-accept" data-goal="'+a.recommend+'">Step up to Goal '+a.recommend+'</button>';
   } else {
     actions = '<button type="button" class="btn btn-primary btn-block" '+
-      'data-action="checkpoint-decline">Got it</button>';
+      'data-action="checkpoint-decline">Got It</button>';
   }
 
   return '<div class="hub-card yr-outcome cp-card">'+
@@ -57692,7 +57751,7 @@ function renderWelcomeCard(){
     '<div class="welcome-say">Your first run is '+escapeHtml(when)+': '+escapeHtml(name)+
       (first.km ? ', '+escapeHtml(fmtDist(first.km)) : '')+'. Week 1 starts gently on purpose. '+
       'Log each run and SACORO learns how you respond.</div>'+
-    '<button type="button" class="btn btn-primary welcome-ok" data-action="welcome-ack">Got it</button>'+
+    '<button type="button" class="btn btn-primary welcome-ok" data-action="welcome-ack">Got It</button>'+
   '</div>';
 }
 function handleWelcomeAck(){
@@ -58461,7 +58520,7 @@ function renderContextInsight(ins){
     '<div class="modal-body ci-body">'+
       ins.paras.map(function(t){ return '<p class="ci-para">'+escapeHtml(t)+'</p>'; }).join('')+
       '<div class="modal-actions">'+
-        '<button type="button" class="btn btn-primary" data-action="insight-ack">Got it</button>'+
+        '<button type="button" class="btn btn-primary" data-action="insight-ack">Got It</button>'+
       '</div>'+
     '</div>';
 }
@@ -58957,7 +59016,7 @@ function handleStartBlock(purpose, weeks, confirmed){
     askSacoro({ title:'Start a New Block', say:'Start your ' + label + ' block?',
       hint:'Your completed training is kept as history and everything SACORO has learned about you '+
         'carries over. Only the remaining schedule is replaced.',
-      yes:'Start block', no:'Not now',
+      yes:'Start Block', no:'Not Now',
       onYes:function(){ handleStartBlock(purpose, weeks, true); } });
     return;
   }
@@ -59122,7 +59181,7 @@ function renderTodayProposal(dd, where){
         (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Accept</button>'+
       '<button type="button" class="btn btn-ghost" data-action="decline-evolution"'+
         ' data-source="'+(ev.playbook ? 'playbook' : 'evolution')+'"'+
-        (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Keep my plan</button>'+
+        (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Keep My Plan</button>'+
     '</div>'+
     '<button type="button" class="today-proposal-more" data-action="open-reading" data-reading="evolution">Full explanation</button>'+
   '</div>';
@@ -61356,7 +61415,11 @@ function openRaceGoalPreparationModal(adm, distanceKey){
                shortfallKm:d.shortfallKm, met:!!d.met }; }),
     recordedAt: new Date().toISOString()
   };
-  openModal(raceGoalPreparationHtml(adm, distanceKey), 'modal-decision');
+  /* THE GLASS SHEET, WITH ITS PHOTOGRAPH. The decision keeps the mountain
+     over its title, and is otherwise the sheet every other offer is: glass,
+     the one X, and its two answers side by side with the recommendation on
+     the right. */
+  openModal(raceGoalPreparationHtml(adm, distanceKey), 'modal-decision stg-sheet prep-sheet');
 }
 /* ---- A SACORO COACHING DECISION, NOT AN ERROR ---- HQ RULING.
    The athlete is not being refused and nothing has gone wrong: C3/C4 have
@@ -61407,12 +61470,12 @@ function raceGoalPreparationHtml(adm, distanceKey){
         '<div class="decision-rec-body">' + weeks + ' weeks to develop aerobic durability, '+
           'consistency and weekly running capacity.</div>'+
       '</div>'+
-      '<div class="yr-choices">'+
-        '<button type="button" class="btn btn-primary btn-block" data-action="prep-route" '+
+      '<div class="stg-sheet-acts">'+
+        '<button type="button" class="btn btn-ghost" data-action="prep-continue">'+
+          'Continue ' + escapeHtml(lbl) + '</button>'+
+        '<button type="button" class="btn btn-primary" data-action="prep-route" '+
           'data-purpose="' + escapeHtml(purpose) + '" data-weeks="' + weeks + '">Build ' +
           escapeHtml(purposeLabel) + '</button>'+
-        '<button type="button" class="btn btn-ghost btn-block" data-action="prep-continue">'+
-          'Continue ' + escapeHtml(lbl) + '</button>'+
       '</div>'+
       '<div class="yr-foot">Continue and SACORO will build the safest useful ' +
         escapeHtml(lbl) + ' programme from where you are, and take your preparation as '+
@@ -62296,7 +62359,7 @@ function openSetupModal(){
       stageHead(9)+
       '<div class="setup-section-title">Goal A / B / C for the distance you picked</div>'+
       '<p class="bld-lede">Every training pace is built from whichever goal is active. Toggle the Active Goal any time afterwards and every workout pace updates instantly.</p>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">Suggest Goals From Benchmark</button>'+
       '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
       navBtns(9)+
     '</section>'+
@@ -63350,12 +63413,20 @@ function openRecalibrateModal(){
   '<div class="modal-body">'+
     '<div class="field-hint" style="margin-bottom:12px;">Fitness changes over a block. Update your benchmark or goal times here any time. Your schedule, dates and logged history stay exactly as they are; only your target paces move.</div>'+
     '<div class="setup-section-title">Current Benchmark</div>'+
-    '<div class="benchmark-row">'+
-      '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="rc-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
-      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="rc-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
+    '<div class="rc-bench">'+
+      /* THE BUILDER'S OWN 5K / 10K BOXES, not a native drop-down: the same
+         glass choice the athlete made the first time, mirrored into the same
+         select the save path has always read. */
+      '<div class="field" style="margin-bottom:0;"><label>Distance</label>'+
+        '<div class="opt-grid rc-dist-grid" data-mirror="rc-bench-dist" role="group" aria-label="Benchmark distance">'+
+          '<button type="button" data-v="5k" class="'+(benchDist==='5k'?'active':'')+'">5K</button>'+
+          '<button type="button" data-v="10k" class="'+(benchDist==='10k'?'active':'')+'">10K</button>'+
+        '</div>'+
+        '<select id="rc-bench-dist" class="bld-mirror" tabindex="-1" aria-hidden="true"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
+      '<div class="field" style="margin:12px 0 0;"><label>Time</label><input type="text" id="rc-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
     '</div>'+
     '<div class="field-hint">Tap the time to set it.</div>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">Suggest Goals From Benchmark</button>'+
     '<div class="setup-section-title">'+escapeHtml(profile.label)+' Goals</div>'+
     goalRows+
   '</div>'+
@@ -63373,6 +63444,11 @@ function openRecalibrateModal(){
      for (see its own long rationale comment near the builder). Purely
      positional -- no change to what the modal contains or does. */
   openModal(html, 'modal-themed builder-light '+STG_PAGE);
+  var rcGrid = document.querySelector && document.querySelector('.rc-dist-grid');
+  if (rcGrid) rcGrid.addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-v]');
+    if (btn) bldMirrorPick(rcGrid, btn);
+  });
 }
 function handleRecalibrateSuggest(){
   var benchDist = document.getElementById('rc-bench-dist').value;
@@ -65026,7 +65102,7 @@ function wkOption(dd, id, purpose){
        (addDevelopingMarathonStrides): still an easy day. The easy_strides
        archetype is the race-week sharpener and is typed as quality. */
     o.dose = fmtDist(km) + ' easy, then 6 x 100m strides';
-    o.apply = { type:'easy', title:'Easy Aerobic + Strides', km:km,
+    o.apply = { type:'easy', title:'Easy Aerobic with Strides', km:km,
       desc:easyRunText(km).desc + BASE_STRIDES_NOTE,
       prescription:{ v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:km },
                      athleteModified:true, derivedFrom:from } };
@@ -65516,7 +65592,7 @@ function handleResetPlan(){
   if (!confirmed){
     askSacoro({ title:'Clear Your Plan', say:'Clear your plan and schedule?',
       hint:'Your logged runs and everything SACORO has learned about your training are kept.',
-      yes:'Clear my plan', no:'Keep my plan',
+      yes:'Clear My Plan', no:'Keep My Plan',
       onYes:function(){ resetPlanConfirmedOnPage = true; handleResetPlan(); } });
     return;
   }
@@ -66172,7 +66248,7 @@ function optionalRunFormHtml(dd){
       '<button type="button" class="btn btn-sm" data-action="optional-run-save" '+
         'data-day="'+dd.id+'"'+(ready?'':' disabled')+'>Save run</button>'+
       '<button type="button" class="optional-skip" data-action="optional-run-log" '+
-        'data-day="'+dd.id+'">'+(logged ? 'Cancel' : 'Not now')+'</button>'+
+        'data-day="'+dd.id+'">'+(logged ? 'Cancel' : 'Not Now')+'</button>'+
     '</div>'+
     (ready ? '' : '<div class="optional-note">Add a distance to save it.</div>');
 }
@@ -71974,7 +72050,7 @@ function swapWouldPlaceCompletionInFuture(a, b){
    athlete did not mean to make. */
 /* THE QUESTIONS A SWAP CAN RAISE, in the order they are asked: whether a
    logged run moves (data integrity), then whether it stacks two hard days
-   (training quality). Each is a glass sheet; one "Keep as is" stops it. */
+   (training quality). Each is a glass sheet; one "Keep As Is" stops it. */
 function swapLoggedQuestion(a, b){
   var logged = [a, b].filter(function(d){ return d.completed; });
   if (!logged.length) return null;
@@ -71993,7 +72069,7 @@ function askSwapThen(a, b, go, stop){
   var qs = [swapLoggedQuestion(a, b), swapSpacingQuestion(a, b)].filter(Boolean);
   (function next(i){
     if (i >= qs.length){ go(); return; }
-    askSacoro({ title:'Swap Sessions', say:qs[i].say, hint:qs[i].hint, yes:'Swap anyway', no:'Keep as is',
+    askSacoro({ title:'Swap Sessions', say:qs[i].say, hint:qs[i].hint, yes:'Swap Anyway', no:'Keep As Is',
       onYes:function(){ next(i + 1); }, onNo:stop });
   })(0);
 }
@@ -77059,8 +77135,8 @@ function settingsPanelReset(){
     (resetPlanArmed ? '<div class="stg-ask" role="status">Clear your plan and schedule now?</div>' : ''),
     null,
     resetPlanArmed
-      ? '<button type="button" class="btn btn-ghost" data-action="reset-plan-keep">Keep my plan</button>'+
-        '<button type="button" class="btn btn-primary" data-action="reset-plan-confirm">Clear my plan</button>'
+      ? '<button type="button" class="btn btn-ghost" data-action="reset-plan-keep">Keep My Plan</button>'+
+        '<button type="button" class="btn btn-primary" data-action="reset-plan-confirm">Clear My Plan</button>'
       : '<button type="button" class="btn btn-ghost" data-action="reset-plan">Reset Plan and Start Over</button>');
 }
 function handleResetPlanArm(on){
@@ -77548,7 +77624,7 @@ function handleRestorePlan(key, confirmed){
     askSacoro({ title:'Restore a Plan', say:'Restore your '+found.goal+' block?',
       hint:(found.completed ? found.completed+' logged sessions come back with it. ' : '')+
         'The plan open now is kept and can be restored again from this screen.',
-      yes:'Restore', no:'Not now',
+      yes:'Restore', no:'Not Now',
       onYes:function(){ handleRestorePlan(key, true); } });
     return;
   }
@@ -81006,6 +81082,9 @@ function init(){
   try{ initFieldInView(); }catch(e){}
   try{ window.addEventListener('resize', function(){ fitDialValues(); fitTabLabels(); fitZoneBars(); }); }catch(e){}
   try{ if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ fitDialValues(); fitTabLabels(); fitZoneBars(); }); }catch(e){}
+  /* A face that arrives after fonts.ready (a slow network) would leave the
+     tab names scaled to fit the wider fallback face; refit when it lands. */
+  try{ if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', function(){ fitDialValues(); fitTabLabels(); fitZoneBars(); }); }catch(e){}
   try{ document.addEventListener('pointerup', logRangeSettle); }catch(e){}
   try{ document.addEventListener('scroll', coachRailScrolled, true); }catch(e){}
   // Deliberately last and un-awaited: the app is already painted from

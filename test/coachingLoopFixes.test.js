@@ -176,7 +176,7 @@ test('a proposal is on Today, with the change, the reason and both answers', () 
   assert.ok(t.indexOf(a.evolutionChangeLine(ev.changes[0])) > -1, 'Today does not say what would change');
   assert.ok(t.indexOf('more effort than usual') > -1, 'Today does not say why');
   assert.match(today, /data-action="accept-evolution"[^>]*>Accept</);
-  assert.match(today, /data-action="decline-evolution"[^>]*>Keep my plan</);
+  assert.match(today, /data-action="decline-evolution"[^>]*>Keep My Plan</);
   assert.match(today, /data-action="open-reading" data-reading="evolution"/, 'Today has no way through to the explanation');
   /* Accept is a choice the athlete makes, so it is cherry -- not the bronze a
      primary button is outside a sheet. */

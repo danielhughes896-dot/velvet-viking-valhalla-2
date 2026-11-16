@@ -49,10 +49,10 @@ test('the builder is step one, the preview is step two, saving the plan is step 
   assert.match(SRC, /id="auth-step">Step three of three/, 'saving the plan is no longer step three');
 });
 
-test('a visitor with no session goes to the builder, not to sign-in', () => {
+test('a visitor with no session goes to install the app, not to sign-in', () => {
   const fn = routeFn();
   const noTok = /if \(!tok\)\{[^]*?\n    \}/.exec(fn)[0];
-  assert.match(noTok, /show\('pane-build'\)/, 'no-session no longer resolves to the builder');
+  assert.match(noTok, /location\.replace\('\/get'\)/, 'no-session no longer resolves to the app install page');
   assert.doesNotMatch(noTok, /show\('pane-auth'\)/, 'no-session still resolves to sign-in first');
 });
 

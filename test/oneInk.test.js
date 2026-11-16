@@ -93,15 +93,18 @@ test('the two buttons stand clear of whatever is above them', () => {
   assert.ok(m && +m[1] >= 26, 'Hear Today and Ask Coach sit ' + (m && m[1]) + 'px under the line above');
 });
 
-test('a Coach panel opens as a page, and a Settings panel does not', () => {
+test('a Coach panel opens as a tall glass sheet, and a Settings panel does not', () => {
   assert.match(CODE, /var coachPanel = READING_KEYS\.indexOf\(key\) !== -1 \|\| !!RECORD_PANELS\[key\];/,
     'which panels are pages is no longer decided from the reading and record lists');
   assert.match(CODE, /\+\(coachPanel \? ' hq-full' : ''\)\)/, 'a Coach panel is not marked as a page');
-  assert.match(bodyOf('.modal-overlay:has(> .hq-full)'), /align-items:stretch; padding:0/,
-    'the overlay still pads and centres a page');
+  /* Pages became tall glass bottom sheets (founder, Audit III): docked to
+     the bottom, stopping short of the status bar, glass, top corners only. */
+  assert.match(bodyOf('.modal-overlay:has(> .hq-full)'), /align-items:flex-end; padding:0/,
+    'the overlay no longer docks the sheet to the bottom');
   const page = bodyOf('.modal-overlay:has(> .hq-full) > .hq-full');
-  ['width:100%', 'height:100%', 'max-height:none', 'border:0', 'border-radius:0', 'box-shadow:none'].forEach(d =>
-    assert.ok(page.indexOf(d) > -1, 'the page lost ' + d + ', so it is a card with an edge again'));
+  ['width:100%', 'height:auto', 'max-height:calc(100% - env(safe-area-inset-top, 0px) - 28px)',
+   'backdrop-filter:blur(22px)', 'border-radius:24px 24px 0 0', 'border-bottom:0'].forEach(d =>
+    assert.ok(page.indexOf(d) > -1, 'the sheet lost ' + d));
 });
 
 test('the page’s type is a step up from the card’s, set once through the tokens', () => {

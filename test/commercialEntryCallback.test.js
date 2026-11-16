@@ -302,13 +302,15 @@ test('an athlete with access is not shown acquisition screens again', () => {
 // these two stay here because they are about the SAME route() this suite
 // already reads apart.
 // ===========================================================================
-test('an anonymous visitor is routed to the builder, not to sign-in', () => {
+test('an anonymous visitor is sent to install the app, not to sign-in', () => {
   const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
   const fn = /function route\(\)\{[^]*?\n  \}/.exec(src)[0];
   const noTok = /if \(!tok\)\{[^]*?\n    \}/.exec(fn);
   assert.ok(noTok, 'the no-session branch was not found in route()');
-  assert.match(noTok[0], /show\('pane-build'\)/,
-    'a visitor with no session is not sent to the builder first');
+  /* The plan is built in the app now (founder: "take them to the app"), so
+     the no-session branch hands over to /get rather than the web builder. */
+  assert.match(noTok[0], /location\.replace\('\/get'\)/,
+    'a visitor with no session is not sent to install the app');
   assert.doesNotMatch(noTok[0], /show\('pane-auth'\)/,
     'a visitor with no session is still sent to sign-in before the builder');
 });

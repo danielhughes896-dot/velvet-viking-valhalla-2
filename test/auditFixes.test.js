@@ -156,7 +156,7 @@ test('a new block opens with a compact welcome naming the first run, until Got i
   const card = a.renderWelcomeCard();
   assert.match(card, /Welcome to week 1/);
   assert.match(card, new RegExp(a.escapeHtml(first.title).replace(/[()+]/g, '\\$&')));
-  assert.match(card, /data-action="welcome-ack">Got it</);
+  assert.match(card, /data-action="welcome-ack">Got It</);
   assert.doesNotMatch(card, /modal|full-screen/);
   assert.match(a.renderTodayView(), /Welcome to week 1/);
   a.handleWelcomeAck();

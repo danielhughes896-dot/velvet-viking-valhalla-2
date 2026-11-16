@@ -234,20 +234,22 @@ test('gold is still the identity, and the accent did not take any of it', () => 
     [/--bronze:#C0923F/,                                  'the bronze token'],
     [/--gold:#E3B15A/,                                    'the gold token'],
     [/:focus-visible\{outline:2px solid var\(--gold\)/,    'the global focus ring'],
-    [/\.setup-section-title\{[^}]*color:var\(--bronze-text\)/, 'section headings'],
+    /* Section headings left this list: white by instruction (founder,
+       15 November 2026: gold lettering for the brand and milestones only). */
     [/\.btn-primary\{background:linear-gradient\(135deg,var\(--bronze\)/, 'the ordinary primary'],
     /* 'a panel's own content primary' was the next row, held to bronze. It
        is cherry now, by instruction ("Accept evolution ect should be the
        same as build a program"), and is asserted where the accent is --
        "Re-calibrate actually wins the cascade", above. */
-    [/\.pbar-fill\{[^}]*var\(--bronze\)[^}]*var\(--gold\)/, 'the progress bars'],
+    /* The progress bars left this list: cherry by instruction (founder,
+       15 November 2026), so a bar and its cherry percentage agree. */
     [/\.sub-pill\.sub-active\{[^}]*--modal-active/,        'the ACTIVE subscription pill'],
   ].forEach(([re, what]) => assert.match(CODE, re, 'gold must remain on ' + what));
 });
 
 test('semantic colour is still semantic — the accent replaced none of it', () => {
   [
-    [/--c-easy:#84A56E/,                                  'green / easy'],
+    [/--c-easy:#E6E0D4/,                                  'neutral light / easy (Green = complete)'],
     [/--c-tempo:#CC9245/,                                 'amber / tempo'],
     [/--c-threshold:#B5505A/,                             'red / threshold'],
     [/--c-long:#5E93AC/,                                  'blue / long'],

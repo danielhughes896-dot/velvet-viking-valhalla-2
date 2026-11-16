@@ -159,8 +159,8 @@ test('Reset asks on its own page: the first press clears nothing', () => {
   assert.equal(redraws, 1, 'the page did not redraw to put the question');
   const armed = a.hqPanelHtml('resetplan');
   assert.match(armed, /Clear your plan and schedule now\?/);
-  assert.match(armed, /data-action="reset-plan-keep"[^>]*>Keep my plan/);
-  assert.match(armed, /data-action="reset-plan-confirm"[^>]*>Clear my plan/);
+  assert.match(armed, /data-action="reset-plan-keep"[^>]*>Keep My Plan/);
+  assert.match(armed, /data-action="reset-plan-confirm"[^>]*>Clear My Plan/);
 
   a.handleResetPlanArm(false);
   assert.equal(a.resetPlanArmed, false);
