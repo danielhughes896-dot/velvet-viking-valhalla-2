@@ -44,7 +44,10 @@ const Q = ['interval', 'tempo', 'threshold', 'repetition', 'checkpoint'];
 const strong = a => {
   a.weeklyEvidence = () => ({ doneKm: 30, dueKm: 30, done: 4, due: 4, logged: 4, loggedShare: 1, missed: 0,
     overEffort: 0, easyOverEffort: 0, completion: 1, execution: 92, qualityDone: 1, qualityOverEffort: 0,
-    qualityShort: 0, pain: 0, niggle: 0, heavyLegs: 0, poorSleep: 0, fatigueStops: 0 });
+    qualityShort: 0, pain: 0, niggle: 0, heavyLegs: 0, poorSleep: 0, fatigueStops: 0,
+    /* Effort was logged on every run: hills are earned from what the athlete
+       reported (Audit III LA6), not from distance alone. */
+    effortLogged: 4 });
   a.weeklyInstrumentSignals = () => ({ adaptation: 'ADAPTING', recovery: 'fresh' });
 };
 

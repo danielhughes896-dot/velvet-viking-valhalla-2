@@ -336,21 +336,26 @@ function buildWeekSoloSpec(persistent){
    between a pool's members by occurrence, so a membership test has to check
    POOL MEMBERSHIP, not one specific rotation member. */
 const BASE_TEMPO_TYPES = ['steady'];
+/* SINCE AUDIT III C14 an Aerobic Base block's tempo is the steady,
+   sub-threshold tempo in every phase (founder: "Light tempo (sub threshold).
+   No VO2."), so the calendar no longer promotes Build to progressive or split
+   tempo, and readiness has no harder pool to withhold. Both athletes draw the
+   steady tempo; what used to be the Build pool is never reached by Base. */
 const BUILD_TEMPO_TYPES = ['progressive', 'tempo'];
 
-test('F-4: two athletes at the same Build week with different readiness draw from a different family pool', () => {
+test('F-4: two athletes at the same Build week with different readiness both draw the steady Base tempo', () => {
   const onTrack = buildWeekSoloSpec(false);
   const persistentMiss = buildWeekSoloSpec(true);
   assert.ok(BASE_TEMPO_TYPES.indexOf(persistentMiss) !== -1,
-    'a persistent miss pattern must hold the gentler Base tempo pool, got ' + persistentMiss);
-  assert.ok(BUILD_TEMPO_TYPES.indexOf(onTrack) !== -1,
-    'on-track readiness must reach the calendar-driven Build tempo pool, got ' + onTrack);
+    'a persistent miss pattern must hold the steady Base tempo, got ' + persistentMiss);
+  assert.ok(BASE_TEMPO_TYPES.indexOf(onTrack) !== -1,
+    'an on-track Base athlete must also stay on the steady tempo, got ' + onTrack);
 });
 
-test('F-4: a genuinely first block (no pattern to read at all) still reaches the calendar-driven transition', () => {
+test('F-4: a genuinely first block never reaches the harder Build tempo in Aerobic Base', () => {
   const type = buildWeekSoloSpec(false);
-  assert.ok(BUILD_TEMPO_TYPES.indexOf(type) !== -1,
-    'withholding hardening is a readiness WITHDRAWAL, not a promotion that must be separately earned, got ' + type);
+  assert.ok(BUILD_TEMPO_TYPES.indexOf(type) === -1,
+    'Aerobic Base drew a progressive or split tempo, which is above the light tempo it may carry: ' + type);
 });
 
 test('F-4: the readiness gate is proven end-to-end against the real materialised session (single case)', () => {

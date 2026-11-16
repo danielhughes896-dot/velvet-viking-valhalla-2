@@ -73,7 +73,7 @@ var BUILDER_SPEC = {
     { key: 'BENCHMARK',  name: 'Benchmark',       heading: 'Benchmark',
       lede: 'A recent honest-effort 5K or 10K. Your training paces are built from it.' },
     { key: 'WEEK',       name: 'Week',            heading: 'Your week',
-      lede: 'Pick 3–6 days you can run. Workouts land only on these; everything else is rest.' },
+      lede: 'Pick the days you can run, from 1 to 7. Workouts land only on these; everything else is rest.' },
     { key: 'TRAINING',   name: 'Training data',   heading: 'Training data',
       lede: 'Optional heart-rate numbers, if you have them.' },
     { key: 'TARGETS',    name: 'Targets',         heading: 'Your targets',

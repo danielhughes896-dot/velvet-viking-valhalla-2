@@ -162,7 +162,9 @@ test('COPY: the in-app builder\'s Benchmark Time field shows the format hint and
   assert.ok(inputStart !== -1);
   const tag = html.slice(html.lastIndexOf('<input', inputStart), html.indexOf('>', inputStart) + 1);
   assert.match(tag, /inputmode="decimal"/, 'still forces the awkward default keyboard');
-  assert.match(tag, /placeholder="23:25 or 23\.25"/);
+  /* The hint is the format, mm:ss, not an example time (founder, Audit III):
+     the time wheel sets the value, so nobody types the dot form here now. */
+  assert.match(tag, /placeholder="mm:ss"/);
   /* SHORTENED, AND THE ASSERTION WITH IT. Founder, on the Benchmark
      stage: "there's also a lot of small text." What this law protects is
      unchanged and still checked: the athlete is told BOTH formats work,
@@ -186,7 +188,9 @@ test('COPY: the Re-calibrate modal\'s benchmark field carries the same hint and 
   assert.ok(inputStart !== -1);
   const tag = html.slice(html.lastIndexOf('<input', inputStart), html.indexOf('>', inputStart) + 1);
   assert.match(tag, /inputmode="decimal"/);
-  assert.match(tag, /placeholder="23:25 or 23\.25"/);
+  /* The hint is the format, mm:ss, not an example time (founder, Audit III):
+     the time wheel sets the value, so nobody types the dot form here now. */
+  assert.match(tag, /placeholder="mm:ss"/);
   /* SHORTENED, AND THE ASSERTION WITH IT. Founder, on the Benchmark
      stage: "there's also a lot of small text." What this law protects is
      unchanged and still checked: the athlete is told BOTH formats work,

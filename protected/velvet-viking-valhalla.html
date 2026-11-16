@@ -589,7 +589,7 @@
        system. Inside .modal-card they are pinned back to the fixed ramp, so a
        modal looks the same in either theme exactly as it did before. */
     --ctl-bg:#16181D; --ctl-border:#33363D; --ctl-text:#e6dfd5;
-    --ctl-placeholder:#8d857a;
+    --ctl-placeholder:#FFFFFF;
     --ctl-accent:#c5a059; --ctl-accent-rgb:197,160,89;
     --ctl-disabled-bg:#18191D; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2A2C32;
     --ctl-surface:#121316; --ctl-surface-border:#33363D;
@@ -4985,7 +4985,7 @@
        second set of rules. Custom properties inherit, so everything inside
        the card picks this up automatically. */
     --ctl-bg:var(--modal-input-bg); --ctl-border:var(--modal-border);
-    --ctl-text:var(--modal-text); --ctl-placeholder:#8d857a;
+    --ctl-text:var(--modal-text); --ctl-placeholder:#FFFFFF;
     --ctl-accent:var(--modal-active); --ctl-accent-rgb:var(--modal-active-rgb);
     --ctl-disabled-bg:#18191D; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2A2C32;
     /* The --ctl-* pin above only ever covered form controls. Ordinary prose
@@ -12719,6 +12719,23 @@ function readBuilderEntryEvidence(){
            longestRunKm: longKm, longestRunDate: longDate,
            recordedAt: new Date().toISOString() };
 }
+/* SAID RATHER THAN SILENTLY DROPPED (Audit III T3). A longest run older
+   than the evidence window is not read, and the notice the builder kept for
+   it is now filled: the athlete is told which answer does the work. */
+function bldSyncEntryLongStale(){
+  if (typeof document === 'undefined') return;
+  var note = document.getElementById('su-entry-long-stale');
+  if (!note) return;
+  var ev = null;
+  try { ev = readBuilderEntryEvidence(); } catch(e){ ev = null; }
+  var age = null;
+  try { age = (ev && ev.longestRunDate) ? daysBetween(ev.longestRunDate, todayStr()) : null; } catch(e2){ age = null; }
+  var stale = ev && ev.longestRunKm > 0 && age != null && age > CALIBRATION_EVIDENCE_DAYS;
+  note.hidden = !stale;
+  note.textContent = stale
+    ? 'That run was ' + Math.round(age / 7) + ' weeks ago, so SACORO sizes your long run from your weekly running instead.'
+    : '';
+}
 var EV_F = BUILDER_SPEC.entryEvidence.fields;
 var EV_DAY_CHOICES = (function(){
   var r = EV_F.runDaysPerWeek.range, out = [];
@@ -14074,11 +14091,23 @@ var TEMPO_STRUCTURE_POOL = {
    TEMPO_STRUCTURE_POOL, so tempoPoolFor() below returns this instead only
    for purpose === 'base', and Maintain/Speed/Ultra keep reading the
    original, completely unedited object. */
+/* ---- WHAT AEROBIC BASE MAY CARRY (founder, Audit III C14) ----
+   "Light tempo (sub threshold). No VO2. Strides and hills." So every phase of
+   an Aerobic Base block draws its tempo slot from the steady, sub-threshold
+   tempo only, and its interval slot from hill repeats only: no progressive or
+   split tempo, no threshold, no track, ladder, deuce or fartlek. Strides ride
+   on one easy run each full week (addAerobicBaseStrides). */
 var BASE_TEMPO_POOL = {
   Base:  [structSteadyTempo],
-  Build: TEMPO_STRUCTURE_POOL.Build,
-  Peak:  TEMPO_STRUCTURE_POOL.Peak,
-  Maintain: TEMPO_STRUCTURE_POOL.Maintain
+  Build: [structSteadyTempo],
+  Peak:  [structSteadyTempo],
+  Maintain: [structSteadyTempo]
+};
+var BASE_INTERVAL_POOL = {
+  Base:  [structHillRepeats],
+  Build: [structHillRepeats],
+  Peak:  [structHillRepeats],
+  Maintain: [structHillRepeats]
 };
 
 /* MARATHON'S OWN BASE-PHASE ELIGIBILITY -- HQ NARROW CORRECTION.
@@ -14285,6 +14314,7 @@ var TENK_TEMPO_POOL = {
    place, exactly as raceGoalArch()'s own comment says, that asks distKey
    directly rather than the arch value. */
 function intervalPoolFor(purpose, distKey){
+  if (purpose === 'base') return BASE_INTERVAL_POOL;
   var arch = raceGoalArch(purpose, distKey);
   if (arch === 'half') return HALF_INTERVAL_POOL;
   if (arch === 'short') return distKey === '10k' ? TENK_INTERVAL_POOL : FIVEK_INTERVAL_POOL;
@@ -20504,13 +20534,13 @@ var PROGRESSION_TIERS_ALLOWED = ['isolated'];
    before its purpose scaled it. Every block scales down from that level; only a
    development block can move it up. */
 function previousBlockAnchorVolume(){
-  var blocks = ((state && state.athlete && state.athlete.blocks) || [])
+  var blocks = historyBlocks()
     .filter(function(b){ return b && b.anchorVolume > 0; });
   if (!blocks.length) return null;
   return blocks[blocks.length - 1].anchorVolume;
 }
 function previousBlockPeakVolume(){
-  var blocks = ((state && state.athlete && state.athlete.blocks) || [])
+  var blocks = historyBlocks()
     .filter(function(b){ return b && b.peakVolume > 0; });
   if (!blocks.length) return null;
   return blocks[blocks.length - 1].peakVolume;
@@ -20634,8 +20664,19 @@ function blockPeakVolumeFor(purpose, blockResult, days, raceDateStr, schedule, s
 }
 /* The block the justification below is judging: the most recent one that has
    ended. A block still open is the one being replaced. */
-function lastRecordedBlock(){
+/* A BLOCK BEING REGENERATED IS NOT YET HISTORY (Audit III C10). Regenerate
+   with the same answers read the block it was rebuilding as "the previous
+   block": nothing in it had been run, the logged history above it counted as
+   reaching its peak, and the second build earned a step the first did not.
+   While a rebuild is sized, the block being rebuilt is left out of the
+   ledger these readers use, so both builds read the same evidence. */
+var rebuildingBlockId = null;
+function historyBlocks(){
   var blocks = (state && state.athlete && state.athlete.blocks) || [];
+  return rebuildingBlockId ? blocks.filter(function(b){ return !b || b.id !== rebuildingBlockId; }) : blocks;
+}
+function lastRecordedBlock(){
+  var blocks = historyBlocks();
   return blocks.length ? blocks[blocks.length - 1] : null;
 }
 /* Blocks in which progression can be earned at all. Recovery reduces training
@@ -24554,6 +24595,14 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      67.5 for a block whose largest week is 70.2 -- and every consumer outside
      the generator was reading a fiction. The taper's own floor already takes
      the built figure for exactly this reason. */
+  /* ---- THE PEAK STOPS AT THE LEVEL'S DESTINATION (founder, Audit III C8) ----
+     "Don't overshoot." A Half or Marathon block peaks at the higher of the
+     level's designed peak week and the week the athlete already runs (an
+     Advanced pathway is open-ended, so it may still grow one block step).
+     The climb is spread rather than stopped early: every week above the
+     opening week is drawn proportionally closer to it, so the peak still
+     arrives in the same week by a smaller weekly step, and the taper keeps
+     its share of the new peak. */
   return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume),
            /* ---- A CALIBRATION THAT NEVER FOUND A WEEK IS DECLARED ----
               The test is deferred until the athlete can safely and meaningfully
@@ -27505,6 +27554,34 @@ function addDevelopingMarathonStrides(days, weeks, blockResult){
   });
   return n;
 }
+/* STRIDES IN AEROBIC BASE (Audit III C14). One easy run in every full week
+   finishes with relaxed strides: not the run before the long run, and never
+   a run the athlete has already done or changed. A recovery week is left as
+   it is. */
+function addAerobicBaseStrides(days, weeks, blockResult){
+  if (!blockResult || blockResult.purpose !== 'base') return 0;
+  var wkOf = {};
+  (weeks || []).forEach(function(wk){ wkOf[wk.week] = wk; });
+  var byWeek = {};
+  days.forEach(function(dd){ if (dd && dd.week != null) (byWeek[dd.week] = byWeek[dd.week] || []).push(dd); });
+  var n = 0;
+  Object.keys(byWeek).forEach(function(w){
+    var wk = wkOf[w];
+    if (!wk || wk.isCutback || wk.isTaper) return;
+    var list = byWeek[w].slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    if (list.some(function(dd){ return (dd.desc || '').indexOf('strides') !== -1; })) return;
+    var longIdx = -1;
+    list.forEach(function(dd, i){ if (dd.type === 'long' && dd.km > 0) longIdx = i; });
+    var ok = function(dd){ return dd.type === 'easy' && dd.km > 0 && !dd.completed && !dd.manualEdit; };
+    var pick = list.filter(function(dd, i){ return ok(dd) && i !== longIdx - 1; })[0] || list.filter(ok)[0];
+    if (!pick) return;
+    pick.title = 'Easy Aerobic with Strides';
+    pick.desc = (pick.desc || easyRunText(pick.km).desc) + BASE_STRIDES_NOTE;
+    pick.baseStrides = true;
+    n++;
+  });
+  return n;
+}
 function weeklyBaseHillsDay(week){
   return weekRunDays(week).filter(function(d){
     return d.baseHillCandidate && d.type === 'easy' && !sessionRan(d) && !d.manualEdit && d.date >= todayStr(); })[0] || null;
@@ -29140,6 +29217,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     }
   });
   addDevelopingMarathonStrides(days, weeks, blockResult);
+  addAerobicBaseStrides(days, weeks, blockResult);
   return days;
 }
 /* =========================================================
@@ -33620,6 +33698,11 @@ function renderZonePacesCard(inPanel){
   }).join('');
   var anyOverride = ZONE_PACE_ORDER.some(function(k){ return overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null; });
   var hrHint = (state.setup.lthr==null && lthrEstimatedFromMax(state.setup.maxHR) == null) ? ' Set your LTHR/Max HR (Edit Plan Settings) to also see target HR ranges here.' : '';
+  /* MAX HR IS SAID WHERE IT DOES WORK (Audit III T4). With LTHR given, it
+     is the ceiling of the open-ended interval and repetition zones and was
+     shown nowhere. */
+  if (state.setup.lthr != null && state.setup.maxHR != null && healthConsentGranted())
+    hrHint += ' Your max heart rate of ' + Math.round(state.setup.maxHR) + ' bpm sets the top of your interval and repetition zones; LTHR sets the rest.';
 
   return '<div class="zone-paces-card">'+
     (inPanel ? '' : '<div class="zpc-head"><span class="font-head">Training Zone Paces</span></div>')+
@@ -34739,6 +34822,16 @@ function coachingVariantsFor(ctx){
 }
 function contextualWhy(dd){
   var ctx = null;
+  /* A RESTRICTED DAY IS ABOUT THE ATHLETE, NOT THE TRAINING (Audit III
+     UX3-15). Injury or illness turned it to rest, so the note says that
+     rather than "a full day off is what lets you absorb the work". */
+  if (dd && dd.restricted){
+    var rmode = null;
+    try { var rr = openRestriction(); rmode = rr && rr.mode; } catch(eR){ rmode = null; }
+    return (dd.type === 'rest' || !(dd.km > 0))
+      ? 'You told SACORO you cannot train normally. Rest today is the plan, and nothing here counts against you.'
+      : 'You told SACORO to keep it easy for now, so this run stays easy. Nothing here counts against you.';
+  }
   try { ctx = coachingContextFor(dd); } catch(e) { ctx = null; }
   if (!ctx) return null;
   var list = coachingVariantsFor(ctx);
@@ -37457,6 +37550,11 @@ function logRangeHtml(dd, o){
   var word = o.words ? (set ? o.words[v - o.min] : 'Slide to answer') : null;
   var fig = (o.of != null) ? ((set ? v : '–') + ' / ' + o.of) : null;
   var at = ' data-field="'+o.field+'" data-day="'+dd.id+'"';
+  /* ONE QUESTION, THEN HOW MUCH (Audit III UX3-16). The box and the slider
+     stay as the founder drew them; once Yes or No is chosen the answer says
+     plainly what the tap set and that sliding refines it, so "No" no longer
+     picks a degree the athlete never saw. */
+  if (o.yesNo && set && o.words) word = word + (v <= o.yesNo ? '. Slide left if it got faster.' : '. Slide right if it faded more.');
   return '<div class="yl-q">'+
     '<div class="yl-q-head"><span class="yl-q-t">'+escapeHtml(o.label)+'</span>'+
       (fig != null ? '<span class="yl-fig font-mono" data-yl-fig>'+escapeHtml(fig)+'</span>' : '')+
@@ -43052,6 +43150,35 @@ function trainingTrendHtml(sigMeta){
          '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>'+
          '<div class="cr-v cr-trend-note">Read across your recent sessions, separate from this session\u2019s execution score.</div></div>';
 }
+/* WHAT THE LOG ANSWERS MEAN FOR WHAT COMES NEXT (Audit III linking plan:
+   T10, T12, T14, T24). A scored session used to drop the reason it was cut
+   short, and a long run whose splits faded was scored and coached as if it
+   had held. Said here, on the session, in the words the weekly sheet and
+   Patterns use for the same facts. */
+function sessionLinkedLinesHtml(dd){
+  var lines = [];
+  var it = null;
+  try { it = sessionInterpretation(dd); } catch(e){ it = null; }
+  var a = dd.actual || {};
+  if (it && (it.short || a.stopReason) && it.what.length) lines.push(it.what[0]);
+  var excused = false;
+  try { excused = logStopExcused(dd); } catch(e1){ excused = false; }
+  if (excused && it && it.short) lines.push('Stopping for that reason says nothing about your fitness, so SACORO does not hold it against your week.');
+  var fr = null;
+  try { fr = sessionFadeReading(dd); } catch(e2){ fr = null; }
+  if (fr && fr.family === 'steady' && fr.faded)
+    lines.push('The second half was ' + Math.abs(fr.fadePct) + '% slower than the first, so SACORO reads this run as one that faded. If it happens again, your Patterns and next week’s recommendation take it into account.');
+  else if (fr && fr.family === 'steady' && dd.type === 'easy' && fr.fadePct >= STEADY_FADE_PCT)
+    lines.push('The second half was slower, but your heart rate did not climb with it, so on an easy run that is fine and nothing changes.');
+  else if (fr && fr.family !== 'steady' && (fr.faded || fr.short))
+    lines.push('SACORO counts this as a set that did not hold. Your Patterns and next week’s recommendation take it into account.');
+  else if (fr && fr.reportedFade && fr.basis === 'measured')
+    lines.push('Your rep times held even though the set felt like it faded. Your Patterns go by the times; next week SACORO offers to repeat the session if it still feels this way.');
+  var mk = null;
+  try { mk = sessionMarkedUnder(dd); } catch(e3){ mk = null; }
+  if (mk) lines.push('You marked ' + mk.under + ' of ' + mk.of + ' reps under pace. That counts toward next week’s session choice.');
+  return lines.map(function(l){ return '<div class="exec-review-more">' + escapeHtml(l) + '</div>'; }).join('');
+}
 function renderExecutionReview(dd){
   if (!dd.completed) return '';
   /* NOTHING WAS PRESCRIBED, SO THERE IS NOTHING TO REVIEW AGAINST. Every
@@ -43187,6 +43314,7 @@ function renderExecutionReview(dd){
     if (hrLine && (msg && msg.paragraphs || []).join(' ').indexOf(hrLine) === -1)
       body += '<div class="exec-review-more">'+escapeHtml(hrLine)+'</div>';
     body += sessionReadoutHtml(dd);
+    body += sessionLinkedLinesHtml(dd);
     /* ---------- THE TREND IS NOT THE SCORE ----------
        Founder: "Keep execution score separate from Neutral / Building
        Baseline, as they measure different things. Make the distinction
@@ -43867,27 +43995,72 @@ function fadeFamilyOf(dd){
   if (s.reps) return s.light ? null : 'reps';
   return s.main ? 'sustained' : null;
 }
+/* A LONG RUN WHOSE SECOND HALF FADES (Audit III T14, T24). The splits the
+   athlete logged or Strava sent are read as the same fact a faded set is:
+   the run did not hold. A positive split past this share, on a run whose
+   pace can be read (no hills, wind or watch doubt). */
+var STEADY_FADE_PCT = 8;
 function sessionFadeReading(dd){
   if (!dd || !dd.completed || !dd.actual || dd.type === 'rest') return null;
   if (dd.type === 'checkpoint' || dd.type === 'race') return null;
   var fam = fadeFamilyOf(dd);
-  if (!fam) return null;
   var a = dd.actual, env = null;
   try { env = coachEnvironment(a.notes, a); } catch(e){ env = null; }
   if (env && env.illness) return null;
+  if (!fam){
+    if ((dd.type !== 'long' && dd.type !== 'easy') || !sessionConditions(dd).pace) return null;
+    var sm = null;
+    try { sm = coachSplitMetrics(dd); } catch(e0){ sm = null; }
+    if (!sm || sm.fadePct == null) return null;
+    /* An easy run that slows is usually just easy; it counts only when the
+       heart rate climbed with it, which is the run costing more. */
+    var faded = sm.fadePct >= STEADY_FADE_PCT;
+    if (dd.type === 'easy'){
+      var hd = null; try { hd = coachHRDrift(dd); } catch(eH){ hd = null; }
+      faded = faded && hd != null && hd >= 5;
+    }
+    return { date:dd.date, family:'steady', faded: faded, basis:'splits',
+             fadePct: sm.fadePct, recoveries:null, short:null };
+  }
   if (!effortIsReadable(dd)) return null;
-  var out = { date:dd.date, family:fam, faded:null, basis:null, recoveries:a.recoveries || null };
+  var out = { date:dd.date, family:fam, faded:null, basis:null, recoveries:a.recoveries || null, short:null };
   var drift = null;
   /* With the watch in doubt the rep paces cannot say the set faded; the
      athlete's own answer still can. */
   if (sessionConditions(dd).pace){
     try { drift = structuredRepFadePct(dd); } catch(e2){ drift = null; }
   }
+  /* The stopwatch is believed where there is one (founder: what is measured
+     outranks what was reported); the athlete's answer decides where there is
+     not. What the athlete said is kept either way (`reportedFade`), so the
+     weekly sheet can read it as their own account even when the watch
+     disagrees (Audit III T8, T9). */
+  var reportedFade = typeof a.mainSetHeld === 'number' && logHeldWord(a.mainSetHeld) === 'faded';
   if (drift != null){ out.faded = drift >= FADE_CAL.measuredFadePct; out.basis = 'measured'; }
-  else if (typeof a.mainSetHeld === 'number'){ out.faded = logHeldWord(a.mainSetHeld) === 'faded'; out.basis = 'reported'; }
-  return (out.faded == null && !out.recoveries) ? null : out;
+  else if (typeof a.mainSetHeld === 'number'){ out.faded = reportedFade; out.basis = 'reported'; }
+  if (reportedFade) out.reportedFade = true;
+  /* REPS NOT COMPLETED (Audit III T10): a partial dose, read as the set not
+     being got through. */
+  var shape = null;
+  try { shape = logShape(dd); } catch(e3){ shape = null; }
+  if (shape && shape.reps > 0 && typeof a.repsDone === 'number' && isFinite(a.repsDone)){
+    out.short = a.repsDone < shape.reps;
+    out.repsDone = a.repsDone; out.reps = shape.reps;
+  }
+  return (out.faded == null && !out.recoveries && out.short == null && !out.reportedFade) ? null : out;
 }
-var FADE_FAMILY_NOUN = { reps:'rep sessions', sustained:'tempo and threshold sessions' };
+/* THE ATHLETE'S REP MARKS, AT LOW CONFIDENCE (founder: "Keep subjective rep
+   marks at low confidence without changing measured fitness or performance
+   confidence"). Read for the weekly session choice only, never for a
+   pattern, Recovery or a score: half or more of the marked reps under pace. */
+function sessionMarkedUnder(dd){
+  var a = dd && dd.actual;
+  var marks = (a && Array.isArray(a.repMarks)) ? a.repMarks.filter(Boolean) : [];
+  if (marks.length < 2) return null;
+  var under = marks.filter(function(m){ return m === 'under'; }).length;
+  return under * 2 >= marks.length ? { under: under, of: marks.length } : null;
+}
+var FADE_FAMILY_NOUN = { reps:'rep sessions', sustained:'tempo and threshold sessions', steady:'long runs' };
 /* Every pattern there is enough evidence to state, newest evidence last. */
 function qualityFadePatterns(asOf){
   var to = asOf || todayStr();
@@ -43895,11 +44068,12 @@ function qualityFadePatterns(asOf){
     .map(sessionFadeReading).filter(Boolean)
     .sort(function(x, y){ return x.date < y.date ? -1 : 1; });
   var out = [];
-  ['reps', 'sustained'].forEach(function(fam){
+  ['reps', 'sustained', 'steady'].forEach(function(fam){
     var same = rows.filter(function(r){ return r.family === fam; });
     var judge = function(kind, answered, isHit){
       var recent = answered.slice(-FADE_CAL.recent);
       var hits = recent.filter(isHit);
+      if (!hits.length) return;
       var conf = trendConfidence(hits.length, recent.length, answered.length);
       if (conf === 'insufficient') return;
       if (hits[hits.length - 1].date < addDays(to, -FADE_CAL.staleDays)) return;
@@ -43909,14 +44083,16 @@ function qualityFadePatterns(asOf){
     };
     judge('fade', same.filter(function(r){ return r.faded != null; }), function(r){ return r.faded; });
     judge('recoveries', same.filter(function(r){ return !!r.recoveries; }), function(r){ return r.recoveries === 'longer'; });
+    judge('short', same.filter(function(r){ return r.short != null; }), function(r){ return r.short; });
   });
   return out;
 }
 function fadePatternSentence(p){
   var noun = FADE_FAMILY_NOUN[p.family] || 'quality sessions';
-  return p.kind === 'recoveries'
-    ? 'You have needed longer recoveries in '+p.hits+' of your last '+p.of+' '+noun+'.'
-    : 'The main set has faded in '+p.hits+' of your last '+p.of+' '+noun+'.';
+  if (p.kind === 'recoveries') return 'You have needed longer recoveries in '+p.hits+' of your last '+p.of+' '+noun+'.';
+  if (p.kind === 'short') return 'You completed fewer reps than set in '+p.hits+' of your last '+p.of+' '+noun+'.';
+  if (p.family === 'steady') return 'The second half has slowed in '+p.hits+' of your last '+p.of+' '+noun+'.';
+  return 'The main set has faded in '+p.hits+' of your last '+p.of+' '+noun+'.';
 }
 function coachRecovery(){
   var today = todayStr();
@@ -45141,6 +45317,28 @@ function coachNextMove(load, recovery, trend, status){
   var quality = !isRecoveryWorkoutType(dd.type) && dd.type!=='rest';
   var strained = recovery.state==='strained' || load.band==='spike';
   var painCue = coachNoticed().some(function(n){ return n.tone==='warn'; });
+  /* A FITNESS CHECKPOINT IS RUN AS SET (founder, Audit III LA7). Only its
+     own 5km rules govern it: Today never shortens or swaps it. */
+  var checkpoint = isTestSession(dd.type) || dd.type === 'checkpoint';
+  /* ONE CUT AT A TIME (Audit III LA12). A week the athlete already agreed to
+     make lighter is not cut again for the same tiredness. Pain still counts:
+     it is a safety question, not a load one. */
+  var weekReduced = (state.days || []).some(function(x){
+    return x && x.week === dd.week && x.weeklyAdjust && /^(hold|reload|recovery|protect)/.test(x.weeklyAdjust.kind || ''); });
+  /* A HARD OR LONG SESSION AFTER A PAIN REPORT (founder, Audit III LA11):
+     it turns easy, and where a rest day falls within the next two days the
+     athlete can swap the session onto it instead. */
+  var restSwap = null;
+  if (painCue && (quality || dd.type === 'long') && !checkpoint){
+    restSwap = (state.days || []).filter(function(x){
+      return x && x.type === 'rest' && !x.completed && x.date > dd.date && x.date <= addDays(dd.date, 2) && !x.restricted; })
+      .sort(function(a, b){ return a.date < b.date ? -1 : 1; })[0] || null;
+  }
+  if (checkpoint){
+    move.recommendation = 'This is a Fitness Checkpoint, so it is run as set. If you are not fresh today, move it to another day in Edit Session rather than shortening it.';
+    move.checkpoint = true;
+    return move;
+  }
   /* ONE PATTERN SENTENCE, NOT TWO. An athlete who is missing sessions is
      usually also executing the ones they do run badly, and printing both
      findings is how a coach turns into a list of complaints. Missing the
@@ -45154,7 +45352,17 @@ function coachNextMove(load, recovery, trend, status){
     return null;
   })();
 
-  if (strained && quality){
+  if (painCue && (quality || dd.type === 'long')){
+    move.recommendation = 'Your notes mention soreness. Swapping this to an easy run costs one session; running through it can cost a month.' +
+      (restSwap ? ' Or move it to your rest day on ' + weeklyDayName(restSwap.date) + ' and rest today.' : '');
+    move.adjustment = {
+      kind:'downgrade', km:Math.max(1, Math.round(dd.km*0.8*2)/2), type:'easy',
+      title:'Easy Aerobic', reason:'Soreness reported in recent notes'
+    };
+    if (restSwap) move.swapRestId = restSwap.id;
+  } else if (strained && quality && weekReduced){
+    move.recommendation = 'This week is already lighter, so today stays as set. Run it easy within its targets and SACORO will look again next week.';
+  } else if (strained && quality){
     var cutKm = Math.max(1, Math.round(dd.km * 0.75 * 2)/2);
     move.recommendation = 'Load and effort are both running high at the moment. Taking the edge off this one is really about protecting the rest of the block.';
     move.adjustment = {
@@ -45164,12 +45372,6 @@ function coachNextMove(load, recovery, trend, status){
       title:dd.title,
       reason:'Load '+(load.ratio!=null?load.ratio.toFixed(2)+'x '+coachLoadAverageWords(load):'running high')+
              (recovery.overRPE?', effort above band on '+recovery.overRPE+' session'+(recovery.overRPE===1?'':'s'):'')
-    };
-  } else if (painCue && quality){
-    move.recommendation = 'Your notes mention soreness. Swapping this to an easy run costs one session; running through it can cost a month.';
-    move.adjustment = {
-      kind:'downgrade', km:Math.max(1, Math.round(dd.km*0.8*2)/2), type:'easy',
-      title:'Easy Aerobic', reason:'Soreness reported in recent notes'
     };
   } else if (patternSpeaks && patternSpeaks.tier !== 'isolated'){
     /* ABOVE the load-band branch, because "load has dropped off" is a symptom
@@ -45395,6 +45597,7 @@ function coachDecision(){
     post_hard_recovery:EVIDENCE_CONCEPT.recovery, post_long_run_recovery:EVIDENCE_CONCEPT.recovery,
     set_fading_reps:EVIDENCE_CONCEPT.fade, set_fading_sustained:EVIDENCE_CONCEPT.fade,
     recoveries_lengthening_reps:EVIDENCE_CONCEPT.fade, recoveries_lengthening_sustained:EVIDENCE_CONCEPT.fade,
+    reps_short_reps:EVIDENCE_CONCEPT.fade, set_fading_steady:EVIDENCE_CONCEPT.fade,
     /* Phase 5 speaks about the same underlying event as the two trends above,
        better founded because it is measured against this athlete's own
        established timing rather than against a fixed rule. Same concept, so
@@ -45551,6 +45754,13 @@ function coachDecisionSentence(st, tier, ev, positives, nxt, quality, observed){
   /* And this branch is not entitled to that. Reaching here means the evidence
      model found nothing either way -- an absence of concern, which is not the
      same as evidence of readiness and must not be dressed up as it. */
+  /* RECOVERY AND THE ASSESSMENT SAY THE SAME THING (Audit III UX3-22). Where
+     Recovery & Fatigue reads Watch, the assessment beside it names what it
+     watches instead of "nothing argues against it". */
+  var recNow = null;
+  try { recNow = coachRecovery(); } catch(eR){ recNow = null; }
+  if (recNow && recNow.state && recNow.state !== 'fresh')
+    return recoveryStrainSentence(recNow).replace(/\.$/, '') + ', which is worth watching. On its own it is not enough to change the next session, so it stays as written.';
   return 'Nothing in the recent training argues against it, which is not quite the same as a glowing report. Proceed as planned.';
 }
 
@@ -48449,7 +48659,8 @@ function athleteTrends(){
        end. Its own concept, so it corroborates effort or feel -- which are
        different facts -- and never itself. */
     set_fading_reps:C.fade, set_fading_sustained:C.fade,
-    recoveries_lengthening_reps:C.fade, recoveries_lengthening_sustained:C.fade
+    recoveries_lengthening_reps:C.fade, recoveries_lengthening_sustained:C.fade,
+    reps_short_reps:C.fade, set_fading_steady:C.fade
   };
   var push = function(t){
     if (!t || t.confidence==='insufficient') return;
@@ -48606,8 +48817,8 @@ function athleteTrends(){
     var pats = [];
     try { pats = qualityFadePatterns(); } catch(e){ pats = []; }
     pats.forEach(function(p){
-      push({ id:(p.kind === 'recoveries' ? 'recoveries_lengthening_' : 'set_fading_') + p.family,
-             area:'Recovery', direction:'negative', confidence:p.confidence, headline:'Watching',
+      push({ id:(p.kind === 'recoveries' ? 'recoveries_lengthening_' : p.kind === 'short' ? 'reps_short_' : 'set_fading_') + p.family,
+             area:(p.kind === 'short' ? 'Quality execution' : 'Recovery'), direction:'negative', confidence:p.confidence, headline:'Watching',
              detail:fadePatternSentence(p), observations:p.hits, of:p.of, evidenceDates:p.dates });
     });
   })();
@@ -50558,8 +50769,16 @@ function executionPattern(){
   var win = plannedSessionWindow().filter(function(dd){
     return sessionRan(dd) && isQualityType(dd.type);
   });
-  var scored = win.map(function(dd){ return computeExecutionScore(dd); })
-                  .filter(function(v){ return v != null; });
+  /* A SET THAT FADED OR WAS NOT FINISHED DID NOT HOLD, whatever its score
+     (Audit III T8 to T11): the score reads how the work that was done was
+     run; this pattern asks whether the quality work is getting done. */
+  var scored = win.map(function(dd){
+    var sc = computeExecutionScore(dd), fr = null;
+    try { fr = sessionFadeReading(dd); } catch(e){ fr = null; }
+    var flagged = !!(fr && (fr.faded || fr.short));
+    if (sc == null && !flagged) return null;
+    return flagged ? Math.min(sc == null ? 0 : sc, PLAYBOOK_POOR_EXECUTION - 1) : sc;
+  }).filter(function(v){ return v != null; });
   if (scored.length < 3) return null;
   var held = scored.filter(function(s){ return s >= PLAYBOOK_POOR_EXECUTION; });
   if (held.length === scored.length) return null;
@@ -50948,8 +51167,16 @@ function evolutionChanges(stateName, phase, pending, recoverable){
 
      `byDate` is still used wherever the FULL shape of the week matters, such
      as spacing, so a protected session is still counted as the hard day it is. */
+  /* ONE CUT AT A TIME (Audit III LA12). A week the athlete already agreed
+     to lighten through the weekly review is settled too: Plan Evolution does
+     not propose a second reduction on top of it. Illness and pain (RECOVER)
+     still may, because they are safety rather than load. */
+  var reducedWeek = {};
+  (state.days || []).forEach(function(x){
+    if (x && x.weeklyAdjust && /^(hold|reload|recovery|protect)/.test(x.weeklyAdjust.kind || '')) reducedWeek[x.week] = true; });
   var open = byDate.filter(function(dd){
-    return !dd.coachAdjust && dd.type!=='race' && dd.type!=='checkpoint';
+    return !dd.coachAdjust && dd.type!=='race' && dd.type!=='checkpoint' && !isTestSession(dd.type) &&
+           (stateName === 'RECOVER' || !reducedWeek[dd.week] || stateName === 'RESCHEDULE');
   });
 
   // ---- RECOVER: protect the next demanding session, and only that ----
@@ -51478,8 +51705,13 @@ function coachReadinessLine(dd){
   if (load.band === 'spike')
     return 'This week is already well above your recent average. Today is not the day to add anything to it.';
   // the evidence, without repeating the decision it did not change
-  if (dec && dec.state === 'check' && dec.reasons.length)
+  if (dec && dec.state === 'check' && dec.reasons.length){
+    /* A soreness report is answered by the suggestion on the session, so
+       the note points to it rather than leaving it at "worth knowing". */
+    if (/[Ss]oreness|[Pp]ain/.test(dec.reasons[0]))
+      return sentence(dec.reasons[0])+' The suggestion below turns today easy, or moves it to a rest day.';
     return sentence(dec.reasons[0])+' Worth knowing before you start.';
+  }
   /* TRAINING THAT WAS NOT RUN IS HOW THIS ATHLETE COMES INTO THE SESSION.
      The engine has counted it all along -- missPattern() -- and said so on
      the Coach page; here it said nothing, so an athlete five sessions short
@@ -52203,10 +52435,13 @@ function handleCoachAccept(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
   var dec = report.decision;
+  if (report.nextMove.checkpoint || isTestSession(dd.type) || dd.type === 'checkpoint') return;
+  var weekCut = (state.days || []).some(function(x){
+    return x && x.week === dd.week && x.weeklyAdjust && /^(hold|reload|recovery|protect)/.test(x.weeklyAdjust.kind || ''); });
   // Either the long-standing signal-driven proposal, or the same offer raised
   // from accumulated evidence. Both are reductions, both need this tap.
   var adj = report.nextMove.adjustment ||
-    (dec && dec.state==='modify' && dec.quality
+    (dec && dec.state==='modify' && dec.quality && !weekCut
       ? { kind:'reduce', km:Math.max(1, Math.round(dd.km*0.75*2)/2), type:dd.type,
           title:dd.title, reason:dec.reasons[0] }
       : null);
@@ -52394,7 +52629,8 @@ function weeklyEvidence(week){
   var due = weekRunDays(week).filter(function(d){ return d.date < today; });
   var ev = { week: week, due: due.length, dueKm: 0, done: 0, doneKm: 0, missed: 0, unknown: 0,
              overEffort: 0, qualityOverEffort: 0, easyOverEffort: 0, qualityDone: 0, qualityShort: 0,
-             pain: 0, niggle: 0, scores: [], qualityScores: [] };
+             pain: 0, niggle: 0, scores: [], qualityScores: [],
+             qualityFaded: 0, qualityRepsShort: 0, qualityNotes: [], timeStops: 0, timeShortKm: 0, allClear: 0 };
   due.forEach(function(d){
     ev.dueKm += d.km;
     if (sessionRan(d)){
@@ -52405,14 +52641,33 @@ function weeklyEvidence(week){
       var rpe = d.actual && d.actual.rpe != null ? Number(d.actual.rpe) : null;
       var over = (band && rpe != null && rpe > band[1]);
       if (over){ ev.overEffort++; if (weeklyIsQuality(d)) ev.qualityOverEffort++; else ev.easyOverEffort++; }
+      /* CUT SHORT FOR TIME, REST OR ANOTHER REASON THAT SAYS NOTHING ABOUT
+         FITNESS (Audit III T12). Counted, and the distance not run is not
+         held against the week; the sheet says so. */
+      var excused = false;
+      try { excused = logStopExcused(d); } catch(eX){ excused = false; }
+      if (excused && d.km > 0 && km < d.km * 0.95){ ev.timeStops++; ev.timeShortKm += d.km - km; }
       if (weeklyIsQuality(d)){
         ev.qualityDone++;
-        if (d.km > 0 && km < d.km * 0.85) ev.qualityShort++;
+        var fr = null; try { fr = sessionFadeReading(d); } catch(eF){ fr = null; }
+        var mk = null; try { mk = sessionMarkedUnder(d); } catch(eM){ mk = null; }
+        var repsShort = !!(fr && fr.short);
+        /* For the session choice the athlete's own account counts too: a set
+           they said faded, or reps they marked under pace. */
+        var faded = !!(fr && (fr.faded || fr.reportedFade)) || !!mk;
+        if ((d.km > 0 && km < d.km * 0.85 && !excused) || repsShort) ev.qualityShort++;
+        if (repsShort) ev.qualityRepsShort++;
+        if (faded) ev.qualityFaded++;
+        if (repsShort || faded) ev.qualityNotes.push({ date: d.date, title: d.title || '', repsDone: fr ? fr.repsDone : null,
+          reps: fr ? fr.reps : null, faded: faded, short: repsShort, marksUnder: mk ? mk.under : null, marksOf: mk ? mk.of : null,
+          basis: (fr && fr.faded) ? fr.basis : (fr && fr.reportedFade) ? 'reported' : mk ? 'marked' : (fr ? fr.basis : null) });
       }
       var hurt = d.actual && d.actual.hurting;
       if (hurt === 'pain') ev.pain++; else if (hurt === 'niggle') ev.niggle++;
+      else if (hurt === 'no') ev.allClear++;
       var sc = null; try { sc = computeExecutionScore(d); } catch(e){ sc = null; }
       if (sc != null && isFinite(sc)){ ev.scores.push(sc); if (weeklyIsQuality(d)) ev.qualityScores.push(sc); }
+      if (d.actual && (d.actual.rpe != null || d.actual.mainSetFelt != null || d.actual.feel != null)) ev.effortLogged = (ev.effortLogged || 0) + 1;
     } else if (acked[d.id]) ev.missed++;
     else ev.unknown++;
   });
@@ -52432,7 +52687,9 @@ function weeklyEvidence(week){
   ev.dueKm = round1(ev.dueKm); ev.doneKm = round1(ev.doneKm);
   ev.logged = ev.done + ev.missed;
   ev.loggedShare = ev.due ? ev.logged / ev.due : 0;
-  ev.completion = ev.dueKm > 0 ? ev.doneKm / ev.dueKm : 0;
+  ev.timeShortKm = round1(ev.timeShortKm);
+  ev.completionRaw = ev.dueKm > 0 ? ev.doneKm / ev.dueKm : 0;
+  ev.completion = ev.dueKm > 0 ? Math.min(1, (ev.doneKm + ev.timeShortKm) / ev.dueKm) : 0;
   var mean = function(a){ return a.length ? a.reduce(function(t, x){ return t + x; }, 0) / a.length : null; };
   ev.execution = mean(ev.scores);
   ev.qualityExecution = mean(ev.qualityScores);
@@ -52443,7 +52700,16 @@ function weeklyEvidence(week){
    it, so a decision can name which instrument moved it. */
 function weeklyInstrumentSignals(){
   var s = {};
-  try { var r = coachRecovery(); s.recovery = r ? (r.trainingState || r.state) : null; s.recoveryMorning = r ? r.state : null; } catch(e){ s.recovery = null; }
+  /* THE SHEET READS THIS MORNING TOO (Audit III LA2). It is raised only
+     after the check-in, so "recovery readings are fresh" was said to an
+     athlete who had just answered heavy legs and poor sleep. Recovery here
+     is the reading with the morning in it; the flags are kept to say so. */
+  /* One morning can make a fresh week one to watch (a smaller step); it
+     never turns a week into a reload on its own. */
+  try { var r = coachRecovery();
+        s.recovery = r ? ((r.trainingState === 'fresh' && r.state && r.state !== 'fresh') ? 'watch' : r.trainingState) : null;
+        s.recoveryTraining = r ? r.trainingState : null;
+        s.recoveryMorning = r ? r.state : null; s.morningFlags = (r && r.morning && r.morning.flags) ? r.morning.flags.slice() : []; } catch(e){ s.recovery = null; }
   try { var b = blockEffectiveness(); s.adaptation = b ? b.state : null; s.adaptationRobust = !!(b && b.robust); } catch(e){ s.adaptation = null; }
   try { var ex = executionPattern(); s.executionPattern = ex ? ex.tier : null; } catch(e){ s.executionPattern = null; }
   try { var mi = missPattern(); s.missPattern = mi ? mi.tier : null;
@@ -52454,6 +52720,32 @@ function weeklyInstrumentSignals(){
 }
 
 /* THE DECISION for `week`, from the week before it. Pure: reads, never writes. */
+/* LONG RUNS DONE AS WRITTEN EARN THE BIGGER STEP (Audit III LA9). The
+   earned 15% step used to need the Adaptation reading to say ADAPTING, which
+   an athlete who logs as prescribed never reaches, so it fired 0 times in
+   185 blocks. It is now earned the way a coach would judge it: the last
+   three long runs run to their distance, inside their effort, without the
+   second half fading, and nothing hurting. */
+var LONG_RUN_EARN_COUNT = 3;
+function longRunsEarnedStep(beforeWeek){
+  var longs = (state.days || []).filter(function(d){
+    return d && d.type === 'long' && d.week < beforeWeek && d.km > 0 && d.date < todayStr(); })
+    .sort(function(a, b){ return a.date < b.date ? -1 : 1; }).slice(-LONG_RUN_EARN_COUNT);
+  if (longs.length < LONG_RUN_EARN_COUNT) return null;
+  var ok = longs.every(function(d){
+    if (!sessionRan(d) || !d.actual) return false;
+    var km = d.actual.km != null ? Number(d.actual.km) : d.km;
+    if (!(km >= d.km * 0.95)) return false;
+    if (d.actual.hurting === 'pain' || d.actual.hurting === 'niggle') return false;
+    var band = null; try { band = expectedRPEBand(d); } catch(e){ band = null; }
+    if (d.actual.rpe == null && d.actual.mainSetFelt == null) return false;
+    if (band && d.actual.rpe != null && Number(d.actual.rpe) > band[1]) return false;
+    var fr = null; try { fr = sessionFadeReading(d); } catch(e2){ fr = null; }
+    if (fr && fr.faded) return false;
+    return true;
+  });
+  return ok ? longs.length : null;
+}
 function weeklyCoachingReview(week){
   if (!state.setup || !state.days || !state.days.length) return null;
   var N = week != null ? week : currentWeekNum();
@@ -52548,7 +52840,18 @@ function weeklyCoachingReview(week){
      recent sessions proposes a hold too, as a choice in the glass sheet. It
      used to be read and never used; only the last week's own count decided. */
   var missPersistent = sig.missPattern === 'persistent';
-  if (missedMuch || effortHigh || missPersistent){
+  /* THE QUALITY WORK SPEAKS FOR ITSELF (Audit III LA4, T8 to T11). A set
+     that faded or was not finished last week is a question about the
+     session, not about recovery. Read it before the hold, so a week whose
+     only cause is the quality work is offered the session choice, quoting
+     what the athlete logged, rather than a hold that names recovery. */
+  var qualityStruggle = ev.qualityDone > 0 && (
+    (ev.qualityOverEffort >= 1 && ((ev.qualityExecution != null && ev.qualityExecution < PLAYBOOK_POOR_EXECUTION) || ev.qualityShort >= 1)) ||
+    ev.qualityRepsShort >= 1 || ev.qualityFaded >= 1);
+  var qualityLeft = weekRunDays(N).some(function(d){ return weeklyIsQuality(d) && !sessionRan(d) && d.date >= todayStr(); });
+  var holdOnlyFromQuality = !missedMuch && !missPersistent && ev.easyOverEffort < 2 &&
+    (ev.qualityRepsShort + ev.qualityFaded) > 0;
+  if ((missedMuch || effortHigh || missPersistent) && !(qualityStruggle && qualityLeft && holdOnlyFromQuality)){
     out.kind = 'hold';
     out.recommendedKm = lastKm;
     if (missPersistent) out.reasons.push('miss_pattern');
@@ -52563,9 +52866,7 @@ function weeklyCoachingReview(week){
   /* Felt harder than its band AND fell short: a poor execution score, or,
      where a structured session was logged without its sections (so it has
      no score), a session cut below 85% of its distance. */
-  var qualityStruggle = ev.qualityDone > 0 && ev.qualityOverEffort >= 1 &&
-    ((ev.qualityExecution != null && ev.qualityExecution < PLAYBOOK_POOR_EXECUTION) || ev.qualityShort >= 1);
-  if (qualityStruggle && weekRunDays(N).some(function(d){ return weeklyIsQuality(d) && !sessionRan(d) && d.date >= todayStr(); })){
+  if (qualityStruggle && qualityLeft){
     /* TWO IN A ROW STEPS BACK (founder-approved, 15 November 2026: a session
        "steps up only after its last session scored well, repeats after a
        poor one, and steps back after two poor ones in a row"). A repeat that
@@ -52599,6 +52900,12 @@ function weeklyCoachingReview(week){
       out.newRunId = newRun.id;
       out.newRunCount = runsThis;
       out.recommendedKm = thisKm;
+      /* THE NEW RUN DOES NOT BRING A BIGGER STEP WITH IT (Audit III LA5).
+         The week still rises by the step the evidence allows; the extra run
+         spreads it, it does not add to it. */
+      var nrCautious = sig.recovery === 'watch' || ev.overEffort === 1 || ev.completion < 0.85;
+      var nrCap = round1(baseKm * (1 + (nrCautious ? WEEKLY_STEP_CAUTIOUS : WEEKLY_STEP_STANDARD)));
+      if (thisKm > nrCap + 0.5){ out.recommendedKm = nrCap; out.reasons.push('smaller_than_planned'); }
       out.reasons.push('new_run');
       out.material = true;
       return out;
@@ -52640,7 +52947,13 @@ function weeklyCoachingReview(week){
      (a progression that is not the cautious one) turns the strides run into a
      short hill session. Too little logged never reaches here, so an athlete
      who logs nothing stays on strides. */
-  if (!cautious && N >= BASE_HILLS_FROM_WEEK){
+  /* HILLS ARE EARNED FROM WHAT THE ATHLETE REPORTED (Audit III LA6): effort
+     logged on at least half of last week's runs, no pain or niggle, and no
+     injury or illness in the last two weeks. Distance alone cannot say the
+     athlete is recovering well. */
+  var hillsReadable = (ev.effortLogged || 0) * 2 >= Math.max(1, ev.done) && ev.niggle === 0 && ev.pain === 0 &&
+    !(state.days || []).some(function(d){ return d && d.restricted && d.date >= addDays(todayStr(), -14) && d.date <= todayStr(); });
+  if (!cautious && N >= BASE_HILLS_FROM_WEEK && hillsReadable){
     var hillDay = weeklyBaseHillsDay(N);
     if (hillDay){ out.baseHillsId = hillDay.id; out.reasons.push('base_hills'); out.material = true; }
   }
@@ -52648,7 +52961,11 @@ function weeklyCoachingReview(week){
      standard with 15% earned"). Only when the evidence reads strong, and
      only where the plan wanted a longer long run than the 10% step allowed
      (applyLongRunStepCap() kept that figure on the day). */
-  if (strong){
+  var longEarnedBy = strong ? 'adapting' : null;
+  if (!longEarnedBy && !cautious && (sig.recovery === 'fresh' || sig.recovery == null) && ev.overEffort === 0 &&
+      longRunsEarnedStep(N)) longEarnedBy = 'long_runs';
+  if (longEarnedBy){
+    out.longEarnedBy = longEarnedBy;
     var lrD = weekRunDays(N).filter(function(d){
       return d.type === 'long' && d.stepWantKm > d.km && !sessionRan(d) && !d.manualEdit && d.date >= todayStr(); })[0];
     if (lrD){
@@ -52796,6 +53113,7 @@ function answerWeeklyReview(rv, accept){
       result = applyWeekTarget(rv.week, rv.lastKm, 'stay');
     }
   } else if (rv.kind === 'new_run'){
+    if (accept && rv.recommendedKm < rv.plannedKm - 0.5) result = applyWeekTarget(rv.week, rv.recommendedKm, 'progress');
     if (!accept){
       var nr = weeklyAdjustable(rv.week).filter(function(d){ return d.id === rv.newRunId; })[0];
       if (nr){
@@ -52838,6 +53156,47 @@ function answerWeeklyReview(rv, accept){
   return weeklyReviewStore()[key];
 }
 
+/* ---------- THE FIGURE ON THE SHEET IS THE WEEK THAT WILL BE DELIVERED ----------
+   (Audit III LA3.) The sheet used to quote the target it would aim for; the
+   5km minimum run and the session geometry then delivered something else
+   ("Recovery Week (27.3km)" arrived as 30.4km). Each answer is now applied
+   to the week in a dry run, the total read, and everything put back exactly
+   as it was, so the number the athlete is shown is the one they will get. */
+function weeklyDryRun(fn){
+  var days = state.days || [];
+  var n = days.length;
+  var saved = days.map(function(d){ return JSON.stringify(d); });
+  var store = JSON.stringify(state.weeklyReview || {});
+  var out = null;
+  try { out = fn(); }
+  catch(e){ out = null; }
+  finally {
+    if (days.length > n) days.length = n;
+    for (var i = 0; i < n; i++){
+      var d = days[i], o = JSON.parse(saved[i]);
+      Object.keys(d).forEach(function(k){ delete d[k]; });
+      Object.assign(d, o);
+    }
+    state.days = days;
+    state.weeklyReview = JSON.parse(store);
+  }
+  return out;
+}
+function weeklyDeliveredFigures(rv){
+  if (!rv || !rv.kind) return null;
+  var got = {};
+  var run = function(answer){
+    return weeklyDryRun(function(){ answerWeeklyReview(rv, answer); return weekPlannedKm(rv.week); });
+  };
+  if (rv.kind === 'recovery' && rv.options){
+    ['progress', 'hold', 'reload'].forEach(function(c){ var k = run(c); if (k != null) got[c] = k; });
+  } else {
+    var y = run(true), n2 = run(false);
+    if (y != null) got.yes = y;
+    if (n2 != null) got.no = n2;
+  }
+  return got;
+}
 /* ---------- THE WORDS ---------- */
 /* WHY THE PLAN RISES THIS WEEK, in the plan's own terms: where the week sits
    and where the block is heading. Shared by the progress and the
@@ -52860,8 +53219,36 @@ function weeklyPlanReason(rv){
   else if (phase) parts.push('You are in your ' + phase + ' phase, at the top of what your plan builds to.');
   return parts.join(' ');
 }
+/* WHAT THE ATHLETE LOGGED, SAID BACK (Audit III linking plan). The sheet
+   names the session and the answer that moved it: reps completed, a set
+   that faded, reps marked under pace. */
+function weeklyDayName(iso){
+  return WEEKLY_DAY_NAMES[(new Date(iso + 'T12:00:00Z').getUTCDay() + 6) % 7];
+}
+function weeklyQualityEvidenceLine(ev){
+  var notes = (ev && ev.qualityNotes) || [];
+  if (!notes.length) return '';
+  return notes.slice(-2).map(function(n){
+    var bits = [];
+    if (n.short && n.reps) bits.push('you completed ' + n.repsDone + ' of ' + n.reps + ' reps');
+    if (n.faded){
+      if (n.basis === 'marked' && n.marksOf) bits.push('you marked ' + n.marksUnder + ' of ' + n.marksOf + ' reps under pace');
+      else if (n.basis === 'measured') bits.push('your rep times slowed through the set');
+      else bits.push('you said the set faded');
+    }
+    return 'On ' + weeklyDayName(n.date) + ' ' + bits.join(' and ') + '.';
+  }).join(' ').replace(/(^|\. )([a-z])/g, function(m, a, b){ return a + b.toUpperCase(); });
+}
+function weeklyTimeStopLine(ev){
+  if (!ev || !(ev.timeStops > 0)) return '';
+  return (ev.timeStops === 1 ? 'One run was' : ev.timeStops + ' runs were') +
+    ' cut short for time or rest, so the ' + fmtDist(ev.timeShortKm) + ' not run is not read as lost fitness.';
+}
 function weeklyReviewCopy(rv){
   var ev = rv.ev, s = rv.signals;
+  /* The delivered figure where the dry run has measured it (LA3). */
+  var dl = rv.delivered || {};
+  var yesKm = function(fallback){ return dl.yes != null ? dl.yes : fallback; };
   var lines = [];
   var dist = function(km){ return fmtDist(km); };
   var pct = function(a, b){ return Math.round((a / b - 1) * 100); };
@@ -52869,8 +53256,18 @@ function weeklyReviewCopy(rv){
   var spct = function(a, b){ var v = pct(a, b); return (v >= 0 ? '+' : '') + v + '%'; };
   if (rv.kind === 'progress'){
     var why = 'Last week you completed ' + dist(ev.doneKm) + ' of ' + dist(ev.dueKm) + '.';
+    var tsLine = weeklyTimeStopLine(ev);
+    if (tsLine) why += ' ' + tsLine;
+    /* A set that did not hold, in a week with no hard session to repeat, is
+       still said, and kept for next time (Audit III linking plan). */
+    var qLine = weeklyQualityEvidenceLine(ev);
+    if (qLine) why += ' ' + qLine + ' SACORO keeps an eye on it, and offers to repeat the session if it happens again.';
+    var mflags = s.morningFlags || [];
     if (s.recovery === 'fresh') why += ' Your recovery readings are fresh.';
+    else if (mflags.length && s.recoveryTraining === 'fresh')
+      why += ' This morning you reported ' + mflags.join(' and ') + ', so the step is a small one.';
     else if (s.recovery === 'watch') why += ' Your recovery readings are worth watching, so the step is a small one.';
+    else if (s.recovery === 'strained') why += ' Your recovery readings are strained, so the step is a small one.';
     if (ev.overEffort === 0 && ev.done > 0) why += ' Your reported effort stayed where each session asked for it.';
     if (s.adaptation === 'ADAPTING') why += ' Your training is showing it is adapting.';
     var planWhy = weeklyPlanReason(rv);
@@ -52882,17 +53279,26 @@ function weeklyReviewCopy(rv){
         'strides run becomes a short hill session: 6 x 30 seconds uphill, jogging back down between.';
     }
     if (rv.longEarnedKm > 0)
-      why += ' Because you are adapting well, your long run can take a bigger step this week: ' +
+      why += (rv.longEarnedBy === 'long_runs'
+        ? ' Your last ' + LONG_RUN_EARN_COUNT + ' long runs went as written, so this one can take a bigger step: '
+        : ' Because you are adapting well, your long run can take a bigger step this week: ') +
         dist(rv.longEarnedKm) + ' instead of ' + dist(rv.longPlannedKm) + '.';
-    var shownKm = rv.longEarnedKm > 0 ? round1(rv.recommendedKm + rv.longEarnedKm - rv.longPlannedKm) : rv.recommendedKm;
-    var progFigures = [['Last week', dist(rv.lastKm)], ['Recommended this week', dist(shownKm) + ' (' + spct(shownKm, rv.lastKm) + ')']];
+    var shownKm = yesKm(rv.longEarnedKm > 0 ? round1(rv.recommendedKm + rv.longEarnedKm - rv.longPlannedKm) : rv.recommendedKm);
+    /* AFTER A LIGHTER WEEK THE STEP IS MEASURED FROM THE LAST FULL WEEK
+       (Audit III UX3-20): "+73%" over a recovery week sat beside "the step
+       is a small one". The figure and the words now describe the same step. */
+    var fromKm = (rv.prevReducing && rv.baseKm > rv.lastKm) ? rv.baseKm : rv.lastKm;
+    var progFigures = fromKm !== rv.lastKm
+      ? [['Last full week', dist(fromKm)], ['Recommended this week', dist(shownKm) + ' (' + spct(shownKm, fromKm) + ')']]
+      : [['Last week', dist(rv.lastKm)], ['Recommended this week', dist(shownKm) + ' (' + spct(shownKm, rv.lastKm) + ')']];
     if (rv.longEarnedKm > 0) progFigures.push(['Long run', dist(rv.longEarnedKm)]);
     return { eyebrow: 'Coach’s Recommendation',
       head: 'You’re ready to progress.', why: why,
       figures: progFigures,
-      note: rv.recommendedKm < rv.plannedKm - 0.5
+      note: ((rv.recommendedKm < rv.plannedKm - 0.5
         ? 'Your plan had ' + dist(rv.plannedKm) + ' this week. SACORO recommends a smaller step from what the evidence shows.'
-        : (rv.reasons.indexOf('resuming') !== -1 ? 'This picks your progression up again from where you held it.' : ''),
+        : (rv.reasons.indexOf('resuming') !== -1 ? 'This picks your progression up again from where you held it.' : '')) +
+        (rv.baseHillsId ? ' Staying at your current mileage keeps the strides run as it is.' : '')).trim(),
       yes: 'Accept Progression', no: 'Stay at Current Weekly Mileage' };
   }
   if (rv.kind === 'new_run'){
@@ -52903,8 +53309,9 @@ function weeklyReviewCopy(rv){
     var ordCap = ord.charAt(0).toUpperCase() + ord.slice(1);
     return { eyebrow: 'Coach’s Recommendation', head: 'A ' + ord + ' run joins your week.',
       why: 'Your week has grown enough to hold another run, so your plan adds ' + (nrDay ? dist(nrDay.km) + ' easy on ' + nrName : 'an easy run') +
-        '. More runs keep each one comfortable as the week grows.',
-      figures: [['Last week', dist(rv.lastKm) + ' on ' + (rv.newRunCount - 1) + ' runs'], ['This week', dist(rv.plannedKm) + ' on ' + rv.newRunCount + ' runs']],
+        '. More runs keep each one comfortable as the week grows.' +
+        (rv.recommendedKm < rv.plannedKm - 0.5 ? ' The week still rises by the usual step, spread across one more run.' : ''),
+      figures: [['Last week', dist(rv.lastKm) + ' on ' + (rv.newRunCount - 1) + ' runs'], ['This week', dist(yesKm(rv.recommendedKm)) + ' on ' + rv.newRunCount + ' runs']],
       note: 'Keeping ' + keepN + ' runs moves that run’s distance onto your other easy runs where it fits, and leaves your long run as planned. SACORO asks again next week.',
       yes: 'Add the ' + ordCap + ' Run', no: 'Keep ' + keepN.charAt(0).toUpperCase() + keepN.slice(1) + ' Runs' };
   }
@@ -52912,6 +53319,8 @@ function weeklyReviewCopy(rv){
     var logLine = ev.due > 0
       ? 'You logged ' + ev.logged + ' of your ' + ev.due + ' sessions last week, so SACORO has too little to judge how the week went.'
       : 'Nothing was due to be logged last week, so SACORO has nothing to judge the week by.';
+    var heldNL = state.setup && state.setup.baseHeldNoLogs && state.setup.baseHeldNoLogs[rv.week];
+    if (heldNL) logLine += ' So this week rises by the standard step only, to ' + dist(rv.plannedKm) + '.';
     var planWhy2 = weeklyPlanReason(rv);
     return { eyebrow: 'Coach’s Recommendation', head: 'Your plan steps up this week.',
       why: logLine + (planWhy2 ? ' ' + planWhy2 : '') + ' The step is the one your plan set, within its safety limits.',
@@ -52927,13 +53336,15 @@ function weeklyReviewCopy(rv){
     if (rv.reasons.indexOf('recovery_watch') !== -1) w.push('your recovery readings are worth watching');
     if (rv.reasons.indexOf('execution_pattern') !== -1) w.push('recent sessions have repeatedly fallen short of their targets');
     var holdWhy = w.length ? 'Last week ' + w.join(', and ') + '. ' : '';
+    var tsHold = weeklyTimeStopLine(ev);
+    if (tsHold) holdWhy += tsHold + ' ';
     if (rv.reasons.indexOf('miss_pattern') !== -1 && s.missPlanned)
       holdWhy += 'You have run ' + s.missRan + ' of your last ' + s.missPlanned + ' planned sessions. ';
     return { eyebrow: 'Coach’s Recommendation', head: 'Hold this week.',
       why: holdWhy + 'Repeating the same mileage lets the work settle before the next step.',
-      figures: [['Last week', dist(rv.lastKm)], ['Planned this week', dist(rv.plannedKm)], ['Recommended', dist(rv.recommendedKm)]],
+      figures: [['Last week', dist(rv.lastKm)], ['Planned this week', dist(rv.plannedKm)], ['Recommended', dist(yesKm(rv.recommendedKm))]],
       note: 'SACORO will look again next week with what you log.',
-      yes: 'Hold at ' + dist(rv.recommendedKm), no: 'Progress as Planned' };
+      yes: 'Hold at ' + dist(yesKm(rv.recommendedKm)), no: 'Progress as Planned' };
   }
   if (rv.kind === 'reload'){
     var r = [];
@@ -52942,20 +53353,23 @@ function weeklyReviewCopy(rv){
     if (rv.reasons.indexOf('effort_high') !== -1) r.push('sessions felt harder than they should while execution dropped');
     return { eyebrow: 'Coach’s Recommendation', head: 'Take a reload week.',
       why: 'Over the last week ' + r.join(', and ') + '. A lighter week now protects the progress you have made.',
-      figures: [['Last week', dist(rv.lastKm)], ['Reload week', dist(rv.recommendedKm)]],
+      figures: [['Last week', dist(rv.lastKm)], ['Reload week', dist(yesKm(rv.recommendedKm))]],
       note: 'Quality sessions stay in the week, a little shorter. Your plan continues from here afterwards.',
       yes: 'Take the Reload Week', no: 'Continue as Planned' };
   }
   if (rv.kind === 'quality_back'){
     return { eyebrow: 'Coach’s Recommendation', head: 'Keep the mileage. Step the session back.',
-      why: 'Your quality session has felt harder than it should and fallen short of its targets two weeks running. This week it is a smaller version of last week’s session, so you can hit it well and build from there.',
+      why: (weeklyQualityEvidenceLine(ev) ? weeklyQualityEvidenceLine(ev) + ' ' : '') +
+        'Your quality session has fallen short two weeks running. This week it is a smaller version of last week’s session, so you can hit it well and build from there.',
       figures: [['This week', dist(rv.plannedKm)]],
       note: 'Only the quality session changes. It steps up again once it goes well.',
       yes: 'Step the Session Back', no: 'Keep the Planned Session' };
   }
   if (rv.kind === 'quality'){
     return { eyebrow: 'Coach’s Recommendation', head: 'Keep the mileage. Repeat the session.',
-      why: 'Your easy running is going well, but last week’s quality session felt harder than it should and fell short of its targets. Repeating it before it progresses builds the same fitness with less risk.',
+      why: (weeklyQualityEvidenceLine(ev)
+        ? weeklyQualityEvidenceLine(ev) + ' Your easy running is going well, so the mileage stays and the session repeats before it progresses. That builds the same fitness with less risk.'
+        : 'Your easy running is going well, but last week’s quality session felt harder than it should and fell short of its targets. Repeating it before it progresses builds the same fitness with less risk.'),
       figures: [['This week', dist(rv.plannedKm)]],
       note: 'Only the quality session changes. Every other run stays as planned.',
       yes: 'Repeat Last Week’s Session', no: 'Keep the Planned Session' };
@@ -52977,9 +53391,9 @@ function weeklyReviewCopy(rv){
         ? 'Your recovery reports and your training readings both say fatigue is building. SACORO recommends a recovery week before the progression continues.'
         : 'Your recovery reports suggest fatigue may be building. SACORO recommends holding your current training load for another week before increasing it.',
       choices: [
-        ['progress', 'Continue Progression', 'Follow the next planned increase, within the plan’s safety limits.', rv.options.progress],
-        ['hold', 'Hold Training Load', 'Keep your current weekly mileage while your recovery settles.', rv.options.hold],
-        ['reload', 'Recovery Week', 'A lighter week with easier running, then the plan continues.', rv.options.reload]
+        ['progress', 'Continue Progression', 'Follow the next planned increase, within the plan’s safety limits.', dl.progress != null ? dl.progress : rv.options.progress],
+        ['hold', 'Hold Training Load', 'Keep your current weekly mileage while your recovery settles.', dl.hold != null ? dl.hold : rv.options.hold],
+        ['reload', 'Recovery Week', 'A lighter week with easier running, then the plan continues.', dl.reload != null ? dl.reload : rv.options.reload]
       ],
       note: 'Nothing changes until you choose. SACORO will look again next week.',
       yes: 'Confirm' };
@@ -52991,7 +53405,7 @@ function weeklyReviewCopy(rv){
     if (rv.reasons.indexOf('unwell') !== -1) p.push('you told SACORO you feel unwell');
     return { eyebrow: 'Coach’s Recommendation', head: 'Protect this week.',
       why: 'Recently ' + p.join(', and ') + '. This week keeps you running easy and a little shorter. If it gets worse, tell SACORO through Injured or ill on Today.',
-      figures: [['Last week', dist(rv.lastKm)], ['This week', dist(rv.recommendedKm)]],
+      figures: [['Last week', dist(rv.lastKm)], ['This week', dist(yesKm(rv.recommendedKm))]],
       note: 'Quality sessions become easy runs this week only.',
       yes: 'Ease This Week', no: 'Train as Planned' };
   }
@@ -53071,6 +53485,7 @@ var weeklyReviewOpen = null;
 function openWeeklyReviewSheet(rv){
   if (typeof document === 'undefined' || !document.createElement) return false;
   closeWeeklyReviewSheet();
+  if (rv && !rv.delivered){ try { rv.delivered = weeklyDeliveredFigures(rv); } catch(e){ rv.delivered = null; } }
   var html = weeklyReviewSheetHtml(rv);
   if (!html) return false;
   var layer = document.createElement('div');
@@ -53129,6 +53544,7 @@ function weeklyReviewDue(){
   var rv = weeklyCoachingReview(N);
   if (!rv || !rv.material || !weeklyReviewCopy(rv)) return null;
   if (!weeklyAdjustable(N).length) return null;
+  try { rv.delivered = weeklyDeliveredFigures(rv); } catch(e){ rv.delivered = null; }
   return rv;
 }
 function maybeRaiseWeeklyReview(arriving){
@@ -53779,7 +54195,11 @@ function playbookAssess(archetype){
       { ok: trend.direction!=='falling', why:'Execution is trending down.' },
       { ok: rec.state==='fresh', why:'Recovery state is '+rec.state+'.' },
       { ok: load.band!=='spike' && load.band!=='elevated', why:'Recent load is '+load.band+'.' },
-      { ok: byTier('strong','negative').length===0, why:'A multi-session pattern is pointing the other way.' },
+      /* NAMED, NOT ALLUDED TO (Audit III LA8): the pattern's own sentence. */
+      { ok: byTier('strong','negative').length===0,
+        why: (byTier('strong','negative')[0] && byTier('strong','negative')[0].detail)
+          ? String(byTier('strong','negative')[0].detail)
+          : 'A pattern across several sessions is pointing the other way.' },
       /* Recovery is not adaptation. Sits with the other PROGRESS gates rather
          than in the trend layer, because "better than lately" is a true and
          useful thing to notice -- it is only an unsound basis for asking the
@@ -55486,6 +55906,10 @@ function coachEnvironment(notes, actual){
   env.treadmill = sigs.signals.some(function(x){ return x.id==='treadmill'; });
   env.fatigue = noteSignalFlag(sigs, 'fatigue');
   env.pain    = noteSignalFlag(sigs, 'pain');
+  /* "ANYTHING HURTING?" ANSWERED NO IS THE ATHLETE'S OWN ALL-CLEAR (Audit
+     III T13), and it outranks a note read as soreness: they answered the
+     question directly. "Pain" or "Niggle" chosen there still counts. */
+  if (actual && actual.hurting === 'no' && actual.stopReason !== 'injury') env.pain = false;
   env.illness = noteSignalFlag(sigs, 'illness');
   // The cue list drives which components a note is allowed to excuse, and it
   // is now read through the same negation machinery.
@@ -57189,6 +57613,7 @@ function renderCoachNextMoveCard(report){
       '<div class="coach-adjust-why">'+escapeHtml(adj.reason)+'</div>'+
       '<div class="coach-actions">'+
         '<button type="button" class="btn btn-primary btn-block" data-action="coach-accept" data-day="'+mv.dayId+'">Accept Adjustment</button>'+
+        (mv.swapRestId ? '<button type="button" class="btn btn-ghost btn-block" data-action="coach-swap-rest" data-day="'+mv.dayId+'" data-rest="'+mv.swapRestId+'">Swap With Your Rest Day</button>' : '')+
         '<button type="button" class="btn btn-ghost btn-block" data-action="coach-keep" data-day="'+mv.dayId+'">Keep Original</button>'+
       '</div>'+
     '</div>';
@@ -57741,6 +58166,15 @@ function welcomeCardDue(){
   try { if (openRestriction()) return false; } catch(e){}
   return !!welcomeFirstRun();
 }
+/* THE WORDS MATCH THE FIRST SESSION (Audit III UX3-19). "Week 1 starts
+   gently on purpose" sat above Hill Repeats; a hard first session is now
+   called what it is. */
+function welcomeWeekOneLine(first){
+  var t = first && first.type;
+  if (t && isQualityType(t)) return 'It is a short hard session, kept small so week 1 stays easy overall.';
+  if (first && /hill|stride|sharpen/i.test(first.title || '')) return 'It is easy running with a few short, quick efforts, so week 1 stays easy overall.';
+  return 'Week 1 starts gently on purpose.';
+}
 function renderWelcomeCard(){
   if (!welcomeCardDue()) return '';
   var first = welcomeFirstRun();
@@ -57749,7 +58183,7 @@ function renderWelcomeCard(){
   return '<div class="welcome-card">'+
     '<div class="welcome-k font-head">Welcome to week 1</div>'+
     '<div class="welcome-say">Your first run is '+escapeHtml(when)+': '+escapeHtml(name)+
-      (first.km ? ', '+escapeHtml(fmtDist(first.km)) : '')+'. Week 1 starts gently on purpose. '+
+      (first.km ? ', '+escapeHtml(fmtDist(first.km)) : '')+'. '+escapeHtml(welcomeWeekOneLine(first))+' '+
       'Log each run and SACORO learns how you respond.</div>'+
     '<button type="button" class="btn btn-primary welcome-ok" data-action="welcome-ack">Got It</button>'+
   '</div>';
@@ -59164,6 +59598,28 @@ function evolutionChangeLine(c){
    `where` is 'above' when the change is to today's own session, because
    that is a decision to take before running it, and 'below' otherwise, so a
    change to Sunday does not push Thursday's run down the screen. */
+/* A PAIN REPORT CHANGES TODAY, ON TODAY (founder, Audit III LA11). Next Move
+   is not drawn on Today by ruling, so its pain offer never reached the
+   athlete: a single report read "Worth knowing before you start" and the
+   hard or long session stood. Only that offer is drawn here, on the
+   session it is about: run it easy, or move it to the rest day within two
+   days, or keep it. The answers are the existing coach handlers. */
+function renderTodayPainOffer(dd){
+  if (!dd || dd.coachAdjust || dd.coachKeptAt || dd.completed) return '';
+  var mv = null;
+  try { mv = coachNextMove(coachLoad(), coachRecovery(), coachTrend()); } catch(e){ mv = null; }
+  if (!mv || mv.dayId !== dd.id || !mv.adjustment || mv.adjustment.kind !== 'downgrade') return '';
+  var adj = mv.adjustment;
+  return '<div class="today-proposal" role="group" aria-label="Suggested change">'+
+    '<div class="today-proposal-k">Suggested change</div>'+
+    '<div class="today-proposal-why">'+escapeHtml(mv.recommendation)+'</div>'+
+    '<div class="today-proposal-actions">'+
+      '<button type="button" class="btn btn-ghost" data-action="coach-keep" data-day="'+dd.id+'">Keep It</button>'+
+      (mv.swapRestId ? '<button type="button" class="btn btn-ghost" data-action="coach-swap-rest" data-day="'+dd.id+'" data-rest="'+mv.swapRestId+'">Swap With Your Rest Day</button>' : '')+
+      '<button type="button" class="btn btn-primary" data-action="coach-accept" data-day="'+dd.id+'">Run '+escapeHtml(fmtDist(adj.km))+' Easy</button>'+
+    '</div>'+
+  '</div>';
+}
 function renderTodayProposal(dd, where){
   var ev = null;
   try { ev = planEvolution(); } catch(e){ ev = null; }
@@ -61234,6 +61690,16 @@ function weekFitSheetCopy(fit){
   var longTxt = fmtDist(fit.longKm);
   var an = /^(8|11|18)/.test(longTxt) ? 'an ' : 'a ';
   var shortRace = (fit.distKey === '5k' || fit.distKey === '10k') && fit.easyMaxKm > 0;
+  /* ONE DAY HAS NO EASY RUNS TO SPREAD (Audit III LA13): it read "Spread
+     over 1 days, each easy run would be –". */
+  if (d === 1){
+    var say1 = 'You run ' + fmtDist(fit.weekKm) + ' a week with ' + an + longTxt + ' long run. On one running day the whole week would be a single ' +
+      fmtDist(fit.weekKm) + ' run, longer than your long run.';
+    var hint1 = (fit.addDay && fit.addDay.fits)
+      ? 'On ' + fit.addDay.days + ' days your whole ' + fmtDist(fit.weekKm) + ' fits. Or start at ' + fmtDist(fit.startAtKm) + ' on one day and build from there.'
+      : 'Start at ' + fmtDist(fit.startAtKm) + ' on one day and build from there, or add running days.';
+    return { title: 'Make Room for Your Week', say: say1, hint: hint1 };
+  }
   var say = shortRace
     ? 'You run ' + fmtDist(fit.weekKm) + ' a week with ' + an + longTxt + ' long run. Spread over ' + d +
       ' days, each easy run would be ' + fmtDist(sh.easyKm) + '. For a ' + (fit.distKey === '5k' ? '5K' : '10K') +
@@ -61269,7 +61735,9 @@ function openWeekFitSheet(fit, distanceKey, sig){
     askSacoro({ title: copy.title, say: copy.say, hint: copy.hint,
       yes: 'Start at ' + fmtDist(fit.startAtKm), no: 'Change My Answers',
       onYes: startAt,
-      onNo: function(){} });
+      /* OPENS THE STEP THAT NEEDS CHANGING (Audit III UX3-12): the recent
+         running answers behind the sheet, returning to the summary after. */
+      onNo: function(){ try { bldReviewReturn = true; bldStage(BLD_STAGE.YOU); } catch(e){} } });
   }
 }
 /* BELOW THE RACE GOAL ENTRY: the Developing programme, offered (founder,
@@ -61594,7 +62062,28 @@ function closeModal(){
   if (existing && !bldParkSkip && existing.querySelector && existing.querySelector('.bld-modal') &&
       !planHasContent()) bldParked = existing;
   bldParkSkip = false;
+  var wasBuilder = !!(existing && existing.querySelector && existing.querySelector('.bld-modal'));
   if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  if (wasBuilder && planHasContent() && state.setup && state.setup.experienceBuiltFor &&
+      state.setup.experienceBuiltFor !== state.setup.experience)
+    setTimeout(function(){ try { maybeAskExperienceRebuild(); } catch(e){} }, 0);
+}
+/* THE CARDS AND THE WEEKS AGREE (Audit III T19). The level changed in Edit
+   Plan Settings and the plan was not rebuilt: the session guidance already
+   speaks to the new level while the weeks are still the old pathway. Asked
+   once, on the glass sheet: rebuild, or keep the plan and its level. */
+function maybeAskExperienceRebuild(){
+  var su = state && state.setup;
+  if (!su || !su.experienceBuiltFor || su.experienceBuiltFor === su.experience) return;
+  if (typeof document === 'undefined' || document.getElementById('modal-overlay') || document.getElementById('ask-sheet')) return;
+  var was = su.experienceBuiltFor, now = su.experience;
+  var name = function(l){ return (EXPERIENCE_META[l] && EXPERIENCE_META[l].label) || l; };
+  askSacoro({ title: 'Rebuild for ' + name(now) + '?',
+    say: 'Your plan was built for ' + name(was) + '. Your session guidance now speaks to ' + name(now) + ', but the weeks are still the ' + name(was) + ' pathway.',
+    hint: 'Rebuilding keeps everything you have logged. Keeping your plan keeps it at ' + name(was) + '.',
+    yes: 'Rebuild My Plan', no: 'Keep My Plan',
+    onYes: function(){ try { openSetupModal(); bldStage(BLD_STAGE_NAMES.length - 1); } catch(e){} },
+    onNo: function(){ state.experience = was; su.experience = was; delete su.experienceBuiltFor; persistState(); renderApp(); } });
 }
 var bldParked = null, bldParkSkip = false;
 function handleBldRestart(){
@@ -62281,7 +62770,7 @@ function openSetupModal(){
           '<option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select>'+
       '</div>'+
       '<div class="field"><label>Time</label>'+
-        '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
+        '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="mm:ss" value="'+benchTime+'"></div>'+
       '<div class="field-hint">Tap the time to set it.</div>'+
       '<div class="field-hint">A reference you give SACORO, not a measurement of your fitness. SACORO measures that on the Coach page from the races and checkpoints you actually run, and you can change this any time in Re-calibrate.</div>'+
       navBtns(6)+
@@ -62339,8 +62828,8 @@ function openSetupModal(){
       stageHead(8)+
       '<p class="bld-lede">Lactate Threshold Heart Rate (LTHR) is roughly the highest heart rate you can hold for a hard, controlled effort of about an hour. Give it and SACORO adds target heart-rate ranges alongside your paces.</p>'+
       '<div class="benchmark-row">'+
-        '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
-        '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
+        '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="bpm" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
+        '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="bpm" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
       '</div>'+
       '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip, I don’t know these</button>'+
       '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. SACORO works without it.</div>'+
@@ -62358,7 +62847,7 @@ function openSetupModal(){
     '<section class="bld-panel" data-stage="9" hidden>'+
       stageHead(9)+
       '<div class="setup-section-title">Goal A / B / C for the distance you picked</div>'+
-      '<p class="bld-lede">Every training pace is built from whichever goal is active. Toggle the Active Goal any time afterwards and every workout pace updates instantly.</p>'+
+      '<p class="bld-lede">Your training paces come from your benchmark, so they match the fitness you have now. The active goal sets your race pace and the goal-pace parts of your sessions. Change the Active Goal any time and those update straight away.</p>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">Suggest Goals From Benchmark</button>'+
       '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
       navBtns(9)+
@@ -62525,8 +63014,14 @@ function openSetupModal(){
     if (!box) return;
     var v = entryLongIn ? parseFloat(entryLongIn.value) : NaN;
     box.hidden = !(v > 0);
+    bldSyncEntryLongStale();
   }
   if (entryLongIn) entryLongIn.addEventListener('input', bldSyncEntryLongDate);
+  var entryLongDateIn = document.getElementById('su-entry-long-date');
+  if (entryLongDateIn){
+    entryLongDateIn.addEventListener('input', bldSyncEntryLongStale);
+    entryLongDateIn.addEventListener('change', bldSyncEntryLongStale);
+  }
   bldSyncEntryLongDate();
 
   // The short-runway note is synced from the same fields Generate reads --
@@ -62541,6 +63036,7 @@ function openSetupModal(){
 
   var wdBox = document.getElementById('su-weekdays');
   if (wdBox){
+    wdBox.addEventListener('change', function(ev){ if (ev && ev.isTrusted !== false) bldWeekTouched = true; });
     wdBox.addEventListener('change', function(){
       var boxes = wdBox.querySelectorAll('input[type=checkbox]');
       var checked = [];
@@ -62750,7 +63246,7 @@ function bldSyncLongDay(){
         return '<button type="button" data-v="'+o.value+'" class="'+(o.value===sel.value?'active':'')+'">'+
           o.textContent.toUpperCase()+'</button>';
       }).join('')
-    : '<button type="button" disabled>Pick at least 3 training days first</button>';
+    : '<button type="button" disabled>Pick your training days first</button>';
 }
 
 /* ---------- FOUR ANSWERS GIVEN WITH THE THUMB ----------
@@ -63148,9 +63644,21 @@ function bldValidateStage(i){
       if (rd <= todayStr()){ bldFail('f-racedate', 'Event date needs to be in the future.'); return false; }
     } else {
       var wRange = BUILDER_SPEC.validation.weeksRange;
-      var wks = parseInt(document.getElementById('su-weeks').value, 10);
-      if (isNaN(wks) || wks < wRange[0] || wks > wRange[1]){
-        bldFail('f-weeks', 'Choose a block length between '+wRange[0]+' and '+wRange[1]+' weeks.'); return false; }
+      var wksEl = document.getElementById('su-weeks');
+      var wks = parseInt(wksEl.value, 10);
+      if (isNaN(wks)){ bldFail('f-weeks', 'Choose a block length.'); return false; }
+      /* OFFERED, NOT REFUSED (Audit III C15). A length outside what one block
+         holds becomes the nearest one it does, and the hint says so: a
+         longer build is this block and then the next. */
+      if (wks < wRange[0] || wks > wRange[1]){
+        var near = Math.max(wRange[0], Math.min(wRange[1], wks));
+        wksEl.value = String(near);
+        try { bldSyncSliders(); } catch(e){}
+        var wh = document.getElementById('su-weeks-hint');
+        if (wh) wh.textContent = wks > wRange[1]
+          ? 'One block runs up to ' + wRange[1] + ' weeks, so SACORO has set ' + wRange[1] + '. When it ends you can start the next block from where you are.'
+          : 'A block needs at least ' + wRange[0] + ' weeks, so SACORO has set ' + wRange[0] + '.';
+      }
     }
     return true;
   }
@@ -63184,6 +63692,7 @@ function bldValidateStage(i){
     return true;
   }
   if (i === BLD_STAGE.TARGETS){
+    if (bldSkipsTargets()) return true;
     var any = GOAL_KEYS.some(function(k){
       var el = document.getElementById('su-goal-' + k);
       return el && clockToSec(el.value.trim());
@@ -63256,6 +63765,18 @@ function bldRenderReview(){
     ? row('Event date', vvCalIsIso(document.getElementById('su-racedate').value) ? vvCalShown(document.getElementById('su-racedate').value) : '\u2013', 'su-racedate')
     : row('Block length', document.getElementById('su-weeks').value + ' weeks', 'su-weeks');
   rows += row('Experience', EXPERIENCE_META[athleteExperience()].short, 'su-experience');
+  /* YOUR RUNNING NOW, REPEATED BACK (Audit III T1, T2): the days a week and
+     the longest run the athlete gave, and whether the long run is used. */
+  try {
+    var evR = readBuilderEntryEvidence();
+    if (evR && evR.runDaysPerWeek != null)
+      rows += row('Runs a week now', String(evR.runDaysPerWeek), 'su-entry-days');
+    if (evR && evR.longestRunKm != null && evR.longestRunKm > 0){
+      var ageR = evR.longestRunDate ? daysBetween(evR.longestRunDate, todayStr()) : null;
+      rows += row('Longest recent run', fmtDist(evR.longestRunKm) +
+        ((ageR != null && ageR > CALIBRATION_EVIDENCE_DAYS) ? ', too long ago to use' : ''), 'su-entry-long');
+    }
+  } catch(eR){}
   if (weekdayNames.length) rows += row('Running days', weekdayNames.join(', '), 'su-weekdays');
   rows += row('Long run day', longLabel, 'su-longday');
   var qBoxForReview = document.getElementById('f-quality');
@@ -63286,7 +63807,7 @@ function bldRenderReview(){
       (lthr && maxhr ? ', ' : '') + (maxhr ? 'Max ' + maxhr : '') +
       (hrWillBeSaved ? '' : ' (not saved, because health data sharing is off)'), 'su-lthr');
   }
-  if (goals.length) rows += row('Goals', goals.join(', '), 'su-goal-A');
+  if (goals.length && !bldSkipsTargets()) rows += row('Goals', goals.join(', '), 'su-goal-A');
   /* SUPPORTING WORK, CONFIRMED RATHER THAN ASKED. Read from the stage 07 tick
      that is still in the DOM -- the same element Generate itself reads -- so
      what this row says and what gets stored cannot disagree. Falls back to the
@@ -63350,11 +63871,43 @@ function bldStage(n){
 function handleBldNext(){
   if (!bldValidateStage(bldCurrentStage)) return;
   if (bldReviewReturn){ bldStage(BLD_STAGE_NAMES.length - 1); return; }
-  bldStage(bldCurrentStage + 1);
+  var to = bldCurrentStage + 1;
+  if (to === BLD_STAGE.TARGETS && bldSkipsTargets()) to++;
+  if (to === BLD_STAGE.WEEK) bldPreselectWeekFromAnswers();
+  bldStage(to);
+}
+/* THE WEEK STAGE STARTS FROM THE ANSWERS JUST GIVEN (Audit III UX3-10). A
+   0km, 0-day runner was preselected five days and two hard sessions, the
+   same as a 25km three-day runner. For a new athlete who has not touched the
+   week yet, the days follow "runs a week now" (three at least, one more
+   than now at most) and a small week gets one hard session. Answers the
+   athlete set themselves, and an existing plan's schedule, are left alone. */
+var bldWeekTouched = false;
+var BLD_WEEK_PATTERNS = { 3:[1,3,5], 4:[1,2,4,5], 5:[0,1,2,4,5], 6:[0,1,2,3,4,5], 7:[0,1,2,3,4,5,6] };
+function bldPreselectWeekFromAnswers(){
+  if (bldWeekTouched || (typeof planHasContent === 'function' && planHasContent()) || (state.setup && state.setup.schedule)) return;
+  var ev = null;
+  try { ev = readBuilderEntryEvidence(); } catch(e){ ev = null; }
+  if (!ev || ev.runDaysPerWeek == null) return;
+  var n = Math.max(3, Math.min(7, Math.round(ev.runDaysPerWeek) + 1));
+  if (ev.runDaysPerWeek >= 5) n = Math.min(7, Math.round(ev.runDaysPerWeek));
+  var pat = BLD_WEEK_PATTERNS[n];
+  var wdBox = document.getElementById('su-weekdays');
+  if (!pat || !wdBox) return;
+  wdBox.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+    cb.checked = pat.indexOf(parseInt(cb.getAttribute('data-wd'), 10)) !== -1; });
+  var sel = document.getElementById('su-longday');
+  try { wdBox.dispatchEvent(new Event('change', { bubbles:true })); } catch(e2){}
+  if (sel){ sel.value = String(pat[pat.length - 1]); try { bldSyncLongDay(); } catch(e3){} }
+  var q = document.getElementById('su-quality');
+  var small = (ev.weeklyKm != null && ev.weeklyKm < 20) || ev.runDaysPerWeek <= 3;
+  if (q && small){ q.value = '1'; try { bldSyncQuality(); } catch(e4){} }
 }
 function handleBldBack(){
   if (bldReviewReturn){ handleBldNext(); return; }
-  bldClearErrors(); bldStage(bldCurrentStage - 1);
+  var to = bldCurrentStage - 1;
+  if (to === BLD_STAGE.TARGETS && bldSkipsTargets()) to--;
+  bldClearErrors(); bldStage(to);
 }
 /* A line on the summary was tapped: open the screen that asks it, with both
    of its buttons leading back to the summary. Back validates too, so a
@@ -63423,7 +63976,7 @@ function openRecalibrateModal(){
           '<button type="button" data-v="10k" class="'+(benchDist==='10k'?'active':'')+'">10K</button>'+
         '</div>'+
         '<select id="rc-bench-dist" class="bld-mirror" tabindex="-1" aria-hidden="true"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
-      '<div class="field" style="margin:12px 0 0;"><label>Time</label><input type="text" id="rc-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
+      '<div class="field" style="margin:12px 0 0;"><label>Time</label><input type="text" id="rc-bench-time" inputmode="decimal" placeholder="mm:ss" value="'+benchTime+'"></div>'+
     '</div>'+
     '<div class="field-hint">Tap the time to set it.</div>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">Suggest Goals From Benchmark</button>'+
@@ -63494,6 +64047,43 @@ function handleSaveRecalibrate(){
   showToast('Zones Updated! All future upcoming sessions have been re-tailored to your new target paces.');
 }
 
+/* GOAL TIMES FROM THE BENCHMARK. The Suggest button's arithmetic, as a
+   function, so an Aerobic Base build can take its goals without asking
+   (founder, Audit III C15: "Skip goals" for Aerobic Base). */
+function goalsFromBenchmark(benchDist, benchSec, distKey){
+  var profile = DISTANCE_PROFILES[distKey], benchProfile = DISTANCE_PROFILES[benchDist];
+  if (!profile || !benchProfile || !benchSec) return null;
+  var vdotBench = vdotFromPerformance(benchProfile.raceKm*1000, benchSec);
+  var mults = BUILDER_SPEC.goals.ambitionMult, out = {};
+  GOAL_KEYS.forEach(function(k){
+    var t = equivalentTimeSec(vdotBench*mults[k], profile.raceKm*1000);
+    if (t) out[k] = t;
+  });
+  return Object.keys(out).length ? out : null;
+}
+/* Aerobic Base asks no goal: the step is passed over on the way through. */
+/* WHERE THE STARTING WEEK CAME FROM IS SAID (Audit III T26): a plan built
+   from the athlete's own logged or Strava running says so. */
+function volumeFromRecordFor(purpose, typed){
+  try {
+    if (purpose === 'base'){
+      var bve = baseWeeklyVolumeEvidence(typed);
+      return (bve.source === 'measured' || bve.source === 'demonstrated') ? bve.km : null;
+    }
+    if (purpose === 'race' && typed == null){ var dv = demonstratedSustainableVolume(); return dv > 0 ? round1(dv) : null; }
+  } catch(e){}
+  return null;
+}
+function fillUnaskedGoals(goals, benchDist, benchSec, distanceKey){
+  var skipped = false;
+  try { skipped = bldSkipsTargets(); } catch(e){ skipped = false; }
+  if (!skipped) return false;
+  var auto = goalsFromBenchmark(benchDist, benchSec, distanceKey);
+  if (!auto) return false;
+  Object.keys(auto).forEach(function(k){ goals[k] = { timeSec: auto[k] }; });
+  return Object.keys(auto).length > 0;
+}
+function bldSkipsTargets(){ return bldPurposeNow() === 'base'; }
 function handleSuggestGoals(){
   var benchDist = document.getElementById('su-bench-dist').value;
   var benchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
@@ -63619,6 +64209,9 @@ function renderExperienceCards(){
 function handleSetExperience(level){
   var lv = normaliseExperience(level);
   if (!lv || athleteExperience()===lv) return;
+  /* The level the weeks were built for is remembered (Audit III T19), so
+     leaving Edit Plan Settings without rebuilding can be asked about. */
+  if (state.setup && !state.setup.experienceBuiltFor) state.setup.experienceBuiltFor = athleteExperience();
   state.experience = lv;
   if (state.setup) state.setup.experience = lv;
   persistState();
@@ -63815,6 +64408,22 @@ function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
    doing so would silently redraw week 1's already-lived-in shape every
    time the horizon advanced, which reconcileRegeneratedDays() would then
    have to fight rather than simply not need to. */
+/* Brings a future week down to limKm by shortening its easy runs, none
+   below the 5km minimum, longest first. The long run and quality stay. */
+function trimWeekEasyTo(days, week, limKm){
+  var tot = function(){ return round1(days.reduce(function(t, d){
+    return t + ((d && d.week === week && d.km > 0 && d.type !== 'rest' && d.type !== 'race') ? d.km : 0); }, 0)); };
+  var changed = false, guard = 0;
+  while (tot() > limKm + 0.05 && guard++ < 400){
+    var easy = days.filter(function(d){ return d && d.week === week && d.type === 'easy' && !d.completed && !d.manualEdit &&
+      d.km - EASY_QUANTUM_KM >= WEEK_FIT_MIN_EASY_KM - 1e-9; }).sort(function(a, b){ return b.km - a.km; });
+    if (!easy.length) break;
+    easy[0].km = round1(easy[0].km - EASY_QUANTUM_KM);
+    easy[0].desc = easyRunText(easy[0].km).desc;
+    changed = true;
+  }
+  return changed;
+}
 function ensureBaseHorizonMaterialised(){
   var su = state && state.setup;
   if (!su || su.purpose !== 'base' || !state.days || !state.days.length) return false;
@@ -63836,6 +64445,25 @@ function ensureBaseHorizonMaterialised(){
 
   var reconciled = reconcileRegeneratedDays(state.days, freshDays, su.startDate);
   state.days = reconciled.days;
+  /* MISSING LOGS ARE NOT ADAPTATION (Audit III LA1). A week entering the
+     horizon after a week with too little logged may rise by the standard
+     step over the week before it, never more, so an athlete who logs
+     nothing is never handed bigger weeks than one who logs every run. The
+     weekly sheet says why (baseHeldNoLogs). */
+  try {
+    var lastEv = weeklyEvidence(week - 1);
+    if (week >= 2 && lastEv && lastEv.due > 0 && lastEv.loggedShare < WEEKLY_MIN_LOGGED_SHARE){
+      for (var nw = maxMaterialised + 1; nw <= targetHorizon; nw++){
+        var prevKm = weekPlannedKm(nw - 1), wkInfo = null;
+        try { wkInfo = playbookWeekInfo(nw); } catch(eI){ wkInfo = null; }
+        var lim = round1(prevKm * ((wkInfo && wkInfo.isCutback) ? CUTBACK_FACTOR : (1 + WEEKLY_STEP_STANDARD)));
+        if (prevKm > 0 && weekPlannedKm(nw) > lim + 0.5 && trimWeekEasyTo(state.days, nw, lim)){
+          su.baseHeldNoLogs = su.baseHeldNoLogs || {};
+          su.baseHeldNoLogs[nw] = lim;
+        }
+      }
+    }
+  } catch(eH){}
   var block = su.blockId ? blockById(su.blockId) : null;
   if (block) block.peakVolume = blockPeakVolumeFor('base', blockResult, state.days,
     su.raceDate, su.schedule, su.startDate, false);
@@ -63871,6 +64499,37 @@ function ensureBaseHorizonMaterialised(){
    reconcileRegeneratedDays() then does what it already does for a rebuild:
    every completed, missed, or edited day, and every date already lived
    through, is preserved verbatim; only the untouched future is replaced. */
+/* THE ADDED DAY IS USED FROM THE NEXT WEEK (Audit III T16). Accepting a new
+   running day used to say "Your programme will use it where it helps" and
+   leave every future week byte-identical until a manual rebuild. The future
+   is now rebuilt from the setup with the new day, through the same
+   history-preserving merge a rebuild uses: nothing logged, missed, edited or
+   already lived through moves. Returns true when the future was rebuilt. */
+function rebuildFutureForSchedule(){
+  var su = state && state.setup;
+  if (!su || !state.days || !state.days.length) return false;
+  var blockResult, freshDays;
+  var purposeNow = su.purpose || 'race';   // a plan saved before purposes existed is a race plan
+  try {
+    if (purposeNow === 'race'){
+      var easyPace = null;
+      try { var pz = getActivePaces(); if (pz && pz.E && pz.E.slow != null && pz.E.fast != null) easyPace = (pz.E.slow + pz.E.fast) / 2; } catch(eP){}
+      blockResult = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks,
+        { purpose: 'race', availableDays: (su.schedule && su.schedule.activeDays) ? su.schedule.activeDays.length : 6,
+          easyPaceSecPerKm: easyPace, experience: su.experience });
+      freshDays = buildDaysFromWeeks(blockResult, su.raceDate, su.schedule, su.startDate, su.hasEvent, { easyPaceSecPerKm: easyPace });
+    } else if (purposeNow === 'base'){
+      var maxW = 0; state.days.forEach(function(dd){ if (dd.week > maxW) maxW = dd.week; });
+      blockResult = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks, { purpose: 'base' });
+      freshDays = buildDaysFromWeeks(blockResult, su.raceDate, su.schedule, su.startDate, false, { horizonThroughWeek: maxW });
+    } else return false;
+  } catch(e){ return false; }
+  if (!freshDays || !freshDays.length) return false;
+  var reconciled = reconcileRegeneratedDays(state.days, freshDays, su.startDate);
+  state.days = reconciled.days;
+  try { scheduleSave(); } catch(eS){}
+  return true;
+}
 function ensureRaceGoalFrequencyReconciled(){
   var su = state && state.setup;
   if (!su || su.purpose !== 'race' || (su.distanceKey !== 'half' && su.distanceKey !== 'full')) return false;
@@ -64060,8 +64719,8 @@ async function handleGeneratePlan(){
     // taper and every date-based calculation work exactly as before.
     var genWeeksRange = BUILDER_SPEC.validation.weeksRange;
     var wks = parseInt(document.getElementById('su-weeks').value, 10);
-    if (isNaN(wks) || wks<genWeeksRange[0] || wks>genWeeksRange[1]){
-      showToast('Choose a block length between '+genWeeksRange[0]+' and '+genWeeksRange[1]+' weeks'); return; }
+    if (isNaN(wks)){ showToast('Choose a block length'); return; }
+    wks = Math.max(genWeeksRange[0], Math.min(genWeeksRange[1], wks));
     /* Measured from the block's own origin, not from today. On a rebuild "a
        twelve week block" means twelve weeks of THIS block, counting the weeks
        already trained -- measuring from today instead would silently make it
@@ -64108,6 +64767,9 @@ async function handleGeneratePlan(){
     var sec = clockToSec(el.value.trim());
     if (sec){ goals[k] = {timeSec:sec}; anyGoal = true; }
   });
+  /* Goals are always required; where the goals step was not asked (Aerobic
+     Base, Audit III C15) they come from the benchmark. */
+  if (!anyGoal) anyGoal = fillUnaskedGoals(goals, benchDist, benchSec, distanceKey);
   if (!anyGoal){ showToast('Enter at least one goal time (or tap Suggest first)'); return; }
   var activeGoal = (state.setup && state.setup.activeGoal && goals[state.setup.activeGoal])
     ? state.setup.activeGoal
@@ -64275,7 +64937,7 @@ async function handleGeneratePlan(){
       return;
     }
     if (pendingWeekFit && pendingWeekFit.startKm > 0) volume = pendingWeekFit.startKm;
-    if (fit && fit.kind === 'fewer' && fit.days < Math.min(activeDays.length, fit.ceilingDays))
+    if (!runWalkStart && fit && fit.kind === 'fewer' && fit.days < Math.min(activeDays.length, fit.ceilingDays))
       weekFitNote = 'Your ' + fmtDist(fit.weekKm) + ' fits best on ' + fit.days + ' of your ' + activeDays.length + ' days';
   }
   var profile = DISTANCE_PROFILES[distanceKey];
@@ -64283,7 +64945,10 @@ async function handleGeneratePlan(){
   var genCalEntry = raceGoalPathwayEntryKm(buildPurpose, distanceKey, null);
   var qualityBox = document.getElementById('su-quality');
   builderQualityChoice = (qualityBox && parseInt(qualityBox.value, 10) >= 1) ? parseInt(qualityBox.value, 10) : null;
-  var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
+  rebuildingBlockId = (rebuilding && priorBlock) ? priorBlock.id : null;
+  var blockResult;
+  try {
+  blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
     { purpose: buildPurpose,
       /* Bottom-up construction needs both before the first session is sized:
          the day ceiling it may build purposes within, and the pace that prices
@@ -64292,6 +64957,7 @@ async function handleGeneratePlan(){
       easyPaceSecPerKm: genEasyPace,
       calibrate: calibrationNeededNow(volume, genCalEntry),
       calibrateWhenViable: calibrationDeferrable(volume, genCalEntry) });
+  } finally { rebuildingBlockId = null; }
   /* AEROBIC BASE OPENS (OR RE-OPENS, ON A REBUILD) INSIDE ITS OWN ROLLING
      HORIZON. `startDate` is the block's own origin, not necessarily today's
      date on a rebuild (see blockAnchor() above), so the current week is
@@ -64443,16 +65109,45 @@ async function handleGeneratePlan(){
   }).length;
   var historyNote = loggedKept ? ('. '+loggedKept+' logged '+
     (loggedKept===1?'day':'days')+' kept as history') : '';
+  /* WHAT WEEK ONE ACTUALLY HOLDS, counted from the plan rather than quoted
+     from the answer: a 0 to 3km starter's opening is the plan's own short
+     runs, never "your 17km" (Audit III C13). */
+  var wk1Runs = (state.days || []).filter(function(x){
+    return x && x.week === 1 && x.km > 0 && x.type !== 'rest' && x.type !== 'race'; });
+  var wk1Km = wk1Runs.reduce(function(t, x){ return t + x.km; }, 0);
+  if (runWalkStart && wk1Runs.length){
+    weekFitNote = 'You start with ' + wk1Runs.length + (wk1Runs.length === 1 ? ' short run' : ' short runs') +
+      '. Run/walk is welcome until running feels easy';
+  } else if (weekFitNote && wk1Runs.length){
+    weekFitNote = 'Your first week fits best on ' + wk1Runs.length + ' of your ' + schedule.activeDays.length + ' days';
+  }
+  if (state.setup) state.setup.experienceBuiltFor = state.setup.experience || null;
   if (planBuildNotes.length){
-    showToast('Plan generated, but '+fmtDist(volume)+' a week needs more than '+
-      schedule.activeDays.length+' running days at this distance. Weekly volume was reduced to keep the training safe.'+historyNote);
+    /* SAID ON A SHEET, NOT IN PASSING (Audit III C12). Too few days for the
+       week means a smaller week; the athlete is told so and chooses: keep the
+       plan as built, or add a running day and build closer to their week. */
+    var nDaysNow = schedule.activeDays.length;
+    askSacoro({ title: 'Make Room for Your Week',
+      say: 'Your plan starts at ' + fmtDist(round1(wk1Km)) + ' a week.',
+      hint: fmtDist(volume) + ' a week needs more than ' + nDaysNow + (nDaysNow === 1 ? ' running day' : ' running days') +
+        ' at this distance, so SACORO made the week smaller to keep every run safe. Add a day and SACORO can build closer to your week.' +
+        (historyNote ? historyNote.replace(/^\. /, ' ') + '.' : ''),
+      yes: 'Add a Running Day', no: 'Keep This Plan',
+      onYes: function(){
+        try { openSetupModal(); bldStage(BLD_STAGE.WEEK); } catch(e){}
+      },
+      onNo: function(){} });
   } else {
     /* "14 weeks to Full Marathon" is only true of a race block. Maintenance
        is not "to" anything, so it is named for what it is. */
     var toward = purpose === 'race' ? ' to '+profile.label
                                     : ' of '+blockPurposeLabel(purpose);
+    var typedVolume = null;
+    try { typedVolume = builderAsksWeeklyVolume(buildPurpose) ? parseDistInput(document.getElementById('su-volume').value) : null; } catch(eT){}
+    var volumeFromRecord = volumeFromRecordFor(buildPurpose, typedVolume);
+    var recordNote = volumeFromRecord > 0 ? '. Built from the running on your record, about ' + fmtDist(volumeFromRecord) + ' a week' : '';
     showToast('Plan generated: '+planLengthLabel(daysBetween(startDate,raceDate)+1)+toward+', starting '+dShort(startDate)+
-      (weekFitNote ? '. '+weekFitNote : '')+historyNote);
+      recordNote+(weekFitNote ? '. '+weekFitNote : '')+historyNote);
   }
 }
 
@@ -64546,7 +65241,9 @@ function handleSetGoal(key){
      the top. The panel redraws in place; nothing reopens. */
   restorePlanHQScroll();
   refreshOpenRecordPanel();
-  showToast('Active goal set to '+key);
+  /* SAYS WHAT CHANGED (Audit III T17): race pace and the goal-pace parts of
+     sessions follow the goal; training paces stay on the benchmark. */
+  showToast('Active goal set to '+key+'. Race pace and goal-pace sessions use it; training paces still come from your benchmark');
 }
 
 /* =========================================================
@@ -66110,6 +66807,13 @@ function renderSupportWorkRow(){
   /* A SWITCH, like the other two on/off settings beside it. It was a lone
      button reading "Off" -- a state and a command in one word, and the only
      control of its kind on the screen. */
+  var paused = false;
+  try { paused = on && supportRecentlyIgnored(); } catch(e){ paused = false; }
+  if (paused){
+    return stgRow({ id:'support-work-row', title:'Strength & Mobility',
+      sub: 'Paused, because the last two sessions were skipped. Tap to bring them back.', chevron:false,
+      action:'support-resume' });
+  }
   return stgRow({ id:'support-work-row', title:'Strength & Mobility',
     sub: SUPPORT_COPY.settingsDesc, chevron:false, still:true,
     trail:'<span class="stg-row-switch"><label class="switch"><input type="checkbox" '+
@@ -66440,6 +67144,17 @@ function handleSupportSkip(dayId){
   dd.support = { kind:null, dismissed:true, dismissedAt:new Date().toISOString() };
   scheduleSave();
   renderApp();
+  /* SAID WHEN IT HAPPENS (Audit III T15): the second skip pauses strength
+     work for the block, and the athlete is told where to bring it back. */
+  try { if (supportRecentlyIgnored()) showToast('Strength work is paused, as the last two were skipped. Bring it back in Settings, Strength & Mobility'); } catch(e){}
+}
+function handleSupportResume(){
+  (state.days || []).forEach(function(d){
+    if (d && d.support && d.support.dismissed && d.date >= addDays(todayStr(), -21)) delete d.support;
+  });
+  scheduleSave();
+  renderApp();
+  showToast('Strength work is back in your plan');
 }
 
 function renderGuidanceLevelRow(){
@@ -72230,6 +72945,7 @@ function renderTodayView(){
   html += renderTodayProposal(dd, 'above');
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today. It falls outside the current plan’s dates.</div>';
   html += renderTodayProposal(dd, 'below');
+  html += renderTodayPainOffer(dd);
   /* NEXT MOVE IS NOT ON TODAY, BY RULING. Today answers three questions --
      what am I running, how do I run it, and what does Sacoro want me to
      know -- and the coaching for THIS session belongs in How to run this and
@@ -80402,7 +81118,12 @@ document.addEventListener('click', function(e){
        declines it, costs nothing, and is not re-asked for this block. */
     case 'expand-accept': {
       var xd = parseInt(target.getAttribute('data-day'), 10);
-      if (acceptAvailabilityExpansion(xd)){ showToast('Added. Your programme will use it where it helps'); }
+      if (acceptAvailabilityExpansion(xd)){
+        var rebuilt = false;
+        try { rebuilt = rebuildFutureForSchedule(); } catch(eR){ rebuilt = false; }
+        showToast(rebuilt ? 'Added. Your plan uses it from your next sessions; everything you have logged stays as it is'
+                          : 'Added. Your next block will be built around it');
+      }
       closeModal(); scheduleSave(); renderApp(); break;
     }
     case 'expand-decline':
@@ -80496,6 +81217,8 @@ document.addEventListener('click', function(e){
     case 'restore-pasted': handleRestorePasted(); break;
     case 'copy-backup-field': handleCopyBackupField(); break;
     case 'coach-accept': { var acc = target.getAttribute('data-day'); vtAccept(acc, function(){ handleCoachAccept(acc); }); break; }
+    case 'coach-swap-rest': doSwapDays(target.getAttribute('data-day'), target.getAttribute('data-rest')); break;
+    case 'support-resume': handleSupportResume(); break;
     case 'coach-keep': handleCoachKeep(target.getAttribute('data-day')); break;
     /* One Restore Original control. A Playbook evolution rebalanced the whole
        week, so it restores the whole week; a Phase-4 adjustment restores its

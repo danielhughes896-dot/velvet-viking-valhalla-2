@@ -55,8 +55,12 @@ const TREND_PARTITION_BEFORE = [
    own -- not effort, not feel, not the day after -- so it is a concept of its
    own: `fade`. Its four readings share it, so they never corroborate each
    other, and it merges with nothing above. The same group in both maps. */
+/* Audit III linking plan: reps not completed and a long run whose second
+   half fades are the same fact as a set that faded, so they join its
+   concept rather than becoming a second vote. */
 const FADE_GROUP = ['set_fading_reps', 'set_fading_sustained',
-                    'recoveries_lengthening_reps', 'recoveries_lengthening_sustained'];
+                    'recoveries_lengthening_reps', 'recoveries_lengthening_sustained',
+                    'reps_short_reps', 'set_fading_steady'];
 
 /* Read key:'value' pairs, not every quoted run -- the vocabulary's comments
    contain apostrophes ("this athlete's norm"), and a naive quote scan splits

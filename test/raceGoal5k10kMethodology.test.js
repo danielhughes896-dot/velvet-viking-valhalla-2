@@ -240,7 +240,10 @@ test('8. non-race purposes at 5K/10K keep the shared pools, unchanged', () => {
      is untouched by this containment -- only the tempo pool carried the
      fixed-distance structure -- so Base's interval pool is still the shared
      one. */
-  assert.equal(a.intervalPoolFor('base', '5k'), a.INTERVAL_STRUCTURE_POOL);
+  /* AND SINCE AUDIT III C14 (founder: "Light tempo (sub threshold). No VO2.
+     Strides and hills."), Base's interval slot is hills only, from its own
+     pool, at every distance. */
+  assert.equal(a.intervalPoolFor('base', '5k'), a.BASE_INTERVAL_POOL);
   assert.notEqual(a.tempoPoolFor('base', '10k'), a.TEMPO_STRUCTURE_POOL);
   assert.equal(a.tempoPoolFor('base', '10k'), a.BASE_TEMPO_POOL);
   assert.ok(!a.tempoPoolFor('base', '10k').Base.includes(a.structThresholdContinuous));

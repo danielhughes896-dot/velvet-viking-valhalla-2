@@ -79,7 +79,7 @@ function weeksOf(a, purpose, distKey, vol, wks){
                 used to compare a structure with itself. */
              qualitySessions: wd.filter(d => QUALITY.indexOf(d.type) !== -1).map(d => ({
                archetype: (d.prescription && d.prescription.archetype) || d.type,
-               km: d.km || 0 })) };
+               km: d.km || 0, params: (d.prescription && d.prescription.params) || {} })) };
   });
 }
 /* The honest comparison. Cutback weeks are prescribed recovery and land
@@ -194,8 +194,20 @@ test('a base block still progresses — this is a development block, not mainten
   const first = full[0], last = full[full.length - 1];
   assert.ok(growth(first.aerobic, last.aerobic) >= 0.10,
     'aerobic work barely moved: ' + first.aerobic + ' -> ' + last.aerobic);
-  assert.ok(growth(first.quality, last.quality) > 0.05,
-    'quality was frozen rather than bounded: ' + first.quality + ' -> ' + last.quality);
+  /* THE DOSE, NOT THE KILOMETRES (Audit III C14). Base quality is hill
+     repeats and the steady tempo; a hill session sits at the 5km minimum
+     whatever its reps, so its progression is in the reps and their length,
+     and the tempo's is in its minutes. Each family has to grow. */
+  const doseOf = q => q.archetype === 'hill_repeats' ? (q.params.reps || 0) * (q.params.sec || 0)
+                    : q.params.min != null ? q.params.min * 60 : q.km;
+  const byFamily = {};
+  full.forEach(w => w.qualitySessions.forEach(q => (byFamily[q.archetype] = byFamily[q.archetype] || []).push(doseOf(q))));
+  const grown = Object.keys(byFamily).filter(k => byFamily[k].length >= 2);
+  assert.ok(grown.length > 0, 'no quality family recurs, so nothing can be compared');
+  grown.forEach(k => {
+    const d = byFamily[k];
+    assert.ok(growth(d[0], d[d.length - 1]) > 0.05, k + ' was frozen rather than bounded: ' + d.join(' -> '));
+  });
 });
 
 test('quality never takes a growing share of an aerobic base week', () => {
@@ -252,7 +264,12 @@ test('maintenance still holds its dose, and base is not turned into maintenance'
            xs.reduce((s, x) => s + (x - mx) * (x - mx), 0);
   };
   assert.ok(Math.abs(slope(m)) < 0.2, 'maintenance acquired a trend: ' + slope(m).toFixed(3));
-  assert.ok(slope(b) > 0.2, 'base lost its progression: ' + slope(b).toFixed(3));
+  /* Base progresses in its sessions' dose (Audit III C14: hills and the
+     steady tempo), which the kilometre total of a 5km-floored hill session
+     cannot show: read the aerobic work instead, which is what the block
+     develops. */
+  const ba = weeksOf(a, 'base', 'half', 55, 10).filter(r => !r.isCutback).map(r => r.aerobic);
+  assert.ok(slope(ba) > 0.2, 'base lost its progression: ' + slope(ba).toFixed(3));
 });
 
 test('the base block is predominantly aerobic, week by week', () => {
