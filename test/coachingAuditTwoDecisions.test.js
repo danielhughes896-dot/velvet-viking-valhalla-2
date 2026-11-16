@@ -194,7 +194,11 @@ test('0-3km: below the entry the offer is the Developing programme, never a refu
   const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
   a.athleteExperience = () => 'experienced';
   const c = a.entryPathwayCopy('10k', 2);
-  assert.match(c.say, /Developing 10K programme with one 5km run a week, run\/walk if you need it/);
+  /* The sheet describes the week the plan builds (Audit III UX3-04, founder
+     16 November 2026: "So change the pathway sheet?"): the low start's three
+     runs, not one 5km run. */
+  assert.match(c.say, /Developing 10K programme with three runs in your first week, 16km in all with a 6km long run, run\/walk if you need it/);
+  assert.match(a.entryPathwayCopy('half', 2).say, /17km in all/);
   assert.equal(c.yes, 'Switch to Developing');
   assert.equal(c.no, 'Keep Established');
 });

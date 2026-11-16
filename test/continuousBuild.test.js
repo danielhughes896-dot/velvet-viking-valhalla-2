@@ -177,21 +177,9 @@ test('an invalid goalAmbition is refused by the server, not silently coerced', (
   assert.equal(v.code, 'unknown_goal_ambition');
 });
 
-test('start.html asks the athlete directly, defaulting to no invented stretch or pullback', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const src = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
-  assert.match(src, /How ambitious should this block be/);
-  const fn = src.slice(src.indexOf('function renderTargetsStage'));
-  const body = fn.slice(0, fn.indexOf('\n  }\n'));
-  assert.match(body, /data-v="A"/);
-  assert.match(body, /data-v="B"/);
-  assert.match(body, /data-v="C"/);
-  // The pre-selected default -- Ans.goalAmbition's own initial value -- is 'B',
-  // exactly the pace the benchmark already shows, no stretch, no pullback.
-  assert.match(src, /goalAmbition:\s*'B'/, 'the default ambition is not B');
-  assert.match(src, /goalAmbition:\s*Ans\.goalAmbition/, 'the chosen ambition is never sent to the server');
-});
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
+/* So start.html asks no ambition question; the app's own builder and the server's
+   validation of goalAmbition are held above. */
 
 test('6 -- the builder gate never fires once a plan has been adopted', () => {
   const { build } = realPreview(RAW_INPUT);
@@ -339,19 +327,13 @@ test('an adopted plan never carries LTHR/MaxHR, and consent is left for the app 
 // engine's ISO numbering (Mon=0..Sun=6), or every previewed/adopted plan
 // runs on the wrong days.
 // ---------------------------------------------------------------------------
-test('start.html sends the engine\'s own ISO weekday numbering, not getDay()', () => {
+test('start.html picks no weekdays, and the spec still orders them Mon=0..Sun=6', () => {
+  /* start.html's weekday picker is retired with the web builder (item 9); the
+     canonical order the app and the server read is still held here. */
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
-  // The regression this guards against: JS Date.getDay() (Sun=0..Sat=6)
-  // leaking into a schedule the engine reads as ISO (Mon=0..Sun=6). The
-  // staged wizard now derives day identity from BUILDER_SPEC.weekdays'
-  // array index directly -- assets/builder-spec.js's own isoNames is
-  // ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], so index i IS ISO day i --
-  // rather than a second, hand-maintained mirror of that numbering.
-  assert.doesNotMatch(src, /\.getDay\(\)/, 'start.html calls the browser\'s getDay(), not ISO weekday numbering');
-  assert.match(src, /BS\.weekdays\.isoNames\.forEach\(function\(label, iso\)/,
-    'weekday identity no longer comes from the canonical spec\'s own index-as-ISO-day array');
+  assert.doesNotMatch(src, /\.getDay\(\)|isoNames/);
   const spec = fs.readFileSync(path.join(__dirname, '..', 'assets', 'builder-spec.js'), 'utf8');
   assert.match(spec, /isoNames:\s*\[\s*'Mon',\s*'Tue',\s*'Wed',\s*'Thu',\s*'Fri',\s*'Sat',\s*'Sun'\s*\]/,
     'the canonical spec no longer orders weekdays Mon=0..Sun=6');

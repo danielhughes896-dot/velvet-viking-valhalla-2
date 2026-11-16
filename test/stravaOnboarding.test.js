@@ -195,8 +195,10 @@ test('start.html never draws a Strava control', () => {
   assert.ok(!/data-action="strava-connect"/.test(start));
   assert.ok(!/strava-connect-btn/.test(start));
 
-  /* And the sequence that makes it so is still the sequence. */
-  assert.match(start, /pane-build/);
+  /* And the sequence that makes it so is still the sequence: a banked preview,
+     then authenticate. The builder step left /start for the app (founder,
+     16 November 2026, item 9), where Strava is offered once there is an account. */
+  assert.doesNotMatch(start, /pane-build/);
   assert.match(start, /pane-preview/);
   assert.match(start, /pane-auth/);
 });

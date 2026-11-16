@@ -53,33 +53,11 @@ test('the app builder exposes exactly the canonical spec\'s ten stage names, in 
     'the app redeclares its own stage-name list instead of reading the canonical spec');
 });
 
-test('/start\'s wizard reads the same ten stages from the same object, not a second list', () => {
-  assert.match(START_SRC, /var BLD_STAGES = BS\.stages;/,
-    '/start no longer sources its stage list from window.BUILDER_SPEC');
-  // Ten render functions, one per stage, in the same order the spec lists.
-  const arr = /var BLD_RENDERERS = \[([^\]]*)\];/s.exec(START_SRC);
-  assert.ok(arr, 'BLD_RENDERERS was not found');
-  const names = arr[1].split(',').map((s) => s.trim()).filter(Boolean);
-  assert.equal(names.length, BUILDER_SPEC.stages.length,
-    '/start renders ' + names.length + ' stages, not ' + BUILDER_SPEC.stages.length);
-});
-
-test('the old condensed all-fields-on-one-page builder no longer exists', () => {
-  // The exact markup the condensed form used to render: a plain <select> per
-  // field, all mounted at once inside #pane-build. Its removal, not merely
-  // its being hidden, is the requirement -- so this greps for the literal
-  // tags, not for visibility.
-  assert.doesNotMatch(START_SRC, /<select id="purpose">/, 'the condensed purpose <select> still exists');
-  assert.doesNotMatch(START_SRC, /<select id="distance">/, 'the condensed distance <select> still exists');
-  assert.doesNotMatch(START_SRC, /<select id="longday">/, 'the condensed long-run-day <select> still exists');
-  assert.doesNotMatch(START_SRC, /id="weeks" type="number"/, 'the condensed weeks field still exists statically');
-  assert.doesNotMatch(START_SRC, /Race goal — train for a distance/,
-    'the old condensed purpose option copy is still present');
-  // In its place: a single per-stage mount point the nine render functions
-  // draw into, one stage visible at a time.
-  assert.match(START_SRC, /id="bld-stage-body"/, 'there is no single staged mount point');
-  assert.match(START_SRC, /function bldGoToStage\(/, 'there is no stage-navigation function');
-  assert.match(START_SRC, /function bldValidateStage\(/, 'there is no per-stage validation function');
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
+/* So the parity below is the app, the spec and the server; /start asks nothing. */
+test('/start holds no builder of its own, staged or condensed', () => {
+  assert.doesNotMatch(START_SRC, /id="pane-build"|id="bld-stage-body"|BUILDER_SPEC|BLD_STAGES/);
+  assert.doesNotMatch(START_SRC, /<select id="(purpose|distance|longday)">/, 'the condensed builder is back');
 });
 
 // ---------------------------------------------------------------------------
@@ -166,13 +144,7 @@ test('validation thresholds are the same numbers, read from the same object, eve
   assert.match(gpBody, /BUILDER_SPEC\.validation\.weeksRange/);
   assert.match(gpBody, /BUILDER_SPEC\.validation\.volumeMustExceed/);
 
-  // /start's own bldValidateStage() equivalent, same source.
-  const sv = START_SRC.slice(START_SRC.indexOf('function bldValidateStage'));
-  const svBody = sv.slice(0, sv.indexOf('\n  }\n'));
-  assert.match(svBody, /BS\.validation\.weeksRange/);
-  assert.match(svBody, /BS\.validation\.volumeMustExceed/);
-  assert.match(svBody, /BS\.validation\.daysRange/);
-  assert.match(svBody, /BS\.validation\.benchmarkSecondsRange/);
+  /* /start's copy of the validator is retired with the web builder (item 9). */
 });
 
 test('the server accepts exactly the day counts the app builder accepts', () => {
@@ -216,28 +188,20 @@ test('a preview request with ZERO weekly volume is accepted, because zero is an 
 // ---------------------------------------------------------------------------
 // 4. THE REVIEW STAGE IS IDENTICAL IN MEANING AND DATA
 // ---------------------------------------------------------------------------
-test('the review stage covers the same set of answers on both surfaces', () => {
-  // Not byte-identical markup -- /start renders its own review card -- but
-  // the same underlying facts must be summarised: what the block is for and
-  // its distance, its length or event date, experience, weekly schedule,
-  // benchmark, and the goal/ambition. Read out of each function's own body
-  // rather than the rendered HTML, so the assertion survives a copy edit.
+test('the review stage covers every answer the builder asked', () => {
+  /* /start's side of this comparison is retired with the web builder (item 9). */
   const appReview = APP_SRC.slice(APP_SRC.indexOf('function bldRenderReview'));
   const appBody = appReview.slice(0, appReview.indexOf('\n}\n'));
-  const startReview = START_SRC.slice(START_SRC.indexOf('function renderReviewStage'));
-  const startBody = startReview.slice(0, startReview.indexOf('\n  }\n'));
-
   const CONCEPTS = [
-    [/su-distance|profile\.label/, /purposeMeta\(\)\.label|NAME\[Ans\.distanceKey\]/, 'distance/purpose'],
-    [/su-racedate|su-weeks/, /Ans\.raceDate|Ans\.weeks/, 'event date or block length'],
-    [/athleteExperience/, /Ans\.experience|BS\.experience/, 'experience'],
-    [/su-weekdays|longSel/, /Ans\.activeDays|Ans\.longRunDay/, 'training days / long run day'],
-    [/su-bench-dist|su-bench-time/, /Ans\.benchDist|Ans\.benchTime/, 'benchmark'],
-    [/su-goal-/, /Ans\.goalAmbition/, 'goal / ambition']
+    [/su-distance|profile\.label/, 'distance/purpose'],
+    [/su-racedate|su-weeks/, 'event date or block length'],
+    [/athleteExperience/, 'experience'],
+    [/su-weekdays|longSel/, 'training days / long run day'],
+    [/su-bench-dist|su-bench-time/, 'benchmark'],
+    [/su-goal-/, 'goal / ambition']
   ];
-  CONCEPTS.forEach(([appPattern, startPattern, label]) => {
+  CONCEPTS.forEach(([appPattern, label]) => {
     assert.match(appBody, appPattern, 'the app\'s review no longer shows ' + label);
-    assert.match(startBody, startPattern, '/start\'s review no longer shows ' + label);
   });
 });
 

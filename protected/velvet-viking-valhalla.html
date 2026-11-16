@@ -6992,6 +6992,12 @@
     margin:6px -15px 0; padding:10px 15px calc(14px + env(safe-area-inset-bottom, 0px));
     background:#141418; box-shadow:0 -12px 18px -6px rgba(0,0,0,.45);}
   .modal-card.es-sheet .es-actions .btn{flex:1 1 0; width:auto; min-height:48px;}
+  /* THE HEADING STAYS IN FRONT (Audit III UX3-03): on an iPhone the session
+     tile scrolled up behind a transparent "Edit Details" heading and showed
+     through it. The heading is glass now, with the sheet's own surface. */
+  .modal-card.stg-sheet.es-sheet > .modal-head{z-index:3;
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)), rgb(22,22,26);
+    -webkit-backdrop-filter:blur(18px) saturate(140%); backdrop-filter:blur(18px) saturate(140%);}
   .es-choice{display:flex; align-items:center; gap:14px; width:100%; text-align:left; padding:14px 16px;
     border-radius:16px; color:#FFFFFF; border:1px solid rgba(255,255,255,.12);
     background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));}
@@ -7047,6 +7053,32 @@
     border-radius:12px; font-family:var(--num-face); font-size:1.0625rem; color:#FFFFFF; cursor:pointer;
     -webkit-text-fill-color:#FFFFFF; background:rgba(0,0,0,.28); border:1px solid rgba(255,255,255,.18); box-shadow:none;}
   .wo-own-sum{font-size:.875rem; line-height:1.4; color:#FFFFFF;}
+  /* THE LAST TARGET UNDER 44px (Audit III UX3-42), measured 16 November
+     2026: the Change Workout tabs (40 tall). The Coach graph tabs already
+     take a 44px tap from their invisible ::after band, and km/mi keep the
+     widths the founder chose (widening them was a visible change at the
+     normal size); both measured small only by their drawing. */
+  .wo-tab{min-height:var(--tap-min);}
+  /* NARROW PHONES SEE MORE THAN ONE WORKOUT (Audit III UX3-24): at 320px only
+     one card fitted above the action bar. Below 360px the cards drop their
+     explanation line and tighten, the tabs share the width, and the action
+     labels fit on one line, so two to three cards show at once. */
+  @media (max-width:359px){
+    .wo-tabs{gap:0; justify-content:space-between;}
+    .wo-tab{min-width:44px; text-align:center;}
+    .wo-card{padding:8px 12px; gap:10px;}
+    .wo-why{display:none;}
+    .wo-card.on .wo-why{display:block;}
+    .wo-tab{min-height:44px;}
+    .wo-name{font-size:.9375rem;}
+    .wo-say{font-size:.8125rem; margin-bottom:8px;}
+    .modal-card.es-sheet .es-actions .btn{font-size:.875rem; padding-left:8px; padding-right:8px; white-space:nowrap;}
+    .es-sum{padding:9px 12px 9px 15px;}
+    .es-sum-when{margin-bottom:3px;}
+    .es-sum-title{font-size:1rem;}
+    .es-sum-dist b{font-size:1.375rem;}
+    .wo-tab{font-size:.75rem; letter-spacing:.04em;}
+  }
   /* A sentence is set in the sentence's face: bold, not monospace. */
   .wo-own-sum b{font-weight:700;}
   @media (max-width:360px){ .wo-dose{font-size:.8125rem;} .wo-card{padding:9px 12px;} .wo-own-sub{display:none;} }
@@ -10018,6 +10050,15 @@
      the recommendation is the headline, the figures are the evidence, and the
      action is cherry. Two-word buttons wrap rather than shrink. */
   .wr-sheet{max-height:92vh; overflow-y:auto; overscroll-behavior:contain;}
+  /* THE HEADING AND THE ANSWER STAY ON SCREEN (Audit III UX3-21): at 320px
+     the buttons sat below the fold and the X scrolled away. The sheet's own
+     surface goes behind both, so what scrolls under them never shows through. */
+  .wr-sheet{max-height:92dvh;}
+  .wr-sheet > .tw-head{position:sticky; top:0; z-index:2; margin:0 -20px; padding-left:20px; padding-right:20px;
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)), rgb(22,22,26);
+    -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);}
+  .wr-sheet > .wr-acts{position:sticky; bottom:0; z-index:2; margin:18px -20px 0; padding:12px 20px calc(4px + env(safe-area-inset-bottom, 0px));
+    background:linear-gradient(0deg, rgba(20,20,24,.98) 70%, rgba(20,20,24,0));}
   .wr-head{font-family:var(--label-face); font-weight:700; font-size:1.375rem; line-height:1.2;
     color:#FFFFFF; margin:2px 0 8px;}
   .wr-why{font-weight:500;}
@@ -12610,6 +12651,10 @@ function calibrationVerdict(volume, pathwayEntryKm){
        estimate -- the safe direction, because it offers a measurement rather
        than suppressing one. */
     lthrSource: su.lthrSource,
+    /* The last threshold test, by its pace or its heart rate, whichever is later. */
+    measuredOn: [su.thresholdPaceSource === 'calibration' ? su.thresholdPaceMeasuredOn : null,
+                 su.lthrSource === 'calibration' ? su.lthrMeasuredOn : null]
+                  .filter(Boolean).sort().pop() || null,
     performances: (typeof athlete === 'function' && athlete()) ? athlete().performances : [],
     today: todayStr(),
     currentVolume: volume != null ? volume : su.currentVolume
@@ -12767,7 +12812,12 @@ function calibrationEligibility(ctx){
      as a training anchor. Without consent to process health information there
      is nothing it could lawfully produce, no HR zones for it to improve, and
      therefore no reason to put a hard effort in week one. */
-  if (!c.healthConsent) return no('no_health_consent');
+  /* SUPERSEDED (founder, 16 November 2026: the threshold test is for everyone
+     at 20km+). Without health consent the test still measures threshold PACE,
+     which sets the training paces (applyCalibrationFromDay(): "Not gated on
+     health consent"); its heart rate is withheld at deriveCalibrationLTHR(),
+     where the consent gate stays. Consent no longer decides whether the
+     session exists. */
 
   /* ALREADY ANCHORED -- BUT ONLY BY A MEASUREMENT.
      A MEASURED anchor is trustworthy by the existing model and replacing it
@@ -12782,12 +12832,19 @@ function calibrationEligibility(ctx){
      authority, that is a guess governing fifteen weeks of prescription.
      The estimate is not overwritten and its provenance is not rewritten; what
      changes is that the athlete may now be offered the measurement. */
-  if (c.lthr != null && c.lthrSource === 'calibration') return no('lthr_known');
+  /* A measured LTHR no longer withholds the test either: the test is also the
+     pace measurement, and it repeats through the block (CALIBRATION_REPEAT_WEEKS). */
 
   /* RECENTLY MEASURED. A qualified race or Fitness Checkpoint inside the
      evidence window is both a reason the zones are already well founded and a
      reason not to stack another hard effort on top of it. */
   if (recentQualifiedPerformance(c.performances, c.today)) return no('recent_measured_effort');
+  /* AND A THRESHOLD TEST INSIDE THE LAST SIX WEEKS. The test repeats every
+     CALIBRATION_REPEAT_WEEKS, so a new block built soon after one does not
+     open with another; the six-weekly offer (thresholdTestOfferDay()) picks
+     the next one up when it is due. */
+  if (c.measuredOn && c.today &&
+      daysBetween(c.measuredOn, c.today) < CALIBRATION_REPEAT_WEEKS * 7) return no('recent_measured_effort');
 
   /* ---- THE SAFETY FLOOR, ASKED OF THE ATHLETE'S OWN EVIDENCE ----
      CALIBRATION_MIN_WEEKLY_KM is unchanged and is not waived: an athlete below
@@ -18723,6 +18780,135 @@ function shapeLowStartWeeks(days, weeks, blockResult, schedule){
    arrives in the same week by a smaller step. The kilometres come off the
    easy runs, none below the 5km floor; the long run and quality stay, and
    each week's figure follows its days with the difference named. */
+/* THE CLIMB STARTS EARLIER (founder, Audit III C6, 16 November 2026: "I
+   think when it's right, it should start the climb earlier?"). A block that
+   sat flat for its opening weeks then had to jump after each recovery week
+   to reach its peak. Planned backwards instead: from the week the athlete
+   starts on to the block's own peak, every full week rises by the same step,
+   the smallest that arrives on time. Recovery weeks, the taper and the race
+   are left exactly as they are, and so the week after a recovery week comes
+   back to the line, one ordinary step above the last full week, with no
+   catch-up jump.
+   ONLY THE EASY RUNS MOVE. The long run keeps its own step rules and the
+   hard sessions their own; an easy run is never raised past the share of
+   the long run an easy run may be (70% for 5K/10K, 75% for Half and
+   Marathon), never cut under 5km, and a cut never leaves the hard sessions
+   over 40% of the week. Where a ceiling stops a week reaching the line it
+   stays where it can; the peak itself never moves. Every kilometre added or
+   taken is booked on the week by name. Not for an athlete starting from 0
+   to 3km a week, whose opening weeks are written by their own rule. */
+var EARLY_CLIMB_MIN_FULL_WEEKS = 3;
+var EARLY_CLIMB_CUTBACK_SHARE_MIN = 0.60;
+function applyEarlierClimb(days, weeks, blockResult){
+  if (!blockResult || blockResult.purpose !== 'race') return 0;
+  var dk = blockResult.distKey;
+  if (dk !== '5k' && dk !== '10k' && dk !== 'half' && dk !== 'full') return 0;
+  if (!days || !days.length || !weeks || !weeks.length) return 0;
+  try { if ((statedEntryEvidence() || {}).lowStart) return 0; } catch(eL){}
+  var byWeek = {};
+  days.forEach(function(dd){ if (dd && dd.week != null) (byWeek[dd.week] = byWeek[dd.week] || []).push(dd); });
+  var tot = function(w){ return round1((byWeek[w] || []).reduce(function(t, dd){
+    return t + ((dd.km > 0 && dd.type !== 'race' && dd.type !== 'rest') ? dd.km : 0); }, 0)); };
+  var isHard = function(dd){ return dd.km > 0 && dd.type !== 'long' && dd.type !== 'easy' && dd.type !== 'race' && dd.type !== 'rest'; };
+  var movable = function(dd){ return dd.type === 'easy' && dd.km > 0 && !dd.completed && !dd.manualEdit && !/Shakeout/.test(dd.title || ''); };
+  var shareOfLong = (dk === '5k' || dk === '10k') ? SHORT_RACE_EASY_MAX_FRACTION_OF_LONG : SUPPORT_SHARE_MAX;
+  /* The full development weeks, in order, up to the first that reaches the peak. */
+  var full = weeks.filter(function(wk){
+    var list = byWeek[wk.week] || [];
+    return list.length && !wk.isCutback && !wk.isTaper && !wk.isRace && !wk.eventTaperApplied &&
+      !list.some(function(dd){ return dd.type === 'race' || dd.completed; });
+  });
+  if (full.length < EARLY_CLIMB_MIN_FULL_WEEKS || full[0].week !== weeks[0].week) return 0;
+  var peakKm = 0;
+  full.forEach(function(wk){ var v = tot(wk.week); if (v > peakKm) peakKm = v; });
+  var n = -1;
+  for (var i = 0; i < full.length; i++) if (tot(full[i].week) >= peakKm - 0.5){ n = i; break; }
+  var startKm = tot(full[0].week);
+  /* A test in the opening week costs more than the slot it took (its
+     declared floor); the climb starts from the week without that cost. */
+  if ((byWeek[full[0].week] || []).some(function(dd){ return dd.type === 'calibration' || dd.type === 'checkpoint'; }))
+    startKm = round1(startKm - (full[0].qualityDayFloorKm || 0));
+  if (n < 2 || !(startKm > 0) || !(peakKm > startKm + 0.5)) return 0;
+  var step = Math.pow(peakKm / startKm, 1 / n);
+  /* NEVER PAST THE SAFETY LINE. No full week rises more than the Nielsen
+     two-week ceiling allows in one (about 14%) over the full week before it.
+     Where even that cannot arrive in time, the early weeks are only lifted,
+     never trimmed, so nothing is pushed into a later jump. */
+  var stepMax = Math.sqrt(SESSION_TWO_WEEK_GROWTH_CAP);
+  var liftOnly = step > stepMax;
+  if (liftOnly) step = stepMax;
+  var changed = 0;
+  var setEasy = function(dd, km){
+    var strides = dd.desc && dd.desc.indexOf(BASE_STRIDES_NOTE) !== -1;
+    dd.km = km;
+    dd.desc = easyRunText(km).desc + (strides ? BASE_STRIDES_NOTE : '');
+    if (dd.prescription && dd.prescription.archetype === 'easy_run')
+      dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:km } };
+  };
+  var oldTot = {};
+  weeks.forEach(function(w){ oldTot[w.week] = tot(w.week); });
+  var moveWeek = function(wk, want, noTrim){
+    var list = byWeek[wk.week] || [];
+    /* A test week stays exactly as written: a threshold test or a
+       checkpoint is not loaded further, and is not trimmed around. */
+    if (list.some(function(dd){ return dd.type === 'calibration' || dd.type === 'checkpoint'; })) return 0;
+    var before = tot(wk.week);
+    if (noTrim && want < before) return 0;
+    var longD = list.filter(function(dd){ return dd.type === 'long' && dd.km > 0; })
+                    .sort(function(a, b){ return b.km - a.km; })[0] || null;
+    var ceil = longD ? Math.max(WEEK_FIT_MIN_EASY_KM, Math.floor(longD.km * shareOfLong * 2 + 1e-9) / 2) : null;
+    var guard = 0;
+    if (want > before + 0.25 && ceil != null){
+      while (tot(wk.week) + EASY_QUANTUM_KM <= want + 1e-9 && guard++ < 400){
+        var up = list.filter(function(dd){ return movable(dd) && dd.km + EASY_QUANTUM_KM <= ceil + 1e-9; })
+                     .sort(function(a, b){ return a.km - b.km; })[0];
+        if (!up) break;
+        setEasy(up, round1(up.km + EASY_QUANTUM_KM));
+      }
+    } else if (want < before - 0.25){
+      var hardKm = round1(list.filter(isHard).reduce(function(t, dd){ return t + dd.km; }, 0));
+      var floorKm = hardKm > 0 ? round1(hardKm / RECOVERY_QUALITY_SHARE_MAX + 0.5) : 0;
+      var aim = Math.max(want, floorKm);
+      while (tot(wk.week) - EASY_QUANTUM_KM >= aim - 0.25 && guard++ < 400){
+        var down = list.filter(function(dd){ return movable(dd) && dd.km - EASY_QUANTUM_KM >= WEEK_FIT_MIN_EASY_KM - 1e-9; })
+                       .sort(function(a, b){ return b.km - a.km; })[0];
+        if (!down) break;
+        setEasy(down, round1(down.km - EASY_QUANTUM_KM));
+      }
+    }
+    var moved = round1(tot(wk.week) - before);
+    if (!moved) return 0;
+    if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+    wk.volume = round1(wk.volume + moved);
+    if (moved > 0) wk.earlyClimbAddedKm = round1((wk.earlyClimbAddedKm || 0) + moved);
+    else {
+      wk.deliberateReduction = round1((wk.deliberateReduction || 0) - moved);
+      wk.earlyClimbHeldKm = round1((wk.earlyClimbHeldKm || 0) - moved);
+      wk.reshapeCause = wk.reshapeCause || 'climb_spread';
+    }
+    return 1;
+  };
+  var weekIdx = {};
+  weeks.forEach(function(wv, ix){ weekIdx[wv.week] = ix; });
+  for (var k = 1; k < n; k++){
+    var aim = Math.min(startKm * Math.pow(step, k), tot(full[k - 1].week) * stepMax,
+                       k >= 2 ? tot(full[k - 2].week) * SESSION_TWO_WEEK_GROWTH_CAP : Infinity);
+    var nextWk = weeks[weekIdx[full[k].week] + 1];
+    if (nextWk && nextWk.isCutback && !nextWk.isTaper && tot(nextWk.week) > 0)
+      aim = Math.min(aim, Math.max(tot(full[k].week), tot(nextWk.week) / EARLY_CLIMB_CUTBACK_SHARE_MIN));
+    /* LIFT, NEVER TRIM. A week the plan wrote above the line is left where it
+       is: trimming it took Build weeks under the workload Build owes, and the
+       week before a recovery week under the recovery week itself. Lifting the
+       early weeks is what takes the jump out of the later ones. */
+    changed += moveWeek(full[k], round1(aim), true);
+  }
+  /* RECOVERY WEEKS ARE LEFT AS THE PLAN WROTE THEM, and the full week before
+     one is never lifted so far that the recovery week falls under 60% of it:
+     an absorption week stays an absorption week, not a week off, and keeps
+     the running days its easy kilometres can fill. */
+  if (changed) blockResult.earlyClimbStep = round1((step - 1) * 1000) / 1000;
+  return changed;
+}
 function capRacePeakDays(days, weeks, capKm){
   if (!(capKm > 0) || !days || !days.length || !weeks || !weeks.length) return 0;
   var byWeek = {};
@@ -22331,6 +22517,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   /* The calibration is a single session in the life of a block, whichever of
      the two ways it is earned, so the question is closed once it is placed. */
   var calibrationPlaced = false;
+  var calLastWeek = null;
   /* The earliest week that could have carried the protocol, whether or not it
      was early enough to be worth taking. See the placement decision. */
   var calFirstViableWeek = null;
@@ -23335,8 +23522,22 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                   and is not asked again, they are only waiting for a week that
                   can hold the session. */
                (calibrate || calWeekKm >= CALIBRATION_MIN_WEEKLY_KM))
+        /* The first test is not held back for the Fitness Checkpoint: held
+           back, a late starter's first measured paces could wait until the
+           last weeks of the block. Only the repeats keep the gap. */
         isCalibration = true;
-      if (isCalibration) calibrationPlaced = true;
+      if (isCalibration){ calibrationPlaced = true; calLastWeek = w; }
+    } else if (calibrationPlaced && calLastWeek != null && (calibrate || calibrateWhenViable) &&
+               !isRace && !isTaper && calInformsDevelopment && !isCutback && !isCheckpoint &&
+               w >= calLastWeek + CALIBRATION_REPEAT_WEEKS && calFitsWeek &&
+               (!mBottomUp || calSlotEligible) &&
+               !(arc.hasCheckpoint && checkpointTargetWeek != null &&
+                 Math.abs(w - checkpointTargetWeek) <= CALIBRATION_CHECKPOINT_GAP_WEEKS)){
+      /* AND AGAIN EVERY SIX WEEKS (founder, 16 November 2026: "Week 1 + every
+         6 weeks"). The same session in the same slot, never in a recovery
+         week, the taper or the race week, and never within two weeks of the
+         Fitness Checkpoint, which already carries a maximal effort. */
+      isCalibration = true; calLastWeek = w;
     }
 
     /* ---- THE SINGLE-EXPOSURE CADENCE, ROTATED ON ITS OWN OCCURRENCES ----
@@ -25084,6 +25285,8 @@ function calibrationEffortMin(){
    duration estimate all read one number. No new constant, and no attempt to
    guess a threshold pace for an athlete whose threshold is the thing being
    measured. */
+var CALIBRATION_REPEAT_WEEKS = 6;
+var CALIBRATION_CHECKPOINT_GAP_WEEKS = 2;
 function calibrationSessionKm(){
   var P = CALIBRATION_PROTOCOL;
   var sec = (P.warmupMin + calibrationEffortMin() + P.cooldownMin) * 60;
@@ -29252,6 +29455,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   enforceEasyRunMinimum(days, WEEK_FIT_MIN_EASY_KM, weeks);
   shapeShortRaceEasyRuns(days, weeks, blockResult, schedule);
   shapeLowStartWeeks(days, weeks, blockResult, schedule);
+  applyEarlierClimb(days, weeks, blockResult);
   recordVolumeAccounting(days, weeks);
   var weekIndex2 = {};
   weeks.forEach(function(wk){ weekIndex2[wk.week] = wk; });
@@ -29549,6 +29753,7 @@ function recordVolumeAccounting(days, weeks){
         }
       }
       if (capRecovered > 0) causes.push('cap:recovered');
+      if (wk.earlyClimbAddedKm > 0) causes.push('climb:start_earlier');
     }
 
     var expected = round1(wk.volume + raceDistanceKm - allocatorRevision + floorExcess - capRecovered);
@@ -47229,6 +47434,26 @@ function endRestriction(){
       restored++;
     delete dd.restricted;
   });
+  /* THE FIRST TWO RUNS BACK ARE EASY (founder, 16 November 2026: "the first
+     session should be an easy run maybe 2"). A hard session among them is run
+     easy at its own distance; a long run among them becomes an easy run of
+     three quarters of it. Each keeps what it was, so it can be put back. */
+  var back = state.days.filter(function(dd){
+    return dd && dd.date >= today && dd.km > 0 && !dd.completed && !sessionRan(dd) &&
+      ['rest', 'race', 'checkpoint', 'calibration'].indexOf(dd.type) === -1;
+  }).sort(function(a, b){ return a.date < b.date ? -1 : 1; }).slice(0, RETURN_EASY_RUNS);
+  r.easyReturn = 0;
+  back.forEach(function(dd){
+    if (dd.type === 'easy') return;
+    weeklyRemember(dd, 'return_easy');
+    var km = dd.type === 'long' ? roundWorkoutKm('easy', Math.max(WEEK_FIT_MIN_EASY_KM, dd.km * 0.75)) : dd.km;
+    var er = easyRunText(km);
+    dd.type = er.type; dd.title = er.title; dd.km = km;
+    dd.desc = er.desc + ' Your first runs back are easy.';
+    dd.prescription = { v: PRESCRIPTION_VERSION, archetype: 'easy_run', params: { km: km } };
+    delete dd.mpSegment;
+    r.easyReturn++;
+  });
   r.endedAt = new Date().toISOString();
   r.endedOn = today;
   r.outDays = Math.max(0, daysBetween(r.from, today));
@@ -47236,6 +47461,7 @@ function endRestriction(){
   scheduleSave();
   return r;
 }
+var RETURN_EASY_RUNS = 2;
 
 /* ---------- AND IT HAS TO SURVIVE THE PLAN BEING REBUILT ----------
    THE DEFECT THIS EXISTS FOR, found with a screenshot harness rather than a
@@ -52906,6 +53132,29 @@ function longRunsEarnedStep(beforeWeek){
   });
   return ok ? longs.length : null;
 }
+/* BACK FROM A BREAK (founder, 16 November 2026, Audit III learning red:
+   "Should this not be the same as the week that they stopped?"). The first
+   week after an injury or illness restriction is no bigger than the last full
+   week before it, and the athlete is told so. Returns that week's figure, or
+   null when no restriction ended last week or this week. */
+function weeklyRestrictionReturn(N){
+  try { if (openRestriction()) return null; } catch(e){ return null; }
+  var recent = (state.days || []).filter(function(d){ return d && d.restricted && (d.week === N || d.week === N - 1); });
+  if (!recent.length) return null;
+  var first = (state.days || []).filter(function(d){ return d && d.restricted && d.week <= N; })
+    .reduce(function(m, d){ return Math.min(m, d.week); }, N);
+  /* The run of restricted weeks this return ends, not an older one. */
+  for (var w = N - 1; w >= 1; w--){
+    if ((state.days || []).some(function(d){ return d && d.week === w && d.restricted; })) first = w; else break;
+  }
+  for (var k = first - 1; k >= 1; k--){
+    var inf = null; try { inf = playbookWeekInfo(k); } catch(e2){ inf = null; }
+    if (inf && (inf.isCutback || inf.isTaper || inf.isRace)) continue;
+    var km = weekPlannedKm(k);
+    if (km > 0) return { preKm: km, preWeek: k };
+  }
+  return null;
+}
 function weeklyCoachingReview(week){
   if (!state.setup || !state.days || !state.days.length) return null;
   var N = week != null ? week : currentWeekNum();
@@ -52914,7 +53163,10 @@ function weeklyCoachingReview(week){
   var prevInfo = null; try { prevInfo = playbookWeekInfo(N - 1); } catch(e){ prevInfo = null; }
   var reducing = !!(info && (info.isCutback || info.isTaper || info.isRace));
   var lastKm = weekPlannedKm(N - 1), thisKm = weekPlannedKm(N);
-  if (!(lastKm > 0) || !(thisKm > 0)) return null;
+  /* A week with no running behind it (a whole week off injured) still has a
+     week back in front of it, and that one is asked about. */
+  if (!(thisKm > 0)) return null;
+  if (!(lastKm > 0) && !weeklyRestrictionReturn(N)) return null;
   var ev = weeklyEvidence(N - 1);
   var sig = weeklyInstrumentSignals();
   var out = { week: N, lastKm: lastKm, plannedKm: thisKm, ev: ev, signals: sig,
@@ -52930,6 +53182,20 @@ function weeklyCoachingReview(week){
     if (w2 > baseKm) baseKm = w2;
   }
   out.baseKm = baseKm;
+  /* THE ACCEPTED LIGHTER WEEK WAS THE CUTBACK (founder, 16 November 2026,
+     Audit III learning red: "So use the fatigue week as the cut back week and
+     start again?"). When last week was made lighter on the athlete's say-so
+     and the plan's own lighter week comes straight after it, that week is the
+     week back instead: it picks up at the last full week. */
+  if (reducing && info && info.isCutback && !info.isTaper && !info.isRace && N >= 3 && prior &&
+      prior.decision === 'accepted' && ['recovery', 'hold', 'reload', 'protect'].indexOf(prior.kind) !== -1){
+    var fullKm = weekPlannedKm(N - 2);
+    if (fullKm > thisKm + 0.5){
+      reducing = false; out.reducing = false; out.prevReducing = true;
+      baseKm = fullKm; out.baseKm = fullKm; thisKm = fullKm;
+      out.lighterTaken = true; out.reasons.push('lighter_week_taken');
+    }
+  }
 
   /* 1. SAFETY FIRST. Pain or illness is never a progression question. */
   if (sig.restricted) { out.kind = 'none'; out.reasons.push('restriction'); return out; }
@@ -52939,6 +53205,17 @@ function weeklyCoachingReview(week){
     if (ev.pain > 0) out.reasons.push('pain');
     if (ev.niggle >= 2) out.reasons.push('niggles');
     if (sig.unwell) out.reasons.push('unwell');
+    out.material = true;
+    return out;
+  }
+  var back = weeklyRestrictionReturn(N);
+  if (back){
+    out.kind = 'progress';
+    out.reasons.push('back_from_restriction');
+    out.backFrom = back;
+    out.baseKm = back.preKm;
+    out.step = 0;
+    out.recommendedKm = round1(Math.min(thisKm, back.preKm));
     out.material = true;
     return out;
   }
@@ -53009,6 +53286,20 @@ function weeklyCoachingReview(week){
     (ev.qualityOverEffort >= 1 && ((ev.qualityExecution != null && ev.qualityExecution < PLAYBOOK_POOR_EXECUTION) || ev.qualityShort >= 1)) ||
     ev.qualityRepsShort >= 1 || ev.qualityFaded >= 1);
   var qualityLeft = weekRunDays(N).some(function(d){ return weeklyIsQuality(d) && !sessionRan(d) && d.date >= todayStr(); });
+  /* A HARD SESSION EVERY OTHER WEEK KEEPS ITS LESSON (founder, 16 November
+     2026: "I don't think there should be a step back? But maintain current
+     workload?"). When last week had no hard session, the one before it is
+     read, and if it fell short the next hard session repeats it rather than
+     stepping up. Never a step back from a carried reading. */
+  var qualityCarried = null;
+  if (!qualityStruggle && !(ev.qualityDone > 0) && qualityLeft && N >= 3){
+    var ev2 = null; try { ev2 = weeklyEvidence(N - 2); } catch(eQ){ ev2 = null; }
+    if (ev2 && ev2.qualityDone > 0 && (
+        (ev2.qualityOverEffort >= 1 && ((ev2.qualityExecution != null && ev2.qualityExecution < PLAYBOOK_POOR_EXECUTION) || ev2.qualityShort >= 1)) ||
+        ev2.qualityRepsShort >= 1 || ev2.qualityFaded >= 1)){
+      qualityStruggle = true; qualityCarried = ev2;
+    }
+  }
   var holdOnlyFromQuality = !missedMuch && !missPersistent && ev.easyOverEffort < 2 &&
     (ev.qualityRepsShort + ev.qualityFaded) > 0;
   if ((missedMuch || effortHigh || missPersistent) && !(qualityStruggle && qualityLeft && holdOnlyFromQuality)){
@@ -53031,7 +53322,7 @@ function weeklyCoachingReview(week){
        "steps up only after its last session scored well, repeats after a
        poor one, and steps back after two poor ones in a row"). A repeat that
        was accepted last week and still fell short becomes a smaller session. */
-    if (prior && prior.kind === 'quality' && prior.decision === 'accepted'){
+    if (!qualityCarried && prior && prior.kind === 'quality' && prior.decision === 'accepted'){
       out.kind = 'quality_back';
       out.recommendedKm = thisKm;
       out.reasons.push('quality_struggle_twice');
@@ -53041,6 +53332,7 @@ function weeklyCoachingReview(week){
     out.kind = 'quality';
     out.recommendedKm = thisKm;
     out.reasons.push('quality_struggle');
+    if (qualityCarried){ out.reasons.push('quality_carried'); out.qualityEv = qualityCarried; }
     out.material = true;
     return out;
   }
@@ -53198,8 +53490,37 @@ function applyWeekTarget(week, targetKm, kind, opts){
   var movKm = movable.reduce(function(t, d){ return t + d.km; }, 0);
   var want = targetKm - fixedKm - stayKm;
   if (movKm > 0 && want > 0){
-    var f = Math.max(0.5, Math.min(1.25, want / movKm));
-    movable.forEach(function(d){ if (weeklySetKm(d, d.km * f, kind) && changed.indexOf(d) === -1) changed.push(d); });
+    var clampF = function(x){ return Math.max(0.5, Math.min(1.25, x)); };
+    var f = clampF(want / movKm);
+    /* NO EASY RUN UNDER 5KM, IN ANY WEEK (A5), here too. A smaller week used
+       to scale every run down, so a 16km week cut to 12km wrote two 3.5km easy
+       runs and a 4km long run. The week-fit rule applies: an easy run that
+       would be 4 to 5km is written as 5km, and below that the shortest easy
+       run goes instead and the rest are scaled to the target. A run the plan
+       itself wrote under 5km (a shakeout) is scaled as before. */
+    var floorEasy = movable.filter(function(d){ return d.type === 'easy' && d.km >= WEEK_FIT_MIN_EASY_KM - 1e-9; });
+    var dropped = [];
+    for (var gd = 0; gd < 10 && f < 1; gd++){
+      var shortest = floorEasy.filter(function(d){ return dropped.indexOf(d) === -1; })
+                              .sort(function(a, b){ return a.km - b.km; })[0];
+      if (!shortest || shortest.km * f >= WEEK_FIT_MIN_EASY_KM - WEEK_FIT_ROUND_UP_KM - 1e-9) break;
+      dropped.push(shortest);
+      var keptKm = movable.filter(function(d){ return dropped.indexOf(d) === -1; }).reduce(function(t, d){ return t + d.km; }, 0);
+      f = keptKm > 0 ? clampF(want / keptKm) : 1;
+    }
+    dropped.forEach(function(d){
+      weeklyRemember(d, kind);
+      var rt = restDayText(false);
+      d.type = rt.type; d.title = rt.title; d.desc = rt.desc; d.km = 0;
+      delete d.prescription;
+      if (changed.indexOf(d) === -1) changed.push(d);
+    });
+    movable.forEach(function(d){
+      if (dropped.indexOf(d) !== -1) return;
+      var km = d.km * f;
+      if (floorEasy.indexOf(d) !== -1) km = Math.max(WEEK_FIT_MIN_EASY_KM, km);
+      if (weeklySetKm(d, km, kind) && changed.indexOf(d) === -1) changed.push(d);
+    });
     /* The long run stays the longest run of the week. */
     var longD = movable.filter(function(d){ return d.type === 'long'; })[0];
     if (longD){
@@ -53211,7 +53532,8 @@ function applyWeekTarget(week, targetKm, kind, opts){
 }
 /* Repeat last week's quality session instead of progressing it. */
 function weeklyRepeatQuality(week, kind){
-  var prevQ = weekRunDays(week - 1).filter(weeklyIsQuality);
+  var prevQ = [];
+  for (var pk = week - 1; pk >= Math.max(1, week - 3) && !prevQ.length; pk--) prevQ = weekRunDays(pk).filter(weeklyIsQuality);
   var changed = [];
   weeklyAdjustable(week).filter(weeklyIsQuality).forEach(function(d, i){
     var src = prevQ[Math.min(i, prevQ.length - 1)];
@@ -53269,6 +53591,8 @@ function answerWeeklyReview(rv, accept){
         if (lrDay && weeklySetKm(lrDay, rv.longEarnedKm, 'progress') && result.changed.indexOf(lrDay) === -1)
           result.changed.push(lrDay);
       }
+    } else if (rv.backFrom){
+      /* Back from a break, declining keeps the plan's own week. */
     } else {
       result = applyWeekTarget(rv.week, rv.lastKm, 'stay');
       /* THE HILL SESSION IS EARNED BY RECOVERY, NOT BY THE MILEAGE (Audit III
@@ -53372,6 +53696,15 @@ function weeklyDeliveredFigures(rv){
     var y = run(true), n2 = run(false);
     if (y != null) got.yes = y;
     if (n2 != null) got.no = n2;
+    /* AND WHETHER THE TWO ANSWERS GIVE THE SAME WEEK, day by day (founder,
+       16 November 2026: "one Continue button when they match"). */
+    var sig = function(answer){
+      return weeklyDryRun(function(){ answerWeeklyReview(rv, answer);
+        return (state.days || []).filter(function(d){ return d && d.week === rv.week; })
+          .map(function(d){ return d.date + d.type + round1(d.km || 0); }).join('|'); });
+    };
+    var sy = sig(true), sn = sig(false);
+    got.same = sy != null && sy === sn;
   }
   return got;
 }
@@ -53422,7 +53755,18 @@ function weeklyTimeStopLine(ev){
   return (ev.timeStops === 1 ? 'One run was' : ev.timeStops + ' runs were') +
     ' cut short for time or rest, so the ' + fmtDist(ev.timeShortKm) + ' not run is not read as lost fitness.';
 }
+/* ONE ANSWER WHEN BOTH GIVE THE SAME WEEK (founder, 16 November 2026: "one
+   Continue button when they match"). The words say so too: one button, and
+   no sentence about what staying would deliver. */
 function weeklyReviewCopy(rv){
+  var c = weeklyReviewCopyFor(rv);
+  if (c && rv && rv.kind !== 'recovery' && rv.delivered && rv.delivered.same){
+    c = Object.assign({}, c, { yes: 'Continue', no: null,
+      note: String(c.note || '').replace(/\s*(Part of this week is already run, so staying comes to|Staying keeps this week to) [^.]*\./, '').trim() });
+  }
+  return c;
+}
+function weeklyReviewCopyFor(rv){
   var ev = rv.ev, s = rv.signals;
   /* The delivered figure where the dry run has measured it (LA3). */
   var dl = rv.delivered || {};
@@ -53432,8 +53776,18 @@ function weeklyReviewCopy(rv){
   var pct = function(a, b){ return Math.round((a / b - 1) * 100); };
   /* The signed change, written once: "+8%", "-9%", never "+-9%". */
   var spct = function(a, b){ var v = pct(a, b); return (v >= 0 ? '+' : '') + v + '%'; };
+  if (rv.kind === 'progress' && rv.backFrom){
+    var bkm = rv.recommendedKm;
+    return { eyebrow: 'Coach’s Recommendation', head: 'Welcome back.',
+      why: 'Your break is over. Your first two runs back are easy, and this week is no bigger than your last full week before it, ' +
+        dist(rv.backFrom.preKm) + '. SACORO builds again from there once you have run it.',
+      figures: [['Last full week before the break', dist(rv.backFrom.preKm)], ['This week', dist(yesKm(bkm))]],
+      note: rv.plannedKm > bkm + 0.5 ? 'Your plan had ' + dist(rv.plannedKm) + ' this week.' : '',
+      yes: 'Accept', no: 'Keep the Plan' };
+  }
   if (rv.kind === 'progress'){
     var why = 'Last week you completed ' + dist(ev.doneKm) + ' of ' + dist(ev.dueKm) + '.';
+    if (rv.lighterTaken) why = 'Last week was your lighter week, taken when you needed it. This week picks up from your last full week, ' + dist(rv.baseKm) + '.';
     var tsLine = weeklyTimeStopLine(ev);
     if (tsLine) why += ' ' + tsLine;
     /* A set that did not hold, in a week with no hard session to repeat, is
@@ -53457,7 +53811,7 @@ function weeklyReviewCopy(rv){
     else if (s.recovery === 'strained') why += ' Your recovery readings are strained, so the step is a small one.';
     if (ev.overEffort === 0 && ev.done > 0 && ev.effortLogged > 0) why += ' Your reported effort stayed where each session asked for it.';
     if (s.adaptation === 'ADAPTING') why += ' Your training is showing it is adapting.';
-    var planWhy = weeklyPlanReason(rv);
+    var planWhy = rv.lighterTaken ? null : weeklyPlanReason(rv);
     if (planWhy) why += ' ' + planWhy;
     if (rv.baseHillsId){
       var hdDay = (state.days || []).filter(function(d){ return d.id === rv.baseHillsId; })[0];
@@ -53559,13 +53913,14 @@ function weeklyReviewCopy(rv){
       yes: 'Step the Session Back', no: 'Keep the Planned Session' };
   }
   if (rv.kind === 'quality'){
+    var qev = rv.qualityEv || ev;
     return { eyebrow: 'Coach’s Recommendation', head: 'Keep the mileage. Repeat the session.',
-      why: (weeklyQualityEvidenceLine(ev)
-        ? weeklyQualityEvidenceLine(ev) + ' Your easy running is going well, so the mileage stays and the session repeats before it progresses. That builds the same fitness with less risk.'
+      why: (weeklyQualityEvidenceLine(qev)
+        ? weeklyQualityEvidenceLine(qev) + (rv.qualityEv ? ' That was your last hard session.' : '') + ' Your easy running is going well, so the mileage stays and the session repeats before it progresses. That builds the same fitness with less risk.'
         : 'Your easy running is going well, but last week’s quality session felt harder than it should and fell short of its targets. Repeating it before it progresses builds the same fitness with less risk.'),
       figures: [['This week', dist(yesKm(rv.plannedKm))]],
       note: 'Only the quality session changes. Every other run stays as planned.',
-      yes: 'Repeat Last Week’s Session', no: 'Keep the Planned Session' };
+      yes: rv.qualityEv ? 'Repeat That Session' : 'Repeat Last Week’s Session', no: 'Keep the Planned Session' };
   }
   if (rv.kind === 'recovery'){
     var seen = [];
@@ -53608,6 +53963,22 @@ function weeklyReviewCopy(rv){
 function weeklyDistributionPreview(rv){
   var adj = weeklyAdjustable(rv.week);
   if (!adj.length) return [];
+  /* WHAT ACCEPTING ACTUALLY WRITES, read from a dry run of the answer, so the
+     sheet never shows a run the plan would not prescribe (a scaled 3.5km easy
+     run where the week-fit rule keeps every run at 5km or drops one). */
+  var before = adj.map(function(d){ return { id: d.id, date: d.date, type: d.type, km: d.km }; });
+  var after = weeklyDryRun(function(){
+    answerWeeklyReview(rv, true);
+    var m = {};
+    (state.days || []).forEach(function(d){ if (d && d.week === rv.week) m[d.id] = { type: d.type, km: d.km || 0 }; });
+    return m;
+  });
+  if (after){
+    return before.map(function(d){
+      var a = after[d.id] || { type: d.type, km: d.km };
+      return { day: dow(d.date), type: d.type, from: d.km, to: a.km };
+    });
+  }
   var target = rv.recommendedKm;
   var copyOf = adj.map(function(d){ return { date: d.date, type: d.type, km: d.km }; });
   var planned = weekPlannedKm(rv.week);
@@ -53665,13 +54036,20 @@ function weeklyReviewSheetHtml(rv, picked){
     }).join('')+'</div>'+
     (rows.length ? '<div class="wr-dist-k">How the week is spread</div><div class="wr-dist">'+rows.map(function(r){
       return '<div class="wr-row"><span>'+escapeHtml(r.day)+'</span><span>'+escapeHtml(typeName(r.type))+'</span><span class="wr-km">'+
-        (Math.abs(r.to - r.from) >= 0.25 ? escapeHtml(fmtDist(r.from))+' to '+escapeHtml(fmtDist(r.to)) : escapeHtml(fmtDist(r.to)))+'</span></div>';
+        (!(r.to > 0) ? escapeHtml(fmtDist(r.from))+' to Rest'
+         : Math.abs(r.to - r.from) >= 0.25 ? escapeHtml(fmtDist(r.from))+' to '+escapeHtml(fmtDist(r.to)) : escapeHtml(fmtDist(r.to)))+'</span></div>';
     }).join('')+'</div>' : '')+
     (c.note ? '<div class="field-hint wr-note">'+escapeHtml(c.note)+'</div>' : '')+
-    '<div class="stg-sheet-acts wr-acts">'+
-      '<button type="button" class="btn btn-ghost" data-action="weekly-decline">'+escapeHtml(c.no)+'</button>'+
-      '<button type="button" class="btn btn-primary" data-action="weekly-accept">'+escapeHtml(c.yes)+'</button>'+
-    '</div>'+
+    (!c.no
+      /* Both answers give the same week: there is nothing to choose, so
+         there is one button. Pressing it records the recommendation. */
+      ? '<div class="stg-sheet-acts wr-acts">'+
+          '<button type="button" class="btn btn-primary btn-block" data-action="weekly-accept">'+escapeHtml(c.yes)+'</button>'+
+        '</div>'
+      : '<div class="stg-sheet-acts wr-acts">'+
+          '<button type="button" class="btn btn-ghost" data-action="weekly-decline">'+escapeHtml(c.no)+'</button>'+
+          '<button type="button" class="btn btn-primary" data-action="weekly-accept">'+escapeHtml(c.yes)+'</button>'+
+        '</div>')+
   '</div>';
 }
 var weeklyReviewOpen = null;
@@ -53740,8 +54118,23 @@ function weeklyReviewDue(){
   try { rv.delivered = weeklyDeliveredFigures(rv); } catch(e){ rv.delivered = null; }
   return rv;
 }
+/* SHEETS THE APP RAISES ITSELF COME WITH THE APP OPENING, NOT AFTER
+   ANYTHING (Audit III UX3-14: the check-in popped up straight after saving
+   Make Your Own, and seconds after "No running at all"). They are raised
+   only in the moments after the app opens or comes back to the front; the
+   weekly sheet may follow the check-in it waits for. Anything missed is on
+   Today's own rows and comes back at the next open. */
+var AUTO_SHEET_WINDOW_MS = 20000;
+var autoSheetsUntil = Date.now() + AUTO_SHEET_WINDOW_MS;
+var autoSheetChain = 0;   /* until when the weekly sheet may follow the check-in */
+function autoSheetsOpen(){ return Date.now() <= autoSheetsUntil || Date.now() <= autoSheetChain; }
+if (typeof document !== 'undefined' && document.addEventListener){
+  try { document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') autoSheetsUntil = Date.now() + AUTO_SHEET_WINDOW_MS; }); } catch(eV){}
+}
 function maybeRaiseWeeklyReview(arriving){
   if (arriving || state.view !== 'today') return;
+  if (!autoSheetsOpen()) return;
   if (!state.setup || !state.days || !state.days.length) return;
   if (typeof document === 'undefined' || !document.getElementById || document.getElementById('modal-overlay')) return;
   if (document.getElementById('weekly-sheet') || document.getElementById('ask-sheet')) return;
@@ -53749,17 +54142,87 @@ function maybeRaiseWeeklyReview(arriving){
   if (healthConsentGranted() && !readinessIsComplete(coachReadinessToday()) && !checkinSheetRaised[todayStr()]) return;
   var rv = weeklyReviewDue();
   if (!rv || weeklyReviewRaised[weeklyReviewKey(rv.week)]) return;
+  autoSheetChain = 0;
   openWeeklyReviewSheet(rv);
 }
 /* Once a day, on Today, with nothing else up and nothing to arrive through
    first. Dismissed, it stays dismissed until tomorrow; the row on Today
    raises it again whenever the athlete wants. */
+/* A PLAN WITH NO THRESHOLD TEST IS OFFERED ONE (founder, 16 November 2026:
+   "Offer the test"). A plan built before the test was for everyone, or
+   before the athlete reached 20km a week, has none. Once every six weeks, on
+   a glass sheet, SACORO offers to put the test in place of the next suitable hard session:
+   not this week or in a recovery week, the taper or the race week, and not
+   within two weeks of the Fitness Checkpoint. */
+function thresholdTestOfferDay(){
+  var su = state.setup;
+  if (!su || !state.days || !state.days.length) return null;
+  var today0 = todayStr();
+  if (su.thresholdTestOffer && su.thresholdTestOffer.at &&
+      daysBetween(su.thresholdTestOffer.at, today0) < 7 * CALIBRATION_REPEAT_WEEKS) return null;   // once per six weeks
+  var pp = planPurpose(su);
+  if (pp !== 'race' && pp !== 'base') return null;
+  var today = todayStr();
+  var recentFrom = addDays(today, -7 * CALIBRATION_REPEAT_WEEKS);
+  if (state.days.some(function(d){ return d && d.type === 'calibration' && d.date >= recentFrom; })) return null;
+  var v = null; try { v = calibrationVerdict(su.currentVolume); } catch(e){ v = null; }
+  if (!v || !v.needed) return null;
+  var N = currentWeekNum();
+  var cps = state.days.filter(function(d){ return d && d.type === 'checkpoint'; }).map(function(d){ return d.week; });
+  return state.days.filter(function(d){
+    if (!d || d.week <= N || d.completed || d.manualEdit || !(d.km > 0)) return false;
+    if (['tempo', 'threshold', 'interval'].indexOf(d.type) === -1) return false;
+    var inf = null; try { inf = playbookWeekInfo(d.week); } catch(e){ inf = null; }
+    if (inf && (inf.isCutback || inf.isTaper || inf.isRace)) return false;
+    if (state.days.some(function(x){ return x && x.week === d.week && x.type === 'race'; })) return false;
+    return !cps.some(function(w){ return Math.abs(w - d.week) <= CALIBRATION_CHECKPOINT_GAP_WEEKS; });
+  }).sort(function(a, b){ return a.date < b.date ? -1 : 1; })[0] || null;
+}
+function applyThresholdTestTo(dd){
+  if (!dd) return false;
+  var cal = thresholdCalibrationText();
+  weeklyRemember(dd, 'threshold_test');
+  dd.type = cal.type; dd.title = cal.title; dd.desc = cal.desc;
+  dd.km = Math.max(dd.km || 0, calibrationSessionKm());
+  dd.prescription = { v: PRESCRIPTION_VERSION, archetype: 'threshold_calibration',
+    params: { warmupMin: CALIBRATION_PROTOCOL.warmupMin, settleMin: CALIBRATION_PROTOCOL.settleMin,
+              measuredMin: CALIBRATION_PROTOCOL.measuredMin, cooldownMin: CALIBRATION_PROTOCOL.cooldownMin } };
+  delete dd.mpSegment;
+  return true;
+}
+function maybeRaiseThresholdTestOffer(arriving){
+  if (arriving || state.view !== 'today' || !autoSheetsOpen()) return;
+  if (typeof document === 'undefined' || !document.getElementById || document.getElementById('modal-overlay')) return;
+  if (document.getElementById('weekly-sheet') || document.getElementById('ask-sheet')) return;
+  if (weeklyReviewDue()) return;                                 // the weekly sheet first
+  var dd = thresholdTestOfferDay();
+  if (!dd) return;
+  var day = WEEKLY_DAY_NAMES[(new Date(dd.date + 'T12:00:00Z').getUTCDay() + 6) % 7];
+  askSacoro({ title: 'Add a Threshold Test',
+    say: 'SACORO can measure your current fitness with a ' + calibrationEffortMin() + '-minute threshold test on ' +
+      day + ' ' + Number(dd.date.slice(8, 10)) + ' ' + ['January','February','March','April','May','June','July',
+      'August','September','October','November','December'][Number(dd.date.slice(5, 7)) - 1] +
+      ', in place of ' + (dd.title || 'that session') + '.',
+    hint: 'It sets your training paces from what you can run today' +
+      (healthConsentGranted() ? ', and your heart-rate zones too.' : '. With health data allowed it sets your heart-rate zones too.') +
+      ' SACORO asks again every six weeks.',
+    yes: 'Add the Test', no: 'Not Now',
+    onYes: function(){
+      state.setup.thresholdTestOffer = { answer: 'yes', at: todayStr(), day: dd.id };
+      applyThresholdTestTo(dd); flushSave(); renderApp(); showToast('Threshold test added');
+    },
+    onNo: function(){ state.setup.thresholdTestOffer = { answer: 'no', at: todayStr() }; flushSave(); } });
+}
 function maybeRaiseCheckinSheet(arriving){
   if (arriving || state.view !== 'today') return;
+  if (!autoSheetsOpen()) return;
   if (!state.setup || !state.days || !state.days.length || !healthConsentGranted()) return;
+  /* Not while an injury or illness is open: the athlete has already said. */
+  try { if (openRestriction()) return; } catch(eR){}
   if (readinessIsComplete(coachReadinessToday())) return;
   if (checkinSheetRaised[todayStr()]) return;
   if (typeof document === 'undefined' || !document.getElementById || document.getElementById('modal-overlay')) return;
+  autoSheetChain = Date.now() + 120000;
   openCheckinSheet();
 }
 function handleCoachKeep(dayId){
@@ -55136,7 +55599,8 @@ function daySubstitutionBlock(dd){
   var e = libraryEntry(p.archetype);
   if (!e) return subRefuse('no_library_entry','No library entry for '+p.archetype+'.');
   if (!e.poolSelectable)
-    return subRefuse('fixed_purpose','A '+p.archetype.replace(/_/g,' ')+' is placed by the plan, not chosen from a pool. Races, checkpoints, shakeouts, strides, easy runs and long runs are not varied.');
+    return subRefuse('fixed_purpose', (p.archetype === 'long_run' || /^long/.test(p.archetype) ? 'Long runs' :
+      p.archetype === 'easy_run' ? 'Easy runs' : 'This session') + ' stay as your plan wrote them.');
   return null;
 }
 
@@ -59631,6 +60095,12 @@ function handleRaceOutcome(outcome){
    that offered it states one -- see MARATHON_PREP_BASE_WEEKS. Omitted
    everywhere else, which leaves developmentBlockSpec()'s own default in force
    exactly as before. */
+/* A NEW RUNNER HAS NOTHING TO KEEP (founder, 16 November 2026, Audit III
+   UX3-05): "Your completed training is kept as history" is only said to an
+   athlete who has some. */
+function athleteHasTrainingHistory(){
+  return (state.days || []).some(function(d){ return d && (d.completed || (d.actual && d.actual.km > 0)); });
+}
 function handleStartBlock(purpose, weeks, confirmed){
   if (purpose === 'race'){
     if (state.setup) state.setup.purpose = 'race';
@@ -59639,7 +60109,7 @@ function handleStartBlock(purpose, weeks, confirmed){
   }
   if (!isBlockPurpose(purpose)) return;
   var label = blockPurposeLabel(purpose);
-  if (!confirmed){
+  if (!confirmed && athleteHasTrainingHistory()){
     askSacoro({ title:'Start a New Block', say:'Start your ' + label + ' block?',
       hint:'Your completed training is kept as history and everything SACORO has learned about you '+
         'carries over. Only the remaining schedule is replaced.',
@@ -61935,15 +62405,18 @@ function openWeekFitSheet(fit, distanceKey, sig){
 }
 /* BELOW THE RACE GOAL ENTRY: the Developing programme, offered (founder,
    15 November 2026). Switching rebuilds on Developing; keeping builds the
-   chosen level. Both start at one 5km run, run/walk if needed. */
+   chosen level. Both start on the low start's three runs (founder, 15
+   November 2026), and the sheet says so (Audit III UX3-04: it promised one
+   5km run a week while the plan built three runs). */
 function entryPathwayCopy(distanceKey, declaredKm){
   var lv = function(k){ return (EXPERIENCE_META[k] && EXPERIENCE_META[k].short) || k; };
   var exp = athleteExperience(), dev = EXPERIENCE_LEVELS[0];
   var dist = (BUILDER_SPEC.distances.labels[distanceKey] || distanceKey);
   return { title: 'Choose Your Pathway',
     say: 'You run ' + fmtDist(declaredKm || 0) + ' a week now. SACORO starts you on the ' + lv(dev) + ' ' + dist +
-      ' programme with one 5km run a week, run/walk if you need it, and builds from there as you log your runs.',
-    hint: 'You can keep ' + lv(exp) + ' instead. SACORO will still start you at 5km and progress you as far as is safe.',
+      ' programme with three runs in your first week, ' + ((distanceKey === '5k' || distanceKey === '10k') ? '16' : '17') +
+      'km in all with a 6km long run, run/walk if you need it, and builds from there as you log your runs.',
+    hint: 'You can keep ' + lv(exp) + ' instead. SACORO will still start you on those three runs and progress you as far as is safe.',
     yes: 'Switch to ' + lv(dev), no: 'Keep ' + lv(exp) };
 }
 function openEntryPathwaySheet(distanceKey, declaredKm, sig){
@@ -62965,6 +63438,12 @@ function openSetupModal(){
       '<div class="field"><label>Time</label>'+
         '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="mm:ss" value="'+benchTime+'"></div>'+
       '<div class="field-hint">Tap the time to set it.</div>'+
+      /* NO BENCHMARK IS AN ANSWER TOO (founder, 16 November 2026, Audit III
+         UX3-11: "So add an optional response that says non or similar
+         words?"). It clears any time and moves on; sessions are set by
+         effort until a race or checkpoint measures the athlete's paces. */
+      '<button type="button" class="btn btn-ghost btn-block bld-bench-none" data-action="bench-none">I Haven’t Run One</button>'+
+      '<div class="field-hint">No recent 5K or 10K? Your sessions are set by effort until a race or a fitness checkpoint gives SACORO your paces.</div>'+
       '<div class="field-hint">A reference you give SACORO, not a measurement of your fitness. SACORO measures that on the Coach page from the races and checkpoints you actually run, and you can change this any time in Re-calibrate.</div>'+
       navBtns(6)+
     '</section>'+
@@ -64657,6 +65136,26 @@ function ensureBaseHorizonMaterialised(){
       }
     }
   } catch(eH){}
+  /* A NEW WEEK SAYS WHERE ITS SIZE CAME FROM (Audit III, learning amber
+     "base horizon"): a week that enters the plan after the athlete chose to
+     hold their mileage, or logged too little to read, is built from that,
+     and its first easy run says so in one line rather than arriving smaller
+     with no word. */
+  try {
+    var store = weeklyReviewStore(), heldBy = null;
+    for (var hw = week; hw >= Math.max(2, week - 2) && !heldBy; hw--){
+      var rec = store[weeklyReviewKey(hw)];
+      if (rec && rec.decision === 'declined' && (rec.kind === 'progress' || rec.kind === 'insufficient')) heldBy = 'held';
+    }
+    for (var mw = maxMaterialised + 1; mw <= targetHorizon; mw++){
+      var why = (su.baseHeldNoLogs && su.baseHeldNoLogs[mw]) ? 'Built from your last week, as too little of it was logged to read.'
+              : heldBy ? 'Built from the mileage you chose to hold.' : null;
+      if (!why) continue;
+      var first = state.days.filter(function(d){ return d && d.week === mw && d.type === 'easy' && d.km > 0 && !d.manualEdit; })
+        .sort(function(a, b){ return a.date < b.date ? -1 : 1; })[0];
+      if (first && (first.desc || '').indexOf(why) === -1) first.desc = (first.desc ? first.desc + ' ' : '') + why;
+    }
+  } catch(eN){}
   var block = su.blockId ? blockById(su.blockId) : null;
   if (block) block.peakVolume = blockPeakVolumeFor('base', blockResult, state.days,
     su.raceDate, su.schedule, su.startDate, false);
@@ -77921,7 +78420,8 @@ function actionPanelNewBlock(){
       'what comes next yet. It makes one when this block finishes, or after you race. You can '+
       'still start a new one now.</div>';
   }
-  body += '<div class="field-hint">Your completed training is kept as history '+
+  if (athleteHasTrainingHistory())
+    body += '<div class="field-hint">Your completed training is kept as history '+
       'and everything SACORO has learned about you carries over. Only the remaining schedule is '+
       'replaced, and nothing changes until you choose.</div>';
   return recordPanelShell('New Block', body, null,
@@ -79484,6 +79984,7 @@ function renderApp(){
   wireWeekDayPager();
   try { maybeRaiseCheckinSheet(arriving); } catch(e){}
   try { maybeRaiseWeeklyReview(arriving); } catch(e){}
+  try { maybeRaiseThresholdTestOffer(arriving); } catch(e){}
   /* Last, and never waited for: the screen above is already complete. */
   try { coachNoteMaybeFetch(); } catch(e){}
 }
@@ -81336,6 +81837,13 @@ document.addEventListener('click', function(e){
     case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) closeModal(); }); break;
     case 'time-wheel-use': useTimeWheel(); break;
     case 'time-wheel-clear': clearTimeWheel(); break;
+    case 'bench-none': {
+      var bt = document.getElementById('su-bench-time');
+      if (bt){ bt.value = ''; try { bt.dispatchEvent(new Event('change', { bubbles:true })); } catch(eB){} }
+      var nx = document.querySelector('.bld-panel[data-stage="6"] [data-action="bld-next"]');
+      if (nx) nx.click();
+      break;
+    }
     case 'ask-yes': answerAskSacoro(true); break;
     case 'ask-no': answerAskSacoro(false); break;
     case 'time-wheel-close': closeTimeWheel(); break;

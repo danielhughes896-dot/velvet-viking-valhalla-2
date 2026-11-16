@@ -241,28 +241,12 @@ test('.weekday-grid is still a 7-column grid -- the layout that fits all seven o
 });
 
 // ---------------------------------------------------------------------------
-// 9. /start MIRRORS THE SAME TREATMENT
+// 9. /start NO LONGER HAS A WEEKDAY PICKER
 // ---------------------------------------------------------------------------
-test('/start\'s weekday picker uses the same appearance:none circle + --cherry checked state, not the old raised-disc treatment', () => {
-  const rule = /\.wd-check input\{([^}]*)\}/.exec(START_SRC);
-  assert.ok(rule, '.wd-check input rule not found in /start');
-  assert.match(rule[1], /appearance:none/);
-  assert.match(rule[1], /border-radius:50%/);
-  assert.match(rule[1], /border:2px solid var\(--line\)/);
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
+test('the old raised-disc circle is gone from the app, and /start draws no weekday picker', () => {
   assert.doesNotMatch(SRC, /\.wd-circle/, 'no .wd-circle anywhere in the app');
-  assert.doesNotMatch(START_SRC, /\.wd-circle/, 'no .wd-circle anywhere in /start either');
-
-  const checkedRule = /\.wd-check input:checked\{([^}]*)\}/.exec(START_SRC);
-  assert.ok(checkedRule);
-  assert.match(checkedRule[1], /background:var\(--cherry\)/);
-});
-
-test('/start\'s renderWeekdayGrid() no longer builds a .wd-circle span, and no column background rule exists', () => {
-  const fn = START_SRC.slice(START_SRC.indexOf('function renderWeekdayGrid'));
-  const body = fn.slice(0, fn.indexOf('\n  }\n'));
-  assert.match(body, /type = 'checkbox'/);
-  assert.doesNotMatch(body, /wd-circle/);
-  assert.doesNotMatch(START_SRC, /\.wd-check\.checked\{[^}]*background/, 'no background/wash may be declared on the selected label in /start either');
+  assert.doesNotMatch(START_SRC, /wd-check|wd-circle|renderWeekdayGrid/);
 });
 
 /* Founder, of these circles beside the week view's: "match please". The

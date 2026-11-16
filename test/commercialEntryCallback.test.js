@@ -269,7 +269,8 @@ test('the builder itself is untouched by this gateway change', () => {
 // ===========================================================================
 test('/start owns every commercial-entry state', () => {
   const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  ['pane-auth', 'pane-sent', 'pane-build', 'pane-preview', 'pane-locked'].forEach(p =>
+  /* pane-build left with the web builder (founder, 16 November 2026, item 9). */
+  ['pane-auth', 'pane-sent', 'pane-preview', 'pane-locked'].forEach(p =>
     assert.ok(src.indexOf(p) !== -1, '/start has no ' + p));
   assert.match(src, /b\.access === true/, '/start does not admit an entitled athlete');
   assert.match(src, /pane-locked/, '/start has nowhere to put an expired athlete');
@@ -315,10 +316,13 @@ test('an anonymous visitor is sent to install the app, not to sign-in', () => {
     'a visitor with no session is still sent to sign-in before the builder');
 });
 
-test('sign-in is still one tap away for a returning athlete', () => {
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get).
+   Its "Trained with SACORO before? Sign in" link went with it. The sign-in
+   door itself stays, for a returning link and an expired session. */
+test('sign-in is still here for a returning athlete', () => {
   const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  assert.match(src, /id="signin-instead"/, 'the builder screen has no direct sign-in route');
-  assert.match(markup(src), /Sign in/, 'the direct route is not worded as a sign-in');
+  assert.match(src, /setAuthContext\('signin'\);\s*show\('pane-auth'\)/, 'nothing opens sign-in any more');
+  assert.match(markup(src), /Sign in/, 'the door is not worded as a sign-in');
 });
 
 test('the entry path is stated once and routed once', () => {

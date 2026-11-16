@@ -1863,7 +1863,9 @@ test('the calibration is the first prescribed running session of the block', () 
     const days = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 12, { calibrate: true, experience: 'advanced' }),
       end, sched, start, false);
     const cal = days.filter(d => d.type === 'calibration');
-    assert.equal(cal.length, 1, 'exactly one calibration on ' + scheduleKey.length + ' days');
+    /* Week 1 and every six weeks after (founder, 16 November 2026). */
+    assert.ok(cal.length >= 1, 'no calibration on ' + scheduleKey.length + ' days');
+    cal.slice(1).forEach((c, i) => assert.ok(c.week - cal[i].week >= 6, 'tests in weeks ' + cal[i].week + ' and ' + c.week));
     const firstRun = days.filter(d => d.km > 0)[0];
     assert.equal(firstRun.date, cal[0].date,
       'on ' + scheduleKey.length + ' days the first run is ' + firstRun.type);
@@ -1918,8 +1920,11 @@ test('the deferral is offered for the floor alone, never for the other refusals'
                 today: a.todayStr(), currentVolume: 14 };
   const reason = o => a.calibrationEligibility(Object.assign({}, ctx, o)).reason;
   assert.equal(reason({}), 'insufficient_base');
-  assert.equal(reason({ healthConsent: false }), 'no_health_consent');
-  assert.equal(reason({ lthr: 168, lthrSource: 'calibration', currentVolume: 45 }), 'lthr_known');
+  /* Consent and a measured LTHR no longer refuse (founder, 16 November 2026);
+     a test inside the last six weeks does, and it is not deferred. */
+  assert.equal(reason({ healthConsent: false, currentVolume: 45 }), 'eligible');
+  assert.equal(reason({ lthr: 168, lthrSource: 'calibration', currentVolume: 45 }), 'eligible');
+  assert.equal(reason({ measuredOn: a.addDays(a.todayStr(), -14), currentVolume: 45 }), 'recent_measured_effort');
   /* AN ESTIMATE IS NOT A MEASUREMENT, and it does not suppress the offer. */
   assert.equal(reason({ lthr: 168, currentVolume: 45 }), 'eligible');
   assert.equal(a.calibrationEligibility(Object.assign({}, ctx, { currentVolume: 45 })).needed, true);

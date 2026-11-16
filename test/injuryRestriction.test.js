@@ -23,6 +23,17 @@ const { buildPlan } = require('./fixtures.js');
    that is reassessed but never changed. */
 
 const TODAY = '2026-10-14';
+/* THE FIRST TWO RUNS BACK ARE EASY (founder, 16 November 2026: "the first
+   session should be an easy run maybe 2"). endRestriction() runs them easy and
+   keeps what SACORO wrote on each (weeklyAdjust kind 'return_easy'), so the
+   programme that comes back is still the one SACORO wrote, read through that. */
+const written = d => (d.weeklyAdjust && d.weeklyAdjust.kind === 'return_easy') ? d.weeklyAdjust.from : d;
+const sig = days => days.map(d => d.id + ':' + written(d).type + ':' + written(d).km).join('|');
+function assertEasyReturn(a, days){
+  const back = days.filter(d => d.weeklyAdjust && d.weeklyAdjust.kind === 'return_easy');
+  assert.ok(back.length <= 2, back.length + ' runs back made easy');
+  back.forEach(d => assert.equal(d.type, 'easy', d.date + ' is ' + d.type + ' among the first runs back'));
+}
 function app(opts){
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
@@ -267,8 +278,9 @@ test('what SACORO prescribed is kept, restored ahead, and left standing behind',
   ahead.forEach(d => assert.ok(d.restricted.from, 'no snapshot of the original prescription'));
   const r = a.endRestriction();
   assert.ok(r && r.endedAt);
-  assert.equal(ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|'), before,
+  assert.equal(sig(ahead), before,
     'ending the restriction did not restore the programme');
+  assertEasyReturn(a, ahead);
   assert.equal(ahead.filter(d => d.restricted).length, 0);
 });
 
@@ -341,8 +353,10 @@ test('the programme that comes back is the one SACORO wrote, intensity included'
   a.declareRestriction('none', until);
   a.state.setup.restriction.from = a.addDays(TODAY, -40);   // a long way out
   a.endRestriction();
-  assert.equal(ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|'), before);
-  assert.equal(ahead.filter(d => a.isQualityType(d.type)).length, qualityBefore,
+  assert.equal(sig(ahead), before);
+  assertEasyReturn(a, ahead);
+  /* Only the first two runs back are run easy, and the founder authorised it. */
+  assert.equal(ahead.filter(d => a.isQualityType(written(d).type)).length, qualityBefore,
     'quality work was withheld on return by something nobody authorised');
 });
 
@@ -639,8 +653,9 @@ test('applying a restriction twice cannot eat the session it is protecting', () 
   ahead.forEach(d => assert.ok(d.restricted.from,
     'the original prescription was lost on a later pass'));
   a.endRestriction();
-  assert.equal(ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|'), original,
+  assert.equal(sig(ahead), original,
     'the programme that came back is not the one SACORO wrote');
+  assertEasyReturn(a, ahead);
 });
 
 test('the coach does not say proceed over an unanswered "are you back?"', () => {
@@ -1058,7 +1073,24 @@ test('the no-running level is unchanged by the delivery definition', () => {
          21 days   887.9/1129.4 = 0.786  ->  745.9/940.9 = 0.793
          42 days   586.9/1129.4 = 0.520  ->  516.4/940.9 = 0.549
      The rule is unchanged; only the block it reads is smaller. Every verdict
-     holds: 7 days READY, 21 MARGINAL, 42 INSUFFICIENT. */
+     holds: 7 days READY, 21 MARGINAL, 42 INSUFFICIENT.
+     ---- 21 DAYS 0.79 -> 0.80 AND 42 DAYS 0.55 -> 0.56, FOUNDER RULING 16 NOVEMBER 2026 (C6) ----
+     "Start the climb earlier": the block climbs evenly from week one to the
+     same peak, so it prescribes 914.4km rather than 940.9km, less of it
+     inside the restricted weeks, and the same days off remove a slightly
+     smaller share:
+         7 days    870.9/940.9 = 0.926  ->  848.4/914.4 = 0.928
+         21 days   745.9/940.9 = 0.793  ->  731.4/914.4 = 0.800
+         42 days   516.4/940.9 = 0.549  ->  508.4/914.4 = 0.556
+     Every verdict holds: 7 days READY, 21 MARGINAL, 42 INSUFFICIENT.
+     ---- 21 DAYS 0.80 -> 0.79 AND 42 DAYS 0.56 -> 0.55, C6 REVISED TO LIFT ONLY (16 NOVEMBER 2026) ----
+     C6 no longer trims a week or rescales a recovery week, it only lifts an
+     early full week toward the even climb, so the block prescribes 942.4km
+     and the figures return to where they stood before C6:
+         7 days    872.4/942.4 = 0.926
+         21 days   747.4/942.4 = 0.793
+         42 days   516.4/942.4 = 0.548
+     Every verdict holds: 7 days READY, 21 MARGINAL, 42 INSUFFICIENT. */
   const expect = { 7:0.93, 21:0.79, 42:0.55 };
   Object.keys(expect).forEach(days => {
     const a = raceApp('full', 70, 16);

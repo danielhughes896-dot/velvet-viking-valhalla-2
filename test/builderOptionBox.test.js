@@ -27,8 +27,9 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const APP = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-const START = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-const SURFACES = [['app', APP], ['/start', START]];
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
+/* So the laws below hold the app's builder alone; /start has no option grids left. */
+const SURFACES = [['app', APP]];
 
 /* Read a rule body by selector. Two traps, both of which this codebase has
    shipped before and the second of which this file hit while being written:
@@ -158,7 +159,6 @@ test('a worded grid never asks for columns, on either surface', () => {
     /* And the hard-sessions choice for 5K and 10K (founder, 15 November
        2026): numbers, so a token grid. */
     app: ['bld-longday-grid', 'bld-quality-grid'],
-    '/start': ['bld-longday'],
   };
   SURFACES.forEach(([name, src]) => {
     const found = [];

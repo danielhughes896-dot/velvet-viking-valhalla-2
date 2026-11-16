@@ -184,7 +184,9 @@ test('TWELVE WEEKS — the floor is the driver where the safe route can reach it
   assert.equal(adm.preparation.entryKm, 21);
   assert.equal(adm.preparation.entryLongKm, 10);
   assert.equal(adm.preparation.verdict, 'INSUFFICIENT');
-  assert.equal(adm.preparation.reachWeekKm, 53,
+  /* 53 -> 54 (16 November 2026): the repeat threshold test now sits in week 9
+     and the climb around it is re-spread; the shortfall is unchanged. */
+  assert.equal(adm.preparation.reachWeekKm, 54,
     'the week the block actually delivers from a 21km entry in twelve weeks, short of the locked 60km peak');
   assert.equal(adm.preparation.reachLongKm, 26,
     'the long run reaches the Nielsen safety rate\'s own ceiling from a 10km entry, still short of the 28km floor');
@@ -381,7 +383,8 @@ test('EVIDENCE OVER LABEL — the evidence governs the route, and the locked des
      projects -- the projection now reads the builder's own output, so the week
      figure is the 73km this runway actually produces rather than the 79.1 the
      old curve reported for a week it never built. */
-  assert.equal(adm.preparation.reachWeekKm, 73, 'the week this twelve-week runway actually delivers from a 36km entry');
+  /* 73 -> 72 (16 November 2026): a repeat threshold test now sits in the climb. */
+  assert.equal(adm.preparation.reachWeekKm, 72, 'the week this twelve-week runway actually delivers from a 36km entry');
   assert.equal(adm.preparation.reachLongKm, 30, 'the Experienced marathon Peak floor, reached exactly');
 });
 

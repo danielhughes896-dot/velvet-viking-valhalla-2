@@ -55,15 +55,14 @@ test('the audit: every slider on every page is felt through one document listene
     assert.match(src, /document\.addEventListener\('input', sliderInputHaptic, true\)/,
       p + ' has a slider that is never felt');
   });
-  assert.deepEqual(withSliders.sort(), [RUNTIME_RELATIVE, 'start.html'].sort(),
+  /* start.html left this list with the web builder (founder, 16 November 2026, item 9). */
+  assert.deepEqual(withSliders.sort(), [RUNTIME_RELATIVE].sort(),
     'a page gained or lost sliders: check it is felt and update this list');
   /* The sliders this covers, named so a new one is noticed. */
   const logFields = (RT.match(/logRangeHtml\(dd, \{ field:'(\w+)'/g) || []).map(s => /'(\w+)'/.exec(s)[1]).sort();
   assert.deepEqual(logFields, ['mainSetFelt', 'mainSetHeld', 'repsDone', 'rpe']);
   const bld = (RT.match(/bldRangeHtml\('([\w-]+)'/g) || []).map(s => /'([\w-]+)'/.exec(s)[1]).sort();
   assert.deepEqual(bld, ['su-entry-days', 'su-entry-long', 'su-volume', 'su-weeks']);
-  const startR = (START.match(/rangeHtml\('([\w-]+)'/g) || []).map(s => /'([\w-]+)'/.exec(s)[1]).sort();
-  assert.deepEqual(startR, ['bld-entry-days', 'bld-entry-long', 'bld-volume', 'bld-weeks']);
 });
 
 // ------------------------------------------------------------------ the rule
@@ -134,17 +133,8 @@ test('through the shared haptic system, on both platforms, and nothing about the
   assert.equal((RT.match(/addEventListener\('input', sliderInputHaptic, true\)/g) || []).length, 1);
 });
 
-test('/start carries the same helper as the app, not a second idea of it', () => {
-  ['sliderHaptic', 'sliderMark', 'sliderInputHaptic'].forEach(n =>
-    assert.equal(body(START, n), body(RT, n), n + ' on /start has drifted from the app’s'));
-  assert.match(START, /var SLIDER_TICK_GAP_MS = 50;/);
-  const sh = fnIn(START, 'sacoroHaptic');
-  assert.match(sh, /cap\.getPlatform\(\) === 'ios'/);
-  assert.match(sh, /quiet\(h\.selectionStart && h\.selectionStart\(\)\); quiet\(h\.selectionChanged\(\)\); quiet\(h\.selectionEnd && h\.selectionEnd\(\)\);/);
-  assert.match(sh, /h\.vibrate\(\{ duration: 8 \}\)/);
-  assert.match(sh, /kind === 'light' && h\.impact\)\{ quiet\(h\.impact\(\{ style:'LIGHT' \}\)\)/);
-  const appTick = fnIn(RT, 'sacoroHaptic').match(/quiet\(h\.selectionStart[^\n]*/)[0];
-  assert.ok(sh.indexOf(appTick) > -1, 'the iOS tick differs between /start and the app');
-  assert.match(START, /var HAPTIC_WEB_MS = \{ tick:8, light:12 \};/);
-  assert.match(RT, /var HAPTIC_WEB_MS = \{ tick:8, light:12,/);
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get).
+   With its sliders gone, /start has no copy of the haptic helper to keep in step. */
+test('/start has no sliders and no second copy of the haptic helper', () => {
+  assert.doesNotMatch(START, /type="range"|function sacoroHaptic|sliderInputHaptic/);
 });

@@ -408,12 +408,15 @@ const START = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
 
 test('/start routes every commercial state, and explains every failure', () => {
   /* access -> the product; expired -> the locked shell; signed in without a
-     subscription -> the builder; anything else -> sign in. */
+     subscription -> a banked preview, else the app's builder at /get (the web
+     builder is retired: founder, 16 November 2026, item 9); anything else ->
+     sign in. */
   assert.match(START, /if \(b\.access === true\)\{ enter\(\); return; \}/,
     'an athlete with access must not be shown acquisition screens again');
   assert.match(START, /reason === 'expired'[^]*?show\('pane-locked'\)/,
     'an expired athlete needs the locked shell, not the builder');
-  assert.match(START, /show\('pane-build'\)/);
+  assert.doesNotMatch(START, /show\('pane-build'\)/);
+  assert.match(START, /location\.replace\('\/get'\)/, 'a signed-in athlete with no plan has nowhere to build one');
 
   /* Four failures, four explanations. A blank form with no reason is the
      defect these each exist to prevent. */
@@ -438,24 +441,11 @@ test('/start starts no trial by accident', () => {
     'the commercial act must be a deliberate press');
 });
 
-test('/start offers every objective the app builds', () => {
-  // The nine-stage wizard renders its purpose/distance pickers from
-  // window.BUILDER_SPEC at runtime (renderGoalStage()/renderDistanceStage()
-  // map over BS.purposes.order / BS.distances.order), not a static list of
-  // value="..." options -- so what proves parity is that both stages read
-  // the canonical spec's own arrays, and that those arrays are themselves
-  // the app's real BUILDER_PURPOSE_ORDER/DISTANCE_ORDER (asserted by
-  // test/builderSpecParity.test.js). A literal per-value grep would pass on
-  // dead markup; reading the actual source of each value is what cannot.
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get).
+   So /start offers no objectives; what is left is that the spec every builder
+   reads is the app's own list. */
+test('the canonical spec offers every objective the app builds', () => {
   const app = loadApp({ pinnedDate: TODAY });
-  const goalFn = START.slice(START.indexOf('function renderGoalStage'));
-  const goalBody = goalFn.slice(0, goalFn.indexOf('\n  }\n'));
-  assert.match(goalBody, /BS\.purposes\.order\.map\(/,
-    '/start\'s purpose picker no longer reads the canonical spec\'s own purpose order');
-  const distFn = START.slice(START.indexOf('function renderDistanceStage'));
-  const distBody = distFn.slice(0, distFn.indexOf('\n  }\n'));
-  assert.match(distBody, /BS\.distances\.order\.map\(/,
-    '/start\'s distance picker no longer reads the canonical spec\'s own distance order');
   // JSON.stringify rather than assert.deepEqual: these arrays were built
   // inside the VM sandbox, and Node's strict assertions treat that as a
   // different realm even when every value matches (same as elsewhere in

@@ -424,9 +424,10 @@ test('every athlete-facing surface reads the label from the one spec', () => {
      renames and the other half does not. */
   assert.match(RUNTIME, /EXPERIENCE_META\[k\]\.short/);
   assert.match(RUNTIME, /EXPERIENCE_META\[athleteExperience\(\)\]\.short/);
+  /* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get).
+     So /start names no experience level at all, hardcoded or otherwise. */
   const start = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
-  assert.match(start, /BS\.experience\.meta\[k\]\.short/);
-  assert.match(start, /BS\.experience\.meta\[Ans\.experience\]\.short/);
+  assert.doesNotMatch(start, /experience\.meta|Experienced|Developing|Established/);
 });
 
 // =====================================================================

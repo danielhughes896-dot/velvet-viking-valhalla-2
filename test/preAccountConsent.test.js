@@ -39,32 +39,14 @@ const APP = read('protected/velvet-viking-valhalla.html');
 // ===========================================================================
 // NOTHING COVERED LEAVES THE DEVICE BEFORE THERE IS AN ACCOUNT
 // ===========================================================================
-test('/start renders the heart-rate fields and never reads them back', () => {
-  /* Deliberately independent of how many stages the builder has -- it was nine
-     and is now ten, and neither number is the point. The strongest form of
-     "no covered data pre-account" available: not a
-     promise to discard it, but the absence of any code that retrieves it. If
-     somebody later adds a .value read here, this fails -- which is the moment
-     the Article 9 sequencing question genuinely starts to exist. */
-  assert.match(START, /id="bld-lthr"/, 'the TRAINING stage should still ask the question');
-  assert.match(START, /id="bld-maxhr"/);
-
-  const reads = START.match(/bld-lthr|bld-maxhr/g) || [];
-  assert.equal(reads.length, 2,
-    'the heart-rate inputs are referenced ' + reads.length + ' times; two is render-only, ' +
-    'more means something now reads them and a pre-account health decision has appeared');
-
-  ['$(\'bld-lthr\')', '$("bld-lthr")', 'bld-lthr\').value', 'getElementById(\'bld-lthr\')']
-    .forEach(shape => assert.ok(START.indexOf(shape) === -1,
-      'start.html retrieves the LTHR field: ' + shape));
-});
-
-test('the builder submission carries no covered field', () => {
-  const submit = START.slice(START.indexOf('function submitBuild'));
-  const body = submit.slice(0, submit.indexOf('\n  }'));
-  ['lthr', 'maxhr', 'maxHR', 'restingHR', 'readiness', 'sleep', 'soreness', 'illness', 'feel']
-    .forEach(k => assert.ok(!new RegExp('\\b' + k + '\\b').test(body),
-      'submitBuild() sends a covered field: ' + k));
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
+/* The two laws here held /start's builder to asking the heart-rate questions
+   and never reading or sending the answers. With the builder gone the
+   strongest form is left: /start draws no heart-rate field and sends nothing
+   to build a plan with. */
+test('/start asks for no heart-rate figure and sends no build of its own', () => {
+  assert.doesNotMatch(START, /bld-lthr|bld-maxhr|id="[^"]*(lthr|maxhr|maxHR)/i);
+  assert.doesNotMatch(START, /function submitBuild\(|\/api\/preview/);
 });
 
 test('the banked pending build carries no covered field', () => {
