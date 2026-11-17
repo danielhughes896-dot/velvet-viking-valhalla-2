@@ -37053,6 +37053,12 @@ function renderCoachingDepth(dd, pre, preview){
      day has no steps to get wrong. */
   var cueText = (level==='advanced') ? ((g && (g.essential || g.cue)) || '')
                                      : ((g && g.cue) || '');
+  /* THE HEART-RATE NOTE AFTER ILLNESS (founder, methodology batch 5): on
+     every run of the illness return and on a head-cold day, said where the
+     coach's note for the day is said, at every experience level. */
+  var illNote = '';
+  try { illNote = illnessHrNoteFor(dd); } catch(eIN){ illNote = ''; }
+  if (illNote) cueText = cueText ? cueText + ' ' + illNote : illNote;
   /* BOTH POSITIONS, ONE STRING -- the pattern the note already uses on a
      run day. .how-note is display:none except inside a focused session and
      .coach-cue-inline is display:none inside one, so Today shows the note
@@ -37073,7 +37079,7 @@ function renderCoachingDepth(dd, pre, preview){
      card. The tab is emitted with the preamble and no rail -- and still
      nothing at all when there is no preamble either. */
   if (!g || (dd.type==='rest' && level!=='novice')){
-    return preOnly()+(dd.type==='rest' ? restCoachHtml() : '');
+    return preOnly()+((dd.type==='rest' || illNote) ? restCoachHtml() : '');
   }
   /* The cue line is where depth used to be decided; it still is. Advanced sees
      one only where getting it wrong ruins the session, everyone else sees the
@@ -45681,7 +45687,13 @@ function coachRecovery(){
        reads as NOTHING, never as strain -- an athlete who withholds heart rate
        is not thereby judged to be overreaching. */
     var z = executionHRTarget(dd);
-    if (a.hr!=null && z && z.hi!=null && a.hr > z.hi && readable){ overHR++; evidence.push('hr:' + dd.id); }
+    /* NOT WHILE ILL OR COMING BACK FROM IT (founder, methodology batch 5):
+       heart rate sits 10 to 15 beats higher for a while after illness, and
+       the day's note tells the athlete so. It is the illness, not strain,
+       and it must not push the Recovery reading or the weekly review. */
+    var illHr = false;
+    try { illHr = illnessHrExcused(dd); } catch(eIH){ illHr = false; }
+    if (a.hr!=null && z && z.hi!=null && a.hr > z.hi && readable && !illHr){ overHR++; evidence.push('hr:' + dd.id); }
   });
   /* HARD DAYS BACK TO BACK -- IN THE WEEK RECOVERY IS READING.
      This walked the whole programme and kept the longest run it had ever
@@ -48398,7 +48410,9 @@ function restrictionRecord(){
 function activeRestriction(){
   var r = restrictionRecord();
   if (!r || r.endedAt) return null;
-  return (todayStr() <= r.until) ? r : null;
+  /* An illness gate has no end date the athlete guessed at: it is open
+     until two Good check-ins in a row (illnessAfterCheckin()). */
+  return (todayStr() <= r.until || (r.illness && r.auto)) ? r : null;
 }
 /* THE WINDOW HAS RUN OUT AND THE ATHLETE HAS NOT SAID THEY ARE BACK.
    A restriction does not expire on its own. An end date is the athlete's
@@ -48408,7 +48422,7 @@ function activeRestriction(){
    "I am back" and "not yet". */
 function restrictionAwaitingReturn(){
   var r = restrictionRecord();
-  if (!r || r.endedAt) return null;
+  if (!r || r.endedAt || (r.illness && r.auto)) return null;
   return (todayStr() > r.until) ? r : null;
 }
 /* Any open declaration, whichever side of its end date today is. */
@@ -48626,6 +48640,9 @@ function extendRestriction(level, until){
   r.level = level;
   r.until = until;
   r.extendedAt = new Date().toISOString();
+  /* Changed by the athlete: an illness gate becomes their declaration, with
+     their date. It still comes back by the illness return. */
+  if (r.auto) delete r.auto;
   r.applied = applyRestrictionToPlan(level, todayStr(), until);
   scheduleSave();
   return r;
@@ -48663,6 +48680,14 @@ function endRestriction(){
       ['rest', 'race', 'checkpoint', 'calibration'].indexOf(dd.type) === -1;
   }).sort(function(a, b){ return a.date < b.date ? -1 : 1; }).slice(0, RETURN_EASY_RUNS);
   r.easyReturn = 0;
+  /* AN ILLNESS COMES BACK BY THE FOUNDER'S ILLNESS RULE, NOT THE TWO EASY
+     RUNS (methodology batch 5): the phased return sized by the days missed,
+     counted from the first systemic morning to today. See
+     applyIllnessReturn(). */
+  if (r.illness){
+    back = [];
+    r.illnessReturn = applyIllnessReturn(r, today);
+  }
   back.forEach(function(dd){
     if (dd.type === 'easy') return;
     weeklyRemember(dd, 'return_easy');
@@ -48682,6 +48707,327 @@ function endRestriction(){
   return r;
 }
 var RETURN_EASY_RUNS = 2;
+
+/* =========================================================
+   ILLNESS: THE GATE AND THE PHASED RETURN
+   ---------------------------------------------------------
+   Founder-approved, methodology batch 5. Audit IV found illness reported in
+   the morning check-in reached nothing past that morning: the weekly review
+   read only today's answer, and after weeks with an illness in them it
+   progressed 97.6% of the time.
+
+   THE FOLLOW-UP decides which illness it is (ILLNESS_FOLLOWUP):
+     head      a head cold only, above the neck. Easy running the next day
+               if they feel fine; no return protocol. The heart-rate note
+               applies to their runs while they report it.
+     systemic  fever, aches or chest. Running waits for THE GATE: two Good
+               health check-ins in a row, so 24 to 48 hours symptom free.
+
+   NO SECOND RESTRICTION MACHINE. A systemic answer declares an ordinary
+   "No running at all" restriction (declareRestriction), marked illness and
+   auto. Every reader that already knows a restricted day is not a missed
+   one, that nothing is caught up and that the Recovery Check stands down,
+   reads it unchanged. It has no end date the athlete guessed at: it stays
+   open, a day ahead, until the gate, and the gate ends it through
+   endRestriction(), which restores the programme and then applies the
+   return below instead of the generic two easy runs.
+
+   THE PHASED RETURN, by days missed (first systemic morning to the gate):
+     1 to 3    1 to 2 easy days at 75% of normal volume, then the plan.
+     4 to 7    the 1:1 rule: as many days as were missed, easy only,
+               building from 65% to 85%; no intensity until the next week.
+     8 and up  two weeks: week 1 at 60 to 75%, all easy; week 2 at 75 to
+               90% with light strides; full progression from week 3.
+   Each changed day keeps what SACORO wrote (weeklyRemember, kind
+   'illness_return'), so the change is visible and the original can be put
+   back. Nothing here is a diagnosis: the follow-up asks where the symptoms
+   are, the boundary line says SACORO is a coach, not a doctor. */
+var ILLNESS_HR_NOTE = 'Your heart rate may sit 10 to 15 beats higher at your usual easy pace for a while after illness. ' +
+  'Run by feel and keep it easy; don’t chase the pace.';
+var ILLNESS_DOCTOR_LINE = 'If your chest is involved, see a doctor before you run again.';
+var ILLNESS_RETURN_DESC = 'You are easing back after illness.';
+var ILLNESS_RETURN_SHORT_MAX = 3, ILLNESS_RETURN_ONE_TO_ONE_MAX = 7;
+var ILLNESS_RETURN_SHORT_FACTOR = 0.75;
+var ILLNESS_RETURN_ONE_TO_ONE = [0.65, 0.85];
+var ILLNESS_RETURN_WEEK1 = [0.60, 0.75], ILLNESS_RETURN_WEEK2 = [0.75, 0.90];
+var illnessSheetQueued = null;   /* 'rest' or 'return', raised once the check-in has gone */
+
+/* The follow-up as stored, and only as an answer to Under the Weather. */
+function readinessIllness(r){
+  if (!r || r.health !== 'under') return null;
+  return (r.illness === 'head' || r.illness === 'systemic') ? r.illness : null;
+}
+/* The check-in sheet's own idea of finished: the three answers, and the
+   follow-up when the third was Under the Weather. */
+function checkinIsFinished(r){
+  return readinessIsComplete(r) && (r.health !== 'under' || !!readinessIllness(r));
+}
+/* One date's health answer, through dayReadiness() (nothing without consent). */
+function illnessHealthOn(date){
+  var r = null;
+  try { r = dayReadiness(findDayByDate(date)); } catch(e){ r = null; }
+  if (!r && date === todayStr()) r = coachReadinessToday();
+  return r ? r.health || null : null;
+}
+/* THE GATE: Good today and Good yesterday, both after the first systemic
+   morning. */
+function illnessGatePassed(r, today){
+  if (!r) return false;
+  var y = addDays(today, -1);
+  return y > r.from && illnessHealthOn(today) === 'good' && illnessHealthOn(y) === 'good';
+}
+/* Runs on, one day ahead, while the gate is shut: tomorrow cannot be a
+   running day until today has been a Good one. */
+function illnessKeepOpen(r, today){
+  if (!r || !r.illness || !r.auto || r.endedAt) return false;
+  var want = addDays(today, 1);
+  if (r.until >= want) return false;
+  r.until = want;
+  applyRestrictionToPlan(r.level, today, want);
+  return true;
+}
+/* What a check-in answer means for running. Called on every answer. */
+function illnessAfterCheckin(){
+  if (!state || !state.setup || !state.days || !healthConsentGranted()) return;
+  var today = todayStr();
+  var kind = readinessIllness(coachReadinessToday());
+  var open = openRestriction();
+  if (kind === 'systemic'){
+    /* An open declaration already stops the plan; the athlete's own says
+       more than this one would. */
+    if (open){ if (open.illness && open.auto && illnessKeepOpen(open, today)) scheduleSave(); return; }
+    var prev = state.setup.restriction || null;
+    var r = declareRestriction('none', addDays(today, 1));
+    if (!r) return;
+    r.illness = 'systemic';
+    r.auto = true;
+    if (prev) r.replaced = prev;
+    illnessSheetQueued = 'rest';
+    return;
+  }
+  if (!open || !open.illness || !open.auto) return;
+  /* Changed their mind the same morning: nothing has happened yet, so the
+     plan goes back exactly as it was. */
+  if (open.from === today){ illnessCancelGate(open); return; }
+  if (illnessGatePassed(open, today)){
+    if (endRestriction()) illnessSheetQueued = 'return';
+    return;
+  }
+  if (illnessKeepOpen(open, today)) scheduleSave();
+}
+function illnessCancelGate(r){
+  (state.days || []).forEach(function(dd){
+    if (!dd || !dd.restricted || dd.date < r.from) return;
+    if (!dd.completed && !sessionRan(dd)) restoreWorkoutSnapshot(dd, dd.restricted.from);
+    delete dd.restricted;
+  });
+  state.setup.restriction = r.replaced || null;
+  if (illnessSheetQueued === 'rest') illnessSheetQueued = null;
+  scheduleSave();
+}
+function illnessReturnPhase(missed){
+  return missed <= ILLNESS_RETURN_SHORT_MAX ? 'short'
+       : missed <= ILLNESS_RETURN_ONE_TO_ONE_MAX ? 'one_to_one' : 'rebuild';
+}
+/* A share of the way from a to b, for the i-th of n runs. */
+function illnessBuild(range, i, n){
+  return n <= 1 ? range[0] : range[0] + (range[1] - range[0]) * i / (n - 1);
+}
+/* The day's distance at fraction f of what SACORO wrote, never above it, and
+   never an easy run under 5km where the plan wrote one at 5km or more (the
+   A5 rule applyWeekTarget() keeps too). */
+function illnessReturnKm(dd, f, type){
+  var base = dd.km;
+  var km = base * f;
+  if (base >= WEEK_FIT_MIN_EASY_KM - 1e-9) km = Math.max(WEEK_FIT_MIN_EASY_KM, km);
+  return roundWorkoutKm(type, Math.min(base, km));
+}
+function illnessEaseDay(dd, f){
+  weeklyRemember(dd, 'illness_return');
+  var km = illnessReturnKm(dd, f, 'easy');
+  var er = easyRunText(km);
+  dd.type = er.type; dd.title = er.title; dd.km = km;
+  dd.desc = er.desc + ' ' + ILLNESS_RETURN_DESC;
+  dd.prescription = { v: PRESCRIPTION_VERSION, archetype: 'easy_run', params: { km: km } };
+  delete dd.mpSegment;
+}
+/* Week 2 of the rebuild: the volume climbs and the hard days come back as
+   light strides on an easy run; the long run is a plain long run. */
+function illnessTouchDay(dd, f){
+  weeklyRemember(dd, 'illness_return');
+  if (dd.type === 'long'){
+    var lk = illnessReturnKm(dd, f, 'long');
+    var lt = longRunText(lk, false, 0, false, false);
+    dd.title = lt.title; dd.km = lk; dd.desc = lt.desc + ' ' + ILLNESS_RETURN_DESC;
+    dd.prescription = { v: PRESCRIPTION_VERSION, archetype: 'long_run', params: { km: lk } };
+    delete dd.mpSegment;
+    return;
+  }
+  if (dd.type === 'easy'){ illnessEaseDay(dd, f); return; }
+  var km = illnessReturnKm(dd, f, 'easy');
+  var easyKm = round1(km - 0.6);
+  if (!(easyKm >= EASY_MIN_KM)){ illnessEaseDay(dd, f); return; }
+  var st = stridesText(easyKm, 6, 100);
+  dd.type = 'easy'; dd.title = st.title; dd.km = km;
+  dd.desc = st.desc + ' ' + ILLNESS_RETURN_DESC;
+  dd.prescription = { v: PRESCRIPTION_VERSION, archetype: 'easy_strides', params: { easyKm: easyKm, reps: 6, m: 100 } };
+  delete dd.mpSegment;
+}
+function illnessIsHard(type){
+  return ['easy', 'long', 'rest', 'race', 'checkpoint', 'calibration'].indexOf(type) === -1;
+}
+/* THE RETURN, applied from `start` (the gate day) to the programme
+   endRestriction() has just put back. */
+function applyIllnessReturn(r, start){
+  var missed = Math.max(1, daysBetween(r.from, start));
+  var phase = illnessReturnPhase(missed);
+  var runs = (state.days || []).filter(function(dd){
+    return dd && dd.date >= start && dd.km > 0 && !dd.completed && !sessionRan(dd) && !dd.manualEdit &&
+      ['rest', 'race', 'checkpoint', 'calibration'].indexOf(dd.type) === -1;
+  }).sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  var changed = [], until = start;
+  if (phase === 'short'){
+    var pick = runs.slice(0, missed <= 1 ? 1 : 2);
+    pick.forEach(function(dd){ illnessEaseDay(dd, ILLNESS_RETURN_SHORT_FACTOR); changed.push(dd.id); });
+    if (pick.length) until = pick[pick.length - 1].date;
+  } else if (phase === 'one_to_one'){
+    until = addDays(start, missed - 1);
+    var win = runs.filter(function(dd){ return dd.date <= until; });
+    win.forEach(function(dd, i){ illnessEaseDay(dd, illnessBuild(ILLNESS_RETURN_ONE_TO_ONE, i, win.length)); changed.push(dd.id); });
+    /* No intensity until the following week: a hard day after the 1:1 days
+       but in the same plan week is run easy, at its own distance. */
+    var lastDay = findDayByDate(until);
+    var lastWeek = lastDay ? lastDay.week : null;
+    if (lastWeek != null) runs.filter(function(dd){ return dd.date > until && dd.week === lastWeek && illnessIsHard(dd.type); })
+      .forEach(function(dd){ illnessEaseDay(dd, 1); changed.push(dd.id); });
+  } else {
+    var w1End = addDays(start, 6);
+    until = addDays(start, 13);
+    var wk1 = runs.filter(function(dd){ return dd.date <= w1End; });
+    var wk2 = runs.filter(function(dd){ return dd.date > w1End && dd.date <= until; });
+    wk1.forEach(function(dd, i){ illnessEaseDay(dd, illnessBuild(ILLNESS_RETURN_WEEK1, i, wk1.length)); changed.push(dd.id); });
+    wk2.forEach(function(dd, i){ illnessTouchDay(dd, illnessBuild(ILLNESS_RETURN_WEEK2, i, wk2.length)); changed.push(dd.id); });
+  }
+  var out = { illFrom: r.from, from: start, until: until, missed: missed, phase: phase, changed: changed };
+  state.setup.illnessReturn = out;
+  return out;
+}
+/* A week as SACORO wrote it, for the weekly review after an illness: a day a restriction rested counts at the
+   session it replaced (dd.restricted.from). */
+function weeklyWrittenKm(week){
+  return round1((state.days || []).reduce(function(t, d){
+    if (!d || d.week !== week) return t;
+    var f = d.restricted && d.restricted.from;
+    var src = f || d;
+    if (src.type === 'rest' || src.type === 'race' || !(src.km > 0)) return t;
+    return t + src.km;
+  }, 0));
+}
+/* The return as it stands, or null. */
+function illnessReturnWindow(){
+  var w = state && state.setup && state.setup.illnessReturn;
+  return (w && w.from && w.until) ? w : null;
+}
+/* RAISED HEART RATE IS NOT RECOVERY STRAIN WHILE ILL OR COMING BACK (founder,
+   decision 5). A run on a morning the athlete said they were under the
+   weather, inside an open illness gate, or inside the return window: its
+   heart rate above the zone is the illness, and the note on the day says so.
+   Health data, so nothing without consent. */
+function illnessHrExcused(dd){
+  if (!dd || !dd.date || !healthConsentGranted()) return false;
+  var w = illnessReturnWindow();
+  if (w && dd.date >= (w.illFrom || w.from) && dd.date <= w.until) return true;
+  var open = null;
+  try { open = openRestriction(); } catch(e){ open = null; }
+  if (open && open.illness && dd.date >= open.from) return true;
+  var rd = null;
+  try { rd = dayReadiness(dd); } catch(e2){ rd = null; }
+  return !!(rd && rd.health === 'under');
+}
+/* THE HEART-RATE NOTE, on every run of the return and on a run the athlete
+   reported a head cold for (or did not say which). Shown with the day's
+   coach's note (renderCoachingDepth). */
+function illnessHrNoteFor(dd){
+  if (!dd || dd.type === 'rest' || !(dd.km > 0) || !healthConsentGranted()) return '';
+  if (dd.weeklyAdjust && dd.weeklyAdjust.kind === 'illness_return') return ILLNESS_HR_NOTE;
+  var w = illnessReturnWindow();
+  if (w && dd.date >= w.from && dd.date <= w.until) return ILLNESS_HR_NOTE;
+  var rd = null;
+  try { rd = dayReadiness(dd); } catch(e){ rd = null; }
+  if (rd && rd.health === 'under' && rd.illness !== 'systemic') return ILLNESS_HR_NOTE;
+  return '';
+}
+/* Put back what SACORO wrote, on the days the return changed. */
+function illnessRestoreReturn(){
+  var n = 0;
+  (state.days || []).forEach(function(d){
+    if (!d || !d.weeklyAdjust || d.weeklyAdjust.kind !== 'illness_return' || sessionRan(d)) return;
+    var f = d.weeklyAdjust.from;
+    d.km = f.km; d.type = f.type; d.title = f.title; d.desc = f.desc;
+    if (f.prescription) d.prescription = JSON.parse(JSON.stringify(f.prescription)); else delete d.prescription;
+    delete d.weeklyAdjust; n++;
+  });
+  return n;
+}
+/* ---------- THE TWO SHEETS ----------
+   Plain words, once each, after the check-in sheet has gone: the gate when
+   it shuts, and the return when it opens. Got It closes; the return also
+   offers the original sessions back. */
+function illnessReturnWords(w){
+  var days = w.missed === 1 ? '1 day' : w.missed + ' days';
+  if (w.phase === 'short')
+    return 'You were unwell for ' + days + '. Your next ' + (w.changed.length === 1 ? 'run is' : w.changed.length + ' runs are') +
+      ' easy, at about three quarters of their usual distance. Then your plan carries on as normal.';
+  if (w.phase === 'one_to_one')
+    return 'You were unwell for ' + days + ', so you take ' + days + ' to come back. Every run is easy, starting at 65% of its usual distance and building to 85%. Harder sessions return next week.';
+  return 'You were unwell for ' + days + ', so you rebuild over two weeks. Week one is all easy running at 60 to 75% of your usual distance. ' +
+    'Week two is 75 to 90%, with some light strides. Your full plan resumes in week three.';
+}
+function illnessSheetHtml(kind){
+  var head = function(t){
+    return '<div class="modal-head"><h2 class="font-head">'+t+'</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>';
+  };
+  if (kind === 'rest'){
+    return head('Rest Until You Are Well')+
+      '<div class="modal-body rck-body">'+
+        '<div class="stg-sheet-say">With a fever, aches or chest symptoms, running waits. Your runs are rest days until you are well. '+
+          'Once you answer Good for health two mornings in a row, you start back with easy running.</div>'+
+        '<p class="rck-safe">'+escapeHtml(ILLNESS_DOCTOR_LINE)+'</p>'+
+        '<div class="rck-btns"><button type="button" class="btn btn-primary btn-block" data-action="close-modal">Got It</button></div>'+
+        '<p class="rck-safe">'+escapeHtml(RECOVERY_CHECK_BOUNDARY)+'</p>'+
+      '</div>';
+  }
+  var w = illnessReturnWindow();
+  if (!w) return '';
+  return head('Easing Back After Illness')+
+    '<div class="modal-body rck-body">'+
+      '<div class="stg-sheet-say">'+escapeHtml(illnessReturnWords(w))+' The original sessions are kept and can be restored.</div>'+
+      '<div class="field-hint">'+escapeHtml(ILLNESS_HR_NOTE)+'</div>'+
+      '<div class="rck-btns">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="close-modal">Got It</button>'+
+        (w.changed && w.changed.length ? '<button type="button" class="btn btn-ghost btn-block" data-action="illness-return-restore">Restore My Sessions</button>' : '')+
+      '</div>'+
+    '</div>';
+}
+function maybeOpenIllnessSheet(){
+  var kind = illnessSheetQueued;
+  if (!kind) return false;
+  if (typeof document === 'undefined' || !document.getElementById) return false;
+  if (document.getElementById('modal-overlay') || document.getElementById('ask-sheet') || document.getElementById('weekly-sheet')) return false;
+  var html = illnessSheetHtml(kind);
+  illnessSheetQueued = null;
+  if (!html) return false;
+  openModal(html, 'modal-themed stg-sheet rck-sheet');
+  return true;
+}
+function handleIllnessReturnRestore(){
+  closeModal();
+  var n = illnessRestoreReturn();
+  flushSave();
+  renderApp();
+  showToast(n ? 'Your sessions are back as written' : 'There was nothing to restore');
+}
 
 /* ---------- AND IT HAS TO SURVIVE THE PLAN BEING REBUILT ----------
    THE DEFECT THIS EXISTS FOR, found with a screenshot harness rather than a
@@ -48716,6 +49062,8 @@ function ensureRestrictionApplied(){
   var r = openRestriction();
   if (!r || !state || !state.days) return false;
   var today = todayStr();
+  /* An illness gate rolls a day ahead while it is shut. */
+  if (illnessKeepOpen(r, today)) scheduleSave();
   var end = maxDateStr(r.until, today);
   var missing = state.days.some(function(dd){
     return dd && dd.date >= today && dd.date <= end &&
@@ -54398,6 +54746,9 @@ function recoveryCheckCheckinFlag(rec){
     var o = q.options.filter(function(x){ return x[0] === r[q.key]; })[0];
     return [q.label, o ? o[1] : ''];
   });
+  /* The illness follow-up, where it was answered. */
+  var ill = ILLNESS_FOLLOWUP.options.filter(function(x){ return x[0] === readinessIllness(r); })[0];
+  if (ill) rows.push([ILLNESS_FOLLOWUP.label, ill[1]]);
   if (rec && rec.overRPE > 0) rows.push(['Last 7 days', recoveryCheckRuns(rec.overRPE) + ' harder than set']);
   if (rec && rec.overHR > 0) rows.push(['Heart rate', recoveryCheckRuns(rec.overHR) + ' above zone', 'health']);
   var said = flagged.map(function(q){ return RECOVERY_CHECK_SAID[q.key]; });
@@ -54416,6 +54767,9 @@ function recoveryCheckHrFlag(){
   var today = todayStr();
   var easy = coachDaysInWindow(addDays(today, -6), today).filter(function(dd){
     if (!dd || !dd.completed || dd.type !== 'easy' || !dd.actual || dd.actual.hr == null) return false;
+    /* Not "Running Hotter Than Usual" on a run inside the illness return or
+       on a morning they said they were unwell: that is the illness. */
+    if (illnessHrExcused(dd)) return false;
     var z = executionHRTarget(dd);
     return !!(z && z.hi != null && effortIsReadable(dd));
   }).sort(function(a, b){ return a.date < b.date ? -1 : 1; });
@@ -54855,28 +55209,39 @@ function handleCoachWhy(dayId){
 // Answers live on state, never on the workout log -- that separation is what
 // keeps the Execution Score a measure of the session and nothing else.
 function handleSetReadiness(key, value){
-  var q = READINESS_QUESTIONS.filter(function(x){ return x.key===key; })[0];
+  var q = READINESS_QUESTIONS.concat([ILLNESS_FOLLOWUP]).filter(function(x){ return x.key===key; })[0];
   if (!q || !q.options.some(function(o){ return o[0]===value; })) return;
   // Legs, sleep and health are all about the athlete's body: not asked without
   // consent, and not accepted either. See renderReadinessCheck.
   if (!healthConsentGranted()) return;
+  /* The illness follow-up is only an answer to Under the Weather. */
+  if (key === 'illness' && (coachReadinessToday() || {}).health !== 'under') return;
   var today = todayStr();
-  var wasComplete = readinessIsComplete(coachReadinessToday());
+  var wasComplete = checkinIsFinished(coachReadinessToday());
   var dd = findDayByDate(today);
+  var rec;
   if (dd){
     dd.readiness = dd.readiness || {};
-    dd.readiness[key] = (dd.readiness[key]===value) ? null : value;
+    rec = dd.readiness;
   } else {
     // no plan day today (outside the block) -- keep the old device-local shape
     if (!state.readiness || state.readiness.date!==today) state.readiness = { date:today };
-    state.readiness[key] = (state.readiness[key]===value) ? null : value;
+    rec = state.readiness;
   }
+  rec[key] = (rec[key]===value) ? null : value;
+  /* No longer under the weather: the follow-up goes with the answer it
+     followed. */
+  if (key === 'health' && rec.health !== 'under' && rec.illness) rec.illness = null;
+  /* What the answer means for running: a systemic illness starts the gate, a
+     second Good in a row passes it (illnessAfterCheckin()). */
+  try { illnessAfterCheckin(); } catch(eIll){}
   /* The answer that COMPLETES the set collapses the panel to its confirmation
      line -- that is the moment the check-in is finished, and the only moment
      that should feel like finishing. Amending an already-complete check-in
      never trips this, so a reopened panel stays open under the athlete's hand
-     while they change their mind. */
-  var finished = !wasComplete && readinessIsComplete(coachReadinessToday());
+     while they change their mind. Under the Weather is finished only once
+     its follow-up is answered, so the sheet stays up to ask it. */
+  var finished = !wasComplete && checkinIsFinished(coachReadinessToday());
   if (checkinSheetIsOpen()){
     if (finished) closeModal();
     else openCheckinSheet();
@@ -54905,7 +55270,10 @@ function handleReadinessEdit(){
 var checkinSheetRaised = {};
 function checkinSheetBody(){
   var r = coachReadinessToday() || {};
-  return READINESS_QUESTIONS.map(function(q){
+  /* The follow-up row appears under Health only while the answer is Under
+     the Weather (ILLNESS_FOLLOWUP). */
+  var qs = READINESS_QUESTIONS.concat(r.health === 'under' ? [ILLNESS_FOLLOWUP] : []);
+  return qs.map(function(q){
     return '<div class="readiness-row">'+
       '<span class="readiness-label font-head">'+q.label+'</span>'+
       '<span class="readiness-opts">'+
@@ -55047,11 +55415,17 @@ function weeklyEvidence(week){
      consent; and every session the athlete stopped early because they were
      tired, read the way Recovery & Fatigue reads it. */
   ev.heavyLegs = 0; ev.poorSleep = 0; ev.fatigueStops = 0;
+  /* AND THE MORNINGS THEY WERE ILL (founder, methodology batch 5). Audit IV:
+     illness reported midweek never reached this review, which read only
+     this morning's answer. A fever, aches or chest morning (systemic), or a
+     head cold, or under the weather with the follow-up left unanswered. */
+  ev.illSystemic = 0; ev.illHead = 0;
   (state.days || []).forEach(function(d){
     if (!d || d.week !== week || d.date >= today) return;
     var r = null; try { r = dayReadiness(d); } catch(e){ r = null; }
     if (r && r.legs === 'heavy') ev.heavyLegs++;
     if (r && r.sleep === 'poor') ev.poorSleep++;
+    if (r && r.health === 'under'){ if (r.illness === 'systemic') ev.illSystemic++; else ev.illHead++; }
     if (r && (r.legs || r.sleep || r.health)) ev.checkins = (ev.checkins || 0) + 1;
     var cut = null; try { cut = sessionCutShortFor(d); } catch(e){ cut = null; }
     if (cut === 'fatigue') ev.fatigueStops++;
@@ -55105,7 +55479,8 @@ function weeklyInstrumentSignals(){
   try { var mi = missPattern(); s.missPattern = mi ? mi.tier : null;
         s.missRan = mi ? mi.ran : null; s.missPlanned = mi ? mi.planned : null; } catch(e){ s.missPattern = null; }
   try { s.restricted = !!activeRestriction(); } catch(e){ s.restricted = false; }
-  try { var rd = coachReadinessToday(); s.unwell = !!(rd && rd.health === 'under'); } catch(e){ s.unwell = false; }
+  try { var rd = coachReadinessToday(); s.unwell = !!(rd && rd.health === 'under');
+        s.unwellKind = s.unwell ? (rd.illness || null) : null; } catch(e){ s.unwell = false; }
   return s;
 }
 
@@ -55216,12 +55591,22 @@ function weeklyCoachingReview(week){
 
   /* 1. SAFETY FIRST. Pain or illness is never a progression question. */
   if (sig.restricted) { out.kind = 'none'; out.reasons.push('restriction'); return out; }
-  if (ev.pain > 0 || ev.niggle >= 2 || sig.unwell){
+  /* ILLNESS, BY KIND (founder, methodology batch 5). A fever, aches or chest
+     morning in last week, or this morning, protects the week; a head cold,
+     on its own, holds it at most. This morning's Under the Weather with the
+     follow-up unanswered protects, as it always did. */
+  var unwellSys = sig.unwell && sig.unwellKind !== 'head';
+  var illWeek = (ev.illSystemic || 0) > 0;
+  if (ev.pain > 0 || ev.niggle >= 2 || unwellSys || illWeek){
     out.kind = 'protect';
-    out.recommendedKm = round1(Math.min(lastKm, thisKm) * 0.85);
+    /* A week the illness rested is read at what it was written as, so the
+       protected week is not cut from the rest days. */
+    var illBase = (illWeek && !(ev.pain > 0) && !(ev.niggle >= 2)) ? Math.max(lastKm, weeklyWrittenKm(N - 1)) : lastKm;
+    out.recommendedKm = round1(Math.min(illBase, thisKm) * 0.85);
     if (ev.pain > 0) out.reasons.push('pain');
     if (ev.niggle >= 2) out.reasons.push('niggles');
-    if (sig.unwell) out.reasons.push('unwell');
+    if (unwellSys) out.reasons.push('unwell');
+    if (illWeek) out.reasons.push('ill_systemic');
     out.material = true;
     return out;
   }
@@ -55234,6 +55619,16 @@ function weeklyCoachingReview(week){
     out.step = 0;
     out.recommendedKm = round1(Math.min(thisKm, back.preKm));
     out.material = true;
+    return out;
+  }
+  /* A HEAD COLD HOLDS THE WEEK, AT MOST (founder, methodology batch 5). Read
+     after the return from a break, which already steps no higher than the
+     last full week. Asked only where the week would rise. */
+  if ((ev.illHead || 0) > 0 || (sig.unwell && sig.unwellKind === 'head')){
+    out.kind = 'hold';
+    out.recommendedKm = lastKm;
+    out.reasons.push('unwell_head');
+    out.material = thisKm > lastKm + 0.5;
     return out;
   }
   /* 2. NOT ENOUGH TO GO ON. Missing records are not failed training. */
@@ -55921,12 +56316,18 @@ function weeklyReviewCopyFor(rv){
     if (rv.reasons.indexOf('recovery_watch') !== -1) w.push('your recovery readings are worth watching');
     if (rv.reasons.indexOf('execution_pattern') !== -1) w.push('recent sessions have repeatedly fallen short of their targets');
     var holdWhy = w.length ? 'Last week ' + w.join(', and ') + '. ' : '';
+    if (rv.reasons.indexOf('unwell_head') !== -1)
+      holdWhy += ev.illHead > 0
+        ? 'Last week you were under the weather on ' + (ev.illHead === 1 ? 'one morning' : ev.illHead + ' mornings') + '. '
+        : 'This morning you told SACORO you have a head cold. ';
     var tsHold = weeklyTimeStopLine(ev);
     if (tsHold) holdWhy += tsHold + ' ';
     if (rv.reasons.indexOf('miss_pattern') !== -1 && s.missPlanned)
       holdWhy += 'You have run ' + s.missRan + ' of your last ' + s.missPlanned + ' planned sessions. ';
     return { eyebrow: 'Coach’s Recommendation', head: 'Hold this week.',
-      why: holdWhy + 'Repeating the same mileage lets the work settle before the next step.',
+      why: holdWhy + (rv.reasons.indexOf('unwell_head') !== -1
+        ? 'Holding the same mileage gives you room to shake it off before the next step.'
+        : 'Repeating the same mileage lets the work settle before the next step.'),
       figures: [['Last week', dist(rv.lastKm)], ['Planned this week', dist(rv.plannedKm)], ['Recommended', dist(yesKm(rv.recommendedKm))]],
       note: 'SACORO will look again next week with what you log.',
       yes: 'Hold at ' + dist(yesKm(rv.recommendedKm)), no: 'Progress as Planned' };
@@ -55989,6 +56390,7 @@ function weeklyReviewCopyFor(rv){
     if (rv.reasons.indexOf('pain') !== -1) p.push('you reported pain');
     if (rv.reasons.indexOf('niggles') !== -1) p.push('you reported niggles in more than one run');
     if (rv.reasons.indexOf('unwell') !== -1) p.push('you told SACORO you feel unwell');
+    if (rv.reasons.indexOf('ill_systemic') !== -1) p.push('you were ill with a fever, aches or chest symptoms');
     return { eyebrow: 'Coach’s Recommendation', head: 'Protect this week.',
       why: 'Recently ' + p.join(', and ') + '. This week keeps you running easy and a little shorter. If it gets worse, tell SACORO through Injured or ill on Today.',
       figures: [['Last week', dist(rv.lastKm)], ['This week', dist(yesKm(rv.recommendedKm))]],
@@ -56533,8 +56935,10 @@ function maybeRaiseCheckinSheet(arriving){
   if (arriving || state.view !== 'today') return;
   if (!autoSheetsOpen()) return;
   if (!state.setup || !state.days || !state.days.length || !healthConsentGranted()) return;
-  /* Not while an injury or illness is open: the athlete has already said. */
-  try { if (openRestriction()) return; } catch(eR){}
+  /* Not while an injury or illness is open: the athlete has already said.
+     Except the illness gate, which opens on the check-in itself: two Good
+     health answers in a row are how running comes back. */
+  try { var openR = openRestriction(); if (openR && !(openR.illness && openR.auto)) return; } catch(eR){}
   if (readinessIsComplete(coachReadinessToday())) return;
   if (checkinSheetRaised[todayStr()]) return;
   if (typeof document === 'undefined' || !document.getElementById || document.getElementById('modal-overlay')) return;
@@ -61997,7 +62401,11 @@ function renderRestrictionCard(){
      page behind it (restrictionPanelHtml) carries the rest and both answers.
      Nothing is lost from what the card said: every line moved to the page. */
   var k, v;
-  if (restrictionAwaitingReturn()){
+  /* The illness gate has no end date to count down to: it says what opens it. */
+  if (r.illness && r.auto && activeRestriction()){
+    k = 'Resting while unwell';
+    v = 'Two Good health check-ins in a row and you start back easy';
+  } else if (restrictionAwaitingReturn()){
     k = 'Are you back?';
     v = 'Your restriction ended on ' + dShort(r.until);
   } else if (activeRestriction()){
@@ -62030,9 +62438,11 @@ function restrictionPanelHtml(){
   var v = null;
   try { v = restrictionViability(); } catch(e){ v = null; }
   var lost = v ? v.sessionsLost : 0, qual = v ? v.qualityLost : 0;
-  var word = awaiting ? 'Back?' : meta.short;
+  var gate = !!(r.illness && r.auto);
+  var word = awaiting ? 'Back?' : gate ? 'Rest' : meta.short;
   var say = awaiting
     ? 'Your restriction ended on ' + dShort(r.until) + '. Nothing resumes until you say so.'
+    : gate ? 'No running until you are well. Two Good health check-ins in a row and you start back easy.'
     : meta.label + ' until ' + dShort(r.until) + '.';
   var hero = '<div class="rp-hero is-word" data-tone="watch">'+
       '<span class="b-dial" data-rank="0" aria-label="'+escapeHtml('Injury or illness, '+word)+'" '+
@@ -62042,7 +62452,9 @@ function restrictionPanelHtml(){
       '</span>'+
       '<div class="rp-hero-text"><div class="rp-hero-say">'+escapeHtml(say)+'</div></div>'+
     '</div>';
+  var resting = Math.max(1, daysBetween(r.from, todayStr()) + 1);
   var tiles = panelTilesHtml([
+    gate ? { fig: String(resting), frac: 1, col: col, label: 'Days', say: 'resting so far' } :
     { fig: awaiting ? '0' : String(left), frac: awaiting ? 0 : left / total, col: col,
       label: 'Days left', say: 'of ' + total },
     { fig: String(lost), frac: lost ? 1 : 0, col: col, label: 'Sessions', say: 'inside this period' },
@@ -62056,13 +62468,14 @@ function restrictionPanelHtml(){
   var rows = '<div class="rp-rows">'+
     row('Level', meta.label)+
     row('Started', dow(r.from)+' '+dShort(r.from))+
-    row(awaiting ? 'Ended' : 'Ends', dow(r.until)+' '+dShort(r.until))+
+    row(awaiting ? 'Ended' : 'Ends', gate ? 'After two Good check-ins' : dow(r.until)+' '+dShort(r.until))+
     row('Counted against you', 'No')+
   '</div>';
   var words = restrictionViabilityWords();
   var read = (words ? words.head + ' ' + words.said + ' ' : '') +
     'These days are not counted against you, and nothing missed is made up.' +
-    (awaiting ? ' SACORO does not yet decide how quickly you come back. If you are not ready, say so rather than resuming.' : '');
+    (awaiting ? ' SACORO does not yet decide how quickly you come back. If you are not ready, say so rather than resuming.' : '') +
+    (gate ? ' ' + ILLNESS_DOCTOR_LINE + ' ' + RECOVERY_CHECK_BOUNDARY : '');
   var foot = awaiting
     ? '<button type="button" class="btn btn-ghost" data-action="restriction-open">Not yet</button>'+
       '<button type="button" class="btn btn-primary" data-action="restriction-end">Yes, I’m back</button>'
@@ -62187,6 +62600,13 @@ function handleRestrictionEnd(){
   coachMemoryNoteFlag('restriction_ended');
   flushSave();
   renderApp();
+  /* Back from an illness: the return is said on its own sheet, once this
+     page has gone. */
+  if (r.illness && r.illnessReturn){
+    illnessSheetQueued = 'return';
+    setTimeout(function(){ try { maybeOpenIllnessSheet(); } catch(e){} }, MODAL_LEAVE_MS + 40);
+    return;
+  }
   showToast(r.restored
     ? 'Welcome back. ' + r.restored + ' session' + (r.restored===1?'':'s') + ' restored as written'
     : 'Welcome back. Your programme resumes');
@@ -62788,6 +63208,18 @@ var READINESS_QUESTIONS = [
   { key:'sleep',  label:'Sleep',  options:[['good','Good'],['ok','OK'],['poor','Poor']] },
   { key:'health', label:'Health', options:[['good','Good'],['under','Under the Weather']] }
 ];
+/* ONE FOLLOW-UP WHEN THE ANSWER IS UNDER THE WEATHER (founder, methodology
+   batch 5). Audit IV found illness was one undifferentiated answer, so a
+   head cold and a fever were coached the same and neither reached the
+   weekly review. The founder's rule is the neck check: "Head cold only"
+   (above the neck) allows easy running the next day if the athlete feels
+   fine; "Fever, aches or chest" (systemic) stops running until two Good
+   health check-ins in a row, then a phased return. Asked in the same sheet,
+   in the same chips, only after Under the Weather, and stored with the
+   day's readiness as readiness.illness. It is not one of the three
+   questions: readinessIsComplete() still means legs, sleep and health. */
+var ILLNESS_FOLLOWUP = { key:'illness', label:'Symptoms',
+  options:[['head','Head Cold Only'],['systemic','Fever, Aches or Chest']] };
 /* The three answers back in the athlete's own terms. Legs and Sleep would
    both read a bare "Good", so each phrase carries the dimension it belongs to
    rather than the option label on its own. */
@@ -62907,7 +63339,7 @@ var checkinReturnToRecovery = false;
 function recoveryCheckinRows(){
   if (!state.setup || !healthConsentGranted()) return '';
   var r = coachReadinessToday() || {};
-  return READINESS_QUESTIONS.map(function(q){
+  return READINESS_QUESTIONS.concat(r.health === 'under' ? [ILLNESS_FOLLOWUP] : []).map(function(q){
     var o = q.options.filter(function(x){ return x[0] === r[q.key]; })[0];
     var v = o ? o[1] : 'Not answered';
     return '<button type="button" class="hq-row hq-row-btn" data-action="recovery-checkin-edit" '+
@@ -65258,8 +65690,14 @@ function closeModal(){
   var wasBuilder = !!(existing && existing.querySelector && existing.querySelector('.bld-modal'));
   var wasCheckin = !!(existing && existing.querySelector && existing.querySelector('.checkin-sheet'));
   modalLeave(existing);
+  /* The illness gate shutting or opening is said first, once the check-in
+     has gone (illnessSheetHtml()). */
+  if (wasCheckin && illnessSheetQueued && !modalSwapping){
+    checkinReturnToRecovery = false;
+    setTimeout(function(){ try { maybeOpenIllnessSheet(); } catch(e){} }, MODAL_LEAVE_MS + 40);
+  }
   /* A check-in changed from Recovery goes back to Recovery. */
-  if (wasCheckin && checkinReturnToRecovery){
+  else if (wasCheckin && checkinReturnToRecovery){
     checkinReturnToRecovery = false;
     setTimeout(function(){ try { openHQPanel('recovery'); } catch(e){} }, 0);
   }
@@ -85591,6 +86029,7 @@ document.addEventListener('click', function(e){
     case 'recovery-check-keep': handleRecoveryCheckKeep(target.getAttribute('data-day')); break;
     case 'recovery-check-injury': handleInjuryHint(); break;
     case 'recovery-check-ok': closeModal(); break;
+    case 'illness-return-restore': handleIllnessReturnRestore(); break;
     case 'log-undo': handleLogUndo(target.getAttribute('data-day')); break;
     case 'voice-stop': handleVoiceStopPress(); break;
     case 'set-coach-voice': handleSetCoachVoice(target.getAttribute('data-voice')); break;

@@ -180,6 +180,10 @@ const WORK_SURFACES = [
   ['openSessionResult', 'the Session Complete panel'],
   ['openWeekResult', 'the Week Complete panel'],
   ['openRecoveryCheck', 'the Recovery Check panel'],
+  /* Methodology batch 5: the illness gate and the return after it, said
+     once each on the Recovery Check's glass sheet after the check-in. A
+     close control, Got It, and nothing lost by closing it. */
+  ['maybeOpenIllnessSheet', 'the illness rest and return sheets'],
 ];
 
 /* The other side of the classification, and the reason the count is a rule
