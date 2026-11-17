@@ -44,9 +44,17 @@ sides of the bridge, and a test holds each side.
 most eight, re-checked on the server (length, no Strava, nothing shaped like an
 instruction, health lines only when the conversation has health information),
 placed after the training context under a label that says so, and named in the
-system prompt as background only. Neither `_voice-ask.js` nor `_voice-explain.js`
-reads the table: the browser sends the lines, and the pure rules in
-`api/_coach-memory-lines.js` fence them.
+system prompt as background only. The same lines go to Ask Coach, the run, week
+and Recovery Check explanations, and the Coach's Note. None of `_voice-ask.js`,
+`_voice-explain.js` or `_voice-note.js` reads the table: the browser sends the
+lines, and the pure rules in `api/_coach-memory-lines.js` fence them.
+
+**A reason for a decline is a fixed code, never free text.** After the athlete
+turns a suggestion down, with Coach Memory on, four optional chips (Legs Tired,
+Short on Time, Too Big a Jump, Feeling Fine) send a code that the server turns
+into a fixed phrase on the decision line ("..., week 5: short on time."). Legs
+Tired is kept only with health consent on both sides; without it the decision is
+kept without the reason.
 
 **Anthropic receives text only.** No audio, in any encoding, reaches the model
 endpoint — asserted by test against both the plugin and the server module.

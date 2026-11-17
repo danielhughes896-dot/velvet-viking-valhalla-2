@@ -12484,6 +12484,23 @@
   .rck-swap-now{color:#FFFFFF; font-size:.9375rem;}
   .rck-btns{display:flex; flex-direction:column; gap:8px; margin-top:2px;}
   .rck-safe{margin:0; font-size:.8125rem; line-height:1.45; color:rgba(255,255,255,.72); text-align:center;}
+  /* ---------- WHY, IF THE ATHLETE SAYS (coachMemoryReasonHtml) ----------
+     Four answers, two by two, in the glass the choices in a sheet already
+     wear: a lit top edge, a light rim, white words at the full tap height.
+     Title Case as written, so no uppercase tracking. Two columns hold at
+     320px: the longest label wraps inside its own tile rather than widening
+     the row. */
+  .cmr-chips{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:14px;}
+  .cmr-chip{min-height:var(--tap-min); min-width:0; padding:8px 10px; box-sizing:border-box;
+    border-radius:var(--radius-sm); cursor:pointer; color:#FFFFFF; font-size:var(--fs-support);
+    line-height:1.2; text-align:center; overflow-wrap:anywhere;
+    background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
+    border:1px solid rgba(255,255,255,.18); box-shadow:inset 0 1px 0 rgba(255,255,255,.25);}
+  .cmr-chip:active{background:linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.06));}
+  .cmr-sheet .stg-sheet-acts{margin-top:14px;}
+  /* The decline's own notice still shows, unchanged, but at the top of the
+     screen while the chips are up, so it never sits over an answer. */
+  body:has(.cmr-sheet) #toast-mount{top:calc(16px + env(safe-area-inset-top, 0px)); bottom:auto;}
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -53045,10 +53062,10 @@ function handleDeclineEvolution(shownId){
                                                          : ((state.evolution||{}).declinedEvidence || null),
                       answeredMissed:evolutionUsefulMissedIds() };
   recordEvolution(ev, false, []);
-  coachMemoryNoteDecision('week_change_declined');
   flushSave();
   renderApp();
   showToast('Keeping the current plan');
+  coachMemoryNoteDecline('week_change_declined');
 }
 // Append-only. History is never rewritten, so a later pass can see whether an
 // athlete is being asked to change the same thing over and over.
@@ -53779,7 +53796,7 @@ function coachNoteMaybeFetch(){
       method:'POST',
       headers:{ 'content-type':'application/json', 'accept':'application/json',
                 'Authorization':'Bearer '+cloudSession.access_token },
-      body: JSON.stringify({ evidence: ev })
+      body: JSON.stringify(coachMemoryWithPacket({ evidence: ev }))
     });
   }).then(function(resp){
     return (resp && resp.ok) ? resp.json() : null;
@@ -55994,12 +56011,13 @@ function handleWeeklyAnswer(accept){
   if (!p) return;
   if (p.rv.kind === 'recovery' && accept === true && p.picked) accept = p.picked;
   var rec = answerWeeklyReview(p.rv, accept);
-  /* The athlete's answer is a choice worth remembering, if memory is on. */
-  if (rec && p.rv.kind === 'recovery')
-    coachMemoryNoteDecision(rec.choice === 'reload' ? 'recovery_taken'
-      : rec.choice === 'hold' ? 'recovery_held' : 'recovery_declined');
-  else if (rec && p.rv.kind === 'progress')
-    coachMemoryNoteDecision(accept ? 'progression_accepted' : 'progression_declined');
+  /* The athlete's answer is a choice worth remembering, if memory is on:
+     noted once the answer has landed and been confirmed, so a decline's
+     reason chips rise after its toast and never before it. */
+  var memCode = !rec ? null
+    : p.rv.kind === 'recovery' ? (rec.choice === 'reload' ? 'recovery_taken'
+      : rec.choice === 'hold' ? 'recovery_held' : 'recovery_declined')
+    : p.rv.kind === 'progress' ? (accept ? 'progression_accepted' : 'progression_declined') : null;
   if (rec && p.rv.kind === 'recovery'){
     scheduleSave();
     renderApp();
@@ -56007,6 +56025,7 @@ function handleWeeklyAnswer(accept){
       : rec.choice === 'hold' ? (rec.changed ? 'Holding at ' + fmtDist(rec.finalKm) + ' this week. The original sessions are kept and can be restored'
                                              : 'Holding at ' + fmtDist(rec.finalKm) + ' this week')
       : 'Your plan continues as planned. SACORO will look again next week');
+    coachMemoryNoteDecline(memCode);
     return;
   }
   scheduleSave();
@@ -56023,6 +56042,7 @@ function handleWeeklyAnswer(accept){
     if (p.rv.kind === 'progress' && !accept)
       msg = (p.rv.backFrom ? 'Keeping your plan at ' : 'Staying at ') + fmtDist(rec.finalKm) + ' this week. SACORO will look again next week';
     showToast(msg);
+    if (memCode) coachMemoryNoteDecline(memCode);
   }
 }
 /* The weekly review a proposal is due for, or null. Once per block and week:
@@ -56150,9 +56170,9 @@ function handleCoachKeep(dayId){
   if (!dd) return;
   dd.coachKeptAt = new Date().toISOString();   // suppress the prompt for this day
   flushSave();
-  coachMemoryNoteDecision('session_kept');
   renderApp();
   showToast('Keeping the original session');
+  coachMemoryNoteDecline('session_kept');
 }
 /* ---------- when an adjustment may be undone ----------
    One place that answers it, because the interface must be able to ask rather
@@ -58347,10 +58367,10 @@ function handleDeclinePlaybook(shownId){
     answeredMissed: evolutionUsefulMissedIds()
   };
   recordPlaybookDecision(prop, 'declined');
-  coachMemoryNoteDecision('week_change_declined');
   flushSave();
   renderApp();
   showToast('Keeping the current plan');
+  coachMemoryNoteDecline('week_change_declined');
 }
 /* Restores the whole week, not just the changed day's words -- weekly volume
    was rebalanced across the easy days and the long run, and putting back only
@@ -71807,11 +71827,16 @@ function coachMemoryLoad(force){
 }
 
 /* WHAT GOES BESIDE THE QUESTION. Nothing unless memory is active; at most
-   eight; only the three fields the server reads. */
+   eight; only the three fields the server reads. A line the server marked
+   health goes only while health consent is on HERE: withdrawing it on the
+   phone takes effect at once, before the server's record has heard. */
 function coachMemoryPacket(){
   if (!coachMemoryActive()) return [];
+  var health = false;
+  try { health = healthConsentGranted(); } catch(e){ health = false; }
   return (coachMemoryCache.packet || []).filter(function(it){
-    return it && typeof it.line === 'string' && it.line.length > 0 && it.line.length <= 200;
+    return it && typeof it.line === 'string' && it.line.length > 0 && it.line.length <= 200 &&
+      (health || (it.health !== true && it.kind !== 'flag'));
   }).slice(0, COACH_MEMORY_PACKET_MAX).map(function(it){
     return { date: it.date || null, kind: it.kind, line: it.line };
   });
@@ -71831,6 +71856,7 @@ function coachMemoryKeep(entry){
                healthConsent: healthConsentGranted(), kind: entry.kind };
   if (entry.code) body.code = entry.code;
   if (entry.week) body.week = entry.week;
+  if (entry.reason) body.reason = entry.reason;
   if (entry.question) body.question = entry.question;
   return coachMemoryRequest('POST', body).then(function(d){
     if (d && d.stored && Array.isArray(d.packet))
@@ -71844,18 +71870,102 @@ function coachMemoryWeek(){
   return (typeof n === 'number' && n >= 1 && n <= 99) ? n : null;
 }
 
-/* An engine decision the athlete made: kept as a fixed sentence, by code. */
+/* An engine decision the athlete made: kept as a fixed sentence, by code.
+   Returns what was asked for (code, week and the request itself), or null
+   when nothing was, so a decline can offer its reason chips only when there
+   is a decision for the reason to belong to. */
 function coachMemoryNoteDecision(code){
-  if (!coachMemoryActive()) return;
+  if (!coachMemoryActive()) return null;
   var strava = true;
   try { strava = voiceHasStravaEvidence(); } catch(e){ strava = true; }
-  if (strava) return;
-  coachMemoryKeep({ kind:'decision', code: code, week: coachMemoryWeek() });
+  if (strava) return null;
+  var week = coachMemoryWeek();
+  return { code: code, week: week, wait: coachMemoryKeep({ kind:'decision', code: code, week: week }) };
 }
 /* Something the athlete told the app about their body. Health, always. */
 function coachMemoryNoteFlag(code){
   if (!coachMemoryActive() || !healthConsentGranted()) return;
   coachMemoryKeep({ kind:'flag', code: code, week: coachMemoryWeek() });
+}
+
+/* ---------- WHY, IF THE ATHLETE WANTS TO SAY ----------
+   Founder: "Yes add the decline reason buttons." Four fixed answers, offered
+   after the athlete turns a suggestion down, so the coach knows next time
+   whether it was the legs, the diary or the size of the step.
+
+   AFTER THE DECLINE, NEVER IN FRONT OF IT. The decline has already happened,
+   been saved and been confirmed by its toast before the chips appear, and
+   the plain decision is already on its way to the server. The chips rise as
+   the question sheet (askSacoro's layer), because the decline points live in
+   four different places -- a card on Today, the weekly review, the extra-day
+   offer and the Recovery Check -- and three of those close as the decline
+   lands: one small glass sheet is the only pattern that is the same after
+   every one of them, and it is the one every quick choice already uses.
+   Skip, the cross or the dimmed background: no reason, nothing more sent.
+   A chip: the reason is sent with the same code and week, and the server
+   keeps "..., week 5: short on time." in place of the plain line.
+
+   ONLY WITH COACH MEMORY ON, and only when the decision itself was asked
+   for (never with Strava evidence): a reason with no decision to belong to
+   is a question with nowhere to go. Codes, never words; the server holds the
+   phrases (REASONS in api/_coach-memory-lines.js), and keeps Legs Tired only
+   with health consent on both sides, as it does every health line. */
+var COACH_MEMORY_REASONS = [
+  ['legs_tired', 'Legs Tired'], ['short_on_time', 'Short on Time'],
+  ['too_big_a_jump', 'Too Big a Jump'], ['feeling_fine', 'Feeling Fine']
+];
+/* The decisions that turned a suggestion down. Must equal REASON_DECISIONS
+   on the server; asserted by test. */
+var COACH_MEMORY_REASON_DECISIONS = ['extra_day_declined', 'progression_declined', 'recovery_declined',
+  'session_kept', 'week_change_declined'];
+var coachMemoryReasonFor = null;
+/* Notes any decision as coachMemoryNoteDecision() does; offers the chips
+   only for one that turned a suggestion down. */
+function coachMemoryNoteDecline(code){
+  var asked = coachMemoryNoteDecision(code);
+  if (!asked || COACH_MEMORY_REASON_DECISIONS.indexOf(code) === -1) return false;
+  try { return coachMemoryOfferReason(asked); } catch(e){ return false; }
+}
+function coachMemoryReasonHtml(){
+  return '<div class="tw-sheet stg-sheet ask-sheet cmr-sheet" role="dialog" aria-modal="true" aria-label="Any Reason?">'+
+    '<div class="tw-head"><h2 class="font-head">Any Reason?</h2>'+
+      '<button type="button" class="icon-btn" data-action="ask-no" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="stg-sheet-say">Want to tell your coach why?</div>'+
+    '<div class="field-hint">Optional. Skip if you’d rather not say.</div>'+
+    '<div class="cmr-chips" role="group" aria-label="Reason">'+COACH_MEMORY_REASONS.map(function(r){
+      return '<button type="button" class="cmr-chip" data-action="coach-memory-reason" data-reason="'+r[0]+'">'+r[1]+'</button>';
+    }).join('')+'</div>'+
+    '<div class="stg-sheet-acts"><button type="button" class="btn btn-ghost" data-action="ask-no">Skip</button></div>'+
+  '</div>';
+}
+/* Never over another question: a sheet already asking wins, and this one
+   simply is not offered. */
+function coachMemoryOfferReason(asked){
+  if (!asked || typeof document === 'undefined' || !document.createElement || !document.body) return false;
+  if (document.getElementById('ask-sheet') || document.getElementById('weekly-sheet')) return false;
+  closeAskSacoro();
+  var layer = document.createElement('div');
+  layer.className = 'tw-layer ask-layer';
+  layer.id = 'ask-sheet';
+  layer.innerHTML = coachMemoryReasonHtml();
+  if (layer.addEventListener)
+    layer.addEventListener('mousedown', function(e){ if (e.target === layer) answerAskSacoro(false); });
+  document.body.appendChild(layer);
+  coachMemoryReasonFor = asked;
+  askSacoroPending = { o:{ onYes:function(){}, onNo:function(){ coachMemoryReasonFor = null; } }, layer: layer };
+  return true;
+}
+/* A chip. Sent after the decision's own request, so the reasoned line
+   always follows the plain one it replaces. */
+function handleCoachMemoryReason(reason){
+  var asked = coachMemoryReasonFor;
+  coachMemoryReasonFor = null;
+  closeAskSacoro();
+  var known = COACH_MEMORY_REASONS.some(function(r){ return r[0] === reason; });
+  if (!asked || !known || !coachMemoryActive()) return Promise.resolve(false);
+  return Promise.resolve(asked.wait).then(function(){
+    return coachMemoryKeep({ kind:'decision', code: asked.code, week: asked.week, reason: reason });
+  });
 }
 
 /* DOES THIS QUESTION QUOTE A RUN NOTE. Free-text notes are never stored
@@ -84509,6 +84619,7 @@ document.addEventListener('click', function(e){
     }
     case 'ask-yes': answerAskSacoro(true); break;
     case 'ask-no': answerAskSacoro(false); break;
+    case 'coach-memory-reason': handleCoachMemoryReason(target.getAttribute('data-reason')); break;
     case 'time-wheel-close': closeTimeWheel(); break;
     /* SHARING. 'share-workout' opens the composer; the other two only ever
        change what the athlete is looking at, or hand the finished PNG to the
@@ -84627,9 +84738,9 @@ document.addEventListener('click', function(e){
     }
     case 'expand-decline':
       declineAvailabilityExpansion();
-      coachMemoryNoteDecision('extra_day_declined');
       showToast('Kept as it is. Nothing changes for your training');
-      closeModal(); scheduleSave(); renderApp(); break;
+      closeModal(); scheduleSave(); renderApp();
+      coachMemoryNoteDecline('extra_day_declined'); break;
     case 'set-experience': handleSetExperience(target.getAttribute('data-experience')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
     case 'toggle-evolution': evolutionOpen = !evolutionOpen; renderApp(); break;

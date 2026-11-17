@@ -39,6 +39,11 @@
 
 const V = require('./_voice.js');
 const ASK = require('./_voice-ask.js');
+/* Coach Memory's pure rules, as Ask Coach and the result panels use them: the
+   remembered lines arrive from the browser beside the evidence and are
+   re-checked and fenced here as background. No table and no key: this file
+   still reads no database. */
+const MEM = require('./_coach-memory-lines.js');
 
 /* The same headroom the conversation uses, for the same reason: thinking is
    drawn from this budget, and a ceiling sized to a two-sentence answer leaves
@@ -74,6 +79,7 @@ const SYSTEM = [
   '   reading those right beside your note.',
   '6. No praise the evidence does not earn, and no generic advice that would be true of anybody.',
   '7. Never mention evidence, data, the engine, an algorithm, AI, or yourself.',
+  '8. ' + MEM.SYSTEM_LINE + ' They are not evidence: rule 1 still holds, and engineNote still decides.',
   '',
   'HOW IT SOUNDS. A serious coach talking to an adult athlete: calm, direct, British, second',
   'person. No greeting, no sign-off, no headings, no lists, no emoji, no quotation marks.',
@@ -144,13 +150,17 @@ function validateNote(raw, evidence, limits){
   return { ok: true, note: note };
 }
 /* What is actually sent. Bounded here as well as in the browser: a browser is
-   not a trusted producer of payload size. */
-function notePayload(cfg, evidenceJson, noEffort){
+   not a trusted producer of payload size. `memoryBlock` sits AFTER the
+   evidence and outside it, exactly as in the result panels: not counted
+   against EVIDENCE_MAX_CHARS, and never read by validateNote(), so a figure
+   found only in a remembered line is still an invented one. */
+function notePayload(cfg, evidenceJson, noEffort, memoryBlock){
   const payload = {
     model: cfg.model,
     max_tokens: NOTE_MAX_TOKENS,
     system: SYSTEM,
-    messages: [{ role: 'user', content: 'evidence:\n' + evidenceJson + '\n\nWrite the Coach\'s Note.' }]
+    messages: [{ role: 'user', content: 'evidence:\n' + evidenceJson +
+                 (memoryBlock ? '\n\n' + memoryBlock : '') + '\n\nWrite the Coach\'s Note.' }]
   };
   /* A tuning knob, not a requirement -- as it is for the conversation. */
   if (!noEffort) payload.output_config = { effort: 'low' };
@@ -203,15 +213,26 @@ async function handle(req, res, deps){
     return none(res, 422, 'STRAVA_DERIVED_CONTEXT');
   }
 
+  /* Remembered lines as background: re-checked, at most eight, health lines
+     only when this evidence carries health information. The note's evidence
+     says so only in the negative ("withheld"), so the positive is read from
+     the recovery figure only a consenting athlete's evidence holds. */
+  let memoryBlock = '';
+  try {
+    const health = evidence.healthInformation !== 'withheld' && !!evidence.recovery &&
+      typeof evidence.recovery.sessionsEffortAboveBand === 'number';
+    memoryBlock = MEM.promptBlock(MEM.fenceForPacket(body.memory, { health: health }));
+  } catch (e) { memoryBlock = ''; }
+
   const started = Date.now();
   let resp;
   try {
-    resp = await postModel(cfg, notePayload(cfg, evidenceJson));
+    resp = await postModel(cfg, notePayload(cfg, evidenceJson, false, memoryBlock));
     /* The one retry the conversation also makes: a request rejected as
        malformed is sent once more without the effort setting. */
     if (resp && resp.status === 400){
       V.log('NOTE retrying without effort');
-      resp = await postModel(cfg, notePayload(cfg, evidenceJson, true));
+      resp = await postModel(cfg, notePayload(cfg, evidenceJson, true, memoryBlock));
     }
   }
   catch (err){ V.log('NOTE unreachable ' + ASK.transportFault(err)); return none(res, 502, 'coach_unavailable'); }

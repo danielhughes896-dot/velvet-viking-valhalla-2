@@ -3,7 +3,9 @@
 //
 //   GET  /api/coach-memory                         read: every kept line, and
 //                                                  the few that go to the coach
-//   POST /api/coach-memory {action:'record', ...}  keep one line
+//   POST /api/coach-memory {action:'record', ...}  keep one line (a decision
+//                                                  may name a reason code,
+//                                                  which replaces its plain line)
 //   POST /api/coach-memory {action:'clear'}        forget every line
 //
 //   Authorization: Bearer <supabase access token>, always.
@@ -184,7 +186,8 @@ async function handle(req, res, deps){
      the phone takes effect there at once while the audit row that tells the
      server is best-effort. Either one saying no keeps nothing. */
   let entry = L.buildEntry(body, { healthGranted: false });
-  if (!entry.ok && entry.why === 'health_without_consent' && body.healthConsent === true){
+  const wantsHealth = (!entry.ok && entry.why === 'health_without_consent') || (entry.ok && entry.reasonWithheld);
+  if (wantsHealth && body.healthConsent === true){
     const granted = await H.isGranted(cfg, Sx.sb, who.uid);
     entry = L.buildEntry(body, { healthGranted: granted });
   }
@@ -207,7 +210,20 @@ async function handle(req, res, deps){
     log('WRITE_FAILED status=' + (w ? w.status : 'none'));
     return Sx.json(res, 200, { stored: false, reason: 'write_failed' });
   }
-  log('KEPT kind=' + row.kind + (row.health ? ' health=1' : ''));
+  /* A REASON TAKES ITS DECISION'S PLACE. The plain line was kept when the
+     athlete declined; the same choice with its reason is the better note, and
+     two lines for one choice would spend two of the coach's eight. Removed
+     only after the reasoned line is in, so a failure here leaves both rather
+     than neither -- and never anything but that one exact line, that day. */
+  if (entry.replaces){
+    let d = null;
+    try{
+      d = await Sx.sb(cfg, TABLE + '?user_id=eq.' + encodeURIComponent(who.uid) + '&day=eq.' + row.day +
+        '&line=eq.' + encodeURIComponent(entry.replaces), { method: 'DELETE', prefer: 'return=minimal' });
+    }catch(e){ d = null; }
+    if (!d || !d.ok) log('REPLACE_FAILED');
+  }
+  log('KEPT kind=' + row.kind + (row.health ? ' health=1' : '') + (entry.replaces ? ' reason=1' : ''));
   const list = await listForUser(Sx, cfg, who.uid);
   const packet = list.ok ? await packetFor(Sx, cfg, who.uid, list.rows) : [];
   return Sx.json(res, 200, { stored: true, packet: packet });

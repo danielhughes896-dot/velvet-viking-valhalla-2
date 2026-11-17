@@ -380,8 +380,10 @@ foreign keys reference `auth.users`:
 - **Coach Memory** (`supabase-coach-memory.sql`, migration 13; **not yet
   applied to production** at the commit that added it). Off until the athlete
   turns it on through its own consent sheet. When on, the coach keeps one-line
-  notes (at most 200 characters) of decisions the athlete made in the app and
-  of the questions they asked Ask Coach — never the coach's answers, never run
+  notes (at most 200 characters) of decisions the athlete made in the app
+  (with, if they pick one, a fixed reason for turning a suggestion down, such
+  as "short on time"; "legs tired" only with health-data consent) and of the
+  questions they asked Ask Coach — never the coach's answers, never run
   notes verbatim, never anything from Strava, and pain, illness or other health
   details only with health-data consent. The athlete can read them and clear
   them in Settings at any time; they are included in the account export;
