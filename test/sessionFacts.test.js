@@ -60,8 +60,18 @@ test('the same day carries the same facts in Ask Coach, the Coach’s Note and t
 
   const want = pick(facts);
   assert.deepEqual(pick(plain(ask)), want, 'Ask Coach');
-  assert.deepEqual(pick(plain(note.session)), want, 'the Coach’s Note');
-  assert.deepEqual(pick(plain(run.session)), want, 'the run analysis');
+  /* NO DATE IN A CHECKED PACKET. The note and the run analysis are checked
+     for invented numbers against their packet, and an ISO date would make
+     its year, month and day "evidence": "Run 17km" passed on the 17th. The
+     session they are about is already known; only Ask Coach, which talks
+     about the days ahead and has no number check, carries the date. */
+  const noDate = o => { const c = Object.assign({}, o); delete c.date; return c; };
+  assert.deepEqual(pick(plain(note.session)), noDate(want), 'the Coach’s Note');
+  assert.deepEqual(pick(plain(run.session)), noDate(want), 'the run analysis');
+  assert.equal(note.session.date, undefined, 'a date crept into the checked note packet');
+  assert.equal(run.session.date, undefined, 'a date crept into the checked run packet');
+  assert.equal(NOTE.validateNote('Run 17km steady today and keep it controlled.', note).why, 'invented_number',
+    'a number taken from the date passed as evidence');
 
   /* Added, not renamed: each packet keeps the names and units it always had. */
   assert.equal(ask.plannedKm, 6.5);
@@ -287,4 +297,12 @@ test('an Ask Coach answer with a list is drawn as prose, and a plain one is unto
   a.askSet('answered', { answer: '- Hold the tempo at 4:47–5:05/km\n- Sacoro says keep the easy run easy' });
   assert.equal(a.askState.answer, 'Hold the tempo at 4:47–5:05/km. SACORO says keep the easy run easy.');
   assert.doesNotMatch(a.askState.answer, /\n|^- |\*\*/);
+});
+
+test('the spoken answer drops list and bold marks too', () => {
+  const a = athlete();
+  assert.equal(a.askSpeechPlain('- Keep it easy\n- **Hold** 4:47'), 'Keep it easy\nHold 4:47');
+  assert.equal(a.askSpeechPlain('Run 10.5km easy.'), 'Run 10.5km easy.', 'a plain sentence is untouched');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.match(src, /askSpeechFeed\(askSpeechPlain\(text\), false\);/);
 });

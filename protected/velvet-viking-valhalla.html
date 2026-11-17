@@ -53694,7 +53694,7 @@ function coachNoteEvidence(dd){
   var ev = {
     units: displayUnit(),
     guidanceLevel: guidanceLevel(),
-    session: voiceWithTargets({ date: dd.date, title: dd.title, type: dd.type, plannedDistance: fmtDist(dd.km),
+    session: voiceWithTargets({ title: dd.title, type: dd.type, plannedDistance: fmtDist(dd.km),
                                 isToday: dd.date === todayStr() }, voiceSessionFacts(dd)),
     decision: dec ? dec.state : 'proceed',
     reasons: dec ? dec.reasons.slice(0, 3) : [],
@@ -53937,7 +53937,7 @@ function resultSayEvidence(kind, x){
       if (a.feel) logged.feel = a.feel;
     }
     return { kind: 'run', units: displayUnit(),
-      session: voiceWithTargets({ date: dd.date || null, type: tm.label || dd.type, title: dd.title || '',
+      session: voiceWithTargets({ type: tm.label || dd.type, title: dd.title || '',
                                   planned: fmtDist(dd.km) }, voiceSessionFacts(dd)),
       logged: logged,
       execution: rd.score != null ? rd.score + '%' : 'not scored (logged without its sections)',
@@ -54470,7 +54470,7 @@ function recoveryCheckSuggestion(o){
   var dd = null;
   try { dd = findDay(o.dayId); } catch(e){ dd = null; }
   var f = dd ? voiceSessionFacts(dd) : null;
-  if (f) out.sessionAsPlanned = voiceWithTargets({ date: f.date, type: f.type, title: f.title,
+  if (f) out.sessionAsPlanned = voiceWithTargets({ type: f.type, title: f.title,
     planned: fmtDist(dd.km) }, f);
   return out;
 }
@@ -72229,6 +72229,11 @@ function handleCoachMemoryClear(){
    stop; while the answer is still streaming its last line may be half a
    sentence, so it is left open. */
 var ASK_LIST_MARK = /^\s*(?:[-*\u2022]|#+|\d+[.)])\s+/;
+function askSpeechPlain(text){
+  return String(text == null ? '' : text)
+    .replace(/\*\*|__/g, '')
+    .replace(/(^|\n)[ \t]*(?:[-*\u2022]|#+|\d+[.)])[ \t]+/g, '$1');
+}
 function askAnswerProse(text, done){
   var s = String(text == null ? '' : text);
   if (!/(?:^|\n)\s*(?:[-*\u2022]|#+|\d+[.)])\s|\*\*|__/.test(s)) return s;
@@ -72316,7 +72321,9 @@ function askStreamBegin(){
 function askStreamChunk(text){
   if (!text) return;
   askStreamBuf += text;
-  askSpeechFeed(text, false);
+  /* The voice hears prose too: list markers and bold marks are dropped from
+     what is spoken, as askAnswerProse() drops them from what is shown. */
+  askSpeechFeed(askSpeechPlain(text), false);
   /* State is kept in step so any re-render for another reason paints the same
      words -- but the render is not what puts them on screen. */
   askState.answer = brandCase(askStreamBuf);
