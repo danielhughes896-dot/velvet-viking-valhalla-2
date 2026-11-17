@@ -49,11 +49,15 @@ for (const p of ATHLETES){
    '"smaller step" appears on 12 of 101 flawless weeks; why?'). The plan
    wanted more than 8%, and the coach takes more only once fitness shows a
    gain. The sheet said "from what the evidence shows" on a week where every
-   session went to plan. It now names the real rule. */
+   session went to plan. It now names the real rule.
+   The athlete reviews week 2 into week 3 (20km to 24km wanted). The week after
+   a lighter week no longer asks for more than 8% (founder, methodology Q1:
+   return to the week before the lighter week, with the 8% safety net), so it
+   can no longer stand in for this case. */
 test('a flawless week capped at 8% says every session went to plan, and why', () => {
   const a = loadApp({ pinnedDate: NOW + 'T08:00:00Z' });
   ['renderApp', 'flushSave', 'scheduleSave', 'showToast'].forEach(f => { a[f] = () => {}; });
-  buildPlan(a, { distanceKey: '10k', volume: 20, weeks: 16, startDate: '2026-10-12', healthConsent: true,
+  buildPlan(a, { distanceKey: '10k', volume: 20, weeks: 16, startDate: '2026-11-02', healthConsent: true,
                  schedule: { activeDays: [1, 3, 5, 6], longRunDay: 6 } });
   a.state.days.filter(d => d.date < NOW && d.km > 0).forEach(d => logAsPrescribed(a, d, { sections: true }));
   const rv = a.weeklyReviewDue();
