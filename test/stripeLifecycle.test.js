@@ -68,9 +68,9 @@ function stripeSub(over){
     status: 'trialing',
     metadata: { vvv_account_id: ACC, vvv_offer: 'STANDARD_MONTHLY', vvv_period: 'monthly' },
     trial_start: secs(T0),
-    trial_end: secs(T0 + days(14)),
+    trial_end: secs(T0 + days(Prod.TRIAL_DAYS)),
     current_period_start: secs(T0),
-    current_period_end: secs(T0 + days(14)),
+    current_period_end: secs(T0 + days(Prod.TRIAL_DAYS)),
     cancel_at_period_end: false,
     canceled_at: null,
     items: { data: [{ price: { recurring: { interval: 'month' } } }] }
@@ -160,7 +160,7 @@ test('a trialing subscription writes a row, and the row is the one the resolver 
     const ent = resolve(f, T0 + days(3));
     assert.equal(ent.active, true);
     assert.equal(ent.reason, 'trial');
-    assert.equal(ent.validUntil, new Date(T0 + days(14)).toISOString());
+    assert.equal(ent.validUntil, new Date(T0 + days(Prod.TRIAL_DAYS)).toISOString());
   });
 });
 

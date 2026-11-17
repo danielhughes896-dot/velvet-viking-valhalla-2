@@ -485,7 +485,7 @@ test('consuming the trial writes the fact and computes the trial end', async () 
   const r = await C.consumeTrialForAccount(f.S, f.cfg, ACC,
     { provider: 'apple', subscriptionId: 'sub-A', now: T0 });
   assert.equal(r.consumed, true);
-  assert.equal(r.trialEnd, new Date(T0.getTime() + 14 * 86400000).toISOString());
+  assert.equal(r.trialEnd, new Date(T0.getTime() + 7 * 86400000).toISOString());
   const row = f.rows('account_commercial')[0];
   assert.equal(row.trial_consumed_provider, 'apple');
   assert.equal(row.trial_consumed_at, T0.toISOString());
