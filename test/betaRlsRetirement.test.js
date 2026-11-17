@@ -239,8 +239,8 @@ test('UK-only checkout, prices and trial are untouched', () => {
   assert.equal(Ck.decideCheckout(ok()).ok, true);
   assert.equal(Ck.decideCheckout(ok({ country: 'US' })).code, 'country_not_supported');
   assert.equal(Prod.offer('STANDARD_MONTHLY').priceMinor, 1199);
-  assert.equal(Prod.offer('STANDARD_YEARLY').priceMinor, 8999);
-  assert.equal(Prod.offer('STANDARD_MONTHLY').trialDays, 14);
+  assert.equal(Prod.offer('STANDARD_YEARLY').priceMinor, 7999);
+  assert.equal(Prod.offer('STANDARD_MONTHLY').trialDays, 7);
 });
 
 test('the beta predicates are left installed, and nothing authorises on them', () => {

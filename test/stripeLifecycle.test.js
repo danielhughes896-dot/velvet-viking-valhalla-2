@@ -164,13 +164,13 @@ test('a trialing subscription writes a row, and the row is the one the resolver 
   });
 });
 
-test('the trial is exactly fourteen days, and the number comes from the catalogue', async () => {
+test('the trial is exactly seven days, and the number comes from the catalogue', async () => {
   await withStripe(null, async (f, post) => {
     await post(stripeEvent('evt_1', 'customer.subscription.created', stripeSub()));
     const row = subRow(f);
     const span = (new Date(row.trial_end) - new Date(row.trial_start)) / days(1);
     assert.equal(span, Prod.TRIAL_DAYS);
-    assert.equal(Prod.TRIAL_DAYS, 14);
+    assert.equal(Prod.TRIAL_DAYS, 7);
   });
 });
 
@@ -578,14 +578,14 @@ function checkoutParams(offerCode, priceEnvName, priceId){
    .then(function(r){ return { r: r, body: decodeURIComponent(String(sent).replace(/\+/g, ' ')) }; });
 }
 
-test('monthly checkout asks for the monthly price, a card, and fourteen days', async () => {
+test('monthly checkout asks for the monthly price, a card, and seven days', async () => {
   const { r, body } = await checkoutParams('STANDARD_MONTHLY', 'VVV_PRICE_WEB_STANDARD_MONTHLY', 'price_m1');
   assert.equal(r.ok, true);
   assert.equal(r.period, 'monthly');
-  assert.equal(r.trialDays, 14);
+  assert.equal(r.trialDays, 7);
   assert.match(body, /line_items\[0\]\[price\]=price_m1/);
   assert.match(body, /mode=subscription/);
-  assert.match(body, /subscription_data\[trial_period_days\]=14/);
+  assert.match(body, /subscription_data\[trial_period_days\]=7/);
   assert.match(body, /payment_method_collection=always/,
     'the whole commercial model rests on the card being taken upfront');
   // No amount, no currency, no price built here: the price id is the only thing.
@@ -596,7 +596,7 @@ test('annual checkout asks for the annual price', async () => {
   const { r, body } = await checkoutParams('STANDARD_YEARLY', 'VVV_PRICE_WEB_STANDARD_YEARLY', 'price_y1');
   assert.equal(r.ok, true);
   assert.equal(r.period, 'yearly');
-  assert.equal(r.trialDays, 14);
+  assert.equal(r.trialDays, 7);
   assert.match(body, /line_items\[0\]\[price\]=price_y1/);
   assert.match(body, /payment_method_collection=always/);
 });

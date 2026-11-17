@@ -44,9 +44,18 @@ One product. Two ways to pay for it.
 
 | | code | period | price | trial |
 |---|---|---|---|---|
-| product | `VALHALLA_STANDARD` | — | — | 14 days |
-| offer | `STANDARD_MONTHLY` | monthly | £11.99 | 14 days |
-| offer | `STANDARD_YEARLY` | yearly | £89.99 | 14 days |
+| product | `VALHALLA_STANDARD` | — | — | 7 days |
+| offer | `STANDARD_MONTHLY` | monthly | £11.99 | 7 days |
+| offer | `STANDARD_YEARLY` | yearly | £79.99 | 7 days |
+
+**The trial is a commercial choice; the UK's statutory distance-contract
+cancellation right is a separate fourteen days, fixed by law.** They used to be
+the same number, which quietly made "the trial has ended" and "the athlete's
+statutory right has expired" the same date. They no longer are: an athlete can
+now be charged on day 7, seven days before their statutory right to cancel for
+a full refund runs out on day 14. `IMMEDIATE_START_TEXT` in `api/_agreements.js`
+carries the refund guarantee that keeps that compliant, and it has not yet had
+a solicitor's review of the new wording — see that file.
 
 `api/_products.js`.
 
@@ -220,12 +229,12 @@ Nothing is stored, so nothing can drift. There is deliberately no
 The allowance lives on `account_commercial`, at **account** level — not on a
 provider's record of it. Apple does not know about a trial taken on the web,
 Google knows about neither, and an athlete who could take one of each would get
-six weeks free by changing which button they press.
+three weeks free by changing which button they press.
 
 - Account creation records the allowance as **unused**. It does not start a
   trial, and the signup trigger is asserted to write no trial timestamp.
 - A **beta or comp grant does not consume it.** A tester who later subscribes
-  still gets their fourteen days.
+  still gets their seven days.
 - The **migration does not consume it.** Every migrated beta athlete keeps it.
 - There is **no reset** anywhere in the application. A trial you can reset is a
   trial you can farm.
@@ -262,7 +271,7 @@ through a provider we do not control.
 `reason` distinguishes `already_subscribed_here` from
 `already_subscribed_elsewhere` so a client can say the right sentence. The
 response also carries the trial verdict, so a client cannot accidentally offer a
-second free fortnight.
+second free trial.
 
 Fails closed: if the datastore cannot be read, the purchase is refused.
 

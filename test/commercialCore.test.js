@@ -87,9 +87,9 @@ test('there is one product, and entitlement is keyed on it rather than on a pric
 
 test('the approved UK commercial intent is recorded exactly once, in minor units', () => {
   assert.equal(P.offer('STANDARD_MONTHLY').priceMinor, 1199);
-  assert.equal(P.offer('STANDARD_YEARLY').priceMinor, 8999);
+  assert.equal(P.offer('STANDARD_YEARLY').priceMinor, 7999);
   assert.equal(P.offer('STANDARD_MONTHLY').currency, 'GBP');
-  assert.equal(P.TRIAL_DAYS, 14);
+  assert.equal(P.TRIAL_DAYS, 7);
   // Integers, or money eventually goes through a float and is wrong on some
   // fraction of rows.
   P.offersFor(P.STANDARD).forEach(o => assert.equal(o.priceMinor, Math.trunc(o.priceMinor)));
@@ -429,7 +429,7 @@ test('managementProvider names the provider that actually sold the live subscrip
 test('an athlete can be eligible without any trial being started', () => {
   const el = E.trialEligibility(account(), T0);
   assert.equal(el.eligible, true);
-  assert.equal(el.trialDays, 14);
+  assert.equal(el.trialDays, 7);
   // eligibility is a question, not a grant
   assert.equal(resolve([], []).active, false);
 });

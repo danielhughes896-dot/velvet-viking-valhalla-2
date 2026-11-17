@@ -106,7 +106,7 @@ const CASES = [
    "  const r = await S.sb(cfg, '/account_commercial?account_id=eq.' + facts.account_id, { method: 'PATCH', body: JSON.stringify({ trial_consumed_at: new Date().toISOString() }) }) && await Store.consumeTrialForAccount(S, cfg, facts.account_id, {",
    ['providerTrial','webBilling','stripeLifecycle']],
   ['trial: the trial length comes from somewhere else', 'api/_products.js',
-   'const TRIAL_DAYS = 14;', 'const TRIAL_DAYS = 30;'],
+   'const TRIAL_DAYS = 7;', 'const TRIAL_DAYS = 30;'],
   ['trial: checkout stops requiring a card', 'api/_stripe.js',
    "    payment_method_collection: 'always',", ""],
 

@@ -1,7 +1,7 @@
 // Velvet Viking -- the product catalogue.
 //
 // ONE PRODUCT. Valhalla sells Valhalla Standard, monthly or yearly, with a
-// fourteen-day introductory trial. That is the whole commercial surface, and
+// seven-day introductory trial. That is the whole commercial surface, and
 // stating it in one place is what stops it being restated, slightly
 // differently, in a checkout page, a paywall, an App Store description and a
 // webhook handler.
@@ -53,10 +53,19 @@ const PROVIDERS = ['web', 'apple', 'google'];
    guessing from identifiers. */
 const ENVIRONMENTS = ['production', 'sandbox'];
 
-/* Fourteen days, one allowance per ATHLETE -- not per provider, not per
+/* Seven days, one allowance per ATHLETE -- not per provider, not per
    device, not per email address. Enforced in _entitlement.js and owned by the
-   account_commercial row; stated here because it is a property of the offer. */
-const TRIAL_DAYS = 14;
+   account_commercial row; stated here because it is a property of the offer.
+
+   THIS IS NOT THE STATUTORY WITHDRAWAL PERIOD. The UK's distance-contract
+   cancellation right is fourteen days and is fixed by law, not by this file --
+   see STATUTORY_WITHDRAWAL_DAYS in api/_agreements.js. The two used to be the
+   same number by coincidence, which let the immediate-start wording say "you
+   will not be charged before the trial ends" and have that also mean "before
+   your statutory right expires." They are no longer the same number, which is
+   why the wording changed to guarantee a refund through day fourteen
+   regardless of how long the trial is -- see IMMEDIATE_START_TEXT. */
+const TRIAL_DAYS = 7;
 
 /* WHICH PUBLISHED CATALOGUE AN ATHLETE BOUGHT FROM.
  *
@@ -67,7 +76,7 @@ const TRIAL_DAYS = 14;
  *
  * Bump this ONLY when the published prices change. Editing a price without
  * bumping it makes two different agreements indistinguishable. */
-const CATALOGUE_VERSION = 'launch-2026-08';
+const CATALOGUE_VERSION = 'launch-2026-11';
 
 const OFFERS = {
   STANDARD_MONTHLY: {
@@ -85,7 +94,7 @@ const OFFERS = {
     code: 'STANDARD_YEARLY',
     product: STANDARD,
     billingPeriod: 'yearly',
-    priceMinor: 8999,
+    priceMinor: 7999,
     currency: 'GBP',
     trialDays: TRIAL_DAYS
   }
@@ -146,8 +155,8 @@ function offerForPeriod(period){
    is the worst possible place to discover a configuration gap. */
 /* ---------- WHEN THE FIRST PAYMENT ACTUALLY HAPPENS ----------
  *
- * "In 14 days" is not a date, and an athlete deciding whether to hand over a
- * card is entitled to the date. This is the ONE place it is computed.
+ * "In seven days" is not a date, and an athlete deciding whether to hand over
+ * a card is entitled to the date. This is the ONE place it is computed.
  *
  * WHY IT LIVES IN THE CATALOGUE and not in a screen. TRIAL_DAYS is already the
  * single authority for the trial length -- it is what the Checkout Session is
@@ -192,11 +201,11 @@ function purchasable(provider, offerCode, env){
 
 /* The catalogue as a screen would render it. `available` is honest about
    configuration: an offer with no provider identifier is listed, priced, and
-   marked unavailable, rather than hidden -- "£89.99/year, not open yet" is
+   marked unavailable, rather than hidden -- "£79.99/year, not open yet" is
    information; a missing row is a bug report. */
 function catalogue(provider, env, now){
   /* The forecast first charge, computed once and attached to every offer, so a
-     screen never has to know that a trial is fourteen days -- only how to
+     screen never has to know that a trial is seven days -- only how to
      render a date it was handed. */
   const firstCharge = trialEndsAt(now || new Date(), TRIAL_DAYS);
   return {

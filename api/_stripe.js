@@ -218,8 +218,8 @@ async function createCheckoutSession(cfg, input, opts){
     /* PAYMENT METHOD REQUIRED UPFRONT, SAID OUT LOUD.
        Stripe's default for a subscription Checkout is already 'always', so this
        line changes no behaviour today. It is here because the commercial model
-       HQ chose rests entirely on it -- a fourteen-day trial that converts
-       automatically is a different product from a card-free trial -- and a
+       HQ chose rests entirely on it -- a trial that converts automatically
+       at the end of its term is a different product from a card-free trial -- and a
        requirement that important must not be a default somebody could flip in
        a dashboard, or that Stripe could change, without a diff. */
     payment_method_collection: 'always',

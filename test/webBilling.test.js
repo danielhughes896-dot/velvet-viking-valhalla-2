@@ -582,7 +582,7 @@ test('checkout asks for the right price, a card, and fourteen days', async () =>
     assert.equal(r.status, 200);
     assert.match(r.json.url, /^https:\/\/checkout\.stripe\.test\//);
     assert.equal(r.json.period, 'yearly');
-    assert.equal(r.json.trial_days, 14);
+    assert.equal(r.json.trial_days, 7);
 
     const created = stripe.state.requests.filter(x => /\/checkout\/sessions$/.test(x.url))[0];
     const form = new URLSearchParams(created.body);
@@ -590,7 +590,7 @@ test('checkout asks for the right price, a card, and fourteen days', async () =>
     assert.equal(form.get('mode'), 'subscription');
     assert.equal(form.get('payment_method_collection'), 'always',
       'a card-free trial is a different product from the one HQ approved');
-    assert.equal(form.get('subscription_data[trial_period_days]'), '14');
+    assert.equal(form.get('subscription_data[trial_period_days]'), '7');
     assert.equal(form.get('client_reference_id'), ATHLETE);
     assert.equal(form.get('subscription_data[metadata][vvv_account_id]'), ATHLETE,
       'a webhook must be able to rebuild the purchase without the browser');
@@ -1259,7 +1259,7 @@ test('a browser may name a period and nothing else', async () => {
     const form = new URLSearchParams(
       stripe.state.requests.filter(x => /\/checkout\/sessions$/.test(x.url))[0].body);
     assert.equal(form.get('line_items[0][price]'), PRICE_M);
-    assert.equal(form.get('subscription_data[trial_period_days]'), '14');
+    assert.equal(form.get('subscription_data[trial_period_days]'), '7');
     assert.equal(form.get('client_reference_id'), ATHLETE);
     assert.equal(form.get('metadata[vvv_offer]'), 'STANDARD_MONTHLY');
     assert.equal(form.get('subscription_data[metadata][vvv_account_id]'), ATHLETE);
@@ -1561,7 +1561,7 @@ test('the immediate-start acknowledgement still stands on its own', async () => 
     assert.equal(r.status, 200);
     const rows = f.db.account_agreements.filter(x => x.agreement_type === 'immediate_start');
     assert.equal(rows.length, 1);
-    assert.equal(rows[0].agreement_version, 'immediate_start_v1');
+    assert.equal(rows[0].agreement_version, 'immediate_start_v2');
     assert.equal(rows[0].decision, 'accepted');
   });
 });
@@ -1594,7 +1594,7 @@ test('the pre-checkout screen carries every fact a purchase decision needs', asy
     assert.equal(a.privacy.note, 'notice, not consent');
 
     /* THE IMMEDIATE-START ACKNOWLEDGEMENT, separate and unticked. */
-    assert.equal(a.immediateStart.version, 'immediate_start_v1');
+    assert.equal(a.immediateStart.version, 'immediate_start_v2');
     assert.equal(a.immediateStart.preTicked, false);
     assert.equal(a.immediateStart.mustBeAffirmative, true);
     assert.match(a.immediateStart.text, /begin the service during the 14-day period/);
@@ -1605,13 +1605,13 @@ test('the pre-checkout screen carries every fact a purchase decision needs', asy
     const offers = {};
     v.catalogue.offers.forEach(o => { offers[o.code] = o; });
     assert.equal(offers.STANDARD_MONTHLY.priceMinor, 1199);
-    assert.equal(offers.STANDARD_YEARLY.priceMinor, 8999);
+    assert.equal(offers.STANDARD_YEARLY.priceMinor, 7999);
     assert.equal(offers.STANDARD_MONTHLY.currency, 'GBP');
     assert.equal(offers.STANDARD_MONTHLY.billingPeriod, 'monthly');
     assert.equal(offers.STANDARD_YEARLY.billingPeriod, 'yearly');
     for (const o of Object.values(offers)){
-      assert.equal(o.trialDays, 14);
-      assert.ok(o.firstChargeAt, 'the exact first-charge date, not "in 14 days"');
+      assert.equal(o.trialDays, 7);
+      assert.ok(o.firstChargeAt, 'the exact first-charge date, not "in 7 days"');
       assert.equal(new Date(o.firstChargeAt) - new Date(v.catalogue.now || Date.now()) > 0, true);
     }
 
