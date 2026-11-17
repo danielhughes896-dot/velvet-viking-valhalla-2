@@ -62212,6 +62212,7 @@ function athleteHasTrainingHistory(){
 function handleStartBlock(purpose, weeks, confirmed){
   if (purpose === 'race'){
     if (state.setup) state.setup.purpose = 'race';
+    if (state.setup && planHasContent()) bldNewBlockIntent = true;
     openSetupModal();
     return;
   }
@@ -65036,6 +65037,7 @@ function closeModal(){
       !planHasContent()) bldParked = existing;
   bldParkSkip = false;
   var wasBuilder = !!(existing && existing.querySelector && existing.querySelector('.bld-modal'));
+  if (wasBuilder && !modalSwapping) bldNewBlockIntent = false;
   var wasCheckin = !!(existing && existing.querySelector && existing.querySelector('.checkin-sheet'));
   modalLeave(existing);
   /* A check-in changed from Recovery goes back to Recovery. */
@@ -65906,9 +65908,11 @@ function openSetupModal(){
         : '')+
       '<div class="bld-actions">'+
         '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">Back</button>'+
-        '<button type="button" class="btn btn-primary" data-action="generate-plan">'+(state.setup?'Regenerate Plan':'Build My Training Block')+'</button>'+
+        '<button type="button" class="btn btn-primary" data-action="generate-plan">'+(state.setup && !bldIsNewBlock()?'Regenerate Plan':'Build My Training Block')+'</button>'+
       '</div>'+
-      (state.setup
+      (state.setup && bldIsNewBlock()
+        ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Your new block starts at week 1 on your next running day. Your completed training is kept as history and everything SACORO has learned carries over.</div>'
+        : state.setup
         ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history. Only untouched future days are replaced.</div>'
         : '<div class="field-hint bld-legal" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
           '<a href="'+LEGAL_URLS.privacy+'" data-action="open-external" data-href="'+LEGAL_URLS.privacy+'">Privacy Policy</a> and '+
@@ -67290,6 +67294,20 @@ function dayCarriesHistory(dd){
    that training instead, because a week number is a position within a block
    and there is no position before week 1. That is what makes a zero or
    negative week structurally impossible rather than merely unused. */
+/* THE BUILDER WAS OPENED TO START A NEW BLOCK: from the New Block page, or
+   "Build a race block" there. Cleared when the build lands or the builder
+   closes. A block whose goal day has passed is over, so building after it is
+   a new block too, whichever door the athlete came through. */
+var bldNewBlockIntent = false;
+function bldIsNewBlock(){
+  if (bldNewBlockIntent) return true;
+  return !!(state.setup && state.setup.raceDate && state.setup.raceDate < todayStr() &&
+            state.days && state.days.length);
+}
+function openNewBlockSetup(){
+  bldNewBlockIntent = true;
+  openSetupModal();
+}
 function blockAnchor(activeDays, isRebuild){
   /* A REBUILD KEEPS ITS ORIGIN; A NEW BLOCK STARTS TODAY. The caller may
      already know which this is -- handleGeneratePlan does, because changing
@@ -67755,7 +67773,17 @@ async function handleGeneratePlan(){
                     : (state.setup && isBlockPurpose(state.setup.purpose) ? state.setup.purpose : 'race');
   var hasLivePlan = !!(state.setup && state.days && state.days.length);
   var purposeChanged = hasLivePlan && priorPurpose !== buildPurpose;
-  var rebuilding = !!priorBlock && hasLivePlan && !purposeChanged;
+  /* A NEW BLOCK OF THE SAME KIND IS STILL A NEW BLOCK (founder, after
+     racing a marathon and building the next block: "When you start a new
+     block it just bolts onto" the old one). Same purpose read as a rebuild,
+     so the new block kept the old origin, its weeks were numbered on from
+     the marathon's, and the marathon's runs sat inside it as weeks 1 to 12.
+     It is a new block when the athlete started it as one (the New Block
+     page) or when the block it replaces is over (its goal day has passed).
+     A new block archives the old one's training to the athlete, closes it,
+     and starts at week 1 on the next running day. */
+  var newBlock = hasLivePlan && (purposeChanged || bldIsNewBlock());
+  var rebuilding = !!priorBlock && hasLivePlan && !newBlock;
 
   if (hasEvent){
     if (!raceDate){ showToast('Pick an event date'); return; }
@@ -68032,9 +68060,10 @@ async function handleGeneratePlan(){
      Archiving happens BEFORE the prescription is replaced, because interpreting
      a session needs the plan that scheduled it to still be loaded. */
   var reconciled;
-  if (purposeChanged){
+  if (newBlock){
     archiveCompletedSessions(state.setup.blockId);
-    if (state.setup.blockId) closeBlock(state.setup.blockId, { reason:'transition', to:buildPurpose });
+    if (state.setup.blockId) closeBlock(state.setup.blockId,
+      { reason: purposeChanged ? 'transition' : 'new_block', to:buildPurpose });
     reconciled = { days: days, preserved: 0 };
   } else {
     reconciled = reconcileRegeneratedDays(state.days, days, startDate);
@@ -68049,7 +68078,8 @@ async function handleGeneratePlan(){
                                        startVolume: volume,
                                        peakVolume: blockPeakVolumeFor(purpose, blockResult, days, raceDate, schedule, startDate, hasEvent),
                                        anchorVolume: volume });
-  if (purposeChanged) block.fromBlockId = priorBlock ? priorBlock.id : null;
+  if (newBlock) block.fromBlockId = priorBlock ? priorBlock.id : null;
+  bldNewBlockIntent = false;
   if (rebuilding){
     block.distanceKey = distanceKey;
     block.goalDate = raceDate;
@@ -81625,8 +81655,10 @@ function actionPanelNewBlock(){
   }
   if (opts.length){
     body += '<div class="setup-section-title">Recommended next</div>'+
-      opts.map(function(p){
-        return '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" '+
+      opts.map(function(p, i){
+        /* The recommendation is the cherry button; building one of your own
+           is the quiet one below (Audit IV follow-up). */
+        return '<button type="button" class="btn '+(i === 0 ? 'btn-primary' : 'btn-ghost')+' btn-block" style="margin-bottom:8px;" '+
           'data-action="start-block" data-purpose="'+p+'">'+
           escapeHtml(p === 'race' ? 'Build a race block' : 'Start '+blockPurposeLabel(p))+'</button>';
       }).join('');
@@ -81643,8 +81675,8 @@ function actionPanelNewBlock(){
       'and everything SACORO has learned about you carries over. Only the remaining schedule is '+
       'replaced, and nothing changes until you choose.</div>';
   return recordPanelShell('New Block', body, null,
-    '<button type="button" class="btn btn-primary" data-action="open-setup">'+
-      'Build a new training block</button>');
+    '<button type="button" class="btn '+(opts.length ? 'btn-ghost' : 'btn-primary')+'" data-action="open-new-block-setup">'+
+      'Build a New Training Block</button>');
 }
 
 /* The standalone Fitness Checkpoint popup (actionPanelCheckpoint()) is gone
@@ -82525,7 +82557,7 @@ function renderSettingsHubView(){
       'training') : '')+
     (state.setup ? renderSupportWorkRow() : '')+
     (hasPlan ? stgRow({ title:'Training Availability',
-      sub: openRestriction() ? 'Injury or illness: restriction open' : 'Injured or ill? Tell SACORO',
+      sub: openRestriction() ? 'Injury or illness: restriction open' : 'Report an injury or illness',
       attrs:'data-action="restriction-open"' }) : '')+
     /* One way to start again. New Block keeps the finished weeks as history
        and carries everything learned. */
@@ -85285,6 +85317,7 @@ document.addEventListener('click', function(e){
     case 'open-settings-panel': openSettingsPanel(target.getAttribute('data-panel')); break;
     case 'open-import': openImportModal(); break;
     case 'open-setup': stgOpenSub(openSetupModal); break;
+    case 'open-new-block-setup': stgOpenSub(openNewBlockSetup); break;
     case 'open-restore': openRestoreModal(); break;
     case 'restore-plan': handleRestorePlan(target.getAttribute('data-key')); break;
     case 'open-record': (function(k){ stgOpenSub(function(){ openRecordPanel(k); }); })(target.getAttribute('data-record')); break;
