@@ -73693,7 +73693,13 @@ function renderAskProposal(){
 function patchVoiceCard(){
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   /* The Coach page's Ask Coach follows the same availability, on any view. */
-  try { var ask = document.getElementById('coach-ask-mount'); if (ask) ask.innerHTML = coachAskHtml(); } catch(e){}
+  try {
+    var ask = document.getElementById('coach-ask-mount');
+    if (ask){
+      ask.innerHTML = coachAskHtml();
+      voiceBindAskInput();
+    }
+  } catch(e){}
   var nodes = document.querySelectorAll('#voice-card');
   if (!nodes.length) return;
   var dd = findDayByDate(todayStr());
@@ -78737,8 +78743,19 @@ function renderSacoroInstruments(){
    Coach page." One plain glass button under the circles, drawn only where
    a coach is configured (voiceCoachAvailable), and redrawn by
    patchVoiceCard when that answer arrives. Today's own copy is hidden. */
+/* AND IT OPENS WHERE IT IS TAPPED. Founder, with the coach switched on:
+   "Hear coach in coach tab is not responsive." The button set Ask Coach
+   open, but the conversation was only ever drawn inside Today's voice card
+   -- so on the Coach page the tap changed state and drew nothing. While a
+   conversation is open, the Coach page draws it in the button's place, and
+   Close puts the button back. */
 function coachAskHtml(){
   if (!voiceCoachAvailable) return '';
+  if (askState && askState.status && askState.status !== 'closed'){
+    var dd = null;
+    try { dd = findDayByDate(todayStr()); } catch(e){ dd = null; }
+    return '<div class="coach-ask is-open">'+renderAskPanel(dd)+'</div>';
+  }
   return '<div class="coach-ask"><button type="button" class="coach-ask-btn" data-action="voice-ask-open" '+
     'aria-label="Ask your coach a question"><span>Ask Coach</span></button></div>';
 }

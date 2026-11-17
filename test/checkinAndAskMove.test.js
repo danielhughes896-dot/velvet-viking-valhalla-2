@@ -75,3 +75,23 @@ test('Ask Coach on the Coach page wears the cherry rim and glow', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
   assert.match(src, /\.coach-ask-btn\{border:1\.5px solid var\(--cherry\); box-shadow:0 0 16px var\(--cherry-dim\);/);
 });
+
+test('Ask Coach on the Coach page opens where it was tapped', () => {
+  /* Founder, with the coach switched on: "Hear coach in coach tab is not
+     responsive." The tap set Ask Coach open, but the conversation was only
+     drawn inside Today's voice card, so the Coach page drew nothing. */
+  const a = athlete();
+  a.voiceCoachAvailable = true;
+  assert.match(a.coachAskHtml(), /data-action="voice-ask-open"/, 'closed: the button');
+  a.askSet('open', { heard:'', answer:'', message:'', proposalDayId:null });
+  const open = a.coachAskHtml();
+  assert.match(open, /class="ask-panel"/, 'open: the conversation is drawn on the Coach page');
+  assert.match(open, /id="ask-input"/);
+  assert.match(open, /data-action="voice-ask-close"/, 'and it can be closed');
+  assert.doesNotMatch(open, /data-action="voice-ask-open"/, 'the button gives way to the conversation');
+  a.askReset();
+  assert.match(a.coachAskHtml(), /data-action="voice-ask-open"/, 'closed again: the button is back');
+  /* The patch that redraws it also binds Enter to Ask. */
+  const src = fs.readFileSync(path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.match(src, /ask\.innerHTML = coachAskHtml\(\);\s*voiceBindAskInput\(\);/);
+});
