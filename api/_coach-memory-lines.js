@@ -69,7 +69,22 @@ const DECISIONS = {
   session_eased:        'Accepted an easier version of a session',
   session_kept:         'Kept a session as planned rather than make it easier',
   week_change_accepted: 'Accepted the suggested change to the week',
-  week_change_declined: 'Kept the week as planned rather than take the suggested change'
+  week_change_declined: 'Kept the week as planned rather than take the suggested change',
+  /* The weekly review's other proposals (founder: "Build it"). Each is a
+     moment the coach thought the athlete should ease off or consolidate, so
+     what they chose, and why if they say, is worth remembering. Protect is
+     only ever proposed for pain, niggles or feeling unwell, so its sentences
+     name that and are health lines like any flag. */
+  week_held:            'Held weekly mileage steady as suggested',
+  week_hold_declined:   'Progressed as planned rather than hold the week',
+  reload_taken:         'Took the reload week offered',
+  reload_declined:      'Carried on as planned rather than take the reload week',
+  week_protected:       'Took the easier week offered to protect a niggle or illness',
+  protect_declined:     'Trained as planned rather than ease off for a niggle or illness',
+  session_stepped_back: 'Stepped the quality session back as suggested',
+  step_back_declined:   'Kept the planned session rather than step it back',
+  session_repeated:     'Repeated the quality session as suggested',
+  repeat_declined:      'Kept the planned session rather than repeat the last one'
 };
 /* Flags are what the athlete told the app about their body. The restriction
    sheet itself "does not ask what the problem is and does not record one", so
@@ -88,7 +103,8 @@ const REASONS = {
 };
 const REASON_HEALTH = ['legs_tired'];
 const REASON_DECISIONS = ['extra_day_declined', 'progression_declined', 'recovery_declined',
-  'session_kept', 'week_change_declined'];
+  'session_kept', 'week_change_declined',
+  'week_hold_declined', 'reload_declined', 'protect_declined', 'step_back_declined', 'repeat_declined'];
 const FLAGS = {
   restriction_started: 'Said they could not train normally because of injury or illness',
   restriction_ended:   'Back to normal training after injury or illness'

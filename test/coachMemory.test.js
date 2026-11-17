@@ -87,9 +87,16 @@ test('a decision is a fixed sentence chosen by code; nothing the browser writes 
   assert.equal(L.buildEntry({ kind: 'note', line: 'Heavy legs today' }).ok, false, 'a run note is not a kind');
   assert.equal(L.buildEntry({ kind: 'decision', code: 'session_kept', week: 'drop table' }).row.line,
     'Kept a session as planned rather than make it easier.');
+  /* Every decision is a plain line except the weekly review's protect pair:
+     that week is only ever proposed for pain, niggles or feeling unwell, so
+     its sentences say so, are health lines, and need consent like a flag. */
+  const BODILY = ['week_protected', 'protect_declined'];
   Object.keys(L.DECISIONS).forEach(code => {
-    const e = L.buildEntry({ kind: 'decision', code, week: 12 });
-    assert.ok(e.ok && e.row.line.length <= L.LINE_MAX && !e.row.health, code);
+    const e = L.buildEntry({ kind: 'decision', code, week: 12 }, { healthGranted: true });
+    assert.ok(e.ok && e.row.line.length <= L.LINE_MAX, code);
+    assert.equal(e.row.health, BODILY.includes(code), code + ': health marking');
+    if (BODILY.includes(code))
+      assert.equal(L.buildEntry({ kind: 'decision', code, week: 12 }).why, 'health_without_consent', code);
   });
 });
 

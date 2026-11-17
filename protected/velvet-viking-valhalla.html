@@ -56004,6 +56004,29 @@ function handleWeeklyPick(choice){
   p.picked = choice;
   if (p.layer) p.layer.innerHTML = weeklyReviewSheetHtml(p.rv, choice);
 }
+/* THE REST OF THE WEEKLY REVIEW, REMEMBERED. Founder, on adding them:
+   "Build it". Hold, reload, protect, step the session back and repeat it are
+   all the coach asking the athlete to ease off or consolidate; what they
+   chose goes to Coach Memory the same way a progression answer does, and a
+   no gets the reason chips. Protect is only proposed for pain, niggles or
+   feeling unwell, so it is remembered only with health consent. */
+var WEEKLY_REVIEW_MEMORY = {
+  hold:         ['week_held', 'week_hold_declined'],
+  reload:       ['reload_taken', 'reload_declined'],
+  protect:      ['week_protected', 'protect_declined'],
+  quality_back: ['session_stepped_back', 'step_back_declined'],
+  quality:      ['session_repeated', 'repeat_declined']
+};
+function weeklyReviewMemoryCode(kind, accept){
+  var pair = WEEKLY_REVIEW_MEMORY[kind];
+  if (!pair) return null;
+  if (kind === 'protect'){
+    var ok = false;
+    try { ok = healthConsentGranted(); } catch(e){ ok = false; }
+    if (!ok) return null;
+  }
+  return accept ? pair[0] : pair[1];
+}
 function handleWeeklyAnswer(accept){
   var p = weeklyReviewOpen;
   closeWeeklyReviewSheet();
@@ -56016,7 +56039,8 @@ function handleWeeklyAnswer(accept){
   var memCode = !rec ? null
     : p.rv.kind === 'recovery' ? (rec.choice === 'reload' ? 'recovery_taken'
       : rec.choice === 'hold' ? 'recovery_held' : 'recovery_declined')
-    : p.rv.kind === 'progress' ? (accept ? 'progression_accepted' : 'progression_declined') : null;
+    : p.rv.kind === 'progress' ? (accept ? 'progression_accepted' : 'progression_declined')
+    : weeklyReviewMemoryCode(p.rv.kind, !!accept);
   if (rec && p.rv.kind === 'recovery'){
     scheduleSave();
     renderApp();
@@ -71916,7 +71940,8 @@ var COACH_MEMORY_REASONS = [
 /* The decisions that turned a suggestion down. Must equal REASON_DECISIONS
    on the server; asserted by test. */
 var COACH_MEMORY_REASON_DECISIONS = ['extra_day_declined', 'progression_declined', 'recovery_declined',
-  'session_kept', 'week_change_declined'];
+  'session_kept', 'week_change_declined',
+  'week_hold_declined', 'reload_declined', 'protect_declined', 'step_back_declined', 'repeat_declined'];
 var coachMemoryReasonFor = null;
 /* Notes any decision as coachMemoryNoteDecision() does; offers the chips
    only for one that turned a suggestion down. */
