@@ -4,7 +4,7 @@
 //   /api/voice-enabled   availability probe       GET, HEAD
 //   /api/voice-tts       ElevenLabs speech        POST
 //   /api/voice-note      Coach's Note, written    POST
-//   /api/voice-explain   run / week summaries     POST
+//   /api/voice-explain   run / week / recovery    POST
 //
 // WHY A ROUTER FOR TWO ROUTES. Vercel turns every non-underscore file in /api
 // into its own Serverless Function, and the Hobby plan allows twelve per

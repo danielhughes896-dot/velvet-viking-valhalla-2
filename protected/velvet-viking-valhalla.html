@@ -12436,7 +12436,7 @@
   .rs-tone-red .rs-dot{background:var(--z-threshold); box-shadow:0 0 10px rgba(228,105,122,.6);}
   .rs-tone-white .rs-dot{background:#FFFFFF; box-shadow:0 0 10px rgba(255,255,255,.5);}
   .rs-say{margin:0; font-size:.9375rem; line-height:1.45; color:#FFFFFF; max-width:34ch; transition:opacity .18s ease;}
-  .rs-say.is-swapping, .wc-verdict-why.is-swapping, .wc-prose.is-swapping{opacity:0;}
+  .rs-say.is-swapping, .rck-say.is-swapping, .wc-verdict-why.is-swapping, .wc-prose.is-swapping{opacity:0;}
   /* SACORO ANALYSIS AS PROSE: paragraphs at reading size, left-aligned, no
      headings or labels. */
   .wc-prose{display:flex; flex-direction:column; gap:12px; text-align:left; transition:opacity .18s ease;}
@@ -12462,6 +12462,28 @@
   .cm-notes{list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:8px;}
   .cm-note{margin:0;}
   .cm-note-day{opacity:.7; margin-right:4px; white-space:nowrap;}
+  /* ---------- RECOVERY CHECK ----------
+     The Session Complete glass and its tone dot, with the reasons in a glass
+     box of their own: white words, a softer white for the row names and for
+     the session the engine would replace. */
+  .rck-body{display:flex; flex-direction:column; align-items:stretch; gap:14px; text-align:left;
+    padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px));}
+  .rck-top{display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center;}
+  .rck-why{display:flex; flex-direction:column; border-radius:14px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);}
+  .rck-why-row{display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:10px 14px; font-size:.875rem; color:#FFFFFF;}
+  .rck-why-row + .rck-why-row{border-top:1px solid rgba(255,255,255,.08);}
+  .rck-why-k{color:rgba(255,255,255,.72); min-width:0;}
+  .rck-why-v{text-align:right; min-width:0; overflow-wrap:anywhere;}
+  .rck-say{margin:0; font-size:1rem; line-height:1.5; color:#FFFFFF; transition:opacity .18s ease;}
+  .rck-swap{padding:12px 14px; border-radius:14px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+    color:#FFFFFF; overflow-wrap:anywhere;}
+  .rck-swap-k{font-family:var(--label-face); font-size:var(--label-size); letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF; margin-bottom:3px;}
+  .rck-swap-was{color:rgba(255,255,255,.6); text-decoration:line-through; font-size:.9375rem;}
+  .rck-swap-arrow{color:rgba(255,255,255,.6);}
+  .rck-swap-now{color:#FFFFFF; font-size:.9375rem;}
+  .rck-btns{display:flex; flex-direction:column; gap:8px; margin-top:2px;}
+  .rck-safe{margin:0; font-size:.8125rem; line-height:1.45; color:rgba(255,255,255,.72); text-align:center;}
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -53871,6 +53893,7 @@ function weekResultReading(N){
    free text is where pain is written down). */
 function resultSayEvidence(kind, x){
   if (voiceHasStravaEvidence()) return null;
+  if (kind === 'recovery') return recoveryCheckEvidence(x);
   var consent = healthConsentGranted();
   if (kind === 'run'){
     var dd = x;
@@ -53922,11 +53945,16 @@ var RESULT_SAY_FLAGS = [
   [/\bmissed\b|\bnot logged\b/i, /\b(?:miss|missed|missing|not logged|unlogged|logged so far|still to log|not in yet|in yet|yet to be logged)\b/i]
 ];
 var RESULT_RUN_LIMITS = { maxChars: 800, maxSentences: 8 };
+/* The same as RECOVERY_CHECK_WORDS, RECOVERY_MEDICAL and RECOVERY_LIMITS in
+   api/_voice-explain.js. */
+var RECOVERY_SAY_LIMITS = { maxChars: 340, maxSentences: 2 };
+var RECOVERY_SAY_WORDS = /\b(?:recover\w*|rest\w*|back off|eas(?:e|es|ed|ing|ier|y)|lighter)\b/i;
+var RECOVERY_SAY_MEDICAL = /\b(?:doctor|physio\w*|GP|clinician|medic\w*|treatment|icing|ice it|stretch\w*|foam[- ]roll\w*|massage|sprain\w*|tendon\w*|tendinitis|fractur\w*|shin splints|infection|virus|viral|flu|covid|a cold|fever|supplement\w*|vitamin\w*)\b/i;
 function resultSayValid(raw, ev){
   var e = ev || {};
   /* A run's analysis is paragraphs: checked as one text, kept as paragraphs. */
   var paras = String(raw == null ? '' : raw).split(/\n\s*\n/).map(function(t){ return t.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
-  var limits = e.kind === 'run' ? RESULT_RUN_LIMITS : null;
+  var limits = e.kind === 'run' ? RESULT_RUN_LIMITS : e.kind === 'recovery' ? RECOVERY_SAY_LIMITS : null;
   raw = paras.join(' ');
   /* The engine's full-length sentences only, as the server counts them. */
   var lines = [];
@@ -53956,6 +53984,14 @@ function resultSayValid(raw, ev){
     if (text.split(/\s+/).length > 25) return { ok:false, why:'week_too_long' };
   }
   if (e.kind === 'run' && paras.length > 3) return { ok:false, why:'too_many_paragraphs' };
+  /* A Recovery Check: two sentences, recovery said, no praise and nothing
+     medical -- the server's rules for kind 'recovery', to the letter. */
+  if (e.kind === 'recovery'){
+    if (RESULT_SAY_PRAISE.test(text)) return { ok:false, why:'praise_against_verdict' };
+    if (RECOVERY_SAY_MEDICAL.test(text)) return { ok:false, why:'medical' };
+    if (!RECOVERY_SAY_WORDS.test(text)) return { ok:false, why:'softens_recovery' };
+    if (text.split(/\s+/).length > 45) return { ok:false, why:'recovery_too_long' };
+  }
   return { ok:true, text: e.kind === 'run' ? paras.join('\n\n') : text };
 }
 /* ---------- ASKING, ONCE PER BODY OF EVIDENCE ---------- */
@@ -53976,6 +54012,7 @@ function resultSayStoreWrite(o){ try { window.localStorage.setItem(RESULT_SAY_KE
    Editing the log changes the key, and only then is it written again. */
 function resultSayKey(kind, x){
   try {
+    if (kind === 'recovery') return coachNoteHash(JSON.stringify({ k: x.key, v: x.line }));
     if (kind === 'run'){
       var r = coachReviewFor(x) || coachWorkoutReview(x);
       return coachNoteHash(JSON.stringify({ a: x.actual || {}, v: (r && r.executionVerdict) || '' }));
@@ -53985,6 +54022,7 @@ function resultSayKey(kind, x){
 }
 function resultSayRecord(kind, x){
   if (kind === 'run') return x && x.coachSay;
+  if (kind === 'recovery') return x && state.recoveryChecks && state.recoveryChecks[x.key] && state.recoveryChecks[x.key].say;
   return state.weekSay && state.weekSay[x];
 }
 /* The written words for this run or week, if held for what was logged. They
@@ -54021,11 +54059,15 @@ function resultSayFetch(kind, x){
     if (resultSayKey(kind, x) !== key) return null;
     var rec = { key: key, text: v.text, at: new Date().toISOString() };
     if (kind === 'run'){ var day = findDay(x.id) || x; day.coachSay = rec; }
+    else if (kind === 'recovery'){
+      state.recoveryChecks = state.recoveryChecks || {};
+      (state.recoveryChecks[x.key] = state.recoveryChecks[x.key] || { at: rec.at }).say = rec;
+    }
     else { state.weekSay = state.weekSay || {}; state.weekSay[x] = rec; }
     try { scheduleSave(); } catch(eS){}
     /* Drawn wherever these words are on screen now. */
     try {
-      var els = document.querySelectorAll('.rs-say[data-say="'+key+'"], .wc-prose[data-say="'+key+'"]');
+      var els = document.querySelectorAll('.rs-say[data-say="'+key+'"], .rck-say[data-say="'+key+'"], .wc-prose[data-say="'+key+'"]');
       Array.prototype.forEach.call(els, function(el){
         el.classList.add('is-swapping');
         setTimeout(function(){
@@ -54135,7 +54177,340 @@ function handleResultOk(dayId){
     openWeekResult(dd.week);
     return;
   }
+  /* A Recovery Check this run flagged follows on the same slide. */
+  if (maybeOpenRecoveryCheck('result')) return;
   closeModal();
+}
+/* =========================================================
+   RECOVERY CHECK
+   =========================================================
+   Founder, Phase 3 of the approved plan: recovery, only when flagged. A
+   glass sheet titled Recovery Check rises when one of four things is true,
+   and at no other time:
+     pain     a run in the last few days was logged with pain, or stopped
+              for injury or illness (the log's own answers, and
+              sessionCutShortFor() for a run cut short for either);
+     checkin  this morning's answers say heavy legs, poor sleep or under the
+              weather (coachReadinessToday(): today's, and only with consent);
+     hr       two or more easy runs this week averaged above their easy zone
+              (coachRecovery()'s own test, executionHRTarget(): nothing
+              without consent);
+     reading  Recovery reads Watch or Strained on the week's training
+              (coachRecovery().trainingState: the morning is the check-in's).
+   Otherwise nothing rises, and the Recovery panel on Coach still explains
+   the reading whenever it is opened.
+
+   ONCE. Each flag is keyed by what raised it and the evidence behind it
+   (state.recoveryChecks, kept with the plan). A key shown is never shown
+   again; new evidence is a new key.
+
+   ONE SHEET AT A TIME. Never over another sheet, the builder or the
+   arrival, and never while an injury or illness is already declared. After
+   a run it waits for Session Complete and Week Complete and rises from
+   their OK; after the check-in it rises once that sheet has gone, unless
+   the check-in was changed from Recovery, which it goes back to.
+
+   THE ENGINE DECIDES. The Suggested box and the primary button are the
+   engine's own offer for the next session -- the change Accept Adjustment
+   applies (coachAcceptAdjustment()) -- and appear only when there is one.
+   With nothing on offer the primary is Got It, or for pain or illness the
+   Injury or illness page that "Injured or ill?" on Today opens. The ghost
+   button keeps the plan.
+
+   THE WORDS. The engine's two sentences first, so the sheet is complete with
+   no network; a coach-written pair replaces them in place only if it passes
+   every check, through the same door as Session Complete
+   (resultSayFetch('recovery', ...)). */
+var RECOVERY_CHECK_PAIN_DAYS = 3;   /* a pain or illness log this recent still flags */
+var RECOVERY_CHECK_HR_MIN = 2;      /* coachDecision()'s own count for heart rate above zone */
+var RECOVERY_CHECK_BOUNDARY = 'I’m a running coach, not a doctor, and I can’t judge symptoms. ' +
+  'If something hurts, get it looked at properly, and see someone sooner if it is sharp, swelling or getting worse.';
+var RECOVERY_CHECK_TONE = {
+  pain:     { tone:'recovery', cls:'rs-tone-red',   label:'Rest and Get It Checked' },
+  first:    { tone:'recovery', cls:'rs-tone-red',   label:'Recovery First' },
+  ease:     { tone:'caution',  cls:'rs-tone-amber', label:'Ease Off Today' },
+  hot:      { tone:'caution',  cls:'rs-tone-amber', label:'Running Hotter Than Usual' },
+  watch:    { tone:'caution',  cls:'rs-tone-amber', label:'Worth Watching' }
+};
+var RECOVERY_CHECK_NOTED = { pain:'Pain', injury:'Injury or soreness', illness:'Illness' };
+var RECOVERY_CHECK_SAID = { legs:'heavy legs', sleep:'poor sleep', health:'feeling under the weather' };
+function recoveryCheckRuns(n){ return n + (n === 1 ? ' run' : ' runs'); }
+function recoveryCheckList(xs){ return xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]; }
+/* "Tuesday 17 November". */
+function recoveryCheckDay(iso){
+  return weeklyDayName(iso) + ' ' + Number(iso.slice(8, 10)) + ' ' + ['January','February','March','April','May','June',
+    'July','August','September','October','November','December'][Number(iso.slice(5, 7)) - 1];
+}
+/* "Saturday's long run", or "today's" and "yesterday's". */
+function recoveryCheckRunName(dd){
+  var today = todayStr();
+  var day = dd.date === today ? 'today' : dd.date === addDays(today, -1) ? 'yesterday' : weeklyDayName(dd.date);
+  return day + '’s ' + String((TYPE_META[dd.type] || {}).label || 'run').toLowerCase().replace(/^easy$/, 'easy run');
+}
+/* (c) PAIN OR ILLNESS ON A RECENT LOG. The answers on the log, never the
+   words in its notes: "Anything hurting?" answered Pain, a stop for injury
+   or illness, or a run cut short for either. All of them are health
+   answers, so nothing without consent. */
+function recoveryCheckPainFlag(){
+  if (!healthConsentGranted()) return null;
+  var today = todayStr();
+  var runs = coachDaysInWindow(addDays(today, -RECOVERY_CHECK_PAIN_DAYS), today).filter(function(dd){
+    return dd && dd.completed && dd.actual && dd.type !== 'rest';
+  }).sort(function(a, b){ return a.date < b.date ? 1 : -1; });
+  for (var i = 0; i < runs.length; i++){
+    var dd = runs[i], a = dd.actual;
+    var cut = sessionCutShortFor(dd);
+    var why = (a.stopReason === 'injury' || a.stopReason === 'illness') ? a.stopReason
+            : a.hurting === 'pain' ? 'pain'
+            : (cut === 'pain' || cut === 'illness') ? cut : null;
+    if (!why) continue;
+    var rows = [['You noted', RECOVERY_CHECK_NOTED[why]]];
+    var stopped = '';
+    try {
+      var shape = logShape(dd);
+      if (logCutShort(dd, shape)){
+        stopped = (shape.reps && a.repsDone != null)
+          ? 'Stopped at ' + a.repsDone + ' of ' + shape.reps + ' reps'
+          : 'Stopped at ' + kmToDisplay(a.km) + ' of ' + fmtDist(dd.km);
+      }
+    } catch(e){ stopped = ''; }
+    if (stopped) rows.push(['Session', stopped]);
+    var name = recoveryCheckRunName(dd);
+    return { kind:'pain', key:'pain:' + dd.date + ':' + why + (stopped ? ':short' : ''), rows: rows,
+      kick:'From your log of ' + name, about: name, boundary: true,
+      line: 'You logged ' + (why === 'illness' ? 'illness' : 'pain') + ' on ' + name +
+        (stopped ? ' and ' + stopped.charAt(0).toLowerCase() + stopped.slice(1) : '') + '. ' +
+        'Recovery comes first, so let it settle rather than testing it.' };
+  }
+  return null;
+}
+/* (a) THIS MORNING'S CHECK-IN. Today's three answers, as the athlete gave
+   them; coachReadinessToday() is null without consent. */
+function recoveryCheckCheckinFlag(rec){
+  var r = null;
+  try { r = coachReadinessToday(); } catch(e){ r = null; }
+  if (!r) return null;
+  var flagged = READINESS_QUESTIONS.filter(function(q){
+    return (q.key === 'legs' && r.legs === 'heavy') || (q.key === 'sleep' && r.sleep === 'poor') ||
+           (q.key === 'health' && r.health === 'under');
+  });
+  if (!flagged.length) return null;
+  var rows = flagged.map(function(q){
+    var o = q.options.filter(function(x){ return x[0] === r[q.key]; })[0];
+    return [q.label, o ? o[1] : ''];
+  });
+  if (rec && rec.overRPE > 0) rows.push(['Last 7 days', recoveryCheckRuns(rec.overRPE) + ' harder than set']);
+  if (rec && rec.overHR > 0) rows.push(['Heart rate', recoveryCheckRuns(rec.overHR) + ' above zone', 'health']);
+  var said = flagged.map(function(q){ return RECOVERY_CHECK_SAID[q.key]; });
+  var unwell = r.health === 'under';
+  return { kind:'checkin', key:'checkin:' + todayStr() + ':' + flagged.map(function(q){ return r[q.key]; }).join(','),
+    rows: rows, kick: recoveryCheckDay(todayStr()), boundary: unwell, unwell: unwell,
+    line: 'You reported ' + recoveryCheckList(said) + ' this morning' +
+      (rec && rec.overRPE > 0 ? ', after ' + recoveryCheckRuns(rec.overRPE) + ' harder than set this week' : '') + '.' };
+}
+/* (d) EASY RUNS RUNNING HOT. coachRecovery()'s own test, run by run: the
+   average heart rate over the ceiling of the zone the session prescribes,
+   where effort can be read at all (heat, hills and wind excuse it). Easy
+   runs only, and nothing without consent: executionHRTarget() is null. */
+function recoveryCheckHrFlag(){
+  if (!healthConsentGranted()) return null;
+  var today = todayStr();
+  var easy = coachDaysInWindow(addDays(today, -6), today).filter(function(dd){
+    if (!dd || !dd.completed || dd.type !== 'easy' || !dd.actual || dd.actual.hr == null) return false;
+    var z = executionHRTarget(dd);
+    return !!(z && z.hi != null && effortIsReadable(dd));
+  }).sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  var hot = easy.filter(function(dd){ return dd.actual.hr > executionHRTarget(dd).hi; });
+  if (hot.length < RECOVERY_CHECK_HR_MIN) return null;
+  var rows = [['Easy runs, last 7 days', String(easy.length), 'health'],
+              ['Heart rate above easy zone', hot.length + ' of ' + easy.length, 'health']];
+  var rated = easy.filter(function(dd){ return dd.actual.rpe != null && expectedRPEBand(dd); });
+  if (rated.length){
+    var over = rated.filter(function(dd){ return dd.actual.rpe > expectedRPEBand(dd)[1]; }).length;
+    rows.push(['Effort you reported', over ? 'Harder than set on ' + over : 'As set']);
+  }
+  var last = hot[hot.length - 1];
+  return { kind:'hr', key:'hr:' + hot.map(function(dd){ return dd.date; }).join(','), rows: rows,
+    kick:'After ' + recoveryCheckRunName(last), about: recoveryCheckRunName(last),
+    line: 'Your heart rate averaged above the easy zone on ' + (hot.length === easy.length ? 'each' : hot.length) +
+      ' of your last ' + easy.length + ' easy runs. Keep the next easy runs genuinely easy so recovery can catch up.' };
+}
+/* (b) THE RECOVERY READING ITSELF, on the week's training. */
+function recoveryCheckReadingFlag(rec){
+  if (!rec || (rec.trainingState !== 'watch' && rec.trainingState !== 'strained')) return null;
+  var rows = [['Recovery', rec.trainingState === 'strained' ? 'Strained' : 'Watch']];
+  if (rec.overRPE > 0) rows.push(['Effort above target', recoveryCheckRuns(rec.overRPE)]);
+  if (rec.overHR > 0) rows.push(['Heart rate above zone', recoveryCheckRuns(rec.overHR), 'health']);
+  if (rec.hardStreak >= 3) rows.push(['Hard days in a row', String(rec.hardStreak)]);
+  if (rec.stoppedTired > 0) rows.push(['Stopped for fatigue', rec.stoppedTired + (rec.stoppedTired === 1 ? ' session' : ' sessions')]);
+  else if (rec.fading) rows.push(['Recent ' + (FADE_FAMILY_NOUN[rec.fading.family] || 'quality sessions'),
+    (rec.fading.kind === 'recoveries' ? 'Longer recoveries in ' : rec.fading.kind === 'short' ? 'Fewer reps in ' : 'Faded in ') +
+    rec.fading.hits + ' of ' + rec.fading.of]);
+  var week = null;
+  try { week = currentWeekNum(); } catch(e){ week = null; }
+  return { kind:'reading', strained: rec.trainingState === 'strained', rows: rows, kick: recoveryCheckDay(todayStr()),
+    key:'reading:' + week + ':' + rec.trainingState + ':' + [rec.overRPE, rec.overHR, rec.hardStreak >= 3 ? rec.hardStreak : 0,
+      rec.stoppedTired, rec.fading ? rec.fading.lastDate : ''].join(','),
+    /* What the week's training shows, without the morning: that is the
+       check-in's to say. */
+    line: recoveryStrainSentence(Object.assign({}, rec, { morning: null })) };
+}
+/* THE ENGINE'S OFFER, if it has one: exactly what Accept Adjustment would
+   apply to the next session, read without applying it. */
+function recoveryCheckOffer(){
+  var report = null;
+  try { report = coachAnalyse(); } catch(e){ report = null; }
+  if (!report || !report.nextMove) return null;
+  var dd = findDay(report.nextMove.dayId);
+  if (!dd || dd.completed || dd.coachAdjust || dd.coachKeptAt) return null;
+  var adj = coachAcceptAdjustment(report, dd.id);
+  if (!adj) return null;
+  /* Named by type and distance, as the mock has it: "Tempo 8km". */
+  var name = (TYPE_META[dd.type] || {}).label || 'Session';
+  var easy = adj.kind === 'downgrade';
+  return { dayId: dd.id, date: dd.date, kind: adj.kind,
+    when: dd.date === todayStr() ? '' : weeklyDayName(dd.date),
+    from: name + ' ' + fmtDist(dd.km),
+    to: (easy ? ((TYPE_META[adj.type] || {}).label || 'Easy') : name) + ' ' + fmtDist(adj.km),
+    change: easy ? 'run it easy instead' : 'shorten',
+    button: 'Run ' + fmtDist(adj.km) + (easy ? ' Easy' : ' Instead') };
+}
+/* Everything flagged right now, most serious first, and the one sheet that
+   says it. Null when nothing is flagged. */
+function recoveryCheckFlags(){
+  if (!state.setup || !state.days || !state.days.length) return [];
+  var rec = null;
+  try { rec = coachRecovery(); } catch(e){ rec = null; }
+  var out = [];
+  [function(){ return recoveryCheckPainFlag(); }, function(){ return recoveryCheckCheckinFlag(rec); },
+   function(){ return recoveryCheckHrFlag(); }, function(){ return recoveryCheckReadingFlag(rec); }]
+    .forEach(function(f){ var x = null; try { x = f(); } catch(e){ x = null; } if (x) out.push(x); });
+  return out;
+}
+function recoveryCheckBuild(flags){
+  if (!flags || !flags.length) return null;
+  var lead = flags[0];
+  var offer = recoveryCheckOffer();
+  var today = todayStr();
+  var tone = lead.kind === 'pain' ? RECOVERY_CHECK_TONE.pain
+    : lead.kind === 'hr' ? RECOVERY_CHECK_TONE.hot
+    : (lead.unwell || lead.strained) ? RECOVERY_CHECK_TONE.first
+    : (lead.kind === 'checkin' && offer && offer.date === today) ? RECOVERY_CHECK_TONE.ease
+    : RECOVERY_CHECK_TONE.watch;
+  /* The second sentence: what recovery needs, and never more than the
+     engine offers. */
+  var then = lead.kind === 'pain' || lead.kind === 'hr' ? ''
+    : tone.tone === 'recovery' ? 'Recovery comes first, so this is not the time to push.'
+    : offer ? 'Easing off lets your recovery catch up.'
+    : 'Worth watching for your recovery, but on its own it does not change the plan.';
+  return { kind: lead.kind, key: lead.key, keys: flags.map(function(f){ return f.key; }),
+    kick: lead.kick, about: lead.about || null, rows: lead.rows, tone: tone,
+    line: lead.line + (then ? ' ' + then : ''), offer: offer, boundary: !!lead.boundary };
+}
+/* The flags not yet shown, as one sheet, or null. */
+function recoveryCheckDue(){
+  var flags = recoveryCheckFlags();
+  var seen = state.recoveryChecks || {};
+  if (!flags.some(function(f){ return !seen[f.key]; })) return null;
+  return recoveryCheckBuild(flags);
+}
+/* ---------- THE PACKET ----------
+   The trigger, the rows as drawn, the engine's verdict and its offer.
+   Never the notes (no row is built from them), heart rate only with
+   consent, and nothing at all for an athlete whose record holds a
+   Strava-derived day: resultSayEvidence() refuses before this is asked. */
+function recoveryCheckEvidence(rc){
+  if (!rc) return null;
+  var consent = healthConsentGranted();
+  return { kind:'recovery', units: displayUnit(), trigger: rc.kind, about: rc.about || null,
+    reasons: rc.rows.filter(function(r){ return consent || r[2] !== 'health'; })
+      .map(function(r){ return { label: r[0], value: r[1] }; }),
+    verdict: { tone: rc.tone.tone, label: rc.tone.label, line: rc.line },
+    suggestion: rc.offer ? { change: rc.offer.change, day: rc.offer.when || 'today',
+      from: rc.offer.from, to: rc.offer.to } : null,
+    healthInformation: consent ? 'included' : 'withheld' };
+}
+function recoveryCheckHtml(rc){
+  var o = rc.offer, btn;
+  if (o){
+    btn = '<button type="button" class="btn btn-primary btn-block" data-action="recovery-check-accept" data-day="'+o.dayId+'">'+escapeHtml(o.button)+'</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="recovery-check-keep" data-day="'+o.dayId+'">'+
+        (rc.boundary ? 'I’m Fine, Keep the Plan' : 'Keep the Plan')+'</button>';
+  } else if (rc.boundary){
+    btn = '<button type="button" class="btn btn-primary btn-block" data-action="recovery-check-injury">Injured or Ill?</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="recovery-check-ok">I’m Fine, Keep the Plan</button>';
+  } else {
+    btn = '<button type="button" class="btn btn-primary btn-block" data-action="recovery-check-ok">Got It</button>';
+  }
+  return '<div class="modal-head"><h2 class="font-head">Recovery Check</h2></div>'+
+    '<div class="modal-body rck-body">'+
+      '<div class="rck-top"><div class="rs-kick">'+escapeHtml(rc.kick)+'</div>'+
+        '<div class="rs-tone '+rc.tone.cls+'"><span class="rs-dot" aria-hidden="true"></span>'+escapeHtml(rc.tone.label)+'</div></div>'+
+      '<div class="rck-why">'+rc.rows.map(function(r){
+        return '<div class="rck-why-row"><span class="rck-why-k">'+escapeHtml(r[0])+'</span><span class="rck-why-v">'+escapeHtml(r[1])+'</span></div>';
+      }).join('')+'</div>'+
+      resultSayHtml('recovery', rc, rc.line).replace('class="rs-say"', 'class="rck-say"')+
+      (o ? '<div class="rck-swap" role="group" aria-label="'+escapeHtml('Suggested: '+o.from+' becomes '+o.to)+'">'+
+        '<div class="rck-swap-k">Suggested'+(o.when ? ' for '+escapeHtml(o.when) : '')+'</div>'+
+        '<span class="rck-swap-was">'+escapeHtml(o.from)+'</span> <span class="rck-swap-arrow" aria-hidden="true">→</span> '+
+        '<span class="rck-swap-now">'+escapeHtml(o.to)+'</span></div>' : '')+
+      '<div class="rck-btns">'+btn+'</div>'+
+      (rc.boundary ? '<p class="rck-safe">'+escapeHtml(RECOVERY_CHECK_BOUNDARY)+'</p>' : '')+
+    '</div>';
+}
+function openRecoveryCheck(rc){
+  if (!rc) return false;
+  state.recoveryChecks = state.recoveryChecks || {};
+  var at = new Date().toISOString();
+  rc.keys.forEach(function(k){ if (!state.recoveryChecks[k]) state.recoveryChecks[k] = { at: at }; });
+  /* Kept short: the newest forty keys are all any flag can still match. */
+  var keys = Object.keys(state.recoveryChecks);
+  if (keys.length > 40) keys.sort(function(a, b){
+    return String(state.recoveryChecks[a].at) < String(state.recoveryChecks[b].at) ? -1 : 1;
+  }).slice(0, keys.length - 40).forEach(function(k){ delete state.recoveryChecks[k]; });
+  scheduleSave();
+  openModal(recoveryCheckHtml(rc), 'modal-themed stg-sheet rck-sheet');
+  try { resultSayFetch('recovery', rc); } catch(e){}
+  return true;
+}
+/* WHERE IT MAY NOT RISE. `after` is the sheet it follows: 'result' may
+   replace Session Complete or Week Complete, 'checkin' follows the check-in
+   once it has gone, and 'auto' is the app raising it itself on opening. */
+function recoveryCheckBlocked(after){
+  if (!state.setup || !state.days || !state.days.length) return true;
+  try { if (openRestriction()) return true; } catch(eR){}
+  try { if (shouldShowProgrammeEntry(resolveAppState())) return true; } catch(eA){}
+  if (typeof document === 'undefined' || !document.getElementById) return true;
+  var ov = document.getElementById('modal-overlay');
+  if (ov && !(after === 'result' && ov.querySelector && ov.querySelector('.rs-sheet'))) return true;
+  if (document.getElementById('weekly-sheet') || document.getElementById('ask-sheet')) return true;
+  if (after === 'auto' && document.querySelector && document.querySelector('.modal-overlay.is-leaving')) return true;
+  return false;
+}
+function maybeOpenRecoveryCheck(after){
+  if (recoveryCheckBlocked(after)) return false;
+  var rc = recoveryCheckDue();
+  if (!rc) return false;
+  /* Closing the check-in raises only what the check-in itself flagged. */
+  if (after === 'checkin' && !rc.keys.some(function(k){ return k.indexOf('checkin:') === 0; })) return false;
+  return openRecoveryCheck(rc);
+}
+/* On opening, on Today, with nothing else up: after the check-in it waits
+   for and after the weekly sheet, as those two wait for each other. */
+function maybeRaiseRecoveryCheck(arriving){
+  if (arriving || state.view !== 'today' || !autoSheetsOpen()) return;
+  if (!state.setup || !state.days || !state.days.length) return;
+  if (healthConsentGranted() && !readinessIsComplete(coachReadinessToday()) && !checkinSheetRaised[todayStr()]) return;
+  maybeOpenRecoveryCheck('auto');
+}
+/* The buttons: the existing engine actions, after the sheet has gone. */
+function handleRecoveryCheckAccept(dayId){
+  closeModal();
+  vtAccept(dayId, function(){ handleCoachAccept(dayId); });
+}
+function handleRecoveryCheckKeep(dayId){
+  closeModal();
+  handleCoachKeep(dayId);
 }
 var COACH_GENERIC_CLOSERS = [
   'Everything landed on the numbers it was set to hit.',
@@ -54277,24 +54652,32 @@ function coachAnalyse(){
    Accepting rewrites the day and records what it was before, so the change is
    visible and reversible. The record is additive: a workout without it behaves
    exactly as it always did. */
-function handleCoachAccept(dayId){
-  var report = coachAnalyse();
-  if (!report || !report.nextMove) return;
-  if (report.nextMove.dayId !== dayId) return;   // report moved on; do nothing
+/* WHAT ACCEPTING WOULD DO, asked without doing it: the Recovery Check
+   shows this exact change before the athlete taps it, so the panel and the
+   tap cannot disagree. Null when there is nothing to accept. */
+function coachAcceptAdjustment(report, dayId){
+  if (!report || !report.nextMove) return null;
+  if (report.nextMove.dayId !== dayId) return null;   // report moved on; do nothing
   var dd = findDay(dayId);
-  if (!dd) return;
+  if (!dd) return null;
   var dec = report.decision;
-  if (report.nextMove.checkpoint || isTestSession(dd.type) || dd.type === 'checkpoint') return;
+  if (report.nextMove.checkpoint || isTestSession(dd.type) || dd.type === 'checkpoint') return null;
   var weekCut = (state.days || []).some(function(x){
     return x && x.week === dd.week && x.weeklyAdjust && /^(hold|reload|recovery|protect)/.test(x.weeklyAdjust.kind || ''); });
   // Either the long-standing signal-driven proposal, or the same offer raised
   // from accumulated evidence. Both are reductions, both need this tap.
-  var adj = report.nextMove.adjustment ||
+  return report.nextMove.adjustment ||
     (dec && dec.state==='modify' && dec.quality && !weekCut
       ? { kind:'reduce', km:Math.max(1, Math.round(dd.km*0.75*2)/2), type:dd.type,
           title:dd.title, reason:dec.reasons[0] }
       : null);
+}
+function handleCoachAccept(dayId){
+  var report = coachAnalyse();
+  var adj = coachAcceptAdjustment(report, dayId);
   if (!adj) return;
+  var dd = findDay(dayId);
+  var dec = report.decision;
   dd.coachAdjust = {
     at: new Date().toISOString(),
     reason: adj.reason,
@@ -64383,6 +64766,10 @@ function closeModal(){
     checkinReturnToRecovery = false;
     setTimeout(function(){ try { openHQPanel('recovery'); } catch(e){} }, 0);
   }
+  /* A check-in that flagged recovery is followed by the Recovery Check, once
+     the check-in has gone (and not when another page replaced it). */
+  else if (wasCheckin && !modalSwapping)
+    setTimeout(function(){ try { maybeOpenRecoveryCheck('checkin'); } catch(e){} }, MODAL_LEAVE_MS + 40);
   if (wasBuilder && planHasContent() && state.setup && state.setup.experienceBuiltFor &&
       state.setup.experienceBuiltFor !== state.setup.experience)
     setTimeout(function(){ try { maybeAskExperienceRebuild(); } catch(e){} }, 0);
@@ -75045,7 +75432,11 @@ function handleLogSave(dayId){
   patchTodayTray();
   /* SESSION COMPLETE, once the log has folded away: the panel reads the
      figures that were just saved, never a run with nothing in it yet. */
-  setTimeout(function(){ try { if (!document.getElementById('modal-overlay')) maybeOpenSessionResult(findDay(dayId)); } catch(e){} }, 1000);
+  setTimeout(function(){ try {
+    /* And a Recovery Check this run flagged, when Session Complete is not
+       due (it follows that panel's OK when it is). */
+    if (!document.getElementById('modal-overlay') && !maybeOpenSessionResult(findDay(dayId))) maybeOpenRecoveryCheck('log');
+  } catch(e){} }, 1000);
 }
 /* An answer changed: the log is unsaved again until Save is pressed. */
 function markLogEdited(dayId){
@@ -82244,6 +82635,7 @@ function renderApp(){
   wireWeekDayPager();
   try { maybeRaiseCheckinSheet(arriving); } catch(e){}
   try { maybeRaiseWeeklyReview(arriving); } catch(e){}
+  try { maybeRaiseRecoveryCheck(arriving); } catch(e){}
   try { maybeRaiseThresholdTestOffer(arriving); } catch(e){}
   /* Last, and never waited for: the screen above is already complete. */
   try { coachNoteMaybeFetch(); } catch(e){}
@@ -84350,6 +84742,10 @@ document.addEventListener('click', function(e){
     case 'today-log-run': handleTodayLogRun(target.getAttribute('data-day')); break;
     case 'log-save': handleLogSave(target.getAttribute('data-day')); break;
     case 'result-ok': handleResultOk(target.getAttribute('data-day')); break;
+    case 'recovery-check-accept': handleRecoveryCheckAccept(target.getAttribute('data-day')); break;
+    case 'recovery-check-keep': handleRecoveryCheckKeep(target.getAttribute('data-day')); break;
+    case 'recovery-check-injury': handleInjuryHint(); break;
+    case 'recovery-check-ok': closeModal(); break;
     case 'log-undo': handleLogUndo(target.getAttribute('data-day')); break;
     case 'voice-stop': handleVoiceStopPress(); break;
     case 'set-coach-voice': handleSetCoachVoice(target.getAttribute('data-voice')); break;

@@ -1,7 +1,8 @@
-// The coach's word on a finished run or a finished week. The third thing
-// Sacoro asks a language model for, through the same door as the other two.
+// The coach's word on a finished run, a finished week or a Recovery Check.
+// The third thing Sacoro asks a language model for, through the same door as
+// the other two.
 //
-//   POST { kind: 'run' | 'week', evidence } -> { text }   passed every check
+//   POST { kind: 'run' | 'week' | 'recovery', evidence } -> { text }   passed every check
 //                                           -> { text: null, code }  anything
 //                                              else; the panel keeps the
 //                                              engine's own sentence
@@ -35,7 +36,7 @@ const MEM = require('./_coach-memory-lines.js');
 
 const EXPLAIN_MAX_TOKENS = 16000;   // thinking is drawn from this; not a target
 const EVIDENCE_MAX_CHARS = 6000;
-const KINDS = ['run', 'week'];
+const KINDS = ['run', 'week', 'recovery'];
 const TONES = ['positive', 'neutral', 'caution', 'recovery'];
 
 const STYLE = [
@@ -74,6 +75,22 @@ const STYLE_WEEK = STYLE.slice(0, STYLE.indexOf('')).map(l => l
            '','The figures are shown right above your sentence: say what the week amounted to, quoting',
            'at most one figure, and mention next week only if it fits in the same sentence.']);
 const WEEK_MAX_WORDS = 25;
+/* A RECOVERY CHECK IS TWO SENTENCES (founder, Phase 3: "only when flagged").
+   The reasons are listed right above the words, and the engine's suggestion,
+   if it has one, right below: the words say what they add up to. */
+const STYLE_RECOVERY = STYLE.slice(0, STYLE.indexOf('')).map(l => l
+  .replace('Two or three short sentences, at most 50 words, one paragraph.', 'At most TWO sentences and 45 words, one paragraph.'))
+  .concat(['',
+           'THE REGISTER, BY EXAMPLE (not about this athlete):',
+           '  "Heavy legs and a short night on top of a hard week is a body asking for a lighter day,',
+           '  so let recovery catch up before the next hard session."',
+           '','The reasons are shown right above your words: say what they add up to and what recovery',
+           'needs, quoting at most one figure. If evidence.suggestion is present, it is the change',
+           'SACORO offers; you may mention it, in its words, and nothing beyond it. Never name a',
+           'condition, never say what a symptom is, and never send the athlete to anyone: a fixed',
+           'line under your words already does that.']);
+const RECOVERY_MAX_WORDS = 45;
+const RECOVERY_LIMITS = { maxChars: 340, maxSentences: 2 };
 const RULES = [
   'HARD RULES.',
   '1. Use only facts in evidence. Never state a number, pace, distance, time, heart rate, day or',
@@ -114,12 +131,28 @@ const SYSTEM = {
     'verdict -- what Sacoro\'s own coaching engine has ALREADY concluded about the week. If',
     'evidence.nextWeek is present, it is what the plan does next week; mention it last, briefly.',
     ''
-  ].concat(RULES, [''], STYLE_WEEK).join('\n')
+  ].concat(RULES, [''], STYLE_WEEK).join('\n'),
+  recovery: [
+    'You are the running coach in the Sacoro app. Something in the athlete\'s training or this',
+    'morning\'s check-in has flagged their recovery, and you are writing the few words on the',
+    'Recovery Check panel.',
+    '',
+    'WHAT YOU ARE GIVEN. A JSON object called evidence: what flagged it (trigger), the reasons as',
+    'the panel lists them, verdict -- what Sacoro\'s own coaching engine has ALREADY concluded --',
+    'and, only if the engine offers one, suggestion: the change it offers, as from and to.',
+    ''
+  ].concat(RULES, [''], STYLE_RECOVERY).join('\n')
 };
 
 const PRAISE = /\b(?:great|brilliant|excellent|perfect(?:ly)?|superb|fantastic|amazing|awesome|nailed|crushed|smashed|spot[- ]on|well done|good job|textbook|impressive)\b/i;
 const WORRY = /\b(?:worr\w*|concern\w*|struggl\w*|too hard|overcook\w*|overdid|overdone|fatigued?|warning)\b/i;
 const RECOVERY_WORDS = /\b(?:recover\w*|rest\w*|back off|ease off|easy)\b/i;
+/* A Recovery Check must say recovery or easing, whatever its tone. */
+const RECOVERY_CHECK_WORDS = /\b(?:recover\w*|rest\w*|back off|eas(?:e|es|ed|ing|ier|y)|lighter)\b/i;
+/* No medical advice and no diagnosis, said more widely than a note needs:
+   pain and illness are what this panel is about. The boundary sentence under
+   the words is fixed copy; the words never stand in for it. */
+const RECOVERY_MEDICAL = /\b(?:doctor|physio\w*|GP|clinician|medic\w*|treatment|icing|ice it|stretch\w*|foam[- ]roll\w*|massage|sprain\w*|tendon\w*|tendinitis|fractur\w*|shin splints|infection|virus|viral|flu|covid|a cold|fever|supplement\w*|vitamin\w*)\b/i;
 
 /* THE CHECK. Returns { ok:true, text } or { ok:false, why }. Pure, so the copy
    the browser runs (resultSayValid() in the app) can be held to the same cases. */
@@ -167,7 +200,8 @@ function validateExplain(raw, evidence){
   const paras = String(raw == null ? '' : raw).split(/\n\s*\n/).map(t => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
   raw = paras.join(' ');
   const shown = (Array.isArray(ev.alreadyOnScreen) ? ev.alreadyOnScreen : []).concat(engineLines(ev));
-  const base = NOTE.validateNote(raw, Object.assign({}, ev, { alreadyOnScreen: shown }), ev.kind === 'run' ? RUN_LIMITS : null);
+  const base = NOTE.validateNote(raw, Object.assign({}, ev, { alreadyOnScreen: shown }),
+    ev.kind === 'run' ? RUN_LIMITS : ev.kind === 'recovery' ? RECOVERY_LIMITS : null);
   if (!base.ok) return base.why === 'duplicate' ? { ok: false, why: 'copied_engine' } : base;
   const text = base.note;
   if (/!/.test(text)) return { ok: false, why: 'exclamation' };
@@ -181,6 +215,12 @@ function validateExplain(raw, evidence){
     if (text.split(/\s+/).length > WEEK_MAX_WORDS) return { ok: false, why: 'week_too_long' };
   }
   if (ev.kind === 'run' && paras.length > 3) return { ok: false, why: 'too_many_paragraphs' };
+  if (ev.kind === 'recovery'){
+    if (PRAISE.test(text)) return { ok: false, why: 'praise_against_verdict' };
+    if (RECOVERY_MEDICAL.test(text)) return { ok: false, why: 'medical' };
+    if (!RECOVERY_CHECK_WORDS.test(text)) return { ok: false, why: 'softens_recovery' };
+    if (text.split(/\s+/).length > RECOVERY_MAX_WORDS) return { ok: false, why: 'recovery_too_long' };
+  }
   return { ok: true, text: ev.kind === 'run' ? paras.join('\n\n') : text };
 }
 /* `memoryBlock` sits AFTER the evidence and outside it: it is not counted
@@ -268,4 +308,5 @@ async function handle(req, res, deps){
   return V.json(res, 200, { text: verdict.text });
 }
 
-module.exports = { handle, validateExplain, engineLines, FLAGS, explainPayload, SYSTEM, KINDS, TONES, PRAISE, WORRY };
+module.exports = { handle, validateExplain, engineLines, FLAGS, explainPayload, SYSTEM, KINDS, TONES, PRAISE, WORRY,
+                   RECOVERY_CHECK_WORDS, RECOVERY_MEDICAL };

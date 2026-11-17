@@ -173,6 +173,7 @@ const WORK_SURFACES = [
      OK, or a tap above the sheet, closes either. */
   ['openSessionResult', 'the Session Complete panel'],
   ['openWeekResult', 'the Week Complete panel'],
+  ['openRecoveryCheck', 'the Recovery Check panel'],
 ];
 
 /* The other side of the classification, and the reason the count is a rule
