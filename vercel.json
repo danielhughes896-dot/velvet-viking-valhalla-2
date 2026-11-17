@@ -37,6 +37,7 @@
     { "src": "/api/voice-enabled", "dest": "/api/voice?route=voice-enabled" },
     { "src": "/api/voice-tts", "dest": "/api/voice?route=voice-tts" },
     { "src": "/api/voice-note", "dest": "/api/voice?route=voice-note" },
+    { "src": "/api/voice-explain", "dest": "/api/voice?route=voice-explain" },
 
     { "src": "/start", "dest": "/start.html" },
     { "src": "/account", "dest": "/account.html" },

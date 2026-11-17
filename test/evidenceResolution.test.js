@@ -285,6 +285,6 @@ test('an athlete who logged nothing usable is still asked for more', () => {
   dd.completed = true;
   dd.actual = {};
   assert.equal(a.computeCompletionAssessment(dd), null);
-  assert.match(a.renderExecutionReview(dd), /Log actual/,
+  assert.match(a.renderExecutionReview(dd), /Log your distance and average pace/,
     'an empty log stopped prompting');
 });

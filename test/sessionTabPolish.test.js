@@ -326,13 +326,15 @@ test('the spoken debrief keeps the verdict paragraph it reads aloud', () => {
     'debrief now reads something else aloud');
 });
 
-test('the review head is withheld when nothing is left under it', () => {
+test('there is no review head to leave empty: the analysis is prose', () => {
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections. This guarded a heading left over an empty body at brief depth;
+     with no headings at all, what remains to guard is that an empty set of
+     paragraphs draws nothing. */
   const i = SRC.indexOf('var analysisBody =');
   assert.ok(i > -1);
   const block = SRC.slice(i, i + 600);
-  assert.match(block, /\(body\s*\?/,
-    'at brief depth the budget is one paragraph -- the verdict\'s own -- so ' +
-    'the review can be left with a heading, a score badge and white space');
+  assert.doesNotMatch(block, /Execution Review/, 'a heading came back into the analysis');
+  assert.match(SRC, /if \(!paras\.length\) return '';/, 'empty paragraphs would draw an empty box');
 });
 
 function F(){

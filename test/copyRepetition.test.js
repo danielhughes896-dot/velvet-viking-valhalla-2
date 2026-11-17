@@ -156,7 +156,13 @@ test('no single coaching sentence dominates a fortnight of cards', () => {
      rather than a quiet edit. What this guards is that a FOURTH does not
      appear -- which is exactly what the heart-rate note was doing at 43 of 43
      until it was suppressed. */
-  const KNOWN = [/running above target across the week/,
+  /* 4. "It felt harder than intended." -- the run's own logged fact, said as a
+     sentence since the analysis became prose (founder, 17 November 2026:
+     "normal flowing English"). It lands on every card here only because this
+     fixture logs every session at RPE 6, exactly as #3 lands identically
+     because every pace is the same: a real athlete's runs differ. */
+  const KNOWN = [/^It felt (?:harder|easier) than intended\.$/,
+                 /running above target across the week/,
                  /Prioritise recovery before the next quality session/,
                  /Executed at \d+% of the prescribed session/];
   const unexpected = blanket.filter(([s]) => !KNOWN.some(re => re.test(s)));

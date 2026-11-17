@@ -87,6 +87,7 @@ synthesis whenever that vendor is absent, slow or failing.
 | `VVV_VOICE_ENABLED` | no | **SWITCH.** Off = Ask Coach is not offered and `/api/voice-ask` refuses. Deliberately separate from "is the key set", so *switched off on purpose* and *misconfigured* are never the same log line. Default off. | as configured | you |
 | `ANTHROPIC_API_KEY` | **YES** | Authenticates the Ask Coach model call. Server-side only — it is read in `api/_voice.js` and never reaches the browser. | for Ask Coach | console.anthropic.com → API keys |
 | `VVV_VOICE_MODEL` | no | Overrides the model id. Leave unset; the pinned default is `claude-opus-5`, verified 2026-08-26 against the official model list, and is what the prompt and the cost estimate were written against. | unset | — |
+| `VVV_NOTE_MODEL` | no | Overrides the model that writes the routine coach paragraphs: a run's Sacoro Analysis and the Week Complete sentence (`/api/voice-explain`). Leave unset; the default is `claude-haiku-5-5`, chosen by a side-by-side test against Claude Sonnet 5.5 on 49 run and week packets (16 November 2026). Set `claude-sonnet-5-5` for its voice at about twenty times the cost. Switched on and off with `VVV_VOICE_ENABLED`. | unset | — |
 
 ### Hear Today — the premium coach voice (ElevenLabs)
 

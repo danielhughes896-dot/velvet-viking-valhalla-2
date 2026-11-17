@@ -168,6 +168,11 @@ const WORK_SURFACES = [
      is opened by maybeOpenContextInsight() rather than by an open*Modal()
      name because the athlete does not summon it; a transition does. */
   ['maybeOpenContextInsight', 'the Context Insight explanation'],
+  /* Session Complete and Week Complete (founder: bottom glass panels for
+     every pop-up). Nothing to answer and nothing lost by dismissing them:
+     OK, or a tap above the sheet, closes either. */
+  ['openSessionResult', 'the Session Complete panel'],
+  ['openWeekResult', 'the Week Complete panel'],
 ];
 
 /* The other side of the classification, and the reason the count is a rule
@@ -176,10 +181,15 @@ const WORK_SURFACES = [
    the transient decision .modal-card's fixed dark ramp was written for, and
    its deliberate difference from the surface behind it is what marks it as a
    thing that has to be answered. */
-test('a modal that must interrupt keeps the fixed dark ramp', () => {
+/* NOW A BOTTOM GLASS PANEL LIKE EVERY OTHER QUESTION (founder, of every
+   pop-up: "Yeh use them for all"). What still marks it as a thing that must
+   be answered is that it has no close control: a sheet swipes away only
+   through its own X (pageSwipeCloseOf), so with none it cannot be flicked
+   off either. */
+test('the modal that must interrupt is a glass sheet with no way out but an answer', () => {
   const body = fnBody('openCloudConflictModal');
-  assert.doesNotMatch(body, /modal-themed/,
-    'the one modal that must interrupt now looks like the ones that do not');
+  assert.match(body, /'modal-themed stg-sheet'/,
+    'the forced choice is not drawn as the glass bottom sheet every other question is');
   assert.doesNotMatch(body, /data-action="close-modal"/,
     'it grew a close control -- if it can be dismissed it is no longer a forced choice');
 });
@@ -245,7 +255,7 @@ test('a modal that does not opt in keeps the fixed dark ramp', () => {
      quietly becoming the default for every confirm, and it names the offender
      instead of reporting an off-by-one. */
   const themed = openModalCallers().filter(([, on]) => on).map(([n]) => n).sort();
-  const declared = WORK_SURFACES.map(w => w[0]).sort();
+  const declared = WORK_SURFACES.map(w => w[0]).concat([DELIBERATE_INTERRUPT]).sort();
   assert.deepEqual(themed, declared,
     'themed modals and declared work surfaces disagree.\n  themed:   ' +
     themed.join(', ') + '\n  declared: ' + declared.join(', '));

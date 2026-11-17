@@ -8667,11 +8667,14 @@
      phase and quietly stop holding on every other. */
   .view-plan .pp-body .week.is-now{
     border-radius:var(--radius); 
-    /* Glass: see GLASS, BEYOND THE TAB BAR at the end of this sheet. The
-       tokens are declared there; this row keeps its one rule. */
-    background:var(--glass-sheen), var(--glass-tint);
-    -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur);
-    box-shadow:0 0 26px 2px color-mix(in srgb, var(--cherry) 26%, transparent), var(--glass-rim);
+    /* THE SAME 12% GLASS AS THE SHEETS (founder, of this bar: "can you make
+       it the same as the other glass, 12%?"). It wore the older 26% tint,
+       which read as a dark capsule against the page. The sheet tokens are
+       declared in GLASS SHEETS further down; the cherry glow stays because
+       cherry is how SACORO marks now. */
+    background:var(--sheet-glass);
+    -webkit-backdrop-filter:var(--sheet-blur); backdrop-filter:var(--sheet-blur);
+    box-shadow:0 0 26px 2px color-mix(in srgb, var(--cherry) 26%, transparent), var(--sheet-light);
     padding-left:10px; padding-right:10px;
     margin-left:-10px; margin-right:-10px;}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
@@ -12133,6 +12136,22 @@
     --sheet-light:inset 0 1.5px 0 rgba(255,255,255,.50), inset 0 24px 30px -26px rgba(255,255,255,.35);
   }
   .modal-overlay:has(> .stg-sheet), .modal-overlay:has(> .hq-full), .tw-layer{background:var(--sheet-scrim);}
+  /* THE DATE PICKER IS A BOTTOM GLASS PANEL TOO (founder, of every pop-up:
+     "Yeh use them for all"). It was the one centred card left: the month
+     now rises from the bottom edge in the sheets' 12% glass, under the same
+     lit top edge, and the scrim is the sheets' scrim. */
+  .vvcal-scrim{align-items:flex-end; padding:0; background:var(--sheet-scrim);}
+  .vvcal{max-width:560px; border:0; position:relative;
+    border-radius:24px 24px 0 0; background:var(--sheet-glass);
+    -webkit-backdrop-filter:var(--sheet-blur); backdrop-filter:var(--sheet-blur);
+    box-shadow:var(--sheet-light), 0 -20px 60px rgba(0,0,0,.5);
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+    animation:slideup .34s cubic-bezier(.2,.8,.2,1);}
+  .vvcal::before{content:''; position:absolute; inset:0; z-index:4;
+    border-radius:inherit; pointer-events:none; padding:1px;
+    background:linear-gradient(180deg, rgba(255,255,255,.70), rgba(255,255,255,.14) 16%, rgba(255,255,255,.05) 55%, rgba(255,255,255,0));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite:exclude;}
   .modal-card.stg-sheet, .tw-sheet, .modal-overlay:has(> .hq-full) > .hq-full{
     background:var(--sheet-glass);
     -webkit-backdrop-filter:var(--sheet-blur); backdrop-filter:var(--sheet-blur);
@@ -12207,16 +12226,16 @@
   /* Where glass cannot be drawn, or the athlete has asked for less
      transparency, the sheet is the solid surface it used to be. */
   @supports not ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
-    .modal-card.stg-sheet, .tw-sheet, .modal-overlay:has(> .hq-full) > .hq-full,
+    .modal-card.stg-sheet, .tw-sheet, .vvcal, .modal-overlay:has(> .hq-full) > .hq-full,
     .modal-card.stg-sheet.es-sheet > .modal-head, .wr-sheet > .tw-head,
     .modal-card.es-sheet .es-actions, .wr-sheet > .wr-acts{background:rgba(18,19,22,.96);}
   }
   @media (prefers-reduced-transparency: reduce){
-    .modal-card.stg-sheet, .tw-sheet, .modal-overlay:has(> .hq-full) > .hq-full,
+    .modal-card.stg-sheet, .tw-sheet, .vvcal, .modal-overlay:has(> .hq-full) > .hq-full,
     .modal-card.stg-sheet.es-sheet > .modal-head, .wr-sheet > .tw-head,
     .modal-card.es-sheet .es-actions, .wr-sheet > .wr-acts{background:rgba(18,19,22,.96);
       -webkit-backdrop-filter:none; backdrop-filter:none;}
-    .modal-overlay:has(> .stg-sheet), .modal-overlay:has(> .hq-full), .tw-layer{background:rgba(8,8,11,.65);}
+    .modal-overlay:has(> .stg-sheet), .modal-overlay:has(> .hq-full), .tw-layer, .vvcal-scrim{background:rgba(8,8,11,.65);}
   }
   /* ---------- THE TODAY TRAY (see renderTodayTray) ----------
      The tab bar's own glass, one pane above it with the same inset and
@@ -12353,6 +12372,42 @@
      lettering is for the brand and for milestones, and an amber or bronze
      label read as gold. */
   .day-badge[class*="type-"]{color:#FFFFFF;}
+  /* ---------- SESSION COMPLETE AND WEEK COMPLETE ----------
+     Plain glass, a white ring and white labels; colour only in the tone dot
+     (the coach's own signal colours) and cherry only on OK. */
+  .rs-body{display:flex; flex-direction:column; align-items:center; text-align:center; gap:12px;
+    padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px));}
+  .rs-kick{font-family:var(--label-face); font-size:var(--label-size); letter-spacing:var(--label-track);
+    font-weight:var(--label-weight); text-transform:uppercase; color:#FFFFFF;}
+  .rs-ring{position:relative; width:150px; height:150px;}
+  .rs-ring svg{width:100%; height:100%; transform:rotate(-90deg);}
+  .rs-ring-track{fill:none; stroke:rgba(255,255,255,.10); stroke-width:7;}
+  .rs-ring-arc{fill:none; stroke:#FFFFFF; stroke-width:7; stroke-linecap:round;
+    filter:drop-shadow(0 0 6px rgba(255,255,255,.35));}
+  .rs-ring-face{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;}
+  .rs-ring-v{font-size:2.25rem; line-height:1; color:#FFFFFF;}
+  .rs-ring-k{font-family:var(--label-face); font-size:var(--label-size); letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF;}
+  .rs-figs{display:flex; width:100%;}
+  .rs-fig{flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:3px;}
+  .rs-fig + .rs-fig{border-left:1px solid rgba(255,255,255,.10);}
+  .rs-fig-v{font-size:1.0625rem; color:#FFFFFF; white-space:nowrap;}
+  .rs-fig-k{font-size:.6875rem; color:#FFFFFF;}
+  .rs-tone{display:inline-flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:.8125rem;
+    letter-spacing:var(--label-track); text-transform:uppercase; color:#FFFFFF; margin-top:4px;}
+  .rs-dot{width:9px; height:9px; border-radius:50%;}
+  .rs-tone-green .rs-dot{background:var(--z-easy); box-shadow:0 0 10px rgba(155,208,122,.6);}
+  .rs-tone-amber .rs-dot{background:var(--z-interval); box-shadow:0 0 10px rgba(242,193,78,.6);}
+  .rs-tone-red .rs-dot{background:var(--z-threshold); box-shadow:0 0 10px rgba(228,105,122,.6);}
+  .rs-tone-white .rs-dot{background:#FFFFFF; box-shadow:0 0 10px rgba(255,255,255,.5);}
+  .rs-say{margin:0; font-size:.9375rem; line-height:1.45; color:#FFFFFF; max-width:34ch; transition:opacity .18s ease;}
+  .rs-say.is-swapping, .wc-verdict-why.is-swapping, .wc-prose.is-swapping{opacity:0;}
+  /* SACORO ANALYSIS AS PROSE: paragraphs at reading size, left-aligned, no
+     headings or labels. */
+  .wc-prose{display:flex; flex-direction:column; gap:12px; text-align:left; transition:opacity .18s ease;}
+  .wc-prose-p{margin:0; font-size:1rem; line-height:1.55; color:var(--ink);}
+  .wc-verdict-why{transition:opacity .18s ease;}
+  .rs-ok{margin-top:6px;}
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -32588,9 +32643,12 @@ function openCloudConflictModal(remote, remoteUpdated){
     '<div class="callout" style="margin-bottom:12px;">'+escapeHtml(planSummary(state))+'</div>'+
     '<div class="setup-section-title">In your account</div>'+
     '<div class="callout" style="margin-bottom:16px;">'+escapeHtml(planSummary(remote))+'</div>'+
-    '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="cloud-keep-local">Keep this device’s plan</button>'+
-    '<button type="button" class="btn btn-ghost btn-block" data-action="cloud-keep-remote">Use my account’s plan</button>'+
-  '</div>');
+    '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="cloud-keep-local">Keep This Device’s Plan</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" data-action="cloud-keep-remote">Use My Account’s Plan</button>'+
+  '</div>',
+  /* A BOTTOM GLASS PANEL LIKE EVERY OTHER QUESTION (founder: "use them for
+     all"). It was the last pop-up still drawn as a plain card. */
+  'modal-themed stg-sheet');
 }
 function handleCloudKeepLocal(){
   closeModal();
@@ -39193,6 +39251,39 @@ function renderYourLogAnswers(dd){
    what keeps that score from standing alone on a partial session: "a
    100/100 Execution score must never be displayed on its own when only 60%
    of the workout was completed." */
+/* WHAT YOU LOGGED, SAID AS A SENTENCE (founder: "normal flowing English").
+   The same readings sessionReadoutHtml() lists, in the order it lists them. */
+function sessionReadoutSentence(dd){
+  var as = null;
+  try { as = assessSession(dd); } catch(e){ as = null; }
+  if (!as) return '';
+  var cl = [], c = as.completion, r = as.response;
+  if (c.short) cl.push(c.basis === 'reps' ? ('you completed ' + c.done + ' of ' + c.of + ' reps')
+                                          : ('you completed ' + Math.round(c.fraction * 100) + '% of the session'));
+  var FELT = { harder:'it felt harder than intended', easier:'it felt easier than intended',
+               'as-intended':'it felt as intended', unclear:'your effort and heart rate told different stories' };
+  if (FELT[r.reading]) cl.push(FELT[r.reading]);
+  var marks = logRepMarkSummary(dd);
+  if (marks.marked){
+    var shape = logShape(dd);
+    cl.push('you marked ' + marks.on + ' of ' + marks.marked + ' reps ' + LOG_MARK_WORDS[shape.hills ? 'effort' : 'pace'].on.toLowerCase());
+  }
+  var held = logHeldWord((dd.actual || {}).mainSetHeld) || as.execution.pattern;
+  if (held === 'faded') cl.push('the set faded');
+  if (held === 'built') cl.push('the set got stronger');
+  if (r.signals.indexOf('recoveries-longer') !== -1) cl.push('your recoveries ran longer');
+  var where = [];
+  var CTX = { heat:'in the heat', humidity:'in humid conditions', treadmill:'on a treadmill' };
+  r.context.forEach(function(k){ if (CTX[k]) where.push(CTX[k]); });
+  var climb = null;
+  try { climb = sessionElevationContext(dd); } catch(e2){ climb = null; }
+  if (climb && climb.band !== 'flat') where.push('with ' + climb.gainM + ' m of climbing');
+  if (!cl.length && !where.length) return '';
+  if (!cl.length) cl.push('you ran it');
+  var line = cl.length > 1 ? cl.slice(0, -1).join(', ') + ' and ' + cl[cl.length - 1] : cl[0];
+  if (where.length) line += ', ' + where.join(' and ');
+  return line.charAt(0).toUpperCase() + line.slice(1) + '.';
+}
 function sessionReadoutHtml(dd){
   var as = null;
   try { as = assessSession(dd); } catch(e){ as = null; }
@@ -44366,6 +44457,9 @@ function trainingTrendHtml(sigMeta){
    had held. Said here, on the session, in the words the weekly sheet and
    Patterns use for the same facts. */
 function sessionLinkedLinesHtml(dd){
+  return sessionLinkedLines(dd).map(function(l){ return '<div class="exec-review-more">' + escapeHtml(l) + '</div>'; }).join('');
+}
+function sessionLinkedLines(dd){
   var lines = [];
   var it = null;
   try { it = sessionInterpretation(dd); } catch(e){ it = null; }
@@ -44387,7 +44481,116 @@ function sessionLinkedLinesHtml(dd){
   var mk = null;
   try { mk = sessionMarkedUnder(dd); } catch(e3){ mk = null; }
   if (mk) lines.push('You marked ' + mk.under + ' of ' + mk.of + ' reps under pace. That counts toward next week’s session choice.');
-  return lines.map(function(l){ return '<div class="exec-review-more">' + escapeHtml(l) + '</div>'; }).join('');
+  return lines;
+}
+/* =========================================================
+   SACORO ANALYSIS, IN FLOWING ENGLISH
+   =========================================================
+   Founder, of the labelled card (The Verdict / Execution Review / What You
+   Logged / Training Trend / Compared With): "I don't want it to look like
+   this. I want it to be normal flowing English."
+   Every fact the card carried is kept and said as a sentence, in two or
+   three paragraphs: how the run went; what the log shows; how it sits in
+   the recent run of training. No headings, no labels. Where a coach-written
+   version of the same facts is held and passes every check, it is shown
+   instead (resultSayHeld). The score stays on the line above, and the
+   training trend is still said as a reading of recent runs, separate from
+   this run's score. Buttons that change the plan are controls, not prose,
+   and stay beneath the words. */
+var ANALYSIS_TREND_SENTENCE = {
+  neutral:             'Looking across your recent runs, there is no clear trend either way yet, which is normal this early.',
+  positive_adaptation: 'Looking across your recent runs, the signs are that your body is adapting well.',
+  monitor_fatigue:     'Looking across your recent runs, there are signs of fatigue building, so keep an eye on how you recover.',
+  recovery_priority:   'Looking across your recent runs, recovery has to come first now.'
+};
+var ANALYSIS_COUNT = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
+function analysisCompareSentence(dd, comparable){
+  if (!comparable || !comparable.length) return '';
+  var mine = null;
+  try { mine = actualPaceSecPerKm(dd); } catch(e){ mine = null; }
+  var paces = comparable.map(function(c){ return c.paceSecPerKm; }).filter(function(v){ return v != null && isFinite(v); });
+  if (mine == null || !paces.length) return '';
+  var avg = paces.reduce(function(t, v){ return t + v; }, 0) / paces.length;
+  var n = comparable.length;
+  var which = n === 1 ? 'your last similar run' : 'your last ' + (ANALYSIS_COUNT[n] || n) + ' similar runs';
+  var perMile = displayUnit() === 'mi';
+  var diff = Math.round((mine - avg) * (perMile ? 1.609344 : 1));
+  if (Math.abs(diff) <= 5) return 'Your pace was in line with ' + which + '.';
+  return 'That was ' + Math.abs(diff) + ' seconds per ' + (perMile ? 'mile' : 'km') + ' ' + (diff < 0 ? 'quicker' : 'slower') + ' than ' + which + '.';
+}
+function analysisEvidenceSentences(dd, r){
+  var out = [];
+  var drift = r && ('hrDrift' in r) ? r.hrDrift : null, sm = r && ('splitMetrics' in r) ? r.splitMetrics : null;
+  if (!r || !('splitMetrics' in r)){
+    try { drift = coachHRDrift(dd); } catch(e1){}
+    try { sm = coachSplitMetrics(dd); } catch(e2){}
+  }
+  if (drift != null) out.push('Your heart rate ' + (drift > 0 ? 'rose ' : 'fell ') + Math.abs(drift) + '% from the first half to the second.');
+  if (sm) out.push(describeSplitEvidence(sm));
+  var se = null;
+  try { se = structuredExecutionEvidence(dd); } catch(e3){ se = null; }
+  if (se && se.claims) se.claims.forEach(function(c){ out.push(c); });
+  return out;
+}
+function analysisTrendIsNews(dd, signal){
+  var done = (state.days || []).filter(function(d){ return d && d.completed && d.type !== 'rest' && d.date <= dd.date; })
+    .sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+  var latest = (state.days || []).filter(function(d){ return d && d.completed && d.type !== 'rest'; })
+    .reduce(function(m, d){ return (!m || d.date > m.date) ? d : m; }, null);
+  if (latest && latest.id === dd.id) return true;
+  var i = done.indexOf(dd);
+  var prev = i > 0 ? done[i - 1] : null;
+  if (!prev) return true;
+  var pr = null;
+  try { pr = prev.coachReview || coachReviewFor(prev); } catch(e){ pr = null; }
+  return !pr || pr.trainingSignal !== signal;
+}
+/* The engine's own paragraphs: [how it went, what the log shows, the trend]. */
+function analysisParagraphs(dd, lead, r, b){
+  var seen = {}, keep = function(list){
+    return list.filter(function(t){ t = String(t || '').trim(); if (!t || seen[t]) return false; seen[t] = true; return true; });
+  };
+  var p1 = keep(lead || []);
+  var p2 = [];
+  var rs = '';
+  try { rs = sessionReadoutSentence(dd); } catch(e){ rs = ''; }
+  if (rs) p2.push(rs);
+  var hr = null;
+  try { hr = heartRateUnreadLine(dd, b || null); } catch(e2){ hr = null; }
+  if (hr) p2.push(hr);
+  try {
+    p2 = p2.concat(sessionLinkedLines(dd).filter(function(l){
+      return !(rs && /you completed/i.test(rs) && /^You covered \d+% of the planned distance\.?$/.test(l));
+    }));
+  } catch(e3){}
+  try { p2 = p2.concat(analysisEvidenceSentences(dd, r)); } catch(e4){}
+  p2 = keep(p2);
+  var p3 = [];
+  /* The trend is said where it is news: on the latest run, or where it has
+     changed since the run before. Said on every card it became the sentence
+     an athlete stops reading (test/copyRepetition). */
+  if (r && ANALYSIS_TREND_SENTENCE[r.trainingSignal] && analysisTrendIsNews(dd, r.trainingSignal))
+    p3.push(ANALYSIS_TREND_SENTENCE[r.trainingSignal]);
+  try { var cs = analysisCompareSentence(dd, r && r.comparable); if (cs) p3.push(cs); } catch(e5){}
+  p3 = keep(p3);
+  return [p1, p2, p3].map(function(p){ return p.join(' '); }).filter(Boolean);
+}
+/* What is drawn: the coach-written paragraphs when held for exactly this
+   session's evidence and still valid, otherwise the engine's own. */
+function analysisProseHtml(dd, paragraphs){
+  var fp = '', paras = paragraphs;
+  try {
+    var ev = resultSayEvidence('run', dd);
+    if (ev){
+      fp = coachNoteHash(JSON.stringify(ev));
+      var held = resultSayHeld(ev);
+      if (held) paras = String(held).split(/\n\s*\n/).map(function(t){ return brandCase(t.trim()); }).filter(Boolean);
+    }
+  } catch(e){ fp = ''; }
+  if (!paras.length) return '';
+  return '<div class="wc-prose"'+(fp ? ' data-fp="'+fp+'"' : '')+'>'+
+    paras.map(function(p){ return '<p class="wc-prose-p">'+escapeHtml(p)+'</p>'; }).join('')+
+  '</div>';
 }
 function renderExecutionReview(dd){
   if (!dd.completed) return '';
@@ -44421,38 +44624,21 @@ function renderExecutionReview(dd){
       var phr = null;
       try { phr = heartRateUnreadLine(dd, null); } catch(e2){ phr = null; }
       return analysisTab(dd,
-        '<div class="exec-review-card exec-partial">'+
-          '<div class="exec-review-head"><span>Execution Review</span></div>'+
-          '<div class="exec-review-summary">Partial assessment</div>'+
-          pl.map(function(line){ return '<div class="exec-review-more">'+escapeHtml(line)+'</div>'; }).join('')+
-          (phr ? '<div class="exec-review-more">'+escapeHtml(phr)+'</div>' : '')+
-          sessionReadoutHtml(dd)+
-          trainingTrendHtml(pr ? COACH_SIGNAL_META[pr.trainingSignal] : null)+
-          reviewEvidenceHtml(dd, pr)+
-        '</div>', '', false);
+        analysisProseHtml(dd, analysisParagraphs(dd,
+          /* Said plainly: there is no score here, only what the log can support. */
+          ['This is a partial assessment, not a score.'].concat(pl, phr ? [phr] : []), pr)), '', false);
     }
     var it = null;
     try { it = sessionInterpretation(dd); } catch(e){ it = null; }
     if (it){
       return analysisTab(dd,
-        '<div class="exec-review-card">'+
-          '<div class="exec-review-head"><span>Execution Review</span></div>'+
-          '<div class="exec-review-summary">'+escapeHtml(it.head)+'</div>'+
-          it.what.concat(it.evidence).map(function(line){
-            return '<div class="exec-review-more">'+escapeHtml(line)+'</div>'; }).join('')+
-          (it.coaching ? '<div class="cr-sec"><div class="cr-k">Coaching interpretation</div>'+
-            '<div class="cr-v">'+escapeHtml(it.coaching)+'</div></div>' : '')+
-        '</div>', '', false);
+        analysisProseHtml(dd, [[it.head].concat(it.what, it.evidence).join(' '), it.coaching || ''].filter(Boolean)), '', false);
     }
     var c = computeCompletionAssessment(dd);
     return analysisTab(dd,
-      '<div class="exec-review-card">'+
-        '<div class="exec-review-head"><span>Execution Review</span></div>'+
-        '<div class="exec-review-summary">'+(c
-          ? escapeHtml(completionSummaryLine(c))
-          : 'Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.')+'</div>'+
-        (c ? '<div class="exec-review-more">Add an average pace and this is scored against the session you were set.</div>' : '')+
-      '</div>', '', false);
+      '<div class="wc-prose"><p class="wc-prose-p">'+(c
+        ? escapeHtml(completionSummaryLine(c)) + ' Add an average pace and this is scored against the session you were set.'
+        : 'Log your distance and average pace and SACORO will score this session against the one you were set.')+'</p></div>', '', false);
   }
   /* The per-component weighted calculation that used to close this card
      (Distance 100% x35%, Pace 100% x35%, ...) is deliberately not rendered.
@@ -44476,7 +44662,7 @@ function renderExecutionReview(dd){
   var r = coachReviewFor(dd) || coachWorkoutReview(dd);
   var sigMeta = r ? COACH_SIGNAL_META[r.trainingSignal] : null;
 
-  var body = '';
+  var body = '', adjustHtml = '', msg = null;
   if (r){
     /* ONE MESSAGE, not five labelled fields. The same engine sentences the
        review has always produced -- verdict, what was noticed, the signal's
@@ -44487,7 +44673,7 @@ function renderExecutionReview(dd){
 
        The signal dot stays: it is one glyph carrying the state at a glance,
        and it is not prose. */
-    var msg = coachDebrief(dd);
+    msg = coachDebrief(dd);
     /* ---------- THE VERDICT IS SAID ONCE ----------
        renderCompletionVerdict() leads this analysis with r.executionVerdict,
        and coachDebrief() opens its message with that same sentence -- so the
@@ -44554,7 +44740,7 @@ function renderExecutionReview(dd){
     if (r.recommendPlanAdjustment){
       var nxt = coachSessionAfter(dd);
       if (nxt && !nxt.coachKeptAt && !nxt.coachAdjust){
-        body += '<div class="cr-adjust">'+
+        adjustHtml = '<div class="cr-adjust">'+
           '<div class="cr-adjust-line">Suggested: run '+escapeHtml(nxt.title)+' easy instead</div>'+
           '<div class="cr-adjust-why">'+escapeHtml(r.adjustmentReason||'')+'</div>'+
           '<div class="coach-actions">'+
@@ -44611,14 +44797,13 @@ function renderExecutionReview(dd){
      head and an empty body -- a section title, a score badge and white
      space. The score is not lost: it is already on the line above the
      verdict. A card with nothing in it simply does not appear. */
-  var analysisBody =
-    renderCompletionVerdict(dd)+
-    (body ?
-      '<div class="exec-review-card wc-analysis">'+
-        '<div class="exec-review-head"><span>Execution Review</span>'+
-          '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
-        '</div>'+ body +
-      '</div>' : '');
+  /* FLOWING ENGLISH (founder): the verdict, the coach's message and every
+     reading below are said as two or three paragraphs; the score is on the
+     line above. The suggested change, when there is one, keeps its buttons. */
+  var analysisBody = r
+    ? analysisProseHtml(dd, analysisParagraphs(dd,
+        [r.executionVerdict].concat(msg && msg.paragraphs ? msg.paragraphs : []), r, b)) + adjustHtml
+    : '<div class="wc-prose"><p class="wc-prose-p">Coach analysis temporarily unavailable.</p></div>';
   return analysisTab(dd, analysisBody, vLine);
 }
 /* Whether the marking is showing. Defaults shut: the completion screen is the
@@ -44801,6 +44986,20 @@ function renderCompletionVerdict(dd){
   var v = shareVerdictLabel(dd);
   var r = coachReviewFor(dd) || coachWorkoutReview(dd);
   var why = (r && r.executionVerdict) ? r.executionVerdict : '';
+  /* THE COACH'S WORDS LIVE HERE, NOT ON SESSION COMPLETE (founder: "the
+     analysis is in the coach's analysis"). Where a written paragraph is held
+     for exactly this session's evidence and still passes every check, it
+     takes the engine sentence's place; otherwise the sentence stays. One
+     line of prose in one place, never both. */
+  var sayFp = '';
+  try {
+    var sayEv = resultSayEvidence('run', dd);
+    if (sayEv){
+      sayFp = coachNoteHash(JSON.stringify(sayEv));
+      var held = resultSayHeld(sayEv);
+      if (held) why = brandCase(held);
+    }
+  } catch(eSay){ sayFp = ''; }
   if (!v && !why) return '';
   /* THE TICK IS ONLY DRAWN WHERE THERE IS SOMETHING TO TICK. A gold check is a
      mark of approval, and shareVerdictLabel() returns nothing precisely on the
@@ -44826,7 +45025,7 @@ function renderCompletionVerdict(dd){
       '<span>'+(v ? 'The Verdict' : 'The Session')+'</span>'+
     '</div>'+
     (v ? '<div class="wc-verdict-v">'+escapeHtml(titleCase(v))+'</div>' : '')+
-    (why ? '<div class="wc-verdict-why">'+escapeHtml(why)+'</div>' : '')+
+    (why ? '<div class="wc-verdict-why"'+(sayFp ? ' data-fp="'+sayFp+'"' : '')+'>'+escapeHtml(why)+'</div>' : '')+
   '</div>';
 }
 function titleCase(s){
@@ -53331,12 +53530,13 @@ function coachNoteNorm(t){
 /* The check, on this side of the wire as well. A server that has been
    changed, or a response that is not the server's, still cannot put a number
    on the screen that the engine did not produce. */
-function coachNoteValid(raw, evidence){
+function coachNoteValid(raw, evidence, limits){
+  var L = limits || {};
   var note = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim()
     .replace(/^["'“‘]+|["'”’]+$/g, '').trim();
   if (note.length < COACH_NOTE_MIN_CHARS) return { ok:false, why:'too_short' };
-  if (note.length > COACH_NOTE_MAX_CHARS) return { ok:false, why:'too_long' };
-  if (note.split(/(?<=[.!?])\s+/).filter(Boolean).length > 3) return { ok:false, why:'too_many_sentences' };
+  if (note.length > (L.maxChars || COACH_NOTE_MAX_CHARS)) return { ok:false, why:'too_long' };
+  if (note.split(/(?<=[.!?])\s+/).filter(Boolean).length > (L.maxSentences || 3)) return { ok:false, why:'too_many_sentences' };
   for (var i = 0; i < COACH_NOTE_NEVER.length; i++)
     if (COACH_NOTE_NEVER[i][0].test(note)) return { ok:false, why:COACH_NOTE_NEVER[i][1] };
   var ev = '';
@@ -53519,6 +53719,344 @@ function coachNoteMaybeFetch(){
     coachNoteBusy = null; coachNoteFailed[fp] = true;
     return null;
   });
+}
+/* =========================================================
+   SESSION COMPLETE AND WEEK COMPLETE
+   =========================================================
+   Founder: "a bottom glass panel ... plain glass, white ring and labels, a
+   tone dot in the coach's own colours, cherry only on OK", and of the words:
+   "I don't want a list of copying. I want it to sound like a real normal
+   coach. Concise English. Not robotic. Summarising the stats."
+
+   ORDER. Session Complete rises once, after a run's log is first saved. If
+   that run was the last session of its week, OK opens Week Complete. A
+   recovery explanation, when one is flagged, waits for another day: one
+   panel at a time.
+
+   THE WORDS. One paragraph. It is drawn first in the engine's own words, so
+   the panel is complete with no network; where the athlete is signed in and
+   the voice coach is on, a coach-written paragraph is asked for and replaces
+   it in place only if it passes every check (resultSayValid, the same rules
+   the server applies). The engine has already decided everything; the
+   paragraph only says it. */
+var RESULT_RUN_TONE = {
+  positive_adaptation:{ tone:'positive', cls:'rs-tone-green', label:'Positive Adaptation' },
+  monitor_fatigue:    { tone:'caution',  cls:'rs-tone-amber', label:'Monitor Fatigue' },
+  recovery_priority:  { tone:'recovery', cls:'rs-tone-red',   label:'Recovery Priority' },
+  neutral:            { tone:'neutral',  cls:'rs-tone-white', label:'Building Baseline' }
+};
+var RESULT_WEEK_TONE = {
+  progress:          { tone:'positive', cls:'rs-tone-green', label:'Ready to Progress' },
+  new_run:           { tone:'positive', cls:'rs-tone-green', label:'Ready to Progress' },
+  planned_reduction: { tone:'neutral',  cls:'rs-tone-white', label:'Lighter Week Next' },
+  insufficient:      { tone:'neutral',  cls:'rs-tone-white', label:'Too Little Logged to Read' },
+  hold:              { tone:'caution',  cls:'rs-tone-amber', label:'Hold This Load' },
+  quality:           { tone:'caution',  cls:'rs-tone-amber', label:'Repeat the Hard Session' },
+  recovery:          { tone:'recovery', cls:'rs-tone-red',   label:'Recovery First' },
+  protect:           { tone:'recovery', cls:'rs-tone-red',   label:'Recovery First' },
+  reload:            { tone:'recovery', cls:'rs-tone-red',   label:'Recovery First' }
+};
+function resultRingHtml(pct, top, sub){
+  var p = Math.max(0, Math.min(100, pct == null ? 0 : pct));
+  var r = 52, c = 2 * Math.PI * r;
+  return '<div class="rs-ring"><svg viewBox="0 0 120 120" aria-hidden="true">'+
+    '<circle cx="60" cy="60" r="'+r+'" class="rs-ring-track"/>'+
+    (p > 0 ? '<circle cx="60" cy="60" r="'+r+'" class="rs-ring-arc" stroke-dasharray="'+(c*p/100).toFixed(1)+' '+c.toFixed(1)+'"/>' : '')+'</svg>'+
+    '<div class="rs-ring-face"><div class="rs-ring-v font-head">'+escapeHtml(top)+'</div><div class="rs-ring-k">'+escapeHtml(sub)+'</div></div></div>';
+}
+function resultFigsHtml(figs){
+  return '<div class="rs-figs">'+figs.map(function(f){
+    return '<div class="rs-fig"><div class="rs-fig-v font-mono">'+escapeHtml(f[1])+'</div><div class="rs-fig-k">'+escapeHtml(f[0])+'</div></div>';
+  }).join('')+'</div>';
+}
+function resultClock(sec){
+  if (!(sec > 0)) return null;
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.round(sec%60);
+  if (s === 60){ m += 1; s = 0; }
+  return h > 0 ? h+':'+(m<10?'0':'')+m+':'+(s<10?'0':'')+s : m+':'+(s<10?'0':'')+s;
+}
+/* ---------- WHAT THE ENGINE CONCLUDED ---------- */
+function sessionResultReading(dd){
+  var r = null;
+  try { r = coachReviewFor(dd) || coachWorkoutReview(dd); } catch(e){ r = null; }
+  var b = null;
+  try { b = computeExecutionBreakdown(dd); } catch(e){ b = null; }
+  var t = RESULT_RUN_TONE[(r && r.trainingSignal) || 'neutral'] || RESULT_RUN_TONE.neutral;
+  var a = dd.actual || {};
+  var next = (r && typeof r.nextMove === 'string') ? r.nextMove : '';
+  return { review: r, score: (b && b.score != null) ? Math.round(b.score) : null, tone: t,
+           line: (r && r.executionVerdict) || 'Session logged.', noticed: (r && r.coachNoticed) || '',
+           next: next, km: a.km, pace: actualPaceDisplayStr(dd) || null,
+           timeSec: a.movingTimeSec != null ? a.movingTimeSec : a.elapsedTimeSec, rpe: a.rpe };
+}
+function weekResultReading(N){
+  var ev = weeklyEvidence(N);
+  var nx = null;
+  try { nx = weeklyCoachingReview(N + 1); } catch(e){ nx = null; }
+  var t = (nx && RESULT_WEEK_TONE[nx.kind]) || { tone:'neutral', cls:'rs-tone-white', label:'Week Logged' };
+  var head = '';
+  try { head = nx ? (weeklyReviewCopy(nx) || {}).head || '' : ''; } catch(e){ head = ''; }
+  var said = ev.done >= ev.due && !ev.overEffort
+    ? 'Every session done, and none harder than it was meant to be.'
+    : ev.missed > 0 ? ev.missed + (ev.missed === 1 ? ' session' : ' sessions') + ' missed this week.'
+    : ev.unknown > 0 ? ev.unknown + (ev.unknown === 1 ? ' session is' : ' sessions are') + ' not logged yet.'
+    : ev.overEffort > 0 ? ev.overEffort + (ev.overEffort === 1 ? ' run felt' : ' runs felt') + ' harder than intended.' : '';
+  var phase = null;
+  try { phase = trainingPhase(N); } catch(e){ phase = null; }
+  return { ev: ev, next: nx, tone: t, line: [said, head].filter(Boolean).join(' '), said: said, head: head, phase: phase,
+           pct: ev.dueKm > 0 ? Math.round(100 * ev.doneKm / ev.dueKm) : null };
+}
+/* ---------- THE PACKET ----------
+   Positive assembly: every field named. Null when nothing may be sent -- an
+   athlete whose record holds a Strava-derived day keeps the engine's words,
+   and heart rate, feel and notes go only with health consent (notes never:
+   free text is where pain is written down). */
+function resultSayEvidence(kind, x){
+  if (voiceHasStravaEvidence()) return null;
+  var consent = healthConsentGranted();
+  if (kind === 'run'){
+    var dd = x;
+    if (!voiceDayEligible(dd)) return null;
+    var rd = sessionResultReading(dd), a = dd.actual || {};
+    var tm = TYPE_META[dd.type] || {};
+    var logged = { distance: rd.km != null ? fmtDist(rd.km) : null, pace: rd.pace ? rd.pace + ' /' + displayUnit() : null,
+                   time: resultClock(rd.timeSec), effort: rd.rpe != null ? rd.rpe + '/10' : null };
+    if (consent){
+      if (a.hr != null) logged.averageHeartRate = a.hr + ' bpm';
+      if (a.feel) logged.feel = a.feel;
+    }
+    return { kind: 'run', units: displayUnit(),
+      session: { type: tm.label || dd.type, title: dd.title || '', planned: fmtDist(dd.km) },
+      logged: logged,
+      execution: rd.score != null ? rd.score + '%' : 'not scored (logged without its sections)',
+      verdict: { tone: rd.tone.tone, label: rd.tone.label, line: rd.line },
+      noticed: rd.noticed || null, next: rd.next || null,
+      /* Everything the analysis says, in the engine's words: the coach
+         rewrites this as flowing English and may drop nothing that matters. */
+      analysis: (function(){ try { return analysisParagraphs(dd, [rd.line].concat(rd.review && coachDebrief(dd) ? coachDebrief(dd).paragraphs : []), rd.review); } catch(e){ return []; } })(),
+      healthInformation: consent ? 'included' : 'withheld' };
+  }
+  var wr = weekResultReading(x), ev = wr.ev;
+  return { kind: 'week', units: displayUnit(), week: x, phase: wr.phase || null,
+    sessions: { done: ev.done, planned: ev.due, missed: ev.missed, notLogged: ev.unknown },
+    distance: { done: fmtDist(ev.doneKm), planned: fmtDist(ev.dueKm) },
+    execution: ev.execution != null ? Math.round(ev.execution) + '%' : null,
+    runsHarderThanIntended: ev.overEffort,
+    verdict: { tone: wr.tone.tone, label: wr.tone.label, line: wr.line || wr.tone.label },
+    /* What the coach recommends for next week, not the figure it is asking
+       to change: a recovery verdict beside the plan's own higher week would
+       contradict itself. It is a recommendation; the weekly sheet asks. */
+    nextWeek: wr.next ? { decision: wr.tone.label,
+      recommendedDistance: fmtDist(wr.next.recommendedKm != null ? wr.next.recommendedKm : wr.next.plannedKm) } : null };
+}
+/* ---------- THE CHECK, ON THIS SIDE OF THE WIRE AS WELL ---------- */
+var RESULT_SAY_PRAISE = /\b(?:great|brilliant|excellent|perfect(?:ly)?|superb|fantastic|amazing|awesome|nailed|crushed|smashed|spot[- ]on|well done|good job|textbook|impressive)\b/i;
+var RESULT_SAY_WORRY = /\b(?:worr\w*|concern\w*|struggl\w*|too hard|overcook\w*|overdid|overdone|fatigued?|warning)\b/i;
+var RESULT_SAY_RECOVERY = /\b(?:recover\w*|rest\w*|back off|ease off|easy)\b/i;
+/* What the verdict flags, the paragraph must say: the same list as the
+   server's FLAGS in api/_voice-explain.js. */
+var RESULT_SAY_FLAGS = [
+  [/\bquicker|\bfaster/i, /\b(?:quick|quicker|fast|faster|pushed|hurried)\b/i],
+  [/\bslower\b/i, /\b(?:slow|slower|held back|off the pace)\b/i],
+  [/\bshort\b|km target\b/i, /\b(?:short|shy|less than|under|of the|against|cut)\b/i],
+  [/\babove\b|\bover\b|\bceiling\b/i, /\b(?:above|over|high|higher|ceiling|too hard|cost)\b/i],
+  [/(?<!\bnone )\bharder than\b/i, /\b(?:hard|harder|tough|tougher|heavy)\b/i],
+  [/\bmissed\b|\bnot logged\b/i, /\b(?:miss|missed|missing|not logged|unlogged|logged so far|still to log|not in yet|in yet|yet to be logged)\b/i]
+];
+var RESULT_RUN_LIMITS = { maxChars: 800, maxSentences: 8 };
+function resultSayValid(raw, ev){
+  var e = ev || {};
+  /* A run's analysis is paragraphs: checked as one text, kept as paragraphs. */
+  var paras = String(raw == null ? '' : raw).split(/\n\s*\n/).map(function(t){ return t.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+  var limits = e.kind === 'run' ? RESULT_RUN_LIMITS : null;
+  raw = paras.join(' ');
+  /* The engine's full-length sentences only, as the server counts them. */
+  var lines = [];
+  var addLines = function(t){
+    String(t).split(/(?<=[.!?])\s+/).forEach(function(sn){
+      if (coachNoteNorm(sn).length >= 32) lines.push(sn);
+    });
+  };
+  if (e.verdict && e.verdict.line) addLines(e.verdict.line);
+  if (e.noticed) addLines(e.noticed);
+  if (typeof e.next === 'string' && e.next) addLines(e.next);
+  if (Array.isArray(e.analysis)) e.analysis.forEach(addLines);
+  var shown = (Array.isArray(e.alreadyOnScreen) ? e.alreadyOnScreen : []).concat(lines);
+  var v = coachNoteValid(raw, Object.assign({}, e, { alreadyOnScreen: shown }), limits);
+  if (!v.ok) return v.why === 'duplicate' ? { ok:false, why:'copied_engine' } : v;
+  var text = v.note, tone = ev && ev.verdict && ev.verdict.tone;
+  if (/!/.test(text)) return { ok:false, why:'exclamation' };
+  if ((tone === 'caution' || tone === 'recovery') && RESULT_SAY_PRAISE.test(text)) return { ok:false, why:'praise_against_verdict' };
+  if (tone === 'recovery' && !RESULT_SAY_RECOVERY.test(text)) return { ok:false, why:'softens_recovery' };
+  if (tone === 'positive' && RESULT_SAY_WORRY.test(text)) return { ok:false, why:'worry_against_verdict' };
+  var vline = String((e.verdict && e.verdict.line) || '');
+  for (var f = 0; f < RESULT_SAY_FLAGS.length; f++)
+    if (RESULT_SAY_FLAGS[f][0].test(vline) && !RESULT_SAY_FLAGS[f][1].test(text)) return { ok:false, why:'drops_verdict_flag' };
+  /* Week Complete is one sentence (founder), as the server's check says. */
+  if (e.kind === 'week'){
+    if (text.split(/(?<=[.!?])\s+/).filter(Boolean).length > 1) return { ok:false, why:'week_not_one_sentence' };
+    if (text.split(/\s+/).length > 25) return { ok:false, why:'week_too_long' };
+  }
+  if (e.kind === 'run' && paras.length > 3) return { ok:false, why:'too_many_paragraphs' };
+  return { ok:true, text: e.kind === 'run' ? paras.join('\n\n') : text };
+}
+/* ---------- ASKING, ONCE PER BODY OF EVIDENCE ---------- */
+var RESULT_SAY_KEY = 'sacoro.resultSay.v1';
+var RESULT_SAY_DAILY = 8;
+var resultSayFailed = {};
+function resultSayStoreRead(){
+  try { var raw = window.localStorage.getItem(RESULT_SAY_KEY); var o = raw ? JSON.parse(raw) : null; return (o && typeof o === 'object') ? o : {}; }
+  catch(e){ return {}; }
+}
+function resultSayStoreWrite(o){ try { window.localStorage.setItem(RESULT_SAY_KEY, JSON.stringify(o)); } catch(e){} }
+function resultSayHeld(ev){
+  if (!ev) return '';
+  var fp = coachNoteHash(JSON.stringify(ev)), o = resultSayStoreRead();
+  var t = o.notes && o.notes[fp];
+  if (!t) return '';
+  var v = resultSayValid(t, ev);
+  return v.ok ? v.text : '';
+}
+function resultSayFetch(kind, ev){
+  if (!ev || typeof fetch !== 'function' || typeof window === 'undefined') return null;
+  if (!voiceCoachAvailable || !cloudSignedIn() || askDeviceOffline()) return null;
+  var fp = coachNoteHash(JSON.stringify(ev));
+  if (resultSayFailed[fp] || resultSayHeld(ev)) return null;
+  var o = resultSayStoreRead(), today = todayStr();
+  if (o.day === today && (o.count || 0) >= RESULT_SAY_DAILY) return null;
+  o.count = (o.day === today ? (o.count || 0) : 0) + 1; o.day = today;
+  resultSayStoreWrite(o);
+  return cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) throw { code:'not_signed_in' };
+    return fetch('/api/voice-explain', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'accept':'application/json', 'Authorization':'Bearer '+cloudSession.access_token },
+      body: JSON.stringify({ kind: kind, evidence: ev })
+    });
+  }).then(function(resp){ return (resp && resp.ok) ? resp.json() : null; })
+  .then(function(d){
+    var v = (d && d.text) ? resultSayValid(d.text, ev) : { ok:false };
+    if (!v.ok){ resultSayFailed[fp] = true; return null; }
+    var s = resultSayStoreRead();
+    s.notes = s.notes || {}; s.order = s.order || [];
+    s.notes[fp] = v.text; s.order.push(fp);
+    while (s.order.length > 24){ delete s.notes[s.order.shift()]; }
+    resultSayStoreWrite(s);
+    /* Drawn into the panel only if the same panel is still up. */
+    try {
+      var els = document.querySelectorAll('.rs-say[data-fp="'+fp+'"], .wc-prose[data-fp="'+fp+'"]');
+      Array.prototype.forEach.call(els, function(el){
+        el.classList.add('is-swapping');
+        setTimeout(function(){
+          if (el.classList.contains('wc-prose'))
+            el.innerHTML = String(v.text).split(/\n\s*\n/).map(function(t){ return '<p class="wc-prose-p">'+escapeHtml(brandCase(t.trim()))+'</p>'; }).join('');
+          else el.textContent = brandCase(v.text);
+          el.classList.remove('is-swapping');
+        }, 180);
+      });
+    } catch(e){}
+    return v.text;
+  }).catch(function(){ resultSayFailed[fp] = true; return null; });
+}
+/* ---------- THE PANELS ---------- */
+function resultSayHtml(ev, fallback){
+  var fp = ev ? coachNoteHash(JSON.stringify(ev)) : '';
+  var held = resultSayHeld(ev);
+  return '<p class="rs-say"'+(fp ? ' data-fp="'+fp+'"' : '')+'>'+escapeHtml(held ? brandCase(held) : fallback)+'</p>';
+}
+function sessionResultHtml(dd){
+  var rd = sessionResultReading(dd), tm = TYPE_META[dd.type] || {};
+  var figs = [];
+  if (rd.km != null) figs.push(['Distance', fmtDist(rd.km)]);
+  if (rd.pace) figs.push(['Pace', rd.pace + ' /' + displayUnit()]);
+  else if (resultClock(rd.timeSec)) figs.push(['Time', resultClock(rd.timeSec)]);
+  if (rd.rpe != null) figs.push(['Effort', rd.rpe + '/10']);
+  return '<div class="modal-head"><h2 class="font-head">Session Complete</h2></div>'+
+    '<div class="modal-body rs-body">'+
+      '<div class="rs-kick">'+escapeHtml(tm.label || 'Run')+', '+escapeHtml(dLong(dd.date))+'</div>'+
+      /* No score is not a zero: a session logged without its sections is
+         the athlete's own account. */
+      (rd.score != null ? resultRingHtml(rd.score, rd.score + '%', 'Execution') : resultRingHtml(0, 'Done', 'Reported'))+
+      resultFigsHtml(figs)+
+      '<div class="rs-tone '+rd.tone.cls+'"><span class="rs-dot" aria-hidden="true"></span>'+escapeHtml(rd.tone.label)+'</div>'+
+      /* NO WORDS ON THE PANEL (founder, with the panel in hand: "I don't
+         think we need all that detail. Everything from Building Baseline
+         above we keep ... then the analysis is in the coach's analysis").
+         The panel is the result at a glance; what the coach has to say is
+         written into the session's own Sacoro Analysis, where the athlete
+         reads the rest of the review. */
+      '<button type="button" class="btn btn-primary btn-block rs-ok" data-action="result-ok" data-day="'+dd.id+'">OK</button>'+
+    '</div>';
+}
+function weekResultHtml(N){
+  var wr = weekResultReading(N), ev = wr.ev;
+  var figs = [['Sessions', ev.done + ' of ' + ev.due], ['Distance', fmtDist(ev.doneKm)]];
+  if (ev.execution != null) figs.push(['Execution', Math.round(ev.execution) + '%']);
+  var say = null;
+  try { say = resultSayEvidence('week', N); } catch(e){ say = null; }
+  return '<div class="modal-head"><h2 class="font-head">Week ' + N + ' Complete</h2></div>'+
+    '<div class="modal-body rs-body">'+
+      (wr.phase ? '<div class="rs-kick">'+escapeHtml(wr.phase)+'</div>' : '')+
+      resultRingHtml(wr.pct, wr.pct != null ? wr.pct + '%' : '–', 'Of the week')+
+      resultFigsHtml(figs)+
+      '<div class="rs-tone '+wr.tone.cls+'"><span class="rs-dot" aria-hidden="true"></span>'+escapeHtml(wr.tone.label)+'</div>'+
+      /* One sentence (founder). The engine's own, until a written one passes:
+         what the week was, or failing that what comes next. */
+      resultSayHtml(say, (wr.said || wr.head || wr.tone.label))+
+      '<button type="button" class="btn btn-primary btn-block rs-ok" data-action="result-ok">OK</button>'+
+    '</div>';
+}
+function openSessionResult(dd){
+  if (!dd) return false;
+  openModal(sessionResultHtml(dd), 'modal-themed stg-sheet rs-sheet');
+  try { resultSayFetch('run', resultSayEvidence('run', dd)); } catch(e){}
+  return true;
+}
+function openWeekResult(N){
+  if (!(N >= 1)) return false;
+  openModal(weekResultHtml(N), 'modal-themed stg-sheet rs-sheet');
+  try { resultSayFetch('week', resultSayEvidence('week', N)); } catch(e){}
+  return true;
+}
+/* ---------- WHEN ----------
+   Session Complete: the first Save of a run's log, and only for a run
+   from the last few days (going back to tidy an old log is not finishing a
+   run). Week Complete: after OK, when that run was the last session of its
+   week still to be done. Each is raised once. */
+var RESULT_RECENT_DAYS = 2;
+function sessionResultDue(dd){
+  if (!dd || !sessionRan(dd) || dd.resultShownAt) return false;
+  if (dd.date > todayStr() || dd.date < addDays(todayStr(), -RESULT_RECENT_DAYS)) return false;
+  return true;
+}
+function weekResultDue(N){
+  if (!(N >= 1)) return false;
+  state.weekResultShown = state.weekResultShown || {};
+  if (state.weekResultShown[N]) return false;
+  var days = weekRunDays(N);
+  if (!days.length) return false;
+  /* Nothing of the week is left to run: every session is done, or its day
+     has gone. */
+  return days.every(function(d){ return sessionRan(d) || d.date < todayStr(); }) &&
+         days.some(function(d){ return sessionRan(d); });
+}
+function maybeOpenSessionResult(dd){
+  if (!sessionResultDue(dd)) return false;
+  dd.resultShownAt = new Date().toISOString();
+  scheduleSave();
+  return openSessionResult(dd);
+}
+function handleResultOk(dayId){
+  var dd = dayId ? findDay(dayId) : null;
+  if (dd && weekResultDue(dd.week)){
+    state.weekResultShown[dd.week] = new Date().toISOString();
+    scheduleSave();
+    /* Straight on: opening a sheet closes the one before it, and the next
+       rises on the same slide as every sheet does. */
+    openWeekResult(dd.week);
+    return;
+  }
+  closeModal();
 }
 var COACH_GENERIC_CLOSERS = [
   'Everything landed on the numbers it was set to hit.',
@@ -54589,6 +55127,26 @@ function weeklyDeliveredFigures(rv){
   }
   return got;
 }
+/* WHY THE STEP IS SMALLER THAN THE PLAN'S, IN THE TRUE TERMS (founder,
+   Audit III LA10: '"smaller step" appears on 12 of 101 flawless weeks; why?').
+   Every one of the twelve was a week whose every session went to plan. The
+   plan wanted more than 8% (usually the climb back after a lighter week),
+   and the coach takes more than 8% only once the block reads Adapting:
+   two markers improving, such as a faster pace at the same effort. Logging
+   as prescribed proves the work was done, not that fitness rose, so the
+   step was capped. That is the rule working. What was wrong was the
+   sentence, which blamed "what the evidence shows" on a perfect week. */
+function weeklySmallerStepWhy(rv){
+  var ev = rv.ev || {};
+  var r = rv.reasons || [];
+  var pct = Math.round((rv.step || WEEKLY_STEP_STANDARD) * 100);
+  if (r.indexOf('strong') !== -1)
+    return 'Even on your strongest weeks SACORO adds at most ' + pct + '%, so it steps up by that.';
+  if (r.indexOf('cautious') === -1 && ev.completion >= 0.95 && !(ev.overEffort > 0))
+    return 'Every session went to plan. SACORO adds up to ' + pct + '% a week until your fitness shows a clear gain, ' +
+      'such as a faster pace at the same effort, and then up to ' + Math.round(WEEKLY_STEP_STRONG * 100) + '%.';
+  return 'SACORO recommends a smaller step from what the evidence shows.';
+}
 /* ---------- THE WORDS ---------- */
 /* WHY THE PLAN RISES THIS WEEK, in the plan's own terms: where the week sits
    and where the block is heading. Shared by the progress and the
@@ -54719,7 +55277,7 @@ function weeklyReviewCopyFor(rv){
       head: 'You’re ready to progress.', why: why,
       figures: progFigures,
       note: ((rv.recommendedKm < rv.plannedKm - 0.5
-        ? 'Your plan had ' + dist(rv.plannedKm) + ' this week. SACORO recommends a smaller step from what the evidence shows.'
+        ? 'Your plan had ' + dist(rv.plannedKm) + ' this week. ' + weeklySmallerStepWhy(rv)
         : (rv.reasons.indexOf('resuming') !== -1 ? 'This picks your progression up again from where you held it.' : '')) +
         (rv.baseHillsId ? ' Either way the hill session stays.' : '') +
         /* WHAT STAYING DELIVERS, IN ITS OWN FIGURE (Audit III LA3). When
@@ -54987,7 +55545,14 @@ function handleWeeklyAnswer(accept){
   if (rec){
     var msg = rec.changed ? 'Your week is updated. The original sessions are kept and can be restored' :
               accept ? 'Your plan continues as planned' : 'Kept as planned. SACORO will look again next week';
-    if (p.rv.kind === 'progress' && !accept) msg = 'Staying at ' + fmtDist(p.rv.lastKm) + ' this week. SACORO will look again next week';
+    /* THE TOAST QUOTES THE WEEK YOU KEEP (founder, Audit III L2). It quoted
+       last week's figure, but staying keeps whatever answerWeeklyReview()
+       delivered: the 5km minimum run, part of the week already run, or a
+       return from a break can all make that a different number. finalKm is
+       that week, the same figure the sheet's "Staying keeps this week to"
+       line was computed from. */
+    if (p.rv.kind === 'progress' && !accept)
+      msg = (p.rv.backFrom ? 'Keeping your plan at ' : 'Staying at ') + fmtDist(rec.finalKm) + ' this week. SACORO will look again next week';
     showToast(msg);
   }
 }
@@ -65285,7 +65850,7 @@ function vvCalRender(){
       '<div class="vvcal-foot">'+
         '<button type="button" class="btn btn-ghost" data-action="cal-dismiss">Cancel</button>'+
         '<button type="button" class="btn btn-primary" data-action="cal-set"'+
-          (vvCalIsIso(VVCAL.picked) ? '' : ' disabled')+'>Set date</button>'+
+          (vvCalIsIso(VVCAL.picked) ? '' : ' disabled')+'>Set Date</button>'+
       '</div>'+
     '</div>';
 }
@@ -67203,7 +67768,7 @@ function openEditModal(dayId){
       : '')+
     section('ef-sec-reschedule', 'Reschedule',
             'Move or swap this session with another day.', reschedule,
-            'Move it to another day this week or next', ['Move Session', 'save-edit', 'Back'])+
+            'Move it to any upcoming day in your plan', ['Move Session', 'save-edit', 'Back'])+
     section('ef-sec-edit', 'Edit details', '', fields,
             'Title, distance, notes and completion', ['Save', 'save-edit', 'Back'])+
     '<div class="modal-actions es-actions">'+
@@ -74045,6 +74610,9 @@ function handleLogSave(dayId){
   /* No haptic here: the one success haptic for logging fires when the run
      is marked done (Log Run), and the app's haptics are a fixed table. */
   patchTodayTray();
+  /* SESSION COMPLETE, once the log has folded away: the panel reads the
+     figures that were just saved, never a run with nothing in it yet. */
+  setTimeout(function(){ try { if (!document.getElementById('modal-overlay')) maybeOpenSessionResult(findDay(dayId)); } catch(e){} }, 1000);
 }
 /* An answer changed: the log is unsaved again until Save is pressed. */
 function markLogEdited(dayId){
@@ -83320,6 +83888,7 @@ document.addEventListener('click', function(e){
     case 'voice-listen': handleVoiceListen(target.getAttribute('data-day')); break;
     case 'today-log-run': handleTodayLogRun(target.getAttribute('data-day')); break;
     case 'log-save': handleLogSave(target.getAttribute('data-day')); break;
+    case 'result-ok': handleResultOk(target.getAttribute('data-day')); break;
     case 'log-undo': handleLogUndo(target.getAttribute('data-day')); break;
     case 'voice-stop': handleVoiceStopPress(); break;
     case 'set-coach-voice': handleSetCoachVoice(target.getAttribute('data-voice')); break;

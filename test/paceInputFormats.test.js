@@ -155,7 +155,7 @@ test('every pace field offers a keypad with a dot, and is read through the one p
    review." The score is this session against its prescription; the
    training signal reads recent sessions. The signal used to sit straight
    under the Execution Review heading, where the day views keep the score. */
-test('the review gives the training trend its own heading, says it is not the score, and the score is untouched', () => {
+test('the review says the training trend as a reading of recent runs, apart from the score, and the score is untouched', () => {
   const A = loadApp({ pinnedDate: '2026-05-20T09:00:00Z' }); A.showToast = () => {};
   buildPlan(A, { weeks: 16, distanceKey: 'half', startDate: A.addDays('2026-05-20', -21), lthr: 170 });
   const dd = A.state.days.filter(d => d.date < '2026-05-20' && d.type === 'easy')[0];
@@ -165,15 +165,14 @@ test('the review gives the training trend its own heading, says it is not the sc
   A.coachPersistReview(dd);
   const score = A.computeExecutionScore(dd);
   const html = A.renderExecutionReview(dd);
-  const head = html.indexOf('Execution Review'), trend = html.indexOf('<div class="cr-sec cr-trend">');
-  assert.ok(trend > head, 'the trend is not in its own section of the review');
-  const sec = html.slice(trend, html.indexOf('</div></div>', html.indexOf('cr-trend-note')) + 12);
-  assert.match(sec, /<div class="cr-k">Training Trend<\/div>/);
-  assert.match(sec, /Neutral \/ Building Baseline/);
-  assert.match(sec, /separate from this session’s execution score/);
-  assert.doesNotMatch(sec, /%|exec-pill/, 'a percentage sits beside the trend');
-  /* The label no longer stands straight under the heading, in the score's place. */
-  const afterHead = html.slice(head, head + 400);
-  assert.doesNotMatch(afterHead.slice(0, afterHead.indexOf('exec-pill') + 200), /cr-sig-label/);
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections. The founder's earlier rule still holds -- "keep execution
+     score separate from Neutral / Building Baseline" -- so the trend is its
+     own sentence, framed as recent runs rather than this one, with no
+     figure beside it; the score stays on the line above the prose. */
+  const said = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const m = /Looking across your recent runs, [^.]*\./.exec(said);
+  assert.ok(m, 'the trend is no longer said');
+  assert.match(m[0], /no clear trend/);
+  assert.doesNotMatch(m[0], /%/, 'a percentage sits in the trend');
   assert.equal(A.computeExecutionScore(dd), score, 'rendering the review moved the score');
 });

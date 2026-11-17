@@ -78,9 +78,10 @@ for (const [name, pick] of STRUCTURED) {
     assert.equal(pa && pa.tier, 'partial');
     assert.equal(pa.paceRead, 'within');
     const html = a.renderExecutionReview(d);
-    assert.match(html, /Partial assessment/);
+    /* Said in the prose now (founder: "normal flowing English"), and still said. */
+    assert.match(html, /This is a partial assessment, not a score\./);
     assert.match(html, /there is no execution score/);
-    assert.doesNotMatch(html.slice(html.indexOf('exec-partial')), /\d%/, 'a percentage sits on a partial assessment');
+    assert.doesNotMatch(html.slice(html.indexOf('wc-prose')), /\d%/, 'a percentage sits on a partial assessment');
   });
   test(name + ': every section logged on target is scored, and scores 100', () => {
     const a = app();
@@ -274,16 +275,19 @@ test('optional runs stay unscored', () => {
 
 /* A partial assessment is not the score, and only the score is withheld:
    what the athlete logged and the training trend stay on the card. */
-test('the partial card keeps What you logged and the Training Trend, and still shows no percentage', () => {
+test('the partial card still says what was logged and the trend, in prose, with no percentage', () => {
   const a = app();
   const d = past(a, x => x.type === 'tempo');
   whole(a, d, { rpe: 7 });
   a.coachPersistReview(d);
   assert.equal(a.computeExecutionScore(d), null);
   const html = a.renderExecutionReview(d);
-  assert.match(html, /exec-partial/);
-  assert.match(html, /<div class="cr-k">Training Trend<\/div>/);
-  assert.equal((html.match(/cr-k">Training Trend/g) || []).length, 1);
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections: what was logged and the trend are sentences. */
+  const said = html.replace(/<[^>]+>/g, ' ');
+  assert.match(said, /This is a partial assessment, not a score\./);
+  assert.match(said, /It felt (?:harder|easier|as intended)|felt as intended|felt harder|felt easier/, 'what was logged is no longer said');
+  assert.match(said, /Looking across your recent runs/, 'the trend is no longer said');
+  assert.equal((said.match(/Looking across your recent runs/g) || []).length, 1);
   assert.doesNotMatch(html, /\d+% EXEC|exec-pill/, 'a partial assessment printed a score');
 });
 

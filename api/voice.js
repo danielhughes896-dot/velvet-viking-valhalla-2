@@ -4,6 +4,7 @@
 //   /api/voice-enabled   availability probe       GET, HEAD
 //   /api/voice-tts       ElevenLabs speech        POST
 //   /api/voice-note      Coach's Note, written    POST
+//   /api/voice-explain   run / week summaries     POST
 //
 // WHY A ROUTER FOR TWO ROUTES. Vercel turns every non-underscore file in /api
 // into its own Serverless Function, and the Hobby plan allows twelve per
@@ -29,7 +30,10 @@ const ROUTES = {
   /* The written Coach's Note. Text in, text out, through the model call site
      in _voice-ask.js: it shares this function and adds no endpoint of its
      own. */
-  'voice-note':    require('./_voice-note.js')
+  'voice-note':    require('./_voice-note.js'),
+  /* The coach's word on a finished run or week, for the Session Complete and
+     Week Complete panels. Same function, same model call site. */
+  'voice-explain': require('./_voice-explain.js')
 };
 
 /* Resolved from the request rather than trusted from a body -- the same three

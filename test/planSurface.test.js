@@ -276,7 +276,9 @@ test('the current week is lit again after the de-boxing took its ring', () => {
      with". So the row may carry the shared glass and nothing else -- never a
      solid colour, which is still the box. */
   const bg = /background:([^;]+);/.exec(body);
-  assert.ok(!bg || bg[1].trim() === 'var(--glass-sheen), var(--glass-tint)',
+  /* And now the sheets' 12% glass (founder: "can you make it the same as
+     the other glass, 12%?"). Still glass, still never a solid colour. */
+  assert.ok(!bg || bg[1].trim() === 'var(--sheet-glass)',
     'the current week row grew a solid fill, which is the box this was de-boxed out of: ' + (bg && bg[1]));
 });
 

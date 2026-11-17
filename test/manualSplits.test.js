@@ -300,7 +300,8 @@ test('Execution Review states the honest first-half-vs-second-half read once the
      the same; it just has to open the drawer the athlete opens. */
   a.handleViewAnalysis(dd.id);
   const html = a.renderExecutionReview(dd);
-  assert.match(html, /<div class="cr-k">Splits<\/div>/);
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections: the splits read is a sentence in the analysis. */
+  assert.match(html, /class="wc-prose"/);
   assert.match(html, /Paced slower in the second half than the first/);
   assert.match(html, /pace consistency across 4 laps/);
 });

@@ -233,10 +233,10 @@ test('the card shows the interpretation, not the distance-only line', () => {
   const it = a.sessionInterpretation(dd);
   [it.head].concat(Array.from(it.what), Array.from(it.evidence), [it.coaching]).forEach(line =>
     assert.ok(said.indexOf(line) !== -1, 'the card does not say: ' + line));
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections: the same lines in the same order, without the heading. */
   assert.ok(said.indexOf(it.head) < said.indexOf(Array.from(it.what)[0]) &&
             said.indexOf(Array.from(it.what)[0]) < said.indexOf(Array.from(it.evidence)[0]) &&
-            said.indexOf(Array.from(it.evidence)[0]) < said.indexOf('Coaching interpretation') &&
-            said.indexOf('Coaching interpretation') < said.indexOf(it.coaching), 'the card is not in order');
+            said.indexOf(Array.from(it.evidence)[0]) < said.indexOf(it.coaching), 'the card is not in order');
   assert.doesNotMatch(said, /Distance is all that was recorded|Add an average pace|as prescribed/);
   assert.doesNotMatch(said, /\d+\s*\/\s*100|AI Analysis/, 'a figure or an "AI" label is on an unscored review');
   /* The tab is lit: there is something to open. */

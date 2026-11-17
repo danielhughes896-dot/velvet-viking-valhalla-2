@@ -106,12 +106,13 @@ const NEVER = [
 /* THE CHECK. Returns { ok:true, note } or { ok:false, why }. Pure, so the same
    cases can be put to the copy of it the browser runs before it shows
    anything -- see coachNoteValid() in the app. */
-function validateNote(raw, evidence){
+function validateNote(raw, evidence, limits){
+  const L = limits || {};
   const note = clean(raw, 2000).replace(/^["'“‘]+|["'”’]+$/g, '').trim();
   if (note.length < NOTE_MIN_CHARS) return { ok: false, why: 'too_short' };
-  if (note.length > NOTE_MAX_CHARS) return { ok: false, why: 'too_long' };
+  if (note.length > (L.maxChars || NOTE_MAX_CHARS)) return { ok: false, why: 'too_long' };
   const sentences = note.split(/(?<=[.!?])\s+/).filter(Boolean);
-  if (sentences.length > 3) return { ok: false, why: 'too_many_sentences' };
+  if (sentences.length > (L.maxSentences || 3)) return { ok: false, why: 'too_many_sentences' };
   for (let i = 0; i < NEVER.length; i++) if (NEVER[i][0].test(note)) return { ok: false, why: NEVER[i][1] };
 
   let ev = '';

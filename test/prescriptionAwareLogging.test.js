@@ -389,7 +389,11 @@ test('the structured read reaches the review card once there is evidence', () =>
   const dd = loggedFartlek(a, [0.58,0.57,0.56,0.55,0.54]);
   // Behind View Analysis now; the segment read itself is unchanged.
   a.handleViewAnalysis(dd.id);
-  assert.match(a.renderExecutionReview(dd), /Execution by segment/);
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections: the segment read is said, not headed. */
+  const html = a.renderExecutionReview(dd);
+  const se = a.structuredExecutionEvidence(dd);
+  assert.ok(se && se.claims.length, 'the fixture has a segment read');
+  se.claims.forEach(c => assert.ok(html.indexOf(a.escapeHtml(c)) !== -1, 'the segment read is not in the analysis: ' + c));
 });
 
 // ---------------------------------------------------------------------------

@@ -627,7 +627,10 @@ test('the analysis tab does not promise a verdict it has not got', () => {
 
   const full = ds[1];
   logAsPrescribed(a, full, { quality: 1 });
-  assert.match(analysisBody(a, full), /Execution Review/,
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections; a scored session's review is its paragraphs. */
+  a.analysisOpenFor[full.id] = true;
+  const verdict = (a.coachReviewFor(full) || a.coachWorkoutReview(full)).executionVerdict;
+  assert.ok(verdict && analysisBody(a, full).indexOf(verdict.replace(/\s+/g, ' ')) !== -1,
     'a scored session stopped showing its execution review');
 
   /* And opening the unscored one says what would score it. */

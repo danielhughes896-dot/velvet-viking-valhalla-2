@@ -398,7 +398,7 @@ test('Edit Session is three boxes: Change Workout, Reschedule and Edit details, 
   assert.deepEqual(boxes.map(m => m[2]), ['ef-sec-workout-body', 'ef-sec-reschedule-body', 'ef-sec-edit-body']);
   assert.deepEqual(boxes.map(m => m[1]), ['false', 'false', 'false'], 'a box is open before it is asked for');
   [['Change Workout', 'Swap for another workout, or make your own'],
-   ['Reschedule', 'Move it to another day this week or next'],
+   ['Reschedule', 'Move it to any upcoming day in your plan'],
    ['Edit details', 'Title, distance, notes and completion']].forEach(([t, hint], i) => {
     assert.match(boxes[i][3], new RegExp('<span class="es-choice-t">' + t + '</span>'), t + ' box is not titled');
     assert.ok(boxes[i][3].indexOf(hint) !== -1, t + ' box does not say what it does');

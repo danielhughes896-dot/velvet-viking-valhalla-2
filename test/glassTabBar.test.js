@@ -134,11 +134,18 @@ test('each of the five is glass, and keeps the colour it already spoke in', () =
        Founder, of the round close buttons: "match please" -- the completion
        circle's glass, which the back ring and the week's days already wear:
        a lit upper half rather than the bar's faint sheen. Still glass. */
+    /* ---- THIS WEEK CHANGED SIDES ----
+       Founder, of the Full Plan current-week bar: "can you make it the same
+       as the other glass, 12%?" and then "Glass panel on full plan love it.
+       Keep." It wears the sheets' glass and blur; still glass, still lit. */
+    const sheet = what === 'this week in Full Plan';
     const ground = /X on a full page/.test(what)
       ? /background:linear-gradient\(180deg, rgba\(255,255,255,\.16\), rgba\(255,255,255,\.03\) 60%\), var\(--glass-tint\);/
+      : sheet ? /background:var\(--sheet-glass\);/
       : /background:var\(--glass-sheen\), var\(--glass-tint\);/;
     assert.match(r, ground, what + ' is not glass');
-    assert.match(r, /-webkit-backdrop-filter:var\(--glass-blur\); backdrop-filter:var\(--glass-blur\);/, what + ' does not blur (or not on the iPhone)');
+    assert.match(r, sheet ? /-webkit-backdrop-filter:var\(--sheet-blur\); backdrop-filter:var\(--sheet-blur\);/
+                          : /-webkit-backdrop-filter:var\(--glass-blur\); backdrop-filter:var\(--glass-blur\);/, what + ' does not blur (or not on the iPhone)');
     assert.doesNotMatch(r, /opacity:|(?:^|[^-])filter:/, what + ' fades or filters its own contents');
   });
   /* The cherry stays where it was: the chosen week's glow, the coach buttons'

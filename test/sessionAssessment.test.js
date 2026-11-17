@@ -513,7 +513,10 @@ test('it is not yet what the circles read: calibration is still under review', (
   const end = src.indexOf('\n}\n', src.indexOf('\nfunction assessmentReadout(')) + 3;
   assert.ok(start > -1 && end > start);
   const readout = body('sessionReadoutHtml');
-  const READERS = ['sessionReadoutHtml', 'sessionInterpretation', 'sessionReportedBlock'];
+  /* sessionReadoutSentence is sessionReadoutHtml said as a sentence (founder,
+     17 November 2026: "normal flowing English"): the same words, the same
+     reading, no figure. */
+  const READERS = ['sessionReadoutHtml', 'sessionReadoutSentence', 'sessionInterpretation', 'sessionReportedBlock'];
   let outside = src.slice(0, start) + src.slice(end);
   READERS.forEach((name) => { outside = outside.replace(body(name), ''); });
   assert.doesNotMatch(outside, /\bassessSession\(|\bassessmentReadout\(/,

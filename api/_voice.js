@@ -17,6 +17,11 @@ const S = require('./_strava.js');
    made this shared module look like a second call site to that check, and to a
    reader. */
 const VOICE_MODEL = 'claude-opus-5';
+/* THE ROUTINE WRITING MODEL (the coach's word on a finished run or week).
+   Its own setting so Ask Coach and the routine summaries can be priced
+   separately; VVV_NOTE_MODEL overrides it. Chosen by a side-by-side test of
+   Haiku 5.5 and Sonnet 5.5 on the same run and week packets. */
+const NOTE_MODEL = 'claude-haiku-5-5';
 
 function env(name){ return process.env[name] || ''; }
 
@@ -33,7 +38,8 @@ function voiceConfig(){
   return {
     enabled: voiceEnabled(),
     apiKey: env('ANTHROPIC_API_KEY'),
-    model: env('VVV_VOICE_MODEL') || VOICE_MODEL
+    model: env('VVV_VOICE_MODEL') || VOICE_MODEL,
+    noteModel: env('VVV_NOTE_MODEL') || NOTE_MODEL
   };
 }
 
@@ -46,7 +52,7 @@ function voiceConfig(){
 function log(what){ try{ console.log('voice: ' + what); }catch(e){} }
 
 module.exports = {
-  VOICE_MODEL,
+  VOICE_MODEL, NOTE_MODEL,
   voiceEnabled, voiceConfig, log,
   json: S.json, readBody: S.readBody, verifyUser: S.verifyUser
 };

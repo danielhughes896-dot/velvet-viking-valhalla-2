@@ -366,8 +366,12 @@ test('reps, the hold and the recoveries are read back in the analysis, in words,
     'the readout prints a figure: the new Execution score is behind the gate');
   a.analysisOpenFor[dd.id] = true;
   const review = a.renderExecutionReview(dd);
-  assert.ok(review.indexOf(out) !== -1, 'the readout is not in the session analysis');
-  assert.ok(review.indexOf('coach-msg-review') < review.indexOf(out), 'the readout comes before the coach has spoken');
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections: the readout is a sentence in the second paragraph, after
+     the coach's opening one. */
+  const sentence = a.sessionReadoutSentence(dd);
+  assert.match(sentence, new RegExp('completed ' + (reps - 2) + ' of ' + reps + ' reps'));
+  assert.ok(review.indexOf(a.escapeHtml(sentence)) !== -1, 'the readout is not in the session analysis');
+  assert.ok(review.indexOf('wc-prose-p') < review.indexOf(a.escapeHtml(sentence)), 'the readout comes before the coach has spoken');
 
   a.handleLogAnswer(dd.id, 'mainSetHeld', '1');
   assert.match(a.sessionReadoutHtml(dd), /the set got stronger/);

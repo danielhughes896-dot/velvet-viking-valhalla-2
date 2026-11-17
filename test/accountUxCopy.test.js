@@ -193,7 +193,7 @@ test('Settings: entitlementInfo remains display-only -- a revoked flag changes c
 
 // ---------------------------------------------------------------------------
 // /get copy -- must not claim "no account needed" now that account gating is
-// real architecture, even while VVV_ACCOUNT_REQUIRED stays off
+// real architecture; the founder has made an account required
 // ---------------------------------------------------------------------------
 
 test('get.html no longer claims no account is needed', () => {
@@ -204,7 +204,7 @@ test('get.html no longer claims no account is needed', () => {
   assert.doesNotMatch(flat, /subscription/i, 'no commercial claims before commercial activation');
   assert.doesNotMatch(flat, /\btrial\b/i, 'no trial claims before a trial exists');
   assert.doesNotMatch(flat, /strava/i, 'no Strava claims on an unrelated install page');
-  assert.match(flat, /account may be needed/i);
+  assert.match(flat, /SACORO needs an account/i, 'founder: an account is required, and every page says so');
 });
 
 test('account.html references an icon file that actually exists', () => {
