@@ -80,18 +80,21 @@ test('privacy is a notice and can never become a consent', () => {
 test('the immediate-start acknowledgement is its own affirmative act', () => {
   const a = Agree.currentAgreements();
   assert.equal(a.immediateStart.type, 'immediate_start');
-  assert.equal(a.immediateStart.version, 'immediate_start_v1');
+  assert.equal(a.immediateStart.version, 'immediate_start_v2');
   assert.equal(a.immediateStart.mustBeAffirmative, true);
   assert.equal(a.immediateStart.preTicked, false);
 
-  /* The wording carries the four things the concept requires: the trial starts
-     now, the service begins immediately, that affects the cancellation right,
-     and they can still cancel free before the trial ends. */
+  /* The wording carries the five things the concept requires: the trial
+     starts now, the service begins immediately, that affects the statutory
+     cancellation right, they can cancel free during the trial, and -- because
+     the trial is shorter than that statutory right -- a refund is guaranteed
+     through the full fourteen days even after a charge has landed. */
   const t = a.immediateStart.text;
-  assert.match(t, /14 days start now/);
+  assert.match(t, /7-day free trial starts now/);
   assert.match(t, /begin the service during the 14-day period/);
   assert.match(t, /affects that right/);
-  assert.match(t, /cancel at any time before the trial ends and you will not be charged/);
+  assert.match(t, /cancel at any time during your trial and you will not be charged/);
+  assert.match(t, /cancel within 14 days of today, we will refund that charge in full/);
 });
 
 test('nothing else can stand in for the acknowledgement', () => {
@@ -173,18 +176,20 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
      commercial documents are unpublished -- which is itself asserted below,
      and is a stronger form of the same rule rather than an exemption from it. */
   const iRow = over => Object.assign({
-    decision: 'accepted', agreement_version: 'immediate_start_v1',
-    decided_at: '2026-08-01T00:00:00Z'
+    decision: 'accepted', agreement_version: 'immediate_start_v2',
+    decided_at: '2026-11-17T00:00:00Z'
   }, over || {});
 
   assert.equal(await Agree.hasAccepted(CFG, sbReturning([iRow()]), UID, 'immediate_start'), true);
 
-  assert.equal(await Agree.hasAccepted(CFG,
-    sbReturning([iRow({ agreement_version: 'immediate_start_v0' })]), UID, 'immediate_start'), false,
-    'superseded wording must not count');
+  for (const v of ['immediate_start_v0', 'immediate_start_v1']){
+    assert.equal(await Agree.hasAccepted(CFG,
+      sbReturning([iRow({ agreement_version: v })]), UID, 'immediate_start'), false,
+      'superseded wording must not count: ' + v);
+  }
 
   assert.equal(await Agree.hasAccepted(CFG,
-    sbReturning([iRow({ agreement_version: 'immediate_start_v2' })]), UID, 'immediate_start'), false,
+    sbReturning([iRow({ agreement_version: 'immediate_start_v3' })]), UID, 'immediate_start'), false,
     'wording this build has never served must not count either');
 
   /* AND THE SAME RULE ON THE TERMS, now that they are published. Exactly one
@@ -200,40 +205,38 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
   }
 });
 
-test('the approved wording is the wording that ships, and it is labelled honestly', () => {
-  /* Review is complete and the text was approved UNCHANGED, which is why the
-     version is still v1: nothing an athlete agrees to has moved, so nobody
-     needs asking again. The repository must say that plainly -- a stale "not
-     approved" label is as untrue as a premature "approved" one.
+test('the current wording is not yet solicitor-approved, and it says so', () => {
+  /* v1 was reviewed and approved for a fourteen-day trial. The trial
+     shortened to seven days, which left v1's "you will not be charged before
+     the trial ends" promise covering less than the athlete's full statutory
+     window -- so the wording changed, and changing it is exactly what costs
+     the approval, because nobody has reviewed these words yet. The
+     repository must say that plainly: a stale "approved" label on unreviewed
+     wording is worse than a stale "not approved" one, because it is the
+     direction that lets unreviewed wording reach a checkout screen unflagged.
 
-     Approval is a fact about THIS string. The version mechanism stays so the
-     next string cannot inherit it. */
+     Approval is a fact about a STRING. The version mechanism exists so that
+     when this one is reviewed -- approved as it stands, or revised into v3 --
+     it costs no evidence and no migration either. */
   const src = read('api/_agreements.js');
-  assert.match(src, /SOLICITOR-REVIEWED AND APPROVED/);
-  assert.match(src, /immediate_start_v2/,
-    'and the upgrade path stays written down where the constant is');
+  assert.match(src, /NOT YET SOLICITOR-REVIEWED/);
+  assert.ok(!/SOLICITOR-REVIEWED AND APPROVED/.test(src),
+    'v2 must not borrow v1\'s approval label for itself');
+  assert.match(src, /immediate_start_v2/);
 
-  /* Case-INSENSITIVE, and across every file that describes the wording rather
-     than just the one carrying the headline label. A stale "draft" sentence
-     buried in prose misrepresents the legal position exactly as effectively as
-     a stale banner, and it is the buried one that survives a careless edit. */
-  for (const f of ['api/_agreements.js', 'api/_checkout.js',
-                   'supabase-account-agreements.sql', 'LEGAL-FACTS.md']){
-    const text = read(f);
-    assert.ok(!/not solicitor-approved|business draft/i.test(text),
-      f + ' still describes the approved wording as an unapproved draft');
-  }
-
-  /* The approved text, pinned. If somebody edits the wording without bumping
-     the version, this fails -- which is exactly the failure that would
-     otherwise let an old "yes" stand for new words. */
-  assert.equal(Agree.IMMEDIATE_START_VERSION, 'immediate_start_v1');
+  /* The unreviewed text, pinned anyway. If somebody edits the wording without
+     bumping the version, this fails -- which is exactly the failure that
+     would otherwise let an old "yes" stand for new words nobody agreed to,
+     reviewed or not. */
+  assert.equal(Agree.IMMEDIATE_START_VERSION, 'immediate_start_v2');
   assert.equal(Agree.IMMEDIATE_START_TEXT,
-    'Your 14 days start now and you get the full product straight away. That ' +
-    'means you are asking us to begin the service during the 14-day period in ' +
-    'which you would otherwise have the right to cancel a distance contract, ' +
-    'and you accept that starting immediately affects that right. You can still ' +
-    'cancel at any time before the trial ends and you will not be charged.');
+    'Your 7-day free trial starts now and you get the full product straight ' +
+    'away. That means you are asking us to begin the service during the ' +
+    '14-day period in which you would otherwise have the right to cancel a ' +
+    'distance contract, and you accept that starting immediately affects ' +
+    'that right. You can cancel at any time during your trial and you will ' +
+    'not be charged. If you are charged when your trial ends and you then ' +
+    'cancel within 14 days of today, we will refund that charge in full.');
 });
 
 // ===========================================================================
@@ -308,14 +311,14 @@ test('decided_at is the athlete’s own moment, not the write’s', async () => 
 test('the catalogue carries the actual first-charge instant, not a duration', () => {
   const at = new Date('2026-08-24T09:00:00Z');
   const c = Prod.catalogue('web', {}, at);
-  assert.equal(c.trialDays, 14);
-  assert.equal(c.firstChargeAt, '2026-09-07T09:00:00.000Z');
-  c.offers.forEach(o => assert.equal(o.firstChargeAt, '2026-09-07T09:00:00.000Z',
+  assert.equal(c.trialDays, 7);
+  assert.equal(c.firstChargeAt, '2026-08-31T09:00:00.000Z');
+  c.offers.forEach(o => assert.equal(o.firstChargeAt, '2026-08-31T09:00:00.000Z',
     o.code + ' must carry its own first-charge instant'));
 });
 
 test('there is one trial-date authority, and the screen is not it', () => {
-  /* A surface that added fourteen days itself would be a second calculation of
+  /* A surface that added seven days itself would be a second calculation of
      the same fact, drifting the first time the trial length changed. */
   assert.equal(
     Prod.trialEndsAt(new Date('2026-08-24T09:00:00Z')).toISOString(),
@@ -324,7 +327,7 @@ test('there is one trial-date authority, and the screen is not it', () => {
   const shell = read('account.html');
   assert.match(shell, /whenText\(o\.firstChargeAt\)/,
     'the shell must render the server’s instant');
-  assert.ok(!/14 \* 24 \* 60 \* 60 \* 1000|\+ 14 \* |addDays\(.*14\)/.test(shell),
+  assert.ok(!/7 \* 24 \* 60 \* 60 \* 1000|\+ 7 \* |addDays\(.*7\)/.test(shell),
     'the shell must not compute a trial end of its own');
 });
 
@@ -340,11 +343,11 @@ test('the date is rendered in the athlete’s own timezone, from a UTC instant',
      else's date; the rendering is local so the calendar day they read is the
      one the charge falls on where they are. */
   const lateUtc = Prod.trialEndsAt(new Date('2026-08-24T23:30:00Z'));
-  assert.equal(lateUtc.toISOString(), '2026-09-07T23:30:00.000Z');
-  /* Fourteen days is fourteen days across a DST boundary, because the
+  assert.equal(lateUtc.toISOString(), '2026-08-31T23:30:00.000Z');
+  /* Seven days is seven days across a DST boundary, because the
      arithmetic never leaves UTC. */
   const acrossDst = Prod.trialEndsAt(new Date('2026-10-20T23:30:00Z'));
-  assert.equal(acrossDst.toISOString(), '2026-11-03T23:30:00.000Z');
+  assert.equal(acrossDst.toISOString(), '2026-10-27T23:30:00.000Z');
 
   const shell = read('account.html');
   assert.match(shell, /toLocaleDateString/, 'the shell renders in the athlete’s locale');
@@ -362,14 +365,14 @@ test('a malformed instant yields no sentence rather than "Invalid Date"', () => 
 test('one product, two offers, the approved prices, and no resurrected tier', () => {
   assert.deepEqual(Object.keys(Prod.OFFERS), ['STANDARD_MONTHLY', 'STANDARD_YEARLY']);
   assert.equal(Prod.OFFERS.STANDARD_MONTHLY.priceMinor, 1199);
-  assert.equal(Prod.OFFERS.STANDARD_YEARLY.priceMinor, 8999);
+  assert.equal(Prod.OFFERS.STANDARD_YEARLY.priceMinor, 7999);
   assert.equal(Prod.OFFERS.STANDARD_MONTHLY.currency, 'GBP');
-  assert.equal(Prod.TRIAL_DAYS, 14);
+  assert.equal(Prod.TRIAL_DAYS, 7);
   assert.deepEqual(Object.keys(Prod.PRODUCTS), ['SACORO_STANDARD']);
 
   /* No Basic, no Pro, and no £9.99 founding price anywhere in the catalogue or
      on the purchase surface. Matched precisely rather than loosely: a bare
-     "999" also appears inside 8999, and a test that fires on the correct annual
+     "999" also appears inside 7999, and a test that fires on the correct annual
      price is a test somebody deletes. */
   const src = read('api/_products.js') + read('account.html');
   [/priceMinor:\s*999\b/, /£9\.99/, /SACORO_BASIC/, /SACORO_PRO/,
@@ -524,7 +527,7 @@ test('the immediate-start acknowledgement is unaffected and still recordable', a
     type: 'immediate_start', decision: 'accepted', surface: 'checkout'
   });
   assert.equal(r.ok, true);
-  assert.equal(body.agreement_version, 'immediate_start_v1');
+  assert.equal(body.agreement_version, 'immediate_start_v2');
 });
 
 test('a beta acceptance still buys nothing, now that the commercial Terms are live', async () => {

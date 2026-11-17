@@ -66,13 +66,13 @@ test('the offering is defined once, in the catalogue', () => {
   const monthly = Prod.offerForPeriod('monthly');
   const yearly = Prod.offerForPeriod('yearly');
   assert.equal(monthly.priceMinor, 1199);
-  assert.equal(yearly.priceMinor, 8999);
-  assert.equal(monthly.trialDays, 14);
-  assert.equal(yearly.trialDays, 14);
+  assert.equal(yearly.priceMinor, 7999);
+  assert.equal(monthly.trialDays, 7);
+  assert.equal(yearly.trialDays, 7);
   // And no commercial module keeps a second copy of those numbers.
   for (const f of ['api/_stripe.js', 'api/_checkout.js']) {
     const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
-    assert.equal(/1199|8999/.test(src), false, f + ' restates a price');
+    assert.equal(/1199|7999/.test(src), false, f + ' restates a price');
   }
 });
 
@@ -163,7 +163,7 @@ test('the trial is set on the session, for both periods, never on the Price', as
     await P.createCheckoutSession(cfg, { uid: 'u1', accountId: 'a', customerId: 'c', offerCode, env: PRICES }, {
       fetch: async (u, i) => { sent = decodeURIComponent(String(i.body)); return { ok: true, text: async () => JSON.stringify({ id: 'cs', url: 'u' }) }; }
     });
-    assert.ok(sent.indexOf('subscription_data[trial_period_days]=14') !== -1, offerCode + ': ' + sent);
+    assert.ok(sent.indexOf('subscription_data[trial_period_days]=7') !== -1, offerCode + ': ' + sent);
   }
 });
 

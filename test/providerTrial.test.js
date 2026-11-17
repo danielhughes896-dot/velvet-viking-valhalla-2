@@ -12,7 +12,7 @@ const Stripe = require('../api/_stripe.js');
 // It was card-free and needed a representation of its own. HQ replaced it with
 // a trial that takes a payment method upfront and converts automatically to the
 // interval the athlete chose. That makes it an ordinary provider subscription
-// with fourteen free days, and the canonical model already handled those --
+// with free days, and the canonical model already handled those --
 // so this change is a subtraction, and these tests guard the subtraction.
 
 const ROOT = path.join(__dirname, '..');
@@ -142,11 +142,11 @@ test('the lifetime rule still lives on the account', () => {
 // ---------------------------------------------------------------------------
 // MONTHLY AND ANNUAL ARE THE ATHLETE'S CHOICE
 // ---------------------------------------------------------------------------
-test('both intervals carry the same fourteen days', () => {
-  assert.equal(P.offerForPeriod('monthly').trialDays, 14);
-  assert.equal(P.offerForPeriod('yearly').trialDays, 14);
+test('both intervals carry the same seven days', () => {
+  assert.equal(P.offerForPeriod('monthly').trialDays, 7);
+  assert.equal(P.offerForPeriod('yearly').trialDays, 7);
   assert.equal(P.offerForPeriod('monthly').priceMinor, 1199);
-  assert.equal(P.offerForPeriod('yearly').priceMinor, 8999);
+  assert.equal(P.offerForPeriod('yearly').priceMinor, 7999);
 });
 
 test('the chosen interval survives into the subscription', () => {
@@ -176,7 +176,7 @@ test('what the athlete agreed is recorded, not inferred from the catalogue', () 
       metadata: { vvv_account_id: 'acc-1', vvv_offer: 'STANDARD_YEARLY', vvv_period: 'yearly' },
       trial_end: 1781209600, current_period_end: 1781209600 } }
   });
-  assert.equal(ev.agreed_price_minor, 8999);
+  assert.equal(ev.agreed_price_minor, 7999);
   assert.equal(ev.agreed_currency, 'GBP');
   assert.equal(ev.catalogue_version, P.CATALOGUE_VERSION);
 });
@@ -207,7 +207,7 @@ test('the agreed price reaches the row, and is not merely handed to a writer', a
   assert.equal(lock.locked, true);
 
   const row = f.rows('subscriptions')[0];
-  assert.equal(row.agreed_price_minor, 8999);
+  assert.equal(row.agreed_price_minor, 7999);
   assert.equal(row.agreed_currency, 'GBP');
   assert.equal(row.catalogue_version, P.CATALOGUE_VERSION);
   assert.equal(row.price_locked_at, NOW.toISOString());

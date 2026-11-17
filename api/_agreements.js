@@ -172,33 +172,51 @@ const TERMS_VERSION   = NOW.terms;
 const PRIVACY_VERSION = NOW.privacy;
 const TERMS_URL       = NOW.termsUrl;
 
+/* THE STATUTORY WITHDRAWAL PERIOD.
+ *
+ * Fourteen days, fixed by UK law (the Consumer Contracts Regulations' right to
+ * cancel a distance contract), for exactly as long as that law says so. It is
+ * NOT the trial length -- see TRIAL_DAYS in api/_products.js, which is a
+ * commercial choice this file has no say over. The two were the same number
+ * until the trial shortened to seven days, which is why the wording below no
+ * longer ties "you will not be charged" to "the trial has not ended": those
+ * are now two different dates, and conflating them again would quietly reopen
+ * the gap a shorter trial creates -- a card charged during the fourteen days
+ * an athlete still has a statutory right to cancel. */
+const STATUTORY_WITHDRAWAL_DAYS = 14;
+
 /* THE IMMEDIATE-START ACKNOWLEDGEMENT CURRENTLY IN FORCE.
  *
- * *** SOLICITOR-REVIEWED AND APPROVED. ***
+ * *** NOT YET SOLICITOR-REVIEWED. ***
  *
- * The wording below was reviewed and approved unchanged -- it is byte-identical
- * to the text put in front of review, which is why the version is still v1
- * rather than v2: nothing about what an athlete agrees to has moved, so nobody
- * needs asking again.
+ * v1 of this text was reviewed and approved, and said "you will not be
+ * charged before the trial ends" -- true only because the trial and the
+ * statutory withdrawal period were both fourteen days. Now that the trial is
+ * seven, that sentence would let a card be charged while the athlete still
+ * holds an unexpired statutory right to cancel for a full refund, which v1
+ * never had to account for and never approved wording for.
  *
- * IT STAYS VERSIONED ANYWAY, and that is the point of the design rather than a
- * leftover from the draft. If this text ever changes materially, the constant
- * becomes 'immediate_start_v2', every athlete is asked again at their next
- * checkout, and the v1 evidence remains exactly as it was -- no migration, no
- * backfill, and no possibility of a stored "yes" being re-pointed at wording
- * the athlete never saw. Approval is a fact about THIS string; the mechanism
- * exists so the next string cannot inherit it.
+ * v2 below is this file's attempt to stay compliant with a shorter trial: it
+ * separates "free until" (seven days) from "refundable until" (fourteen days,
+ * the statutory minimum), and promises the second regardless of the first.
+ * THIS IS A HOLDING FIX, NOT LEGAL ADVICE, and the version bump means every
+ * athlete is asked again at their next checkout -- which is also what forces
+ * this sentence to stop being true the day a solicitor actually reviews v2:
+ * get it checked before relying on it past that review.
  *
  * The text lives HERE and not in a screen, so that the wording an athlete saw
  * and the version recorded against their decision cannot come apart: a surface
  * renders what this module gives it. */
-const IMMEDIATE_START_VERSION = 'immediate_start_v1';
+const IMMEDIATE_START_VERSION = 'immediate_start_v2';
 const IMMEDIATE_START_TEXT =
-  'Your 14 days start now and you get the full product straight away. That ' +
-  'means you are asking us to begin the service during the 14-day period in ' +
-  'which you would otherwise have the right to cancel a distance contract, ' +
-  'and you accept that starting immediately affects that right. You can still ' +
-  'cancel at any time before the trial ends and you will not be charged.';
+  'Your 7-day free trial starts now and you get the full product straight ' +
+  'away. That means you are asking us to begin the service during the ' +
+  STATUTORY_WITHDRAWAL_DAYS + '-day period in which you would otherwise ' +
+  'have the right to cancel a distance contract, and you accept that ' +
+  'starting immediately affects that right. You can cancel at any time ' +
+  'during your trial and you will not be charged. If you are charged when ' +
+  'your trial ends and you then cancel within ' + STATUTORY_WITHDRAWAL_DAYS +
+  ' days of today, we will refund that charge in full.';
 
 function versionFor(type, published){
   /* Null when there is no commercial Terms document published. Every caller
@@ -415,7 +433,7 @@ module.exports = {
   TERMS_VERSION, TERMS_COMMERCIAL_VERSION, TERMS_BETA_VERSION,
   PRIVACY_VERSION, PRIVACY_COMMERCIAL_VERSION, PRIVACY_BETA_VERSION,
   CANONICAL_TERMS_URL, CANONICAL_PRIVACY_URL, BETA_TERMS_URL, TERMS_URL,
-  IMMEDIATE_START_VERSION, IMMEDIATE_START_TEXT,
+  STATUTORY_WITHDRAWAL_DAYS, IMMEDIATE_START_VERSION, IMMEDIATE_START_TEXT,
   inForce,
   versionFor, currentAgreements, hasAccepted, record, purchaseEvidence
 };

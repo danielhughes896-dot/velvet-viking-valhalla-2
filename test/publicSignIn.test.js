@@ -200,9 +200,9 @@ test('UK-only checkout is intact', () => {
 
 test('prices, trial and server-side resolution are unchanged', () => {
   assert.equal(Prod.offer('STANDARD_MONTHLY').priceMinor, 1199);
-  assert.equal(Prod.offer('STANDARD_YEARLY').priceMinor, 8999);
-  assert.equal(Prod.offer('STANDARD_MONTHLY').trialDays, 14);
-  assert.equal(Prod.offer('STANDARD_YEARLY').trialDays, 14);
+  assert.equal(Prod.offer('STANDARD_YEARLY').priceMinor, 7999);
+  assert.equal(Prod.offer('STANDARD_MONTHLY').trialDays, 7);
+  assert.equal(Prod.offer('STANDARD_YEARLY').trialDays, 7);
   assert.equal(Prod.offerForPeriod('monthly').code, 'STANDARD_MONTHLY');
   assert.equal(Prod.offerForPeriod('yearly').code, 'STANDARD_YEARLY');
   ['price_1Abc', 'weekly', null, ''].forEach((p) =>
