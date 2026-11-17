@@ -4960,9 +4960,15 @@
   .modal-overlay{
     position:fixed; inset:0; background:rgba(8,8,11,0.65); z-index:100;
     display:flex; align-items:flex-end; justify-content:center; padding:0;
-    animation:fadein .26s ease;
+    /* The dim comes up, not the layer: fading the overlay's opacity made it
+       a group of its own, and a glass sheet inside a fading group cannot see
+       the page behind it -- the blur switched off and the screen's words
+       showed sharp through the sheet for most of its rise. */
+    animation:scrimin .26s ease;
   }
   @keyframes fadein{from{opacity:0;} to{opacity:1;}}
+  @keyframes scrimin{from{background-color:transparent;}}
+  @keyframes scrimout{to{background-color:transparent;}}
   @media (min-width:640px){ .modal-overlay{align-items:center; padding:20px;} }
   /* THE COMPLETION MOMENT IS CENTRED, not docked. Every other modal is a
      drawer the athlete pulls up to do something -- edit, reschedule, confirm
@@ -5966,7 +5972,7 @@
      date can be picked over the builder and a toast still lands on top. */
   .vvcal-scrim{position:fixed; inset:0; z-index:150; display:flex;
     align-items:center; justify-content:center; padding:16px;
-    background:rgba(8,8,10,.62); animation:fadein .18s ease;}
+    background:rgba(8,8,10,.62); animation:scrimin .18s ease;}
   .vvcal{width:100%; max-width:344px; border:1px solid var(--t-tile-rim);
     border-radius:var(--tile-radius); background:var(--t-card);
     box-shadow:0 18px 48px rgba(0,0,0,.55); overflow:hidden;}
@@ -6228,7 +6234,17 @@
      the whole time. accent-color is dropped as dead weight; there is
      nothing left that draws a native glyph for it to recolour. */
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
-  @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  /* Opaque early, then settling: a glass sheet half-faded over the page
+     behind showed both sets of words at once for most of its rise. */
+  @keyframes slideup{0%{transform:translateY(24px); opacity:0;} 35%{opacity:1;} 100%{transform:translateY(0); opacity:1;}}
+  /* A SHEET LEAVES THE WAY IT CAME. It used to vanish in one frame. See
+     modalLeave(). A sheet already swiped off keeps where the finger left it. */
+  .modal-overlay.is-leaving{ animation:scrimout .22s ease forwards; pointer-events:none; }
+  .modal-overlay.is-leaving > .modal-card.is-sinking{ animation:slidedown .22s cubic-bezier(.4,0,1,1) forwards; }
+  @keyframes slidedown{ from{transform:translateY(0); opacity:1;} to{transform:translateY(32px); opacity:0;} }
+  /* A page that grew out of what was tapped has already arrived: its own
+     entrance would fade it a second time inside the morph. */
+  .modal-overlay.is-morphed, .modal-overlay.is-morphed > .modal-card{ animation:none; }
   /* ---------- A SHEET'S GUTTER IS THE PAGE'S GUTTER ----------
      .wrap puts page content 16px from the screen; these put modal content
      19px from the card's edge (18px here plus the card's 1px rim), so every
@@ -9977,7 +9993,7 @@
      picker. */
   .tw-field{cursor:pointer; caret-color:transparent;}
   .tw-layer{position:fixed; inset:0; z-index:140; display:flex; align-items:flex-end; justify-content:center;
-    background:rgba(8,8,11,.55); animation:fadein .2s ease;}
+    background:rgba(8,8,11,.55); animation:scrimin .2s ease;}
   .tw-sheet{width:100%; max-width:560px; box-sizing:border-box; padding:0 20px calc(18px + env(safe-area-inset-bottom, 0px));
     color:#FFFFFF; border-radius:24px 24px 0 0; border:1px solid rgba(255,255,255,.14); border-bottom:0;
     background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%), rgba(16,16,20,.86);
@@ -12020,6 +12036,25 @@
   html.vt-back::view-transition-new(vt-hero){ animation-duration:250ms; }
   @keyframes vt-out{ to{ opacity:0; } }
   @keyframes vt-in{ from{ opacity:0; } }
+  /* WORDS SLIDE, THEY DO NOT STRETCH. Founder: "I'm not sure the transitions
+     on the cards look smooth?" Frozen frame by frame, the Full Plan row's
+     "WEEK 4" was blown up to the width of the week page's title box and
+     smeared across the screen while it faded: a named part's picture is
+     drawn at the width of its box, and the two boxes are not the same shape.
+     Drawn at its own size instead, a title, a distance or a percentage moves
+     from where it was to where it lands and cross-fades on the way. */
+  ::view-transition-old(vt-title), ::view-transition-new(vt-title),
+  ::view-transition-old(vt-figs), ::view-transition-new(vt-figs),
+  ::view-transition-old(vt-dist), ::view-transition-new(vt-dist){
+    height:100%; object-fit:none; object-position:left center; }
+  ::view-transition-old(vt-pct), ::view-transition-new(vt-pct){
+    height:100%; object-fit:none; object-position:right center; }
+  /* A TAB IS A CROSS-FADE, NEVER A BLINK. The tapped tab used to drop the
+     old screen and fade the new one up from the bare ground: frozen at its
+     first frame, the screen was empty but for the header and the tab bar.
+     The old screen now stays until the new one is over it. */
+  html.vt-tab::view-transition-old(root), html.vt-tab::view-transition-new(root){
+    animation-duration:200ms; animation-timing-function:ease; }
   html{ background:var(--bg); }
   @media (prefers-reduced-motion: reduce){
     ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*){ animation:none !important; }
@@ -44233,7 +44268,7 @@ function sharePaintThumbs(){
    surface that wants it; the completion card holds the same composer inline
    instead, which is why this cannot stay hard-wired to .share-modal. */
 function shareRerender(){
-  var card = document.querySelector('.modal-card.share-modal');
+  var card = document.querySelector('.modal-card.share-modal:not(.is-leaving)');
   if (!card) return;
   /* The Design row is swiped sideways; redrawing the page must leave it
      where the athlete had swiped it, not throw it back to the start. */
@@ -54360,7 +54395,7 @@ function openCheckinSheet(){
 }
 function checkinSheetIsOpen(){
   if (typeof document === 'undefined' || !document.querySelector) return false;
-  return !!document.querySelector('.modal-card[data-modal-key="checkin"]');
+  return !!document.querySelector('.modal-card[data-modal-key="checkin"]:not(.is-leaving)');
 }
 /* =========================================================
    THE WEEKLY COACHING REVIEW
@@ -64238,15 +64273,50 @@ function openModal(html, extraClass, key){
       return;
     }
   }
-  closeModal();
+  /* One page replacing another: the old one goes at once, under the new
+     one's entrance, and any page still on its way out goes with it. */
+  modalSwapping = true;
+  try { closeModal(); } finally { modalSwapping = false; }
+  modalLeftovers();
   var overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
+  overlay.className = 'modal-overlay' + (vtInMorph ? ' is-morphed' : '');
   overlay.id = 'modal-overlay';
   overlay.innerHTML = '<div class="'+cls+'"'+(key?(' data-modal-key="'+key+'"'):'')+'>'+html+'</div>';
   overlay.addEventListener('mousedown', function(e){ if (e.target===overlay) closeModal(); });
   document.body.appendChild(overlay);
   /* A reading or record page carries its own circle: fit its figure too. */
   try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
+}
+/* ---- A SHEET LEAVES THE WAY IT CAME ----
+   Founder: "I'm not sure the transitions on the cards look smooth?" Every
+   sheet rose in on 340ms and left in a single frame. Now it sinks and fades
+   on 220ms -- but only as a picture: it loses its id at once, so everything
+   that asks "is a page open?" gets the same answer it always got, and it
+   takes no taps on its way out. Gone at once instead when a morph is
+   drawing the page behind (the morph is the exit), when another page is
+   replacing it, under Reduce Motion, and anywhere that cannot animate. */
+var modalSwapping = false;
+var MODAL_LEAVE_MS = 220;
+function modalLeftovers(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  [].forEach.call(document.querySelectorAll('.modal-overlay.is-leaving'), function(ov){
+    if (ov.parentNode) ov.parentNode.removeChild(ov);
+  });
+}
+function modalLeave(ov){
+  if (!ov || !ov.parentNode) return;
+  var card = ov.querySelector ? ov.querySelector('.modal-card') : null;
+  var animate = !!(card && !modalSwapping && !vtInMorph && typeof window !== 'undefined' &&
+    window.matchMedia && window.setTimeout && !pagerReducedMotion());
+  if (!animate){ ov.parentNode.removeChild(ov); return; }
+  ov.removeAttribute('id');
+  ov.classList.add('is-leaving');
+  /* Marked as leaving, so a lookup for the open page by its class passes it
+     by; it sinks unless it was swiped away, when the card is already where
+     the finger sent it. */
+  card.classList.add('is-leaving');
+  if (!(card.style && card.style.transform)) card.classList.add('is-sinking');
+  window.setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, MODAL_LEAVE_MS + 20);
 }
 function closeModal(){
   // A circle sheet belongs to the circle page; it never outlives it.
@@ -64277,7 +64347,7 @@ function closeModal(){
   bldParkSkip = false;
   var wasBuilder = !!(existing && existing.querySelector && existing.querySelector('.bld-modal'));
   var wasCheckin = !!(existing && existing.querySelector && existing.querySelector('.checkin-sheet'));
-  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  modalLeave(existing);
   /* A check-in changed from Recovery goes back to Recovery. */
   if (wasCheckin && checkinReturnToRecovery){
     checkinReturnToRecovery = false;
@@ -64357,6 +64427,10 @@ function handleBldRestart(){
    entrance). The update itself is identical either way; only the frames
    between differ. */
 var VT_MS = 440;   // going in; see the TAP-TO-GROW CSS for the other two clocks
+/* True only while a morph is drawing its new side: a page opened then has
+   arrived by growing (no entrance of its own), and a page closed then must
+   be gone from the new side at once (no exit of its own). */
+var vtInMorph = false;
 var vtReturn = null;   // how to fly back to what opened the current page
 function vtCanMorph(){
   if (typeof document === 'undefined' || typeof document.startViewTransition !== 'function') return false;
@@ -64399,9 +64473,9 @@ function vtTagSide(side){
 function vtKind(kind){
   var root = (typeof document !== 'undefined') ? document.documentElement : null;
   if (!root || !root.classList) return function(){};
-  root.classList.remove('vt-back', 'vt-change');
+  root.classList.remove('vt-back', 'vt-change', 'vt-tab');
   if (kind) root.classList.add('vt-' + kind);
-  return function(){ root.classList.remove('vt-back', 'vt-change'); };
+  return function(){ root.classList.remove('vt-back', 'vt-change', 'vt-tab'); };
 }
 /* from: the side on screen now; update(): the change; to(): the side after;
    kind: 'back' when returning to where the athlete came from. */
@@ -64417,7 +64491,8 @@ function vtMorph(from, update, to, kind){
       /* The view's own fade would start the new screen at opacity 0 inside
          the morph -- a blank first frame. The morph is the transition. */
       pagerSuppressFade = true;
-      update();
+      vtInMorph = true;
+      try { update(); } finally { vtInMorph = false; }
       pagerSuppressFade = false;
       var dest = null;
       try { dest = to ? to() : null; } catch(e2){ dest = null; }
@@ -65141,7 +65216,7 @@ function openSetupModal(){
 
   /* Grid -> mirrored select. Delegated on the card so the three grids share one
      listener, and a grid rebuilt later (the long-run day) needs no rebinding. */
-  var cardEl = document.querySelector('.modal-card');
+  var cardEl = document.querySelector('.modal-card:not(.is-leaving)');
   if (cardEl){
     cardEl.addEventListener('click', function(e){
       var btn = e.target.closest('.opt-grid[data-mirror] button, .bld-purpose[data-mirror] button');
@@ -66109,7 +66184,7 @@ function bldStage(n){
   if (no) no.textContent = padStage(bldCurrentStage + 1) + ' / ' + padStage(BLD_STAGE_NAMES.length);
   if (bldCurrentStage === BLD_STAGE_NAMES.length - 1) bldRenderReview();
   if (bldCurrentStage === BLD_STAGE.WEEK) bldSyncQuality();
-  var card = document.querySelector('.modal-card');
+  var card = document.querySelector('.modal-card:not(.is-leaving)');
   if (card) card.scrollTop = 0;
 }
 
@@ -78092,7 +78167,7 @@ function circleLoad(){
 /* Redraw whatever on screen shows the circle: its page if open, otherwise
    the Coach box or the Today line through the normal render. */
 function circleRepaint(){
-  var card = (typeof document !== 'undefined' && document.querySelector) ? document.querySelector('.modal-card.circle-page') : null;
+  var card = (typeof document !== 'undefined' && document.querySelector) ? document.querySelector('.modal-card.circle-page:not(.is-leaving)') : null;
   if (card){
     var y = modalScrollGet(card);
     card.innerHTML = circlePageHtml();
@@ -80506,7 +80581,7 @@ var STG_SHEETS = {
 var openStgSheetKey = null;
 function stgSheetOpen(key){
   if (typeof document === 'undefined' || !document.querySelector) return false;
-  return !!document.querySelector('.modal-card[data-modal-key="stg-sheet-'+key+'"]');
+  return !!document.querySelector('.modal-card[data-modal-key="stg-sheet-'+key+'"]:not(.is-leaving)');
 }
 function openStgSheet(key){
   var sh = STG_SHEETS[key];
@@ -81210,7 +81285,7 @@ function renderBottomNavStack(){
      than becoming fixed chrome -- and retires on the first swipe anyway. */
   return '<div class="bn-stack">'+renderBottomNav()+'</div>';
 }
-function handleSetView(view){
+function handleSetView(view, tapped){
   historyReturn = null;
   /* BEFORE THE EARLY RETURN BELOW, and that position is the fix rather than an
      accident. Asking is latched and idempotent, so it costs nothing to do it
@@ -81297,7 +81372,25 @@ function handleSetView(view){
     try{ garminRefreshCapability().then(patchGarminSection); }catch(e){}
   }
   scheduleSave();
-  renderApp();
+  if (tapped) viewCrossfade(renderApp); else renderApp();
+}
+/* A TAPPED TAB CROSS-FADES (see the TAP-TO-GROW CSS, vt-tab). Only a tap:
+   a swipe has already moved the page, and the app's own trips between tabs
+   (a log opening its day, History opening its run) draw their destination
+   straight after and must find it drawn. Without view transitions, or
+   under Reduce Motion, the view keeps its own short fade. */
+function viewCrossfade(render){
+  if (pagerSuppressFade || !vtCanMorph()){ render(); return; }
+  vtUntag();
+  var done = vtKind('tab');
+  var t = null;
+  try {
+    t = document.startViewTransition(function(){
+      pagerSuppressFade = true;
+      try { render(); } finally { pagerSuppressFade = false; }
+    });
+  } catch(e){ done(); pagerSuppressFade = false; render(); return; }
+  if (t && t.finished && t.finished.then) t.finished.then(done, done); else done();
 }
 /* =========================================================
    APPLICATION STATE
@@ -83934,7 +84027,7 @@ document.addEventListener('click', function(e){
     case 'export-ics': handleExportICS(); break;
     case 'print-plan': handlePrintPlan(); break;
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;
-    case 'set-view': handleSetView(target.getAttribute('data-view')); break;
+    case 'set-view': handleSetView(target.getAttribute('data-view'), true); break;
     case 'cloud-sign-in': handleCloudSignIn(); break;
     case 'cloud-sign-out': cloudSignOut(); break;
     case 'cloud-delete-account': handleCloudDeleteAccount(); break;
