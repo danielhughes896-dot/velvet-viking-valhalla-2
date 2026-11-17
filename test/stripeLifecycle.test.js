@@ -312,12 +312,12 @@ test('cancelling during the trial keeps the trial and stops the renewal', async 
     assert.equal(row.cancel_at_period_end, true);
     assert.equal(row.auto_renew, false);
 
-    // Access runs to the end of the fourteen days they were promised.
-    const during = resolve(f, T0 + days(10));
+    // Access runs to the end of the seven days they were promised.
+    const during = resolve(f, T0 + days(5));
     assert.equal(during.active, true);
     assert.equal(during.reason, 'trial');
     // And then stops, without anyone charging them.
-    const after = resolve(f, T0 + days(15));
+    const after = resolve(f, T0 + days(10));
     assert.equal(after.active, false);
   });
 });
