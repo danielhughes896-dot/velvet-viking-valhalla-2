@@ -80,16 +80,35 @@ const SYSTEM = [
   '6. No praise the evidence does not earn, and no generic advice that would be true of anybody.',
   '7. Never mention evidence, data, the engine, an algorithm, AI, or yourself.',
   '8. ' + MEM.SYSTEM_LINE + ' They are not evidence: rule 1 still holds, and engineNote still decides.',
+  '9. evidence.session may carry targetPace, goalPace and targetHeartRate: the targets exactly as',
+  '   the athlete\'s session card shows them. You may quote one exactly as written; never change,',
+  '   round, widen or narrow it, and never invent one the session does not carry.',
   '',
   'HOW IT SOUNDS. A serious coach talking to an adult athlete: calm, direct, British, second',
-  'person. No greeting, no sign-off, no headings, no lists, no emoji, no quotation marks.',
+  'person, in flowing conversational prose: plain sentences, never bullet points, numbered lists,',
+  'headings, bold or any other markdown. No greeting, no sign-off, no emoji, no quotation marks.',
   'Reply with the note and nothing else.'
 ].join('\n');
 
+/* FLOWING PROSE, NEVER A LIST (founder: "it would still be in flowing convo
+   not bullet form"). Read on the reply as written, before clean() collapses
+   its whitespace, because a list is a shape of lines: one that opens with a
+   bullet, a number and a full stop or bracket, or a heading mark; and bold or
+   underline markers anywhere. "10.5km felt easy" opening a line is a
+   sentence, not an item: a list number is followed by a space. */
+const LIST_LINE = /^\s*(?:[-*\u2022#]|\d+[.)](?:\s|$))/m;
+const MARKDOWN = /\*\*|__/;
+function listFormatting(raw){
+  const s = String(raw == null ? '' : raw);
+  return LIST_LINE.test(s) || MARKDOWN.test(s);
+}
 function clean(s, max){
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, max);
 }
-/* Every run of digits, as the athlete would read it: "12", "0.74", "5:20". */
+/* Every run of digits, as the athlete would read it: "12", "0.74", "5:20".
+   A range is two numbers: "4:47–5:05/km" gives 4:47 and 5:05, "162–169 BPM"
+   gives 162 and 169, so a reply may quote either end of a band the evidence
+   carries and no pace the evidence does not. */
 function numbersIn(text){
   return (String(text == null ? '' : text).match(/\d+(?:[.:]\d+)*/g) || []);
 }
@@ -120,6 +139,7 @@ function validateNote(raw, evidence, limits){
   const sentences = note.split(/(?<=[.!?])\s+/).filter(Boolean);
   if (sentences.length > (L.maxSentences || 3)) return { ok: false, why: 'too_many_sentences' };
   for (let i = 0; i < NEVER.length; i++) if (NEVER[i][0].test(note)) return { ok: false, why: NEVER[i][1] };
+  if (listFormatting(raw)) return { ok: false, why: 'not_prose' };
 
   let ev = '';
   try { ev = JSON.stringify(evidence == null ? {} : evidence); } catch (e) { ev = ''; }
@@ -250,5 +270,5 @@ async function handle(req, res, deps){
   return V.json(res, 200, { note: verdict.note });
 }
 
-module.exports = { handle, validateNote, notePayload, textOf, numbersIn, SYSTEM,
+module.exports = { handle, validateNote, listFormatting, notePayload, textOf, numbersIn, SYSTEM,
                    NOTE_MAX_CHARS, NOTE_MIN_CHARS, EVIDENCE_MAX_CHARS, CHANGE_WORDS };

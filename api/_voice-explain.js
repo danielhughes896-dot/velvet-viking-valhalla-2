@@ -44,8 +44,9 @@ const STYLE = [
   'British English, second person. Two or three short sentences, at most 50 words, one paragraph.',
   'Sum up what the figures say in ordinary words. Pick the one or two figures that matter most and',
   'say what they mean; never list figures and never repeat the whole log back. No greeting, no',
-  'sign-off, no headings, no lists, no emoji, no quotation marks, no exclamation marks, no',
-  'cheerleading and no cliches. Reply with the paragraph and nothing else.',
+  'sign-off, no emoji, no quotation marks, no exclamation marks, no cheerleading and no cliches.',
+  'Flowing conversational prose in plain sentences: never bullet points, numbered lists,',
+  'headings, bold or any other markdown. Reply with the paragraph and nothing else.',
   '',
   'THE REGISTER, BY EXAMPLE (not about this athlete):',
   '  "Ten kilometres at a proper easy effort, and nothing forced. That is the run that lets the',
@@ -108,7 +109,10 @@ const RULES = [
   '   "the session did not do the job it was set for".',
   '7. Name days only as evidence names them (a date such as 17 Nov is fine; do not turn it',
   '   into a weekday). A session can be named by what it is: "your 3x600m intervals".',
-  '8. ' + MEM.SYSTEM_LINE + ' They are not evidence: rule 1 still holds.'
+  '8. ' + MEM.SYSTEM_LINE + ' They are not evidence: rule 1 still holds.',
+  '9. A session in evidence may carry targetPace, goalPace and targetHeartRate: the targets',
+  '   exactly as its session card shows them. You may quote one exactly as written; never change,',
+  '   round, widen or narrow it, and never invent one a session does not carry.'
 ];
 const SYSTEM = {
   run: [
@@ -196,6 +200,9 @@ function missedFlag(text, ev){
 }
 function validateExplain(raw, evidence){
   const ev = evidence || {};
+  /* Prose, checked while the lines are still lines: joining the paragraphs
+     below would hide a list inside one. */
+  if (NOTE.listFormatting(raw)) return { ok: false, why: 'not_prose' };
   /* A run's analysis is paragraphs: checked as one text, kept as paragraphs. */
   const paras = String(raw == null ? '' : raw).split(/\n\s*\n/).map(t => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
   raw = paras.join(' ');

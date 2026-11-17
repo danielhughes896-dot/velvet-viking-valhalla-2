@@ -53615,6 +53615,18 @@ var COACH_NOTE_NEVER = [
   [/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'emoji'],
   [/^\s*[-*#]|\n\s*[-*#]/, 'markup']
 ];
+/* FLOWING PROSE, NEVER A LIST (founder: "it would still be in flowing convo
+   not bullet form"). Read on the reply as written, before its whitespace is
+   collapsed, because a list is a shape of lines: one that opens with a
+   bullet, a number and a full stop or bracket, or a heading mark; and bold or
+   underline markers anywhere. The same as listFormatting() in
+   api/_voice-note.js. */
+var COACH_NOTE_LIST_LINE = /^\s*(?:[-*\u2022#]|\d+[.)](?:\s|$))/m;
+var COACH_NOTE_MARKDOWN = /\*\*|__/;
+function coachNoteListFormatting(raw){
+  var s = String(raw == null ? '' : raw);
+  return COACH_NOTE_LIST_LINE.test(s) || COACH_NOTE_MARKDOWN.test(s);
+}
 function coachNoteNumbers(text){
   return (String(text == null ? '' : text).match(/\d+(?:[.:]\d+)*/g) || []);
 }
@@ -53633,6 +53645,7 @@ function coachNoteValid(raw, evidence, limits){
   if (note.split(/(?<=[.!?])\s+/).filter(Boolean).length > (L.maxSentences || 3)) return { ok:false, why:'too_many_sentences' };
   for (var i = 0; i < COACH_NOTE_NEVER.length; i++)
     if (COACH_NOTE_NEVER[i][0].test(note)) return { ok:false, why:COACH_NOTE_NEVER[i][1] };
+  if (coachNoteListFormatting(raw)) return { ok:false, why:'not_prose' };
   var ev = '';
   try { ev = JSON.stringify(evidence == null ? {} : evidence); } catch(e){ ev = ''; }
   var known = {};
@@ -53681,7 +53694,8 @@ function coachNoteEvidence(dd){
   var ev = {
     units: displayUnit(),
     guidanceLevel: guidanceLevel(),
-    session: { title: dd.title, type: dd.type, plannedDistance: fmtDist(dd.km), isToday: dd.date === todayStr() },
+    session: voiceWithTargets({ date: dd.date, title: dd.title, type: dd.type, plannedDistance: fmtDist(dd.km),
+                                isToday: dd.date === todayStr() }, voiceSessionFacts(dd)),
     decision: dec ? dec.state : 'proceed',
     reasons: dec ? dec.reasons.slice(0, 3) : [],
     recovery: { state: rec.state, hardDaysInARow: rec.hardStreak },
@@ -53923,7 +53937,8 @@ function resultSayEvidence(kind, x){
       if (a.feel) logged.feel = a.feel;
     }
     return { kind: 'run', units: displayUnit(),
-      session: { type: tm.label || dd.type, title: dd.title || '', planned: fmtDist(dd.km) },
+      session: voiceWithTargets({ date: dd.date || null, type: tm.label || dd.type, title: dd.title || '',
+                                  planned: fmtDist(dd.km) }, voiceSessionFacts(dd)),
       logged: logged,
       execution: rd.score != null ? rd.score + '%' : 'not scored (logged without its sections)',
       verdict: { tone: rd.tone.tone, label: rd.tone.label, line: rd.line },
@@ -53968,6 +53983,8 @@ var RECOVERY_SAY_WORDS = /\b(?:recover\w*|rest\w*|back off|eas(?:e|es|ed|ing|ier
 var RECOVERY_SAY_MEDICAL = /\b(?:doctor|physio\w*|GP|clinician|medic\w*|treatment|icing|ice it|stretch\w*|foam[- ]roll\w*|massage|sprain\w*|tendon\w*|tendinitis|fractur\w*|shin splints|infection|virus|viral|flu|covid|a cold|fever|supplement\w*|vitamin\w*)\b/i;
 function resultSayValid(raw, ev){
   var e = ev || {};
+  /* Before the paragraphs are joined, while the lines are still lines. */
+  if (coachNoteListFormatting(raw)) return { ok:false, why:'not_prose' };
   /* A run's analysis is paragraphs: checked as one text, kept as paragraphs. */
   var paras = String(raw == null ? '' : raw).split(/\n\s*\n/).map(function(t){ return t.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
   var limits = e.kind === 'run' ? RESULT_RUN_LIMITS : e.kind === 'recovery' ? RECOVERY_SAY_LIMITS : null;
@@ -54442,9 +54459,20 @@ function recoveryCheckEvidence(rc){
     reasons: rc.rows.filter(function(r){ return consent || r[2] !== 'health'; })
       .map(function(r){ return { label: r[0], value: r[1] }; }),
     verdict: { tone: rc.tone.tone, label: rc.tone.label, line: rc.line },
-    suggestion: rc.offer ? { change: rc.offer.change, day: rc.offer.when || 'today',
-      from: rc.offer.from, to: rc.offer.to } : null,
+    suggestion: rc.offer ? recoveryCheckSuggestion(rc.offer) : null,
     healthInformation: consent ? 'included' : 'withheld' };
+}
+/* The offer, and the session it would change as that session stands now:
+   the card's own targets (voiceSessionFacts), so a figure quoted about it is
+   the card's. */
+function recoveryCheckSuggestion(o){
+  var out = { change: o.change, day: o.when || 'today', from: o.from, to: o.to };
+  var dd = null;
+  try { dd = findDay(o.dayId); } catch(e){ dd = null; }
+  var f = dd ? voiceSessionFacts(dd) : null;
+  if (f) out.sessionAsPlanned = voiceWithTargets({ date: f.date, type: f.type, title: f.title,
+    planned: fmtDist(dd.km) }, f);
+  return out;
 }
 function recoveryCheckHtml(rc){
   var o = rc.offer, btn;
@@ -71512,6 +71540,65 @@ function voiceDayEligible(dd){
 var VOICE_CONTEXT_RECENT_DAYS = 14;   // what "recently" means to a coach
 var VOICE_CONTEXT_UPCOMING    = 3;    // today plus the next few sessions
 
+/* ---------- A SESSION'S FACTS, ONE BUILDER FOR EVERY PACKET ----------
+   Founder, after testing Ask Coach live: the coach said "I don't have target
+   paces for your coming sessions, so I can't tell you what number to hold",
+   and it was right -- no packet carried them. Ask Coach, the Coach's Note and
+   the result panels now all take a session's facts from here, so every one of
+   them quotes the number the card shows and none can be handed another.
+
+   THE CARD'S OWN STRINGS. getDayTargets() is what the session ring prints
+   (renderDayTargetRing), so the pace, the goal-pace section and the heart
+   rate arrive already formatted in the athlete's units and rounded the way
+   the card rounds them. Nothing is worked out here. A structured session's
+   ring already carries its work stage (a tempo's tempo band, an interval's
+   interval band); a long run with a goal-pace section carries the easy band
+   and the section's own.
+
+   GATED THE WAY THE REST OF THE CONTEXT IS:
+     provenance  nothing at all for a day voiceDayEligible() refuses
+     derivation  paces only when the fitness anchor they descend from can be
+                 shown to be Strava-free (voiceFitnessAnchorIndependent)
+     consent     heart rate only with health consent, and only when the
+                 threshold it is worked from was not measured on a
+                 Strava-derived day (voiceHeartRateAnchorIndependent)
+   A caller that has already asked passes its answers in `opts`; consent is
+   asked again here whatever it passes. */
+var VOICE_TARGET_FIELDS = ['targetPace', 'goalPace', 'targetHeartRate'];
+function voiceSessionFacts(dd, opts){
+  if (!voiceDayEligible(dd)) return null;
+  var o = opts || {};
+  var derived = (o.derived !== undefined) ? !!o.derived : voiceFitnessAnchorIndependent();
+  var health = ((o.health !== undefined) ? !!o.health : true) && healthConsentGranted();
+  var out = { date: dd.date || null, type: dd.type || null, title: dd.title || null,
+              plannedKm: (typeof dd.km === 'number') ? dd.km : null };
+  if (dd.type === 'rest') return out;
+  var t = null;
+  try { t = getDayTargets(dd); } catch(e){ t = null; }
+  if (!t) return out;
+  if (derived && t.pace) out.targetPace = t.pace;
+  /* The ring prints "Goal 4:39–4:44/km"; the field name says Goal. */
+  if (derived && t.goalPace) out.goalPace = String(t.goalPace).replace(/^Goal\s+/, '');
+  if (health && t.hr && voiceHeartRateAnchorIndependent()) out.targetHeartRate = t.hr;
+  return out;
+}
+/* The target fields only, onto a packet's own session object, which keeps
+   its own names and units for everything it already carried. */
+function voiceWithTargets(into, facts){
+  if (facts) VOICE_TARGET_FIELDS.forEach(function(k){ if (facts[k]) into[k] = facts[k]; });
+  return into;
+}
+/* The heart-rate zones are worked from the athlete's threshold. Entered by
+   the athlete, it is theirs; measured by a calibration session, it is only as
+   independent as that session's day. Fails closed, as the pace anchor does. */
+function voiceHeartRateAnchorIndependent(){
+  if (!voiceHasStravaEvidence()) return true;
+  var su = state.setup || {};
+  if (su.lthrSource !== 'calibration') return true;
+  var day = su.lthrMeasuredOn ? findDayByDate(su.lthrMeasuredOn) : null;
+  return !!day && !isStravaDerived(day);
+}
+
 /* One completed session, reduced to the facts a coach would refer to.
 
    POSITIVE ASSEMBLY. Every field is named, copied and typed individually. This
@@ -71602,6 +71689,9 @@ function voiceCoachContext(){
          session: nothing derived from the withheld day is in it. */
       todaySessionWithheld: false,
       executionScores: !derived,
+      /* The same gate, the same answer: a target pace descends from the
+         fitness anchor exactly as a score does. */
+      targetPaces: !derived,
       healthInformation: !health,
       note: 'Anything withheld is unavailable to you for this conversation. ' +
             'Do not infer anything from its absence, and do not estimate a ' +
@@ -71641,15 +71731,14 @@ function voiceCoachContext(){
   var opts = { health: health, derived: derived };
   var dd = null;
   for (var j=0; j<pool.length; j++) if (pool[j].date === today) dd = pool[j];
-  if (dd) ctx.todaySession = voiceDaySummary(dd, opts);
+  /* Today and what is coming carry the card's targets (voiceSessionFacts);
+     the recent runs are what happened, and keep only that. */
+  if (dd) ctx.todaySession = voiceWithTargets(voiceDaySummary(dd, opts), voiceSessionFacts(dd, opts));
 
   ctx.upcoming = pool.filter(function(d){ return d.date > today && d.type !== 'rest'; })
     .sort(function(x,y){ return x.date < y.date ? -1 : 1; })
     .slice(0, VOICE_CONTEXT_UPCOMING)
-    .map(function(d){
-      return { date:d.date, type:d.type, title:d.title,
-               plannedKm:(typeof d.km === 'number') ? d.km : null };
-    });
+    .map(function(d){ return voiceSessionFacts(d, opts); });
 
   var from = addDays(today, -VOICE_CONTEXT_RECENT_DAYS);
   ctx.recent = pool.filter(function(d){
@@ -72130,6 +72219,32 @@ function handleCoachMemoryClear(){
   });
 }
 
+/* ---------- FLOWING PROSE ON THE SCREEN ----------
+   Founder: "it would still be in flowing convo not bullet form". The prompt
+   asks for plain sentences; a live answer that ignores it is not thrown away,
+   it is flattened where it is drawn. A list marker or heading mark at the
+   start of a line goes, bold and underline markers go, and the lines become
+   one run of sentences. No word is changed, and an answer with no list in it
+   is returned exactly as it came. `done` closes the last item with a full
+   stop; while the answer is still streaming its last line may be half a
+   sentence, so it is left open. */
+var ASK_LIST_MARK = /^\s*(?:[-*\u2022]|#+|\d+[.)])\s+/;
+function askAnswerProse(text, done){
+  var s = String(text == null ? '' : text);
+  if (!/(?:^|\n)\s*(?:[-*\u2022]|#+|\d+[.)])\s|\*\*|__/.test(s)) return s;
+  var lines = [];
+  s.replace(/\*\*|__/g, '').split(/\n+/).forEach(function(l){
+    var item = ASK_LIST_MARK.test(l);
+    l = l.replace(ASK_LIST_MARK, '').trim();
+    if (!l) return;
+    if (item) l = l.charAt(0).toUpperCase() + l.slice(1);
+    lines.push({ text: l, item: item });
+  });
+  return lines.map(function(x, i){
+    var open = i === lines.length - 1 && !done;
+    return (x.item && !open && !/[.!?:;,]$/.test(x.text)) ? x.text + '.' : x.text;
+  }).join(' ');
+}
 /* status: closed | listening | thinking | answered | error */
 /* `incomplete` marks an answer whose stream stopped part-way: the words the
    athlete already read stay on screen, but the exchange is not presented as
@@ -72138,6 +72253,9 @@ var askState = { status:'closed', heard:'', answer:'', message:'',
                  proposalDayId:null, incomplete:false,
                  source:'cloud', limited:false, why:null };
 function askSet(status, extra){
+  /* Drawn as prose (askAnswerProse), and closed once it is the whole answer. */
+  if (extra && extra.answer != null)
+    extra = Object.assign({}, extra, { answer: askAnswerProse(extra.answer, status === 'answered') });
   askState = {
     status: status,
     heard:  (extra && extra.heard  != null) ? extra.heard  : askState.heard,
@@ -72202,6 +72320,8 @@ function askStreamChunk(text){
   /* State is kept in step so any re-render for another reason paints the same
      words -- but the render is not what puts them on screen. */
   askState.answer = brandCase(askStreamBuf);
+  /* Prose while it grows, its last line left open; askSet() closes it. */
+  askState.answer = askAnswerProse(askState.answer, false);
   var el = document.getElementById('ask-answer-live');
   if (el) el.textContent = askState.answer;
   else patchVoiceCard();
