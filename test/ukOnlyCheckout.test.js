@@ -170,11 +170,11 @@ test('the prices and the trial are exactly what was approved', () => {
   const m = Prod.offer('STANDARD_MONTHLY');
   const y = Prod.offer('STANDARD_YEARLY');
   assert.equal(m.priceMinor, 1199);
-  assert.equal(y.priceMinor, 8999);
+  assert.equal(y.priceMinor, 7999);
   assert.equal(m.currency, 'GBP');
   assert.equal(y.currency, 'GBP');
-  assert.equal(m.trialDays, 14);
-  assert.equal(y.trialDays, 14);
+  assert.equal(m.trialDays, 7);
+  assert.equal(y.trialDays, 7);
   /* And the server still resolves the period itself. */
   assert.equal(Prod.offerForPeriod('monthly').code, 'STANDARD_MONTHLY');
   assert.equal(Prod.offerForPeriod('yearly').code, 'STANDARD_YEARLY');
