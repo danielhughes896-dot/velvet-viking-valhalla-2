@@ -158,7 +158,7 @@ test('duplicate training days are de-duplicated, not counted twice', () => {
 //
 // The trial takes a payment method upfront and converts to the interval the
 // athlete chose, so there is no separate trial endpoint any more: Checkout
-// creates a real subscription with fourteen free days.
+// creates a real subscription with free days.
 // ---------------------------------------------------------------------------
 test('the standalone trial endpoint is gone, not merely unrouted', () => {
   assert.equal(fs.existsSync(path.join(ROOT, 'api/_trial.js')), false);
@@ -173,10 +173,10 @@ test('the entry surface makes the athlete choose an interval first', () => {
   assert.match(html, /data-period="monthly"/);
   assert.match(html, /data-period="yearly"/);
   assert.match(html, /£11\.99/);
-  assert.match(html, /£89\.99/);
-  // And says what happens at the end of the fourteen days, for both.
-  assert.match(html, /After 14 days this becomes £11\.99 a month, unless you cancel/);
-  assert.match(html, /After 14 days this becomes £89\.99 a year, unless you cancel/);
+  assert.match(html, /£79\.99/);
+  // And says what happens at the end of the seven days, for both.
+  assert.match(html, /After 7 days this becomes £11\.99 a month, unless you cancel/);
+  assert.match(html, /After 7 days this becomes £79\.99 a year, unless you cancel/);
   assert.match(html, /A payment method is required to begin/);
 });
 

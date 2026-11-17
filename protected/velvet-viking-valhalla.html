@@ -33338,9 +33338,9 @@ var SUBSCRIPTION_STATE_META = {
    not charge is worse than an app that quotes none. */
 var PLAN_PRICING = [
   { period:'monthly', label:'Monthly', price:'\u00a311.99', per:'a month' },
-  { period:'yearly',  label:'Yearly',  price:'\u00a389.99', per:'a year' }
+  { period:'yearly',  label:'Yearly',  price:'\u00a379.99', per:'a year' }
 ];
-var TRIAL_DAYS_SHOWN = 14;
+var TRIAL_DAYS_SHOWN = 7;
 
 function subscriptionStatePill(info){
   var st = info && info.state;
@@ -35280,7 +35280,7 @@ function renderHero(){
       /* The preview promise, stated once. No payment language, and nothing
          implying the trial has begun -- it has not, and saying so here would
          be the first dishonest sentence in the journey. */
-      '<p class="setup-note">We\u2019ll build the programme first. You\u2019ll see your personalised plan before your 14-day trial begins.</p>'+
+      '<p class="setup-note">We\u2019ll build the programme first. You\u2019ll see your personalised plan before your 7-day trial begins.</p>'+
       (parked ? '<button type="button" class="btn btn-ghost btn-block setup-recover" '+
         'data-action="open-restore">'+ICONS.link+' Restore a Plan From This Device</button>' : '')+
     '</div></div>';

@@ -7,7 +7,7 @@
 -- the trial takes a payment method upfront and converts automatically to the
 -- interval the athlete chose.
 --
--- That makes it a real Stripe subscription with trial_period_days = 14, and the
+-- That makes it a real Stripe subscription with trial_period_days = 7, and the
 -- canonical model already handles those completely:
 --
 --   subscriptionAccess() grants on condition='trialing' until trial_end;

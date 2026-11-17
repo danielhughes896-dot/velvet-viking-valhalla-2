@@ -241,7 +241,7 @@ test('the gateway makes the preview promise and no payment claim', () => {
   const found = /setup-cta setup-step[^]*?<\/div><\/div>';/.exec(APP);
   assert.ok(found, 'the gateway render was not found');
   const fn = markup(found[0]);
-  assert.match(fn, /before your 14-day trial begins/,
+  assert.match(fn, /before your 7-day trial begins/,
     'the preview-before-trial promise is missing');
   [/card/i, /\bpay\b/i, /£/, /billing/i, /trial has (begun|started)/i].forEach(re =>
     assert.doesNotMatch(fn, re, 'the gateway mentions payment or implies the trial started'));
@@ -249,7 +249,7 @@ test('the gateway makes the preview promise and no payment claim', () => {
 
 test('OPENING STEP TWO CONSUMES NOTHING — no trial is started by the gateway', () => {
   const fn = markup(/setup-cta setup-step[^]*?<\/div><\/div>';/.exec(APP)[0]);
-  [/trial/i.test(fn) && !/14-day trial begins/.test(fn)].forEach(bad =>
+  [/trial/i.test(fn) && !/7-day trial begins/.test(fn)].forEach(bad =>
     assert.equal(bad, false, 'the gateway touches trial state'));
   [/consumeTrial/, /startTrial/, /entitlement/i, /\/api\/trial/].forEach(re =>
     assert.doesNotMatch(fn, re, 'the gateway reaches into the commercial core'));

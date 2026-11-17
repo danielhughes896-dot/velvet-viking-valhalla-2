@@ -719,10 +719,10 @@ test('21b. the client and server agree on the consent version', () => {
 // ---------------------------------------------------------------------------
 test('22. the commercial journey is unchanged', () => {
   const P = require('../api/_products.js');
-  assert.equal(P.TRIAL_DAYS, 14, 'the trial is still 14 days');
+  assert.equal(P.TRIAL_DAYS, 7, 'the trial is still 7 days');
   const src = fs.readFileSync(path.join(__dirname, '..', 'api', '_products.js'), 'utf8');
   assert.match(src, /1199/, 'monthly price unchanged');
-  assert.match(src, /8999/, 'yearly price unchanged');
+  assert.match(src, /7999/, 'yearly price unchanged');
   const stripe = fs.readFileSync(path.join(__dirname, '..', 'api', '_stripe.js'), 'utf8');
   assert.match(stripe, /payment_method_collection: 'always'/,
     'the trial still requires a card');

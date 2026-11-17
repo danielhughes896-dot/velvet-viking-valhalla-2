@@ -29,7 +29,7 @@ test('every literal price in start.html matches the billing catalogue', () => {
   const yearlyPrice = '£' + (yearly.priceMinor / 100).toFixed(2);
 
   assert.equal(monthlyPrice, '£11.99', 'sanity: catalogue price unexpectedly changed');
-  assert.equal(yearlyPrice, '£89.99', 'sanity: catalogue price unexpectedly changed');
+  assert.equal(yearlyPrice, '£79.99', 'sanity: catalogue price unexpectedly changed');
 
   // Every occurrence of "£<number>" in the file must be one of the two
   // real catalogue prices -- catching a stray figure left over from a
@@ -49,7 +49,7 @@ test('every literal price in start.html matches the billing catalogue', () => {
 
 test('every literal trial length in start.html matches Prod.TRIAL_DAYS', () => {
   const src = read('start.html');
-  assert.equal(Prod.TRIAL_DAYS, 14, 'sanity: catalogue trial length unexpectedly changed');
+  assert.equal(Prod.TRIAL_DAYS, 7, 'sanity: catalogue trial length unexpectedly changed');
 
   // "14 days" / "14-day" -- both phrasings used on the page -- must always
   // spell out the real trial length, never a stray hand-typed number.
