@@ -92,7 +92,12 @@ test('PROJECTION — the pre-flight verdict is the verdict the block earns', () 
      larger, riskier change than a narrow pathway-numbers correction
      should make). So this one case is named here rather than silently
      passed or the invariant weakened for every pathway. */
-  [].concat(R.CANON, R.CANON_10).filter(c => c.key !== 'Experienced Half @10w').forEach(c => {
+  /* AND New Marathon (Audit IV R4): with the week after a lighter week back
+     at the week before it, its block peaks at 52km. Readiness judges the
+     workload against the 50km Build figure (met), admission against the
+     locked 60km peak (short), so the two now differ by design rather than
+     by projection error; see TEN WEEKS below. */
+  [].concat(R.CANON, R.CANON_10).filter(c => c.key !== 'Experienced Half @10w' && c.key !== 'New Marathon').forEach(c => {
     const { res, o } = outlook(c);
     const rr = res.a.raceGoalReadiness(c.dist, c.exp, res.blk);
     assert.ok(rr, c.key + ': no readiness verdict');
@@ -109,6 +114,19 @@ test('TEN WEEKS — every fifteen-week pathway is admitted, and admission says w
     const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:15 }, c.ev));
     const adm = res.a.raceGoalAdmission(c.dist, 15, null,
                   { availableDays:c.days, easyPaceSecPerKm:res.pace });
+    /* THE ONE PATHWAY THE RETURN RULE TAKES OUT OF REACH (Audit IV R4). The
+       founder: the week after a lighter week returns to the week before it
+       ("if needed ... the 8% as a safety net"), and the peak may come out
+       lower. The New Marathon climbs from 21km to the locked 60km in fifteen
+       weeks only through the rebounds that rule removes: measured, it now
+       peaks at 52km, so admission says so (preparation_not_reachable, on
+       workload alone, the long run still reaching 28km) and offers Aerobic
+       Base first; the athlete can still continue. Reported to the founder. */
+    if (c.key === 'New Marathon'){
+      assert.equal(adm.decision, 'preparation_not_reachable', c.key + ' at 15w: ' + adm.decision);
+      assert.deepEqual([...adm.preparation.shortfall], ['workload'], c.key + ': short on ' + adm.preparation.shortfall);
+      return;
+    }
     assert.equal(adm.decision, 'race_goal', c.key + ' at 15w: ' + adm.decision);
     assert.equal(adm.preparation.verdict, 'READY',
       c.key + ' at 15w projected ' + adm.preparation.verdict);
@@ -186,7 +204,10 @@ test('TWELVE WEEKS — the floor is the driver where the safe route can reach it
   assert.equal(adm.preparation.verdict, 'INSUFFICIENT');
   /* 53 -> 54 (16 November 2026): the repeat threshold test now sits in week 9
      and the climb around it is re-spread; the shortfall is unchanged. */
-  assert.equal(adm.preparation.reachWeekKm, 54,
+  /* 54 -> 47 (Audit IV R4, the week after a lighter week returns to the week
+     before it, + 8% at most, for the Marathon): the same refusal, further
+     short. */
+  assert.equal(adm.preparation.reachWeekKm, 47,
     'the week the block actually delivers from a 21km entry in twelve weeks, short of the locked 60km peak');
   assert.equal(adm.preparation.reachLongKm, 26,
     'the long run reaches the Nielsen safety rate\'s own ceiling from a 10km entry, still short of the 28km floor');
@@ -384,7 +405,11 @@ test('EVIDENCE OVER LABEL — the evidence governs the route, and the locked des
      figure is the 73km this runway actually produces rather than the 79.1 the
      old curve reported for a week it never built. */
   /* 73 -> 72 (16 November 2026): a repeat threshold test now sits in the climb. */
-  assert.equal(adm.preparation.reachWeekKm, 72, 'the week this twelve-week runway actually delivers from a 36km entry');
+  /* 72 -> 64 (Audit IV R4, founder: "Return to the same as the week before
+     deload"): the week after each lighter week comes back to no more than
+     the last full week + 8% and the climb carries on from there, so this
+     runway delivers less. Still refused on workload, as before. */
+  assert.equal(adm.preparation.reachWeekKm, 64, 'the week this twelve-week runway actually delivers from a 36km entry');
   assert.equal(adm.preparation.reachLongKm, 30, 'the Experienced marathon Peak floor, reached exactly');
 });
 

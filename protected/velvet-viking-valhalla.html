@@ -15406,6 +15406,10 @@ var PEAK_SECOND_EXPOSURE_FRACTION = 0.85;
    have carried, raised -- bounded by the existing half-the-run ceiling, which
    is unchanged. */
 var PEAK_SECOND_SPECIFICITY_GAIN = 1.35;
+/* How much more goal-pace work a Half or Marathon long run carries when the
+   athlete is already at the level's destination week and the week is held
+   rather than grown (founder, Audit IV question 8). Modest on purpose. */
+var AT_DESTINATION_SPECIFICITY_GAIN = 1.20;
 /* How far up each quality structure's own dimension range an aerobic base block
    is allowed to travel. See the note at the `pos` assignment in
    buildBlockWeeks: this is what keeps a base block's quality growing at the
@@ -16599,33 +16603,10 @@ var RACE_GOAL_PATHWAY = {
    demonstrated-evidence-proof by construction, not just a default). */
 /* 5K 18 AND 10K 22 stay the absolute backstops. The founder's long-run
    ranges (15 November 2026) bind first: a plan never grows a long run past
-   the level's own range top (raceGoalLongCapKm()), so these figures are only
-   reached by an athlete who ALREADY runs that long, whose long run is held
-   rather than cut ("never reduce an athlete's declared week"). */
+   the level's own range top (raceGoalLongCapKm()), and since Audit IV that
+   range top binds an athlete who already runs longer too, so for a race
+   block these figures are never reached. */
 var RACE_GOAL_LONG_CAP_KM = { half: 26, full: 35, '5k': 18, '10k': 22 };
-/* The long run this athlete already runs: the longer of what they told the
-   builder and what they have logged. */
-function shortRaceHeldLongKm(){
-  var held = 0;
-  /* A STATED LONG RUN IS HELD AT THE SHARE OF THE STATED WEEK (Audit III
-     C1). A novice at 20km a week who typed a 22km longest run opened on a
-     5km easy run and an 18km long run. The stated run is bounded the way
-     every other entry long run is (LONG_RUN_ENTRY_SHARE of the declared
-     week, not for a one or two day runner); a LOGGED long run is evidence
-     and is still held in full. */
-  try {
-    var st = statedEntryEvidence();
-    if (st && st.longKm > 0){
-      var stLong = st.longKm;
-      var stWeek = (st.declaredWeeklyKm > 0) ? st.declaredWeeklyKm : st.weeklyKm;
-      if (stWeek > 0 && !(st.runDays != null && st.runDays <= 2))
-        stLong = round1(Math.min(stLong, Math.max(EASY_MIN_KM, stWeek * LONG_RUN_ENTRY_SHARE)));
-      if (stLong > held) held = stLong;
-    }
-  } catch(e){}
-  try { var dl = demonstratedLongRunKm(); if (dl > held) held = dl; } catch(e){}
-  return held;
-}
 function raceGoalLongCapKm(distKey, purpose, experience){
   var prof = DISTANCE_PROFILES[distKey];
   var base = prof ? prof.longCapKm : null;
@@ -16635,12 +16616,17 @@ function raceGoalLongCapKm(distKey, purpose, experience){
   /* 5K AND 10K: THE LEVEL'S OWN RANGE TOP (founder, 15 November 2026), in
      every week, not only at the destination. A Developing 5K athlete never
      runs past 10km, whatever their week holds. */
+  /* AND A LONGER STATED OR LOGGED RUN NO LONGER CARRIES PAST IT (Audit IV
+     question 7). Founder: bound 5K and 10K long runs by the level's range.
+     Held at the athlete's own longest run, a 5K long run reached 18km and
+     the long run was over 30% of the week in most weeks; the kilometres it
+     no longer takes go to the easy runs and the days. */
   if (distKey === '5k' || distKey === '10k'){
     var exp = experience;
     if (!exp){ try { exp = athleteExperience(); } catch(e){ exp = null; } }
     var pw = raceGoalPathway(distKey, exp);
     if (pw && pw.longRangeKm && cap > 0)
-      cap = Math.min(cap, Math.max(pw.longRangeKm[1], shortRaceHeldLongKm()));
+      cap = Math.min(cap, pw.longRangeKm[1]);
   }
   return cap;
 }
@@ -16999,13 +16985,9 @@ function raceGoalLongDestinationKm(distKey, experience, entry, phase){
   var want = (phase === 'peak' && p.peakLongKm != null) ? p.peakLongKm : p.buildLongKm;
   if (p.longRangeKm) want = phase === 'peak' ? p.longRangeKm[1] : p.longRangeKm[0];
   /* 5K AND 10K: THE RANGE TOP IS WHERE THE PLAN TAKES THE LONG RUN, never
-     past it. An athlete who already runs longer keeps their own long run, up
-     to the backstop: held, not grown. */
-  if (p.longRangeKm){
-    if (entry && entry.demonstratedLongKm > want)
-      want = Math.min(entry.demonstratedLongKm, RACE_GOAL_LONG_CAP_KM[distKey] || want);
-    return want;
-  }
+     past it, for an athlete who already runs longer too (founder, Audit IV
+     question 7: bound by the level's range). */
+  if (p.longRangeKm) return want;
   if (entry && entry.demonstratedLongKm > 0) want = Math.max(want, entry.demonstratedLongKm);
   return want;
 }
@@ -19511,6 +19493,325 @@ function keepLighterWeeksLighter(days, weeks, blockResult){
   }
   return changed;
 }
+/* ---- AFTER A LIGHTER WEEK, BACK TO THE WEEK BEFORE IT (Audit IV R4) ----
+   Founder: "Return to the same as the week before deload. Example. Week 1 -
+   50, Week 2 - 53, Week 3 - 56, Week 4 - 39, Week 5 - 56. As you say if
+   needed it could have the 8% as a safety net if needed in some programmes."
+   Measured before this, the week after a lighter week sat above the last
+   full week + 8% in 16 to 41% of cases (Marathon worst): the line the week
+   climbed to had kept rising through the lighter week, so the athlete came
+   back to a week they had never run.
+   THE RULE, IN EVERY PROGRAMME. The week after a lighter week aims at the
+   last full week before it (in the Half and the Marathon, at that week + 8%,
+   see netAims below), and never passes that week + 8%
+   (POST_LIGHTER_SAFETY_NET); the week after that never passes the returned
+   week + 8% either; and every later week, while the line is still being
+   held, never passes the week before it by more than 8% (in the Half and
+   the Marathon, the progression gate's own one-week ceiling,
+   POST_LIGHTER_CLIMB_STEP, about 14%, so their destinations stay in reach)
+   nor the week two before it by more than the 30% backstop. That guard on the
+   following weeks is what stops the jump simply moving a week later (the
+   November attempts that broke the even climb). The peak may come out
+   lower; the founder accepts that.
+   ONE RUN JOINS AT A TIME, as everywhere else (applyRunJoinStep()): in a
+   week that adds a run, the limit is one 5km run more than the week before
+   where that is the larger (no run is under 5km, so at 10 to 20km a week
+   one more run is the smallest step there is).
+   WHAT GIVES, IN ORDER. Easy runs first, never under 5km and never so far
+   that the hard sessions pass 40% of the week; then, only where the week is
+   still over the safety net: where the returning week brought two new runs
+   with it, the smaller waits a week; then the hard sessions, shortened the
+   way a reload week shortens them, and the easy runs again with the room
+   that leaves. A Threshold Calibration or Fitness Checkpoint is never cut,
+   so a week that carries one can stay above the net. Measured, the quality
+   ladder carrying on
+   through the lighter week was the main reason a returning week could not
+   come back to the line on its easy runs alone.
+   THE LONG RUN IS NOT CUT. It develops through a lighter week by design and
+   keeps its own step rules (applyLongRunStepCap()); cut here, a Developing
+   Marathon's Build handed its long run to Peak (Build exit 15km against a
+   22km Peak long run) and the next week's long run jumped past its step.
+   Lighter weeks themselves, the taper and the race are left exactly as
+   written (their depth does not change). Every kilometre held is booked on
+   the week by name. */
+var POST_LIGHTER_SAFETY_NET = 1.08;
+var POST_LIGHTER_CLIMB_STEP = Math.sqrt(SESSION_TWO_WEEK_GROWTH_CAP);
+function returnAfterLighterWeek(days, weeks, blockResult){
+  if (!blockResult) return 0;
+  if (blockResult.purpose !== 'race' && blockResult.purpose !== 'base') return 0;
+  /* The five programmes the founder named; the ultra keeps its own rules. */
+  if (blockResult.purpose === 'race' && ['5k','10k','half','full'].indexOf(blockResult.distKey) === -1) return 0;
+  if (!days || !days.length || !weeks || weeks.length < 3) return 0;
+  var byWeek = {};
+  days.forEach(function(dd){ if (dd && dd.week != null) (byWeek[dd.week] = byWeek[dd.week] || []).push(dd); });
+  var runsOf = function(w){ return (byWeek[w] || []).filter(function(dd){ return dd.type !== 'rest' && dd.type !== 'race' && dd.km > 0; }); };
+  var tot = function(w){ return round1(runsOf(w).reduce(function(t, dd){ return t + dd.km; }, 0)); };
+  var longOf = function(w){ return runsOf(w).filter(function(dd){ return dd.type === 'long'; }).sort(function(a, b){ return b.km - a.km; })[0] || null; };
+  var hardOf = function(w){ return round1(runsOf(w).filter(function(dd){ return ['easy','long'].indexOf(dd.type) === -1; })
+                                            .reduce(function(t, dd){ return t + dd.km; }, 0)); };
+  var movable = function(dd){ return dd.type === 'easy' && dd.km > 0 && !dd.completed && !dd.manualEdit && !/Shakeout/.test(dd.title || ''); };
+  var setEasy = function(dd, km){
+    var strides = dd.desc && dd.desc.indexOf(BASE_STRIDES_NOTE) !== -1;
+    dd.km = km;
+    dd.desc = easyRunText(km).desc + (strides ? BASE_STRIDES_NOTE : '');
+    if (dd.prescription && dd.prescription.archetype === 'easy_run')
+      dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:km } };
+  };
+  var trimEasy = function(wk, aim){
+    var list = byWeek[wk.week] || [], guard = 0;
+    while (tot(wk.week) > aim + 0.25 && guard++ < 400){
+      if (hardOf(wk.week) > (tot(wk.week) - EASY_QUANTUM_KM) * RECOVERY_QUALITY_SHARE_MAX + 1e-9) break;
+      var down = list.filter(function(dd){ return movable(dd) && dd.km - EASY_QUANTUM_KM >= WEEK_FIT_MIN_EASY_KM - 1e-9; })
+                     .sort(function(a, b){ return b.km - a.km; })[0];
+      if (!down) break;
+      setEasy(down, round1(down.km - EASY_QUANTUM_KM));
+    }
+  };
+  var trimLong = function(wk, cap, longFloor){
+    var lw = longOf(wk.week);
+    if (!lw || lw.completed || lw.manualEdit || tot(wk.week) <= cap + 0.25) return;
+    var other = runsOf(wk.week).filter(function(dd){ return dd !== lw; }).reduce(function(m, dd){ return Math.max(m, dd.km); }, 0);
+    var floorL = Math.max(longFloor || 0, other, WEEK_FIT_MIN_EASY_KM), guard = 0;
+    while (tot(wk.week) > cap + 0.25 && lw.km - 1 >= floorL - 1e-9 && guard++ < 100){
+      if (hardOf(wk.week) > (tot(wk.week) - 1) * RECOVERY_QUALITY_SHARE_MAX + 1e-9) break;
+      lw.km = roundWorkoutKm('long', round1(lw.km - 1));
+      if (lw.prescription && lw.prescription.params && lw.prescription.params.km != null) lw.prescription.params.km = lw.km;
+      if (lw.desc && lw.desc.indexOf('@@D:') === 0) lw.desc = lw.desc.replace(/^@@D:[0-9.]+@@/, dtok(lw.km));
+    }
+  };
+  /* The hard sessions come down the way a reload week brings them down
+     (the same shorter session of the same shape, rescaleOrDropPrescription()),
+     never under 60% of the session (QUALITY_STEP_BACK_FACTOR x 0.75, the
+     recovery week's own floor) or under 5km. A test is never shortened. */
+  var trimQuality = function(wk, cap){
+    var list = byWeek[wk.week] || [];
+    var over = round1(tot(wk.week) - cap);
+    if (!(over > 0.25)) return;
+    var hard = list.filter(function(dd){
+      return dd.km > 0 && ['easy','long','rest','race','calibration','checkpoint'].indexOf(dd.type) === -1 &&
+             !dd.completed && !dd.manualEdit; });
+    var hardKm = round1(hard.reduce(function(t, dd){ return t + dd.km; }, 0));
+    if (!(hardKm > 0)) return;
+    var f = Math.max(QUALITY_STEP_BACK_FACTOR * 0.75, (hardKm - over) / hardKm);
+    /* What the shortened structure itself adds up to, where every part of
+       it states a distance: a session is never written shorter than its own
+       parts (a goal-pace block's reps, warm-up and cool-down). */
+    var partsKm = function(dd){
+      try {
+        var sg = dd.prescription ? (segmentsFor(dd.prescription) || []) : [];
+        if (!sg.length || !sg.every(function(g){ return g.km != null; })) return null;
+        return round1(sg.reduce(function(t, g){ return t + g.km; }, 0));
+      } catch(eS){ return null; }
+    };
+    /* The shortest length, from `nk` up, at which the session's own
+       structure can still be written; null where none shorter than `was` can. */
+    var shorten = function(dd, nk, was){
+      var kept = dd.prescription ? JSON.stringify(dd.prescription) : null;
+      for (var k = nk; k < was - 1e-9; k = round1(k + EASY_QUANTUM_KM)){
+        var fits = false;
+        try { fits = rescaleOrDropPrescription(dd, k); } catch(eQ){ fits = false; }
+        /* Never left as a title without its workout. */
+        if (kept && (!fits || !dd.prescription)){ dd.prescription = JSON.parse(kept); continue; }
+        var parts = partsKm(dd);
+        if (parts == null || Math.abs(parts - k) <= 0.15) return k;
+        if (parts < was - 1e-9 && parts >= k - 1e-9) return parts;
+        if (kept) dd.prescription = JSON.parse(kept);
+      }
+      return null;
+    };
+    hard.forEach(function(dd){
+      var was = dd.km;
+      var nk = Math.max(WEEK_FIT_MIN_EASY_KM, Math.floor(was * f * 2) / 2);
+      if (!(nk > 0) || nk >= was) return;
+      nk = shorten(dd, nk, was);
+      if (nk == null) return;
+      dd.km = nk;
+      if (dd.desc) dd.desc = resolveDescForReducedDistance(dd.desc, nk);
+      wk.lighterReturnQualityKm = round1((wk.lighterReturnQualityKm || 0) + (was - nk));
+    });
+  };
+  /* Brings the week down towards `aim` on its easy runs, then, only above
+     `hardCap`: a second new run waiting a week (where `runsBefore` is
+     given), the hard sessions, and the easy runs again with the room that
+     leaves. The long run is not cut here: it keeps its own step rules. */
+  var hold = function(wk, aim, hardCap, runsBefore){
+    var list = byWeek[wk.week] || [];
+    trimEasy(wk, aim);
+    while (runsBefore != null && tot(wk.week) > hardCap + 0.25 && runsOf(wk.week).length > runsBefore){
+      var wait = list.filter(movable).sort(function(a, b){ return a.km - b.km; })[0];
+      if (!wait) break;
+      var rr = restDayText(false);
+      wait.type = rr.type; wait.title = rr.title; wait.desc = rr.desc; wait.km = 0;
+      wait.mpSegment = false; delete wait.prescription;
+      wk.runJoinWaitedRuns = (wk.runJoinWaitedRuns || 0) + 1;
+    }
+    if (tot(wk.week) > hardCap + 0.25){
+      trimQuality(wk, hardCap);
+      trimEasy(wk, hardCap);
+    }
+  };
+  var changed = 0;
+  var lastFullKm = null, lastFullRuns = null, returnTo = null, returnRuns = null, lineCap = null;
+  /* The last two full weeks since the lighter week, and whether this pass
+     held either: a held line also keeps the two-week backstop
+     (SESSION_TWO_WEEK_GROWTH_CAP) on the week two after it, so a run that
+     joined in between cannot hand the next week a 30% rise on the line. */
+  var recent = [], lastEasyMax = 0;
+  /* WHERE THE SAFETY NET IS THE RULE ("if needed it could have the 8% as a
+     safety net if needed in some programmes"): the Half and the Marathon,
+     whose level destinations are minimum preparation the block must still
+     reach. Measured, returning exactly to the last full week left the
+     canonical Marathon entrants at 12 to 15 weeks short of their
+     destinations (Experienced at 15 weeks 70.5 of 80km) and refused at
+     admission; with the net the Half, the Advanced Marathon and the
+     Experienced Marathon at 14 and 15 weeks reach theirs again. Three still fall short
+     and are told so at admission: New Marathon at 15 weeks (52 of 60km) and
+     Experienced Marathon at 12 and 13 weeks. Base, 5K and 10K return to the
+     last full week itself. */
+  var netAims = blockResult.purpose === 'race' && (blockResult.distKey === 'half' || blockResult.distKey === 'full');
+  for (var i = 0; i < weeks.length; i++){
+    var wk = weeks[i];
+    var list = byWeek[wk.week] || [];
+    if (wk.isTaper || wk.isRace || !list.length || list.some(function(dd){ return dd.type === 'race'; })){
+      returnTo = null; lineCap = null; recent = []; continue;
+    }
+    if (wk.isCutback){
+      /* Two lighter weeks in a row still return to the full week before both. */
+      if (returnTo == null && lastFullKm != null){ returnTo = lastFullKm; returnRuns = lastFullRuns; }
+      lineCap = null; recent = [];
+      continue;
+    }
+    var before = tot(wk.week), capNow = null;
+    if (returnTo != null){
+      /* A run joining as the week returns keeps its own rule (one 5km run). */
+      var joinNet = (returnRuns != null && runsOf(wk.week).length > returnRuns) ? round1(returnTo + WEEK_FIT_MIN_EASY_KM) : 0;
+      var netKm = round1(returnTo * POST_LIGHTER_SAFETY_NET);
+      hold(wk, netAims ? netKm : returnTo, Math.max(netKm, joinNet), returnRuns != null ? returnRuns + 1 : null);
+      capNow = returnTo;
+    } else {
+      var joinCap = (lineCap != null && lastFullRuns != null && runsOf(wk.week).length > lastFullRuns)
+        ? Math.max(lineCap, round1(lastFullKm + WEEK_FIT_MIN_EASY_KM)) : lineCap;
+      if (recent.length === 2 && (recent[0].held || recent[1].held)){
+        var twoCap = round1(recent[0].km * SESSION_TWO_WEEK_GROWTH_CAP);
+        joinCap = joinCap == null ? twoCap : Math.min(joinCap, twoCap);
+      }
+      if (joinCap != null && before > joinCap + 0.25){ hold(wk, joinCap, joinCap, null); capNow = joinCap; }
+      /* THE WEEK A TEST ARRIVES IS A WEEK THE DOSES HOLD (the generator's own
+         rule). After a week this pass held, a Threshold Calibration or a
+         Fitness Checkpoint week keeps its easy runs at the held week's size,
+         so the test does not arrive beside a bigger week as well. */
+      var prevHeld = recent.length && recent[recent.length - 1].held;
+      if (prevHeld && lastEasyMax > 0 && list.some(function(dd){ return dd.type === 'calibration' || dd.type === 'checkpoint'; })){
+        var easyTop = Math.max(lastEasyMax, WEEK_FIT_MIN_EASY_KM);
+        list.filter(movable).forEach(function(dd){ if (dd.km > easyTop + 1e-9) setEasy(dd, roundWorkoutKm('easy', easyTop)); });
+        if (tot(wk.week) < before - 0.05 && capNow == null) capNow = round1(tot(wk.week));
+      }
+    }
+    var after = tot(wk.week), moved = round1(after - before);
+    /* The line is held for as long as it binds: the week after the returned
+       week always (+8%), and every week after that which had to be held (+8%,
+       or the gate's own step in the Half and the Marathon). */
+    var heldHere = (returnTo != null || moved < 0);
+    lineCap = heldHere ? round1(after * ((returnTo != null || !netAims) ? POST_LIGHTER_SAFETY_NET : POST_LIGHTER_CLIMB_STEP)) : null;
+    recent.push({ km: after, held: heldHere });
+    if (recent.length > 2) recent.shift();
+    returnTo = null;
+    if (moved < 0){
+      if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+      wk.volume = round1(wk.volume + moved);
+      wk.deliberateReduction = round1((wk.deliberateReduction || 0) - moved);
+      wk.lighterReturnHeldKm = round1((wk.lighterReturnHeldKm || 0) - moved);
+      wk.lighterReturnToKm = capNow;
+      wk.reshapeCause = wk.reshapeCause || 'return_after_lighter';
+      var lwH = longOf(wk.week);
+      if (lwH) wk.longTarget = round1(lwH.km);
+      changed++;
+    }
+    /* A first week that starts mid-week is not a week's training: the week
+       it was built as is what a lighter week returns to. */
+    lastFullKm = (list.length < 7 && wk.volume > after) ? round1(wk.volume) : after;
+    lastFullRuns = runsOf(wk.week).length;
+    lastEasyMax = runsOf(wk.week).filter(movable).reduce(function(m, dd){ return Math.max(m, dd.km); }, 0);
+  }
+  /* AND A LIGHTER WEEK STAYS LIGHTER than the full week this pass held before
+     it (LIGHTER_WEEK_MAX_SHARE, the rule keepLighterWeeksLighter() keeps):
+     easy runs first, then the hard sessions the same way as above, then the
+     long run. Its designed depth is unchanged; only a lighter week left
+     standing above the held week is brought back under it. */
+  if (changed) weeks.forEach(function(wk, ix){
+    if (!wk.isCutback || wk.isTaper || wk.isRace || !ix) return;
+    var list = byWeek[wk.week] || [];
+    if (!list.length || list.some(function(dd){ return dd.completed || dd.manualEdit || dd.type === 'race'; })) return;
+    var full = null;
+    for (var j = ix - 1; j >= 0; j--){ if (!weeks[j].isCutback && !weeks[j].isTaper && !weeks[j].isRace){ full = weeks[j]; break; } }
+    if (!full || !(full.lighterReturnHeldKm > 0) || (byWeek[full.week] || []).length < 7) return;
+    var cap = round1(tot(full.week) * LIGHTER_WEEK_MAX_SHARE), before = tot(wk.week);
+    if (before <= cap + 0.25) return;
+    trimEasy(wk, cap);
+    trimQuality(wk, cap);
+    trimEasy(wk, cap);
+    trimLong(wk, cap, 0);
+    var moved = round1(tot(wk.week) - before);
+    if (!moved) return;
+    if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+    wk.volume = round1(wk.volume + moved);
+    wk.deliberateReduction = round1((wk.deliberateReduction || 0) - moved);
+    wk.reshapeCause = wk.reshapeCause || 'lighter_week';
+    var lwC = longOf(wk.week);
+    if (lwC) wk.longTarget = round1(lwC.km);
+  });
+  /* A TAPER WEEK IS STILL NEVER BIGGER THAN THE WEEK BEFORE IT, now that the
+     week before it may have been held (the rule clampTaperBelowPrevious()
+     keeps): easy runs give way, largest first and never under 5km, then an
+     easy run already at 5km. And no easy run in the taper or race week is
+     bigger than the largest one the block's own development weeks now hold
+     (the wind-down is derived from the week it winds down from, the rule
+     applyWeekProgressionGate() keeps). Booked against the week's own figure,
+     so what earlier passes named stays named. */
+  var devEasyMax = 0;
+  weeks.forEach(function(wk){
+    if (wk.isTaper || wk.isRace) return;
+    runsOf(wk.week).forEach(function(dd){ if (dd.type === 'easy' && dd.km > devEasyMax) devEasyMax = dd.km; });
+  });
+  if (changed) weeks.forEach(function(wk, ix){
+    if (!(wk.isTaper || wk.isRace) || !ix) return;
+    var list = byWeek[wk.week] || [];
+    if (list.some(function(dd){ return dd.completed || dd.manualEdit; })) return;
+    var before = tot(wk.week);
+    if (devEasyMax > 0){
+      var easyTop = roundWorkoutKm('easy', Math.max(devEasyMax, WEEK_FIT_MIN_EASY_KM));
+      list.forEach(function(dd){
+        if (dd.type === 'easy' && dd.km > easyTop + 1e-9 && !dd.completed && !dd.manualEdit){
+          if (/Shakeout/.test(dd.title || '')){ dd.km = easyTop; if (dd.desc) dd.desc = resolveDescForReducedDistance(dd.desc, easyTop); }
+          else setEasy(dd, easyTop);
+        }
+      });
+    }
+    var prevWk = weeks[ix - 1], prevKm = tot(prevWk.week);
+    var guard = 0;
+    while (!wk.isRace && prevKm > 0 && tot(wk.week) > prevKm + 1e-9 && guard++ < 400){
+      var down = list.filter(function(dd){ return movable(dd) && dd.km - EASY_QUANTUM_KM >= WEEK_FIT_MIN_EASY_KM - 1e-9; })
+                     .sort(function(a, b){ return b.km - a.km; })[0];
+      if (!down) break;
+      setEasy(down, round1(down.km - EASY_QUANTUM_KM));
+    }
+    while (!wk.isRace && prevKm > 0 && tot(wk.week) > prevKm + 1e-9){
+      var gone = list.filter(movable).sort(function(a, b){ return a.km - b.km; })[0];
+      if (!gone) break;
+      var rr = restDayText(false);
+      gone.type = rr.type; gone.title = rr.title; gone.desc = rr.desc; gone.km = 0;
+      gone.mpSegment = false; delete gone.prescription;
+    }
+    var moved = round1(tot(wk.week) - before);
+    if (!moved) return;
+    if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+    wk.volume = round1(wk.volume + moved);
+    wk.deliberateReduction = round1((wk.deliberateReduction || 0) - moved);
+    wk.windDownBoundedKm = round1((wk.windDownBoundedKm || 0) - moved);
+    wk.reductionCause = wk.reductionCause || 'wind_down_from_delivered_peak';
+  });
+  return changed;
+}
 /* ---- THE HALF'S LAST FULL WEEK IS A TAPER WEEK (Audit III C3) ----
    Founder: "So how do we cut this?" The Half's ten-day anchor eases only the
    last three or four days of the week before race week, so that week stayed
@@ -19692,7 +19993,11 @@ function liftShallowRecoveryWeeks(days, weeks, blockResult, schedule){
   }
   return changed;
 }
-function capRacePeakDays(days, weeks, capKm){
+/* "A 5% over is acceptable" (founder, Audit IV question 8): the most a Half
+   or Marathon week may pass the level's destination, or the athlete's own
+   week where that is already there. */
+var PEAK_DESTINATION_TOLERANCE = 1.05;
+function capRacePeakDays(days, weeks, capKm, ceilingKm){
   if (!(capKm > 0) || !days || !days.length || !weeks || !weeks.length) return 0;
   var byWeek = {};
   days.forEach(function(dd){ if (dd && dd.week != null) (byWeek[dd.week] = byWeek[dd.week] || []).push(dd); });
@@ -19723,6 +20028,27 @@ function capRacePeakDays(days, weeks, capKm){
       if (!room.length) break;
       room[0].km = round1(room[0].km - EASY_QUANTUM_KM);
       room[0].desc = easyRunText(room[0].km).desc;
+    }
+    /* THE CEILING HOLDS EVEN WHERE THE EASY RUNS CANNOT CARRY IT. A long run
+       held at the athlete's own longest (a 26km long run in a Developing
+       Half) kept the week up to a fifth over the destination. Above the
+       ceiling the long run gives way too, a kilometre at a time, never under
+       the week's largest other run and never so far that the hard sessions
+       pass 40% of the week; quality is not cut. */
+    var lw = (byWeek[wk.week] || []).filter(function(dd){ return dd.type === 'long' && dd.km > 0 && !dd.completed && !dd.manualEdit; })
+                                    .sort(function(a, b){ return b.km - a.km; })[0] || null;
+    if (ceilingKm > 0 && lw && tot(wk.week) > ceilingKm + 0.25){
+      var otherKm = (byWeek[wk.week] || []).reduce(function(m, dd){
+        return (dd !== lw && dd.km > 0 && dd.type !== 'rest' && dd.type !== 'race') ? Math.max(m, dd.km) : m; }, 0);
+      var floorL = Math.max(otherKm, WEEK_FIT_MIN_EASY_KM);
+      guard = 0;
+      while (tot(wk.week) > ceilingKm + 0.25 && lw.km - 1 >= floorL - 1e-9 && guard++ < 100){
+        if (hardKm > (tot(wk.week) - 1) * RECOVERY_QUALITY_SHARE_MAX + 1e-9) break;
+        lw.km = roundWorkoutKm('long', round1(lw.km - 1));
+        if (lw.prescription && lw.prescription.params && lw.prescription.params.km != null) lw.prescription.params.km = lw.km;
+        if (lw.desc && lw.desc.indexOf('@@D:') === 0) lw.desc = lw.desc.replace(/^@@D:[0-9.]+@@/, dtok(lw.km));
+      }
+      wk.longTarget = round1(lw.km);
     }
     var heldKm = round1(v - tot(wk.week));
     if (heldKm > 0){
@@ -23215,6 +23541,10 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
   if (purpose === 'race' && (distKey === 'half' || distKey === 'full')){
     try { lowStartOpen = !!(statedEntryEvidence() || {}).lowStart; } catch(e){ lowStartOpen = false; }
   }
+  /* AND IN EVERY PURPOSE, NO THRESHOLD CALIBRATION BEFORE WEEK 4 for a low
+     start. See LOW_START_CALIBRATION_FROM_WEEK. */
+  var lowStartNoCal = false;
+  try { lowStartNoCal = !!(statedEntryEvidence() || {}).lowStart; } catch(e){ lowStartNoCal = false; }
   /* The long run the half's first Peak exposure actually reached. Null until
      that week is built; read only by the Peak weeks after it. */
   var rgPeakLongKm = null;
@@ -23295,6 +23625,26 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
   /* A start above the ceiling would otherwise ramp DOWNWARD across the block
      and read as a taper the athlete never asked for. */
   if (currentVolume > peakVolume) currentVolume = peakVolume;
+  /* ---- AT THE DESTINATION ALREADY, THE SESSIONS PROGRESS, NOT THE WEEK ----
+     Founder, Audit IV question 8: "a 5% over is acceptable but when an
+     athlete is already at or above the destination peak volume for a Half
+     Marathon or Marathon tier, the progression engine stops scaling weekly
+     mileage and shifts overload into specificity, intensity density, and
+     fatigue resistance." Decided here, once, from the same figures the peak
+     cap below reads, so the week and its sessions agree. The week is held
+     (capRacePeakDays(), below); what still moves is the long run's own
+     curve, the quality ladder (pos), and the goal-pace work in the long run,
+     which arrives as early as an Advanced athlete's and carries
+     AT_DESTINATION_SPECIFICITY_GAIN more of it. */
+  var holdAtOwnWeek = false;
+  if (!steady && purpose === 'race' && (distKey === 'half' || distKey === 'full')){
+    var holdPath = raceGoalPathway(distKey, blockExp);
+    if (holdPath && holdPath.peakVolumeKm > 0){
+      var holdOwnKm = currentVolume > 0 ? currentVolume : 0;
+      try { var holdDem = demonstratedSustainableVolume(); if (holdDem > holdOwnKm) holdOwnKm = holdDem; } catch(eH){}
+      holdAtOwnWeek = holdOwnKm >= holdPath.peakVolumeKm;
+    }
+  }
   var weeks = [];
   // The previous week's quality sizes, so a taper week can be held at or below
   // them. Null until the first week has been built.
@@ -24321,8 +24671,15 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
                        (!mBottomUp || w === 1 || calSlotEligible) && calFitsWeek &&
                        (calibrate || (calibrateWhenViable &&
                                       calWeekKm >= CALIBRATION_MIN_WEEKLY_KM));
+    /* A LOW START IS NOT TESTED IN ITS FIRST THREE WEEKS (founder, Audit IV
+       question 4). An athlete who came in at 0 to 4km a week is still
+       learning to run three times a week; a Threshold Calibration of about
+       9.5km was most of their week two. It waits for week 4 or the first
+       suitable week after, in every purpose. */
+    if (lowStartNoCal && w < LOW_START_CALIBRATION_FROM_WEEK) calCouldHold = false;
     if (calCouldHold && calFirstViableWeek == null) calFirstViableWeek = w;
-    if (!calibrationPlaced && !isRace && !isTaper && calInformsDevelopment){
+    if (!calibrationPlaced && !isRace && !isTaper && calInformsDevelopment &&
+        !(lowStartNoCal && w < LOW_START_CALIBRATION_FROM_WEEK)){
       if (calibrate && w === 1 && calFitsWeek) isCalibration = true;
       else if ((calibrate || calibrateWhenViable) && w > 1 &&
                !isCutback && !isCheckpoint &&
@@ -24897,7 +25254,7 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
       hasGoalSegment = goalOriented && !isRace && !isTaper &&
         (profile.emphasis==='threshold'||profile.emphasis==='endurance') &&
         longTarget >= GOAL_FINISH_MIN_LONG_KM &&
-        w >= raceGoalSpecificityFromWeek(distKey, blockExp, arc.phaseCounts);
+        w >= raceGoalSpecificityFromWeek(distKey, holdAtOwnWeek ? 'advanced' : blockExp, arc.phaseCounts);
     }
     /* ---- DURABILITY DOMINANT MEANS WHAT IT SAYS, AND IT FOLLOWED THE RUN ----
        The block's longest run keeps its distance and gives up its specific
@@ -24953,6 +25310,10 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
        Peak week now, for the same reason the suppression is the last. */
     if (mPeakFirst && hasGoalSegment)
       goalSegKm = round1(clamp(goalSegKm * PEAK_SECOND_SPECIFICITY_GAIN, 3, longTarget * 0.5));
+    /* At the destination already, the week holds and the long run's goal-pace
+       work grows instead (see holdAtOwnWeek). */
+    if (holdAtOwnWeek && hasGoalSegment && !shortPaceLong)
+      goalSegKm = round1(clamp(goalSegKm * AT_DESTINATION_SPECIFICITY_GAIN, 3, longTarget * 0.5));
     /* THE FRACTION, CARRIED. The day's distance is not final here: smart
        rounding and the weekly cap both still get a say. Keeping the PROPORTION
        lets the settle-up re-derive the segment from whatever the run ends up
@@ -25798,18 +26159,29 @@ function buildBlockWeeksTurns(distKey, currentVolume, planWeeksInput, opts){
      logged, is already at or above it, the peak may go one 10% block step
      past that week, no further. Applied to the days (capRacePeakDays): a
      bottom-up week is the sum of its sessions. */
-  var peakCapKm = null, peakCapBy = null;
+  /* ---- AND NOW STOPS AT THE ATHLETE'S OWN WEEK WHERE THAT IS ALREADY THERE
+     (founder, Audit IV question 8) ---- The one 10% block step past the
+     athlete's own week is gone: at or above the destination the week holds
+     flat and the overload moves into the sessions (holdAtOwnWeek). Below
+     it, the climb still aims at the destination, and the days may never
+     pass it by more than PEAK_DESTINATION_TOLERANCE ("a 5% over is
+     acceptable"): peakCeilingKm, which capRacePeakDays() enforces where
+     the easy runs alone cannot. A held week keeps the same 5% of room over
+     the athlete's own week, for the sessions that still grow inside it. */
+  var peakCapKm = null, peakCapBy = null, peakCeilingKm = null;
   if (!steady && purpose === 'race' && (distKey === 'half' || distKey === 'full') && weeks.length > 1){
     var capPath = raceGoalPathway(distKey, blockExp);
     if (capPath && capPath.peakVolumeKm > 0){
       var ownKm = currentVolume > 0 ? currentVolume : 0;
       try { var demC = demonstratedSustainableVolume(); if (demC > ownKm) ownKm = demC; } catch(eC){}
       if (weeks[0] && weeks[0].volume > ownKm) ownKm = weeks[0].volume;
-      if (ownKm >= capPath.peakVolumeKm){ peakCapKm = round1(ownKm * VOLUME_BLOCK_GROWTH_CAP); peakCapBy = 'own_week'; }
+      if (ownKm >= capPath.peakVolumeKm){ peakCapKm = round1(ownKm); peakCapBy = 'own_week'; }
       else { peakCapKm = round1(capPath.peakVolumeKm); peakCapBy = 'destination'; }
+      peakCeilingKm = round1(peakCapKm * PEAK_DESTINATION_TOLERANCE);
     }
   }
   return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume), peakCapKm:peakCapKm, peakCapBy:peakCapBy,
+           peakCeilingKm:peakCeilingKm, holdAtOwnWeek:holdAtOwnWeek,
            /* T1/T2: the stated days and long run a Base, Maintain or Speed
               block opened on (nonRaceEntryOpening()), or null. */
            entryOpening: nrOpen,
@@ -30376,7 +30748,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   /* Week one only: the gate never revises the first week, so its accounting
      is settled here once; every other week is shaped after the gate. */
   shapeShortRaceEasyRuns(days, weeks, blockResult, schedule, weeks && weeks.length ? weeks[0].week : 1);
-  if (blockResult.peakCapKm > 0 && capRacePeakDays(days, weeks, blockResult.peakCapKm) > 0)
+  if (blockResult.peakCapKm > 0 && capRacePeakDays(days, weeks, blockResult.peakCapKm, blockResult.peakCeilingKm) > 0)
     blockResult.peakCappedTo = blockResult.peakCapKm;
   if (usesMarathonArc(blockResult.purpose, blockResult.distKey) ||
       (blockResult.purpose === 'race' && usesBottomUpArc(blockResult.purpose, blockResult.distKey)))
@@ -30398,6 +30770,10 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   liftShallowRecoveryWeeks(days, weeks, blockResult, schedule);
   applyRunJoinStep(days, weeks, blockResult);
   keepLighterWeeksLighter(days, weeks, blockResult);
+  /* Last of the climb's shaping, so nothing after it can lift the week
+     after a lighter week again. It reads the lighter week and the taper
+     after a week it held itself. */
+  returnAfterLighterWeek(days, weeks, blockResult);
   deepenHalfTaperWeek(days, weeks, blockResult);
   recordVolumeAccounting(days, weeks);
   var weekIndex2 = {};
@@ -54173,6 +54549,9 @@ var LOW_START_LONG_KM = 6;
 /* The weeks before a low start's first recovery week, in which a Half or
    Marathon keeps its hard session to short hill repeats. */
 var LOW_START_SHARP_WEEKS = 3;
+/* The first week a low start may carry a Threshold Calibration (founder,
+   Audit IV question 4: none in weeks 1 to 3). */
+var LOW_START_CALIBRATION_FROM_WEEK = 4;
 var RUN_WALK_NOTE = 'Run/walk is fine if you need it: run 4 minutes, walk 1, and repeat. The walking counts, and covering the distance is the session.';
 function runWalkLearned(){
   var n = 0;
@@ -69182,7 +69561,7 @@ async function handleGeneratePlan(){
     /* THE PEAK WAS HELD, AND THEY ARE TOLD WHY (Audit III C8). */
     var peakNote = !(blockResult && blockResult.peakCappedTo > 0) ? ''
       : blockResult.peakCapBy === 'own_week'
-        ? '. Your weeks top out at ' + fmtDist(blockResult.peakCappedTo) + ', one step above the week you already run'
+        ? '. Your weeks hold at about ' + fmtDist(blockResult.peakCappedTo) + ', the week you already run, and the sessions do the progressing'
         : '. Your weeks top out at ' + fmtDist(blockResult.peakCappedTo) + ', all this race needs at your level, so the climb is gentler';
     var recordNote = volumeFromRecord > 0 ? '. Built from the running on your record, about ' + fmtDist(volumeFromRecord) + ' a week' : '';
     showToast('Plan generated: '+planLengthLabel(daysBetween(startDate,raceDate)+1)+toward+', starting '+dShort(startDate)+

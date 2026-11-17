@@ -125,7 +125,13 @@ test('CUTBACK — an absorption week is a reduction, and it is roughly the one t
      already used, the two are one week, so two of the swept programmes carry
      one absorption week fewer. Every cutback examined is held to the same two
      assertions above. */
-  assert.ok(n >= 54, 'only ' + n + ' cutbacks examined');
+  /* 54 -> 47 (Audit IV R4, founder: "Return to the same as the week before
+     deload", with the 8% as a safety net in the Marathon). Purely a change
+     of population: three Marathon programmes now fall short of their locked
+     peak week and are refused at admission (New Marathon @15w, Experienced
+     Marathon @12w and @13w; 3 + 2 + 2 absorption weeks), and every cutback
+     still examined is held to both assertions above, unchanged. */
+  assert.ok(n >= 47, 'only ' + n + ' cutbacks examined');
 });
 
 /* A5 (founder, 15 November 2026): "I don't want no 3km easy runs", and yes,

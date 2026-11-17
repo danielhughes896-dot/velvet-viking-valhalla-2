@@ -66,16 +66,20 @@ test('1. the 5K and 10K pathways carry the founder\'s ranges and aim for the top
     assert.equal(p.peakLongKm, want[dk][exp][1][1]);
     assert.equal(a.raceGoalLongCapKm(dk, 'race', exp), want[dk][exp][1][1], 'the range top is the long-run cap');
   }));
-  assert.equal(a.RACE_GOAL_LONG_CAP_KM['5k'], 18, 'the absolute backstop, reached only by a long run already run');
+  assert.equal(a.RACE_GOAL_LONG_CAP_KM['5k'], 18, 'the absolute backstop, kept for other purposes; the range top binds a race block');
   assert.equal(a.RACE_GOAL_LONG_CAP_KM['10k'], 22);
 });
 
-test('1. an athlete who already runs longer keeps that long run, held to the backstop, never grown', () => {
+/* UPDATED FOR AUDIT IV QUESTION 7 (founder: bound 5K and 10K long runs by
+   the level's long-run range). This used to pin the old rule, that an
+   athlete who already ran longer kept that long run up to the 18km backstop.
+   The range top now binds them too. */
+test('1. an athlete who already runs longer is held to the level\'s range top, never above it', () => {
   const a = app();
   const p = a.raceGoalPathway('5k', 'experienced');
   assert.equal(a.raceGoalLongDestinationKm('5k', 'experienced', {}, 'peak'), p.peakLongKm);
-  assert.equal(a.raceGoalLongDestinationKm('5k', 'experienced', { demonstratedLongKm: 14 }, 'peak'), 14);
-  assert.equal(a.raceGoalLongDestinationKm('5k', 'experienced', { demonstratedLongKm: 25 }, 'peak'), 18);
+  assert.equal(a.raceGoalLongDestinationKm('5k', 'experienced', { demonstratedLongKm: 14 }, 'peak'), 12);
+  assert.equal(a.raceGoalLongDestinationKm('5k', 'experienced', { demonstratedLongKm: 25 }, 'peak'), 12);
   assert.equal(a.raceGoalLongDestinationKm('half', 'experienced', { demonstratedLongKm: 24 }, 'peak'), 24,
     'the half keeps its own rule');
 });

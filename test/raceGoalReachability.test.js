@@ -40,8 +40,17 @@ R.CANON.forEach(c => {
     const needKm   = Math.max(c.needBuildKm   || 0, c.needPeakKm   || 0);
     const needLong = Math.max(c.needBuildLong || 0, c.needPeakLong || 0);
 
-    assert.ok(p.peakKm >= needKm - 0.05,
-      c.key + ' established ' + r1(p.peakKm) + 'km/week against a requirement of ' + needKm);
+    /* THE NEW MARATHON'S WEEK, AFTER AUDIT IV R4. The founder: the week
+       after a lighter week returns to the week before it (the 8% as a safety
+       net in the Marathon), and the peak may come out lower. From a 21km
+       entry in fifteen weeks the climb to 60km came only through the
+       rebounds that rule removes, so the week now establishes about 52km:
+       above its 50km Build figure, short of the 60km peak, and admission
+       says so (raceGoalAdmissionViability.test.js). Its long run, the
+       second exposure and everything below are still asserted in full. */
+    const weekNeed = c.key === 'New Marathon' ? (c.needBuildKm || needKm) : needKm;
+    assert.ok(p.peakKm >= weekNeed - 0.05,
+      c.key + ' established ' + r1(p.peakKm) + 'km/week against a requirement of ' + weekNeed);
     assert.ok(p.peakLong >= needLong - 0.05,
       c.key + ' established a ' + r1(p.peakLong) + 'km long run against a requirement of ' +
       needLong);
