@@ -86,8 +86,8 @@
     Everything below describes real, current behaviour, verified against the code.
   </div>
 
-  <p>SACORO is a running-training app. Most of what it does happens entirely on your own device. This
-  page explains exactly what leaves your device, when, and why: no more and no less than that.</p>
+  <p>SACORO is a running-training app. This page explains exactly what leaves your device, when, and
+  why: no more and no less than that.</p>
 
   <h2>The short version</h2>
   <ul>
@@ -98,9 +98,12 @@
     <li>Strava sync is <strong>switched off for this private beta</strong>, so no Strava data is read
     or stored for any beta tester. When it is available, it reads your recent running activities to help
     log your training. It never writes anything back to Strava, and never sees your Strava password.</li>
-    <li>We don't run ads, don't sell data, don't use tracking/analytics scripts, and no AI or language
-    model service ever receives your training data. SACORO's coaching logic is deterministic code, not
-    an AI model, and calls no AI service itself.</li>
+    <li>We don't run ads, don't sell data, and don't use tracking or analytics scripts.</li>
+    <li>SACORO's AI coach uses Anthropic's API. To write about a run or a week, it is given your logged
+    figures for that run or week (distance, pace, time and effort) and SACORO's own conclusions about
+    them. Your heart rate is only sent if you have given health-data consent. Notes you write yourself
+    are never sent, and nothing that came from Strava is ever sent. If you ask Ask Coach a question,
+    what you type is sent to Anthropic too, so it can answer you.</li>
     <li>You can delete your account and everything we hold on our servers at any time from Settings,
     or by asking us. The copy on your own phone or browser is removed by you.</li>
   </ul>
@@ -116,12 +119,32 @@
   <table>
     <tr><th>Data</th><th>Why</th></tr>
     <tr><td>Your email address</td><td>To send you sign-in links and identify your account</td></tr>
-    <tr><td>Your training plan and log, as one record</td><td>So it backs up and follows you to another device</td></tr>
+    <tr><td>Your training plan and log, as one record</td><td>So it backs up, follows you to another device, and keeps your AI coach's analysis with your runs</td></tr>
+    <tr><td>Coach memory, only if you turn it on</td><td>Short one-line notes of what you asked your coach and the choices you made, so it can pick up where you left off</td></tr>
   </table>
   <p>This data is protected so that only your own signed-in session can read it: not other users, and
   not us browsing the database casually. Supabase hosts this data on our behalf as our data processor;
-  Vercel hosts the app itself and the small server functions that talk to Supabase and Strava on your
-  behalf, so tokens and credentials never reach your device.</p>
+  Vercel hosts the app itself and the small server functions that talk to Supabase, Anthropic and
+  Strava on your behalf, so tokens and credentials never reach your device.</p>
+
+  <h2>The AI coach</h2>
+  <p>SACORO's AI coach uses Anthropic's API to explain and discuss your training with you. It does not
+  decide anything. SACORO's own engine works out your plan, your paces and your progression, and the AI
+  coach only explains and discusses what has already been decided. It never writes to your plan.</p>
+  <p>To write the analysis for a run or a week, the AI coach is given your logged figures for that run
+  or week (distance, pace, time and effort) and SACORO's own conclusions about them. Your heart rate is
+  only included if you have given health-data consent in Settings. Notes you write yourself are never
+  sent, and nothing that reached SACORO from Strava is ever sent, even if you have connected Strava. The
+  analysis it writes is saved with your plan in your account, the same as anything else SACORO writes
+  about your training.</p>
+  <p>If you ask Ask Coach a question, what you type is sent to Anthropic too, along with the same kind
+  of training information, so it can answer you. The same rules apply.</p>
+  <p><strong>Coach memory</strong> is off until you turn it on in Settings. With it on, your coach
+  keeps short one-line notes in your account: what you asked it, and choices such as turning down an
+  extra run. The most recent few are given to the AI coach as background with each question. Nothing
+  from Strava is ever kept, and pain, illness and other health details are kept only if you have agreed
+  to health data use. You can read or clear the notes in Settings at any time, and they are deleted
+  with your account.</p>
 
   <h2>What's stored if you connect Strava</h2>
   <p><strong>Not available during the private beta.</strong> Strava sync is switched off for this beta
@@ -150,18 +173,20 @@
   <table>
     <tr><th>Service</th><th>What it sees</th><th>When</th></tr>
     <tr><td>Vercel</td><td>Hosts the app and its server functions; sees ordinary web request data (like any website you visit)</td><td>Every visit</td></tr>
-    <tr><td>Supabase</td><td>Your email and training plan</td><td>Whenever you are signed in</td></tr>
+    <tr><td>Supabase</td><td>Your email and training plan, and coach memory if you turn it on</td><td>Whenever you are signed in</td></tr>
+    <tr><td>Anthropic</td><td>Your logged run and week figures (distance, pace, time, effort) and SACORO's own conclusions about them; your heart rate only with health-data consent; anything you type into Ask Coach; your coach memory notes if you turn it on. Never your own notes, and never anything that came from Strava</td><td>Whenever the AI coach writes an analysis, or you ask it a question</td></tr>
     <tr><td>Strava</td><td>Nothing from us until you choose to connect; then your activity data as described above</td><td>Not during the private beta. The integration is switched off</td></tr>
     <tr><td>Google Fonts</td><td>Your device's IP address and browser, as a normal side effect of loading the typefaces this page uses</td><td>Every visit</td></tr>
   </table>
-  <p>We don't use any analytics, advertising, or tracking service, and no language model or AI service
-  ever receives your data, automatically or otherwise. SACORO's coaching logic is deterministic code
-  written to give the same answer every time, not an AI model.</p>
+  <p>We don't use any analytics, advertising, or tracking service. SACORO's coaching logic (your plan,
+  your paces, your progression) is deterministic code written to give the same answer every time, not an
+  AI model. The AI coach described above only explains and discusses what that engine has decided.</p>
 
   <h2>How long we keep it, and how to delete it</h2>
-  <p><strong>On our servers.</strong> If you signed in, your account and stored plan are kept until the
-  account is deleted. You can do that yourself at any time from Settings, and it removes your email,
-  your stored plan, your Strava connection and any staged Strava activity data in one action. If you
+  <p><strong>On our servers.</strong> Your account and stored plan, including any analysis your AI coach
+  has written and any coach memory, are kept until the account is deleted. You can do that yourself at
+  any time from Settings, and it removes your email, your stored plan, your coach memory, your Strava
+  connection and any staged Strava activity data in one action. If you
   are a beta tester and would rather just ask, email
   <a href="mailto:support@velvetviking.co.uk">support@velvetviking.co.uk</a> and we will delete your
   account and all identifiable personal and training data Velvet Viking holds on its servers within 30
