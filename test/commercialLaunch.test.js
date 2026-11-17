@@ -127,17 +127,17 @@ test('the overrides that still admit somebody are exactly two', () => {
 // 3. THE PRICES ARE THE APPROVED ONES, AND THE SERVER RESOLVES THEM
 // ---------------------------------------------------------------------------
 
-test('monthly is £11.99 and annual is £89.99, with a 14-day trial on both', () => {
+test('monthly is £11.99 and annual is £79.99, with a 7-day trial on both', () => {
   const m = Prod.offer('STANDARD_MONTHLY');
   const y = Prod.offer('STANDARD_YEARLY');
   assert.equal(m.priceMinor, 1199);
   assert.equal(m.currency, 'GBP');
   assert.equal(m.billingPeriod, 'monthly');
-  assert.equal(y.priceMinor, 8999);
+  assert.equal(y.priceMinor, 7999);
   assert.equal(y.currency, 'GBP');
   assert.equal(y.billingPeriod, 'yearly');
-  assert.equal(m.trialDays, 14);
-  assert.equal(y.trialDays, 14);
+  assert.equal(m.trialDays, 7);
+  assert.equal(y.trialDays, 7);
 });
 
 test('a billing period names an offer; a price id is never accepted from anywhere', () => {

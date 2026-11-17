@@ -150,19 +150,19 @@
 
     <div id="trial-card" class="vvv-hidden">
       <div class="card">
-        <h3>Start your 14 days</h3>
+        <h3>Start your 7 days</h3>
         <p class="say" style="margin:0 0 12px;">Choose how you would like to continue afterwards.
            You will not be charged during the trial, and you can cancel any time before it ends.</p>
         <div class="days" id="plan-choice">
           <button type="button" class="day" data-period="monthly" aria-pressed="true">
             <b>£11.99</b><br><span>per month</span></button>
           <button type="button" class="day" data-period="yearly" aria-pressed="false">
-            <b>£89.99</b><br><span>per year</span></button>
+            <b>£79.99</b><br><span>per year</span></button>
         </div>
-        <p class="quiet" id="choice-note">After 14 days this becomes £11.99 a month, unless you cancel.</p>
+        <p class="quiet" id="choice-note">After 7 days this becomes £11.99 a month, unless you cancel.</p>
       </div>
       <div id="checkout-agreements"></div>
-      <button class="vvv-btn" id="trial">Start My 14-Day Trial</button>
+      <button class="vvv-btn" id="trial">Start My 7-Day Trial</button>
       <p class="quiet" id="trial-note">A payment method is required to begin. Nothing is taken
          until the trial ends.</p>
     </div>
@@ -663,8 +663,8 @@
   }
 
   var period = 'monthly';
-  var AFTER = { monthly: 'After 14 days this becomes £11.99 a month, unless you cancel.',
-                yearly:  'After 14 days this becomes £89.99 a year, unless you cancel.' };
+  var AFTER = { monthly: 'After 7 days this becomes £11.99 a month, unless you cancel.',
+                yearly:  'After 7 days this becomes £79.99 a year, unless you cancel.' };
   Array.prototype.forEach.call(document.querySelectorAll('#plan-choice .day'), function(b){
     b.addEventListener('click', function(){
       period = b.getAttribute('data-period');
@@ -682,7 +682,7 @@
   if (isNativeApp()){
     var card = $('plan-choice') && $('plan-choice').closest('.card');
     if (card){
-      card.innerHTML = '<h3>Start your 14 days</h3>' +
+      card.innerHTML = '<h3>Start your 7 days</h3>' +
         '<p class="say" style="margin:0;">Subscriptions are set up on the web. ' +
         'Open <b>velvetviking.co.uk</b> in your browser to start your trial, then ' +
         'come back here and sign in. Everything will be waiting.</p>';

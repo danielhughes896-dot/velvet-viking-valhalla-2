@@ -123,12 +123,16 @@ agreement in it. A privacy notice is information rather than a decision, so the
 version presented alongside an accepted Terms is recorded as context on that
 row and nothing is ever "consented to". Marketing consent does not exist.
 
-The immediate-start wording is **solicitor-reviewed and approved**, and was
-approved unchanged — the deployed text is byte-identical to the text reviewed,
-which is why it remains `immediate_start_v1`. It stays versioned for the same
-reason consent is: a future material revision becomes `immediate_start_v2`, at
-which point every athlete is asked again at their next checkout and the v1
-evidence stays exactly as it is.
+The immediate-start wording was **solicitor-reviewed and approved** as
+`immediate_start_v1`, written for a fourteen-day trial. The trial shortened to
+seven days, which left v1's "you will not be charged before the trial ends"
+promise covering less than the athlete's full fourteen-day statutory window —
+so the wording changed to **`immediate_start_v2`**, which is **not yet
+solicitor-reviewed**. It stays versioned for the same reason consent is: when
+it is reviewed, either it is approved as it stands or a solicitor's revision
+becomes `immediate_start_v3`, and either way every athlete is asked again at
+their next checkout while the v2 evidence — including anyone who agreed to it
+before that review — stays exactly as it is.
 
 **Where consent is recorded.** `public.health_data_consent` — append-only, one
 row per decision (`user_id`, `decision`, `consent_version`, `decided_at`,
@@ -273,10 +277,20 @@ has ever been sent to an operational board.
 - Cancelling is **always** available and takes effect at the end of the period
   already paid for. Nothing is clawed back and no early-termination charge
   exists.
-- **Cancelling during the 14-day trial**: access continues to the end of the
-  fourteen days and **no payment is taken**. The subscription simply does not
+- **Cancelling during the 7-day trial**: access continues to the end of the
+  seven days and **no payment is taken**. The subscription simply does not
   renew.
-- **Cancelling after conversion**: access continues to the end of the current
+- **Cancelling within 14 days of signing up, even after the trial has already
+  converted to a paid charge**: refunded in full. This is the statutory
+  distance-contract cancellation window (fixed by UK law at fourteen days,
+  independent of the trial length), and because the trial is shorter than
+  that window, an athlete can be charged before it closes. The refund
+  guarantee is what keeps that compliant — see `IMMEDIATE_START_TEXT` in
+  `api/_agreements.js`. Refunds are not automated anywhere in this codebase
+  (see below), so this is an operator action to honour, not something the
+  code enforces on its own.
+- **Cancelling after conversion, outside that 14-day window**: access
+  continues to the end of the current
   paid month or year. `cancelled` is not `ended` — the period bought is the
   period delivered.
 - **Cancelling while paused**: ends the relationship immediately, because no
@@ -295,7 +309,7 @@ has ever been sent to an operational board.
 
 | State | Means |
 |---|---|
-| `trial` | inside the 14 days |
+| `trial` | inside the 7 days |
 | `paid` | inside a paid period |
 | `grace_period` | the provider has told us it is retrying until a stated date. Sacoro adds no grace of its own. |
 | `paused` | inside a pause window: no billing, no access |

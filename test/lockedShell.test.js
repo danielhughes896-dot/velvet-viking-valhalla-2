@@ -143,7 +143,7 @@ test('there is one purchase door, and the second one is gone', () => {
 test('checkout is honest about not being configured', () => {
   /* Honesty now comes from the CATALOGUE rather than from a URL somebody set:
      a configured URL was never evidence that a purchasable offer existed behind
-     it, and "£89.99/year, not open yet" is information a missing button is not. */
+     it, and "£79.99/year, not open yet" is information a missing button is not. */
   const saved = { c: process.env.VVV_COMMERCE_ENABLED, k: process.env.STRIPE_SECRET_KEY };
   delete process.env.VVV_COMMERCE_ENABLED;
   delete process.env.STRIPE_SECRET_KEY;

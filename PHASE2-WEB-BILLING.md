@@ -8,8 +8,22 @@ and the core, and stops at the point where a human has to create things in a
 Stripe account.
 
 **Commerce is OFF.** `VVV_COMMERCE_ENABLED` and `VVV_COMMERCIAL_REQUIRED` are
-both unset, no migration has been applied, no Stripe object exists, and no
-identifier in this repository is real.
+both unset, so nobody can be charged regardless of what exists in Stripe.
+
+**UPDATE, 17 November 2026 — Stripe now exists, and it is live, not test
+mode.** The product ("SACORO Standard"), both prices (£11.99/month,
+£79.99/year), the webhook and the six Vercel environment variables below have
+all been created and set directly in **live** Stripe, skipping the test-mode
+pass this document originally asked for first. The checkout code's own safety
+rail (`live_key_without_commercial_flag` in `api/_checkout.js`) refuses to
+open a session with a live key while `VVV_COMMERCIAL_REQUIRED` is off, so
+nothing is purchasable yet regardless — but the ten-point test-mode
+verification in step 4 below has **not** been run against anything, because
+there is no test-mode product to run it against. The owner's plan is to
+verify the flow with one real charge on their own card instead. That is a
+choice the owner made knowingly, not an oversight, but it means **step 4
+below is still entirely undone** and the next person reading this should not
+assume otherwise from the checklist alone.
 
 ---
 
@@ -238,15 +252,15 @@ below.
 
 ```json
 { "catalogue": { "product": { "code": "SACORO_STANDARD", "name": "Sacoro Standard" },
-                 "trialDays": 14,
+                 "trialDays": 7,
                  "offers": [ { "code": "STANDARD_MONTHLY", "billingPeriod": "monthly",
-                               "priceMinor": 1199, "currency": "GBP", "trialDays": 14,
+                               "priceMinor": 1199, "currency": "GBP", "trialDays": 7,
                                "available": false } ] },
   "commerce_enabled": false, "provider_configured": false }
 ```
 
 `available` is honest about configuration. An offer with no provider identifier
-is **listed, priced and marked unavailable** rather than hidden — *"£89.99/year,
+is **listed, priced and marked unavailable** rather than hidden — *"£79.99/year,
 not open yet"* is information; a missing row is a bug report. Render prices from
 this, never from a literal in a page: a price typed into a screen drifts from
 the one that will be charged.
@@ -314,7 +328,7 @@ Eligibility is re-decided by `mayStartStandardPurchase()` when a checkout is
 opened, and the allowance is spent only when a provider says a trialing
 subscription exists.
 
-A surface may show *"start your 14-day trial"* whenever `available` is true. On
+A surface may show *"start your 7-day trial"* whenever `available` is true. On
 `false`, `reason` is the sentence to say, and it names **whichever half
 blocked it** — "you have already used your free trial" and "you already have a
 subscription" are different sentences to different people.
@@ -323,7 +337,7 @@ subscription" are different sentences to different people.
 builder its trial card is gated on authentication alone — `save-card` while
 signed out, `trial-card` once signed in — so a signed-in athlete who has
 already used their trial, or who already subscribes, is shown *"Start my
-14-day trial"* and told no only after pressing it. Nothing is charged and no
+7-day trial"* and told no only after pressing it. Nothing is charged and no
 allowance moves; the refusal is the canonical one, with a named reason. It is
 a WEBSITE presentation matter and this contract is what fixes it. **Not changed
 here — Phase 2 does not redesign WEBSITE surfaces.**
@@ -421,9 +435,9 @@ they are absent, and every caller treats null as *this cannot be purchased yet*.
 ### 1. Stripe, in test mode first
 
 - [ ] Create the product **Sacoro Standard**.
-- [ ] Create two recurring prices: **£11.99/month** and **£89.99/year**, GBP.
+- [ ] Create two recurring prices: **£11.99/month** and **£79.99/year**, GBP.
       Do **not** put a trial on the Price — the trial is set on the Checkout
-      Session (`trial_period_days: 14`) so that one number has one source.
+      Session (`trial_period_days: 7`) so that one number has one source.
 - [ ] Create a webhook endpoint pointing at
       `https://<deployment>/api/billing-webhook`, subscribed to
       `customer.subscription.created`, `.updated` and `.deleted`. Nothing else

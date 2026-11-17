@@ -178,7 +178,7 @@ test('monthly and annual are different agreements, not one with a setting', asyn
     const m = rows.filter(r => r.billing_period === 'monthly')[0];
     const y = rows.filter(r => r.billing_period === 'yearly')[0];
     assert.equal(m.agreed_price_minor, 1199);
-    assert.equal(y.agreed_price_minor, 8999);
+    assert.equal(y.agreed_price_minor, 7999);
     assert.notEqual(m.price_locked_at, y.price_locked_at,
       'two agreements, agreed at two different moments');
   });
