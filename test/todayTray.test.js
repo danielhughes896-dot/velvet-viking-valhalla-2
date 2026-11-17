@@ -217,7 +217,7 @@ test('Not run? Undo at the foot of the log undoes the day and brings Log Run bac
   const a = athlete(pin);
   const dd = a.findDayByDate(pin);
   a.handleTodayLogRun(dd.id);
-  assert.match(a.renderDayCard(dd), /data-action="log-undo"[^>]*>Not run\? Undo</);
+  assert.match(a.renderDayCard(dd), /data-action="log-undo"[^>]*>Not Run\? Undo</);
   a.handleLogUndo(dd.id);
   assert.equal(!!a.findDayByDate(pin).completed, false);
   assert.match(a.renderTodayTray(), /data-action="today-log-run"/);

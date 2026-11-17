@@ -236,7 +236,9 @@ test('the Suggested box only with the engine’s own offer, and it is the change
   assert.equal(noOffer.offer, null);
   const ph = c.recoveryCheckHtml(noOffer);
   assert.doesNotMatch(ph, /rck-swap/);
-  assert.equal((ph.match(/<button/g) || []).length, 1);
+  assert.equal((ph.match(/<button type="button" class="btn /g) || []).length, 1);
+  /* And the round X every sheet has, which closes it (Audit IV UX-A1). */
+  assert.match(ph, /<div class="modal-head"><h2 class="font-head">Recovery Check<\/h2><button type="button" class="icon-btn" data-action="recovery-check-ok" aria-label="Close">/);
   assert.match(ph, /data-action="recovery-check-ok">Got It</);
   assert.equal(noOffer.tone.label, 'Worth Watching', 'the label promised a change the engine did not offer');
   /* Pain with nothing on offer: the page the app already has for it. */
@@ -391,7 +393,7 @@ test('the sheet: glass, Title Case, no em dashes, and its words in white', () =>
   painOnLongRun(p);
   const ph = p.recoveryCheckHtml(p.recoveryCheckDue());
   assert.doesNotMatch(ph + p.recoveryCheckDue().line, /—/);
-  for (const m of ph.matchAll(/<button[^>]*>([^<]*)</g))
+  for (const m of ph.matchAll(/<button[^>]*>([^<]+)</g))
     m[1].split(' ').filter(w => !/^(the|of|and|or)$/.test(w))
       .forEach(w => assert.match(w, /^[A-Z0-9]/, 'not Title Case: ' + m[1]));
   const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');

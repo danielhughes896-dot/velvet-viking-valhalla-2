@@ -228,7 +228,7 @@ test('the three doors, and their ways back, go through the morph', () => {
     "case 'plan-open-week': vtOpenPlanWeek(target, target.getAttribute('data-week')); break;",
     "case 'plan-back': vtPlanBack(); break;",
     "case 'open-edit': vtOpenEdit(target, target.getAttribute('data-day')); break;",
-    "case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) closeModal(); }); break;",
+    "case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) dismissModal(); }); break;",
     "case 'close-record-panel': vtCloseBack(function(){ if (!stgCloseSub()) closeRecordPanel(); }); break;" ]
     .forEach(s => assert.ok(SRC.indexOf(s) !== -1, 'not wired: ' + s));
   const a = app();

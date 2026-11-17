@@ -589,7 +589,7 @@ test('the editor offers overlay, picture source and format as three choices', ()
      attribute from its argument -- so the literal never appears in source and
      the control is asserted at the call that creates it. */
   assert.match(body, /data-k="overlay"/, 'overlay picker');
-  assert.match(body, /seg\('source'[\s\S]{0,120}SACORO[\s\S]{0,60}My photos/,
+  assert.match(body, /seg\('source'[\s\S]{0,120}SACORO[\s\S]{0,60}My Photos/,
     'SACORO / My photos');
   assert.match(body, /seg\('format'[\s\S]{0,120}Story[\s\S]{0,40}Post/, 'Story / Post');
   assert.match(body, /data-action="share-export" data-mode="share"/);

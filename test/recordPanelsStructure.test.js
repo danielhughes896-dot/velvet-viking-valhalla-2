@@ -61,5 +61,5 @@ test('BENCHMARK: distance and reference pace come from the benchmark itself', ()
   assert.match(p, /Distance<\/div><div class="rec-stat-v">10K</);
   assert.match(p, /Reference Pace<\/div><div class="rec-stat-v">4:30<span class="rec-stat-u">\/km/);
   assert.match(p, /Training Calibration/);
-  assert.match(p, /data-action="open-recalibrate">Update benchmark &amp; re-calibrate</);
+  assert.match(p, /data-action="open-recalibrate">Update Benchmark &amp; Re-calibrate</);
 });

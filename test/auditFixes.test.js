@@ -190,7 +190,7 @@ test('a rest day nobody offered can still log a run, quietly, and it stays optio
   assert.equal(d.type, 'rest');
   if (a.isOptionalRunDay(d)) return;   // fixture offered it after all: nothing to prove here
   assert.equal(a.canLogRunAnyway(d), true);
-  assert.match(a.renderOptionalRunCompanion(d), /data-action="optional-run-log"[^>]*>Ran anyway\? Log it</);
+  assert.match(a.renderOptionalRunCompanion(d), /data-action="optional-run-log"[^>]*>Ran Anyway\? Log It</);
   d.actual = a.emptyActual(); d.actual.km = 5;
   assert.equal(a.applyOptionalRunLog(d, true), true);
   assert.equal(a.optionalRunLogged(d), true);

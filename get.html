@@ -99,7 +99,7 @@
      separate token for cherry as text. */
   .other a{color:var(--cherry-text); text-decoration:underline;}
   .foot{font-size:11px; color:var(--ink-faint); margin-top:22px; line-height:1.6;}
-  .foot a{color:var(--ink-faint); text-decoration:underline;}
+  .foot a{color:var(--ink-faint); text-decoration:underline; display:inline-block; padding:14px 6px; margin:-14px -6px;}
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -144,13 +144,13 @@
       back to these instructions.
     </p>
     <ol>
-      <li>Tap <b>Open the app</b> below</li>
+      <li>Tap <b>Open the App</b> below</li>
       <li>In <b>Safari</b>, tap the <b>Share</b> button</li>
       <li>Choose <b>Add to Home Screen</b></li>
     </ol>
     <a class="btn" href="/" style="margin-top:14px;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="13,6 19,12 13,18"/></svg>
-      Open the app
+      Open the App
     </a>
     <p class="note">
       You'll get the gold medallion icon and a full-screen app with no browser bars:
@@ -166,13 +166,13 @@
       Open in your browser
     </h2>
     <a class="btn" href="/">
-      Launch the app
+      Launch the App
     </a>
-    <p class="note">Works on any device. Your plan is saved on this device.</p>
+    <p class="note">Works on any device. Sign in and your plan follows you to each one.</p>
   </div>
 
-  <div class="card" style="padding-top:16px; padding-bottom:16px;">
-    <a class="btn btn-ghost" href="/">Just open it in this browser instead</a>
+  <div class="card" id="card-browser" style="padding-top:16px; padding-bottom:16px;">
+    <a class="btn btn-ghost" href="/">Just Open It in This Browser Instead</a>
   </div>
 
   <div class="other" id="other-platform"></div>
@@ -195,6 +195,8 @@
 
   var show = isAndroid ? 'card-android' : (isIOS ? 'card-ios' : 'card-web');
   document.getElementById(show).hidden = false;
+  // On a computer "Launch the App" already opens it here: one button, not two.
+  if (show === 'card-web') document.getElementById('card-browser').hidden = true;
 
   // Always offer the other platforms too -- people share this link onward, and
   // detection should steer rather than lock anyone out.

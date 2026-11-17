@@ -48,7 +48,7 @@ test('every state of the panel: no glyph, no em dash, no arrow, and a way out', 
     assert.doesNotMatch(h, /btn-primary|btn-ghost/, st + ': an old gold or boxed button is back');
     assert.match(h, /voice-ask-close|voice-ask-cancel/, st + ': no way out');
   });
-  assert.match(out[0][1], /data-action="voice-ask-speak">Speak instead</, 'Speak instead was not drawn, or not as plain words');
+  assert.match(out[0][1], /data-action="voice-ask-speak">Speak Instead</, 'Speak instead was not drawn, or not as plain words');
   for (const k of Object.keys(a.VOICE_STT_COPY)) assert.doesNotMatch(a.VOICE_STT_COPY[k], /—/, k);
   for (const k of Object.keys(a.VOICE_ERROR_COPY)) assert.doesNotMatch(a.VOICE_ERROR_COPY[k], /—/, k);
   assert.doesNotMatch(SRC.slice(SRC.indexOf('function renderAskProposal'), SRC.indexOf('function patchVoiceCard')), /→/);

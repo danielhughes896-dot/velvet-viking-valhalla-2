@@ -90,7 +90,7 @@ test('a stranded athlete keeps a route back to their displaced plan', () => {
   const html = a.renderHero();
   assert.match(html, /data-action="open-restore"/,
     'with no bottom nav this is the only way back to Restore a Plan');
-  assert.match(html, /Restore a plan from this device/);
+  assert.match(html, /Restore a Plan From This Device/);
 });
 
 test('a built plan replaces the no-plan hero, so the recovery route is not offered on top of an active plan', () => {

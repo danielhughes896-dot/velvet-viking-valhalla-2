@@ -123,6 +123,9 @@ const WORK_SURFACES = [
   ['openUnloggedSheet', 'the yesterday-not-logged sheet'],
   /* Welcome back: sign-in from the first screen, the same glass sheet. */
   ['openSigninSheet', 'the welcome-back sign-in sheet'],
+  /* Signed out, Ask Coach asks for the email first (Audit IV UX-A9): the
+     same glass sign-in sheet. */
+  ['openAskSigninSheet', 'the sign-in sheet in front of Ask Coach'],
   /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
      it, picks how much the card says and then approves it -- that is working
      in a modal, not answering an interrupt, and it has a close control and

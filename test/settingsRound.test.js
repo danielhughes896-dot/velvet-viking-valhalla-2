@@ -91,9 +91,9 @@ test('a page opened from Training & Zones closes back to Training & Zones', () =
   ["case 'open-setup': stgOpenSub(openSetupModal); break;",
    "case 'open-recalibrate': stgOpenSub(openRecalibrateModal); break;",
    "case 'open-pacing': stgOpenSub(openPacingModal); break;",
-   "case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) closeModal(); }); break;",
+   "case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) dismissModal(); }); break;",
    "case 'close-record-panel': vtCloseBack(function(){ if (!stgCloseSub()) closeRecordPanel(); }); break;",
-   "if (document.getElementById('modal-overlay')){ if (!stgCloseSub()) closeModal(); return; }"]
+   "if (document.getElementById('modal-overlay')){ if (!stgCloseSub()) dismissModal(); return; }"]
     .forEach(s => assert.ok(SRC.indexOf(s) !== -1, 'missing: ' + s));
   assert.match(SRC, /case 'open-record': \(function\(k\)\{ stgOpenSub\(function\(\)\{ openRecordPanel\(k\); \}\); \}\)\(target\.getAttribute\('data-record'\)\); break;/);
   assert.match(fnBody('settingsPanelTraining'), /data-action="open-recalibrate"[\s\S]*data-record="zones"[\s\S]*data-action="open-setup"[\s\S]*data-action="open-pacing"/);

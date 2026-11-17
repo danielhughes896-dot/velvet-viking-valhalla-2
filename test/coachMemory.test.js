@@ -553,7 +553,19 @@ test('the notes sheet lists what is kept and offers Clear Memory', async () => {
   a.coachMemoryCache.loaded = true;
   const body = a.coachMemorySheetBody();
   assert.match(body, /Declined the extra run, week 3\./);
-  assert.match(body, /data-action="coach-memory-clear">Clear Memory</);
+  /* The first tap asks, in the same sheet (Audit IV UX-A6); nothing is
+     sent until the second. */
+  assert.match(body, /data-action="coach-memory-clear-ask">Clear Memory</);
+  assert.doesNotMatch(body, /data-action="coach-memory-clear"/);
+  a.handleCoachMemoryClearAsk(true);
+  const ask = a.coachMemorySheetBody();
+  assert.match(ask, /Clear All Notes\?/);
+  assert.match(ask, /cannot be undone/);
+  assert.match(ask, /data-action="coach-memory-clear-keep">Keep Notes</);
+  assert.match(ask, /class="btn btn-primary" data-action="coach-memory-clear">Clear Memory</);
+  assert.equal(calls.length, 0, 'asking cleared the notes');
+  a.handleCoachMemoryClearAsk(false);
+  assert.match(a.coachMemorySheetBody(), /Declined the extra run, week 3\./);
   assert.equal(await a.handleCoachMemoryClear(), true);
   const sent = calls.find(c => c.url === '/api/coach-memory');
   assert.deepEqual(JSON.parse(sent.init.body), { action: 'clear' });

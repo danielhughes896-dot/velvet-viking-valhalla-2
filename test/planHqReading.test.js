@@ -646,7 +646,7 @@ test('CHECKPOINT: Measured Fitness names it and always has a real action, no sep
   assert.match(panel, new RegExp('Week ' + chk.week));
   // The row/action goes directly to Full Plan -- not to another popup.
   assert.match(panel, /data-action="go-checkpoint"/);
-  assert.match(panel, new RegExp('Open week ' + chk.week));
+  assert.match(panel, new RegExp('Open Week ' + chk.week + ' in Your Plan'));
 });
 
 test('CHECKPOINT: navigates to the real session directly from Measured Fitness', () => {

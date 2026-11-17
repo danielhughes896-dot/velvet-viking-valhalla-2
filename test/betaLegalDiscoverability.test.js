@@ -113,15 +113,26 @@ test('Settings reaches both documents from its footer, and Contact is a row of i
 test('every link out of the app goes through one door, and lands on the canonical documents', () => {
   const a = app();
   buildPlan(a, { weeks: 12, startDate: TODAY, distanceKey: 'half' });
-  const went = [];
-  a.window.open = (u, n, f) => { went.push(['open', u, n, f]); return {}; };
+  const went = [], wins = [];
+  a.window.open = (u, n, f) => { went.push(['open', u, n, f]); const w = { opener: a.window }; wins.push(w); return w; };
   const loc = { href: '' };
   Object.defineProperty(a.window, 'location', { value: loc, configurable: true, writable: true });
-  /* In a browser: a new tab, with no way back into this one. */
+  /* In a browser: a new tab, with no way back into this one, and the app's
+     own tab left where it was (Audit IV UX-R2: with 'noopener' window.open()
+     returns null by specification, so the old fallback sent the app tab, or
+     the whole Home Screen app, to the website as well). */
   a.isNativeApp = () => false;
   a.openExternal(a.LEGAL_URLS.privacy);
   a.openExternal(a.LEGAL_URLS.terms);
-  assert.deepEqual(went, [['open', CANON_PRIVACY, '_blank', 'noopener'], ['open', CANON_BETA_TERMS, '_blank', 'noopener']]);
+  assert.deepEqual(went, [['open', CANON_PRIVACY, '_blank', undefined], ['open', CANON_BETA_TERMS, '_blank', undefined]]);
+  assert.ok(wins.every(w => w.opener === null), 'the new tab can still reach back into the app');
+  assert.equal(loc.href, '', 'the app tab left the app');
+  /* Only a pop-up genuinely blocked (no window at all) falls back to this tab. */
+  a.window.open = () => null;
+  a.openExternal(CANON_PRIVACY);
+  assert.equal(loc.href, CANON_PRIVACY);
+  loc.href = '';
+  a.window.open = (u, n, f) => { went.push(['open', u, n, f]); return {}; };
   /* In the installed app: the page itself navigates, which the shell hands
      to the system browser. A new window is what went nowhere. */
   a.isNativeApp = () => true;

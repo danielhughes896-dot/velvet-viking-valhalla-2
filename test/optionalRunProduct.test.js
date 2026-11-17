@@ -494,7 +494,7 @@ test('18. it can be corrected and removed through the same activity path', () =>
   assert.equal(d.optionalRun, undefined);
   assert.equal(d.actual.km, null);
   assert.equal(a.optionalRunDayState(d), 'offered', 'and the offer comes back');
-  assert.match(a.renderDayCard(d), /Log a run/);
+  assert.match(a.renderDayCard(d), /Log a Run/);
 });
 
 // =====================================================================

@@ -6561,7 +6561,7 @@
     background-size:cover; background-position:center; border:1.5px solid var(--line);
     display:flex; align-items:flex-end; padding:6px;}
   .share-bd.active{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
-  .share-bd span{font-size:.59375rem; letter-spacing:.5px; text-transform:uppercase;
+  .share-bd span{font-size:.6875rem; letter-spacing:.5px; text-transform:uppercase;
     color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9);}
   .share-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   .share-row > span{font-size:.65625rem; letter-spacing:1.2px; text-transform:uppercase;}
@@ -6590,7 +6590,7 @@
     box-shadow:none; padding:2px 4px; overflow:visible;}
   .share-seg button{
     display:flex; align-items:center; justify-content:center;
-    min-height:34px; min-width:0; padding:0 11px;
+    position:relative; min-height:34px; min-width:0; padding:0 11px;
     font-family:var(--label-face); font-size:.65625rem; font-weight:var(--label-weight);
     letter-spacing:var(--label-track); text-transform:uppercase; line-height:1;
     color:#FFFFFF; background:none; border:0; border-radius:0; cursor:pointer;
@@ -9748,9 +9748,9 @@
   .oi-band{position:absolute; top:0; height:6px; border-radius:3px; background:var(--cherry);}
   .oi-goal{position:absolute; top:50%; width:9px; height:9px; margin-top:-4.5px; margin-left:-4.5px;
     border-radius:50%; background:var(--gold); box-shadow:0 0 0 3px var(--bg-3);}
-  .oi-goal-lbl{position:absolute; top:-20px; font-family:var(--text-face); /* reads "Goal 3:29:45" -- a label carrying a figure, so the sentence rule applies */ font-size:.65625rem; font-weight:600; color:var(--gold-text); white-space:nowrap;}
+  .oi-goal-lbl{position:absolute; top:-20px; font-family:var(--text-face); /* reads "Goal 3:29:45" -- a label carrying a figure, so the sentence rule applies */ font-size:.6875rem; font-weight:600; color:var(--gold-text); white-space:nowrap;}
   /* See the two-label fit rule in the Race Outlook renderer. */
-  .oi-band-lbl{position:absolute; bottom:-19px; font-family:var(--num-face); font-size:.625rem; color:var(--ink-faint); white-space:nowrap;}
+  .oi-band-lbl{position:absolute; bottom:-19px; font-family:var(--num-face); font-size:.6875rem; color:var(--ink-faint); white-space:nowrap;}
   .oi-empty{ color:var(--ink-faint);}
 
   /* ---------- CURRENT FITNESS, the hero's primary instrument ----------
@@ -12500,6 +12500,15 @@
   /* The decline's own notice still shows, unchanged, but at the top of the
      screen while the chips are up, so it never sits over an answer. */
   body:has(.cmr-sheet) #toast-mount{top:calc(16px + env(safe-area-inset-top, 0px)); bottom:auto;}
+  /* And over ANY open sheet (Audit IV UX-A7): at its usual place a toast sat
+     on the sheet's own words, "Your coach is not keeping notes..." among
+     them. Sheets rise from the bottom, so the top is always clear. */
+  body:has(.tw-layer) #toast-mount, body:has(#modal-overlay .stg-sheet) #toast-mount{top:calc(16px + env(safe-area-inset-top, 0px)); bottom:auto;}
+  /* DRAWN AT 34, PRESSED AT 44 (Audit IV UX-A13): the Share toggles keep
+     the unit toggle's look and take a 44px band, as the switches do. The X
+     on a glass sheet never gives up width to a long title at 320. */
+  .share-seg button::after{content:''; position:absolute; left:0; right:0; top:50%; height:var(--tap-min); transform:translateY(-50%);}
+  .tw-head .icon-btn{flex:0 0 auto; min-width:var(--tap-min);}
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -31894,6 +31903,23 @@ function handleAuthDeepLink(url){
    root-level back behaviour, never exitApp()/killing the process outright,
    which would be a harsher outcome than an app with no custom handler ever
    has on Android. */
+/* The topmost glass sheet, closed the way its own X closes it. True when
+   there was one. */
+function closeTopGlassSheet(){
+  if (typeof document === 'undefined' || !document.querySelector) return false;
+  if (document.querySelector('.vvcal-scrim')){ vvCalClose(); return true; }
+  var layers = document.querySelectorAll ? document.querySelectorAll('.tw-layer') : [];
+  if (!layers || !layers.length) return false;
+  var top = layers[layers.length - 1];
+  if (top.id === 'ask-sheet'){ answerAskSacoro(false); return true; }
+  if (top.id === 'weekly-sheet'){ closeWeeklyReviewSheet(); return true; }
+  if (top.id === 'circle-sheet'){ closeCircleSheet(); return true; }
+  if (top.id === 'time-wheel'){ closeTimeWheel(); return true; }
+  var x = top.querySelector ? top.querySelector('.tw-head .icon-btn, .icon-btn[aria-label="Close"]') : null;
+  if (x && x.click){ x.click(); return true; }
+  if (top.parentNode) top.parentNode.removeChild(top);
+  return true;
+}
 function initHardwareBackButton(){
   var App = nativeAppPlugin();
   if (!App || !App.addListener) return;
@@ -31901,7 +31927,12 @@ function initHardwareBackButton(){
   window.__vvvBackButtonBound = true;
   try{
     App.addListener('backButton', function(){
-      if (document.getElementById('modal-overlay')){ if (!stgCloseSub()) closeModal(); return; }
+      /* A glass sheet sits over everything, so Back closes it first, then
+         Ask Coach, then the page (Audit IV UX-A3: Back sent the app to the
+         background with a sheet still open). */
+      if (closeTopGlassSheet()) return;
+      if (document.getElementById('modal-overlay')){ if (!stgCloseSub()) dismissModal(); return; }
+      if (typeof askState !== 'undefined' && askState && askState.status !== 'closed'){ askReset(); return; }
       /* A week or a session inside Full Plan has a back arrow, and the
          system's back is that arrow -- on Android it is also the edge swipe.
          It used to send the app to the background from inside a week. */
@@ -34852,7 +34883,7 @@ function renderHero(){
          be the first dishonest sentence in the journey. */
       '<p class="setup-note">We\u2019ll build the programme first. You\u2019ll see your personalised plan before your 14-day trial begins.</p>'+
       (parked ? '<button type="button" class="btn btn-ghost btn-block setup-recover" '+
-        'data-action="open-restore">'+ICONS.link+' Restore a plan from this device</button>' : '')+
+        'data-action="open-restore">'+ICONS.link+' Restore a Plan From This Device</button>' : '')+
     '</div></div>';
   }
 
@@ -44241,7 +44272,7 @@ function shareComposerHtml(){
       '</div>'+
       '<div class="share-controls">'+
         '<div class="share-group">'+sectionRule('Picture', true)+
-          seg('source', st.source, [['sacoro','SACORO'],['photo','My photos']])+
+          seg('source', st.source, [['sacoro','SACORO'],['photo','My Photos']])+
           (st.source === 'sacoro'
             ? '<div class="share-bds">'+backdrops+'</div>'
             : '<label class="btn btn-ghost btn-block share-pick">'+
@@ -45600,6 +45631,11 @@ function coachRecovery(){
   var today = todayStr();
   var week = coachDaysInWindow(addDays(today,-6), today).filter(function(dd){ return dd.completed; });
   var overRPE = 0, overHR = 0, counted = 0, stoppedTired = 0;
+  /* WHICH RUNS SAY IT, by id (Audit IV A2). The Recovery Check is raised
+     once per piece of evidence, so it needs to know which runs the counts
+     are made of: the same run read again on a Monday, or a week in which one
+     run has aged out, is not something new to say. */
+  var evidence = [];
   week.forEach(function(dd){
     /* A SESSION ABANDONED TO FATIGUE IS RECOVERY EVIDENCE, and was the one
        piece of it this reading could not see: it counted effort above the
@@ -45608,7 +45644,7 @@ function coachRecovery(){
        band, because they stopped -- was shown Fresh. Counted before the
        checkpoint exemption on purpose: a race is meant to hurt, but stopping
        one for fatigue is not the race going to plan. */
-    if (sessionCutShortFor(dd) === 'fatigue') stoppedTired++;
+    if (sessionCutShortFor(dd) === 'fatigue'){ stoppedTired++; evidence.push('tired:' + dd.id); }
     // Time trials and races are meant to exceed threshold heart rate and to
     // feel maximal, so counting them as strain made every checkpoint week look
     // like overreaching.
@@ -45616,13 +45652,13 @@ function coachRecovery(){
     var a = dd.actual || {};
     var readable = effortIsReadable(dd);
     var band = expectedRPEBand(dd);
-    if (a.rpe!=null && band){ counted++; if (a.rpe > band[1] && readable) overRPE++; }
+    if (a.rpe!=null && band){ counted++; if (a.rpe > band[1] && readable){ overRPE++; evidence.push('rpe:' + dd.id); } }
     /* executionHRTarget() is null without consent, so overHR stays 0 and the
        strain count is made from effort and hard-day spacing alone. Absence
        reads as NOTHING, never as strain -- an athlete who withholds heart rate
        is not thereby judged to be overreaching. */
     var z = executionHRTarget(dd);
-    if (a.hr!=null && z && z.hi!=null && a.hr > z.hi && readable) overHR++;
+    if (a.hr!=null && z && z.hi!=null && a.hr > z.hi && readable){ overHR++; evidence.push('hr:' + dd.id); }
   });
   /* HARD DAYS BACK TO BACK -- IN THE WEEK RECOVERY IS READING.
      This walked the whole programme and kept the longest run it had ever
@@ -45641,13 +45677,14 @@ function coachRecovery(){
      did: it is the day the athlete is about to add. */
   var ordered = state.days.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   var weekFrom = addDays(today, -6);
-  var streak = 0, worstStreak = 0;
+  var streak = 0, worstStreak = 0, streakTo = null;
   ordered.forEach(function(dd){
     if (dd.date > today) return;
     var ran = dd.completed || dd.date === today;
     if (dd.type==='rest' || isRecoveryWorkoutType(dd.type) || !ran) streak = 0;
-    else { streak++; if (dd.date >= weekFrom) worstStreak = Math.max(worstStreak, streak); }
+    else { streak++; if (dd.date >= weekFrom && streak >= worstStreak){ worstStreak = streak; streakTo = dd.date; } }
   });
+  if (worstStreak >= 3 && streakTo) evidence.push('streak:' + streakTo);
   /* ONE POINT, HOWEVER MANY. The scale is the one heavy legs already sits
      on: enough to move Fresh to Watch, never enough to reach Strained by
      itself. "SACORO should never change training just to demonstrate that
@@ -45665,6 +45702,7 @@ function coachRecovery(){
       return p.confidence === 'established' && p.lastDate >= weekFrom; })[0] || null;
   } catch(e){ fading = null; }
   var strain = overRPE + overHR + (worstStreak>=3 ? 1 : 0) + ((stoppedTired > 0 || fading) ? 1 : 0);
+  if (fading && fading.lastDate) evidence.push('fade:' + fading.lastDate);
   /* ---- AND WHAT THE ATHLETE SAID THIS MORNING ----
      Recovery read the week's sessions and nothing else, so an athlete who
      had just answered "heavy legs, poor sleep" was shown Fresh on the same
@@ -45693,6 +45731,8 @@ function coachRecovery(){
     overRPE:overRPE, overHR:overHR, hardStreak:worstStreak, counted:counted,
     stoppedTired: stoppedTired,
     fading: fading,
+    strainPoints: strain,
+    evidence: evidence,
     morning: morning,
     trainingState: word(strain),
     state: word(strain + morning.points)
@@ -54127,7 +54167,9 @@ function sessionResultHtml(dd){
   if (rd.pace) figs.push(['Pace', rd.pace + ' /' + displayUnit()]);
   else if (resultClock(rd.timeSec)) figs.push(['Time', resultClock(rd.timeSec)]);
   if (rd.rpe != null) figs.push(['Effort', rd.rpe + '/10']);
-  return '<div class="modal-head"><h2 class="font-head">Session Complete</h2></div>'+
+  /* THE SAME ROUND X AS EVERY SHEET (Audit IV UX-A1), and it is OK by
+     another name: Week Complete still follows, however the panel goes. */
+  return '<div class="modal-head"><h2 class="font-head">Session Complete</h2><button type="button" class="icon-btn" data-action="result-ok" data-day="'+dd.id+'" aria-label="Close">'+ICONS.close+'</button></div>'+
     '<div class="modal-body rs-body">'+
       '<div class="rs-kick">'+escapeHtml(tm.label || 'Run')+', '+escapeHtml(dLong(dd.date))+'</div>'+
       /* No score is not a zero: a session logged without its sections is
@@ -54148,7 +54190,7 @@ function weekResultHtml(N){
   var wr = weekResultReading(N), ev = wr.ev;
   var figs = [['Sessions', ev.done + ' of ' + ev.due], ['Distance', fmtDist(ev.doneKm)]];
   if (ev.execution != null) figs.push(['Execution', Math.round(ev.execution) + '%']);
-  return '<div class="modal-head"><h2 class="font-head">Week ' + N + ' Complete</h2></div>'+
+  return '<div class="modal-head"><h2 class="font-head">Week ' + N + ' Complete</h2><button type="button" class="icon-btn" data-action="result-ok" aria-label="Close">'+ICONS.close+'</button></div>'+
     '<div class="modal-body rs-body">'+
       (wr.phase ? '<div class="rs-kick">'+escapeHtml(wr.phase)+'</div>' : '')+
       resultRingHtml(wr.pct, wr.pct != null ? wr.pct + '%' : '–', 'Of the week')+
@@ -54256,6 +54298,7 @@ function handleResultOk(dayId){
    (resultSayFetch('recovery', ...)). */
 var RECOVERY_CHECK_PAIN_DAYS = 3;   /* a pain or illness log this recent still flags */
 var RECOVERY_CHECK_HR_MIN = 2;      /* coachDecision()'s own count for heart rate above zone */
+var RECOVERY_CHECK_READING_MIN = 2; /* signals before Watch raises a sheet (Audit IV A3); Strained always does */
 var RECOVERY_CHECK_BOUNDARY = 'I’m a running coach, not a doctor, and I can’t judge symptoms. ' +
   'If something hurts, get it looked at properly, and see someone sooner if it is sharp, swelling or getting worse.';
 var RECOVERY_CHECK_TONE = {
@@ -54364,6 +54407,7 @@ function recoveryCheckHrFlag(){
   }
   var last = hot[hot.length - 1];
   return { kind:'hr', key:'hr:' + hot.map(function(dd){ return dd.date; }).join(','), rows: rows,
+    items: hot.map(function(dd){ return 'run:hr:' + dd.id; }),
     kick:'After ' + recoveryCheckRunName(last), about: recoveryCheckRunName(last),
     line: 'Your heart rate averaged above the easy zone on ' + (hot.length === easy.length ? 'each' : hot.length) +
       ' of your last ' + easy.length + ' easy runs. Keep the next easy runs genuinely easy so recovery can catch up.' };
@@ -54371,6 +54415,12 @@ function recoveryCheckHrFlag(){
 /* (b) THE RECOVERY READING ITSELF, on the week's training. */
 function recoveryCheckReadingFlag(rec){
   if (!rec || (rec.trainingState !== 'watch' && rec.trainingState !== 'strained')) return null;
+  /* ONE SIGNAL IS A READING, NOT A SHEET (Audit IV A3). One run a point
+     above its band moved Recovery to Watch and raised "Worth Watching" in
+     98.5% of such weeks, a sheet that by its own words changed nothing.
+     Watch on one signal still shows on the Coach page's Recovery reading;
+     the sheet rises for two signals or more, and for Strained. */
+  if (rec.trainingState === 'watch' && !(rec.strainPoints >= RECOVERY_CHECK_READING_MIN)) return null;
   var rows = [['Recovery', rec.trainingState === 'strained' ? 'Strained' : 'Watch']];
   if (rec.overRPE > 0) rows.push(['Effort above target', recoveryCheckRuns(rec.overRPE)]);
   if (rec.overHR > 0) rows.push(['Heart rate above zone', recoveryCheckRuns(rec.overHR), 'health']);
@@ -54382,6 +54432,7 @@ function recoveryCheckReadingFlag(rec){
   var week = null;
   try { week = currentWeekNum(); } catch(e){ week = null; }
   return { kind:'reading', strained: rec.trainingState === 'strained', rows: rows, kick: recoveryCheckDay(todayStr()),
+    items: (rec.evidence || []).map(function(e){ return 'run:' + e; }),
     key:'reading:' + week + ':' + rec.trainingState + ':' + [rec.overRPE, rec.overHR, rec.hardStreak >= 3 ? rec.hardStreak : 0,
       rec.stoppedTired, rec.fading ? rec.fading.lastDate : ''].join(','),
     /* What the week's training shows, without the morning: that is the
@@ -54436,7 +54487,8 @@ function recoveryCheckBuild(flags){
     : tone.tone === 'recovery' ? 'Recovery comes first, so this is not the time to push.'
     : offer ? 'Easing off lets your recovery catch up.'
     : 'Worth watching for your recovery, but on its own it does not change the plan.';
-  return { kind: lead.kind, key: lead.key, keys: flags.map(function(f){ return f.key; }),
+  return { kind: lead.kind, key: lead.key,
+    keys: flags.reduce(function(ks, f){ return ks.concat([f.key], f.items || []); }, []),
     kick: lead.kick, about: lead.about || null, rows: lead.rows, tone: tone,
     line: lead.line + (then ? ' ' + then : ''), offer: offer, boundary: !!lead.boundary };
 }
@@ -54444,7 +54496,12 @@ function recoveryCheckBuild(flags){
 function recoveryCheckDue(){
   var flags = recoveryCheckFlags();
   var seen = state.recoveryChecks || {};
-  if (!flags.some(function(f){ return !seen[f.key]; })) return null;
+  /* New is new evidence: a key not yet shown, made of at least one run not
+     yet shown. A flag with no runs behind it (the check-in, pain on a log)
+     is new by its key alone. */
+  if (!flags.some(function(f){
+    return !seen[f.key] && (!f.items || !f.items.length || f.items.some(function(i){ return !seen[i]; }));
+  })) return null;
   return recoveryCheckBuild(flags);
 }
 /* ---------- THE PACKET ----------
@@ -54486,7 +54543,8 @@ function recoveryCheckHtml(rc){
   } else {
     btn = '<button type="button" class="btn btn-primary btn-block" data-action="recovery-check-ok">Got It</button>';
   }
-  return '<div class="modal-head"><h2 class="font-head">Recovery Check</h2></div>'+
+  return '<div class="modal-head"><h2 class="font-head">Recovery Check</h2>'+
+      '<button type="button" class="icon-btn" data-action="recovery-check-ok" aria-label="Close">'+ICONS.close+'</button></div>'+
     '<div class="modal-body rck-body">'+
       '<div class="rck-top"><div class="rs-kick">'+escapeHtml(rc.kick)+'</div>'+
         '<div class="rs-tone '+rc.tone.cls+'"><span class="rs-dot" aria-hidden="true"></span>'+escapeHtml(rc.tone.label)+'</div></div>'+
@@ -54507,15 +54565,25 @@ function openRecoveryCheck(rc){
   state.recoveryChecks = state.recoveryChecks || {};
   var at = new Date().toISOString();
   rc.keys.forEach(function(k){ if (!state.recoveryChecks[k]) state.recoveryChecks[k] = { at: at }; });
-  /* Kept short: the newest forty keys are all any flag can still match. */
+  /* Kept short: the newest 120 keys (a flag and the runs behind it) are all
+     any flag in the last week can still match. */
   var keys = Object.keys(state.recoveryChecks);
-  if (keys.length > 40) keys.sort(function(a, b){
+  if (keys.length > 120) keys.sort(function(a, b){
     return String(state.recoveryChecks[a].at) < String(state.recoveryChecks[b].at) ? -1 : 1;
-  }).slice(0, keys.length - 40).forEach(function(k){ delete state.recoveryChecks[k]; });
+  }).slice(0, keys.length - 120).forEach(function(k){ delete state.recoveryChecks[k]; });
   scheduleSave();
   openModal(recoveryCheckHtml(rc), 'modal-themed stg-sheet rck-sheet');
   try { resultSayFetch('recovery', rc); } catch(e){}
   return true;
+}
+/* Everything flagged now, recorded as answered without a sheet. */
+function recoveryCheckMarkAnswered(){
+  var flags = recoveryCheckFlags();
+  if (!flags.length) return;
+  state.recoveryChecks = state.recoveryChecks || {};
+  var at = new Date().toISOString();
+  flags.forEach(function(f){ [f.key].concat(f.items || []).forEach(function(k){
+    if (!state.recoveryChecks[k]) state.recoveryChecks[k] = { at: at, answered: 'weekly' }; }); });
 }
 /* WHERE IT MAY NOT RISE. `after` is the sheet it follows: 'result' may
    replace Session Complete or Week Complete, 'checkin' follows the check-in
@@ -56061,6 +56129,10 @@ function handleWeeklyAnswer(accept){
   if (!p) return;
   if (p.rv.kind === 'recovery' && accept === true && p.picked) accept = p.picked;
   var rec = answerWeeklyReview(p.rv, accept);
+  /* ANSWERED ALREADY (Audit IV UX-R1). The protect and recovery sheets are
+     raised by the same evidence the Recovery Check reads; the athlete has
+     just answered it, so it is not asked again straight after. */
+  if (rec && (p.rv.kind === 'protect' || p.rv.kind === 'recovery')){ try { recoveryCheckMarkAnswered(); } catch(eM){} }
   /* The athlete's answer is a choice worth remembering, if memory is on:
      noted once the answer has landed and been confirmed, so a decline's
      reason chips rise after its toast and never before it. */
@@ -56181,11 +56253,24 @@ function applyThresholdTestTo(dd){
   delete dd.mpSegment;
   return true;
 }
+/* NOT ON A DAY RECOVERY HAS SOMETHING TO SAY (Audit IV UX-A2). An athlete
+   who had just answered heavy legs and poor sleep was offered a fitness
+   test, and the Recovery Check that check-in had flagged came only on the
+   next visit. A check-in that flagged anything, or a Recovery Check still
+   due, keeps the offer for another day. */
+function thresholdTestNotToday(){
+  var r = null;
+  try { r = coachReadinessToday(); } catch(e){ r = null; }
+  if (r && (r.legs === 'heavy' || r.sleep === 'poor' || r.health === 'under')) return true;
+  try { if (recoveryCheckDue()) return true; } catch(e2){}
+  return false;
+}
 function maybeRaiseThresholdTestOffer(arriving){
   if (arriving || state.view !== 'today' || !autoSheetsOpen()) return;
   if (typeof document === 'undefined' || !document.getElementById || document.getElementById('modal-overlay')) return;
   if (document.getElementById('weekly-sheet') || document.getElementById('ask-sheet')) return;
   if (weeklyReviewDue()) return;                                 // the weekly sheet first
+  if (thresholdTestNotToday()) return;                           // and recovery before a test
   var dd = thresholdTestOfferDay();
   if (!dd) return;
   var day = WEEKLY_DAY_NAMES[(new Date(dd.date + 'T12:00:00Z').getUTCDay() + 6) % 7];
@@ -60833,7 +60918,9 @@ function renderWelcomeCard(){
   var name = first.title || ((TYPE_META[first.type] || {}).label) || 'your first session';
   return '<div class="welcome-card">'+
     '<div class="welcome-k font-head">Welcome to week 1</div>'+
-    '<div class="welcome-say">Your first run is '+escapeHtml(when)+': '+escapeHtml(name)+
+    /* One colon at most (Audit IV UX-G5): "Long Run: Even or Better" already
+       carries one, so the session is joined with "is" and its name kept whole. */
+    '<div class="welcome-say">Your first run is '+escapeHtml(when)+', '+escapeHtml(name)+
       (first.km ? ', '+escapeHtml(fmtDist(first.km)) : '')+'. '+escapeHtml(welcomeWeekOneLine(first))+' '+
       'Log each run and SACORO learns how you respond.</div>'+
     '<button type="button" class="btn btn-primary welcome-ok" data-action="welcome-ack">Got It</button>'+
@@ -62456,7 +62543,7 @@ function renderResponsePatternsSection(m){
 var READINESS_QUESTIONS = [
   { key:'legs',   label:'Legs',   options:[['fresh','Fresh'],['normal','Normal'],['heavy','Heavy']] },
   { key:'sleep',  label:'Sleep',  options:[['good','Good'],['ok','OK'],['poor','Poor']] },
-  { key:'health', label:'Health', options:[['good','Good'],['under','Under weather']] }
+  { key:'health', label:'Health', options:[['good','Good'],['under','Under the Weather']] }
 ];
 /* The three answers back in the athlete's own terms. Legs and Sleep would
    both read a bare "Good", so each phrase carries the dimension it belongs to
@@ -64766,7 +64853,7 @@ function openModal(html, extraClass, key){
   overlay.className = 'modal-overlay' + (vtInMorph ? ' is-morphed' : '');
   overlay.id = 'modal-overlay';
   overlay.innerHTML = '<div class="'+cls+'"'+(key?(' data-modal-key="'+key+'"'):'')+'>'+html+'</div>';
-  overlay.addEventListener('mousedown', function(e){ if (e.target===overlay) closeModal(); });
+  overlay.addEventListener('mousedown', function(e){ if (e.target===overlay) dismissModal(); });
   document.body.appendChild(overlay);
   /* A reading or record page carries its own circle: fit its figure too. */
   try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
@@ -64801,6 +64888,16 @@ function modalLeave(ov){
   card.classList.add('is-leaving');
   if (!(card.style && card.style.transform)) card.classList.add('is-sinking');
   window.setTimeout(function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }, MODAL_LEAVE_MS + 20);
+}
+/* CLOSED ANY WAY, THE SAME AS ITS OWN X (Audit IV UX-A1). A tap on the
+   dimmed ground or Android's Back closed Session Complete without its OK, so
+   Week Complete never came. A result panel goes through its OK; everything
+   else closes as it always did. */
+function dismissModal(){
+  var ov = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('modal-overlay') : null;
+  var ok = (ov && ov.querySelector) ? ov.querySelector('.rs-sheet .rs-ok') : null;
+  if (ok){ handleResultOk(ok.getAttribute('data-day')); return; }
+  closeModal();
 }
 function closeModal(){
   // A circle sheet belongs to the circle page; it never outlives it.
@@ -64841,6 +64938,13 @@ function closeModal(){
      the check-in has gone (and not when another page replaced it). */
   else if (wasCheckin && !modalSwapping)
     setTimeout(function(){ try { maybeOpenRecoveryCheck('checkin'); } catch(e){} }, MODAL_LEAVE_MS + 40);
+  /* A reason asked while this page was up is asked now it has gone, before
+     anything else may rise (Audit IV UX-R1). */
+  if (coachMemoryReasonQueued && !modalSwapping){
+    var queuedReason = coachMemoryReasonQueued;
+    coachMemoryReasonQueued = null;
+    setTimeout(function(){ try { coachMemoryOfferReason(queuedReason); } catch(e){} }, MODAL_LEAVE_MS + 20);
+  }
   if (wasBuilder && planHasContent() && state.setup && state.setup.experienceBuiltFor &&
       state.setup.experienceBuiltFor !== state.setup.experience)
     setTimeout(function(){ try { maybeAskExperienceRebuild(); } catch(e){} }, 0);
@@ -65639,7 +65743,7 @@ function openSetupModal(){
         '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="bpm" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
         '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="bpm" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
       '</div>'+
-      '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip, I don’t know these</button>'+
+      '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip, I Don’t Know These</button>'+
       '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine. SACORO works without it.</div>'+
       navBtns(8)+
     '</section>'+
@@ -69756,7 +69860,7 @@ function renderOptionalRunCompanion(dd){
     if (!canLogRunAnyway(dd)) return '';
     return '<div class="optional-block">'+(open ? optionalRunFormHtml(dd)
       : '<div class="optional-actions"><button type="button" class="btn btn-sm btn-ghost" '+
-          'data-action="optional-run-log" data-day="'+dd.id+'" aria-expanded="false">Ran anyway? Log it</button></div>')+
+          'data-action="optional-run-log" data-day="'+dd.id+'" aria-expanded="false">Ran Anyway? Log It</button></div>')+
     '</div>';
   }
   var body = open ? optionalRunFormHtml(dd)
@@ -69775,7 +69879,7 @@ function optionalRunOfferHtml(dd){
     (canLogOptionalRun(dd)
       ? '<div class="optional-actions">'+
           '<button type="button" class="btn btn-sm btn-ghost" data-action="optional-run-log" '+
-            'data-day="'+dd.id+'" aria-expanded="false">Log a run</button>'+
+            'data-day="'+dd.id+'" aria-expanded="false">Log a Run</button>'+
         '</div>'
       : '');
 }
@@ -71411,11 +71515,35 @@ function voiceSpeakNative(text, opts){
   /* Calm and unhurried rather than brisk: this is a coach talking, not a
      notification being read out. */
   u.rate = 0.96; u.pitch = 1.0;
+  /* A VOICE THAT NEVER STARTS IS NO VOICE (Audit IV UX-A12). In a browser
+     with no speech voices the engine accepted the words and said nothing,
+     so the tap showed nothing at all. A failure, or no sound within a few
+     seconds, now shows the words with "Voice unavailable". Stopped on
+     purpose (cancelled, interrupted) is still just stopped. */
+  var started = false;
+  u.onstart = function(){ started = true; };
   u.onend = function(){ voiceSetStatus('idle'); };
-  u.onerror = function(){ voiceSetStatus('idle'); };
+  u.onerror = function(ev){
+    var why = ev && ev.error;
+    if (why === 'interrupted' || why === 'canceled' || started) voiceSetStatus('idle');
+    else voiceSetStatus('unavailable', opts || {});
+  };
   voiceSetStatus('speaking', opts || {});
-  try { synth.speak(u); } catch(e){ voiceSetStatus('idle'); return false; }
+  try { synth.speak(u); } catch(e){ voiceSetStatus('unavailable', opts || {}); return false; }
+  voiceWebStartWatch(synth, function(){ return started; }, opts);
   return true;
+}
+/* ONLY THE START IS BOUNDED. A briefing legitimately takes half a minute to
+   read aloud, so speech itself is never timed; what is timed is the wait for
+   the first word. No word within VOICE_WEB_START_MAX_MS is no voice. */
+var VOICE_WEB_START_MAX_MS = 3500;
+function voiceWebStartWatch(synth, isStarted, opts){
+  if (typeof setTimeout !== 'function') return;
+  setTimeout(function(){
+    if (isStarted() || !voiceState || voiceState.status !== 'speaking') return;
+    try { synth.cancel(); } catch(eC){}
+    voiceSetStatus('unavailable', opts || {});
+  }, VOICE_WEB_START_MAX_MS);
 }
 
 /* =========================================================
@@ -72032,6 +72160,7 @@ var COACH_MEMORY_REASON_DECISIONS = ['extra_day_declined', 'progression_declined
   'session_kept', 'week_change_declined',
   'week_hold_declined', 'reload_declined', 'protect_declined', 'step_back_declined', 'repeat_declined'];
 var coachMemoryReasonFor = null;
+var coachMemoryReasonQueued = null;   /* a reason waiting for the open page to close */
 /* Notes any decision as coachMemoryNoteDecision() does; offers the chips
    only for one that turned a suggestion down. */
 function coachMemoryNoteDecline(code){
@@ -72056,6 +72185,10 @@ function coachMemoryReasonHtml(){
 function coachMemoryOfferReason(asked){
   if (!asked || typeof document === 'undefined' || !document.createElement || !document.body) return false;
   if (document.getElementById('ask-sheet') || document.getElementById('weekly-sheet')) return false;
+  /* ONE SHEET AT A TIME (Audit IV UX-R1). A page or sheet already up keeps
+     the screen: the question waits and is asked once it has gone. */
+  if (document.getElementById('modal-overlay')){ coachMemoryReasonQueued = asked; return true; }
+  coachMemoryReasonQueued = null;
   closeAskSacoro();
   var layer = document.createElement('div');
   layer.className = 'tw-layer ask-layer';
@@ -72161,17 +72294,34 @@ function coachMemorySheetBody(){
           escapeHtml(String(n.line || ''))+'</li>';
       }).join('')+'</ul>'
     : '<div class="field-hint cm-para">'+(coachMemoryCache.loaded ? 'Nothing is kept.' : 'Reading your notes.')+'</div>';
+  /* ASKED ONCE BEFORE IT IS GONE (Audit IV UX-A6). Clearing cannot be
+     undone, so the first tap asks, in the same sheet, and only the second
+     clears: cherry is on the confirming button alone. */
+  if (coachMemoryClearAsking && lines.length){
+    return '<div class="stg-sheet-say">Clear All Notes?</div>'+
+      '<div class="field-hint">Your coach forgets every note at once. This cannot be undone.</div>'+
+      '<div class="stg-sheet-acts">'+
+        '<button type="button" class="btn btn-ghost" data-action="coach-memory-clear-keep">Keep Notes</button>'+
+        '<button type="button" class="btn btn-primary" data-action="coach-memory-clear">Clear Memory</button>'+
+      '</div>';
+  }
   return '<div class="stg-sheet-say">'+(on ? 'What your coach remembers' : 'Coach Memory is off')+'</div>'+
     (on ? '' : '<div class="field-hint">Your coach is not keeping notes. Anything kept before stays here until you clear it.</div>')+
     list+
     '<div class="stg-sheet-acts">'+
       (lines.length
-        ? '<button type="button" class="btn btn-ghost" data-action="coach-memory-clear">Clear Memory</button>'
+        ? '<button type="button" class="btn btn-ghost" data-action="coach-memory-clear-ask">Clear Memory</button>'
         : '<button type="button" class="btn btn-ghost" data-action="close-stg-sheet">Close</button>')+
       (on ? '' : '<button type="button" class="btn btn-primary" data-action="open-stg-sheet" data-sheet="memoryconsent">Turn On</button>')+
     '</div>';
 }
+var coachMemoryClearAsking = false;
+function handleCoachMemoryClearAsk(ask){
+  coachMemoryClearAsking = !!ask;
+  if (stgSheetOpen('memory')) openStgSheet('memory');
+}
 function openCoachMemorySheet(){
+  coachMemoryClearAsking = false;
   openStgSheet('memory');
   if (!cloudSignedIn()) return;
   coachMemoryLoad(true).then(function(){
@@ -72210,6 +72360,7 @@ function handleCoachMemoryTurnOn(){
   coachMemoryLoad();
 }
 function handleCoachMemoryClear(){
+  coachMemoryClearAsking = false;
   return coachMemoryRequest('POST', { action:'clear' }).then(function(d){
     if (!d){ showToast('That could not be cleared just now. Please try again'); return false; }
     coachMemoryCache.lines = []; coachMemoryCache.packet = []; coachMemoryCache.loaded = true;
@@ -73909,7 +74060,7 @@ function renderAskPanel(dd){
       var sttWhy = voiceSttUnsupportedReason(), speakBtn = '';
       if (!sttWhy){
         speakBtn = '<button type="button" class="ask-link" aria-label="Speak your question instead" '+
-          'data-action="voice-ask-speak">Speak instead</button>';
+          'data-action="voice-ask-speak">Speak Instead</button>';
       } else {
         body += '<div class="ask-stt-note">'+escapeHtml(VOICE_STT_COPY[sttWhy] ||
                 VOICE_STT_COPY.no_api)+'</div>';
@@ -74151,6 +74302,10 @@ function handleVoiceAskOpen(){
   /* Speaking stops when the athlete starts asking. Two voices at once is not a
      state a coach has. */
   voiceStop();
+  /* SIGNED OUT, SIGN IN FIRST (Audit IV UX-A9). The panel took a whole
+     question and only then said "Sign in to talk to your coach", with no
+     way to do it. Now the tap asks for the email straight away. */
+  if (!cloudSignedIn()){ openAskSigninSheet(); return; }
   askSet('open', { heard:'', answer:'', message:'', proposalDayId:null });
   if (coachMemoryActive() && !coachMemoryCache.loaded){ try { coachMemoryLoad(); } catch(e){} }
 }
@@ -75646,7 +75801,7 @@ function handleToggleComplete(dayId){
    tick always was (canToggleCompletion). */
 function logUndoHtml(dd){
   if (!dd || !dd.completed || !canToggleCompletion(dd)) return '';
-  return '<div class="log-undo"><button type="button" class="coach-why-btn" data-action="log-undo" data-day="'+dd.id+'">Not run? Undo</button></div>';
+  return '<div class="log-undo"><button type="button" class="coach-why-btn" data-action="log-undo" data-day="'+dd.id+'">Not Run? Undo</button></div>';
 }
 function handleLogUndo(dayId){
   var dd = findDay(dayId);
@@ -79465,7 +79620,7 @@ function circleSigninSheetHtml(){
     '<div class="cc-intro">A circle needs a SACORO account, so the people you choose can see your week. Enter your email and we send you a link. No password.</div>'+
     '<div class="field"><label for="cloud-email">Email</label>'+
       '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
-    '<button type="button" class="btn btn-primary btn-block cc-join-go" data-action="cloud-sign-in">Email me a sign-in link</button>'+
+    '<button type="button" class="btn btn-primary btn-block cc-join-go" data-action="cloud-sign-in">Email Me a Sign-In Link</button>'+
     '<div class="cc-quiet">Your plan on this phone is not changed by signing in.</div>');
 }
 function handleCircleStartOpen(){
@@ -80032,7 +80187,7 @@ function recordPanelFitness(){
     body += sectionRule(chk.completed ? 'Your Checkpoint' : 'Next Checkpoint', true)+
       '<div class="rp-rows">'+hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+', '+dShort(chk.date))+'</div>'+
       '<div class="field-hint" style="margin-bottom:10px;">'+note+'</div>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="go-checkpoint">Open week '+chk.week+' in your plan</button>';
+      '<button type="button" class="btn btn-ghost btn-block" data-action="go-checkpoint">Open Week '+chk.week+' in Your Plan</button>';
   }
   body += recReadHtml('Only a completed race or a Fitness Checkpoint says where you are now. '+
     'Your benchmark and the paces calculated from your goal set where you train: a target, not a measurement. '+
@@ -80065,7 +80220,7 @@ function recordPanelBenchmark(){
       'They serve different purposes and will not always match.')+
     /* The Builder owns benchmark and goal editing; this is a door to it. */
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:16px;" '+
-      'data-action="open-recalibrate">Update benchmark &amp; re-calibrate</button>';
+      'data-action="open-recalibrate">Update Benchmark &amp; Re-calibrate</button>';
   return recordPanelShell('Benchmark', body, 'benchmark');
 }
 
@@ -81164,10 +81319,25 @@ function renderRaceOutlook(){
       (o.goalSec!=null ? ', Goal '+escapeHtml(state.setup.activeGoal) : '')+'</span></div>';
 
   var GOAL_X = 90, ZONE_L = 8, ZONE_R = 40;
+  /* ONE SCALE FOR THE BAND AND THE GOAL (Audit IV UX-A5). The goal was
+     always drawn at the far right and the band at the far left, so "your goal
+     sits inside the range" sat under a dot well outside it. With a band to
+     place it against, both now sit on one time line, slower to the left and
+     faster to the right, so a goal still ahead of the training is still
+     ahead on the line, and one inside the range is inside the band. */
+  var scaleX = null;
+  if ((o.state === 'measured' || o.state === 'estimated') && o.goalSec != null){
+    var loT = Math.min(o.fastSec, o.goalSec), hiT = Math.max(o.slowSec, o.goalSec);
+    if (hiT > loT) scaleX = function(t){ return ZONE_L + (hiT - t) / (hiT - loT) * (GOAL_X - ZONE_L); };
+  }
+  var goalX = scaleX ? scaleX(o.goalSec) : GOAL_X;
   var goalHtml = '';
   if (o.goalSec != null){
-    goalHtml = '<div class="oi-goal" style="left:'+GOAL_X+'%"></div>'+
-      '<span class="oi-goal-lbl" style="right:0; left:auto; text-align:right;">Goal '+
+    var goalLblPos = goalX >= 70 ? 'right:0; left:auto; text-align:right;'
+      : goalX <= 30 ? 'left:'+Math.max(0, goalX - 2).toFixed(1)+'%;'
+      : 'left:'+goalX.toFixed(1)+'%; transform:translateX(-50%);';
+    goalHtml = '<div class="oi-goal" style="left:'+goalX.toFixed(1)+'%"></div>'+
+      '<span class="oi-goal-lbl" style="'+goalLblPos+'">Goal '+
         escapeHtml(state.setup.activeGoal)+': '+secToClock(o.goalSec)+'</span>';
   }
 
@@ -81205,6 +81375,10 @@ function renderRaceOutlook(){
     var spreadSec = Math.max(o.slowSec - o.fastSec, 0);
     var spreadFrac = clamp(spreadSec / Math.max(o.fastSec * 0.15, 30), 0, 1);
     var bandL = ZONE_L, bandR = ZONE_L + 4 + spreadFrac * (ZONE_R - ZONE_L - 4);
+    if (scaleX){
+      bandL = scaleX(o.slowSec); bandR = scaleX(o.fastSec);
+      if (bandR - bandL < 4){ var mid = (bandL + bandR) / 2; bandL = mid - 2; bandR = mid + 2; }
+    }
     /* ---- THE TWO END LABELS ONLY FIT WHEN THE BAND IS WIDE ENOUGH ----
        Each is anchored to one end of the band -- left edge and right edge --
        which is right while the band is wide and illegible once it is not. A
@@ -81218,7 +81392,10 @@ function renderRaceOutlook(){
        94/318 is just under 30%. Below that the pair collapses into a single
        centred range, which says exactly the same thing in the space that
        actually exists. Nothing about the band's own geometry moves. */
-    var twoLabelsFit = (bandR - bandL) >= OUTLOOK_BAND_TWO_LABEL_MIN_PCT;
+    /* On the shared scale the range is said once, centred under the band:
+       its slow end sits on the left there, so two end labels would read
+       backwards against every other range in the app. */
+    var twoLabelsFit = !scaleX && (bandR - bandL) >= OUTLOOK_BAND_TWO_LABEL_MIN_PCT;
     bandHtml = '<div class="oi-band" style="left:'+bandL.toFixed(1)+'%; width:'+
         (bandR - bandL).toFixed(1)+'%"></div>'+
       (twoLabelsFit
@@ -81403,8 +81580,15 @@ function openExternal(url){
   if (!url) return;
   try {
     if (isNativeApp() || /^mailto:/i.test(url)){ window.location.href = url; return; }
-    var w = window.open(url, '_blank', 'noopener');
-    if (!w) window.location.href = url;
+    /* THE APP STAYS WHERE IT IS (Audit IV UX-R2). window.open() with
+       'noopener' returns null by specification, so a fallback to
+       location.href ran on every tap: the policy opened in a new tab AND the
+       app's own tab, or the whole Home Screen app, became the website. The
+       opener is cut by hand instead, and only a genuinely blocked pop-up
+       (no window at all) falls back. */
+    var w = window.open(url, '_blank');
+    if (w){ try { w.opener = null; } catch(eO){} return; }
+    window.location.href = url;
   } catch(e){}
 }
 function openContact(){ openExternal('mailto:'+LEGAL_URLS.support); }
@@ -81840,7 +82024,7 @@ function renderCloudCard(){
      and that screen has no bottom nav, so this card is not reachable from
      it. Both doors are needed; neither is a duplicate of the other. */
   var restoreBtn = '<button type="button" class="btn btn-ghost btn-block" style="margin-top:12px;" '+
-      'data-action="open-restore">'+ICONS.link+' Restore a plan</button>';
+      'data-action="open-restore">'+ICONS.link+' Restore a Plan</button>';
   if (cloudSignedIn()){
     // entitlementInfo is display-only (never authority -- /api/app re-checks
     // server-side on every load), but showing it here is what keeps Settings
@@ -81884,7 +82068,7 @@ function renderCloudCard(){
         (stHint ? '' : 'Sign in to back your plan up and use it on more than one device. ')+
         'We email you a link. There is no password.</div>'+
       '<div class="field" style="margin-bottom:8px;"><label>Email</label><input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">Email me a sign-in link</button>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">Email Me a Sign-In Link</button>'+
       restoreBtn;
   }
   var st = planStorageStatus();
@@ -81936,7 +82120,7 @@ function openRestoreModal(){
         '<div class="field" style="margin-bottom:8px;"><label>Email</label>'+
           '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
         '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+
-          'Email me a sign-in link</button>';
+          'Email Me a Sign-In Link</button>';
   openModal(
     '<div class="modal-head"><h2 class="font-head">Restore a Plan</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
@@ -81984,8 +82168,19 @@ function openSigninSheet(){
       '<div class="stg-sheet-say">Enter the email you signed in with. We send you a link, and your plan comes back as soon as you open it on this phone.</div>'+
       '<div class="field" style="margin:14px 0 10px;"><label>Email</label>'+
         '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">Email me a sign-in link</button>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">Email Me a Sign-In Link</button>'+
       '<div class="field-hint" style="margin-top:10px;">No password. Nothing on this phone is changed until your plan arrives.</div>'+
+    '</div>', 'modal-themed stg-sheet signin-sheet');
+}
+function openAskSigninSheet(){
+  openModal('<div class="modal-head"><h2 class="font-head">Sign In to Ask Your Coach</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="stg-sheet-say">Your coach answers from your SACORO account, so it needs you signed in.</div>'+
+      '<div class="field" style="margin:14px 0 10px;"><label>Email</label>'+
+        '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">Email Me a Sign-In Link</button>'+
+      '<div class="field-hint" style="margin-top:10px;">No password. We email you a link.</div>'+
     '</div>', 'modal-themed stg-sheet signin-sheet');
 }
 function handleCloudSignIn(){
@@ -84775,7 +84970,7 @@ document.addEventListener('click', function(e){
     case 'reset-plan-confirm': handleResetPlanConfirm(); break;
     case 'check-app-update': checkForAppUpdate(); break;
     case 'apply-app-update': applyAppUpdate(); break;
-    case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) closeModal(); }); break;
+    case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) dismissModal(); }); break;
     case 'time-wheel-use': useTimeWheel(); break;
     case 'time-wheel-clear': clearTimeWheel(); break;
     case 'bench-none': {
@@ -85055,6 +85250,8 @@ document.addEventListener('click', function(e){
     case 'open-coach-memory': openCoachMemorySheet(); break;
     case 'coach-memory-turn-on': handleCoachMemoryTurnOn(); break;
     case 'coach-memory-clear': handleCoachMemoryClear(); break;
+    case 'coach-memory-clear-ask': handleCoachMemoryClearAsk(true); break;
+    case 'coach-memory-clear-keep': handleCoachMemoryClearAsk(false); break;
     case 'close-stg-sheet': closeStgSheet(); break;
     case 'stg-sign-out': closeModal(); cloudSignOut(); renderApp(); break;
     case 'cloud-delete-account-confirmed': closeModal(); handleCloudDeleteAccount(true); break;
@@ -85075,6 +85272,8 @@ document.addEventListener('click', function(e){
 document.addEventListener('keydown', function(e){
   if (e.key === 'Escape' && timeWheelOpen){ closeTimeWheel(); return; }
   if (e.key === 'Escape' && askSacoroPending){ answerAskSacoro(false); return; }
+  if (e.key === 'Escape' && typeof askState !== 'undefined' && askState && askState.status !== 'closed' &&
+      !document.getElementById('modal-overlay')){ askReset(); return; }
   if (e.key !== 'Enter' && e.key !== ' ') return;
   var target = e.target;
   if (timeWheelFieldFor(target)){ e.preventDefault(); openTimeWheel(target); return; }

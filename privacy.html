@@ -102,7 +102,7 @@
     <li>SACORO's AI coach uses Anthropic's API. To write about a run or a week, it is given your logged
     figures for that run or week (distance, pace, time and effort) and SACORO's own conclusions about
     them. Your heart rate is only sent if you have given health-data consent. Notes you write yourself
-    are never sent, and nothing that came from Strava is ever sent. If you ask Ask Coach a question,
+    are never sent, and nothing that came from Strava is ever sent. If you ask your coach a question,
     what you type is sent to Anthropic too, so it can answer you.</li>
     <li>You can delete your account and everything we hold on our servers at any time from Settings,
     or by asking us. The copy on your own phone or browser is removed by you.</li>
@@ -120,7 +120,7 @@
     <tr><th>Data</th><th>Why</th></tr>
     <tr><td>Your email address</td><td>To send you sign-in links and identify your account</td></tr>
     <tr><td>Your training plan and log, as one record</td><td>So it backs up, follows you to another device, and keeps your AI coach's analysis with your runs</td></tr>
-    <tr><td>Coach memory, only if you turn it on</td><td>Short one-line notes of what you asked your coach and the choices you made, so it can pick up where you left off</td></tr>
+    <tr><td>Coach Memory, only if you turn it on</td><td>Short one-line notes of what you asked your coach and the choices you made, so it can pick up where you left off</td></tr>
   </table>
   <p>This data is protected so that only your own signed-in session can read it: not other users, and
   not us browsing the database casually. Supabase hosts this data on our behalf as our data processor;
@@ -137,9 +137,9 @@
   sent, and nothing that reached SACORO from Strava is ever sent, even if you have connected Strava. The
   analysis it writes is saved with your plan in your account, the same as anything else SACORO writes
   about your training.</p>
-  <p>If you ask Ask Coach a question, what you type is sent to Anthropic too, along with the same kind
+  <p>If you ask your coach a question, what you type is sent to Anthropic too, along with the same kind
   of training information, so it can answer you. The same rules apply.</p>
-  <p><strong>Coach memory</strong> is off until you turn it on in Settings. With it on, your coach
+  <p><strong>Coach Memory</strong> is off until you turn it on in Settings. With it on, your coach
   keeps short one-line notes in your account: what you asked it, and choices such as turning down an
   extra run. The most recent few are given to the AI coach as background with each question. Nothing
   from Strava is ever kept, and pain, illness and other health details are kept only if you have agreed
@@ -173,7 +173,7 @@
   <table>
     <tr><th>Service</th><th>What it sees</th><th>When</th></tr>
     <tr><td>Vercel</td><td>Hosts the app and its server functions; sees ordinary web request data (like any website you visit)</td><td>Every visit</td></tr>
-    <tr><td>Supabase</td><td>Your email and training plan, and coach memory if you turn it on</td><td>Whenever you are signed in</td></tr>
+    <tr><td>Supabase</td><td>Your email and training plan, and Coach Memory if you turn it on</td><td>Whenever you are signed in</td></tr>
     <tr><td>Anthropic</td><td>Your logged run and week figures (distance, pace, time, effort) and SACORO's own conclusions about them; your heart rate only with health-data consent; anything you type into Ask Coach; your coach memory notes if you turn it on. Never your own notes, and never anything that came from Strava</td><td>Whenever the AI coach writes an analysis, or you ask it a question</td></tr>
     <tr><td>Strava</td><td>Nothing from us until you choose to connect; then your activity data as described above</td><td>Not during the private beta. The integration is switched off</td></tr>
     <tr><td>Google Fonts</td><td>Your device's IP address and browser, as a normal side effect of loading the typefaces this page uses</td><td>Every visit</td></tr>
@@ -184,8 +184,8 @@
 
   <h2>How long we keep it, and how to delete it</h2>
   <p><strong>On our servers.</strong> Your account and stored plan, including any analysis your AI coach
-  has written and any coach memory, are kept until the account is deleted. You can do that yourself at
-  any time from Settings, and it removes your email, your stored plan, your coach memory, your Strava
+  has written and any Coach Memory notes, are kept until the account is deleted. You can do that yourself at
+  any time from Settings, and it removes your email, your stored plan, your Coach Memory notes, your Strava
   connection and any staged Strava activity data in one action. If you
   are a beta tester and would rather just ask, email
   <a href="mailto:support@velvetviking.co.uk">support@velvetviking.co.uk</a> and we will delete your
