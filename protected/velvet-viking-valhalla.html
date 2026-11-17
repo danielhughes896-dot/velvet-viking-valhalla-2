@@ -35016,7 +35016,7 @@ function renderZonePacesCard(inPanel){
     '</div>';
   }).join('');
   var anyOverride = ZONE_PACE_ORDER.some(function(k){ return overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null; });
-  var hrHint = (state.setup.lthr==null && lthrEstimatedFromMax(state.setup.maxHR) == null) ? ' Set your LTHR/Max HR (Edit Plan Settings) to also see target HR ranges here.' : '';
+  var hrHint = (state.setup.lthr==null && lthrEstimatedFromMax(state.setup.maxHR) == null) ? ' Set your LTHR/Max HR (Update Plan) to also see target HR ranges here.' : '';
   /* MAX HR IS SAID WHERE IT DOES WORK (Audit III T4). With LTHR given, it
      is the ceiling of the open-ended interval and repetition zones and was
      shown nowhere. */
@@ -81772,7 +81772,11 @@ function settingsPanelTraining(){
     stgRow({ title:'Re-calibrate Training Zones', attrs:'data-action="open-recalibrate"' })+
     stgRow({ title:'View Training Zone Paces',
       attrs:'data-action="open-record" data-record="zones"' })+
-    stgRow({ title:'Edit Plan Settings',
+    /* "Update Plan" beside Training's "Start a New Block" (founder, 17
+       November 2026): the two doors, named for what each does. This one
+       rebuilds the block you are in; a block whose goal day has passed is
+       started fresh instead (see bldIsNewBlock). */
+    stgRow({ title:'Update Plan',
       attrs:'data-action="open-setup"' })+
     stgRow({ title:vGoalDay()+' Pacing Strategy',
       attrs:'data-action="open-pacing"' }));
