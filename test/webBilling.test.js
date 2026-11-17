@@ -64,8 +64,13 @@ const OTHER   = '22222222-2222-4222-8222-222222222222';
  * T0 and whoever is running the tests exceeds the trial length -- which is
  * exactly what shortening the trial from fourteen days to seven did to a
  * literal September anchor. Tying T0 to Date.now() means the gap is always
- * the few minutes this test file takes to run, never months. */
-const T0 = Date.now();
+ * the few minutes this test file takes to run, never months.
+ *
+ * ROUNDED TO THE SECOND, because every fact that crosses the fake Stripe
+ * wire goes through secs() first -- Stripe's own timestamps are seconds, not
+ * milliseconds -- and a T0 holding a sub-second remainder would compare
+ * unequal to the same instant read back after that round trip. */
+const T0 = Math.floor(Date.now() / 1000) * 1000;
 const secs = ms => Math.floor(ms / 1000);
 const days = n => n * 24 * 3600 * 1000;
 
@@ -730,7 +735,7 @@ test('a reconcile racing the webhook spends one allowance between them', async (
   });
 });
 
-test('cancelling during the trial keeps the fortnight and stops the renewal', async () => {
+test('cancelling during the trial keeps the week and stops the renewal', async () => {
   /* Stripe does not move a subscription to 'cancelled' merely because
      auto-renew was switched off, so the row stays 'trialing' and access runs to
      trial_end. Somebody who tries Valhalla for a week and decides against it
@@ -743,8 +748,8 @@ test('cancelling during the trial keeps the fortnight and stops the renewal', as
     assert.equal(r.status, 200);
     assert.equal(subRow(f).condition, 'trialing');
     assert.equal(subRow(f).cancel_at_period_end, true);
-    assert.equal(resolveAt(f, T0 + days(13)).active, true, 'the fortnight was promised');
-    assert.equal(resolveAt(f, T0 + days(15)).active, false, 'and it does not renew');
+    assert.equal(resolveAt(f, T0 + days(5)).active, true, 'the week was promised');
+    assert.equal(resolveAt(f, T0 + days(10)).active, false, 'and it does not renew');
   });
 });
 
