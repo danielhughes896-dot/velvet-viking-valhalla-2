@@ -56312,6 +56312,223 @@ function maybeRaiseThresholdTestOffer(arriving){
     },
     onNo: function(){ state.setup.thresholdTestOffer = { answer: 'no', at: todayStr() }; flushSave(); } });
 }
+/* ---------- MOVE UP A LEVEL ----------
+   Founder, methodology batch 5: "if they show clear progression above the
+   level they are on through learning they could be offered a tier upgrade?
+   So from established to advanced?"
+
+   THE EVIDENCE IS THE ATHLETE'S OWN LOGGED TRAINING, and nothing else: no
+   prediction, no typed figure. Over the last four completed weeks:
+     volume       every ordinary week at or above the weekly volume their
+                  current level's pathway builds to at its peak (the half
+                  and marathon peak; the top of the 5K and 10K range), and
+                  at least three such weeks. A planned lighter week is not
+                  held against them, because it is the plan's own.
+     completion   90% or more of the prescribed sessions run.
+     execution    the sessions scored as well as the app's own "this went
+                  well" bar on average, and no quality session below its
+                  poor-execution bar (a set that faded or was cut counts as
+                  poor, as it does for Patterns).
+     recovery     nothing flagged: Recovery is Fresh, no pain, illness or
+                  session stopped for fatigue or injury, no unwell check-in,
+                  and no week the weekly review protected or lightened.
+   Never with an injury or illness open, never above the top level.
+
+   WHEN IT IS ASKED. Mid-block only while the change still has a block to
+   shape: in Base and the first half of Build. Later than that the evidence
+   is kept on the block and the question waits for the next block, where it
+   is asked as the block is built. Asked once per block: either answer is
+   kept on the block's ledger row (setup, for a plan without one), and a
+   declined offer costs nothing. */
+var LEVEL_UP_WEEKS = 4;
+var LEVEL_UP_COMPLETION = 0.90;
+var LEVEL_UP_MIN_WEEKS_AT = 3;
+var LEVEL_UP_MIN_SCORED = 4;
+function levelUpNext(level){
+  var i = EXPERIENCE_LEVELS.indexOf(level);
+  return (i >= 0 && i < EXPERIENCE_LEVELS.length - 1) ? EXPERIENCE_LEVELS[i + 1] : null;
+}
+function levelUpName(level){ return (EXPERIENCE_META[level] && EXPERIENCE_META[level].label) || level; }
+/* Where the answer lives: the block's ledger row, or setup without one. */
+function levelUpHost(){
+  return currentBlock() || state.setup || null;
+}
+/* The offer on this block, or on the block this one followed (a recovery
+   block between a race block and the next leaves the waiting offer where
+   it was made). */
+function levelUpRecord(){
+  var b = levelUpHost();
+  if (!b) return null;
+  if (b.levelUpOffer) return b.levelUpOffer;
+  var prev = (b.fromBlockId && typeof blockById === 'function') ? blockById(b.fromBlockId) : null;
+  return (prev && prev.levelUpOffer && prev.levelUpOffer.deferred) ? prev.levelUpOffer : null;
+}
+function levelUpRecordHost(){
+  var b = levelUpHost();
+  if (!b || b.levelUpOffer) return b;
+  var prev = (b.fromBlockId && typeof blockById === 'function') ? blockById(b.fromBlockId) : null;
+  return (prev && prev.levelUpOffer && prev.levelUpOffer.deferred) ? prev : b;
+}
+function levelUpAnswer(host, rec, answer){
+  if (!host) return;
+  host.levelUpOffer = Object.assign({}, rec || {}, { answer: answer, answeredAt: todayStr() });
+}
+/* Accepted for the level the athlete is on now: the evidence outranks the
+   weekly figure first typed into the builder, so the pathway question does
+   not argue them back down while the block is rebuilt. */
+function levelUpAcceptedFor(level){
+  var r = levelUpRecord();
+  return !!(r && r.answer === 'yes' && r.level === level);
+}
+/* Base or the first half of Build. */
+function levelUpTimingOpen(N){
+  var ph = trainingPhase(N);
+  if (ph === 'Base') return true;
+  if (ph !== 'Build') return false;
+  var total = totalWeeksInPlan(), first = null, count = 0;
+  for (var w = 1; w <= total; w++){
+    if (trainingPhase(w) === 'Build'){ if (first == null) first = w; count++; }
+  }
+  return first != null && (N - first) < count / 2;
+}
+function levelUpWeekFlagged(w){
+  var stored = weeklyReviewStore()[weeklyReviewKey(w)];
+  if (stored && (stored.kind === 'protect' || stored.kind === 'recovery')) return true;
+  return (state.days || []).some(function(d){
+    if (!d || d.week !== w) return false;
+    var r = null; try { r = dayReadiness(d); } catch(e){ r = null; }
+    if (r && r.health === 'under') return true;
+    if (!sessionRan(d) || !d.actual) return false;
+    if (d.actual.hurting === 'pain') return true;
+    var env = null; try { env = coachEnvironment(d.actual.notes, d.actual); } catch(e){ env = null; }
+    if (env && (env.pain || env.illness)) return true;
+    var cut = null; try { cut = sessionCutShortFor(d); } catch(e){ cut = null; }
+    return cut === 'fatigue' || cut === 'injury' || cut === 'illness' || cut === 'pain';
+  });
+}
+/* The evidence for the next level up, or null when it does not hold. */
+function levelUpEvidence(){
+  var su = state.setup;
+  if (!su || !state.days || !state.days.length) return null;
+  var pp = planPurpose(su);
+  if (pp !== 'race' && pp !== 'base') return null;
+  var from = athleteExperience(su), to = levelUpNext(from);
+  if (!to) return null;
+  try { if (openRestriction()) return null; } catch(e){}
+  var dk = planDistanceKey(su);
+  if (!raceGoalPathway(dk, from)) return null;
+  var destKm = raceGoalVolumeDestinationKm(dk, from, null, 'peak');
+  if (!(destKm > 0)) return null;
+  var N = currentWeekNum();
+  if (!(N - LEVEL_UP_WEEKS >= 1)) return null;
+  var rec = null; try { rec = coachRecovery(); } catch(e){ rec = null; }
+  if (rec && (rec.state === 'watch' || rec.state === 'strained')) return null;
+  var due = 0, ran = 0, weeksAt = 0, scores = [], poorQuality = false, totalKm = 0;
+  for (var w = N - LEVEL_UP_WEEKS; w < N; w++){
+    var days = weekRunDays(w);
+    if (!days.length) return null;
+    if (levelUpWeekFlagged(w)) return null;
+    var km = 0;
+    days.forEach(function(d){
+      due++;
+      if (!sessionRan(d)) return;
+      ran++;
+      var k = (d.actual && d.actual.km != null) ? Number(d.actual.km) : d.km;
+      km += isFinite(k) ? k : 0;
+      var sc = null; try { sc = computeExecutionScore(d); } catch(e){ sc = null; }
+      var fr = null; try { fr = isQualityType(d.type) ? sessionFadeReading(d) : null; } catch(e){ fr = null; }
+      if (fr && (fr.faded || fr.short)) poorQuality = true;
+      if (sc != null && isFinite(sc)){
+        scores.push(sc);
+        if (isQualityType(d.type) && sc < PLAYBOOK_POOR_EXECUTION) poorQuality = true;
+      }
+    });
+    km = round1(km); totalKm += km;
+    var info = null; try { info = playbookWeekInfo(w); } catch(e){ info = null; }
+    if (km + 1e-9 >= destKm) weeksAt++;
+    else if (!(info && info.isCutback)) return null;
+  }
+  if (weeksAt < LEVEL_UP_MIN_WEEKS_AT) return null;
+  if (!(due > 0) || ran / due < LEVEL_UP_COMPLETION) return null;
+  if (scores.length < LEVEL_UP_MIN_SCORED || poorQuality) return null;
+  var mean = scores.reduce(function(t, s){ return t + s; }, 0) / scores.length;
+  if (mean < PLAYBOOK_GOOD_EXECUTION) return null;
+  return { from: from, level: to, distanceKey: dk, purpose: pp, week: N,
+           weeks: LEVEL_UP_WEEKS, weeksAt: weeksAt, destKm: destKm,
+           avgKm: round1(totalKm / LEVEL_UP_WEEKS), ran: ran, due: due,
+           completion: Math.round(ran / due * 100), execution: Math.round(mean) };
+}
+/* The sheet's words. `next` is the next block, where the offer waited. */
+function levelUpCopy(ev, next){
+  var dist = ev.purpose === 'race' ? ' ' + (BUILDER_SPEC.distances.labels[ev.distanceKey] || ev.distanceKey) : '';
+  var say = (next ? 'In your last block you ran ' : 'You have run ') + fmtDist(ev.destKm) + ' or more in ' + ev.weeksAt +
+    ' of ' + (next ? 'its last ' : 'the last ') + ev.weeks + ' weeks, the most the ' + levelUpName(ev.from) + dist +
+    ' pathway builds to, and completed ' + ev.ran + ' of ' + ev.due + ' sessions with good execution.';
+  var hint = next
+    ? levelUpName(ev.level) + ' builds this block to a higher peak week and longer long runs, with sessions shaped for that level. Staying keeps everything as it is.'
+    : levelUpName(ev.level) + ' raises your peak week and long runs, and your sessions reshape for the rest of this block. Everything you have logged is kept. Staying changes nothing.';
+  return { title: 'Move Up to ' + levelUpName(ev.level), say: say, hint: hint,
+           yes: 'Move Up', no: 'Stay at ' + levelUpName(ev.from) };
+}
+/* Accepted mid-block: the level changes through handleSetExperience() and
+   the remaining weeks are rebuilt on the builder's review page, the same
+   route Rebuild for <Level> takes, so everything logged is kept. The
+   builder is opened first so nothing else rises while the level changes. */
+function levelUpAcceptNow(ev){
+  levelUpAnswer(levelUpHost(), Object.assign({ at: todayStr() }, ev), 'yes');
+  try { openSetupModal(); } catch(e){}
+  handleSetExperience(ev.level);
+  try { bldStage(BLD_STAGE_NAMES.length - 1); } catch(e){}
+  flushSave();
+}
+function maybeRaiseLevelUpOffer(arriving){
+  if (arriving || state.view !== 'today' || !autoSheetsOpen()) return;
+  if (!state.setup || !state.days || !state.days.length) return;
+  var own = levelUpHost();
+  if (own && own.levelUpOffer) return;                           // once per block
+  var ev = levelUpEvidence();
+  if (!ev) return;
+  /* Too late in the block to reshape it: kept for the next block. */
+  if (!levelUpTimingOpen(ev.week)){
+    var host = levelUpHost();
+    if (host){ host.levelUpOffer = Object.assign({ deferred: true, at: todayStr() }, ev); scheduleSave(); }
+    return;
+  }
+  if (typeof document === 'undefined' || !document.getElementById || document.getElementById('modal-overlay')) return;
+  if (document.getElementById('weekly-sheet') || document.getElementById('ask-sheet')) return;
+  if (weeklyReviewDue()) return;                                 // the weekly sheet first
+  if (thresholdTestNotToday()) return;                           // and the Recovery Check
+  var c = levelUpCopy(ev, false);
+  askSacoro({ title: c.title, say: c.say, hint: c.hint, yes: c.yes, no: c.no,
+    onYes: function(){ levelUpAcceptNow(ev); },
+    onNo: function(){
+      levelUpAnswer(levelUpHost(), Object.assign({ at: todayStr() }, ev), 'no');
+      flushSave();
+      showToast('Staying at ' + levelUpName(ev.from));
+    } });
+}
+/* The blocks a level shapes: not Recovery, not Maintain & Protect. */
+function levelUpBlockPurpose(p){ return p === 'race' || p === 'base' || p === 'speed'; }
+/* The offer that waited, asked as the next block is built: the record when
+   it is still unanswered and still a step up, with nothing open that would
+   make it the wrong question. */
+function levelUpWaiting(){
+  var r = levelUpRecord();
+  if (!r || !r.deferred || r.answer) return null;
+  if (r.level !== levelUpNext(athleteExperience())) return null;
+  try { if (openRestriction()) return null; } catch(e){}
+  var rec = null; try { rec = coachRecovery(); } catch(e){ rec = null; }
+  if (rec && (rec.state === 'watch' || rec.state === 'strained')) return null;
+  return r;
+}
+/* Asked inside the builder with bldDecide(), anywhere else with
+   askSacoro(); either answer then carries on with the build it paused. */
+function askLevelUpWaiting(r, ask, carryOn){
+  var c = levelUpCopy(r, true), host = levelUpRecordHost();
+  ask({ title: c.title, say: c.say, hint: c.hint, yes: c.yes, no: c.no,
+    onYes: function(){ levelUpAnswer(host, r, 'yes'); handleSetExperience(r.level); carryOn(); },
+    onNo: function(){ levelUpAnswer(host, r, 'no'); carryOn(); } });
+}
 function maybeRaiseCheckinSheet(arriving){
   if (arriving || state.view !== 'today') return;
   if (!autoSheetsOpen()) return;
@@ -62230,6 +62447,9 @@ function handleStartBlock(purpose, weeks, confirmed){
       onYes:function(){ handleStartBlock(purpose, weeks, true); } });
     return;
   }
+  /* The move up that waited for the next block is asked as it starts. */
+  var levelUpAsk = levelUpBlockPurpose(purpose) ? levelUpWaiting() : null;
+  if (levelUpAsk){ askLevelUpWaiting(levelUpAsk, askSacoro, function(){ handleStartBlock(purpose, weeks, true); }); return; }
   var block = startDevelopmentBlock(purpose, (weeks > 0) ? { weeks: weeks } : undefined);
   if (!block){ showToast('That block could not be built from your current settings'); return; }
   state.view = 'today';
@@ -67821,6 +68041,13 @@ async function handleGeneratePlan(){
   var activeGoal = (state.setup && state.setup.activeGoal && goals[state.setup.activeGoal])
     ? state.setup.activeGoal
     : GOAL_KEYS.filter(function(k){ return goals[k]; })[0];
+  /* THE MOVE UP THAT WAITED FOR THIS BLOCK (methodology batch 5). Earned
+     too late in the last block to reshape it, it is asked here, on the
+     review page, before anything below reads the level. Re-tailoring the
+     same block is not the next block, unless that block is over. */
+  var levelUpNextBlock = !rebuilding || !!(state.setup && state.setup.raceDate && state.setup.raceDate < todayStr());
+  var levelUpAsk = (levelUpNextBlock && levelUpBlockPurpose(buildPurpose)) ? levelUpWaiting() : null;
+  if (levelUpAsk){ askLevelUpWaiting(levelUpAsk, bldDecide, function(){ handleGeneratePlan(); }); return; }
 
   /* ---- THE MINIMUM RUNNING FOUNDATION FOR A RACE GOAL ----
      ASKED BEFORE ANYTHING IS BUILT, and it routes rather than refuses. Below
@@ -67956,7 +68183,10 @@ async function handleGeneratePlan(){
   /* THE PATHWAY QUESTION, asked once per configuration and level. See
      pathwayFeasibility(). Switching rebuilds at the recommended level;
      keeping builds the chosen level exactly as before. */
-  if (buildPurpose === 'race' && pathwayOfferAnsweredFor !== admSig + '|' + athleteExperience()){
+  /* A level the athlete moved up to on their own logged training is not
+     argued back down from the weekly figure first typed (levelUpAcceptedFor). */
+  if (buildPurpose === 'race' && pathwayOfferAnsweredFor !== admSig + '|' + athleteExperience() &&
+      !levelUpAcceptedFor(athleteExperience())){
     var pathRec = pathwayRecommendation(distanceKey, athleteExperience(), volume, planWeeks);
     if (pathRec && (pathRec.recommend || pathRec.recommendBase)){
       openPathwayOfferSheet(pathRec, distanceKey, admSig);
@@ -83248,6 +83478,7 @@ function renderApp(){
   try { maybeRaiseWeeklyReview(arriving); } catch(e){}
   try { maybeRaiseRecoveryCheck(arriving); } catch(e){}
   try { maybeRaiseThresholdTestOffer(arriving); } catch(e){}
+  try { maybeRaiseLevelUpOffer(arriving); } catch(e){}
   /* Last, and never waited for: the screen above is already complete. */
   try { coachNoteMaybeFetch(); } catch(e){}
 }
