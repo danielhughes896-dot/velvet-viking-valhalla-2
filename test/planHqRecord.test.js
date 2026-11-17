@@ -185,7 +185,9 @@ test('RECORD: every value is read from live state, not written into the markup',
   runnable.slice(0, Math.ceil(runnable.length / 4)).forEach(d => { d.completed = true; });
   const after = cardFor(a.renderPlanHQView(), 'Progress', a);
   assert.notEqual(after, before, 'logging a quarter of the block moved nothing');
-  assert.match(after, /\d+ of \d+ runs/);
+  /* The programme figure: training distance run of training distance
+     planned (Audit IV UX-A11), the number Full Plan prints. */
+  assert.match(after, /[\d.]+ of [\d.,]+(km|mi) run/);
   assert.match(after, /week \d+ of \d+/);
 });
 

@@ -11103,6 +11103,10 @@
       color-mix(in srgb, var(--rp-accent, var(--gold-text)) 70%, transparent) 0%,
       transparent 100%);}
   .hq-panel .sec-rule .setup-section-title::after{content:none;}
+  /* The heading keeps its place, its size and its air; the line that ran
+     beside it goes (founder, Audit IV: "Remove unnecessary dividers. Keep
+     spacing and visual hierarchy instead"). */
+  .hq-panel .setup-section-title::after, .hq-panel .evo-k::after{content:none;}
   /* ---------- AND .evo-k IS THE SAME HEADING, SO IT LOOKS LIKE ONE ----------
      "Make sure the titles and text in the circles and boxes are the same
      throughout the app" -- founder. Inside these panels there were two
@@ -11515,6 +11519,9 @@
   .sec-rule .setup-section-title{margin:0; white-space:nowrap;}
   .sec-rule-line{flex:1 1 0; min-width:0; height:1px;
     background:linear-gradient(to right, transparent 0%, var(--gold-text) 100%); opacity:.55;}
+  /* The heading keeps its place and its air; the line beside it goes
+     (founder, Audit IV: "Remove unnecessary dividers"). */
+  .sec-rule .sec-rule-line{display:none;}
   .sec-rule-line + .setup-section-title + .sec-rule-line,
   .sec-rule .sec-rule-line:last-child{
     background:linear-gradient(to left, transparent 0%, var(--gold-text) 100%);}
@@ -12423,9 +12430,11 @@
   .rs-ring-v{font-size:2.25rem; line-height:1; color:#FFFFFF;}
   .rs-ring-k{font-family:var(--label-face); font-size:var(--label-size); letter-spacing:var(--label-track);
     text-transform:uppercase; color:#FFFFFF;}
-  .rs-figs{display:flex; width:100%;}
+  /* NO DIVIDERS (founder, Audit IV: "Remove unnecessary dividers. Keep
+     spacing and visual hierarchy instead"). The figures are held apart by
+     space, as the cards are. */
+  .rs-figs{display:flex; width:100%; gap:14px;}
   .rs-fig{flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:3px;}
-  .rs-fig + .rs-fig{border-left:1px solid rgba(255,255,255,.10);}
   .rs-fig-v{font-size:1.0625rem; color:#FFFFFF; white-space:nowrap;}
   .rs-fig-k{font-size:.6875rem; color:#FFFFFF;}
   .rs-tone{display:inline-flex; align-items:center; gap:8px; font-family:var(--label-face); font-size:.8125rem;
@@ -12444,9 +12453,8 @@
   .wc-verdict-why{transition:opacity .18s ease;}
   .rs-ok{margin-top:6px;}
   /* ---------- WEEKLY ZONE BREAKDOWN: THREE FIGURES, NO BAR ---------- */
-  .zcols{display:flex; align-items:stretch; padding:6px 0 2px;}
+  .zcols{display:flex; align-items:stretch; gap:10px; padding:6px 0 2px;}
   .zcol{flex:1 1 0; min-width:0; text-align:center; padding:0 4px; display:flex; flex-direction:column; align-items:center; gap:4px;}
-  .zcol + .zcol{border-left:1px solid rgba(255,255,255,.10);}
   .zcol-pct{font-size:2rem; line-height:1; letter-spacing:.5px;}
   .zcol-time{font-size:.9375rem; color:var(--ink); white-space:nowrap;}
   .zcol-k{font-size:.6875rem; line-height:1.25; color:var(--ink);}
@@ -12509,6 +12517,21 @@
      on a glass sheet never gives up width to a long title at 320. */
   .share-seg button::after{content:''; position:absolute; left:0; right:0; top:50%; height:var(--tap-min); transform:translateY(-50%);}
   .tw-head .icon-btn{flex:0 0 auto; min-width:var(--tap-min);}
+  /* THE DECISIONS ON THE REVIEW PAGE, and the Preparation sheet: the same
+     glass pane as every other box, white words, no photograph, no gold slab
+     (founder: "Replace the old photo style with our new glass treatment"). */
+  .bld-decide{margin:16px 0 4px;}
+  .bld-modal.is-deciding .bld-actions [data-action="generate-plan"]{display:none;}
+  .bld-decide-card{padding:14px 16px; border-radius:16px;
+    background:var(--glass-sheen), var(--glass-tint); box-shadow:var(--glass-rim);}
+  .bld-decide-title{font-size:1.05rem; margin:0 0 8px; color:#FFFFFF;}
+  .bld-decide-body > p{color:#FFFFFF; margin:0 0 10px;}
+  .bld-decide .stg-sheet-acts{margin-top:14px;}
+  :is(.prep-sheet, .bld-decide) .decision-rec{margin:12px 0 14px; padding:12px 14px; border-radius:12px;
+    background:var(--glass-sheen), var(--glass-tint); box-shadow:var(--glass-rim);}
+  :is(.prep-sheet, .bld-decide) .decision-rec-tag{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track);
+    text-transform:uppercase; color:#FFFFFF; margin-bottom:5px;}
+  :is(.prep-sheet, .bld-decide) .decision-rec-body, :is(.prep-sheet, .bld-decide) .yr-foot{color:#FFFFFF;}
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -54538,7 +54561,7 @@ function recoveryCheckHtml(rc){
       '<button type="button" class="btn btn-ghost btn-block" data-action="recovery-check-keep" data-day="'+o.dayId+'">'+
         (rc.boundary ? 'I’m Fine, Keep the Plan' : 'Keep the Plan')+'</button>';
   } else if (rc.boundary){
-    btn = '<button type="button" class="btn btn-primary btn-block" data-action="recovery-check-injury">Injured or Ill?</button>'+
+    btn = '<button type="button" class="btn btn-primary btn-block" data-action="recovery-check-injury">Report Injury or Illness</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="recovery-check-ok">I’m Fine, Keep the Plan</button>';
   } else {
     btn = '<button type="button" class="btn btn-primary btn-block" data-action="recovery-check-ok">Got It</button>';
@@ -61029,7 +61052,7 @@ function renderInjuryPointer(){
   if (openRestriction()) return '';
   return '<div class="today-injury">'+
     '<button type="button" class="coach-why-btn" data-action="injury-hint" '+
-      'aria-haspopup="dialog">Injured or ill?</button>'+
+      'aria-haspopup="dialog">Report Injury or Illness</button>'+
   '</div>';
 }
 function handleInjuryHint(){
@@ -64507,6 +64530,82 @@ function weekFitSheetCopy(fit){
     hint = 'SACORO can start you at ' + fmtDist(fit.startAtKm) + ' and build from there. Adding a longer long run or another running day would let more of your week fit.';
   return { title: 'Make Room for Your Week', say: say, hint: hint };
 }
+/* ---------- ASKED ON THE REVIEW PAGE ----------
+   Where the builder's review stage is on screen, a decision is drawn in its
+   own place above the Build button, with the same words and the same two
+   answers it had as a sheet. Anywhere else (no builder open) it is the glass
+   sheet it always was. */
+var bldDecidePending = null;
+function bldDecideHost(){
+  if (typeof document === 'undefined' || !document.getElementById) return null;
+  var h = document.getElementById('bld-decide');
+  if (!h) return null;
+  var panel = h.closest ? h.closest('.bld-panel') : null;
+  if (panel && panel.hidden) return null;
+  return h;
+}
+/* While a decision waits, its two answers are the way on: the pinned Build
+   button steps aside, so there is one cherry button on the page and nothing
+   sits over the answers. Back stays. */
+function bldDecideMark(on){
+  var m = (typeof document !== 'undefined' && document.querySelector) ? document.querySelector('.bld-modal') : null;
+  if (m && m.classList) m.classList[on ? 'add' : 'remove']('is-deciding');
+}
+function bldDecideShow(host, html){
+  host.innerHTML = html;
+  host.hidden = false;
+  bldDecideMark(true);
+  try { if (host.scrollIntoView) host.scrollIntoView({ block:'nearest', behavior:'smooth' }); } catch(e){}
+}
+function bldDecideClear(){
+  var h = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('bld-decide') : null;
+  if (h){ h.innerHTML = ''; h.hidden = true; }
+  bldDecideMark(false);
+}
+function bldDecideHtml(o){
+  return '<div class="bld-decide-card" role="group" aria-label="'+escapeHtml(o.title)+'">'+
+    '<h3 class="font-head bld-decide-title">'+escapeHtml(o.title)+'</h3>'+
+    '<div class="stg-sheet-say">'+escapeHtml(o.say)+'</div>'+
+    (o.hint ? '<div class="field-hint">'+escapeHtml(o.hint)+'</div>' : '')+
+    '<div class="stg-sheet-acts">'+
+      '<button type="button" class="btn btn-ghost" data-action="bld-decide-no">'+escapeHtml(o.no || 'Cancel')+'</button>'+
+      '<button type="button" class="btn btn-primary" data-action="bld-decide-yes">'+escapeHtml(o.yes)+'</button>'+
+    '</div>'+
+  '</div>';
+}
+/* A two-answer question: on the review page if it is up, else the sheet. */
+function bldDecide(o){
+  var host = bldDecideHost();
+  if (!host){ askSacoro(o); return false; }
+  bldDecidePending = { o: o };
+  bldDecideShow(host, bldDecideHtml(o));
+  return true;
+}
+function bldDecideAnswer(yes){
+  var p = bldDecidePending;
+  bldDecidePending = null;
+  bldDecideClear();
+  if (!p || !p.o) return;
+  var f = yes ? p.o.onYes : p.o.onNo;
+  if (f) f();
+}
+/* A decision whose answers are their own actions (the runway and the
+   preparation offers): its body drawn on the review page. True if it was. */
+function bldDecideInline(title, bodyHtml){
+  var host = bldDecideHost();
+  if (!host) return false;
+  bldDecidePending = { inline: true };
+  bldDecideShow(host, '<div class="bld-decide-card" role="group" aria-label="'+escapeHtml(title)+'">'+
+    '<h3 class="font-head bld-decide-title">'+escapeHtml(title)+'</h3>'+bodyHtml+'</div>');
+  return true;
+}
+/* An answer from an inline decision: the builder stays where it is. */
+function bldDecideTakeOver(){
+  if (!(bldDecidePending && bldDecidePending.inline)) return false;
+  bldDecidePending = null;
+  bldDecideClear();
+  return true;
+}
 function openWeekFitSheet(fit, distanceKey, sig){
   var copy = weekFitSheetCopy(fit);
   var startAt = function(){
@@ -64514,7 +64613,7 @@ function openWeekFitSheet(fit, distanceKey, sig){
     handleGeneratePlan();
   };
   if (fit.addDay){
-    askSacoro({ title: copy.title, say: copy.say, hint: copy.hint,
+    bldDecide({ title: copy.title, say: copy.say, hint: copy.hint,
       yes: 'Add a Running Day', no: 'Start at ' + fmtDist(fit.startAtKm),
       onYes: function(){
         pendingWeekFit = { sig: sig, addDay: true, startKm: fit.addDay.fits ? null : round1(fit.addDay.fitsKm) };
@@ -64522,7 +64621,7 @@ function openWeekFitSheet(fit, distanceKey, sig){
       },
       onNo: startAt });
   } else {
-    askSacoro({ title: copy.title, say: copy.say, hint: copy.hint,
+    bldDecide({ title: copy.title, say: copy.say, hint: copy.hint,
       yes: 'Start at ' + fmtDist(fit.startAtKm), no: 'Change My Answers',
       onYes: startAt,
       /* OPENS THE STEP THAT NEEDS CHANGING (Audit III UX3-12): the recent
@@ -64548,7 +64647,7 @@ function entryPathwayCopy(distanceKey, declaredKm){
 }
 function openEntryPathwaySheet(distanceKey, declaredKm, sig){
   var c = entryPathwayCopy(distanceKey, declaredKm), exp = athleteExperience(), dev = EXPERIENCE_LEVELS[0];
-  askSacoro({ title: c.title, say: c.say, hint: c.hint, yes: c.yes, no: c.no,
+  bldDecide({ title: c.title, say: c.say, hint: c.hint, yes: c.yes, no: c.no,
     onYes: function(){
       pathwayOfferAnsweredFor = sig + '|' + dev;
       handleSetExperience(dev);
@@ -64563,7 +64662,7 @@ function openPathwayOfferSheet(rec, distanceKey, sig){
   var copy = pathwayOfferCopy(rec, distanceKey);
   var lv = function(k){ return (EXPERIENCE_META[k] && EXPERIENCE_META[k].short) || k; };
   var dist = (BUILDER_SPEC.distances.labels[distanceKey] || distanceKey);
-  askSacoro({ title: copy.title, say: copy.say, hint: copy.hint,
+  bldDecide({ title: copy.title, say: copy.say, hint: copy.hint,
     yes: rec.recommendBase ? 'Start Aerobic Base' : 'Switch to '+lv(rec.recommend),
     no: rec.recommendBase ? 'Keep the '+dist+' Plan' : 'Keep '+lv(rec.chosen.experience),
     onYes: function(){
@@ -64595,7 +64694,15 @@ function admissionInputsSignature(distanceKey, buildPurpose, hasEvent, raceDate,
 }
 /* Two-answer offers are quick choices: the glass sheet. */
 function openRunwayOfferModal(plan, distanceKey){
-  openModal(runwayOfferHtml(plan, distanceKey), 'modal-themed stg-sheet');
+  var html = runwayOfferHtml(plan, distanceKey);
+  if (bldDecideInline('You have ' + plan.weeksToRace + ' weeks', bldDecideBodyOf(html))) return;
+  openModal(html, 'modal-themed stg-sheet');
+}
+/* A sheet's body without its head, for the review page. */
+function bldDecideBodyOf(html){
+  var at = html.indexOf('<div class="modal-body');
+  var body = at === -1 ? html : html.slice(at);
+  return body.replace(/^<div class="modal-body[^"]*">/, '<div class="bld-decide-body">');
 }
 function openAvailabilityOfferModal(rec){
   openModal(availabilityOfferHtml(rec), 'modal-themed stg-sheet');
@@ -64680,7 +64787,10 @@ function openRaceGoalPreparationModal(adm, distanceKey){
      over its title, and is otherwise the sheet every other offer is: glass,
      the one X, and its two answers side by side with the recommendation on
      the right. */
-  openModal(raceGoalPreparationHtml(adm, distanceKey), 'modal-decision stg-sheet prep-sheet');
+  var html = raceGoalPreparationHtml(adm, distanceKey);
+  var lbl = (DISTANCE_PROFILES[distanceKey] || {}).label || 'race';
+  if (bldDecideInline('Your ' + lbl + ' Preparation', bldDecideBodyOf(html))) return;
+  openModal(html, 'modal-themed stg-sheet prep-sheet');
 }
 /* ---- A SACORO COACHING DECISION, NOT AN ERROR ---- HQ RULING.
    The athlete is not being refused and nothing has gone wrong: C3/C4 have
@@ -64718,11 +64828,10 @@ function raceGoalPreparationHtml(adm, distanceKey){
                escapeHtml(fmtDist(d.requiredKm));
       }).join('; and ')
     : 'there is not enough time to build what this event asks for';
-  return '<div class="modal-decision-hero" role="presentation"></div>'+
-    '<div class="modal-head modal-decision-head">'+
-      '<h2 class="font-head">Your ' + escapeHtml(lbl) + ' preparation</h2>'+
+  return '<div class="modal-head">'+
+      '<h2 class="font-head">Your ' + escapeHtml(lbl) + ' Preparation</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
-    '<div class="modal-body modal-decision-body">'+
+    '<div class="modal-body">'+
       '<p>Across ' + adm.weeksToRace + (adm.weeksToRace === 1 ? ' week, ' : ' weeks, ') + gap + '. Your current running '+
         'capacity and the time available mean SACORO does not expect you to '+
         'safely reach the full preparation standard for this event.</p>'+
@@ -65784,6 +65893,11 @@ function openSetupModal(){
     '<section class="bld-panel" data-stage="10" hidden>'+
       stageHead(10)+
       '<div id="bld-review"></div>'+
+      /* THE DECISIONS BEFORE THE BUILD (founder, Audit IV UX-A10: "Consolidate
+         into the builder's review stage. Retain all three decisions."). The
+         pathway, the preparation and making room for the week are asked here,
+         one at a time, on this page, instead of as sheets after it. */
+      '<div id="bld-decide" class="bld-decide" role="region" aria-live="polite" hidden></div>'+
       (consentStep
         ? '<div class="bld-permission">'+
             '<div class="setup-section-title" style="margin-top:0;">Optional permission</div>'+
@@ -68025,7 +68139,10 @@ async function handleGeneratePlan(){
   pendingWeekFit = null;
   state.days = days;
   initExpanded();
-  closeModal();
+  /* MAKE ROOM FOR YOUR WEEK IS ASKED WHERE THE BUILD WAS PRESSED (Audit IV
+     UX-A10): a week made smaller keeps the review page up and asks there. */
+  var askRoomInBuilder = planBuildNotes.length > 0 && !!bldDecideHost();
+  if (!askRoomInBuilder) closeModal();
   scheduleSave();
   renderApp();
   /* When the entered weekly volume genuinely will not fit across the selected
@@ -68060,16 +68177,16 @@ async function handleGeneratePlan(){
        week means a smaller week; the athlete is told so and chooses: keep the
        plan as built, or add a running day and build closer to their week. */
     var nDaysNow = schedule.activeDays.length;
-    askSacoro({ title: 'Make Room for Your Week',
+    (askRoomInBuilder ? bldDecide : askSacoro)({ title: 'Make Room for Your Week',
       say: 'Your plan starts at ' + fmtDist(round1(wk1Km)) + ' a week.',
       hint: fmtDist(volume) + ' a week needs more than ' + nDaysNow + (nDaysNow === 1 ? ' running day' : ' running days') +
         ' at this distance, so SACORO made the week smaller to keep every run safe. Add a day and SACORO can build closer to your week.' +
         (historyNote ? historyNote.replace(/^\. /, ' ') + '.' : ''),
       yes: 'Add a Running Day', no: 'Keep This Plan',
       onYes: function(){
-        try { openSetupModal(); bldStage(BLD_STAGE.WEEK); } catch(e){}
+        try { if (askRoomInBuilder) closeModal(); openSetupModal(); bldStage(BLD_STAGE.WEEK); } catch(e){}
       },
-      onNo: function(){} });
+      onNo: function(){ if (askRoomInBuilder) closeModal(); } });
   } else {
     /* "14 weeks to Full Marathon" is only true of a race block. Maintenance
        is not "to" anything, so it is named for what it is. */
@@ -76835,6 +76952,21 @@ var TAPER_COACHING_LINE = 'Volume drops, but keep hitting these paces. '+
    patchWeekHero() rewrites them in place, so the two cannot disagree. */
 function weekDoneText(done){ return String(fmtDist(done)).replace(/\s*[a-z]+$/i,''); }
 function weekDonePct(done, planned){ return planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0; }
+/* THE PROGRAMME'S PROGRESS, ONE FIGURE (founder, Audit IV UX-A11: "Keep the
+   24% Full Plan distance-based figure as the consistent programme progress
+   metric"). Training distance run over training distance planned, across the
+   block, the race left out. Full Plan's hero, the arrival screen and the
+   Coach page's Progress all read it, so the three can never disagree. */
+function blockDistanceProgress(){
+  var planned = 0, done = 0, total = totalWeeksInPlan();
+  for (var bw = 1; bw <= total; bw++){
+    var bv = weekVolume(bw);
+    planned += bv.training; done += bv.doneTraining;
+  }
+  planned = round1(planned); done = round1(done);
+  return { planned: planned, done: done,
+           pct: planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0 };
+}
 function renderWeekHeroBlock(weekNum, asBlock){
   var vol = weekVolume(weekNum);
   var parts = blockIdentityParts();
@@ -76876,13 +77008,8 @@ function renderWeekHeroBlock(weekNum, asBlock){
      there is only ever one period. */
   if (asBlock){
     title = (parts.label || title).replace(/ Build$/,'');
-    var bPlanned = 0, bDone = 0;
-    for (var bw = 1; bw <= totalWeeksInPlan(); bw++){
-      var bv = weekVolume(bw);
-      bPlanned += bv.training; bDone += bv.doneTraining;
-    }
-    planned = bPlanned; done = bDone;
-    pct = planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0;
+    var bp = blockDistanceProgress();
+    planned = bp.planned; done = bp.done; pct = bp.pct;
   }
   /* ---- AND THE EXCEPTION LINE IS THE WEEK'S, SO IT STAYS ON THE WEEK ----
      "1 session unlogged" counts weekNum's sessions. Under block figures it
@@ -77914,13 +78041,14 @@ function recordZonesFact(){
   return { key:'zones', subject:'Training paces', value:ZONE_PACE_ORDER.length+' zones', synopsis:syn };
 }
 function recordProgressFact(){
-  var s = computeStats();
-  var runsPct = s.totalRuns ? Math.round(100*s.completedRuns/s.totalRuns) : 0;
+  /* The programme figure Full Plan prints (Audit IV UX-A11), not the share
+     of runs: one progress number across the app. */
+  var bp = blockDistanceProgress();
   var week = currentWeekNum(), total = totalWeeksInPlan();
-  var syn = s.completedRuns+' of '+s.totalRuns+' runs'+
+  var syn = kmToDisplay(bp.done)+' of '+fmtDist(bp.planned)+' run'+
     (week && total ? ', week '+week+' of '+total : '')+'.';
-  return { key:'progress', subject:'Progress', chip:'Progress', value:runsPct+'%',
-    big:runsPct+'%', small:'', synopsis:syn };
+  return { key:'progress', subject:'Progress', chip:'Progress', value:bp.pct+'%',
+    big:bp.pct+'%', small:'', synopsis:syn };
 }
 /* Training paces are plan configuration/reference -- what you are training
    AT -- not a historical record of the athlete, so recordFacts() no longer
@@ -78929,6 +79057,7 @@ function fitDialValues(){
     var figs = [];
     for (k = 0; k < kids.length; k++){
       kids[k].style.transform = '';
+      if (kids[k].firstElementChild && kids[k].firstElementChild.style) kids[k].firstElementChild.style.fontSize = '';
       var f0 = kids[k].firstElementChild;
       if (f0 && f0.tagName === 'B'){ f0.style.whiteSpace = ''; f0.style.maxWidth = ''; figs.push(f0); }
     }
@@ -78953,9 +79082,21 @@ function fitDialValues(){
       h += kids[k].offsetHeight;
     }
     var r = Math.min(1, (W * DIAL_FIT_WIDE) / (w || 1), (H * DIAL_FIT_ROOM) / (h || 1));
-    if (r < 0.995) for (k = 0; k < kids.length; k++) kids[k].style.transform = 'scale(' + r.toFixed(3) + ')';
+    if (r < 0.995) for (k = 0; k < kids.length; k++){
+      /* NEVER BELOW 11px (founder, Audit IV: "Set an 11px minimum without
+         changing circle sizes"). A word that would be scaled under the floor
+         is set at the floor instead, unscaled, and wraps inside the circle
+         as words already do; figures keep the scale, and the circle is the
+         size it always was. */
+      var t = kids[k].firstElementChild || kids[k], fs = 0;
+      try { fs = parseFloat(window.getComputedStyle(t).fontSize) || 0; } catch(eF){ fs = 0; }
+      var isWord = /[A-Za-z]{2,}/.test((t.textContent || '').trim());
+      if (isWord && fs && t.style && fs * r < DIAL_TEXT_FLOOR_PX){ t.style.fontSize = DIAL_TEXT_FLOOR_PX + 'px'; continue; }
+      kids[k].style.transform = 'scale(' + r.toFixed(3) + ')';
+    }
   }
 }
+var DIAL_TEXT_FLOOR_PX = 11;
 /* ---------- A TAB'S NAME IS NEVER CUT ----------
    Responsive correction 6. At the largest phone text size "THIS WEEK",
    "FULL PLAN" and "SETTINGS" were wider than their fifth of the bar and
@@ -82848,14 +82989,11 @@ function programmeEntryBindName(){
    Nothing here is mileage: a missed session does not move it, which is what
    "progress through the programme" means. */
 function programmeProgressPct(){
-  var total = totalWeeksInPlan();
-  if (!total) return null;
-  var first = weekDateRange(1), last = weekDateRange(total);
-  if (!first || !last || !first.start || !last.end) return null;
-  var span = daysBetween(first.start, last.end) + 1;
-  if (!(span > 0)) return null;
-  var done = daysBetween(first.start, todayStr()) + 1;
-  return clamp(Math.round(done / span * 100), 0, 100);
+  /* The one programme figure: blockDistanceProgress(), as Full Plan prints
+     it (Audit IV UX-A11). It used to count days through the timeline, which
+     read 26% beside Full Plan's 24% on the same morning. */
+  if (!totalWeeksInPlan()) return null;
+  return blockDistanceProgress().pct;
 }
 /* "Full Marathon" is the programme's name everywhere it is set against the
    other distances and the "Full" is doing work. On a greeting it is not:
@@ -85055,20 +85193,20 @@ document.addEventListener('click', function(e){
     case 'start-block': handleStartBlock(target.getAttribute('data-purpose')); break;
     /* The surplus-runway offer. Both answers are the athlete's; neither is a
        default the app takes on their behalf. */
-    case 'runway-prep': closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig;
+    case 'runway-prep': bldDecideTakeOver(); closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig;
       handleStartBlock(target.getAttribute('data-purpose')); break;
-    case 'runway-continue': closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig; handleGeneratePlan(); break;
+    case 'runway-continue': if (!bldDecideTakeOver()) closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig; handleGeneratePlan(); break;
     /* The preparation boundary. Same two-real-answers shape as the runway
        offer, and it reuses the same "the athlete has answered" flag: both
        questions are asked in the same place and neither should be re-asked
        once the athlete has decided -- for THIS configuration. See
        admissionInputsSignature() for what re-opens the question. */
-    case 'prep-route': closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig;
+    case 'prep-route': bldDecideTakeOver(); closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig;
       /* They took the recommendation: there is no limited Marathon to record. */
       pendingPreparationLimited = null;
       handleStartBlock(target.getAttribute('data-purpose'),
                        parseInt(target.getAttribute('data-weeks'), 10) || null); break;
-    case 'prep-continue': closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig;
+    case 'prep-continue': if (!bldDecideTakeOver()) closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig;
       handleGeneratePlan(); break;
     /* THE ENTRY BOUNDARY. Accept builds the Aerobic Base block through the
        builder the athlete is already standing in -- same schedule, same
@@ -85081,6 +85219,8 @@ document.addEventListener('click', function(e){
       break;
     }
     case 'race-entry-back': closeModal(); break;
+    case 'bld-decide-yes': bldDecideAnswer(true); break;
+    case 'bld-decide-no': bldDecideAnswer(false); break;
     /* The weekly coaching review's two answers, and closing without one. */
     case 'weekly-accept': handleWeeklyAnswer(true); break;
     case 'weekly-decline': handleWeeklyAnswer(false); break;

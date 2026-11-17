@@ -1403,13 +1403,15 @@ test('the hero names the period its own figures cover', () => {
      figures stay on weekNum, this is what catches it. */
   assert.match(blockSide, /title = \(parts\.label \|\| title\)/,
     'the Full Plan hero no longer leads with the block');
-  assert.match(blockSide, /for \(var bw = 1; bw <= totalWeeksInPlan\(\); bw\+\+\)/,
-    'the Full Plan hero names the block but no longer measures it — it is back to ' +
-    'printing one week of volume under a block heading');
-  assert.match(blockSide, /planned = bPlanned; done = bDone;/,
-    'the block totals are computed and then thrown away');
-  assert.match(blockSide, /pct = planned > 0/,
-    'the percentage and the bar are still the week\'s while the figures are the block\'s');
+  /* The block's sum now lives in blockDistanceProgress(), the one programme
+     figure (founder, Audit IV: "Keep the 24% Full Plan distance-based figure
+     as the consistent programme progress metric"), which the arrival screen
+     and the Coach page read as well. */
+  assert.match(blockSide, /var bp = blockDistanceProgress\(\);\s*planned = bp\.planned; done = bp\.done; pct = bp\.pct;/,
+    'the Full Plan hero names the block but no longer measures it');
+  const bdp = SRC.slice(SRC.indexOf('function blockDistanceProgress('), SRC.indexOf('\n}\n', SRC.indexOf('function blockDistanceProgress(')));
+  assert.match(bdp, /for \(var bw = 1; bw <= total; bw\+\+\)/, 'the block figure is not summed over every week');
+  assert.match(bdp, /planned \+= bv\.training; done \+= bv\.doneTraining;/);
 
   /* NEITHER builds a subline. That line -- the block's name and the week
      count under a title -- is the one the founder struck off This Week, and

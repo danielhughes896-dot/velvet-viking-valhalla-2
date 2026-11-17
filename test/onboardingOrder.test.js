@@ -45,7 +45,7 @@ test('the preview is step two and saving the plan is step three, with no builder
 });
 
 test('"Change something" lets the banked plan go and sends the athlete to build in the app', () => {
-  assert.match(SRC, /id="rebuild"[^>]*>Change something</);
+  assert.match(SRC, /id="rebuild"[^>]*>Change Something</);
   const h = /\$\('rebuild'\)\.addEventListener\('click', function\(\)\{([^}]*)\}\);/.exec(SRC);
   assert.ok(h, 'the Change something handler has gone');
   assert.match(h[1], /clearPending\(\);\s*location\.replace\('\/get'\);/,

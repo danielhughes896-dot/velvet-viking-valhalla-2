@@ -126,6 +126,9 @@ const WORK_SURFACES = [
   /* Signed out, Ask Coach asks for the email first (Audit IV UX-A9): the
      same glass sign-in sheet. */
   ['openAskSigninSheet', 'the sign-in sheet in front of Ask Coach'],
+  /* The Preparation offer is a glass sheet now (founder, Audit IV: "Replace
+     the old photo style with our new glass treatment"). */
+  ['openRaceGoalPreparationModal', 'the race preparation offer'],
   /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
      it, picks how much the card says and then approves it -- that is working
      in a modal, not answering an interrupt, and it has a close control and
@@ -275,7 +278,10 @@ const DELIBERATE_INTERRUPT = 'openCloudConflictModal';
    Named here rather than exempted by a pattern, so a second one cannot appear
    without this line being edited. Its own treatment is asserted in
    test/marathonAuthorityAndChoice.test.js. */
-const DECISION_SURFACES = ['openRaceGoalPreparationModal'];
+/* EMPTY SINCE AUDIT IV: the Preparation offer took the glass sheet (founder,
+   "Replace the old photo style with our new glass treatment"). Kept named for
+   the reason MOMENT_SURFACES is: a second one must be a decision. */
+const DECISION_SURFACES = [];
 /* THE COMPLETION MOMENT. A fourth kind, named deliberately rather than
    squeezed into one of the three it is not. It is not a work surface: there
    is nothing to fill in, and theming it put a cream rim around a card that is
@@ -340,8 +346,8 @@ test('the decision surface is exactly one modal, and it opts out deliberately', 
      quietly JOINING the theme ramp, this one stops modals quietly LEAVING it.
      A decision surface must actually be one -- it opens on modal-decision and
      never on modal-themed -- and there must still be only the one. */
-  assert.equal(DECISION_SURFACES.length, 1,
-    'a second decision surface appeared; that is a brand decision, not a refactor');
+  assert.equal(DECISION_SURFACES.length, 0,
+    'a decision surface came back; that is a brand decision, not a refactor');
   DECISION_SURFACES.forEach(fn => {
     const body = fnBody(fn);
     assert.match(body, /openModal\(/, fn + ' no longer opens a modal at all');

@@ -476,59 +476,45 @@ test('20. the week shown is the week the athlete is actually in', () => {
   assert.match(a.renderProgrammeEntry(), /\(Week 4 of 12\)/);
 });
 
-// PROGRESS IS DAYS, NOT WEEKS AND NOT MILEAGE. Computed here from the plan's
-// own range rather than asserted as a literal, so the expectation cannot
-// quietly encode the implementation's arithmetic.
-test('21. progress is the day through the programme’s own span', () => {
+// PROGRESS IS THE FULL PLAN FIGURE (founder, Audit IV UX-A11: "Keep the 24%
+// Full Plan distance-based figure as the consistent programme progress
+// metric"). It was the day through the timeline, which read 26% here beside
+// Full Plan's 24% on the same morning.
+test('21. progress is the training distance run over the training distance planned', () => {
   const a = athleteInProgramme({ weeks: 12 });
-  const first = a.weekDateRange(1), last = a.weekDateRange(a.totalWeeksInPlan());
-  const span = a.daysBetween(first.start, last.end) + 1;
-  const done = a.daysBetween(first.start, a.todayStr()) + 1;
-  const expected = Math.round(done / span * 100);
-  assert.equal(a.programmeProgressPct(), expected);
-  assert.equal(span, 84, 'twelve programme weeks are 84 days');
-  assert.equal(done, 22, 'day 22, having started 21 days ago');
-  assert.equal(a.programmeProgressPct(), 26);
+  const bp = a.blockDistanceProgress();
+  assert.ok(bp.planned > 0);
+  assert.equal(a.programmeProgressPct(), Math.round(100 * bp.done / bp.planned));
 });
 
-test('22. it is a timeline, so it does not move with mileage logged', () => {
+test('22. it is the same number on the arrival, Full Plan and the Coach page', () => {
   const a = athleteInProgramme({ weeks: 12 });
-  const before = a.programmeProgressPct();
-  const dd = a.state.days.find(d => d.km > 0);
-  if (dd) { dd.done = true; dd.actualKm = (dd.km || 0) * 3; }
-  assert.equal(a.programmeProgressPct(), before);
+  const pct = a.programmeProgressPct();
+  a.state.view = 'plan';
+  const hero = a.renderWeekHeroBlock(a.currentWeekNum(), true);
+  assert.ok(hero.indexOf(pct + '%') !== -1, 'Full Plan prints a different figure');
+  assert.equal(a.recordProgressFact().value, pct + '%', 'the Coach page prints a different figure');
 });
 
-test('23. day one of the programme is not zero, and the last day is 100', () => {
+test('23. nothing run is 0, everything run is 100', () => {
   const a = app();
   a.showToast = () => {};
-  buildPlan(a, { weeks: 12, startDate: TODAY });   // begins today
+  buildPlan(a, { weeks: 12, startDate: TODAY });   // begins today, nothing logged
   signIn(a);
-  assert.equal(a.programmeProgressPct(), 1);
-
-  const b = app();
-  b.showToast = () => {};
-  buildPlan(b, { weeks: 12, startDate: b.addDays(TODAY, -83) });  // ends today
-  signIn(b);
-  assert.equal(b.programmeProgressPct(), 100);
+  assert.equal(a.programmeProgressPct(), 0);
+  a.state.days.filter(d => d.km > 0 && d.type !== 'race').forEach(d => { d.completed = true; });
+  assert.equal(a.programmeProgressPct(), 100);
 });
 
-test('24. it never reads below 0 or above 100, whatever the dates say', () => {
+test('24. it never reads below 0 or above 100, whatever was logged', () => {
   const a = app();
   a.showToast = () => {};
-  buildPlan(a, { weeks: 12, startDate: a.addDays(TODAY, -400) });  // long finished
+  buildPlan(a, { weeks: 12, startDate: a.addDays(TODAY, -21) });
   signIn(a);
+  a.state.days.filter(d => d.km > 0 && d.type !== 'race').forEach(d => {
+    d.completed = true; d.actual = Object.assign({}, d.actual || {}, { km: (d.km || 0) * 3 }); });
   const pct = a.programmeProgressPct();
   assert.ok(pct >= 0 && pct <= 100, 'reads ' + pct);
-  assert.equal(pct, 100);
-
-  const b = app();
-  b.showToast = () => {};
-  buildPlan(b, { weeks: 12, startDate: b.addDays(TODAY, 60) });    // not begun
-  signIn(b);
-  const pctB = b.programmeProgressPct();
-  assert.ok(pctB >= 0 && pctB <= 100, 'reads ' + pctB);
-  assert.equal(pctB, 0);
 });
 
 test('25. the bar carries the same number it prints, for a screen reader', () => {

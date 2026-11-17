@@ -158,7 +158,7 @@ test('THE RECOMMENDATION IS EIGHT WEEKS, AND ONLY HERE', () => {
 
 test('BOTH ANSWERS ARE REAL, AND CONTINUE IS NOT AN APOLOGY', () => {
   const html = modalApp().raceGoalPreparationHtml(ADM, 'full');
-  assert.match(html, /Your Full Marathon preparation/);
+  assert.match(html, /Your Full Marathon Preparation/);
   assert.match(html, /Recommended: Build Aerobic Base/);
   assert.match(html, /data-action="prep-route"/);
   assert.match(html, /data-action="prep-continue"/);
@@ -170,17 +170,18 @@ test('BOTH ANSWERS ARE REAL, AND CONTINUE IS NOT AN APOLOGY', () => {
   assert.doesNotMatch(html, /anyway/);
 });
 
-test('THE DECISION SURFACE IS ISOLATED AND PHOTOGRAPHIC', () => {
+test('THE PREPARATION SHEET IS GLASS, LIKE EVERY OTHER OFFER', () => {
+  /* Founder, Audit IV: "Replace the old photo style with our new glass
+     treatment." No photograph, no pinned dark ramp, no gold slab: the glass
+     sheet, with its recommendation in a glass box. */
   const a = modalApp();
   const html = a.raceGoalPreparationHtml(ADM, 'full');
-  assert.match(html, /modal-decision-hero/);
+  assert.doesNotMatch(html, /modal-decision/);
   const SRC = require('fs').readFileSync(
     require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-  /* A PHOTOGRAPH, not vector artwork, and both delivery densities. */
-  assert.ok(SRC.indexOf('valhalla-mountains-820.jpg') !== -1, 'the 2x hero is not referenced');
-  assert.ok(SRC.indexOf('valhalla-mountains-420.jpg') !== -1, 'the 1x hero is not referenced');
-  /* PINNED DARK IN BOTH THEMES -- the one surface in the app that does. */
-  assert.match(SRC, /\.modal-card\.modal-decision\{[^}]*color-scheme:dark/);
+  const open = /function openRaceGoalPreparationModal\([\s\S]*?\n\}/.exec(SRC)[0];
+  assert.match(open, /openModal\(html, 'modal-themed stg-sheet prep-sheet'\);/);
+  assert.match(SRC, /:is\(\.prep-sheet, \.bld-decide\) \.decision-rec\{[^}]*background:var\(--glass-sheen\), var\(--glass-tint\);[^}]*box-shadow:var\(--glass-rim\);\}/);
 });
 
 // ---------------------------------------------------------------------------

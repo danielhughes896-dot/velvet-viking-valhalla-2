@@ -1149,7 +1149,7 @@ test('no surface anywhere promises a return SACORO does not size', () => {
 test('Today carries one quiet pointer, at the foot, in the product’s own register', () => {
   const a = app();
   const html = a.renderTodayView();
-  assert.match(html, /Injured or ill\?/);
+  assert.match(html, /Report Injury or Illness/);
   // the quietest interactive control the product has -- Next Move's WHY?
   assert.match(a.renderInjuryPointer(), /class="coach-why-btn"/);
   /* WHAT THIS TEST IS FOR IS UNCHANGED: one quiet pointer, at the foot, not
@@ -1160,8 +1160,8 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
      pass vacuously: indexOf returns -1 and every index beats it. So the
      property is pinned directly instead, which is strictly stronger than
      the ordering it replaces. */
-  assert.equal((html.match(/Injured or ill\?/g) || []).length, 1, 'exactly one pointer');
-  assert.ok(html.indexOf('Injured or ill?') > html.indexOf('class="day '),
+  assert.equal((html.match(/Report Injury or Illness/g) || []).length, 1, 'exactly one pointer');
+  assert.ok(html.indexOf('Report Injury or Illness') > html.indexOf('class="day '),
     'the signpost is competing with the session the athlete opened the app for');
   // and it is genuinely the last thing on the screen, not merely low down
   /* ---- ONE THING MAY FOLLOW IT NOW, AND ONLY ONE ----
@@ -1169,15 +1169,15 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
      injured." The answered check-in's single line sits beneath the signpost;
      it is the day's receipt, not a second pointer and not a second route to
      anything. Unanswered -- as here -- nothing follows at all. */
-  assert.match(html.slice(html.indexOf('Injured or ill?')), /^Injured or ill\?(?:<\/[a-z]+>)*$/,
+  assert.match(html.slice(html.indexOf('Report Injury or Illness')), /^Report Injury or Illness(?:<\/[a-z]+>)*$/,
     'nothing follows the signpost while the check-in is unanswered');
   ['legs:fresh', 'sleep:good', 'health:good'].forEach((p) => a.handleSetReadiness.apply(a, p.split(':')));
   const after = a.renderTodayView();
-  const tail = after.slice(after.indexOf('Injured or ill?'));
+  const tail = after.slice(after.indexOf('Report Injury or Illness'));
   /* Founder, later: "After completion: Remove it from Today. Retain the
      recorded answers within Recovery on the Coach page." So the answered
      check-in no longer follows the signpost either: nothing does. */
-  assert.match(tail, /^Injured or ill\?(?:<\/[a-z]+>)*$/,
+  assert.match(tail, /^Report Injury or Illness(?:<\/[a-z]+>)*$/,
     'the answered check-in is back on Today');
   assert.equal((after.match(/today-checkin is-done|readiness-done/g) || []).length, 0, 'the answered check-in summary is on Today');
   // the two surfaces this screen no longer carries, held so they cannot creep back
@@ -1239,7 +1239,7 @@ test('it stands down while a declaration is open, so nothing is duplicated', () 
   assert.equal(a.renderInjuryPointer(), '',
     'a second route to Settings is offered under the card that already has one');
   const today = a.renderTodayView();
-  assert.doesNotMatch(today, /Injured or ill\?/);
+  assert.doesNotMatch(today, /Report Injury or Illness/);
   assert.match(today, /data-action="restriction-view"/);   // the row on screen leads to the page
   assert.match(a.restrictionPanelHtml(), /Change or extend/);   // and the page holds the controls
   // and it comes back once the athlete is training normally again

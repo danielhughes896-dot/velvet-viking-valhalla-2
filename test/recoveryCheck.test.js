@@ -245,7 +245,7 @@ test('the Suggested box only with the engine’s own offer, and it is the change
   const p = athlete();
   painOnLongRun(p);
   const pp = p.recoveryCheckHtml(p.recoveryCheckDue());
-  assert.match(pp, /data-action="recovery-check-injury">Injured or Ill\?</);
+  assert.match(pp, /data-action="recovery-check-injury">Report Injury or Illness</);
   assert.match(pp, /data-action="recovery-check-ok">I’m Fine, Keep the Plan</);
   /* A tempo today, two runs harder than set and a heavy morning: the engine
      cuts it, and the sheet shows that cut and nothing else. */
