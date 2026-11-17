@@ -41,77 +41,55 @@ function everyBar(a){
    bar? I ack your going to say no when it's at 1% currently there is no
    space so I think like the mock picture it can work it just won't be
    perfectly to scale." */
-test('every band states its own share and its own time', () => {
+/* ---------- THREE FIGURES, NO BAR ----------
+   Founder, choosing between the lit bar and a mock of the numbers alone:
+   "which do you prefer?" -- the numbers (17 November 2026). The bar's tests
+   guarded a band that had to hold its own words at 1%; there is no band
+   now. What is guarded is what the bar was for: every zone with time in it
+   states its share and its time, the shares still add up, nothing empty is
+   drawn, and no bar comes back. */
+const ZCOL = /<div class="zcol"><div class="zcol-pct font-head z-[a-z]+-ink">(\d+)%<\/div><div class="zcol-time font-mono">([^<]*)<\/div><div class="zcol-k">([^<]*(?:<sub>2<\/sub>[^<]*)?)<\/div><\/div>/g;
+test('every zone states its own share, its own time and its name', () => {
   const a = app();
-  const bars = everyBar(a);
-  assert.ok(bars.length >= 40, 'only ' + bars.length + ' weeks have a bar — this proves little');
-  let bands = 0, smallest = 100;
-  bars.forEach(b => {
-    const segs = b.html.match(/<div class="zbar-seg [^"]*" style="flex-grow:\d+"><span class="zbar-k">([^<]*)<\/span><\/div>/g) || [];
-    assert.ok(segs.length >= 1, b.k + ' w' + b.wk + ': the bar has no bands at all');
-    segs.forEach(seg => {
-      const txt = /<span class="zbar-k">([^<]*)<\/span>/.exec(seg)[1];
-      /* A SHARE, A SEPARATOR AND A TIME -- "9% • 42m" or "77% • 5h 55m". */
-      const m = /^(\d+)%, (?:(\d+)h (\d{2})m|(\d+)m)$/.exec(txt);
-      assert.ok(m, b.k + ' w' + b.wk + ': a band reads "' + txt + '", which is not a share and a time');
+  const weeks = everyBar(a);
+  assert.ok(weeks.length >= 40, 'only ' + weeks.length + ' weeks have a breakdown — this proves little');
+  let cols = 0, smallest = 100;
+  weeks.forEach(b => {
+    const found = Array.from(b.html.matchAll(ZCOL));
+    assert.ok(found.length >= 1, b.k + ' w' + b.wk + ': the breakdown has no figures at all');
+    let sum = 0;
+    found.forEach(m => {
       const pct = Number(m[1]);
-      assert.ok(pct > 0, b.k + ' w' + b.wk + ': a band with no share was drawn');
+      assert.ok(pct > 0, b.k + ' w' + b.wk + ': a zone with no share was drawn');
+      assert.match(m[2], /^(?:\d+h \d{2}m|\d+m)$/, b.k + ' w' + b.wk + ': a time reads "' + m[2] + '"');
+      assert.match(m[3], /Easy|Goal|Threshold|Interval/, b.k + ' w' + b.wk + ': a figure does not name its zone');
       if (pct < smallest) smallest = pct;
-      bands++;
+      sum += pct; cols++;
     });
-    /* THE SHARES STILL ADD UP. The bar stops being to scale; it does not
-       stop being true. */
-    const sum = (b.html.match(/<span class="zbar-k">(\d+)%/g) || [])
-      .reduce((n, x) => n + Number(/(\d+)/.exec(x)[1]), 0);
-    assert.equal(sum, 100, b.k + ' w' + b.wk + ': the bands add up to ' + sum + '%, not 100');
+    assert.equal(sum, 100, b.k + ' w' + b.wk + ': the figures add up to ' + sum + '%, not 100');
   });
-  assert.ok(bands >= 90, 'only ' + bands + ' bands were read');
-  /* THE CASE THE FOUNDER RAISED EXISTS. If no week ever had a 1% band the
-     whole not-to-scale argument would be theoretical. */
-  assert.ok(smallest <= 2,
-    'the smallest band across every block is ' + smallest + '% — the narrow case this is built for is gone');
+  assert.ok(cols >= 90, 'only ' + cols + ' figures were read');
+  /* The small zone the bar could not hold is the one this was chosen for. */
+  assert.ok(smallest <= 2, 'the smallest zone across every block is ' + smallest + '% — the narrow case is gone');
 });
 
-test('the legend names the colour and states no figure', () => {
-  /* IT WAS THE ONLY PLACE THE SHARE WAS STATED. The band states it now, and
-     the same number in two places is how two surfaces start disagreeing. */
+test('no bar and no legend: each figure names its own zone', () => {
   const a = app();
   everyBar(a).forEach(b => {
-    const leg = /<div class="zone-legend">([\s\S]*?)<\/div><\/div>/.exec(b.html);
-    assert.ok(leg, b.k + ' w' + b.wk + ': the legend is gone');
-    assert.equal(/\d+%/.test(leg[1]), false,
-      b.k + ' w' + b.wk + ': the legend states a share again, which the band already says');
-    assert.ok(leg[1].indexOf('zleg-dot') > -1, 'the legend lost the dots that key the colours');
+    assert.doesNotMatch(b.html, /class="zbar|class="zone-legend/, b.k + ' w' + b.wk + ': the bar or its legend came back');
   });
+  assert.doesNotMatch(SRC, /'<div class="zbar">'/, 'the bar is drawn again');
 });
 
-/* ---------- NOT TO SCALE, AND THAT IS THE MECHANISM ----------
-   A 1% band is 4px of a 398px bar and cannot hold "1% • 3m". The founder
-   accepted the trade; this is how it is paid for, and it is stated as a
-   rule rather than as a minimum width somebody has to re-tune when the
-   copy changes. */
-test('a band is as wide as its share, or as its own words', () => {
-  const seg = rule('.zbar-seg');
-  assert.match(seg, /flex-basis:0/,
-    'the band has a basis other than 0, so flex-grow no longer expresses the share');
-  assert.match(seg, /min-width:max-content/,
-    'the band lost its floor, so a 1% band goes back to being 4px of unreadable colour');
-  assert.match(SRC, /style="flex-grow:'\+pct\[m\.k\]/,
-    'the share is carried by something other than flex-grow — width would fight min-width and overflow');
-  assert.equal(/<div class="zbar-seg[^>]*style="width:/.test(SRC), false,
-    'a band sets a width again');
-  /* AND THE BAR CONTAINS WHAT IT CANNOT FIT. Measured across all 50 real
-     weeks at 430/414/390/375/360px: none overflows and none clips. This is
-     for the case that is not in the data. */
-  assert.match(rule('.zbar'), /overflow:hidden/,
-    'the bar no longer contains a band set too wide for it');
-  /* THE WORDS SIT ABOVE THE SHEEN, which is a pseudo-element on the band. */
-  assert.match(rule('.zbar-k'), /z-index:3/, 'the figure fell under the band’s own sheen');
-  assert.match(rule('.zbar-k'), /white-space:nowrap/,
-    'the figure may wrap, which breaks the band’s floor');
+test('four zones fit the narrowest phone', () => {
+  /* Each figure takes an equal share of the width and may not grow past it,
+     and the figures step down a size at 360px and below. */
+  assert.match(rule('.zcol'), /flex:1 1 0/);
+  assert.match(rule('.zcol'), /min-width:0/);
+  assert.match(CSS, /@media \(max-width:360px\)\{ \.zcol-pct\{font-size:1\.625rem;\}/);
 });
 
-test('a band’s time reads as a clock, not as sixty minutes', () => {
+test('a zone’s time reads as a clock, not as sixty minutes', () => {
   /* Math.round() on 3599 seconds gives 60 minutes, which must read as an
      hour. The guard is in the renderer; this is the case that needs it. */
   const a = app();
@@ -123,11 +101,11 @@ test('a band’s time reads as a clock, not as sixty minutes', () => {
     a.computeWeekZoneBreakdown = () => ({ totalSec: secs, zones: { easy: secs, mp: 0, threshold: 0, interval: 0 } });
     const h = a.renderZoneBreakdown(1);
     a.computeWeekZoneBreakdown = real;
-    return /<span class="zbar-k">([^<]*)<\/span>/.exec(h)[1];
+    return /<div class="zcol-time font-mono">([^<]*)<\/div>/.exec(h)[1];
   };
-  assert.equal(say(3599), '100%, 1h 00m', '3599s rounds to "60m" instead of an hour');
-  assert.equal(say(3600), '100%, 1h 00m', 'an exact hour does not read as one');
-  assert.equal(say(2700), '100%, 45m', 'three quarters of an hour grew an hours field');
-  assert.equal(say(7140), '100%, 1h 59m', 'an hour and fifty-nine reads wrong');
-  assert.equal(say(180), '100%, 3m', 'three minutes reads wrong');
+  assert.equal(say(3599), '1h 00m', '3599s rounds to "60m" instead of an hour');
+  assert.equal(say(3600), '1h 00m', 'an exact hour does not read as one');
+  assert.equal(say(2700), '45m', 'three quarters of an hour grew an hours field');
+  assert.equal(say(7140), '1h 59m', 'an hour and fifty-nine reads wrong');
+  assert.equal(say(180), '3m', 'three minutes reads wrong');
 });

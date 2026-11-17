@@ -167,21 +167,37 @@ test('Session Complete carries no words; the coach\'s paragraph is written into 
   assert.ok(panel.indexOf(rd.line) === -1, 'the engine sentence is on the panel');
   assert.ok(panel.indexOf(rd.tone.label) !== -1, 'the tone line is the last thing kept');
   assert.equal((panel.match(/btn-primary/g) || []).length, 1, 'cherry is OK alone');
-  /* The analysis has the engine's sentence until a written paragraph passes. */
-  assert.ok(a.renderCompletionVerdict(dd).indexOf(rd.line) !== -1);
-  const ev = a.resultSayEvidence('run', dd);
-  a.__reply = '13km at an easy 4 out of 10, which is exactly where a long run belongs. Keep the strides on 17 Nov relaxed.';
-  const got = await a.resultSayFetch('run', ev);
+  /* The analysis has the engine's words until a written paragraph passes. */
+  const engine = a.renderExecutionReview(dd);
+  assert.ok(engine.indexOf(a.escapeHtml(rd.line)) !== -1);
+  a.__reply = '13km at an easy 4 out of 10, which is exactly where a long run belongs.\n\nKeep the strides on 17 Nov relaxed.';
+  const got = await a.resultSayFetch('run', dd);
   const asks = () => calls.filter(c => c.url === '/api/voice-explain');
   assert.equal(got, a.__reply);
   assert.equal(asks().length, 1);
   assert.deepEqual(Object.keys(JSON.parse(asks()[0].init.body)), ['kind', 'evidence']);
-  const verdict = a.renderCompletionVerdict(dd);
-  assert.ok(verdict.indexOf(a.__reply) !== -1, 'the written paragraph is not in the analysis');
-  assert.ok(verdict.indexOf(rd.line) === -1, 'both the engine sentence and the paragraph are drawn');
-  /* Asked once per body of evidence. */
-  assert.equal(a.resultSayFetch('run', ev), null);
+  const written = a.renderExecutionReview(dd);
+  assert.ok(written.indexOf('13km at an easy 4 out of 10, which is exactly where a long run belongs.') !== -1, 'the written paragraph is not in the analysis');
+  assert.ok(written.indexOf(a.escapeHtml(rd.line)) === -1, 'both the engine sentence and the paragraph are drawn');
+  assert.equal((written.match(/class="wc-prose-p"/g) || []).length, 2, 'the paragraphs were not kept as paragraphs');
+  /* Asked once per run. */
+  assert.equal(a.resultSayFetch('run', dd), null);
   assert.equal(asks().length, 1);
+  /* KEPT WITH THE RUN (founder: "Go with you"): on the day itself, so it
+     goes to the account with the plan and is the same on every device. */
+  assert.equal(dd.coachSay && dd.coachSay.text, a.__reply);
+  const elsewhere = loadApp({ pinnedDate: NOW + 'T08:00:00Z' });
+  elsewhere.state = JSON.parse(JSON.stringify(a.state));
+  const twin = elsewhere.state.days.find(d => d.id === dd.id);
+  assert.ok(elsewhere.renderExecutionReview(twin).indexOf('exactly where a long run belongs') !== -1, 'another device does not show the same words');
+  /* WRITTEN ONCE: a newer run moves the packet on (the trend line goes to the
+     newer card) but these words stay. */
+  const next = a.state.days.find(d => d.date === NOW && d.km > 0);
+  if (next){ logAsPrescribed(a, next, { sections: true }); }
+  assert.ok(a.renderExecutionReview(dd).indexOf('exactly where a long run belongs') !== -1, 'a newer run unpicked the written words');
+  /* Editing the log is a new run to write about: the old words stand down. */
+  dd.actual.rpe = 9; delete dd.coachReview; a.coachPersistReview(dd);
+  assert.ok(a.renderExecutionReview(dd).indexOf('exactly where a long run belongs') === -1, 'words about the old log survived an edit');
 });
 
 test('Session Complete once, after Save; Week Complete after OK on the last run of the week', () => {

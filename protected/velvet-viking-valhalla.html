@@ -12408,6 +12408,19 @@
   .wc-prose-p{margin:0; font-size:1rem; line-height:1.55; color:var(--ink);}
   .wc-verdict-why{transition:opacity .18s ease;}
   .rs-ok{margin-top:6px;}
+  /* ---------- WEEKLY ZONE BREAKDOWN: THREE FIGURES, NO BAR ---------- */
+  .zcols{display:flex; align-items:stretch; padding:6px 0 2px;}
+  .zcol{flex:1 1 0; min-width:0; text-align:center; padding:0 4px; display:flex; flex-direction:column; align-items:center; gap:4px;}
+  .zcol + .zcol{border-left:1px solid rgba(255,255,255,.10);}
+  .zcol-pct{font-size:2rem; line-height:1; letter-spacing:.5px;}
+  .zcol-time{font-size:.9375rem; color:var(--ink); white-space:nowrap;}
+  .zcol-k{font-size:.6875rem; line-height:1.25; color:var(--ink);}
+  .zcol-k sub{font-size:.75em; vertical-align:-.15em; line-height:0;}
+  .z-easy-ink{color:var(--z-easy); text-shadow:0 0 14px rgba(155,208,122,.35);}
+  .z-mp-ink{color:var(--z-mp); text-shadow:0 0 14px rgba(111,185,224,.35);}
+  .z-threshold-ink{color:var(--z-threshold); text-shadow:0 0 14px rgba(228,105,122,.35);}
+  .z-interval-ink{color:var(--z-interval); text-shadow:0 0 14px rgba(242,193,78,.35);}
+  @media (max-width:360px){ .zcol-pct{font-size:1.625rem;} .zcol-time{font-size:.8125rem;} }
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -44578,17 +44591,14 @@ function analysisParagraphs(dd, lead, r, b){
 /* What is drawn: the coach-written paragraphs when held for exactly this
    session's evidence and still valid, otherwise the engine's own. */
 function analysisProseHtml(dd, paragraphs){
-  var fp = '', paras = paragraphs;
+  var key = '', paras = paragraphs;
   try {
-    var ev = resultSayEvidence('run', dd);
-    if (ev){
-      fp = coachNoteHash(JSON.stringify(ev));
-      var held = resultSayHeld(ev);
-      if (held) paras = String(held).split(/\n\s*\n/).map(function(t){ return brandCase(t.trim()); }).filter(Boolean);
-    }
-  } catch(e){ fp = ''; }
+    key = resultSayKey('run', dd);
+    var held = resultSayHeld('run', dd);
+    if (held) paras = String(held).split(/\n\s*\n/).map(function(t){ return brandCase(t.trim()); }).filter(Boolean);
+  } catch(e){ key = ''; }
   if (!paras.length) return '';
-  return '<div class="wc-prose"'+(fp ? ' data-fp="'+fp+'"' : '')+'>'+
+  return '<div class="wc-prose"'+(key ? ' data-say="'+key+'"' : '')+'>'+
     paras.map(function(p){ return '<p class="wc-prose-p">'+escapeHtml(p)+'</p>'; }).join('')+
   '</div>';
 }
@@ -44993,12 +45003,9 @@ function renderCompletionVerdict(dd){
      line of prose in one place, never both. */
   var sayFp = '';
   try {
-    var sayEv = resultSayEvidence('run', dd);
-    if (sayEv){
-      sayFp = coachNoteHash(JSON.stringify(sayEv));
-      var held = resultSayHeld(sayEv);
-      if (held) why = brandCase(held);
-    }
+    sayFp = resultSayKey('run', dd);
+    var held = resultSayHeld('run', dd);
+    if (held) why = brandCase(held);
   } catch(eSay){ sayFp = ''; }
   if (!v && !why) return '';
   /* THE TICK IS ONLY DRAWN WHERE THERE IS SOMETHING TO TICK. A gold check is a
@@ -45025,7 +45032,7 @@ function renderCompletionVerdict(dd){
       '<span>'+(v ? 'The Verdict' : 'The Session')+'</span>'+
     '</div>'+
     (v ? '<div class="wc-verdict-v">'+escapeHtml(titleCase(v))+'</div>' : '')+
-    (why ? '<div class="wc-verdict-why"'+(sayFp ? ' data-fp="'+sayFp+'"' : '')+'>'+escapeHtml(why)+'</div>' : '')+
+    (why ? '<div class="wc-verdict-why"'+(sayFp ? ' data-say="'+sayFp+'"' : '')+'>'+escapeHtml(why)+'</div>' : '')+
   '</div>';
 }
 function titleCase(s){
@@ -53909,19 +53916,41 @@ function resultSayStoreRead(){
   catch(e){ return {}; }
 }
 function resultSayStoreWrite(o){ try { window.localStorage.setItem(RESULT_SAY_KEY, JSON.stringify(o)); } catch(e){} }
-function resultSayHeld(ev){
-  if (!ev) return '';
-  var fp = coachNoteHash(JSON.stringify(ev)), o = resultSayStoreRead();
-  var t = o.notes && o.notes[fp];
-  if (!t) return '';
-  var v = resultSayValid(t, ev);
-  return v.ok ? v.text : '';
+/* WRITTEN ONCE, KEPT WITH THE RUN (founder: "Go with you", on saving the
+   coach's words in the synced plan rather than on one phone). A run's
+   paragraph is stored on the day itself, a week's sentence on the plan, so
+   it is the same on every device and never rewritten. It is keyed to what
+   was LOGGED, not to the whole packet: the packet's trend line drops away
+   once a newer run exists, and that must not unpick words already written.
+   Editing the log changes the key, and only then is it written again. */
+function resultSayKey(kind, x){
+  try {
+    if (kind === 'run'){
+      var r = coachReviewFor(x) || coachWorkoutReview(x);
+      return coachNoteHash(JSON.stringify({ a: x.actual || {}, v: (r && r.executionVerdict) || '' }));
+    }
+    return coachNoteHash(JSON.stringify(weeklyEvidence(x)));
+  } catch(e){ return ''; }
 }
-function resultSayFetch(kind, ev){
-  if (!ev || typeof fetch !== 'function' || typeof window === 'undefined') return null;
+function resultSayRecord(kind, x){
+  if (kind === 'run') return x && x.coachSay;
+  return state.weekSay && state.weekSay[x];
+}
+/* The written words for this run or week, if held for what was logged. They
+   passed every check when they were written; they are kept, not re-judged
+   against a packet that has since moved on. */
+function resultSayHeld(kind, x){
+  var rec = resultSayRecord(kind, x), key = resultSayKey(kind, x);
+  return (rec && key && rec.key === key && rec.text) ? String(rec.text) : '';
+}
+function resultSayFetch(kind, x){
+  if (typeof fetch !== 'function' || typeof window === 'undefined') return null;
   if (!voiceCoachAvailable || !cloudSignedIn() || askDeviceOffline()) return null;
-  var fp = coachNoteHash(JSON.stringify(ev));
-  if (resultSayFailed[fp] || resultSayHeld(ev)) return null;
+  var ev = null;
+  try { ev = resultSayEvidence(kind, x); } catch(e0){ ev = null; }
+  if (!ev) return null;
+  var key = resultSayKey(kind, x);
+  if (!key || resultSayFailed[key] || resultSayHeld(kind, x)) return null;
   var o = resultSayStoreRead(), today = todayStr();
   if (o.day === today && (o.count || 0) >= RESULT_SAY_DAILY) return null;
   o.count = (o.day === today ? (o.count || 0) : 0) + 1; o.day = today;
@@ -53936,15 +53965,16 @@ function resultSayFetch(kind, ev){
   }).then(function(resp){ return (resp && resp.ok) ? resp.json() : null; })
   .then(function(d){
     var v = (d && d.text) ? resultSayValid(d.text, ev) : { ok:false };
-    if (!v.ok){ resultSayFailed[fp] = true; return null; }
-    var s = resultSayStoreRead();
-    s.notes = s.notes || {}; s.order = s.order || [];
-    s.notes[fp] = v.text; s.order.push(fp);
-    while (s.order.length > 24){ delete s.notes[s.order.shift()]; }
-    resultSayStoreWrite(s);
-    /* Drawn into the panel only if the same panel is still up. */
+    if (!v.ok){ resultSayFailed[key] = true; return null; }
+    /* Only if the log is still the one it was written about. */
+    if (resultSayKey(kind, x) !== key) return null;
+    var rec = { key: key, text: v.text, at: new Date().toISOString() };
+    if (kind === 'run'){ var day = findDay(x.id) || x; day.coachSay = rec; }
+    else { state.weekSay = state.weekSay || {}; state.weekSay[x] = rec; }
+    try { scheduleSave(); } catch(eS){}
+    /* Drawn wherever these words are on screen now. */
     try {
-      var els = document.querySelectorAll('.rs-say[data-fp="'+fp+'"], .wc-prose[data-fp="'+fp+'"]');
+      var els = document.querySelectorAll('.rs-say[data-say="'+key+'"], .wc-prose[data-say="'+key+'"]');
       Array.prototype.forEach.call(els, function(el){
         el.classList.add('is-swapping');
         setTimeout(function(){
@@ -53956,13 +53986,13 @@ function resultSayFetch(kind, ev){
       });
     } catch(e){}
     return v.text;
-  }).catch(function(){ resultSayFailed[fp] = true; return null; });
+  }).catch(function(){ resultSayFailed[key] = true; return null; });
 }
 /* ---------- THE PANELS ---------- */
-function resultSayHtml(ev, fallback){
-  var fp = ev ? coachNoteHash(JSON.stringify(ev)) : '';
-  var held = resultSayHeld(ev);
-  return '<p class="rs-say"'+(fp ? ' data-fp="'+fp+'"' : '')+'>'+escapeHtml(held ? brandCase(held) : fallback)+'</p>';
+function resultSayHtml(kind, x, fallback){
+  var key = resultSayKey(kind, x);
+  var held = resultSayHeld(kind, x);
+  return '<p class="rs-say"'+(key ? ' data-say="'+key+'"' : '')+'>'+escapeHtml(held ? brandCase(held) : fallback)+'</p>';
 }
 function sessionResultHtml(dd){
   var rd = sessionResultReading(dd), tm = TYPE_META[dd.type] || {};
@@ -53992,8 +54022,6 @@ function weekResultHtml(N){
   var wr = weekResultReading(N), ev = wr.ev;
   var figs = [['Sessions', ev.done + ' of ' + ev.due], ['Distance', fmtDist(ev.doneKm)]];
   if (ev.execution != null) figs.push(['Execution', Math.round(ev.execution) + '%']);
-  var say = null;
-  try { say = resultSayEvidence('week', N); } catch(e){ say = null; }
   return '<div class="modal-head"><h2 class="font-head">Week ' + N + ' Complete</h2></div>'+
     '<div class="modal-body rs-body">'+
       (wr.phase ? '<div class="rs-kick">'+escapeHtml(wr.phase)+'</div>' : '')+
@@ -54002,20 +54030,20 @@ function weekResultHtml(N){
       '<div class="rs-tone '+wr.tone.cls+'"><span class="rs-dot" aria-hidden="true"></span>'+escapeHtml(wr.tone.label)+'</div>'+
       /* One sentence (founder). The engine's own, until a written one passes:
          what the week was, or failing that what comes next. */
-      resultSayHtml(say, (wr.said || wr.head || wr.tone.label))+
+      resultSayHtml('week', N, (wr.said || wr.head || wr.tone.label))+
       '<button type="button" class="btn btn-primary btn-block rs-ok" data-action="result-ok">OK</button>'+
     '</div>';
 }
 function openSessionResult(dd){
   if (!dd) return false;
   openModal(sessionResultHtml(dd), 'modal-themed stg-sheet rs-sheet');
-  try { resultSayFetch('run', resultSayEvidence('run', dd)); } catch(e){}
+  try { resultSayFetch('run', dd); } catch(e){}
   return true;
 }
 function openWeekResult(N){
   if (!(N >= 1)) return false;
   openModal(weekResultHtml(N), 'modal-themed stg-sheet rs-sheet');
-  try { resultSayFetch('week', resultSayEvidence('week', N)); } catch(e){}
+  try { resultSayFetch('week', N); } catch(e){}
   return true;
 }
 /* ---------- WHEN ----------
@@ -62938,20 +62966,6 @@ function renderZoneBreakdown(weekNum){
     if (m === 60){ h += 1; m = 0; }
     return h > 0 ? (h+'h '+(m<10?'0':'')+m+'m') : (m+'m');
   };
-  var segs = meta.filter(function(m){ return pct[m.k]>0; }).map(function(m){
-    /* flex-grow, not width: width would make min-width:max-content a
-       conflict the browser resolves by overflowing. */
-    return '<div class="zbar-seg '+m.cls+'" style="flex-grow:'+pct[m.k]+'">'+
-      '<span class="zbar-k">'+pct[m.k]+'%, '+escapeHtml(zoneClock(zb.zones[m.k]))+'</span>'+
-    '</div>';
-  }).join('');
-  /* THE LEGEND LOSES ITS FIGURE. It was the only place the share was
-     stated; now the band states it, and the legend's job is to say which
-     colour is which. The same number twice is how two surfaces start
-     disagreeing. */
-  var legend = meta.filter(function(m){ return pct[m.k]>0; }).map(function(m){
-    return '<div class="zleg-item"><span class="zleg-dot '+m.cls+'"></span>'+m.label+'</div>';
-  }).join('');
   return '<div class="zone-card">'+
     /* THE FIGURE IS MONO, THE NOUN IS NOT. "4h 20m time-on-feet" was one
        monospace string, so the words were set in the data face -- which is
@@ -62962,8 +62976,17 @@ function renderZoneBreakdown(weekNum){
     '<div class="zone-head"><span class="font-head">Weekly Zone Breakdown</span>'+
       '<span class="zone-time-wrap"><span class="zone-time font-mono">'+totalH+'h '+(totalM<10?'0':'')+totalM+'m</span>'+
       '<span class="zone-time-k">time-on-feet</span></span></div>'+
-    '<div class="zbar">'+segs+'</div>'+
-    '<div class="zone-legend">'+legend+'</div>'+
+    /* THREE FIGURES, NO BAR (founder, choosing between the lit bar and a
+       mock of the numbers alone: "which do you prefer?" -- the numbers). A
+       1% band could not hold its own figure without bending the bar out of
+       scale, and the athlete reads "89% easy" faster than they judge a
+       band's width. Each zone with time in it: its share in its zone
+       colour, its time, and its name. A zone with no time is left out. */
+    '<div class="zcols">'+meta.filter(function(m){ return pct[m.k]>0; }).map(function(m){
+      return '<div class="zcol"><div class="zcol-pct font-head '+m.cls+'-ink">'+pct[m.k]+'%</div>'+
+        '<div class="zcol-time font-mono">'+escapeHtml(zoneClock(zb.zones[m.k]))+'</div>'+
+        '<div class="zcol-k">'+escapeHtml(m.label).replace('VO2max','VO<sub>2</sub>max')+'</div></div>';
+    }).join('')+'</div>'+
   '</div>';
 }
 
