@@ -29,6 +29,9 @@
 const V = require('./_voice.js');
 const ASK = require('./_voice-ask.js');
 const NOTE = require('./_voice-note.js');
+/* Coach Memory's pure rules: what a remembered line may be, and how it is
+   fenced as background. No database here either. */
+const MEM = require('./_coach-memory-lines.js');
 
 const EXPLAIN_MAX_TOKENS = 16000;   // thinking is drawn from this; not a target
 const EVIDENCE_MAX_CHARS = 6000;
@@ -87,7 +90,8 @@ const RULES = [
   '   such as "proceed as planned", "monitor the fatigue", "completed at easy intent" or',
   '   "the session did not do the job it was set for".',
   '7. Name days only as evidence names them (a date such as 17 Nov is fine; do not turn it',
-  '   into a weekday). A session can be named by what it is: "your 3x600m intervals".'
+  '   into a weekday). A session can be named by what it is: "your 3x600m intervals".',
+  '8. ' + MEM.SYSTEM_LINE + ' They are not evidence: rule 1 still holds.'
 ];
 const SYSTEM = {
   run: [
@@ -179,12 +183,18 @@ function validateExplain(raw, evidence){
   if (ev.kind === 'run' && paras.length > 3) return { ok: false, why: 'too_many_paragraphs' };
   return { ok: true, text: ev.kind === 'run' ? paras.join('\n\n') : text };
 }
-function explainPayload(cfg, kind, evidenceJson, noEffort){
+/* `memoryBlock` sits AFTER the evidence and outside it: it is not counted
+   against EVIDENCE_MAX_CHARS (a long run's evidence must not be refused because
+   the athlete has notes), and the number check in validateNote() reads only
+   the evidence -- so a figure that appears only in a remembered line is still
+   an invented figure if the paragraph states it. */
+function explainPayload(cfg, kind, evidenceJson, noEffort, memoryBlock){
   const payload = {
     model: cfg.noteModel || cfg.model,
     max_tokens: EXPLAIN_MAX_TOKENS,
     system: SYSTEM[kind],
-    messages: [{ role: 'user', content: 'evidence:\n' + evidenceJson + '\n\nWrite the paragraph.' }]
+    messages: [{ role: 'user', content: 'evidence:\n' + evidenceJson +
+                 (memoryBlock ? '\n\n' + memoryBlock : '') + '\n\nWrite the paragraph.' }]
   };
   if (!noEffort) payload.output_config = { effort: 'low' };
   return payload;
@@ -225,13 +235,21 @@ async function handle(req, res, deps){
     return none(res, 422, 'STRAVA_DERIVED_CONTEXT');
   }
 
+  /* Remembered lines as background: re-checked, at most eight, health lines
+     only when this evidence carries health information. */
+  let memoryBlock = '';
+  try {
+    memoryBlock = MEM.promptBlock(MEM.fenceForPacket(body.memory,
+      { health: evidence.healthInformation === 'included' }));
+  } catch (e) { memoryBlock = ''; }
+
   const started = Date.now();
   let resp;
   try {
-    resp = await postModel(cfg, explainPayload(cfg, kind, evidenceJson));
+    resp = await postModel(cfg, explainPayload(cfg, kind, evidenceJson, false, memoryBlock));
     if (resp && resp.status === 400){
       V.log('EXPLAIN retrying without effort');
-      resp = await postModel(cfg, explainPayload(cfg, kind, evidenceJson, true));
+      resp = await postModel(cfg, explainPayload(cfg, kind, evidenceJson, true, memoryBlock));
     }
   }
   catch (err){ V.log('EXPLAIN unreachable ' + ASK.transportFault(err)); return none(res, 502, 'coach_unavailable'); }

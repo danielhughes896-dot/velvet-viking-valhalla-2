@@ -79,8 +79,12 @@ test('every consolidated resource resolves, and nothing else does', () => {
   // reason: a subscription with no self-service cancellation is not a finished
   // product, and giving it a file of its own would have spent one of the twelve
   // on a route entry.
+  //
+  // PHASE 4 ADDS `coach-memory` (Coach Memory: read, keep and clear the
+  // coach's one-line notes), for the same reason again: it is a verified
+  // athlete acting on their own account, and a route entry costs no function.
   assert.deepEqual(account.ROUTES.slice().sort(),
-    ['account-data', 'account-delete', 'checkout', 'portal', 'preview', 'subscription']);
+    ['account-data', 'account-delete', 'checkout', 'coach-memory', 'portal', 'preview', 'subscription']);
   account.ROUTES.forEach(r => {
     assert.equal(account.resolveResource({ query: { resource: r } }), r);
     assert.equal(account.resolveResource({ url: '/api/account?resource=' + r }), r);

@@ -26,6 +26,11 @@ const V = require('./_voice.js');
    which is what stops the fallback becoming a second set of rules. */
 const PROTO = require('./_voice-protocol.js');
 const SSE = require('./_voice-sse.js');
+/* COACH MEMORY'S RULES, AND ONLY ITS RULES. A pure module: no table, no key,
+   no connection. The remembered lines arrive from the browser beside the
+   question, and are re-checked and fenced here as background before they go
+   anywhere -- this file still reads no database. */
+const MEM = require('./_coach-memory-lines.js');
 
 /* Named here, beside the only fetch that uses them, rather than in the shared
    module -- see the note in _voice.js. One file in api/ names a model. */
@@ -84,6 +89,7 @@ const SYSTEM = [
   '   in from a connected app -- say plainly that you cannot go through that one here and offer',
   '   what you CAN discuss. Never mention policies, providers, syncing or data rules; the athlete',
   '   wants their answer, not an explanation of your plumbing.',
+  '7. ' + MEM.SYSTEM_LINE,
   '',
   'HOW YOU SOUND. Warm, calm, direct, British. A serious coach talking to an adult athlete.',
   'Short: two or three sentences unless genuinely more is needed. No greetings, no sign-offs,',
@@ -184,12 +190,24 @@ async function handle(req, res){
     return V.json(res, 422, { error: 'context_refused', code: 'STRAVA_DERIVED_CONTEXT' });
   }
 
+  /* WHAT THE COACH REMEMBERS, AS BACKGROUND. At most eight lines, each
+     re-checked (length, no Strava, nothing shaped like an instruction), a
+     health line only when this conversation has health information at all,
+     and the whole block labelled as background in the message itself. Absent
+     or unusable, the question goes exactly as it always did. */
+  let memoryBlock = '';
+  try{
+    memoryBlock = MEM.promptBlock(MEM.fenceForPacket(body.memory,
+      { health: !!(context && context.healthDataAvailable === true) }));
+  }catch(e){ memoryBlock = ''; }
+
   /* THE BROWSER ASKS, THE SERVER DECIDES. A client that cannot read a stream
      never sends the header and is never sent one; a platform that cannot write
      one degrades inside readStreamed(). Both land on the same contract. */
   return askUpstream(res, cfg, contextJson, question, {
     receivedAt: receivedAt,
-    wantStream: clientWantsStream(req) && typeof res.write === 'function'
+    wantStream: clientWantsStream(req) && typeof res.write === 'function',
+    memoryBlock: memoryBlock
   });
 }
 
@@ -408,6 +426,7 @@ async function askUpstream(res, cfg, contextJson, question, opts){
     system: SYSTEM,
     messages: [{ role: 'user',
                  content: 'My training context:\n' + contextJson +
+                          (opts.memoryBlock ? '\n\n' + opts.memoryBlock : '') +
                           '\n\nMy question: ' + question }]
   };
   /* Effort low rather than thinking disabled: a short conversational answer
@@ -471,7 +490,7 @@ async function askUpstream(res, cfg, contextJson, question, opts){
          whole thing the athlete waited for rather than only the second half. */
       return askUpstream(res, cfg, contextJson, question,
                          { noEffort: true, receivedAt: opts.receivedAt,
-                           wantStream: opts.wantStream });
+                           wantStream: opts.wantStream, memoryBlock: opts.memoryBlock });
     }
     return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_UPSTREAM' });
   }

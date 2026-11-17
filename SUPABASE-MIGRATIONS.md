@@ -25,6 +25,7 @@ dependency shows up.
 | 10 | `supabase-security-posture.sql` | InitPlan policy rewrite, service-only assertions, definer search paths, `rls_auto_enable()` |
 | 11 | `supabase-health-consent.sql` | `health_data_consent` — the append-only explicit-consent record for health and readiness information |
 | 12 | `supabase-circles.sql` | Circles: `circles`, `circle_members`, `circle_invites`, `circle_days`, `circle_cheers`, `circle_sharing_log` — a private group of 2 to 8 that sees whether each member did their own plan; consent recorded on joining, everything else through checked functions |
+| 13 | `supabase-coach-memory.sql` | `coach_memory` — Coach Memory's one-line notes (a decision, a conversation or a flag; at most 200 characters; never Strava). Owner reads only; written and cleared only by the server; newest 100 kept |
 
 Applied in this order against an empty database plus the Supabase substrate
 (`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles, and the default
@@ -75,6 +76,24 @@ with RLS on, and asserts its own posture (every circle policy for signed-in
 users only and scoped to the caller or their circle, no client writes to
 membership, invites, Nice work or the consent log, every circle function on
 the empty search path and closed to the anonymous key).
+
+File 13 is Coach Memory (Phase 4). It follows the posture of 11 and 12: after
+10, row-level security on in the statement after the table exists, and a
+closing block that refuses — *"Nothing has been changed."* — if RLS is off, if
+any policy other than the owner's SELECT exists, if a policy reaches beyond
+signed-in users or is not scoped to the caller, if the browser roles hold
+INSERT/UPDATE/DELETE (or the anonymous key SELECT) at the GRANT layer, if a
+line check is missing, or if the prune function is callable or unpinned. There
+is deliberately no client write policy of any kind: the server builds every
+line from a fixed sentence or the athlete's own question and checks it
+(`api/_coach-memory-lines.js`), and "Clear memory" is a server call scoped to
+the verified uid, the same one account deletion makes. The line checks are in
+the table too (1–200 characters, one line, never the word Strava, one of three
+kinds), so a server bug cannot store what the rules forbid. The app treats a
+missing table as "nothing kept", so the code can ship before this file is
+applied; nothing is kept until it is. Proved by acting as people:
+`tools/db-proof/run.sh supabase-coach-memory.sql tools/db-proof/coach-memory-proof.sql`,
+and it is in `full-chain.sh`, after which file 10 re-runs cleanly.
 
 ## Deployment parameters
 
@@ -134,6 +153,10 @@ every thing the rules forbid, and deletes the cluster.
 
 - `tools/db-proof/run.sh supabase-circles.sql tools/db-proof/circles-proof.sql`
   proves circles on its own.
+- `tools/db-proof/run.sh supabase-coach-memory.sql tools/db-proof/coach-memory-proof.sql`
+  proves Coach Memory on its own: the owner reads only their own lines, no
+  browser write gets through even with the grants put back, the line checks
+  refuse, only the newest 100 are kept, and the lines go with the account.
 - `tools/db-proof/full-chain.sh` rebuilds the whole order above (the two
   operator placeholders get throwaway test values in a temporary copy, never
   in these files), applies circles, re-runs file 10 after it, and proves

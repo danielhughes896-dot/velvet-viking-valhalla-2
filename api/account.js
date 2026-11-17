@@ -55,7 +55,14 @@ const ROUTES = {
   portal:           require('./_portal.js'),
   /* Phase 3 commercial entry. Both mount here rather than as new functions --
      the plan allows twelve and the router is what it is for. */
-  preview:          require('./_preview.js')
+  preview:          require('./_preview.js'),
+  /* COACH MEMORY. The athlete reading, keeping and clearing their own coach's
+     notes: a verified athlete acting on their own account, which is what this
+     router is for, and a route entry rather than one of the twelve functions.
+     Mounted here rather than on the voice router because reading and clearing
+     must keep working when the voice coach is switched off -- the notes are
+     the athlete's whatever the deployment's switches say. */
+  'coach-memory':   require('./_coach-memory.js')
 };
 
 /* Which resource is being asked for, resolved from the request rather than

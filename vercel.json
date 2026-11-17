@@ -23,6 +23,7 @@
     { "src": "/api/preview", "dest": "/api/account?resource=preview" },
     { "src": "/api/account-data", "dest": "/api/account?resource=account-data" },
     { "src": "/api/account-delete", "dest": "/api/account?resource=account-delete" },
+    { "src": "/api/coach-memory", "dest": "/api/account?resource=coach-memory" },
 
     { "src": "/api/strava-auth", "dest": "/api/strava?route=strava-auth" },
     { "src": "/api/strava-callback", "dest": "/api/strava?route=strava-callback" },

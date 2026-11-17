@@ -34,10 +34,19 @@ sides of the bridge, and a test holds each side.
 | Stage | Processor | Leaves the device? | Persisted? | Logged? | Consent | On failure |
 |---|---|---|---|---|---|---|
 | **Raw microphone audio** | Android's **on-device** recogniser only, via `VvvSpeechPlugin` | **No** — the networked recogniser is refused, not preferred-against | No. Sacoro never opens an audio stream; `onBufferReceived` is deliberately empty | No | Runtime `RECORD_AUDIO`, asked at the press | No transcript; typed path remains |
-| **Transcript** | Sacoro, in the WebView | Only as the question text, to Sacoro's own server | **No** — held in memory for the exchange, never written to `localStorage` or the plan | **No** — never in logcat, never in a server log | Shown to the athlete before it is sent | Athlete retypes or edits |
+| **Transcript** | Sacoro, in the WebView | Only as the question text, to Sacoro's own server | **No** — held in memory for the exchange, never written to `localStorage` or the plan. **Exception, only if the athlete turns on Coach Memory:** after a real answer, the question is kept as one line ("Asked: …", at most 200 characters) in `coach_memory` — see below | **No** — never in logcat, never in a server log | Shown to the athlete before it is sent | Athlete retypes or edits |
+| **Coach Memory** (off by default) | Sacoro's server (`/api/coach-memory`), Supabase | Yes — to Sacoro's own server and database; read back to the model as background | **Yes, if turned on:** one line per decision or question in `coach_memory`, newest 100 kept, readable and clearable in Settings, deleted with the account, health lines erased on request, included in the account export | No — counts and fixed reason codes only | Its own consent sheet; health lines only with health consent; nothing from Strava; run notes never stored verbatim | Nothing kept; Ask Coach answers as it would without memory |
 | **Model context** | Assembled in the browser, sent to `/api/voice-ask` | Yes — HTTPS to Sacoro, then to Anthropic | No | No — server logs carry fixed reason codes and counts only | Health fields omitted entirely without consent; Strava-derived evidence excluded by provenance | Refused, athlete keeps written coaching |
 | **Model response** | Anthropic (`claude-opus-5-5`) | Returns over HTTPS | No | No — only a character count | — | Human message, written coaching untouched |
 | **Spoken output** | Android `TextToSpeech` (`@capacitor-community/text-to-speech`) or the browser's own synthesiser | **No** — local engine, no cloud TTS anywhere in the repo | No | No | — | Text is shown instead |
+
+**Remembered lines reach the model as background, never instructions.** At
+most eight, re-checked on the server (length, no Strava, nothing shaped like an
+instruction, health lines only when the conversation has health information),
+placed after the training context under a label that says so, and named in the
+system prompt as background only. Neither `_voice-ask.js` nor `_voice-explain.js`
+reads the table: the browser sends the lines, and the pure rules in
+`api/_coach-memory-lines.js` fence them.
 
 **Anthropic receives text only.** No audio, in any encoding, reaches the model
 endpoint — asserted by test against both the plugin and the server module.

@@ -12456,6 +12456,12 @@
   .z-threshold-ink{color:var(--z-threshold); text-shadow:0 0 14px rgba(228,105,122,.35);}
   .z-interval-ink{color:var(--z-interval); text-shadow:0 0 14px rgba(242,193,78,.35);}
   @media (max-width:360px){ .zcol-pct{font-size:1.625rem;} .zcol-time{font-size:.8125rem;} }
+  /* COACH MEMORY. The consent sheet's paragraphs, and the kept notes as a
+     plain list in the sheet's own hint type -- no new type size. */
+  .stg-sheet .cm-para{margin-top:10px;}
+  .cm-notes{list-style:none; margin:12px 0 0; padding:0; display:flex; flex-direction:column; gap:8px;}
+  .cm-note{margin:0;}
+  .cm-note-day{opacity:.7; margin-right:4px; white-space:nowrap;}
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -32063,6 +32069,8 @@ function cloudSignOut(){
   entitlementInfo = null;
   lastEntitlementAt = 0;
   circle = circleFresh();
+  /* The coach's notes belong to the account that is leaving. */
+  coachMemoryReset();
   cloudSession = null;
   landingDismissed = false;   // the next arrival is a new arrival
   writeStored(CLOUD_SESSION_KEY, null);
@@ -33597,7 +33605,11 @@ function makeDefaultState(){
        value. Nobody has been asked, so nobody has agreed, and an account
        arriving from any earlier build has no key here and lands in exactly
        the same place. See HEALTH AND READINESS INFORMATION above. */
-    healthConsent:null
+    healthConsent:null,
+    /* COACH MEMORY, OFF. null is "never asked", and reads exactly as off:
+       nothing is kept until the athlete turns it on through the consent
+       sheet. See COACH MEMORY below. */
+    coachMemory:null
   };
 }
 
@@ -52979,6 +52991,7 @@ function handleAcceptEvolution(shownId){
      audit record one level up from the per-day guard above. */
   if (!applied.length){ renderApp(); return; }
   recordEvolution(ev, true, applied);
+  coachMemoryNoteDecision('week_change_accepted');
   state.evolution = { declinedHash:null, lastAcceptedHash:ev.evidenceHash,
                       acceptedEvidence:ev.evidenceSignature || null, declinedEvidence:null,
                       answeredMissed:evolutionUsefulMissedIds() };
@@ -53010,6 +53023,7 @@ function handleDeclineEvolution(shownId){
                                                          : ((state.evolution||{}).declinedEvidence || null),
                       answeredMissed:evolutionUsefulMissedIds() };
   recordEvolution(ev, false, []);
+  coachMemoryNoteDecision('week_change_declined');
   flushSave();
   renderApp();
   showToast('Keeping the current plan');
@@ -53997,7 +54011,7 @@ function resultSayFetch(kind, x){
     return fetch('/api/voice-explain', {
       method:'POST',
       headers:{ 'content-type':'application/json', 'accept':'application/json', 'Authorization':'Bearer '+cloudSession.access_token },
-      body: JSON.stringify({ kind: kind, evidence: ev })
+      body: JSON.stringify(coachMemoryWithPacket({ kind: kind, evidence: ev }))
     });
   }).then(function(resp){ return (resp && resp.ok) ? resp.json() : null; })
   .then(function(d){
@@ -54298,6 +54312,7 @@ function handleCoachAccept(dayId){
     : resolveDescForReducedDistance(dd.desc, adj.km);
   if (adj.kind==='downgrade') dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:adj.km } };
   else rescaleOrDropPrescription(dd, adj.km);
+  coachMemoryNoteDecision('session_eased');
   flushSave();
   renderApp();
   sacoroHaptic('firm');
@@ -55596,6 +55611,12 @@ function handleWeeklyAnswer(accept){
   if (!p) return;
   if (p.rv.kind === 'recovery' && accept === true && p.picked) accept = p.picked;
   var rec = answerWeeklyReview(p.rv, accept);
+  /* The athlete's answer is a choice worth remembering, if memory is on. */
+  if (rec && p.rv.kind === 'recovery')
+    coachMemoryNoteDecision(rec.choice === 'reload' ? 'recovery_taken'
+      : rec.choice === 'hold' ? 'recovery_held' : 'recovery_declined');
+  else if (rec && p.rv.kind === 'progress')
+    coachMemoryNoteDecision(accept ? 'progression_accepted' : 'progression_declined');
   if (rec && p.rv.kind === 'recovery'){
     scheduleSave();
     renderApp();
@@ -55746,6 +55767,7 @@ function handleCoachKeep(dayId){
   if (!dd) return;
   dd.coachKeptAt = new Date().toISOString();   // suppress the prompt for this day
   flushSave();
+  coachMemoryNoteDecision('session_kept');
   renderApp();
   showToast('Keeping the original session');
 }
@@ -57912,6 +57934,7 @@ function handleAcceptPlaybook(shownId){
     answeredMissed: evolutionUsefulMissedIds()
   };
   recordPlaybookDecision(prop, 'accepted');
+  coachMemoryNoteDecision(prop.decision==='PROGRESS' ? 'progression_accepted' : 'session_eased');
   flushSave();
   renderApp();
   sacoroHaptic('firm');
@@ -57941,6 +57964,7 @@ function handleDeclinePlaybook(shownId){
     answeredMissed: evolutionUsefulMissedIds()
   };
   recordPlaybookDecision(prop, 'declined');
+  coachMemoryNoteDecision('week_change_declined');
   flushSave();
   renderApp();
   showToast('Keeping the current plan');
@@ -61365,6 +61389,9 @@ function handleRestrictionConfirm(){
   restrictionDraft = null;
   closeModal();
   if (!r){ showToast('That could not be recorded'); return; }
+  /* Remembered only when it starts, only with health consent, and never what
+     the problem is -- the sheet does not ask, so neither does the note. */
+  if (!open) coachMemoryNoteFlag('restriction_started');
   flushSave();
   renderApp();
   var n = (r.applied && (r.applied.rested + r.applied.eased)) || 0;
@@ -61376,6 +61403,7 @@ function handleRestrictionEnd(){
   closeModal();
   var r = endRestriction();
   if (!r){ showToast('There was nothing to end'); return; }
+  coachMemoryNoteFlag('restriction_ended');
   flushSave();
   renderApp();
   showToast(r.restored
@@ -71234,6 +71262,9 @@ function voiceSetAvailable(on){
   /* Availability is learned after the first render, so the note is asked
      for here as well as there. Once per body of evidence either way. */
   if (voiceCoachAvailable){ try { coachNoteMaybeFetch(); } catch(e){} }
+  /* And what the coach remembers, if the athlete asked it to: fetched once
+     here so the first question already carries it. A no-op when off. */
+  if (voiceCoachAvailable){ try { coachMemoryLoad(); } catch(e){} }
 }
 /* ---------- ASKING, ONCE, WHICHEVER WAY TODAY WAS REACHED ----------
 
@@ -71282,6 +71313,300 @@ function voiceCheckAvailability(){
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ voiceSetAvailable(d && d.enabled); return voiceCoachAvailable; })
     .catch(function(){ voiceSetAvailable(false); return false; });
+}
+
+/* =========================================================
+   COACH MEMORY -- WHAT THE COACH REMEMBERS, ONLY IF ASKED TO
+   ---------------------------------------------------------
+   Founder, approving Phase 4: a short note of what the athlete and the coach
+   talked about and the choices the athlete made ("Declined the extra run,
+   week 5"), read back to the coach as BACKGROUND so it does not ask the same
+   thing twice and can pick up where the two of them left off.
+
+   OFF UNTIL THE ATHLETE TURNS IT ON. state.coachMemory starts null, which
+   reads as off, exactly as state.healthConsent's null reads as not agreed.
+   Turning it on shows the founder-approved sheet first, word for word, and
+   only Turn On on that sheet records the decision.
+
+   WHAT THIS SIDE DOES, AND WHAT IT LEAVES TO THE SERVER.
+     * It asks to keep a line by sending a CODE (a decision or a flag) or the
+       athlete's own question. It never sends the line itself: the server
+       builds every line from a fixed sentence or from the question, checks
+       it, and decides whether to keep it (api/_coach-memory-lines.js).
+     * It holds what it was last told in memory only -- never localStorage --
+       because these are notes about a person and this device may be shared.
+     * It puts at most eight lines beside an Ask Coach question or a result
+       panel request, where the server fences them again as background.
+
+   THREE THINGS IT REFUSES BEFORE ASKING.
+     * Strava. A decision taken while any Strava evidence exists is not kept:
+       the engine does not record which runs moved it, so the decision cannot
+       be shown to be free of Strava Data, and a remembered line goes back to
+       a model (the same reasoning as voiceAdjustmentIndependent()). A question
+       about a Strava session, or one that names Strava, is not kept either.
+     * A run note. A question that quotes the athlete's own notes is not kept,
+       so free-text notes never become a stored line by being pasted.
+     * Health, without consent. A flag (injury or illness) is only asked for
+       while health consent is on, and the server checks its own record too.
+
+   FAILS CLOSED AND QUIETLY. Signed out, voice coach off, offline, the table
+   not created yet, a request that fails: nothing is kept, nothing is read,
+   and Ask Coach carries on exactly as it would without memory. No toast, no
+   retry, no error the athlete has to understand. */
+var COACH_MEMORY_VERSION = 'coach_memory_v1';
+var COACH_MEMORY_PACKET_MAX = 8;
+/* The founder-approved wording, held once as data like HEALTH_CONSENT_COPY:
+   it is what the athlete agrees to, so a change to it is a change to the
+   consent and shows up as one. */
+var COACH_MEMORY_COPY = {
+  title: 'Coach Memory',
+  ask:   'Let your coach remember?',
+  what:  'With this on, your coach keeps a short note of what you talk about and the choices you make, '+
+         'such as turning down an extra run. It won’t ask you the same thing twice, and it can pick up '+
+         'where you left off.',
+  kept:  'Each note is one line, kept in your SACORO account and seen only by you and your coach. '+
+         'Nothing from Strava is ever kept. Pain, illness and other health details are kept only if '+
+         'you’ve agreed to health data use. You can read or clear the notes here at any time, and '+
+         'they’re deleted with your account.',
+  off:   'It’s off until you turn it on.',
+  switchLabel: 'Coach remembers our conversations'
+};
+var coachMemoryCache = { loaded:false, available:false, lines:[], packet:[] };
+function coachMemoryReset(){ coachMemoryCache = { loaded:false, available:false, lines:[], packet:[] }; }
+
+function coachMemoryDecision(){
+  var c = state && state.coachMemory;
+  return (c && typeof c === 'object') ? c : null;
+}
+/* THE ATHLETE'S CHOICE. Agreed against this wording, or it does not count --
+   the same version rule as health consent. */
+function coachMemoryOn(){
+  var c = coachMemoryDecision();
+  return !!(c && c.on === true && c.version === COACH_MEMORY_VERSION);
+}
+/* THE CHOICE, AND EVERYTHING ELSE IT NEEDS: an account to keep the notes in,
+   and a coach to read them. Every read and every write asks this. */
+function coachMemoryActive(){
+  return coachMemoryOn() && cloudSignedIn() && !!voiceCoachAvailable;
+}
+/* The Settings row appears where there is a coach to remember for -- and for
+   an athlete who already turned it on, whatever the deployment says now, so
+   notes already kept can always be read and cleared. */
+function coachMemoryRowVisible(){ return !!voiceCoachAvailable || coachMemoryOn(); }
+
+function coachMemoryRequest(method, body){
+  if (typeof fetch !== 'function' || !cloudSignedIn()) return Promise.resolve(null);
+  return cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh || !cloudSession || !cloudSession.access_token) return null;
+    var init = { method: method,
+      headers: { 'accept':'application/json', 'Authorization':'Bearer '+cloudSession.access_token } };
+    if (body){ init.headers['content-type'] = 'application/json'; init.body = JSON.stringify(body); }
+    return fetch('/api/coach-memory', init);
+  }).then(function(r){ return (r && r.ok) ? r.json() : null; })
+  .catch(function(){ return null; });
+}
+function coachMemoryApply(d){
+  if (!d || typeof d !== 'object') return;
+  if (Array.isArray(d.lines)) coachMemoryCache.lines = d.lines.slice(0, 100);
+  if (Array.isArray(d.packet)) coachMemoryCache.packet = d.packet.slice(0, COACH_MEMORY_PACKET_MAX);
+  if (d.available !== undefined) coachMemoryCache.available = !!d.available;
+  coachMemoryCache.loaded = true;
+}
+/* `force` is the Settings sheet: reading what is kept is the athlete's right
+   whether or not the coach is switched on. */
+function coachMemoryLoad(force){
+  if (!force && !coachMemoryActive()) return Promise.resolve(null);
+  return coachMemoryRequest('GET').then(function(d){ coachMemoryApply(d); return d; });
+}
+
+/* WHAT GOES BESIDE THE QUESTION. Nothing unless memory is active; at most
+   eight; only the three fields the server reads. */
+function coachMemoryPacket(){
+  if (!coachMemoryActive()) return [];
+  return (coachMemoryCache.packet || []).filter(function(it){
+    return it && typeof it.line === 'string' && it.line.length > 0 && it.line.length <= 200;
+  }).slice(0, COACH_MEMORY_PACKET_MAX).map(function(it){
+    return { date: it.date || null, kind: it.kind, line: it.line };
+  });
+}
+
+/* The request body, with `memory` added only when there is something to
+   carry. With Coach Memory off the body is byte-for-byte what it was. */
+function coachMemoryWithPacket(body){
+  var packet = [];
+  try { packet = coachMemoryPacket(); } catch(e){ packet = []; }
+  if (packet.length) body.memory = packet;
+  return body;
+}
+function coachMemoryKeep(entry){
+  if (!coachMemoryActive() || !entry) return Promise.resolve(false);
+  var body = { action:'record', consent: COACH_MEMORY_VERSION, day: todayStr(),
+               healthConsent: healthConsentGranted(), kind: entry.kind };
+  if (entry.code) body.code = entry.code;
+  if (entry.week) body.week = entry.week;
+  if (entry.question) body.question = entry.question;
+  return coachMemoryRequest('POST', body).then(function(d){
+    if (d && d.stored && Array.isArray(d.packet))
+      coachMemoryCache.packet = d.packet.slice(0, COACH_MEMORY_PACKET_MAX);
+    return !!(d && d.stored);
+  });
+}
+function coachMemoryWeek(){
+  var n = null;
+  try { n = currentWeekNum(); } catch(e){ n = null; }
+  return (typeof n === 'number' && n >= 1 && n <= 99) ? n : null;
+}
+
+/* An engine decision the athlete made: kept as a fixed sentence, by code. */
+function coachMemoryNoteDecision(code){
+  if (!coachMemoryActive()) return;
+  var strava = true;
+  try { strava = voiceHasStravaEvidence(); } catch(e){ strava = true; }
+  if (strava) return;
+  coachMemoryKeep({ kind:'decision', code: code, week: coachMemoryWeek() });
+}
+/* Something the athlete told the app about their body. Health, always. */
+function coachMemoryNoteFlag(code){
+  if (!coachMemoryActive() || !healthConsentGranted()) return;
+  coachMemoryKeep({ kind:'flag', code: code, week: coachMemoryWeek() });
+}
+
+/* DOES THIS QUESTION QUOTE A RUN NOTE. Free-text notes are never stored
+   verbatim, and pasting one into Ask Coach must not be the way round that.
+   Compared as plain lower-case words, by whole note and by 24-character
+   stretches of a longer one. */
+function coachMemoryPlain(s){
+  return String(s || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function coachMemoryQuotesRunNote(question){
+  var q = coachMemoryPlain(question);
+  if (q.length < 12) return false;
+  var days = (state && state.days) || [];
+  for (var i = 0; i < days.length; i++){
+    var a = days[i] && days[i].actual;
+    var n = coachMemoryPlain(a && a.notes);
+    if (n.length < 12) continue;
+    if (q.indexOf(n) !== -1 || (q.length >= 20 && n.indexOf(q) !== -1)) return true;
+    for (var j = 0; j + 24 <= n.length; j += 8){
+      if (q.indexOf(n.slice(j, j + 24)) !== -1) return true;
+    }
+  }
+  return false;
+}
+/* An Ask Coach exchange: kept as the athlete's own question, after a real
+   answer from the coach -- never after a local or declined one, and never the
+   answer itself. */
+function coachMemoryNoteConversation(question, d){
+  if (!coachMemoryActive()) return;
+  if (!d || d.declined || !d.answer || d.source === ASK_SOURCE_LOCAL) return;
+  var q = String(question || '').trim();
+  if (!q || /strava/i.test(q)) return;
+  try { if (askRequiresStravaSession(q)) return; } catch(e){ return; }
+  if (coachMemoryQuotesRunNote(q)) return;
+  coachMemoryKeep({ kind:'conversation', question: q });
+}
+
+/* ---------- SETTINGS ---------- */
+function coachMemorySwitchHtml(){
+  var signed = cloudSignedIn();
+  var on = signed && coachMemoryOn();
+  return '<label class="switch"><input type="checkbox" data-action="toggle-coach-memory" '+
+    'aria-label="'+escapeHtml(COACH_MEMORY_COPY.switchLabel)+'"'+(on?' checked':'')+(signed?'':' disabled')+'>'+
+    '<span class="switch-track"></span></label>';
+}
+function coachMemoryRowHtml(){
+  if (!coachMemoryRowVisible()) return '';
+  var sub = !cloudSignedIn() ? 'Needs a SACORO account. Sign in to turn it on'
+    : coachMemoryOn() ? 'On. Coach remembers our conversations'
+    : 'Let your coach remember our conversations';
+  return stgRow({ id:'coach-memory-row', title:COACH_MEMORY_COPY.title, sub:sub, chevron:false,
+    attrs:'data-action="open-coach-memory"',
+    trail:'<span class="stg-row-switch">'+coachMemorySwitchHtml()+'</span>' });
+}
+/* The consent sheet, exactly as approved. */
+function coachMemoryConsentBody(){
+  return '<div class="stg-sheet-say">'+escapeHtml(COACH_MEMORY_COPY.ask)+'</div>'+
+    '<div class="field-hint">'+escapeHtml(COACH_MEMORY_COPY.what)+'</div>'+
+    '<div class="field-hint cm-para">'+escapeHtml(COACH_MEMORY_COPY.kept)+'</div>'+
+    '<div class="field-hint cm-para">'+escapeHtml(COACH_MEMORY_COPY.off)+'</div>'+
+    '<div class="stg-sheet-acts">'+
+      '<button type="button" class="btn btn-ghost" data-action="close-stg-sheet">Not Now</button>'+
+      '<button type="button" class="btn btn-primary" data-action="coach-memory-turn-on">Turn On</button>'+
+    '</div>';
+}
+/* What is kept, and the way to forget it. Reachable whether memory is on or
+   off, so notes kept before the athlete turned it off are never stranded. */
+function coachMemorySheetBody(){
+  if (!cloudSignedIn()){
+    return '<div class="stg-sheet-say">Coach Memory needs a SACORO account.</div>'+
+      '<div class="field-hint">Sign in under Account &amp; Backup, then turn it on here.</div>'+
+      '<div class="stg-sheet-acts"><button type="button" class="btn btn-ghost" data-action="close-stg-sheet">Close</button></div>';
+  }
+  var on = coachMemoryOn();
+  var lines = coachMemoryCache.lines || [];
+  var list = lines.length
+    ? '<ul class="cm-notes">'+lines.map(function(n){
+        var day = /^\d{4}-\d{2}-\d{2}$/.test(String(n.day || '')) ? dShort(n.day) : '';
+        return '<li class="field-hint cm-note">'+(day ? '<span class="cm-note-day">'+escapeHtml(day)+'</span> ' : '')+
+          escapeHtml(String(n.line || ''))+'</li>';
+      }).join('')+'</ul>'
+    : '<div class="field-hint cm-para">'+(coachMemoryCache.loaded ? 'Nothing is kept.' : 'Reading your notes.')+'</div>';
+  return '<div class="stg-sheet-say">'+(on ? 'What your coach remembers' : 'Coach Memory is off')+'</div>'+
+    (on ? '' : '<div class="field-hint">Your coach is not keeping notes. Anything kept before stays here until you clear it.</div>')+
+    list+
+    '<div class="stg-sheet-acts">'+
+      (lines.length
+        ? '<button type="button" class="btn btn-ghost" data-action="coach-memory-clear">Clear Memory</button>'
+        : '<button type="button" class="btn btn-ghost" data-action="close-stg-sheet">Close</button>')+
+      (on ? '' : '<button type="button" class="btn btn-primary" data-action="open-stg-sheet" data-sheet="memoryconsent">Turn On</button>')+
+    '</div>';
+}
+function openCoachMemorySheet(){
+  openStgSheet('memory');
+  if (!cloudSignedIn()) return;
+  coachMemoryLoad(true).then(function(){
+    if (stgSheetOpen('memory')) openStgSheet('memory');
+  });
+}
+function coachMemoryRedrawRow(){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  var row = document.getElementById('coach-memory-row');
+  if (row) row.outerHTML = coachMemoryRowHtml();
+}
+/* THE SWITCH ASKS, THE SHEET DECIDES. Ticking it never turns memory on by
+   itself: the box is put back, and the consent sheet is shown. Unticking it
+   turns memory off at once -- stopping must always cost one tap. */
+function handleCoachMemoryToggle(checked, el){
+  if (checked){
+    if (el) el.checked = false;
+    if (!cloudSignedIn()){ showToast('Coach Memory needs a SACORO account. Sign in first'); return; }
+    openStgSheet('memoryconsent');
+    return;
+  }
+  state.coachMemory = { version: COACH_MEMORY_VERSION, on:false, decidedAt: new Date().toISOString() };
+  coachMemoryCache.packet = [];
+  flushSave();
+  coachMemoryRedrawRow();
+  showToast('Coach Memory is off. Notes already kept stay until you clear them');
+}
+function handleCoachMemoryTurnOn(){
+  if (!cloudSignedIn()){ closeModal(); showToast('Coach Memory needs a SACORO account. Sign in first'); return; }
+  state.coachMemory = { version: COACH_MEMORY_VERSION, on:true, decidedAt: new Date().toISOString() };
+  flushSave();
+  openStgSheetKey = null;
+  closeModal();
+  coachMemoryRedrawRow();
+  showToast('Coach Memory is on. You can read or clear the notes in Settings');
+  coachMemoryLoad();
+}
+function handleCoachMemoryClear(){
+  return coachMemoryRequest('POST', { action:'clear' }).then(function(d){
+    if (!d){ showToast('That could not be cleared just now. Please try again'); return false; }
+    coachMemoryCache.lines = []; coachMemoryCache.packet = []; coachMemoryCache.loaded = true;
+    if (stgSheetOpen('memory')) openStgSheet('memory');
+    showToast('Cleared. Your coach has forgotten every note');
+    return true;
+  });
 }
 
 /* status: closed | listening | thinking | answered | error */
@@ -72235,7 +72560,11 @@ function askSend(question, opts){
       headers:{ 'content-type':'application/json',
                 'accept': canStream ? 'application/x-ndjson, application/json' : 'application/json',
                 'Authorization':'Bearer '+cloudSession.access_token },
-      body: JSON.stringify({ question:q, context:ctx })
+      /* What the coach remembers goes BESIDE the context, never inside it:
+         the server fences it as background and re-checks every line. Absent
+         unless the athlete turned Coach Memory on, so with it off the request
+         is exactly the one it always was. */
+      body: JSON.stringify(coachMemoryWithPacket({ question:q, context:ctx }))
     });
   }).then(function(resp){
     var ct = String((resp.headers && resp.headers.get && resp.headers.get('content-type')) || '');
@@ -72275,6 +72604,9 @@ function askSend(question, opts){
                          source: d.source || ASK_SOURCE_CLOUD,
                          incomplete: d.incomplete === true });
     askAnnounceAnswer(d.answer);
+    /* A real answer from the coach: keep the question, if memory is on. Never
+       the answer, and never in the way -- it is fire-and-forget. */
+    try { coachMemoryNoteConversation(q, d); } catch(eM){}
     if (askSpeech){
       /* THE STREAMED PATH IS ALREADY SPEAKING. All that is left is the last
          sentence, and only if the turn actually finished.
@@ -73166,6 +73498,7 @@ function handleVoiceAskOpen(){
      state a coach has. */
   voiceStop();
   askSet('open', { heard:'', answer:'', message:'', proposalDayId:null });
+  if (coachMemoryActive() && !coachMemoryCache.loaded){ try { coachMemoryLoad(); } catch(e){} }
 }
 
 /* =========================================================
@@ -80577,6 +80910,10 @@ function appInstalledVersionLine(){
 var STG_SHEETS = {
   name:          { title:'Your Name',      body:function(){ return athleteNameSheetBody(); } },
   voice:         { title:'Coach Voice',    body:function(){ return renderCoachVoiceRow(); } },
+  /* Coach Memory: the founder-approved consent sheet, and the notes behind
+     the row (what is kept, and Clear Memory). Both titled as approved. */
+  memoryconsent: { title:'Coach Memory',   body:function(){ return coachMemoryConsentBody(); } },
+  memory:        { title:'Coach Memory',   body:function(){ return coachMemorySheetBody(); } },
   signout:       { title:'Sign Out',       body:function(){ return signOutSheetBody(); },       back:'account' },
   deleteaccount: { title:'Delete Account', body:function(){ return deleteAccountSheetBody(); }, back:'account' }
 };
@@ -81196,6 +81533,10 @@ function renderSettingsHubView(){
   var prefs =
     renderAthleteNameRow()+
     coachVoiceHubRow()+
+    /* BESIDE THE COACH'S VOICE, because it is the other thing about how the
+       coach talks to you. Drawn only where there is a coach to remember for
+       (or the athlete already turned it on). */
+    coachMemoryRowHtml()+
     renderNotifyToggleRow()+
     stgRow({ title:'Distance Units',
       sub: state.units === 'mi' ? 'Miles' : 'Kilometres',
@@ -83884,6 +84225,7 @@ document.addEventListener('click', function(e){
     case 'expand-accept': {
       var xd = parseInt(target.getAttribute('data-day'), 10);
       if (acceptAvailabilityExpansion(xd)){
+        coachMemoryNoteDecision('extra_day_accepted');
         var rebuilt = false;
         try { rebuilt = rebuildFutureForSchedule(); } catch(eR){ rebuilt = false; }
         showToast(rebuilt ? 'Added. Your plan uses it from your next sessions; everything you have logged stays as it is'
@@ -83893,6 +84235,7 @@ document.addEventListener('click', function(e){
     }
     case 'expand-decline':
       declineAvailabilityExpansion();
+      coachMemoryNoteDecision('extra_day_declined');
       showToast('Kept as it is. Nothing changes for your training');
       closeModal(); scheduleSave(); renderApp(); break;
     case 'set-experience': handleSetExperience(target.getAttribute('data-experience')); break;
@@ -84034,6 +84377,9 @@ document.addEventListener('click', function(e){
     case 'cloud-sign-out': cloudSignOut(); break;
     case 'cloud-delete-account': handleCloudDeleteAccount(); break;
     case 'open-stg-sheet': openStgSheet(target.getAttribute('data-sheet')); break;
+    case 'open-coach-memory': openCoachMemorySheet(); break;
+    case 'coach-memory-turn-on': handleCoachMemoryTurnOn(); break;
+    case 'coach-memory-clear': handleCoachMemoryClear(); break;
     case 'close-stg-sheet': closeStgSheet(); break;
     case 'stg-sign-out': closeModal(); cloudSignOut(); renderApp(); break;
     case 'cloud-delete-account-confirmed': closeModal(); handleCloudDeleteAccount(true); break;
@@ -84099,6 +84445,8 @@ document.addEventListener('change', function(e){
      action names rather than one, because a checkbox fires both events and a
      single name would record the decision twice. */
   else if (action === 'toggle-health-consent') handleHealthConsentDecision(!!actionEl.checked);
+  /* Ticking asks (the consent sheet); unticking turns it off at once. */
+  else if (action === 'toggle-coach-memory') handleCoachMemoryToggle(!!actionEl.checked, actionEl);
   if (action === 'actual-field' || action === 'log-slide' || action === 'split-field' || action === 'slog-field')
     markLogEdited(actionEl.getAttribute('data-day'));
 });

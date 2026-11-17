@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Rebuild the WHOLE schema on a disposable Postgres, in the documented order,
-# then prove circles on top of it. The two operator placeholders get throwaway
+# then prove circles on top of it (coach memory is applied in the chain too, and
+# proved on its own by coach-memory-proof.sql). The two operator placeholders get throwaway
 # test values in a temporary copy only; the repository files are not touched.
 #   tools/db-proof/full-chain.sh
 set -euo pipefail
@@ -17,7 +18,7 @@ owner=f0000000-0000-0000-0000-00000000000f
            supabase-trial-via-provider.sql supabase-operational-view-provider-trial.sql \
            supabase-security-posture.sql supabase-health-consent.sql \
            supabase-account-agreements.sql supabase-circles.sql \
-           supabase-security-posture.sql; do
+           supabase-coach-memory.sql supabase-security-posture.sql; do
     cat "$root/$f"; echo
   done
 } > "$out"

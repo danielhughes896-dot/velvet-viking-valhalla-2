@@ -24,6 +24,7 @@
 
 const S = require('./_strava.js');
 const A = require('./_access.js');
+const M = require('./_coach-memory.js');
 
 function log(what){ try{ console.log('account-data: ' + what); }catch(e){} }
 
@@ -71,18 +72,30 @@ async function handle(req, res){
 
   const ent = await A.readEntitlement(S, cfg, who.uid);
 
+  /* THE COACH'S NOTES ARE PART OF WHAT IS HELD, so they are part of what is
+     exported. A deployment that has not created the table yet holds none and
+     says so; a table that exists and cannot be read is an incomplete export,
+     and an incomplete export is refused rather than handed over looking
+     whole. */
+  const mem = await M.listForUser(S, cfg, who.uid, { limit: 1000 });
+  if (!mem.ok){
+    log('MEMORY_READ_FAILED');
+    return S.json(res, 503, { error: 'unavailable', code: 'MEMORY_UNREADABLE' });
+  }
+
   /* An athlete with no cloud copy is not an error -- plenty of athletes have
      never signed in on a second device. The export says so rather than
      failing, so "I exported and got nothing" can never be confused with "the
      export is broken". */
-  log('EXPORTED plan=' + (row ? 'yes' : 'none'));
+  log('EXPORTED plan=' + (row ? 'yes' : 'none') + ' memory=' + mem.rows.length);
   return S.json(res, 200, {
     exported_at: new Date().toISOString(),
     account: { email: who.email || null },
     entitlement: entitlementSummary(ent.ok ? ent.row : null),
     plan: row ? row.data : null,
     plan_updated_at: row ? row.updated_at : null,
-    plan_present: !!row
+    plan_present: !!row,
+    coach_memory: mem.rows.map(M.publicRow)
   });
 };
 

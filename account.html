@@ -654,7 +654,10 @@
           entitlement: b.entitlement,
           account_plan: b.plan,
           account_plan_updated_at: b.plan_updated_at,
-          this_device_plan: localPlan()
+          this_device_plan: localPlan(),
+          /* The coach's notes, if Coach Memory was ever on: part of what the
+             account holds, so part of what the export carries. */
+          coach_memory: b.coach_memory || []
         }, null, 2));
         say('msg3', 'Export saved.', 'ok');
       });

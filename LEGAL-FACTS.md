@@ -349,6 +349,7 @@ foreign keys reference `auth.users`:
 | `circle_members` | CASCADE |
 | `circle_invites` | CASCADE |
 | `circle_sharing_log` | CASCADE |
+| `coach_memory` | CASCADE |
 
 **Website can safely state:**
 - Deleting an account removes the athlete's training plan, every staged
@@ -376,6 +377,18 @@ foreign keys reference `auth.users`:
   The circle itself holds only its name and no reference to any person, so the
   remaining members keep their circle. When the last member's account goes,
   the circle, its name and its invites are deleted too.
+- **Coach Memory** (`supabase-coach-memory.sql`, migration 13; **not yet
+  applied to production** at the commit that added it). Off until the athlete
+  turns it on through its own consent sheet. When on, the coach keeps one-line
+  notes (at most 200 characters) of decisions the athlete made in the app and
+  of the questions they asked Ask Coach — never the coach's answers, never run
+  notes verbatim, never anything from Strava, and pain, illness or other health
+  details only with health-data consent. The athlete can read them and clear
+  them in Settings at any time; they are included in the account export;
+  deleting the account deletes them; a health-data erasure request deletes
+  every line marked as health. Only the newest 100 are kept. On account
+  deletion the server also deletes them explicitly, so the promise does not
+  rest on the cascade alone.
 
 ---
 
