@@ -158,7 +158,7 @@ test('duplicate training days are de-duplicated, not counted twice', () => {
 //
 // The trial takes a payment method upfront and converts to the interval the
 // athlete chose, so there is no separate trial endpoint any more: Checkout
-// creates a real subscription with fourteen free days.
+// creates a real subscription with free days.
 // ---------------------------------------------------------------------------
 test('the standalone trial endpoint is gone, not merely unrouted', () => {
   assert.equal(fs.existsSync(path.join(ROOT, 'api/_trial.js')), false);

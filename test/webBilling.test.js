@@ -89,8 +89,8 @@ function fakeStripe(){
     return Object.assign({
       id: 'sub_1', customer: 'cus_1', status: 'trialing',
       metadata: { vvv_account_id: ATHLETE, vvv_offer: 'STANDARD_MONTHLY', vvv_period: 'monthly' },
-      trial_start: secs(T0), trial_end: secs(T0 + days(14)),
-      current_period_start: secs(T0), current_period_end: secs(T0 + days(14)),
+      trial_start: secs(T0), trial_end: secs(T0 + days(Prod.TRIAL_DAYS)),
+      current_period_start: secs(T0), current_period_end: secs(T0 + days(Prod.TRIAL_DAYS)),
       cancel_at_period_end: false, canceled_at: null,
       items: { data: [{ price: { recurring: { interval: 'month' } } }] }
     }, over || {});

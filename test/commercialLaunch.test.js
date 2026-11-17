@@ -177,7 +177,7 @@ test('an athlete with no entitlement is offered both prices and a way to start',
   assert.ok(buys(html), 'no way to subscribe was offered');
   assert.match(html, /sub-offers/, 'the prices were not shown');
   assert.match(html, /£11\.99/);
-  assert.match(html, /£89\.99/);
+  assert.match(html, /£79\.99/);
   assert.match(html, /free trial/i);
   assert.ok(!/Subscribe again/.test(html), 'somebody who never subscribed was told to do it again');
 });

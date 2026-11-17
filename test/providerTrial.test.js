@@ -12,7 +12,7 @@ const Stripe = require('../api/_stripe.js');
 // It was card-free and needed a representation of its own. HQ replaced it with
 // a trial that takes a payment method upfront and converts automatically to the
 // interval the athlete chose. That makes it an ordinary provider subscription
-// with fourteen free days, and the canonical model already handled those --
+// with free days, and the canonical model already handled those --
 // so this change is a subtraction, and these tests guard the subtraction.
 
 const ROOT = path.join(__dirname, '..');
