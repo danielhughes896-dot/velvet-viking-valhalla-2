@@ -115,52 +115,66 @@ async function main(){
   // -------------------------------------------------------------------------
   head('PRICES — what the catalogue asks for, and what Stripe holds');
   // -------------------------------------------------------------------------
+  /* EACH OFFER IS ITS OWN TRY. call() lets a network failure (no route to
+     api.stripe.com, a DNS refusal, a dropped connection) escape as a thrown
+     exception rather than the {ok:false} shape every other refusal here takes
+     -- correctly: that is not Stripe answering "no", it is nobody answering at
+     all, and call() cannot tell that apart from a bug in the caller. Left
+     unguarded, the FIRST offer to hit it would abort main() entirely and take
+     every later section down with it -- including ones that need no network at
+     all, like whether --session was paired with --live-readonly. One offer's
+     unreachable network is reported as a FAIL for that offer, not a crash for
+     the whole probe. */
   for (const offerCode of Object.keys(Prod.OFFERS)){
-    const offer = Prod.offer(offerCode);
-    const envName = Prod.providerRefEnvName(P.PROVIDER, offerCode);
-    const resolved = P.priceFor(offerCode, process.env);
+    try{
+      const offer = Prod.offer(offerCode);
+      const envName = Prod.providerRefEnvName(P.PROVIDER, offerCode);
+      const resolved = P.priceFor(offerCode, process.env);
 
-    if (!resolved.ok){
-      bad(offerCode, envName + ' → ' + resolved.code);
-      continue;
-    }
-    const got = await P.call(cfg, 'GET', '/prices/' + encodeURIComponent(resolved.priceId), null);
-    if (!got.ok){
-      bad(offerCode, resolved.priceId + ' → ' + got.code);
-      continue;
-    }
-    const price = got.data;
-    const wantInterval = offer.billingPeriod === 'yearly' ? 'year' : 'month';
-    const problemsBefore = problems;
+      if (!resolved.ok){
+        bad(offerCode, envName + ' → ' + resolved.code);
+        continue;
+      }
+      const got = await P.call(cfg, 'GET', '/prices/' + encodeURIComponent(resolved.priceId), null);
+      if (!got.ok){
+        bad(offerCode, resolved.priceId + ' → ' + got.code);
+        continue;
+      }
+      const price = got.data;
+      const wantInterval = offer.billingPeriod === 'yearly' ? 'year' : 'month';
+      const problemsBefore = problems;
 
-    if (price.active !== true) bad(offerCode + ' price is not active', resolved.priceId);
-    if (!price.recurring) bad(offerCode + ' price is not recurring', resolved.priceId);
-    else if (price.recurring.interval !== wantInterval)
-      bad(offerCode + ' interval is ' + price.recurring.interval, 'catalogue says ' + wantInterval);
-    if (String(price.currency).toUpperCase() !== offer.currency)
-      bad(offerCode + ' currency is ' + String(price.currency).toUpperCase(), 'catalogue says ' + offer.currency);
+      if (price.active !== true) bad(offerCode + ' price is not active', resolved.priceId);
+      if (!price.recurring) bad(offerCode + ' price is not recurring', resolved.priceId);
+      else if (price.recurring.interval !== wantInterval)
+        bad(offerCode + ' interval is ' + price.recurring.interval, 'catalogue says ' + wantInterval);
+      if (String(price.currency).toUpperCase() !== offer.currency)
+        bad(offerCode + ' currency is ' + String(price.currency).toUpperCase(), 'catalogue says ' + offer.currency);
 
-    /* A MISMATCHED AMOUNT IS NOT AUTOMATICALLY WRONG. The provider charges and
-       the provider's amount is the true one; the catalogue figure is what a
-       screen renders and what agreed_price_minor records. They SHOULD agree,
-       and an athlete told £11.99 and charged something else is the failure --
-       but this reports rather than refuses, because deciding which of the two
-       is correct is a commercial decision and not a script's. */
-    if (price.unit_amount !== offer.priceMinor){
-      bad(offerCode + ' amount is ' + price.unit_amount + ' minor units',
-          'catalogue renders ' + offer.priceMinor + ' — an athlete would be shown one and charged the other');
+      /* A MISMATCHED AMOUNT IS NOT AUTOMATICALLY WRONG. The provider charges and
+         the provider's amount is the true one; the catalogue figure is what a
+         screen renders and what agreed_price_minor records. They SHOULD agree,
+         and an athlete told £11.99 and charged something else is the failure --
+         but this reports rather than refuses, because deciding which of the two
+         is correct is a commercial decision and not a script's. */
+      if (price.unit_amount !== offer.priceMinor){
+        bad(offerCode + ' amount is ' + price.unit_amount + ' minor units',
+            'catalogue renders ' + offer.priceMinor + ' — an athlete would be shown one and charged the other');
+      }
+      /* A TRIAL ON THE PRICE IS A SECOND SOURCE OF TRUTH. Valhalla sets
+         trial_period_days on the Checkout Session so the trial length has one
+         origin: TRIAL_DAYS in api/_products.js. A Price that also carries a trial
+         can silently win, and then the trial length is whatever a dashboard says. */
+      if (price.recurring && price.recurring.trial_period_days != null){
+        bad(offerCode + ' price carries its own trial of ' + price.recurring.trial_period_days + ' days',
+            'the trial belongs on the Checkout Session, from TRIAL_DAYS — remove it from the Price');
+      }
+      if (problems === problemsBefore)
+        ok(offerCode, resolved.priceId + '  ' + price.unit_amount + ' ' +
+           String(price.currency).toUpperCase() + '/' + price.recurring.interval);
+    }catch(e){
+      bad(offerCode + ' could not be checked', (e && e.code) || (e && e.message) || 'unexpected_error');
     }
-    /* A TRIAL ON THE PRICE IS A SECOND SOURCE OF TRUTH. Valhalla sets
-       trial_period_days on the Checkout Session so the fourteen days have one
-       origin: TRIAL_DAYS in api/_products.js. A Price that also carries a trial
-       can silently win, and then the trial length is whatever a dashboard says. */
-    if (price.recurring && price.recurring.trial_period_days != null){
-      bad(offerCode + ' price carries its own trial of ' + price.recurring.trial_period_days + ' days',
-          'the trial belongs on the Checkout Session, from TRIAL_DAYS — remove it from the Price');
-    }
-    if (problems === problemsBefore)
-      ok(offerCode, resolved.priceId + '  ' + price.unit_amount + ' ' +
-         String(price.currency).toUpperCase() + '/' + price.recurring.interval);
   }
 
   // -------------------------------------------------------------------------
@@ -188,67 +202,77 @@ async function main(){
   // version in play does not render them there, period_end is written null and
   // an active subscriber resolves to 'expired' -- a paying athlete locked out.
   // -------------------------------------------------------------------------
+  /* Guarded for the same reason the PRICES loop is: an unreachable network
+     must not abort main() and take the sections after it down too. */
   let accountVersion = null;
-  const acct = await P.call(cfg, 'GET', '/account', null);
-  if (!acct.ok){
-    info('could not read the account', acct.code + ' (restricted key? not fatal)');
+  try{
+    const acct = await P.call(cfg, 'GET', '/account', null);
+    if (!acct.ok){
+      info('could not read the account', acct.code + ' (restricted key? not fatal)');
+    }
+    /* The version an ordinary REST call actually renders in, asked the only way
+       that cannot be wrong: make one and read the header back. */
+    const verProbe = await versionOfARealCall(cfg);
+    if (verProbe){ accountVersion = verProbe; info('version our REST calls receive', verProbe); }
+    else info('version our REST calls receive', '(header not exposed by this client)');
+  }catch(e){
+    bad('could not determine the API version', (e && e.code) || (e && e.message) || 'unexpected_error');
   }
-  /* The version an ordinary REST call actually renders in, asked the only way
-     that cannot be wrong: make one and read the header back. */
-  const verProbe = await versionOfARealCall(cfg);
-  if (verProbe){ accountVersion = verProbe; info('version our REST calls receive', verProbe); }
-  else info('version our REST calls receive', '(header not exposed by this client)');
 
   head('WEBHOOK ENDPOINT');
   // -------------------------------------------------------------------------
   const NEEDED = ['customer.subscription.created',
                   'customer.subscription.updated',
                   'customer.subscription.deleted'];
-  const eps = await P.call(cfg, 'GET', '/webhook_endpoints', null);
-  if (!eps.ok){
-    bad('could not list webhook endpoints', eps.code);
-  } else {
-    const list = (eps.data && eps.data.data) || [];
-    if (!list.length) bad('no webhook endpoint is configured in this Stripe account');
-    list.forEach(function(ep){
-      const isOurs = /\/api\/billing-webhook$/.test(String(ep.url || ''));
-      const events = ep.enabled_events || [];
-      const all = events.indexOf('*') !== -1;
-      const missing = NEEDED.filter(function(e){ return !all && events.indexOf(e) === -1; });
-      if (!isOurs){ info('other endpoint (ignored)', ep.url); return; }
-      if (ep.status !== 'enabled') bad('endpoint is ' + ep.status, ep.url);
-      else if (missing.length) bad('endpoint is missing events', ep.url + '  → ' + missing.join(', '));
-      else ok('endpoint', ep.url + '  [' + (all ? '* (all events)' : NEEDED.length + ' required events present') + ']');
-      /* Subscribing to everything is not a failure, but it is worth saying:
-         Stripe emits well over a hundred types and the endpoint answers 200 and
-         ignores all but three, so the extra deliveries are pure noise in the
-         Stripe dashboard's retry view. */
-      if (all) info('note', 'this endpoint receives every event type; only the three above are read');
+  try{
+    const eps = await P.call(cfg, 'GET', '/webhook_endpoints', null);
+    if (!eps.ok){
+      bad('could not list webhook endpoints', eps.code);
+    } else {
+      const list = (eps.data && eps.data.data) || [];
+      if (!list.length) bad('no webhook endpoint is configured in this Stripe account');
+      list.forEach(function(ep){
+        const isOurs = /\/api\/billing-webhook$/.test(String(ep.url || ''));
+        const events = ep.enabled_events || [];
+        const all = events.indexOf('*') !== -1;
+        const missing = NEEDED.filter(function(e){ return !all && events.indexOf(e) === -1; });
+        if (!isOurs){ info('other endpoint (ignored)', ep.url); return; }
+        if (ep.status !== 'enabled') bad('endpoint is ' + ep.status, ep.url);
+        else if (missing.length) bad('endpoint is missing events', ep.url + '  → ' + missing.join(', '));
+        else ok('endpoint', ep.url + '  [' + (all ? '* (all events)' : NEEDED.length + ' required events present') + ']');
+        /* Subscribing to everything is not a failure, but it is worth saying:
+           Stripe emits well over a hundred types and the endpoint answers 200 and
+           ignores all but three, so the extra deliveries are pure noise in the
+           Stripe dashboard's retry view. */
+        if (all) info('note', 'this endpoint receives every event type; only the three above are read');
 
-      /* THE VERSION THIS ENDPOINT RENDERS IN, against the version our own REST
-         calls get. Different values mean the pushed and pulled routes are being
-         handed different object shapes, which is the assumption Phase 2 is
-         built on being false. */
-      const epVersion = ep.api_version || null;
-      info('endpoint renders payloads in', epVersion || '(account default)');
-      if (epVersion && accountVersion && epVersion !== accountVersion){
-        bad('the webhook and our REST calls use DIFFERENT API versions',
-            'webhook ' + epVersion + ' vs REST ' + accountVersion +
-            ' -- one translation is being handed two shapes');
-      }
+        /* THE VERSION THIS ENDPOINT RENDERS IN, against the version our own REST
+           calls get. Different values mean the pushed and pulled routes are being
+           handed different object shapes, which is the assumption Phase 2 is
+           built on being false. */
+        const epVersion = ep.api_version || null;
+        info('endpoint renders payloads in', epVersion || '(account default)');
+        if (epVersion && accountVersion && epVersion !== accountVersion){
+          bad('the webhook and our REST calls use DIFFERENT API versions',
+              'webhook ' + epVersion + ' vs REST ' + accountVersion +
+              ' -- one translation is being handed two shapes');
+        }
 
-      /* Events the endpoint sends that this implementation does not read. Not a
-         failure: billing-webhook.js answers 200 and ignores anything that is
-         not customer.subscription.*, which is correct and stops Stripe
-         retrying. Reported so the configuration and the code are known to
-         disagree deliberately rather than by accident. */
-      const unread = events.filter(function(e){
-        return e !== '*' && !/^customer\.subscription\./.test(e);
+        /* Events the endpoint sends that this implementation does not read. Not a
+           failure: billing-webhook.js answers 200 and ignores anything that is
+           not customer.subscription.*, which is correct and stops Stripe
+           retrying. Reported so the configuration and the code are known to
+           disagree deliberately rather than by accident. */
+        const unread = events.filter(function(e){
+          return e !== '*' && !/^customer\.subscription\./.test(e);
+        });
+        if (unread.length)
+          info('configured but not read', unread.join(', ') +
+               '  (acknowledged with 200 and ignored -- the subscription object is authoritative)');
       });
-      if (unread.length)
-        info('configured but not read', unread.join(', ') +
-             '  (acknowledged with 200 and ignored -- the subscription object is authoritative)');
-    });
+    }
+  }catch(e){
+    bad('could not list webhook endpoints', (e && e.code) || (e && e.message) || 'unexpected_error');
   }
 
   // -------------------------------------------------------------------------

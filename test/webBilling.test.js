@@ -49,7 +49,23 @@ const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 const ATHLETE = '11111111-1111-4111-8111-111111111111';
 const OTHER   = '22222222-2222-4222-8222-222222222222';
-const T0 = Date.UTC(2026, 8, 1, 12, 0, 0);
+/* ANCHORED TO WHEN THE SUITE RUNS, NOT TO A CALENDAR DATE.
+ *
+ * A fixed date here (this used to be a literal 1 September 2026) is a clock
+ * this file does not control racing the one that decides real access: every
+ * subscription created in this file goes through the REAL webhook and the
+ * REAL /api/checkout, /api/subscription routes, and those resolve entitlement
+ * against `new Date()` when nothing more specific is supplied (see
+ * Store.syncEntitlementRow()'s default, called with no `now` from the webhook
+ * path) -- correctly, because a production webhook arriving today must be
+ * judged against today. A T0 fixed months in the past means every trial this
+ * file starts has ALREADY ENDED by the time that real clock reads it, and the
+ * suite starts reporting "expired" in place of "trial" the day the gap between
+ * T0 and whoever is running the tests exceeds the trial length -- which is
+ * exactly what shortening the trial from fourteen days to seven did to a
+ * literal September anchor. Tying T0 to Date.now() means the gap is always
+ * the few minutes this test file takes to run, never months. */
+const T0 = Date.now();
 const secs = ms => Math.floor(ms / 1000);
 const days = n => n * 24 * 3600 * 1000;
 
