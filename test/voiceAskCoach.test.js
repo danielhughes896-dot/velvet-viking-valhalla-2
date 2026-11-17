@@ -296,7 +296,7 @@ test('the client defaults to unavailable and only the server can open it', () =>
 });
 
 test('the model id is pinned in one place', () => {
-  assert.equal(V.VOICE_MODEL, 'claude-opus-5');
+  assert.equal(V.VOICE_MODEL, 'claude-opus-5-5');
   const runtimeCode = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ');
   assert.ok(!/claude-|opus|sonnet/i.test(runtimeCode),
     'a model name reached the file served to the browser');
@@ -349,11 +349,12 @@ test('the narrator and the speech layer reach no endpoint', () => {
 // THE MODEL IDENTIFIER
 // ---------------------------------------------------------------------------
 test('the pinned model id is the verified production identifier', () => {
-  /* Verified 2026-08-26 against platform.claude.com/docs/en/about-claude/
-     models/overview.md: Claude API ID `claude-opus-5`, 1M context, 128K max
-     output, adaptive thinking, $5/$25 per MTok, retirement not sooner than
-     2027-07-24. Pinned as a dateless snapshot -- no date suffix belongs on it. */
-  assert.equal(V.VOICE_MODEL, 'claude-opus-5');
+  /* Claude Opus 5.5, API ID `claude-opus-5-5`: 1M context, 128K max output,
+     thinking always adaptive (effort is the only control), forced tool_choice
+     and sampling parameters rejected -- none of which this request uses.
+     $4/$20 per MTok. Moved from `claude-opus-5` on 2026-11-17. Pinned as a
+     dateless id -- no date suffix belongs on it. */
+  assert.equal(V.VOICE_MODEL, 'claude-opus-5-5');
   assert.ok(!/\d{8}/.test(V.VOICE_MODEL),
     'a date suffix was appended to a dateless pinned id');
 });

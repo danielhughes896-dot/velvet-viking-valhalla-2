@@ -16,7 +16,10 @@ const S = require('./_strava.js');
    exactly one file in api/ names a model endpoint. A constant here would have
    made this shared module look like a second call site to that check, and to a
    reader. */
-const VOICE_MODEL = 'claude-opus-5';
+/* Ask Coach (and the Coach's Note). Moved from Opus 5 to Opus 5.5 at the
+   founder's word, 17 November 2026: same request shape (one user turn, no
+   thinking setting, effort low, no tools), and cheaper per token. */
+const VOICE_MODEL = 'claude-opus-5-5';
 /* THE ROUTINE WRITING MODEL (the coach's word on a finished run or week).
    Its own setting so Ask Coach and the routine summaries can be priced
    separately; VVV_NOTE_MODEL overrides it. Chosen by a side-by-side test of

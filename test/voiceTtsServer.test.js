@@ -453,7 +453,7 @@ test('the voice router serves speech alongside Ask Coach, on one function', () =
 test('Ask Coach was not touched by the speech change', () => {
   const ask = fs.readFileSync(path.join(ROOT, 'api', '_voice-ask.js'), 'utf8');
   assert.ok(!/elevenlabs/i.test(ask), 'the speech vendor leaked into the Ask Coach path');
-  assert.equal(V.VOICE_MODEL, 'claude-opus-5', 'the Ask Coach model changed');
+  assert.equal(V.VOICE_MODEL, 'claude-opus-5-5', 'the Ask Coach model changed');
 });
 
 test('the speech route holds no Strava or health surface at all', () => {

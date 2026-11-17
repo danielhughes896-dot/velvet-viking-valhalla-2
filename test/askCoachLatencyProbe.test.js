@@ -186,7 +186,7 @@ test('askTimings degrades rather than throwing when a stage never happened', () 
 // 2. NOTHING ELSE CHANGED — the point of the whole exercise
 // ---------------------------------------------------------------------------
 test('the model, effort and token ceiling are untouched', () => {
-  assert.equal(V.VOICE_MODEL, 'claude-opus-5');
+  assert.equal(V.VOICE_MODEL, 'claude-opus-5-5');
   assert.match(ASK_SRC, /output_config = \{ effort: 'low' \}/, 'effort changed');
   assert.match(ASK_SRC, /const VOICE_MAX_TOKENS = 16000;/, 'the token ceiling changed');
   /* STREAMING ARRIVED IN A LATER, SEPARATE PASS. This used to assert that it

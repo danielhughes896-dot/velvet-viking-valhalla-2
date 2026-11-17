@@ -36,7 +36,7 @@ sides of the bridge, and a test holds each side.
 | **Raw microphone audio** | Android's **on-device** recogniser only, via `VvvSpeechPlugin` | **No** — the networked recogniser is refused, not preferred-against | No. Sacoro never opens an audio stream; `onBufferReceived` is deliberately empty | No | Runtime `RECORD_AUDIO`, asked at the press | No transcript; typed path remains |
 | **Transcript** | Sacoro, in the WebView | Only as the question text, to Sacoro's own server | **No** — held in memory for the exchange, never written to `localStorage` or the plan | **No** — never in logcat, never in a server log | Shown to the athlete before it is sent | Athlete retypes or edits |
 | **Model context** | Assembled in the browser, sent to `/api/voice-ask` | Yes — HTTPS to Sacoro, then to Anthropic | No | No — server logs carry fixed reason codes and counts only | Health fields omitted entirely without consent; Strava-derived evidence excluded by provenance | Refused, athlete keeps written coaching |
-| **Model response** | Anthropic (`claude-opus-5`) | Returns over HTTPS | No | No — only a character count | — | Human message, written coaching untouched |
+| **Model response** | Anthropic (`claude-opus-5-5`) | Returns over HTTPS | No | No — only a character count | — | Human message, written coaching untouched |
 | **Spoken output** | Android `TextToSpeech` (`@capacitor-community/text-to-speech`) or the browser's own synthesiser | **No** — local engine, no cloud TTS anywhere in the repo | No | No | — | Text is shown instead |
 
 **Anthropic receives text only.** No audio, in any encoding, reaches the model
