@@ -588,7 +588,7 @@ test('ACTIONS: New Block and Plan Settings moved to Settings; Checkpoint has no 
   assert.match(settingsHtml, /data-action="open-settings-panel" data-panel="training"/,
     'Settings has no Training & Zones destination');
   assert.match(a.hqPanelHtml('training'),
-    /data-action="open-setup"[^>]*>[\s\S]{0,400}?Edit Plan Settings/,
+    /data-action="open-setup"[^>]*>[\s\S]{0,400}?Update Plan/,
     'Plan Settings is not reachable from Settings');
   assert.match(CODE, /case 'open-new-block':/, 'open-new-block is not handled');
   assert.match(CODE, /case 'open-setup':/, 'open-setup is not handled');
@@ -599,7 +599,9 @@ test('TRIO: NEW BLOCK reaches the engine’s own block-transition journey', () =
   const panel = a.ACTION_PANELS.newblock();
   assert.match(panel, /<h2 class="font-head">New Block<\/h2>/);
   assert.match(panel, /Current block/);
-  assert.match(panel, /data-action="open-setup"/, 'the builder is not reachable from it');
+  /* Through the new-block door (founder: a new block is not a rebuild of
+     the old one; it starts at week 1 and the old block becomes history). */
+  assert.match(panel, /data-action="open-new-block-setup"/, 'the builder is not reachable from it');
   // Where the engine has a recommendation it is offered with the engine's own
   // handler; where it does not, the panel says so instead of showing nothing.
   const rec = a.nextBlockRecommendation();
@@ -620,7 +622,7 @@ test('TRIO: PLAN SETTINGS goes to the plan editor the product already calls that
   assert.match(a.renderSettingsHubView(),
     /data-action="open-settings-panel" data-panel="training"/);
   assert.match(a.hqPanelHtml('training'),
-    /data-action="open-setup"[^>]*>[\s\S]{0,600}?Edit Plan Settings/,
+    /data-action="open-setup"[^>]*>[\s\S]{0,600}?Update Plan/,
     'Edit Plan Settings does not fire open-setup');
   /* Through stgOpenSub(), so closing the editor returns to Training & Zones. */
   assert.match(CODE, /case 'open-setup': stgOpenSub\(openSetupModal\);/);
