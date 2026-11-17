@@ -19,7 +19,7 @@ const RUN_EV = {
   session: { type: 'Long Run', title: 'Long Run', planned: '13km' },
   logged: { distance: '13km', pace: '5:37 /km', time: null, effort: '4/10' },
   execution: '100%',
-  verdict: { tone: 'neutral', label: 'Building Baseline', line: '13km completed at easy intent.' },
+  verdict: { tone: 'neutral', label: 'Learning Your Running', line: '13km completed at easy intent.' },
   noticed: 'Easy discipline held exactly where it was set.', next: 'Keep 17 Nov’s Sharpen: 6x100m Strides genuinely easy.'
 };
 const withTone = tone => Object.assign({}, RUN_EV, { verdict: Object.assign({}, RUN_EV.verdict, { tone }) });
@@ -41,7 +41,7 @@ test('the checker passes a plain coach paragraph and refuses what a coach would 
 /* Found by the side-by-side test of Haiku 5.5 and Sonnet 5.5 on 49 packets:
    most first-round paragraphs repeated the engine's sentences, and one model
    called a too-quick easy run "exactly the job of this run". */
-const FAST_EV = Object.assign({}, RUN_EV, { verdict: { tone: 'neutral', label: 'Building Baseline',
+const FAST_EV = Object.assign({}, RUN_EV, { verdict: { tone: 'neutral', label: 'Learning Your Running',
   line: '12km completed at easy intent. Pace ran quicker than the easy window. The discipline to hold back is what makes the hard days work.' } });
 test('a paragraph that copies the engine, or drops what the verdict flagged, is refused', () => {
   assert.equal(X.validateExplain('13km completed at easy intent. Keep 17 Nov’s Sharpen: 6x100m Strides genuinely easy.', RUN_EV).why, 'copied_engine');
