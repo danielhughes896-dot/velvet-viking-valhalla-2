@@ -50,8 +50,24 @@ test('the sign-in route consults no allowlist at all', () => {
   const src = code(read('api/beta-signin.js'));
   assert.ok(!/beta_allowlist/.test(src), 'the sign-in route still reads the allowlist');
   assert.ok(!/isApproved/.test(src), 'the allowlist reader survives');
-  assert.ok(!/not_in_beta/.test(src), 'the sign-in route can still answer not_in_beta');
   assert.ok(!/beta_email_approved|is_beta_approved/.test(src));
+  /* not_in_beta MAY BE ANSWERED AGAIN, BUT ONLY WHEN THE SWITCH IS OFF
+     (founder, 18 November 2026: "make it as if it's ready to go", built as a
+     public sign-up switch in the database, supabase-public-signup.sql). It is
+     never this route's own judgement of an address: it is GoTrue reporting
+     that the database's trigger refused the new account, said as what it
+     means, and only while the switch is not known to be on. The bug this file
+     guards against -- the route refusing an address the database would admit
+     -- cannot come back through it, because the route only ever repeats a
+     refusal the database has already made. */
+  const answers = src.match(/not_in_beta/g) || [];
+  assert.equal(answers.length, 1, 'not_in_beta is answered from more than one place');
+  const at = src.indexOf("error: 'not_in_beta'");
+  const before = src.slice(Math.max(0, at - 400), at);
+  assert.match(before, /Signup\.isNewUserRefusal\(upstream\)/, 'not_in_beta is answered without GoTrue having refused the account');
+  assert.match(before, /if \(open !== true\)/, 'not_in_beta is answered while public sign-up is on');
+  assert.ok(src.indexOf('Signup.isNewUserRefusal(upstream)') > src.indexOf("'/auth/v1/otp"),
+    'the refusal is decided before GoTrue has been asked');
 });
 
 test('a brand-new address is not refused by anything this route decides', () => {
@@ -65,7 +81,11 @@ test('a brand-new address is not refused by anything this route decides', () => 
      sign-in built and HIDDEN until configured). It refuses an OAuth provider
      the deployment has not switched on (VVV_AUTH_PROVIDERS), which is about
      the request, never about who the athlete is. */
-  const permitted = ['method_not_allowed', 'unavailable', 'bad_email', 'send_failed', 'provider_disabled'];
+  /* not_in_beta ADDED (founder, 18 November 2026, the public sign-up switch):
+     the database's own refusal repeated, only while the switch is off. See
+     the test above; it is the one refusal that is not about the request, and
+     it is not this route's decision. */
+  const permitted = ['method_not_allowed', 'unavailable', 'bad_email', 'send_failed', 'provider_disabled', 'not_in_beta'];
   codes.forEach((c) => assert.ok(permitted.indexOf(c) !== -1,
     'the sign-in route gained a refusal that is not about the request: ' + c));
 });
@@ -149,6 +169,15 @@ test('the sign-in route cannot write an entitlement of any kind', () => {
     'the sign-in route writes to Supabase');
   const calls = (src.match(/S\.sb\(/g) || []).length;
   assert.equal(calls, 0, 'the sign-in route still queries Supabase directly');
+  /* THE ONE READ, since the public sign-up switch (founder, 18 November
+     2026): the switch itself, through _signup.js, for wording. One table,
+     GET only, nothing about any account. */
+  const sw = code(read('api/_signup.js'));
+  assert.equal((sw.match(/S\.sb\(/g) || []).length, 1);
+  assert.match(sw, /'\/signup_settings\?select=public_signup&id=eq\.1&limit=1'/);
+  assert.ok(!/method|PATCH|POST|PUT|DELETE/.test(sw), 'the switch reader writes');
+  ['entitlements', 'entitlement_grants', 'account_commercial', 'subscriptions', 'beta_allowlist']
+    .forEach((t) => assert.ok(sw.indexOf(t) === -1, 'the switch reader touches ' + t));
 });
 
 // ---------------------------------------------------------------------------

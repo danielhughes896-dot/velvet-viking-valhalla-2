@@ -3,8 +3,25 @@
 // the browser cannot interpret.
 //
 //   POST { email, redirect } -> 200 { sent:true }
-//   GET                      -> 200 { providers: { email, apple, google } }
+//   GET                      -> 200 { providers: { email, apple, google },
+//                                     public_signup: true | false | null }
 //   POST { provider, redirect } -> 200 { url }  (Apple / Google, when enabled)
+//
+// PUBLIC SIGN-UP IS A SWITCH IN THE DATABASE (founder, 18 November 2026: "It's
+// on Vercel so only I can send it to people. So make it as if it's ready to
+// go."). public.signup_settings.public_signup, installed by
+// supabase-public-signup.sql, is read by the BEFORE INSERT trigger on
+// auth.users: on, any address may become an account; off, only addresses on
+// the beta allowlist may. THIS ROUTE DOES NOT ENFORCE IT and does not read the
+// allowlist, for the reason below: the trigger is the only place an account
+// is created, so it is the only place the rule can live without a second copy
+// that disagrees. The route reads the switch (_signup.js) for two things only:
+// GET tells the app whether to speak of a private beta, and, while the switch
+// is OFF, a refusal GoTrue reports as "Database error saving new user" is the
+// closed gate itself and is answered 403 not_in_beta, so the athlete reads the
+// private-beta sentence rather than "the email service isn't responding".
+// While it is ON that refusal cannot be the gate, and is classified like any
+// other provider failure.
 //
 // APPLE AND GOOGLE (founder, 18 November 2026: "build all three, with Apple
 // and Google HIDDEN until configured"). Supabase OAuth, started here for the
@@ -15,9 +32,10 @@
 // AUTH-AND-EMAIL.md. A provider that is off is not listed by GET, so the app
 // draws no button for it, and POST refuses it.
 //
-// NOTHING HERE OPENS SIGNUP. An OAuth sign-in by somebody with no account is
-// the same INSERT into auth.users as a magic link for a new address, so the
-// database's own allowlist trigger answers both, in the same way.
+// NOTHING HERE OPENS OR CLOSES SIGNUP. An OAuth sign-in by somebody with no
+// account is the same INSERT into auth.users as a magic link for a new
+// address, so the database's own trigger, and the switch it reads, answer
+// both in the same way.
 //
 // PUBLIC AT COMMERCIAL LAUNCH. This route used to read public.beta_allowlist
 // and answer 403 not_in_beta to any address that was not on it. That check is
@@ -32,10 +50,10 @@
 // Being able to sign in is worth exactly nothing on its own.
 //
 // SO THE ALLOWLIST IS NOT CONSULTED ANYWHERE IN THIS FILE ANY MORE. It survives
-// in the database as the record of who was invited to the private beta, and the
-// athletes who held beta access were converted at cutover into explicit
-// complimentary grants. Adding a row to it today grants nobody anything, and
-// this route must never become the place that changes.
+// in the database as the record of who was invited to the private beta and, while
+// the public sign-up switch is off, as the list the trigger lets create an
+// account. Adding a row to it grants nobody any product access, and this route
+// must never become the place that changes.
 //
 // THIS ENDPOINT IS STILL NOT A SECURITY BOUNDARY, and must not be mistaken for
 // one. The publishable key ships in the client, so anyone can POST /auth/v1/otp
@@ -47,6 +65,7 @@
 const S = require('./_strava.js');   // the canonical Supabase access layer:
                                      // project pinning, service-key attribution
                                      // and sb() all live there already.
+const Signup = require('./_signup.js');   // the public sign-up switch, read for wording
 
 const NATIVE_REDIRECT = 'com.velvetviking.valhalla://auth';
 
@@ -137,8 +156,14 @@ module.exports = async function handler(req, res){
      only which ways in this deployment has switched on. */
   if (req.method === 'GET'){
     const on = enabledProviders();
+    /* public_signup is the database's switch, as it stands now: true, false,
+       or null when it cannot be read (no service key, the migration not yet
+       applied). The app treats null exactly as false -- today's wording -- so
+       a failed read can only ever produce what was said before. */
+    const open = await Signup.readPublicSignup(S, cfg);
     return S.json(res, 200, { providers: { email: true,
-      apple: on.indexOf('apple') !== -1, google: on.indexOf('google') !== -1 } });
+      apple: on.indexOf('apple') !== -1, google: on.indexOf('google') !== -1 },
+      public_signup: open });
   }
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'GET, POST');
@@ -172,10 +197,11 @@ module.exports = async function handler(req, res){
     return S.json(res, 400, { error: 'bad_email' });
   }
 
-  /* NO ELIGIBILITY CHECK HERE ANY MORE. A new address is a new athlete, and
-     the commercial gate is what decides whether they see the product. The
-     service-key check above stays: it is not about who may sign in, it is
-     about whether this deployment can function at all. */
+  /* NO ELIGIBILITY CHECK HERE. Whether a new address may become an account
+     is the database's switch, enforced by its trigger; whether an account may
+     use the product is the commercial gate. The service-key check above
+     stays: it is not about who may sign in, it is about whether this
+     deployment can function at all. */
 
   const origins  = webOrigins(req);
   const redirect = safeRedirect(body.redirect, origins);
@@ -214,6 +240,19 @@ module.exports = async function handler(req, res){
        reaches the browser. What we return is our own vocabulary. */
     const upstream = await r.json().catch(function(){ return {}; });
     const code = upstream.error_code || upstream.code || null;
+    /* THE CLOSED GATE, SAID AS WHAT IT IS. The trigger on auth.users refused
+       a new address, and GoTrue reported it as a database error. Only while
+       the switch is not known to be ON: with sign-up open, the gate admits
+       every address, so the same words mean something else failed and are
+       classified below like any other provider refusal. The allowlist is not
+       read here; the database already answered. */
+    if (Signup.isNewUserRefusal(upstream)){
+      const open = await Signup.readPublicSignup(S, cfg);
+      if (open !== true){
+        log('SIGNUP_CLOSED status=' + r.status);
+        return S.json(res, 403, { error: 'not_in_beta' });
+      }
+    }
     const reason = r.status === 429 ? 'rate_limited'
                  : (r.status >= 400 && r.status < 500) ? 'request_rejected'
                  : 'provider_error';

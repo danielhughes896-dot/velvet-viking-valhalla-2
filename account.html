@@ -65,7 +65,7 @@
     <!-- PRIVATE BETA: named here because this is the first page a tester sees.
          A sentence, not a gate -- no checkbox, nothing pre-ticked. The documents
          live on the website and this links to them rather than restating them. -->
-    <p class="vvv-quiet">Using the private beta is covered by our
+    <p class="vvv-quiet" id="legal-note">Using the private beta is covered by our
       <a href="https://velvetviking.co.uk/privacy">Privacy Policy</a> and
       <a href="https://velvetviking.co.uk/beta-terms">Private Beta Terms</a>.</p>
   </div>
@@ -145,6 +145,21 @@
     var n = $(el); n.textContent = text || '';
     n.className = 'vvv-msg' + (kind ? ' ' + kind : '');
   }
+
+  /* PUBLIC SIGN-UP (founder, 18 November 2026): GET /api/beta-signin reports
+     the database switch. Only true drops "private beta" from this page. */
+  var signupOpen = false;
+  try{ signupOpen = localStorage.getItem('vvv_signup_public') === '1'; }catch(e){}
+  var legalNote = $('legal-note'), legalBefore = legalNote.innerHTML;
+  function applySignupWording(){
+    legalNote.innerHTML = signupOpen ? 'Using SACORO is covered by our <a href="https://velvetviking.co.uk/privacy">Privacy Policy</a> and <a href="https://velvetviking.co.uk/beta-terms">Terms</a>.' : legalBefore;
+  }
+  applySignupWording();
+  fetch('/api/beta-signin').then(function(r){ return r.json(); }).then(function(d){
+    if (typeof d.public_signup !== 'boolean') return;
+    try{ localStorage.setItem('vvv_signup_public', d.public_signup ? '1' : '0'); }catch(e){}
+    signupOpen = d.public_signup; applySignupWording();
+  }).catch(function(){});
 
   /* Why the athlete is looking at this page. /api/app appends it so the shell
      can be specific instead of showing the same sentence to someone who has
@@ -253,7 +268,8 @@
   function stateSentence(v){
     var until = whenText(v.access_until);
     if (v.override === 'owner') return 'Owner access.';
-    if (v.override === 'beta')  return 'Private beta access.';
+    /* A legacy beta row grants nothing now; with sign-up public, unnamed. */
+    if (v.override === 'beta')  return signupOpen ? '' : 'Private beta access.';
     if (v.state === 'grace')
       return 'A payment did not go through' + (until ? ', so access continues until ' + until : '') +
              ' while it is sorted out.';
@@ -275,14 +291,18 @@
        continues until the 20th is the screen contradicting itself, and it is
        the sort of thing that turns a card retry into a cancellation. */
     var grace = !!(v && v.state === 'grace');
+    /* Never subscribed is not "ended": no state and no date, nothing held. */
+    var never = !hasAccess && !grace && !(v && (v.state || v.access_until));
     $('locked-title').textContent = hasAccess ? 'Your SACORO account'
       : grace ? 'There is a problem with your payment'
+      : never ? 'Your SACORO account'
       : 'Your access has ended';
     $('locked-lede').textContent = hasAccess
       ? 'Everything below belongs to you and stays available from here.'
       : grace
         ? 'Nothing has been lost, and your training is still here.'
-        : 'Your training plan and history are safe and still stored.';
+        : never ? 'Your account is ready. Nothing has been charged.'
+          : 'Your training plan and history are safe and still stored.';
     $('locked-state').textContent = stateSentence(v || {});
     /* The resubscribe button is hidden rather than disabled when payments are
        not open: a greyed-out button invites a support message asking when it

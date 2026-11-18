@@ -342,6 +342,13 @@ test('the server lists no provider until VVV_AUTH_PROVIDERS names it', async () 
     assert.deepEqual(res.json().providers, { email: true, apple: false, google: false });
   } finally { restore(); }
   restore = setEnv({ VVV_AUTH_PROVIDERS: 'google, apple', VVV_SUPABASE_SERVICE_ROLE_KEY: 'test-service' });
+  /* With a service key the GET also reads the public sign-up switch (founder,
+     18 November 2026; supabase-public-signup.sql), so the database is
+     answered here rather than reached for real. */
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => /\/rest\/v1\/signup_settings/.test(String(url))
+    ? { ok: true, status: 200, json: async () => ([{ public_signup: false }]) }
+    : { ok: false, status: 500, json: async () => ({}) };
   try {
     const res = mkRes();
     await SIGNIN({ method: 'GET', headers: {} }, res);
@@ -354,7 +361,7 @@ test('the server lists no provider until VVV_AUTH_PROVIDERS names it', async () 
     assert.match(url, /\/auth\/v1\/authorize\?provider=google&redirect_to=/);
     assert.equal(decodeURIComponent(url.split('redirect_to=')[1]), 'https://app.velvetviking.co.uk/start',
       'an attacker-chosen redirect reached GoTrue');
-  } finally { restore(); }
+  } finally { globalThis.fetch = realFetch; restore(); }
   restore = setEnv({ VVV_AUTH_PROVIDERS: 'apple', VVV_SUPABASE_SERVICE_ROLE_KEY: 'test-service' });
   try {
     const off = mkRes();
@@ -365,6 +372,9 @@ test('the server lists no provider until VVV_AUTH_PROVIDERS names it', async () 
 });
 
 test('an Apple or Google account the beta does not know is told so, not shown a database error', () => {
+  /* While the public sign-up switch is off, or not yet known (founder, 18
+     November 2026: sign-up became a database switch). With it on the
+     trigger admits every address; test/m9-publicSignup.test.js holds that. */
   const a = fresh();
   assert.match(a.cloudAuthErrorCopy('unexpected_failure', 'Database error saving new user'), /private beta/i);
   assert.match(a.cloudAuthErrorCopy('otp_expired'), /expired/);
@@ -416,6 +426,9 @@ test('both agreements are required, and they are the existing checkout records',
 });
 
 test('with commerce off the prices are information, nothing is recorded and the beta goes on', () => {
+  /* The private-beta sentence is the switch-OFF wording (founder, 18 November
+     2026: public sign-up as a database switch); with it on the same screen
+     says SACORO is free for now, test/m9-publicSignup.test.js. */
   const a = journeyWithPlan('trial');
   a.journeyOfferAsked = true;
   a.journeyOffer = catalogueOffer(false);
