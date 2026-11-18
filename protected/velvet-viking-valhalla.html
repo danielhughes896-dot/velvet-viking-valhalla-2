@@ -10259,7 +10259,12 @@
   .cg-measure{margin-top:8px; font-size:var(--fs-support); line-height:var(--lh-support); color:#FFFFFF;}
   .cg-svg{display:block; width:100%; height:auto; margin-top:12px; overflow:visible;}
   .cg-grid{stroke:var(--line); stroke-width:1; stroke-dasharray:2 4;}
-  .cg-ylab, .cg-xlab{font-family:var(--num-face); font-size:.65625rem; fill:#FFFFFF;}
+  /* .8125rem is 13 units of the 340-wide drawing at the normal root: 11px
+     where it is narrowest (a 320px phone) and more on every other, and in
+     rem so iOS text size still reaches it. Founder, 18 November 2026: the
+     Recovery graph's dates must stay readable once they sit at their real
+     spacing. coachGraphXLabels() spaces them at this size (coachGraphLabelSize). */
+  .cg-ylab, .cg-xlab{font-family:var(--num-face); font-size:.8125rem; fill:#FFFFFF;}
   .cg-area{fill:url(#cg-fill);}
   .cg-line{fill:none; stroke:var(--cherry-text); stroke-width:2.6; stroke-linejoin:round; stroke-linecap:round;}
   .cg-dot{fill:var(--cherry-text);}
@@ -48332,11 +48337,25 @@ function sessionConditions(dd){
   out.hr = !(out.hills || out.measuredClimb || out.wind);
   return out;
 }
+/* A PACE NO RUNNER PRODUCES IS NOT READ (founder, 18 November 2026, from a
+   screenshot of Aerobic Efficiency: "-8555" beats per km). The Execution
+   Review has always refused a pace outside ASSESS_CAL.plausiblePaceSec as a
+   device fault, but the records the trends, the baselines and the graphs
+   learn from were never asked: a run's total time typed into the pace box
+   ("62:00" reads as 62 minutes a kilometre), or a Strava activity whose GPS
+   recorded a few metres against a full moving time, went straight into
+   heartbeats per km at ten times any real value. The same range is the rule
+   here, so every longitudinal reader is protected at once. */
+function paceIsPlausible(secPerKm){
+  var n = (secPerKm === null || secPerKm === '' || typeof secPerKm === 'boolean') ? NaN : Number(secPerKm);
+  return isFinite(n) && n >= ASSESS_CAL.plausiblePaceSec[0] && n <= ASSESS_CAL.plausiblePaceSec[1];
+}
 /* The same question of a memory record, which carries the answer from the
    day it was built. A record with no answer (an archive written before this
    existed) is read as it always was. */
 function paceIsReadable(rec){
   if (!rec || !(rec.actualPace > 0)) return false;
+  if (!paceIsPlausible(rec.actualPace)) return false;
   return !(rec.runConditions && rec.runConditions.pace === false);
 }
 
@@ -52239,9 +52258,18 @@ function stdev(list){
   var mean = list.reduce(function(s,v){ return s+v; },0)/list.length;
   return Math.round(Math.sqrt(list.reduce(function(s,v){ return s+Math.pow(v-mean,2); },0)/list.length)*10)/10;
 }
+/* The same for heart rate: 0 (a box typed as nothing, or a strap that read
+   nothing) or 400 is a sensor or a keystroke, not a heart, and read as one it
+   moved heartbeats per km by hundreds. ASSESS_CAL.plausibleHR is the range
+   the Execution Review already holds a reading to. */
+function hrIsPlausible(hr){
+  var n = (hr === null || hr === '' || typeof hr === 'boolean') ? NaN : Number(hr);
+  return isFinite(n) && n >= ASSESS_CAL.plausibleHR[0] && n <= ASSESS_CAL.plausibleHR[1];
+}
 // A session whose heart rate can be trusted as physiological.
 function hrIsReadable(rec){
   if (rec.hr==null) return false;
+  if (!hrIsPlausible(rec.hr)) return false;
   var e = rec.environment || {};
   if (e.hrDoubt) return false;
   if (rec.runConditions && rec.runConditions.hr === false) return false;   // hills or wind
@@ -59242,10 +59270,31 @@ function maybeRaiseWeeklyReview(arriving){
    before the athlete reached 20km a week, has none. Once every six weeks, on
    a glass sheet, SACORO offers to put the test in place of the next suitable hard session:
    not this week or in a recovery week, the taper or the race week, and not
-   within two weeks of the Fitness Checkpoint. */
+   within two weeks of the Fitness Checkpoint.
+
+   A FINISHED PLAN IS NOT OFFERED A TEST (founder, 18 November 2026, from a
+   screenshot: the offer "gave a date in August for a plan that is
+   finished"). currentWeekNum() is null once every week of the block is
+   behind today, and `d.week <= null` is `d.week <= 0`: false for every
+   week, so no session was ruled out as already past and the earliest
+   un-run hard session of the whole block -- months ago -- was offered.
+   Now a block that has ended (its race day gone, its last week gone, or
+   its ledger row closed) is offered nothing, and a session is only ever a
+   candidate when it falls after today and inside the plan's own weeks. */
+function thresholdTestPlanEnded(){
+  var su = state.setup, today = todayStr();
+  if (!su || !state.days || !state.days.length) return true;
+  if (su.raceDate && su.raceDate < today) return true;              // the race (or goal day) has gone
+  var total = totalWeeksInPlan();
+  if (total > 0 && currentWeekNum() == null) return true;            // every week is behind today
+  var blk = currentBlock();
+  if (blk && blk.status === 'closed') return true;                   // the block was closed
+  return false;
+}
 function thresholdTestOfferDay(){
   var su = state.setup;
   if (!su || !state.days || !state.days.length) return null;
+  if (thresholdTestPlanEnded()) return null;
   var today0 = todayStr();
   if (su.thresholdTestOffer && su.thresholdTestOffer.at &&
       daysBetween(su.thresholdTestOffer.at, today0) < 7 * CALIBRATION_REPEAT_WEEKS) return null;   // once per six weeks
@@ -59256,10 +59305,14 @@ function thresholdTestOfferDay(){
   if (state.days.some(function(d){ return d && d.type === 'calibration' && d.date >= recentFrom; })) return null;
   var v = null; try { v = calibrationVerdict(su.currentVolume); } catch(e){ v = null; }
   if (!v || !v.needed) return null;
-  var N = currentWeekNum();
+  var N = currentWeekNum(), lastWeek = totalWeeksInPlan();
+  if (N == null) return null;
   var cps = state.days.filter(function(d){ return d && d.type === 'checkpoint'; }).map(function(d){ return d.week; });
   return state.days.filter(function(d){
     if (!d || d.week <= N || d.completed || d.manualEdit || !(d.km > 0)) return false;
+    /* Inside the plan's remaining weeks, whatever the week numbers say. */
+    if (!d.date || d.date <= today || (lastWeek > 0 && d.week > lastWeek)) return false;
+    if (su.raceDate && d.date >= su.raceDate) return false;
     if (['tempo', 'threshold', 'interval'].indexOf(d.type) === -1) return false;
     var inf = null; try { inf = playbookWeekInfo(d.week); } catch(e){ inf = null; }
     if (inf && (inf.isCutback || inf.isTaper || inf.isRace)) return false;
@@ -81914,15 +81967,38 @@ function coachGraphEasyHello(fallback){
   if (!healthConsentGranted())
     return 'Heart rate is health information, and SACORO only reads it if you have said it may. Turn it on in Settings, under Health & Readiness.';
   var bare = easy.filter(function(d){ return !d.actual || d.actual.hr == null; }).length;
+  /* Logged, and with a pace or heart rate no runner produces (founder, 18
+     November 2026: "-8555" beats per km): said plainly, and left out. */
+  var odd = easy.filter(function(d){
+    if (!d.actual || d.actual.hr == null) return false;
+    var p = null;
+    try { p = actualPaceSecPerKm(d); } catch(e){ p = null; }
+    return !hrIsPlausible(d.actual.hr) || (p != null && !paceIsPlausible(p));
+  }).length;
+  if (odd && !bare) return (odd === 1 ? 'One easy run has' : odd + ' easy runs have') +
+    ' a pace or heart rate no runner produces, so ' + (odd === 1 ? 'it is' : 'they are') +
+    ' left out here. Check the pace and heart rate in Your Log.';
   if (!bare) return fallback;
   return (bare === 1 ? 'One easy run is' : bare + ' easy runs are') +
     ' logged without a heart rate. Add the average heart rate in Your Log and ' + (bare === 1 ? 'it counts' : 'they count') + ' here.';
 }
+/* A POINT LABELLED WITH A DATE SITS AT THAT DATE (founder, 18 November
+   2026, from a screenshot of the Recovery graph: its dates were spaced
+   evenly). x was the point's place in the list, so readings a day apart and
+   readings three weeks apart were drawn the same distance apart: a gap in
+   check-ins vanished and the dates under the line misled. x is now the
+   number of days since the first point, so the gap is drawn as a gap. A
+   weekly graph was never affected: its x is the week number. */
+function coachGraphDayX(origin, date){
+  var n = daysBetween(origin, date);
+  return isFinite(n) ? n : 0;
+}
 /* The readings themselves, oldest first, as points: the most recent few. */
 function coachGraphEarlyPoints(rows){
-  return rows.slice().sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); })
-    .slice(-COACH_GRAPH_CAL.earlyRuns)
-    .map(function(r, i){ return { x:i, label:dShort(r.date), v:r.v, row:r }; });
+  var list = rows.slice().sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); })
+    .slice(-COACH_GRAPH_CAL.earlyRuns);
+  var origin = list.length ? list[0].date : null;
+  return list.map(function(r){ return { x:coachGraphDayX(origin, r.date), date:r.date, label:dShort(r.date), v:r.v, row:r }; });
 }
 /* ---------- THRESHOLD SESSIONS, AS TRAINING EVIDENCE ----------
    Founder: "Measured Fitness: A completed race or valid Fitness Checkpoint
@@ -82005,6 +82081,19 @@ function coachGraphEasyRuns(){
   });
   return out;
 }
+/* HEARTBEATS PER KM, OR NOTHING (founder, 18 November 2026: the Efficiency
+   figure read "-8555" beats per km). Average heart rate times pace in
+   minutes per km, from a pair that a runner can produce -- the ranges the
+   Execution Review holds a reading to -- and null for anything else, so an
+   impossible reading is left off the graph rather than drawn as a number.
+   The readers upstream (hrIsReadable, paceIsReadable) already refuse such
+   a run; this is the graph's own last word, because a wrong figure here is
+   the one the athlete sees. */
+function coachGraphBeatsPerKm(hr, paceSecPerKm){
+  if (!hrIsPlausible(hr) || !paceIsPlausible(paceSecPerKm)) return null;
+  var v = Number(hr) * (Number(paceSecPerKm) / 60);
+  return (isFinite(v) && v > 0) ? v : null;
+}
 function coachGraphPlanWeeks(){
   return (state.days || []).reduce(function(m, d){ return Math.max(m, d.week || 0); }, 0);
 }
@@ -82049,14 +82138,16 @@ function coachGraphSeries(key){
   var first, last, d;
 
   if (key === 'efficiency'){
-    var eRuns = coachGraphEasyRuns();
+    /* Only a run whose beats per km is a number a runner can produce is
+       plotted: see coachGraphBeatsPerKm(). */
+    var eRuns = coachGraphEasyRuns().filter(function(r){ return coachGraphBeatsPerKm(r.hr, r.pace) != null; });
     s.points = coachGraphWeekly(eRuns.map(function(r){
-      return { week:r.week, v:r.hr * (r.pace/60) * per }; }));
+      return { week:r.week, v:coachGraphBeatsPerKm(r.hr, r.pace) * per }; }));
     s.have = s.points.length;
     if (s.have < s.want){
       /* Fewer than three weeks: the runs themselves, as far as they go. */
       var eE = coachGraphEarlyPoints(eRuns.map(function(r){
-        return { date:r.date, v:r.hr * (r.pace/60) * per, hr:r.hr, pace:r.pace }; }));
+        return { date:r.date, v:coachGraphBeatsPerKm(r.hr, r.pace) * per, hr:r.hr, pace:r.pace }; }));
       s.points = eE;
       if (!eE.length){ s.hello = coachGraphEasyHello(s.hello); return s; }
       s.early = true;
@@ -82260,8 +82351,11 @@ function coachGraphSeries(key){
     /* The most recent twelve: a response is about now, and sixteen dots
        across a phone is a smear. Nothing is averaged to make room. */
     wins = wins.slice(-12);
-    s.points = wins.map(function(w, i){
-      return { x:i, label:dShort(w.date), v:(w.hours != null ? w.hours : cal.beyond72), over:w.hours == null };
+    /* Placed at its date, not at its place in the list: see coachGraphDayX(). */
+    var rOrigin = wins.length ? wins[0].date : null;
+    s.points = wins.map(function(w){
+      return { x:coachGraphDayX(rOrigin, w.date), date:w.date, label:dShort(w.date),
+               v:(w.hours != null ? w.hours : cal.beyond72), over:w.hours == null };
     });
     s.ticks = [24, 48, 72, cal.beyond72];
     s.fmt = function(v){ return v >= cal.beyond72 ? '72h+' : Math.round(v) + 'h'; };
@@ -82321,6 +82415,51 @@ function coachGraphFrameSvg(s){
     rules + '<line class="cg-base" x1="0" x2="'+g.W+'" y1="'+g.B+'" y2="'+g.B+'"/>'+
   '</svg>';
 }
+/* THE DATES UNDER THE LINE NEVER TOUCH, AND NEVER SHRINK. The labels are
+   set at COACH_GRAPH_LABEL_SIZE units of the 340-wide drawing at the normal
+   root (the .cg-xlab rule's .8125rem), which is 11px on a 320px phone, where
+   the drawing is at its narrowest (288px), and larger everywhere else; a
+   larger iOS text size grows the root, and the spacing grows with it
+   (coachGraphLabelSize). A label is as wide as its characters in the mono
+   face (COACH_GRAPH_LABEL_EM of the size each); one is kept only when it clears the last one kept by a gap, the
+   last point's label is always kept (the latest reading is the one asked
+   about) and the one before it gives way if they would meet. A label at
+   either edge is moved in to stay on the page; its point is not moved. */
+var COACH_GRAPH_LABEL_SIZE = 13;
+var COACH_GRAPH_LABEL_EM = 0.6;
+var COACH_GRAPH_LABEL_GAP = 6;
+function coachGraphLabelSize(){
+  var root = 16;
+  try {
+    if (typeof document !== 'undefined' && document.documentElement && typeof getComputedStyle === 'function'){
+      var px = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      if (px > 0 && isFinite(px)) root = px;
+    }
+  } catch(e){ root = 16; }
+  return COACH_GRAPH_LABEL_SIZE * root / 16;
+}
+function coachGraphLabelWidth(label){
+  return String(label == null ? '' : label).length * COACH_GRAPH_LABEL_EM * coachGraphLabelSize();
+}
+function coachGraphXLabels(items, width){
+  var W = width || COACH_GRAPH_BOX.W;
+  var placed = items.map(function(it){
+    var hw = coachGraphLabelWidth(it.label) / 2;
+    return { x:Math.max(hw, Math.min(W - hw, it.x)), label:it.label, hw:hw };
+  });
+  var clears = function(a, b){ return Math.abs(b.x - a.x) >= a.hw + b.hw + COACH_GRAPH_LABEL_GAP; };
+  var kept = [];
+  placed.forEach(function(l, i){
+    var last = i === placed.length - 1;
+    if (!kept.length){ kept.push(l); return; }
+    if (clears(kept[kept.length - 1], l)){ kept.push(l); return; }
+    if (last){
+      while (kept.length && !clears(kept[kept.length - 1], l)) kept.pop();
+      kept.push(l);
+    }
+  });
+  return kept.map(function(l){ return { x:l.x, label:l.label }; });
+}
 function coachGraphSvg(s){
   var g0 = COACH_GRAPH_BOX, W = g0.W, H = g0.H, L = g0.L, R = g0.R, T = g0.T, B = g0.B;
   var all = s.points.concat(s.predicted);
@@ -82336,13 +82475,12 @@ function coachGraphSvg(s){
     return '<line class="cg-grid" x1="'+L+'" x2="'+R+'" y1="'+f(py(t))+'" y2="'+f(py(t))+'"/>'+
            '<text class="cg-ylab" x="'+(L-8)+'" y="'+f(py(t)+3.5)+'" text-anchor="end">'+escapeHtml(s.fmt(t))+'</text>';
   }).join('');
-  /* Every point is drawn; labels thin out before they collide. */
-  var every = Math.ceil(all.length / 6);
-  var xlab = all.map(function(p, i){
-    if (i % every !== 0 && i !== all.length - 1) return '';
-    if (i === all.length - 1 && all.length > 1 && (all.length - 1) % every !== 0 &&
-        px(p.x) - px(all[i - (i % every)].x) < 30) return '';
-    return '<text class="cg-xlab" x="'+f(px(p.x))+'" y="'+(B+20)+'" text-anchor="middle">'+escapeHtml(p.label)+'</text>';
+  /* Every point is drawn; labels thin out before they collide. With points
+     placed at their dates (coachGraphDayX) two readings can sit a day apart,
+     so a label is kept by how far it is from the last one kept, measured,
+     not by its place in the list: see coachGraphXLabels(). */
+  var xlab = coachGraphXLabels(all.map(function(p){ return { x:px(p.x), label:p.label }; }), W).map(function(l){
+    return '<text class="cg-xlab" x="'+f(l.x)+'" y="'+(B+20)+'" text-anchor="middle">'+escapeHtml(l.label)+'</text>';
   }).join('');
   var m = s.points, lastM = m[m.length - 1];
   var area = m.length > 1
