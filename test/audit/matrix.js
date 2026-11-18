@@ -26,7 +26,12 @@ const VOLUMES = (function(){
    five are kept so every other distance, every other product and the refusal
    and handoff paths are still measured exactly as they were. */
 const WEEKS = [4, 8, 10, 12, 15, 16, 24];
-const SCHEDULES = ['d3', 'd5'];        // fewest and a typical week
+const SCHEDULES = ['d3', 'd5'];        // the ratchet population: unchanged
+/* A5 (founder, 15 November 2026) opened the builder to one to seven running
+   days. The ratchet population above is left exactly as it was, so every
+   baseline count still compares like with like; the new ends of the range are
+   measured by their own sweep (runEdgeMatrix) against flat invariants. */
+const EDGE_SCHEDULES = ['d1', 'd2', 'd7'];
 
 /* POPULATION ACCOUNTING. From S3 the race generator no longer owns every case
    in the matrix, and a count that falls because cases LEFT the population is a
@@ -56,4 +61,26 @@ function runMatrix(){
            racePlans, routedPlans, caseCount: plans };
 }
 
-module.exports = { runMatrix, VOLUMES, WEEKS, SCHEDULES, DISTANCES };
+/* The edge sweep: every distance and block length, every other volume, at the
+   one, two and seven day schedules. Returns the tally and every run under the
+   5km minimum that is not a race-week shakeout or a quality session. */
+function runEdgeMatrix(){
+  const tally = {}, shortRuns = [];
+  let plans = 0;
+  for (const distanceKey of DISTANCES)
+    for (const volume of VOLUMES.filter((v, i) => i % 2 === 0))
+      for (const w of WEEKS)
+        for (const scheduleKey of EDGE_SCHEDULES){
+          const c = auditCase({ distanceKey, volume, weeks: w, scheduleKey });
+          plans++;
+          checkCase(c).forEach(f => { tally[f.code] = (tally[f.code] || 0) + 1; });
+          (c.sessions || []).forEach(s => {
+            if (s.km > 0 && s.km < 5 && (s.type === 'easy' || s.type === 'long') &&
+                !/Shakeout/.test(s.title || ''))
+              shortRuns.push({ id: c.id, routed: !!c.routed, week: s.week, type: s.type, km: s.km, volume });
+          });
+        }
+  return { tally, shortRuns, plans };
+}
+
+module.exports = { runMatrix, runEdgeMatrix, VOLUMES, WEEKS, SCHEDULES, EDGE_SCHEDULES, DISTANCES };

@@ -1,11 +1,10 @@
-# iOS / App Store — assessment and readiness
+# iOS / App Store: assessment and readiness
 
-**Recommendation: iOS is a post-Android track, and should not block the web and
-Android launch.**
-
-That is not deferral for its own sake. It is one specific, unresolved commercial
-question, and everything else about iOS is either already done or is an
-afternoon's work once that question has an answer.
+**Status: the iOS app now exists as a project and builds in CI.** Founder,
+13 Nov 2026: "We need to build an iOS app bundle now." It was previously held
+as a post-Android track; that decision is superseded, and what follows records
+what was built, what Apple still needs, and the one commercial question that
+remains open.
 
 **Apple Health and HealthKit are explicitly out of scope** and appear nowhere in
 this repository. Nothing below adds them.
@@ -37,23 +36,29 @@ The canonical model already carries an `apple` provider rail precisely so that
 choosing B later is an adapter and a webhook branch, not a migration of every
 subscription row. See `STORE-COMMERCIAL-BOUNDARY.md`.
 
-## Should the native iOS project be generated now?
+## The native iOS project (generated 13 Nov 2026)
 
-**No.** Generating `ios/` now creates an unversioned Xcode project, a
-`Podfile.lock`, and a signing configuration that will all be stale by the time
-anyone opens them — and none of it can be built or tested from here, because
-building an iOS app requires macOS and Xcode.
+`ios/` is a Capacitor 8 project for the same shell Android ships: it loads
+`https://app.velvetviking.co.uk`, so content reaches iPhones through the web
+deploy, exactly as on Android.
 
-Generate it in the session where somebody has a Mac, an Apple Developer account
-and the answer to the question above. It is one command:
+| | |
+|---|---|
+| **Plugins** | CocoaPods, not Swift Package Manager: `@capacitor-community/media` (Save to photos) has no Swift package yet, and leaving it out would silently turn "Save to photos" into "Save to device". All seven plugins are in. |
+| **Devices** | iPhone only, portrait. Every screen is drawn for a phone in the hand; iPad is not offered, so no iPad screenshots are needed. |
+| **Sign-in** | `CFBundleURLTypes` registers `com.velvetviking.valhalla`, the scheme the runtime already uses for the magic link. |
+| **Permissions** | Microphone and speech recognition (only when the athlete speaks a question), photo library add (only when saving a share image). No tracking, no HealthKit. |
+| **Launch screen** | The app's own boot splash, photographed at iPhone proportions with scripts off, on the app's dark ground, so the handover is one picture becoming the same picture. |
+| **Icon** | The Porcelain S, 1024 by 1024, no transparency, in `AppIcon.appiconset`. Flat layers for Icon Composer (iOS 26 Liquid Glass) are in `ios/IconLayers/` with instructions. |
+| **Privacy manifest** | `PrivacyInfo.xcprivacy`, as set out below, in the App target. |
+| **Export compliance** | `ITSAppUsesNonExemptEncryption = NO`: only the system's own HTTPS. |
+| **Not on iOS yet** | The home-screen widget (needs a WidgetKit extension) and the native speech recogniser Android has; the runtime already treats both as absent and says so. |
 
-```
-npm i @capacitor/ios && npx cap add ios && npx cap sync ios
-```
-
-Everything it needs from this repository already exists: the web build, the
-Capacitor config, the canonical host, and a runtime that already knows it might
-be inside a native shell.
+**Building.** `.github/workflows/build-ios.yml`, run by hand from the Actions
+tab. The whole suite runs first on Linux; then a Mac builds the app for the
+iOS Simulator, which needs no Apple account. With the signing secrets the
+workflow names, it also archives a signed App Store `.ipa` and can send it to
+TestFlight.
 
 ## What is already settled, and needs no further work
 

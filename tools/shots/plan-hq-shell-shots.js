@@ -73,7 +73,7 @@ function serve(){
 }
 function seed(p){ try { localStorage.setItem(p.key, p.state); } catch (e) {} }
 
-const TABS = ['valhalla', 'coach', 'record'];
+const TABS = ['sacoro', 'coach', 'record'];
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -116,7 +116,7 @@ const TABS = ['valhalla', 'coach', 'record'];
           sels.forEach(s => { const n = document.querySelectorAll(s).length; if (n) hits[s] = n; });
           return { hits,
             tab: (window.planhqTab !== undefined ? window.planhqTab : '?'),
-            /* The Valhalla tab is plates and dials, not .ev-card buttons --
+            /* The Sacoro tab is plates and dials, not .ev-card buttons --
                counting only .ev-card reported its four frames as proving
                nothing while they were rendering the Record preview perfectly
                well. What every frame must have is SOME Record/Reading

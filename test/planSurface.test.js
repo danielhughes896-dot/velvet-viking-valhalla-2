@@ -1,0 +1,2507 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
+
+/* FULL PLAN STOPS BEING BOXES INSIDE BOXES.
+ * ===========================================================================
+ * This was the last screen built that way: a lifted, rimmed phase card
+ * holding up to six lifted, rimmed week rows. An earlier pass took the
+ * SHADOW off the inner rows and left the rim and the fill, which is why it
+ * still read as a container of containers -- elevation was never what made
+ * it look nested. Nothing structural changed: the phases, the weeks, the
+ * rows and the three-level drill-down are as they were.
+ */
+const ROOT = path.join(__dirname, '..');
+const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+const BARE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+const rule = sel => {
+  const i = BARE.indexOf(sel + '{');
+  assert.ok(i > -1, 'rule not found: ' + sel);
+  return BARE.slice(i + sel.length + 1, BARE.indexOf('}', i));
+};
+function app(){
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 12, startDate: '2026-07-01', distanceKey: '10k', volume: 40 });
+  return a;
+}
+
+test('no surface on the plan screens is drawn as a lifted card', () => {
+  /* .race-event came OUT of this list -- see "the day the block is for is a
+     panel" below, which now checks that it stays out. Everything else is
+     still a container that was adding nothing. */
+  const i = BARE.indexOf(':is(.view-plan, .view-plan-week, .view-plan-session)\n    :is(.pw-progress, .pw-row, .zone-card, .hub-card, .race-strategy, .week, .pp-phase)');
+  assert.ok(i > -1, 'the plan de-boxing rule is gone or its selector changed');
+  const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
+  ['background:none', 'border:0', 'border-radius:0', 'box-shadow:none'].forEach(d => {
+    assert.ok(body.indexOf(d) > -1, 'the plan de-boxing rule no longer sets ' + d);
+  });
+});
+
+test('the de-boxing is stated AFTER everything that contradicts it', () => {
+  /* THIS IS THE POINT OF THE RULE, not an implementation detail. Three
+     separate rules re-boxed what an earlier block had already stripped --
+     .pw-progress, .pw-row.is-today and the week screen's zone card -- and
+     every one of them won on SOURCE ORDER rather than on specificity.
+     Chasing them individually with longer and longer selectors is how a
+     stylesheet becomes an argument with itself, so the plan screens say it
+     once, last. Move this rule up and the boxes come back silently. */
+  const deboxed = BARE.indexOf(':is(.pw-progress, .pw-row, .zone-card');
+  assert.ok(deboxed > -1, 'the consolidated plan rule is gone');
+  ['.pw-row{', '.pw-progress{', '.view-plan-week .zone-card{', '.view-plan > .race-event{'].forEach(sel => {
+    const at = BARE.indexOf(sel);
+    assert.ok(at > -1, 'rule vanished: ' + sel);
+    assert.ok(at < deboxed,
+      sel + ' now comes AFTER the de-boxing rule and will silently re-box the plan');
+  });
+});
+
+test('the current day is lit rather than ringed', () => {
+  /* .pw-row.is-today used to set border-color plus a 1px gold ring. The
+     border is gone with every other border on this screen, so the signal is
+     the glow alone -- which is the language the rest of the product selects
+     in. */
+  /* Anchored on the BRACE: an earlier rule shares this prefix (it recolours
+     .pw-date and .pw-dow), and matching the prefix alone reads that rule's
+     body instead of this one's. */
+  const i = BARE.indexOf(':is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today{');
+  assert.ok(i > -1, 'the today row lost its treatment entirely');
+  const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
+  assert.match(body, /box-shadow:0 0 \d+px color-mix\(in srgb, var\(--gold\)/,
+    'the today row is no longer lit, so nothing marks it');
+  assert.doesNotMatch(body, /0 0 0 1px/, 'the gold ring came back around the today row');
+});
+
+test('bare .hub-card is untouched, because Today and Sacoro use it too', () => {
+  /* The de-boxing is scoped to the plan views by name. A change to bare
+     .hub-card would reach Today's Next Move and the Sacoro panels, which
+     is exactly what the SACORO CONSISTENCY PASS comment warns against. */
+  const i = BARE.indexOf('.hub-card{');
+  assert.ok(i > -1, '.hub-card is gone');
+  const body = BARE.slice(i + '.hub-card{'.length, BARE.indexOf('}', i));
+  assert.match(body, /background:var\(--surface-3\)/, 'bare .hub-card lost its own fill');
+  assert.match(body, /border:1px solid var\(--line\)/, 'bare .hub-card lost its own border');
+});
+
+test('a finished week says so in colour, and the list stays clean', () => {
+  /* THE WASH CAME OFF THE LIST, and that is a decision rather than a
+     regression. A finished week is one row in a column of sixteen; a light
+     designed for a single hero moment, repeated down that column, stops
+     being an event and becomes a texture. The illumination belongs to the
+     completed SESSION -- one thing, on one screen -- and to the marks and
+     chips that stand alone. The row still says it is done, in the colour
+     its numerals take, which is asserted in the colour-language test below. */
+  assert.equal(BARE.indexOf('.view-plan .pp-body .week.is-done::before'), -1,
+    'the repeating week wash is back in the list');
+  /* .week clipped its children before the boxes came off it, and a glow
+     that overspills by 100vw is the first thing that clipping would eat. */
+  assert.match(BARE, /\.view-plan \.pp-body \.week\{overflow:visible;\}/,
+    'the week row clips again, so the glow is cut to the row');
+});
+
+test('the light is for things that happen once, not for rows in a list', () => {
+  /* This used to assert that the week's glow was DIMMER than the session
+     banner's, because it repeats. Mixing the same recipe weaker is what made
+     two finished things stop looking alike in the first place -- so the
+     answer is no longer "the same light, quieter" but "not this light here".
+     SESSION COMPLETE appears once on a screen and keeps it. */
+  assert.ok(BARE.indexOf('.actual-done::before') > -1,
+    'the one-off completion banner lost its light too');
+  assert.equal(BARE.indexOf('.view-plan .pp-body .week.is-done::before'), -1,
+    'a glow is back on a row that can appear sixteen times in a column');
+});
+
+test('a week is marked done from the figure it already shows', () => {
+  /* Read from weekVolume() like every other number on the row rather than
+     recomputed, and gated on there being training prescribed: a week with
+     nothing to do is not a week that was completed. */
+  assert.match(SRC, /var doneCls = \(vol\.training > 0 && weekPct >= 100\) \? ' is-done' : '';/,
+    'the completed-week class is gone or no longer requires prescribed training');
+  assert.match(SRC, /'<div class="week-pct font-mono">'\+weekPct\+'%<\/div>'/,
+    'the percentage is computed a second time instead of reusing the one the class reads');
+});
+
+test('done, now and ahead are one colour language on the plan', () => {
+  /* Green is done, gold is now, crisp white is still ahead -- and the chips
+     and the week rows say it the same way, in tokens, so the state can be
+     read off the colour before the words are. */
+  const ruleFor = (sel) => {
+    const i = BARE.indexOf(sel);
+    assert.ok(i > -1, 'rule gone: ' + sel);
+    return BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
+  };
+  /* ---- THE PHASES ARE A CAROUSEL NOW, AND THE LANGUAGE TRAVELS ----
+     They were four pills, then a stepper: a mark per phase on a track, each
+     phase's week range under its name, all of it at 11.5px because four
+     phases plus a race week have to share 320px when the row is a row. One
+     full-width slide at a time replaces it.
+     WHAT THIS TEST PROTECTED TRAVELS WITH THEM, as the same three tokens:
+     the gold of the phase you are in, the --ok-text of one behind you, the
+     faint ink of one still ahead. The DONE GLOW does not travel, and that
+     is deliberate rather than mislaid -- see "the light is for things that
+     happen once" below and "NO WASH AT LIST SCALE" in the sheet. A slide
+     says Completed in words AND in the colour of those words; a rim light
+     would be the third telling, which is what took the phase disc off the
+     heading in the first place.
+     NOT ASSERTED HERE ANY MORE: --glow-done-mark. Nothing rendered consumes
+     it now (.pp-mark's span went at the gutter pass -- see test/gutterLaw
+     -- and the stepper's dot was its only live user), so a guard on it would
+     be a guard on a dead declaration. */
+  assert.match(ruleFor('.pp-slide.is-now .pp-slide-w{'), /color:var\(--gold-bright\)/,
+    'the phase the athlete is in is no longer gold');
+  assert.match(ruleFor('.pp-slide.is-done .pp-slide-w{'), /color:var\(--ok-text\)/,
+    'a completed phase is no longer green');
+  /* ---- AHEAD IS QUIET, AND ON A PHOTOGRAPH THAT IS A WHITE ALPHA ----
+     --ink-faint is a colour for a flat charcoal panel. Over the taper
+     photograph it measured 2.67:1 against a 4.5 floor, so the quiet state
+     is carried the way every other dim run on a photographic card in this
+     product carries it -- white at reduced alpha, which is exactly what
+     .ws-h-cue (.92) and the stage card's HR note (.72) already do.
+     ASSERTED AS A RANGE, not as .78: anything in this band is legible over
+     the veil and still visibly the quietest of the three, and pinning the
+     exact number would make a re-measure read as a regression. */
+  /* CHANGED SIDES: AHEAD IS WHITE, NOT A QUIETER WHITE. It was held to a
+     band of .72-.92 alpha so it stayed "the quiet one". Founder: "The grey
+     text I'm not keen on. I think white text is best ... Space needs to do
+     the talking." A dimmed white over a photograph is a grey. The three
+     states are still three: now is gold, done is green, ahead is white. */
+  const ahead = ruleFor('.pp-slide.is-ahead .pp-slide-w{');
+  assert.match(ahead, /color:#fff;/, 'a phase still ahead is dimmed again: ' + ahead);
+  assert.doesNotMatch(ahead, /var\(--ink-faint\)/,
+    'ahead went back to --ink-faint, which measured 2.67:1 on the taper photograph');
+  assert.doesNotMatch(BARE, /\.pp-slide[^{]*\{[^}]*(?:#9BC08C|rgba\(122,160,110)/,
+    'the literal green came back on the phase slide');
+  /* ---- GOLD IS WHERE YOU ARE, AND ON A FULL-BLEED PHOTOGRAPH IT IS TYPE ----
+     The slide used to take a gold border for this, the way the current day
+     and the selected tab do. A photograph that runs to both edges of the
+     screen has no border to colour, and drawing one back would be the gap
+     the founder asked to remove, in a different colour.
+     SO THE LAW IS CHECKED WHERE IT NOW LIVES: phaseGroupMeta() ends the
+     slide's own line with the word -- "Weeks 10 - 11 . Now" -- and that
+     line is gold for this state and nothing else is. Asserted above. What
+     is asserted here is that the rim really is gone in EVERY state, because
+     a rim on one slide and not another is the gap coming back. */
+  assert.match(rule('.pp-slide-body'), /border:0/,
+    'the photograph grew a rim again: its edge is light (::after), not a border');
+  /* CHANGED SIDES. Founder, with a mock-up: "Keep the Instagram-style
+     width with space on either side. Rounded corners: approximately 20px.
+     Floating effect: soft shadow beneath the image. Glass edge: delicate
+     highlight catching the upper edge ... No glass box over the text."
+     The edge-to-edge photograph this used to hold is now a card. */
+  const card = rule('.pp-slide-body');
+  assert.match(card, /border-radius:20px/, 'the photograph lost its 20px corners');
+  assert.match(card, /box-shadow:0 10px 20px rgba\(0,0,0,\.\d+\)/, 'the card no longer floats on a soft shadow');
+  const edge = rule('.pp-slide-body::after');
+  assert.match(edge, /inset 0 1px 0 rgba\(255,255,255,\.\d+\)/, 'the glass edge along the top is gone');
+  assert.match(edge, /pointer-events:none/);
+  assert.doesNotMatch(edge, /backdrop-filter|background:/, 'a glass box has been laid over the words');
+  /* Then: "Full screen width -- photograph touches both edges ... Keep all
+     text exactly where it is." No side gutter on the slide; the gutter is
+     inside the card, so the words keep their column. */
+  assert.match(rule('.view-plan .pp-slide'), /padding:\d+px 0 \d+px;/, 'the photograph no longer reaches both edges');
+  assert.match(BARE, /\.view-plan \.pp-slide-body\{padding-left:32px; padding-right:32px;\}/,
+    'the words moved: 16px of gutter plus the card\u2019s own 16px is 32 from the edge');
+  /* The dots sit in the room left under the card for its shadow, so they
+     are lifted above the rail: under it they were dimmed by the shadow and
+     a tap on them landed on the slide. */
+  assert.match(BARE, /\.view-plan > \.pp-dots\{[^}]*position:relative; z-index:1;/, 'the phase dots are under the rail again');
+  /* And a card you can feel: a slight press, still under reduced motion. */
+  const motion = BARE.slice(BARE.indexOf('.pp-slide-body:active') - 200, BARE.indexOf('.pp-slide-body:active') + 60);
+  assert.match(motion, /prefers-reduced-motion: no-preference[\s\S]*\.pp-slide-body:active\{transform:scale\(\.985\);\}/);
+  assert.doesNotMatch(BARE, /\.pp-slide[^{]*\{[^}]*border-color:/,
+    'a phase slide sets a border colour again — on a full-bleed picture there is ' +
+    'no border for it to be, so this is a rim coming back by the side door');
+  const sel = a0 => BARE.indexOf(a0) > -1;
+  assert.ok(!sel('.pp-slide.is-now .pp-slide-body{'),
+    'the current slide has a body rule of its own again — say "you are here" in the ' +
+    'line that already says it, not in a second surface treatment');
+  const weeks = BARE.slice(BARE.indexOf('.view-plan .pp-body .week .week-num'));
+  assert.match(weeks.slice(0, 1200), /\.week\.is-done \.week-num,[\s\S]{0,120}var\(--ok-text\)/,
+    'a completed week row is not green');
+  /* SELECTED BY .is-now, NOT BY THE PILL. The sheet used to find this row
+     with :has(.week-today-flag) -- the "Now" pill WAS the hook. The founder
+     took the pill off ("the gold text makes that point"), so the row
+     carries the class itself and the pairing is asserted below. */
+  /* ---- CHANGED SIDES WITH THE VELVET CHERRY HIERARCHY ----
+     This required --gold-bright. The founder has since set the rule the
+     whole app is being brought under: "Gold = brand/destination/milestone.
+     Cherry = active/training/interaction", and named this row in the list
+     that moves ("Full Plan current week on week rail -> cherry").
+     WHAT THIS TEST IS ABOUT IS UNCHANGED: done, now and ahead are still
+     three distinguishable states stated in tokens, and the assertion above
+     still holds green for done. Only the token for NOW moved, and the
+     phase slide's own line two assertions up deliberately did NOT -- a
+     phase is a destination and keeps its gold. */
+  assert.match(weeks.slice(0, 1600), /\.week\.is-now \.week-phase\{color:var\(--cherry-text\);?\}/,
+    'the current week row is not cherry');
+});
+
+test('the current week is lit again after the de-boxing took its ring', () => {
+  /* A REGRESSION THIS PASS INTRODUCED, pinned so it cannot return. The
+     current week was marked by a gold rim and a 1px ring; de-boxing took the
+     border those were drawn on and left nothing marking it at all. It comes
+     back as illumination, which is what the rest of the product selects
+     with -- not as the ring, which is the geometry that went. */
+  const i = BARE.indexOf('.view-plan .pp-body .week.is-now{');
+  assert.ok(i > -1, 'the current week has no treatment at all');
+  const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
+  /* The TOKEN changed with the Velvet Cherry hierarchy -- this row is
+     training, not a destination -- and the thing this test exists for did
+     not: the current week is marked by LIGHT rather than by the ring the
+     de-boxing took, and is still marked by something. */
+  assert.match(body, /box-shadow:0 0 \d+px(?: \d+px)? color-mix\(in srgb, var\(--cherry\)/,
+    'the current week is no longer lit');
+  /* ---------- AND THE LIGHT IS ROUNDED, OR IT IS A PANEL ----------
+     Founder: "The black box over the week is there a chance to smooth the
+     sides out?" A box-shadow traces the border-box, and this row is
+     de-boxed -- border-radius 0 -- so the glow painted a crisp 398x44
+     rectangle whose two vertical seams read as the sides of a box. */
+  assert.match(body, /border-radius:var\(--radius/,
+    'the glow is square again, so its sides read as a box around the row');
+  /* THE RING IS STILL GONE. border-radius is not a ring, so the old
+     /border/ match would now trip on the very fix above; what this has
+     always meant is a drawn edge. */
+  assert.doesNotMatch(body, /0 0 0 1px|border(?!-radius)/,
+    'the gold ring came back around the current week');
+  /* ---- THIS ONE CHANGED SIDES: THE FILL IS GLASS ----
+     It forbade any background, because the fill that used to be here was
+     the solid black box the row was de-boxed out of. Founder, choosing where
+     the tab bar's glass goes next: "Liquid Glass current-week highlight in
+     Full Plan", and on the photo: "full plan week selection ... I'm happy
+     with". So the row may carry the shared glass and nothing else -- never a
+     solid colour, which is still the box. */
+  const bg = /background:([^;]+);/.exec(body);
+  /* And now the sheets' 12% glass (founder: "can you make it the same as
+     the other glass, 12%?"). Still glass, still never a solid colour. */
+  assert.ok(!bg || bg[1].trim() === 'var(--sheet-glass)',
+    'the current week row grew a solid fill, which is the box this was de-boxed out of: ' + (bg && bg[1]));
+});
+
+test('the lit week has air at its sides without leaving the column', () => {
+  /* Founder: "The black box over the current week needs extending to fit the
+     full week in. Looks a little tight and cuts the W."
+     MEASURED BEFORE THE FIX, at 320/360/375/390/412/430: 10.5px of cushion
+     above and below the text and 0px at either side -- at every one of them.
+     The de-boxing took .week-head's 16px side padding and a halo traces the
+     border-box, so the rounded rect landed exactly on the W of WEEK and
+     exactly on the chevron.
+     THE INVARIANT IS THAT THE CUSHION IS GIVEN AND TAKEN STRAIGHT BACK.
+     Padding grows the lit box outward; an equal negative margin pulls the
+     box back out to the column, so the week text keeps the same left edge as
+     every other row -- which is the alignment the de-boxing exists to give.
+     EITHER HALF ALONE IS A BUG, which is why both are asserted: padding
+     alone indents the current week out of the column that every other row
+     sits in, and margin alone widens the box without putting any air in it. */
+  const lit = rule('.view-plan .pp-body .week.is-now');
+  const px = re => { const m = lit.match(re); return m ? Number(m[1]) : null; };
+  const padL = px(/padding-left:(-?\d+)px/), padR = px(/padding-right:(-?\d+)px/);
+  const marL = px(/margin-left:(-?\d+)px/),  marR = px(/margin-right:(-?\d+)px/);
+
+  assert.ok(padL > 0 && padR > 0,
+    'the lit week has no side cushion, so its halo sits on the W of WEEK: ' + lit);
+  assert.equal(padL, padR,
+    'the side cushion is uneven, so the halo is off-centre on the row: ' + lit);
+  assert.equal(marL, -padL,
+    'the left cushion is not taken back off, so the current week indents out ' +
+    'of the column every other row sits in: ' + lit);
+  assert.equal(marR, -padR,
+    'the right cushion is not taken back off, so the current row is wider ' +
+    'than the column: ' + lit);
+
+  /* AND IT STAYS ON THE SCREEN. .pp-body is inset 16px from the viewport, so
+     a cushion wider than that puts the lit box off the edge at 320px -- the
+     narrowest width the app supports, and the one this was measured at. */
+  assert.ok(padL <= 16,
+    'the side cushion is wider than the 16px the plan body is inset by, so ' +
+    'the halo runs off the screen edge on a narrow phone: ' + lit);
+
+  /* THE CUSHION IS WRITTEN IN LONGHANDS, both here and in the sibling rule
+     that spaces the rows. Those two rules set spacing on the same element at
+     equal specificity, so a shorthand in either resets the edges the other
+     owns -- the cushion would hold on the first row of a phase and be reset
+     on every other. That looks right on week 1, which is the screen this was
+     reported from, and stops being right from week 2 of each phase on. */
+  assert.equal(/(^|;)\s*(padding|margin):/.test(lit), false,
+    'the cushion uses a padding or margin shorthand, which resets the other ' +
+    'edges the sibling rule sets: ' + lit);
+  assert.equal(/(^|;)\s*margin:/.test(rule('.view-plan .pp-body .week + .week')), false,
+    'the row spacing uses a margin shorthand, which resets the side cushion ' +
+    'on every current week that is not the first row of its phase');
+
+  /* AND THERE IS EXACTLY ONE is-now RULE. Two rules with one selector is how
+     a declaration goes missing here: the cascade reads both, a reader reads
+     the first, and so does every helper in this file. */
+  assert.equal(BARE.split('.view-plan .pp-body .week.is-now{').length - 1, 1,
+    'the current week is styled by more than one rule with the same selector');
+});
+
+test('every gold glow that marks selection or state names its token', () => {
+  /* color-mix was already the pattern in this property -- .ev-card:hover,
+     .splits-summary:hover, .v-call and the HQ panel all used it -- while the
+     older rules hand-set rgba(227,177,90). The literal is --gold with the
+     name filed off, so a palette change reached most of the product and
+     silently missed the rest.
+     THE EXCLUSIONS ARE DELIBERATE, NOT LEFTOVERS, and each is a different
+     kind of thing:
+       - the two @keyframes values, and .wk-bar-fill's resting shadow, are
+         tied together by test/instrumentGlow, which asserts the static
+         shadow EQUALS the pulse's rest value -- converting one side would
+         make a measured relationship unverifiable;
+       - 0 0 0 2px on the share thumbnails is a spread RING, not a glow;
+       - 0 6px 18px is elevation, not light.
+     So this counts what is left rather than demanding zero: it fails if a
+     NEW hand-set gold glow appears, and does not pretend the six above are
+     mistakes. */
+  const halos = BARE.match(/box-shadow:[^;]*rgba\((?:227,177,90|245,208,97)[^;]*;/g) || [];
+  const glows = halos.filter(h => !/0 0 0 \d+px|0 \d+px \d+px/.test(h));
+  /* The pulse that owned the three went cherry with the progress bars, so
+     no hand-set gold glow is left at all. */
+  assert.equal(glows.length, 0,
+    'hand-set gold glows: ' + glows.length + ' (expected none)\n  ' +
+    glows.join('\n  '));
+  /* ...and the pattern they should follow is in the sheet and working.
+     The phase slide's gold used to be the example here; it was a rim, and
+     the rim went when the photograph went full-bleed. The dot under it is
+     the gold that survived on that screen, and it follows the same rule. */
+  assert.match(BARE, /\.pp-dot\.is-on::before\{[^}]*color-mix\(in srgb, var\(--gold-bright\)/,
+    'the current phase dot hand-sets its gold again');
+  /* The selected circle is cherry now ("This Week selected/current day
+     circle -> cherry"), so it is counted against the cherry token instead.
+     The POINT of this test is unmoved: a glow that marks selection names
+     its token rather than hand-setting the hex, whichever token that is. */
+  assert.match(BARE, /\.wk-day\.is-sel\{[^}]*color-mix\(in srgb, var\(--cherry\)/,
+    'the selected day circle hand-sets its cherry again');
+  /* AND THE SAME COUNT, FOR CHERRY. Without this, moving a glow from gold
+     to cherry would move it out of the only rule that watches for
+     hand-set hexes -- the palette change this test was written about would
+     simply reappear in the new colour. */
+  const cherryHalos = (BARE.match(/box-shadow:[^;]*rgba\(154,84,108[^;]*;/g) || [])
+    .filter(h => !/0 0 0 \d+px|0 \d+px \d+px/.test(h));
+  /* The three the week bar's pulse owns moved here with it (progress bars
+     to cherry): its two keyframe stops and the bar's resting shadow, tied
+     together by test/instrumentGlow, so they stay literal. Nothing else. */
+  assert.equal(cherryHalos.length, 3,
+    'hand-set cherry glows: ' + cherryHalos.length + ' (expected the 3 the pulse owns) -- name --cherry/--cherry-dim\n  ' +
+    cherryHalos.join('\n  '));
+});
+
+/* THE ROW SAYS WHAT HAPPENED, IN THE SPACE IT WAS ALREADY LEAVING EMPTY.
+ * ===========================================================================
+ * A day row ran day, session, then a long run of nothing to a chevron -- and
+ * the one thing an athlete scanning a finished week wants from it is whether
+ * each day was done and how it went. Both answers already existed:
+ * computeExecutionBreakdown() scores a logged session out of 100, and a past
+ * day with no log is a missed one.
+ */
+test('ROW: a finished day shows its score, a past unlogged one says so, a rest day says nothing', () => {
+  const a = app();
+  const today = a.todayStr();
+  const day = (over) => Object.assign({ id: 'd1', date: '2000-01-01', type: 'easy',
+    km: 10, completed: false, actual: {} }, over);
+
+  // a rest day is asked for nothing, so there is nothing to report
+  assert.equal(a.planRowStatusHtml(day({ type: 'rest', date: '2000-01-01' })), '',
+    'a rest day is being marked missed for not being run');
+
+  // a future day has not happened yet
+  assert.equal(a.planRowStatusHtml(day({ date: '2099-01-01' })), '',
+    'a day in the future is being judged');
+
+  // a past day with nothing logged
+  const missed = a.planRowStatusHtml(day({ date: '2000-01-01' }));
+  assert.match(missed, /is-missed/, 'a past unlogged session is indistinguishable from a future one');
+  assert.match(missed, /Missed/);
+
+  // logged, and scored against what was asked
+  const scored = a.planRowStatusHtml(day({ completed: true,
+    actual: { km: 10, hr: 150, rpe: 5, pace: '5:30' } }));
+  assert.match(scored, /is-score/, 'a scored session shows no score');
+  assert.match(scored, /\d+%/, 'the score is not stated as a figure');
+
+  /* ---------- THIS GUARD CITED A RULE THAT HAS SINCE CHANGED ----------
+     It read "a missed day is quiet rather than red -- the same restraint
+     .wk-day.is-missed already shows". That restraint is gone: the founder
+     asked for missed sessions to carry evidence on This Week, and
+     .wk-day.is-missed is drawn in --c-threshold now. So the premise this
+     assertion rested on is false, and a guard that outlives its own
+     reasoning is just a rule nobody remembers agreeing to.
+     What survives is the LAW it was really protecting -- one colour per
+     meaning, everywhere -- so it is pinned to the sibling rather than to a
+     token, and the two can no longer drift apart. */
+  assert.match(rule('.wk-day.is-missed'), /--c-threshold/,
+    "This Week's missed day circle is no longer cherry -- re-decide the row with it");
+  assert.match(rule('.pw-stat.is-missed'), /color:var\(--c-threshold\)/,
+    'a missed session on Full Plan is grey again while This Week marks it in cherry');
+  /* AND THE SCORE STAYS DIM even though the missed label went cherry. I
+     tried greening it to match the day circle and this assertion was right
+     to stop me: the circle carries no figure, so green there means "done".
+     On this row the number is already the verdict, and colouring it makes
+     the colour a second opinion about the number -- 61% in green reads as
+     approval of a 61%. Done/missed is a state; a score is a measurement. */
+  assert.match(rule('.pw-stat.is-score'), /color:var\(--ink-dim\)/,
+    'the execution score is being colour-graded on the row');
+});
+
+/* SETTINGS WAS THE LAST SCREEN BUILT AS BOXES INSIDE BOXES.
+ * ===========================================================================
+ * Five lifted, rimmed cards, each holding a stack of rows. Today, This Week,
+ * Full Plan and Sacoro have all shed exactly this, and the nesting was not
+ * free: a card inset 16px holding rows inset a further 15px put every line
+ * 31px from the edge, on a screen whose other views run to the 16px gutter.
+ * Measured in Chromium: a row title moved from 63px to 48px.
+ */
+test('SETTINGS: the containers come off, and the rows take the gutter', () => {
+  /* THE WRAPPER FIRST, for the reason Sacoro needed one. .stg-group is a
+     .hub-card -- the same class Today's Next Move and the post-race panel
+     wear -- so without a scope there is no way to restyle it HERE without
+     restyling them. */
+  assert.match(SRC, /return '<div class="view-settings">'\+/,
+    'Settings returns a bare run of sections again, so .hub-card cannot be scoped to it');
+
+  const deboxed = rule('.view-settings :is(.stg-group, .hub-card, .hub-card.tile-card)');
+  ['background:none', 'border:0', 'border-radius:0', 'box-shadow:none'].forEach(d =>
+    assert.ok(deboxed.indexOf(d) > -1, 'the Settings groups no longer drop ' + d));
+
+  // the rows run to the gutter rather than being inset inside a frame
+  assert.match(rule('.view-settings .ev-card.stg-row'), /padding:15px 0/,
+    'the Settings rows are inset inside a container again');
+
+  /* BETWEEN ROWS, NOT ABOVE EACH ONE. Stated as "a row that follows a row",
+     because the first attempt cancelled the first row's border by naming
+     what precedes it -- and the Connect group puts its row somewhere that
+     match missed, so that group drew a rule under its own heading,
+     separating it from nothing. The same bug .coach-signal already had. */
+  assert.match(rule('.view-settings .ev-card.stg-row + .ev-card.stg-row'),
+    /border-top:1px/, 'the Settings rows no longer separate from one another');
+  assert.match(rule('.view-settings .ev-card.stg-row'), /border-top:0/,
+    'a Settings group draws a rule under its own heading again');
+});
+
+/* THE BLOCK IS A ROUTE, AND FULL PLAN LEADS WITH THE BLOCK.
+ * ===========================================================================
+ * Two things this screen was not saying. The phases were a row of pills --
+ * a SET, when a block is a sequence through them in order. And the hero said
+ * "Week 10 - Taper", which is This Week's subject, on the screen whose whole
+ * job is the block.
+ */
+test('the phases read as a carousel, one slide at a time', () => {
+  /* The stepper this replaces said which phases exist, which is current and
+     how far along the block was -- and said all of it at 11.5px, because
+     four phases plus a race week share 320px when the row is a row. One
+     full-width slide per phase buys the name at hero size, a sentence of
+     its own, and a week list below that belongs to the phase on screen. */
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  const i = src.indexOf('function renderPhaseRail');
+  assert.ok(i > -1, 'the phase carousel is gone');
+  const fn = src.slice(i, src.indexOf('\n}', i));
+  /* ONE SLIDE PER STOP, IN BLOCK ORDER -- the phases, then the goal day.
+     The grouping itself is still planPhaseGroups()' and is not re-derived
+     here; planRailStops() is that list plus the one stop that is not a
+     phase. Both halves are asserted, because reading the carousel's list
+     off planPhaseGroups() directly is what dropped the goal day's slide,
+     and re-deriving the phases here is what the original law forbade. */
+  assert.match(fn, /planRailStops\(\)/, 'the carousel no longer reads the rail\u2019s own list');
+  const stopsFn = src.slice(src.indexOf('function planRailStops'),
+                            src.indexOf('\n}', src.indexOf('function planRailStops')));
+  assert.match(stopsFn, /planPhaseGroups\(\)/,
+    'the rail invents its own phase grouping instead of taking planPhaseGroups()');
+  assert.match(fn, /pp-slide-k/, 'the slide no longer names its phase');
+  assert.match(fn, /phaseGroupMeta\(g\)/,
+    'the slide writes its own week span and state instead of taking the one source');
+  assert.match(fn, /phaseMessage\(g\.phase\)/,
+    'the slide carries no phase-specific message, which is the point of a slide');
+  /* THE PAGER IS THE WEEK'S. data-index/data-count and the .wk-track class
+     are the contract wirePagerRail() reads; a second implementation of
+     "full-width slides that track the finger" is the thing being avoided. */
+  assert.match(fn, /data-index="'\+i\+'"/, 'the carousel does not say which slide it is on');
+  assert.match(fn, /data-count="'\+groups\.length\+'"/, 'the carousel does not say how many slides it has');
+  assert.match(fn, /wk-track/, 'the phase track is no longer the week rail\u2019s moving row');
+  assert.match(fn, /data-hswipe="1"/, 'the page pager no longer stands down for the carousel');
+  /* FEWER THAN TWO PHASES IS NOT A CAROUSEL. A maintenance block is one
+     phase end to end, and a carousel of one is a control that cannot move. */
+  assert.match(fn, /groups\.length < 2\) return ''/,
+    'a one-phase block now gets a carousel of one slide');
+
+  const a = app();
+  const html = a.renderPhaseRail();
+  const stops = a.planRailStops();
+  const groups = a.planPhaseGroups();
+  /* ONE SLIDE PER STOP, and the stops are the phases plus the goal day --
+     measured, not assumed: the fixture builds Base/Build/Peak/Taper and a
+     race, so 4 phases and 5 slides. */
+  assert.equal(stops.length, groups.length + 1,
+    'the fixture no longer has a goal day to put at the end of the rail');
+  assert.equal((html.match(/class="pp-slide /g) || []).length, stops.length,
+    'the carousel does not have exactly one slide per stop');
+  groups.forEach(g => {
+    assert.ok(html.indexOf('>' + g.phase + '<') > -1, 'no slide names ' + g.phase);
+    assert.ok(html.indexOf(a.phaseMessage(g.phase)) > -1,
+      g.phase + ' has no message on its slide');
+  });
+  /* THE LAST ONE IS THE DAY, NOT A PHASE. Founder: "Base -> Build -> Peak ->
+     Taper -> Race Day". It names itself with vGoalDay(), so a block with no
+     event reads "Goal Day" rather than promising a race nobody entered. */
+  assert.ok(html.indexOf('>' + a.vGoalDay() + '<') > -1,
+    'the rail does not end at the goal day');
+  assert.match(html, /class="pp-slide is-ahead is-race ph-/,
+    'the goal day\u2019s slide is drawn as a phase, so it takes a phase\u2019s state word');
+  /* EXACTLY ONE SLIDE IS CURRENT, and it is the one the dots agree with. */
+  assert.equal((html.match(/class="pp-dot is-on"/g) || []).length, 1,
+    'the dots do not mark exactly one phase as current');
+});
+
+test('a rail card\u2019s title is the hero title, in one declaration', () => {
+  /* The founder's rule for a rail: "in the rails the titles should be white
+     and big like they are in the heroes, same rules". The phase carousel is
+     a rail of cards, so its title takes that declaration rather than a
+     fourth set of numbers that happen to match today -- which is the whole
+     reason EASY / SETTLE / CARB INTAKE were joined to it in the first place.
+     ASSERTED AS MEMBERSHIP, not as 21.85px. A copy with identical values
+     would pass a value check and still be a second definition. */
+  /* ---- THIS ASSERTION HAS CHANGED SIDES, AND SO HAS THE SCREEN ----
+     It required MEMBERSHIP: the phase slide title had to be the fourth arm
+     of the session rail card's title declaration, so a second copy of the
+     hero title could not be made by accident.
+     Founder, on the Full Plan rail: "I need a magnifying glass to read it
+     ... I want the title to be bigger than the rest." Growing the shared
+     declaration would have taken EASY, SETTLE and CARB INTAKE on every
+     session card with it; the founder was given that choice against the
+     alternative and chose to split this one off.
+     SO THE CHECK MOVES FROM MEMBERSHIP TO CHARACTER. Everything the
+     founder's original rule was about -- white, uppercase, the label face,
+     and the glow that lifts a title off a photograph -- is still asserted,
+     on a rule of its own. The SIZE deliberately is not, because being
+     bigger than the session card titles is now the point. */
+  const i = BARE.indexOf('.view-plan .pp-slide-k');
+  assert.ok(i > -1, 'the phase slide title has no rule at all');
+  const open = BARE.indexOf('{', i);
+  const decl = BARE.slice(open + 1, BARE.indexOf('}', open));
+  ['color:#FFFFFF', 'text-transform:uppercase', 'var(--label-face)', 'text-shadow:']
+    .forEach(d => assert.ok(decl.indexOf(d) > -1,
+      'the phase slide title stopped setting ' + d + ', which is the hero character ' +
+      'the founder asked a rail title to keep'));
+  /* AND IT MUST STILL BE THE BIGGEST THING ON THE SLIDE, which is the whole
+     reason it was split off. Read against the two lines under it. */
+  const sizeOf = sel => {
+    const j = BARE.indexOf(sel);
+    assert.ok(j > -1, sel + ' has no rule');
+    const b = BARE.slice(BARE.indexOf('{', j) + 1, BARE.indexOf('}', BARE.indexOf('{', j)));
+    const rm = /font-size:([\d.]+)rem/.exec(b);
+    if (rm) return parseFloat(rm[1]) * 16;
+    const px = /font-size:([\d.]+)px/.exec(b);
+    if (px) return parseFloat(px[1]);
+    /* A TIER TOKEN IS A SIZE TOO. typographyConsistency requires every line
+       of prose to take --fs-body or --fs-support rather than a hand-set px,
+       so the sentence on this slide legitimately has no literal. Resolve it
+       off :root instead of failing -- the hierarchy is what is under test,
+       not how the number is spelt. */
+    const tok = /font-size:var\((--fs-[a-z]+)\)/.exec(b);
+    assert.ok(tok, sel + ' states neither a pixel size nor a size token, so the hierarchy ' +
+      'cannot be checked');
+    const decl = new RegExp(tok[1] + ':\\s*([\\d.]+)rem').exec(BARE);
+    assert.ok(decl, tok[1] + ' is not declared in rem on :root');
+    return parseFloat(decl[1]) * 16;
+  };
+  const tSize = sizeOf('.view-plan .pp-slide-k');
+  const mSize = sizeOf('.pp-slide-msg');
+  const wSize = sizeOf('.pp-slide-w');
+  assert.ok(tSize > mSize && mSize > wSize,
+    'the slide no longer reads title > sentence > weeks line, which is the hierarchy ' +
+    'the founder asked for: title ' + tSize + ', sentence ' + mSize + ', weeks ' + wSize);
+  /* The band is fixed at --rail-pic and the phase photographs are cut to it,
+     so a title that outgrows the band is a crop change nobody asked for.
+     Measured: 119px of content at 31px, against 274px less 38px of padding. */
+  assert.ok(tSize <= 36,
+    'the slide title is ' + tSize + 'px; past about 36 the three lines stop fitting ' +
+    'the photograph band, whose height the phase crops are cut to');
+});
+
+test('a one-phase block gets the headed section, not a carousel of one', () => {
+  /* A MAINTENANCE BLOCK IS ONE PHASE END TO END. There is nothing to
+     carousel there and nothing for the carousel to select, so the screen
+     keeps the headed, openable section it has always had -- and OPENS it,
+     because there is no slide above naming the phase and nothing else on
+     the screen for the weeks to be in the way of. A carousel of one slide
+     would be a control that cannot move, with dots that cannot do anything.
+     The accordion machinery -- expandedPhases, phaseGroupOpen,
+     handleTogglePhase, the toggle-phase case -- is live for exactly this. */
+  const a = app();
+  a.state.setup.purpose = 'maintain';
+  /* trainingPhase() names the week holding the goal day for the goal day, so
+     a block with one is two groups however it is built. A real maintenance
+     block has no goal effort -- blockArcFor('maintain') sets hasGoalEffort
+     false -- and the fixture is a race block wearing a maintenance purpose,
+     so its race day is removed to get the shape the generator would make. */
+  a.state.days.forEach(d => { if (d.type === 'race') d.type = 'long'; });
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  const groups = a.planPhaseGroups();
+  assert.equal(groups.length, 1, 'the fixture did not produce a one-phase block');
+  assert.equal(a.renderPhaseRail(), '', 'a one-phase block was given a carousel of one slide');
+
+  const view = a.renderFullPlanView();
+  assert.equal((view.match(/is-bare/g) || []).length, 0,
+    'the one-phase block lost its heading to a slide that is not there');
+  assert.match(view, /class="pp-head" data-action="toggle-phase"/,
+    'the one-phase block has no way to open or close its weeks');
+  assert.match(view, /class="pp-phase [^"]*is-open/,
+    'the one-phase block renders closed, so the screen is a heading and nothing else');
+  for (let w = 1; w <= a.totalWeeksInPlan(); w++){
+    assert.ok(view.indexOf('id="week-' + w + '"') > -1, 'week ' + w + ' is missing');
+  }
+  /* ---- AND THIS IS WHY 'Maintain' NEEDS NO PHOTOGRAPH ----
+     Every phase that can appear on a slide has one; Maintain does not, and
+     the guard above skips a one-phase block rather than demanding a picture
+     for it. That is only honest while Maintain CANNOT share a carousel with
+     anything, and what makes that true is one line in the generator:
+     a goal day is built only when the block is not steady, so a maintenance
+     block has no race-type day, so trainingPhase() never names one of its
+     weeks for the goal -- and a block whose every week is 'Maintain' is one
+     group. Pinned here: change that line and this fires rather than a flat
+     card quietly appearing in a carousel of photographs. */
+  assert.match(src, /var isRace = !steady && arc\.hasGoalEffort && \(w===N\);/,
+    'a steady block can now be given a goal day, which would put an unmapped ' +
+    'Maintain slide in a carousel beside the goal week');
+  assert.equal(a.state.days.filter(d => d.type === 'race').length, 0,
+    'the maintenance fixture still has a race day, so this proves nothing');
+  assert.ok(a.planPhaseGroups().every(g => g.phase === 'Maintain'),
+    'a maintenance block has a phase other than Maintain');
+
+  /* AND THE MACHINERY IT DEPENDS ON IS STILL WIRED. */
+  assert.match(src, /case 'toggle-phase': handleTogglePhase/,
+    'toggle-phase is no longer dispatched, so the one-phase heading is a dead control');
+  assert.match(src, /case 'phase-pick': handlePhasePick/,
+    'phase-pick is no longer dispatched, so the carousel dots are dead controls');
+});
+
+test('every phase the carousel can show carries a photograph, at both widths', () => {
+  /* The founder's mapping: "Base - picture 3. Build - picture 4. Peak -
+     picture 2. Taper - picture 1." The goal week takes the race/goal
+     photograph they had already chosen, cut again at the slide's own
+     aspect.
+     ASSERTED FROM THE PHASES THE APP CAN ACTUALLY PRODUCE, not from a list
+     written here -- a phase added to trainingPhase() with no picture would
+     otherwise ship as the one flat card in a carousel of photographs, and
+     nothing would say so. */
+  const slugs = new Set();
+  [['race', 16, 'full'], ['race', 12, '10k'], ['base', 10, '10k']].forEach(([purpose, weeks, dist]) => {
+    const a = loadApp({ pinnedDate: '2026-10-05T09:00:00Z' });
+    a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+    buildPlan(a, { weeks, startDate: '2026-07-06', distanceKey: dist, volume: 45 });
+    a.state.setup.purpose = purpose;
+    const groups = a.planPhaseGroups();
+    /* A one-phase block renders no carousel at all, so it needs no picture;
+       only a phase that can appear ON a slide is in scope here. */
+    if (groups.length < 2) return;
+    groups.forEach(g => slugs.add(a.phaseSlug(g.phase)));
+  });
+  assert.ok(slugs.size >= 4, 'the fixtures produced only ' + slugs.size + ' phases');
+
+  const at = (slug, w) => new RegExp('\\.ph-' + slug + '\\b[^{]*\\{--phase-pic:url\\(\'/assets/([^\')]+-' + w + '\\.jpg)\'\\)');
+  slugs.forEach(slug => {
+    [820, 420].forEach(w => {
+      const m = at(slug, w).exec(CSS);
+      assert.ok(m, 'phase "' + slug + '" has no ' + w + 'px photograph — it would be the one ' +
+        'flat card in a carousel of photographs');
+      const file = path.join(ROOT, 'assets', m[1]);
+      assert.ok(fs.existsSync(file), 'declared but missing: assets/' + m[1]);
+      assert.ok(fs.statSync(file).size > 4096,
+        'assets/' + m[1] + ' is ' + fs.statSync(file).size + ' bytes — that is not a photograph');
+    });
+  });
+  /* THE TWO WIDTHS NAME THE SAME PHASES. A picture that exists at 820 and
+     not at 420 is a card that loses its photograph on the phone, which is
+     the only screen this product is for. */
+  const widths = w => (CSS.match(new RegExp('\\.ph-[a-z-]+(?:, \\.ph-[a-z-]+)*\\{--phase-pic:url\\(\'/assets/[^\')]+-' + w + '\\.jpg\'\\)', 'g')) || [])
+    .map(x => x.slice(0, x.indexOf('{'))).sort().join('|');
+  assert.equal(widths(820), widths(420),
+    'the 820px and 420px photograph sets name different phases');
+  /* AND THE 420s ARE INSIDE THE PHONE QUERY, or they never swap in. */
+  const mq = CSS.slice(CSS.indexOf('@media (max-width:480px){'));
+  assert.ok(mq.indexOf('-420.jpg') > -1 && mq.indexOf('.ph-base') > -1,
+    'the phone-width photographs are no longer inside the phone media query');
+});
+
+test('the picture runs edge to edge, and tracks the gutter it steps out of', () => {
+  /* Founder: "I want the picture to literally be like Instagram! Full width
+     no gaps."
+     THE BREAKOUT HAS TO TRACK .wrap's GUTTER. -16px is that gutter negated
+     and 32px is twice it; hard-coding either without reading the gutter is
+     how a screen ends up with a seam down one side the day the gutter
+     moves. Both numbers are derived here from .wrap itself rather than
+     written down a second time.
+     THE HEIGHT IS THE SHARED ONE, and it is not this screen's to set:
+     --rail-pic is 274px for every picture in the product (see "every
+     picture rail is the same size"). At 430px that is 1.569:1 and all nine
+     photographs are cut to it. The ratio is checked rather than the pixels
+     -- the picture may grow again, as long as the crops are re-cut with
+     it, which is exactly what happened here: 223 -> 274 on the founder's
+     drawn line, with every photograph re-cut from a 1080x608 source to
+     820x523 and 420x268. Measured at 430px after the change: the rail sits
+     at x=0, w=430, h=274 on a 430px viewport. */
+  const gutter = /padding:0 (\d+)px/.exec(rule('.wrap'));
+  assert.ok(gutter, 'the page gutter is no longer a single px value — re-derive the breakout');
+  const g = Number(gutter[1]);
+  const rail = rule('.view-plan > .pp-rail');
+  assert.ok(rail.indexOf('margin-left:-' + g + 'px') > -1,
+    'the rail breaks out by something other than the page gutter (' + g + 'px): ' + rail);
+  assert.ok(rail.indexOf('margin-right:-' + g + 'px') > -1,
+    'the rail breaks out on one side only, which is a seam down the other');
+  assert.ok(rail.indexOf('width:calc(100% + ' + (g * 2) + 'px)') > -1,
+    'the rail is not given back the width its negative margins took');
+
+  /* THE SHAPE, AS THE RELATION THAT MAKES THE CROPS RIGHT. Pinned as the
+     ratio and not as 181px, so the card may grow or shrink as long as the
+     photographs are re-cut with it. */
+  assert.match(rule('.pp-slide-body'), /min-height:var\(--rail-pic\)/,
+    'the phase slide sets its own height again instead of taking the shared one');
+  const pic = /--rail-pic:(\d+)px/.exec(BARE);
+  assert.ok(pic, 'the shared picture height is gone');
+  const PHONE = 430;
+  const aspect = PHONE / Number(pic[1]);
+  assert.ok(Math.abs(aspect - 1.569) < 0.04,
+    'the picture is now ' + aspect.toFixed(3) + ':1 at ' + PHONE + 'px, against the 1.569:1 the ' +
+    'photographs were cut to — re-cut them or put the height back');
+
+  /* AND NOTHING ELSE ON THIS SCREEN STEPS OUT. One breakout is a decision;
+     two is a screen with no gutter. */
+  const outs = (BARE.match(/\.view-plan > \.[a-z-]+\{[^}]*margin-left:-\d+px/g) || []);
+  assert.equal(outs.length, 1,
+    'more than one Full Plan child breaks out of the page gutter: ' + outs.join(' | '));
+});
+
+/* ---------- THE CROPS AND THE HEIGHT ARE ONE DECISION ----------
+   The ratio guard above says the photographs must be cut to the rail's
+   shape. Nothing checked that they ARE: it read the stylesheet and took the
+   files on trust, so a height change with no re-cut passed it and the
+   pictures were silently upscaled on every screen. That is exactly what the
+   223 -> 274 change would have done -- the old files were 820x425, and at
+   274pt on a 2x phone the app asks for 548 device pixels of height from 425,
+   a 1.29x upscale. This reads the files. */
+test('every rail photograph is cut to the rail\u2019s own shape', () => {
+  const dir = path.join(ROOT, 'assets');
+  const pic = /--rail-pic:(\d+)px/.exec(BARE);
+  const want = 430 / Number(pic[1]);
+  /* JPEG SOF marker, walked rather than guessed: the segment carries the
+     real pixel dimensions, which is the only thing that settles this. */
+  const dims = file => {
+    const b = fs.readFileSync(file);
+    let i = 2;
+    while (i < b.length){
+      if (b[i] !== 0xFF){ i++; continue; }
+      const m = b[i + 1];
+      if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC)
+        return { w: b.readUInt16BE(i + 7), h: b.readUInt16BE(i + 5) };
+      i += 2 + b.readUInt16BE(i + 2);
+    }
+    return null;
+  };
+  /* THE PHOTOGRAPHS THAT SIT IN A RAIL, AND ONLY THOSE. Read out of the
+     stylesheet so one added later is covered without this being remembered
+     -- but scoped to the two tokens that put a picture IN a rail,
+     --card-pic (a session card) and --phase-pic (a phase slide).
+     NOT EVERY JPEG IN assets/. The first version of this matched them all
+     and failed on valhalla-mountains-820, which is 820x1093: a 3:4 portrait
+     behind the Sacoro hero, not a rail picture at all. It was right to
+     fail and the selector was wrong. */
+  const named = [...new Set(
+    (BARE.match(/--(?:card|phase)-pic:url\('(\/assets\/[a-z-]+-\d+\.jpg)'\)/g) || [])
+      .map(m => /\('([^']+)'\)/.exec(m)[1]))];
+  assert.ok(named.length >= 10,
+    'only ' + named.length + ' rail photographs are referenced — re-check the selector');
+  let checked = 0;
+  named.forEach(u => {
+    const file = path.join(dir, u.split('/').pop());
+    assert.ok(fs.existsSync(file), 'the stylesheet names a photograph that is not here: ' + u);
+    const d = dims(file);
+    assert.ok(d, 'could not read the dimensions of ' + u);
+    const got = d.w / d.h;
+    assert.ok(Math.abs(got - want) < 0.03,
+      u + ' is ' + d.w + 'x' + d.h + ' (' + got.toFixed(3) + ':1) against the rail\u2019s ' +
+      want.toFixed(3) + ':1 — the height moved and this crop did not');
+    /* AND IT IS NOT BEING UPSCALED. At 430pt wide on a 2x screen the app
+       asks for 860x(2 x --rail-pic) device pixels; a source shorter than
+       that is stretched, which is the softness this whole pass avoided. */
+    if (u.indexOf('-820') > -1){
+      assert.ok(d.h >= Number(pic[1]) * 2 * 0.95,
+        u + ' is only ' + d.h + 'px tall against the ' + (Number(pic[1]) * 2) +
+        ' a 2x screen asks for — it will be upscaled');
+    }
+    checked++;
+  });
+  assert.ok(checked >= 10, 'only ' + checked + ' photographs were checked');
+});
+
+test('every picture rail sits the same distance below what is above it', () => {
+  /* Founder: "I want all picture rails moved up to roughly where that white
+     line is... That gap should then be applied to all rails."
+     MEASURED OFF THE DRAWING. The screenshot is 1080px for a 430pt screen,
+     2.512 image pixels to the point: gold bar bottom y=693, the drawn line
+     y=828, the photograph's top y=991. 53.8pt wanted where 118.6pt was.
+     --rail-air is 54px and both rails take it.
+     THE STACKS DIFFER, SO EACH SUBTRACTION IS CHECKED AGAINST ITS SOURCE.
+     A rail cannot simply be given the token as a margin: other things
+     already sit between it and the words above, and they differ by screen.
+     What this refuses is a subtraction that stops matching the rule it was
+     derived from -- which is how every photograph in the product quietly
+     moves when someone adjusts an unrelated margin. */
+  const air = /--rail-air:(\d+)px/.exec(BARE);
+  assert.ok(air, 'the shared rail air token is gone');
+  assert.equal(Number(air[1]), 54, 'the rail air is no longer the measured 54px');
+
+  /* FULL PLAN: .wk-hero's padding-bottom and .view-plan's row gap are both
+     under the gold bar before the rail's margin starts. */
+  /* The hero's padding-bottom, read as the THIRD value of its shorthand --
+     the first is a var() and the second a bare 0, so a lazy match finds the
+     wrong number. It did, the first time this was written. */
+  const heroPB = /padding:\S+ 0 (\d+)px/.exec(rule('.wk-hero'));
+  assert.ok(heroPB, 'the hero no longer declares a padding-bottom this can read');
+  const planRail = rule('.view-plan > .pp-rail');
+  /* The card's own room above it, inside the slide, is the third thing
+     above the picture, read from the slide rule rather than written twice. */
+  const slideTop = /padding:(\d+)px 0/.exec(rule('.view-plan .pp-slide'));
+  assert.ok(slideTop, 'the phase slide no longer declares the room above its card');
+  assert.ok(planRail.indexOf('margin-top:calc(var(--rail-air) - var(--wk-gap) - ' + heroPB[1] + 'px - ' + slideTop[1] + 'px)') > -1,
+    'the plan rail subtracts something other than the hero\u2019s own padding-bottom (' +
+    heroPB[1] + 'px): ' + planRail);
+  /* --wk-gap is declared in a .view-plan rule of its own, not the first
+     one the lookup finds, so it is read from the sheet rather than from a
+     block that happens to share the selector. */
+  const wkGap = /--wk-gap:(\d+)px/.exec(BARE);
+  assert.ok(wkGap && Number(wkGap[1]) === 18,
+    'the plan row gap is ' + (wkGap && wkGap[1]) + ', not the 18px the rail air was measured against');
+
+  /* THE SESSION RAIL: .how-card's margin-top and .how-table's own. */
+  const scope = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview)';
+  const card = /margin:(\d+)px 0 0/.exec(rule(scope + ' .how-card'));
+  assert.ok(card, 'the open card no longer declares the margin this subtracts');
+  const table = rule(scope + ' .how-table');
+  const tableMT = /margin-top:(\d+)px/.exec(table);
+  assert.ok(tableMT, 'the rail table no longer declares a margin-top');
+  assert.ok(table.indexOf('padding-top:calc(var(--rail-air) - ' + card[1] + 'px - ' + tableMT[1] + 'px)') > -1,
+    'the session rail subtracts something other than the ' + card[1] + 'px and ' + tableMT[1] +
+    'px actually above it: ' + table);
+  /* PADDING, NOT A THIRD MARGIN. Two margins in a row already sit there and
+     a third would collapse against them rather than add to them. */
+  assert.ok(table.indexOf('padding-top:') > -1 && !/margin-top:calc/.test(table),
+    'the session rail air became a margin, which collapses against the two above it');
+});
+
+test('every picture rail is the same size', () => {
+  /* Founder: "All rails should be the same size and space from the item
+     above. So across all screens it looks the same when swiping."
+     ONE TOKEN, NOT TWO NUMBERS THAT HAPPEN TO AGREE. The phase slide was
+     208 and the session card 260; both now take --rail-pic, so a change to
+     the picture size is one edit and cannot land on one screen only.
+     THE SESSION RAIL IS THE PICTURE PLUS ITS OWN 4px of padding-bottom,
+     which is the box and not the picture. That 4px is read off the rail's
+     own padding here rather than written down twice. */
+  const pic = /--rail-pic:(\d+)px/.exec(BARE);
+  assert.ok(pic, 'the shared picture height is gone');
+  assert.equal(Number(pic[1]), 274, 'the shared picture height is no longer the agreed 274px');
+
+  assert.match(rule('.pp-slide-body'), /min-height:var\(--rail-pic\)/,
+    'the phase slide no longer takes the shared picture height');
+
+  const scope = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview)';
+  const railRule = rule(scope + ' .ws-rail');
+  const pad = /padding:0 0 (\d+)px/.exec(rule(scope + ' :is(.how-card .fuel-body, .ws-rail)'));
+  assert.ok(pad, 'the session rail no longer declares the padding under its card');
+  /* The rail also carries the floating card's own room (6px above it, 26px
+     of shadow below), read off the card layer rather than written twice,
+     so the PICTURE is still --rail-pic plus the 4px. */
+  const inset = /inset:(\d+)px 0 (\d+)px/.exec(rule(scope + ' .ws-rail .how-mod::before'));
+  assert.ok(inset, 'the session card layer no longer declares its inset');
+  const room = Number(inset[1]) + Number(inset[2]);
+  assert.ok(railRule.indexOf('min-height:calc(var(--rail-pic) + ' + pad[1] + 'px + ' + room + 'px)') > -1,
+    'the session rail adds something other than its own ' + pad[1] + 'px of padding to the ' +
+    'shared picture height: ' + railRule);
+  /* AND THE CARD FILLS IT, so the picture really is --rail-pic tall rather
+     than whatever its words happen to need. */
+  assert.match(rule(scope + ' .ws-rail .how-mod'), /align-self:stretch/,
+    'the session card no longer stretches to its rail, so its picture is not the shared height');
+});
+
+test('the session rail runs edge to edge on the same rule, off the same gutter', () => {
+  /* Founder: "The same edge to edge rule should be applied to the other
+     rails for the sessions."
+     THE SAME NUMBER, DERIVED THE SAME WAY. Two breakouts that each
+     hard-code the gutter are two places to forget when it moves, so both
+     are checked against .wrap here rather than against each other.
+     MEASURED ON ALL THREE SCREENS THAT CARRY THIS RAIL -- Today, This
+     Week's open session and the plan's session screen -- because the
+     breakout only negates .wrap's gutter and that is only the whole story
+     while every ancestor between is zero on all three. It is: each one
+     renders the rail at x=0, w=430 on a 430px viewport, with no horizontal
+     page overflow. */
+  const gutter = /padding:0 (\d+)px/.exec(rule('.wrap'));
+  assert.ok(gutter, 'the page gutter is no longer a single px value');
+  const g = Number(gutter[1]);
+  const railSel = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) :is(.how-card .fuel-body, .ws-rail)';
+  const r = rule(railSel);
+  assert.ok(r.indexOf('margin:0 -' + g + 'px') > -1,
+    'the session rail breaks out by something other than the page gutter (' + g + 'px): ' + r);
+  assert.ok(r.indexOf('width:calc(100% + ' + (g * 2) + 'px)') > -1,
+    'the session rail is not given back the width its negative margins took');
+  /* THE CARD IS THE PAGE. Stated here as well as in test/structuredWorkout
+     because it is what makes the breakout safe: a card narrower than the
+     rail would leave the gutter showing on one side of every panel. */
+  const mod = rule(':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-rail .how-mod');
+  assert.match(mod, /flex:0 0 100%/, 'the session card is not the full width of its rail');
+  assert.match(mod, /margin:0;/, 'the session card has margins again, so the gutter shows through');
+  /* AND THE TWO RAILS AGREE. One edge-to-edge rule, two rails, and if one
+     is changed without the other the screens stop matching. */
+  const plan = rule('.view-plan > .pp-rail');
+  /* margin-LEFT, not the first negative number in the rule: the plan rail
+     also carries a -6px margin-top, and matching that instead would have
+     compared the carousel's nudge against the page gutter. It did, the
+     first time this was written. */
+  assert.equal(/margin-left:-(\d+)px/.exec(plan)[1], String(g),
+    'the two rails break out by different amounts');
+});
+
+test('the words on a phase slide are not left on the bare photograph', () => {
+  /* The contrast itself is measured in Chromium against the real composited
+     card -- the numbers and the method are written beside the veil in the
+     sheet, because this suite has no browser to re-measure in. What IS
+     checked here is every structural thing that measurement depended on, so
+     none of it can be removed while the recorded figures stay in the
+     comment looking authoritative.
+     Mutation-checked against the probe: halving these stops put 9 of 12
+     runs below the floor, removing them put all 12 there at 1.31:1. */
+  const body = rule('.pp-slide-body');
+  assert.match(body, /background-image:var\(--phase-pic, none\)/,
+    'the slide no longer takes its photograph from the phase property');
+  assert.match(body, /background-color:var\(--t-tile\)/,
+    'a phase with no photograph is now a hole rather than the flat card');
+  assert.match(body, /background-size:cover/, 'the photograph no longer fills the slide');
+  assert.match(body, /overflow:hidden/, 'the photograph is no longer clipped to the rim');
+
+  const veil = rule('.pp-slide-body::before');
+  assert.match(veil, /position:absolute/, 'the veil is not over the picture');
+  assert.match(veil, /inset:0/, 'the veil no longer covers the whole slide');
+  assert.match(veil, /z-index:0/, 'the veil lost its place in the stack');
+  assert.match(rule('.pp-slide-body > *'), /z-index:1/,
+    'the words are no longer above the veil, so the veil is covering them');
+  /* THE STOPS, AS A FLOOR. Not as exact values -- a deeper veil is always
+     safe and a lighter one is what has to be re-measured. */
+  const stops = (veil.match(/rgba\(8,6,10,\.(\d+)\)/g) || [])
+    .map(x => Number('0.' + /\.(\d+)\)/.exec(x)[1]));
+  assert.equal(stops.length, 3, 'the veil no longer has its three measured stops');
+  [0.44, 0.66, 0.74].forEach((floor, i) => {
+    assert.ok(stops[i] >= floor,
+      'veil stop ' + (i + 1) + ' is ' + stops[i] + ', under the measured ' + floor +
+      ' — re-measure in a browser before lightening it');
+  });
+  /* The glow on the title is doing real work on a photograph, which is the
+     reason "same rules" takes the whole hero declaration rather than its
+     size alone. */
+  const i = BARE.indexOf('.view-plan .pp-slide-k');
+  const decl = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', BARE.indexOf('{', i)));
+  assert.match(decl, /text-shadow:/,
+    'the slide title lost the glow that lifts it off a photograph');
+});
+
+test('the carousel opens on the phase the block is actually in', () => {
+  /* The stepper opened nothing by default and Full Plan was a screen for
+     seeing the shape of a block. With one phase on screen the shape IS the
+     carousel, so landing on the current phase costs nothing and a screen
+     that landed on week 1 of 16 would be a layer drawn over the wrong
+     weeks. */
+  const a = app();
+  const groups = a.planPhaseGroups();
+  const cur = a.currentWeekNum();
+  const expect = groups.findIndex(g => g.weeks.indexOf(cur) !== -1);
+  assert.ok(expect > -1, 'the fixture has no current phase to open on');
+  assert.equal(a.planPhaseIndex(groups), expect,
+    'the carousel does not open on the phase holding the current week');
+  /* ...and a swipe or a tap is remembered, without reaching the account row. */
+  a.renderApp = () => {};
+  a.handlePhasePick(groups[groups.length - 1].phase);
+  assert.equal(a.planPhaseIndex(groups), groups.length - 1,
+    'picking a phase does not move the carousel');
+  assert.equal(a.state.planPhaseSel, undefined,
+    'where the athlete swiped to reached the saved state');
+});
+
+test('the week list below the carousel is the carousel\u2019s phase, and Race Day is nobody\u2019s', () => {
+  /* The founder's structure: hero, then the phase carousel, then that
+     phase's weeks, then Race Day. A week row is unchanged -- it is still
+     the way in to the week screen -- and the phase heading goes, because
+     the slide above it already says BASE in 21.85px and a chevron that
+     opens what is already open is not a control. */
+  const a = app();
+  const groups = a.planPhaseGroups();
+  a.renderApp = () => {};
+  groups.forEach(g => {
+    a.handlePhasePick(g.phase);
+    const html = a.renderWeeksList(false, g.phase);
+    assert.equal((html.match(/class="pp-phase /g) || []).length, 1,
+      'the list shows more than one phase while ' + g.phase + ' is selected');
+    assert.match(html, /class="pp-phase is-[a-z]+ is-open is-bare"/,
+      g.phase + ' is listed closed, or still carries a heading the slide already wrote');
+    assert.doesNotMatch(html, /data-action="toggle-phase"/,
+      'the bare section kept the chevron that opens what is already open');
+    g.weeks.forEach(w => {
+      assert.ok(html.indexOf('id="week-' + w + '"') > -1,
+        'week ' + w + ' is missing from ' + g.phase);
+    });
+    /* NO OTHER PHASE'S WEEKS, which is the whole claim of the layer. */
+    groups.filter(o => o !== g).forEach(o => o.weeks.forEach(w => {
+      assert.equal(html.indexOf('id="week-' + w + '"'), -1,
+        'week ' + w + ' is listed under ' + g.phase);
+    }));
+    /* ---- AND THE GOAL DAY IS NOT UNDER THIS PHASE ----
+       THIS REVERSES THE LAW THAT WAS HERE. It required the race event under
+       EVERY phase, on the reasoning that the destination is not filtered by
+       a phase. True of the destination, false of the card: the loop that
+       emits it runs over every week and knows which week the race is in, but
+       not which SLIDE is on screen -- so it printed under Base, Build, Peak
+       and Taper alike. Founder, looking at exactly that: "The goal day card
+       looks like the last version of the app. Not the current swiping
+       version. I think it should be added to the rail at the end."
+       It has a stop of its own now, asserted in its own test below. */
+    assert.equal(html.indexOf('class="race-event"'), -1,
+      'the goal day\u2019s card is back under ' + g.phase + ', where it is one of four copies');
+  });
+  /* The week row still leads to the week screen and to nothing else. */
+  const one = a.renderWeeksList(false, groups[0].phase);
+  assert.match(one, /data-action="plan-open-week"/, 'a week row stopped being the way in');
+});
+
+/* ---------- THE RAIL ENDS AT THE DAY THE BLOCK EXISTS FOR ----------
+   Founder: "I think it should be added to the rail at the end. Base ->
+   Build -> Peak -> Taper -> Race Day", with the contents written out:
+   date and distance, "Target time / target pace if one exists", the chosen
+   strategy, and the way into the session. Their reason for putting it here
+   rather than leaving it for the day: "you can plan for the big day before
+   the race/goal day happens." */
+test('the goal day is the last stop on the rail, and carries the day', () => {
+  const a = app();
+  const stops = a.planRailStops();
+  const last = stops[stops.length - 1];
+  assert.ok(last && last.race, 'the rail does not end at the goal day');
+  assert.equal(last.phase, a.vGoalDay(),
+    'the stop is named something other than what this block calls its goal day');
+
+  /* ---- IT IS NOT A PHASE, AND MUST NOT LEAK INTO ONE ----
+     planPhaseGroups() answers "which weeks are in which phase" and is read
+     by the week list, the dividers and trainingPhase()'s own naming. A stop
+     that reached it would put a phase called "Race Day" into all three. */
+  assert.equal(a.planPhaseGroups().filter(g => g.race || g.phase === last.phase).length, 0,
+    'the goal-day stop has leaked into the phase grouping');
+  /* ---- AND IT DOES NOT STEAL THE OPENING SLIDE ----
+     planPhaseIndex() falls back to "the stop holding the current week". The
+     stop carries no weeks on purpose: with the race's week on it, Full Plan
+     would open on the goal day for the whole of race week instead of on the
+     taper still being run. */
+  /* LENGTH, NOT deepEqual: the runtime runs in its own vm realm, so its []
+     and this file's [] have different Array prototypes and deepStrictEqual
+     fails on two empty arrays. */
+  assert.equal(last.weeks.length, 0,
+    'the goal-day stop claims a week, so it will open in place of that week\u2019s phase');
+  a.renderApp = () => {};
+  a.planPhaseSel = null;
+  assert.notEqual(a.planRailStops()[a.planPhaseIndex(a.planRailStops())], last,
+    'Full Plan opens on the goal day rather than on the phase the athlete is in');
+
+  /* ---- THE PANEL SAYS WHAT THE FOUNDER ASKED IT TO ---- */
+  a.handlePhasePick(last.phase);
+  const view = a.renderFullPlanView();
+  assert.ok(view.indexOf('class="race-event race-stop"') > -1,
+    'selecting the goal day shows no panel');
+  assert.equal(view.indexOf('class="pp-phase '), -1,
+    'the goal day\u2019s stop still lists a phase\u2019s weeks underneath it');
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  /* ---- READ THE PANEL, NOT THE SCREEN ----
+     THE LAW THAT WAS HERE SEARCHED THE WHOLE VIEW for the date and the
+     distance, and the slide above the panel carries both -- so when the
+     panel stopped printing them it went on passing, proving nothing about
+     the card it was written for. Everything below is scoped to the panel's
+     own markup. */
+  const panel = /<div class="race-event race-stop">[\s\S]*?<\/button><\/div>/.exec(view);
+  assert.ok(panel, 'the panel could not be isolated — re-point this before trusting it');
+  const card = panel[0];
+  const slide = view.slice(0, view.indexOf('class="race-event race-stop"'));
+
+  /* ---- IT REPEATS NOTHING THE SLIDE SAYS ----
+     Founder: "we don't need the title within it as the card tells us... the
+     look gives it a hero finish and shouldn't look like the rest of the full
+     plan." The panel carried the day's name, its date and its distance, all
+     three of which the slide directly above it already says -- which is what
+     made it read as a second, lesser hero. */
+  assert.ok(slide.indexOf(a.vGoalDay()) > -1, 'the slide stopped naming the day');
+  assert.ok(slide.indexOf(a.dLong(race.date)) > -1, 'the slide stopped saying when');
+  assert.ok(slide.indexOf(a.kmToDisplay(race.km || 0)) > -1, 'the slide stopped saying how far');
+  assert.equal(card.indexOf(a.vGoalDay()), -1,
+    'the panel names the day again, which the slide above it already does');
+  assert.equal(card.indexOf(a.dLong(race.date)), -1,
+    'the panel prints the date again, which the slide above it already does');
+  assert.equal(card.indexOf('race-divider'), -1,
+    'the panel grew its title row back');
+  assert.match(card, /data-action="plan-open-session"/, 'there is no way into the session');
+
+  /* ---- AND ITS FIGURES ARE THE RING'S FIGURES ----
+     The race's own card already prints both numbers. Asserted as equality
+     with what renderDayTargetRing() produces rather than against literals,
+     because a literal would pass while the two surfaces drifted apart --
+     and this panel is read days or weeks before the card it must agree
+     with. */
+  /* ON A NEGATIVE SPLIT, because that is the only setting where the two
+     candidate finishes are different numbers. impliedSec is what the
+     strategy's own blocks add up to; targetSec is goal pace x distance.
+     MEASURED on this fixture: even 43:39 / 43:39, negative 43:40 / 43:39.
+     Compared under 'even' this law passes whichever of the two the panel
+     prints, which is no law at all -- the mutation that swaps them survived
+     until this was moved onto a negative split. */
+  a.state.setup.raceStrategy = 'negative';
+  const rp = a.raceExecutionPlan(race.km || 0);
+  const targets = a.getDayTargets(race);
+  const ring = a.renderDayTargetRing(race, targets);
+  const clock = a.secToClock(Math.round(rp.impliedSec));
+  assert.notEqual(clock, a.secToClock(Math.round(rp.targetSec)),
+    'the two finishes round the same even on a negative split, so this proves nothing');
+  const split = /<div class="race-event race-stop">[\s\S]*?<\/button><\/div>/
+    .exec(a.renderFullPlanView())[0];
+  assert.ok(ring.indexOf(clock) > -1, 'the ring stopped printing the finish, so re-point this');
+  /* ---- AND THE FINISH IS THE HERO, not a row ----
+     Founder's pick of four drawn directions: "B with distance as the
+     fallback". The slide's hero is the day's identity; this one is what the
+     day is aimed at. Asserted as the hero element rather than as presence
+     anywhere in the card, because a target time in the sub-row would satisfy
+     "the panel shows it" while losing the whole decision. */
+  assert.match(split, new RegExp('<span class="rst-k">Target time</span>' +
+    '<div class="rst-v">' + clock.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '</div>'),
+    'the panel\u2019s hero is not the finish the ring shows');
+  assert.ok(ring.indexOf(targets.pace) > -1, 'the ring stopped printing the pace');
+  assert.ok(split.indexOf(targets.pace) > -1,
+    'the panel\u2019s target pace is not the pace the ring shows');
+  assert.equal(split.indexOf(a.kmToDisplay(race.km || 0)), -1,
+    'the panel prints the distance although it has a target time to lead with');
+
+  /* ---- AND THE SWIPE REACHES IT ----
+     The dot is not the only way to the last stop. wirePhaseRail()'s commit
+     steps to the neighbour in the list it is handed, and handed the phases
+     alone it returns null at Taper: the slide the founder put at the end of
+     the rail would be reachable by tapping and by nothing else. Read from
+     source because that commit only runs inside a gesture; what is asserted
+     is that both halves read ONE list, which is the defect itself. */
+  const wire = SRC.slice(SRC.indexOf('function wirePhaseRail'),
+                         SRC.indexOf('\n}', SRC.indexOf('function wirePhaseRail')));
+  assert.match(wire, /planRailStops\(\)/,
+    'the swipe steps through the phases only, so the goal day is reachable by dot alone');
+  assert.equal(wire.indexOf('planPhaseGroups()'), -1,
+    'the swipe and the rail now read two different lists');
+
+  /* ---- THE STRATEGY IS SHOWN, NOT OFFERED ----
+     "Just the currently selected strategy shown here." The picker -- chips,
+     the recommendation, the custom stepper -- stays on the race session. */
+  /* READ OFF `split`, the render taken AFTER the strategy was changed above
+     -- so this also checks the panel follows the preference rather than
+     printing whatever was chosen when the screen was first drawn. */
+  const sel = a.RACE_STRATEGIES[a.raceStrategyKey()];
+  assert.equal(a.raceStrategyKey(), 'negative', 'the strategy set above did not take');
+  assert.ok(split.indexOf(sel.label) > -1, 'the panel does not say which strategy is chosen');
+  assert.equal(split.indexOf('data-action="set-race-strategy"'), -1,
+    'the strategy picker has moved onto the plan, where it is a control and not a fact');
+  Object.keys(a.RACE_STRATEGIES).filter(k => k !== a.raceStrategyKey()).forEach(k => {
+    assert.equal(split.indexOf(a.RACE_STRATEGIES[k].label), -1,
+      'the panel lists ' + a.RACE_STRATEGIES[k].label + ' as well as the chosen one');
+  });
+});
+
+/* ---------- AND A HERO WHEN THERE IS NO FINISH TO STATE ----------
+   Founder, choosing between four drawn directions: "B with distance as the
+   fallback." A block with no benchmark has no VDOT, so getGoalPaceSecPerKm()
+   returns null, raceExecutionPlan() has nothing to build blocks from, and the
+   hero the whole panel is built around would be blank. */
+test('with no target time the goal day leads with its distance', () => {
+  const a = app();
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  const before = a.raceExecutionPlan(race.km || 0);
+  assert.ok(before && before.impliedSec,
+    'the fixture has no target time to lose, so this proves nothing');
+
+  /* THE REAL CAUSE, not a stubbed renderer: getGoalPaceSecPerKm() reads
+     getActiveVDOT(), and a block with no benchmark has none. */
+  a.getActiveVDOT = function(){ return null; };
+  assert.equal(a.getGoalPaceSecPerKm(), null, 'the block still has a goal pace');
+  assert.equal(a.raceExecutionPlan(race.km || 0), null, 'the race still has an execution plan');
+
+  a.renderApp = () => {};
+  const stops = a.planRailStops();
+  a.handlePhasePick(stops[stops.length - 1].phase);
+  const card = /<div class="race-event race-stop">[\s\S]*?<\/button><\/div>/
+    .exec(a.renderFullPlanView())[0];
+
+  assert.match(card, /<span class="rst-k">Distance<\/span><div class="rst-v">/,
+    'with no target time the panel has no hero at all');
+  assert.ok(card.indexOf(a.kmToDisplay(race.km || 0)) > -1,
+    'the fallback hero does not state the distance');
+  assert.equal(card.indexOf('Target time'), -1,
+    'the panel offers a target time it cannot compute');
+  /* THE UNIT RIDES SMALLER, as it does everywhere else a distance is
+     printed -- the hero is the figure, not the figure and its unit at one
+     size. */
+  assert.match(card, /<span class="rst-u">/, 'the fallback hero lost its unit span');
+  /* AND WHAT IS LEFT BELOW IT STILL STANDS UP. No goal pace means no pace
+     column; the strategy and the way in are unaffected. */
+  assert.equal(card.indexOf('Target pace'), -1,
+    'the panel offers a target pace it cannot compute');
+  assert.ok(card.indexOf(a.RACE_STRATEGIES[a.raceStrategyKey()].label) > -1,
+    'the strategy went with the pace, and it did not depend on it');
+  assert.match(card, /data-action="plan-open-session"/,
+    'the way into the session went with the target time');
+});
+
+test('a block with no carousel keeps the goal day in its list', () => {
+  /* THE ONE PLACE THE OLD CARD IS STILL RIGHT. renderWeeksList() stopped
+     emitting it per phase because the stop carries it -- but a single-phase
+     block draws no carousel at all (renderPhaseRail returns '' under two
+     stops), so there is no stop to carry it and the goal day would simply
+     vanish. The guard is onlyPhase, which is null on exactly that path. */
+  const a = app();
+  const withPhase = a.renderWeeksList(false, a.planPhaseGroups()[0].phase);
+  assert.equal(withPhase.indexOf('class="race-event"'), -1,
+    'the per-phase list prints the goal-day card again');
+  const whole = a.renderWeeksList(true, null);
+  assert.ok(whole.indexOf('class="race-event"') > -1,
+    'a block rendered whole has lost its goal day entirely');
+  assert.equal((whole.match(/class="race-event"/g) || []).length, 1,
+    'the goal-day card appears more than once when the plan is rendered whole');
+});
+
+/* ---------- THE WEEK ROWS SIT APART BY THE SAME SPACE ----------
+   Founder, across all four phases: "The spaces between the weeks on full
+   plan are not the same."
+   MEASURED at 430px on a 14-week block, between the printed rows rather
+   than their boxes (the boxes are flush either way, the space lives inside
+   one of them). Before: 0, 14 on Base; 0, 14, 14, 14, 14 on Build; 0, 14 on
+   Peak; 0 on Taper. After: 14 everywhere. The first gap was always nothing. */
+test('every week row is the same distance from the one above it', () => {
+  /* THE PREMISE, AND THE REASON THE BUG WAS INVISIBLE IN THE SHEET.
+     .pw-row carries padding:14px 0, so taking the top off every row after
+     the first leaves 14px between each pair -- correct. .week carries no
+     vertical padding at all, so the identical declaration padded the BOTTOM
+     of rows two onwards instead: nothing after the first row and a tail
+     under the last. The two were written as one rule and only one of them
+     was right. */
+  const base = rule('.view-plan .pp-body .week');
+  assert.equal(/padding(-top|-bottom)?:\s*[1-9]/.test(base), false,
+    'the week row has taken a base padding — the between-rows idiom below ' +
+    'depends on it having none, so re-decide both together: ' + base);
+  const pwBase = rule(':is(.view-plan, .view-plan-week, .view-plan-session) .pw-row');
+  assert.match(pwBase, /padding:14px 0/,
+    'the session row lost the base padding that makes its own sibling rule right');
+
+  /* THE SPACE GOES ON THE TOP OF EVERY ROW BUT THE FIRST, AND OUTSIDE THE
+     LIGHT. Bottom spacing here is the bug it always was: it leaves the first
+     pair flush and hangs a tail off the last row.
+     IT IS MARGIN NOW, NOT PADDING, AND THAT IS LOAD-BEARING. Padding was
+     right while nothing painted this box. The current row is lit by a halo
+     and a halo traces the BORDER-BOX, so padding put the 14px INSIDE the
+     light: measured 24.5px of glow above the text against 10.5px below, on
+     every current week that is not the first row of its phase. Week 1 sits
+     first, so the screen the lopsidedness would first have been seen on was
+     the one screen it did not show on. */
+  const sib = rule('.view-plan .pp-body .week + .week');
+  assert.match(sib, /margin-top:14px/,
+    'the week rows space themselves by something other than the top margin, ' +
+    'which leaves the first pair tighter than the rest: ' + sib);
+  assert.equal(/padding/.test(sib), false,
+    'the week rows space themselves with padding again, which puts the gap ' +
+    'inside the current row\'s halo and lights it lopsided: ' + sib);
+
+  /* AND THE TWO RULES ARE SEPARATE. They were one grouped selector, which
+     is how a declaration right for .pw-row came to be applied to .week. */
+  const grouped = new RegExp('\\.pw-row \\+ \\.pw-row[^{]*\\.view-plan \\.pp-body \\.week \\+ \\.week');
+  assert.equal(grouped.test(BARE), false,
+    'the week row and the session row share one declaration again — their ' +
+    'base paddings differ, so one of them will be wrong');
+});
+
+test('under the carousel a week is a row, never a drawer', () => {
+  /* THE DEFECT THIS CLOSES, MEASURED. Nothing in the markup has dispatched
+     toggle-week since the week became a way IN -- grep the runtime for
+     data-action="toggle-week" and there is none -- so .week.open was
+     reachable only through initExpanded(), which opens the week holding
+     today. Under a closed phase accordion nobody ever saw it. Under the
+     carousel the current phase is on screen the moment the tab opens, so
+     week 10's seven day rows appeared on the plan, un-closable, duplicating
+     the week screen its own row leads to. Screenshotted at 430px before the
+     fix: the Taper layer ran 7 rows and a repeated taper sentence deep.
+     RENDERED WHOLE IT IS STILL A DRAWER, because that is what rendering the
+     whole plan means. */
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  assert.equal((src.match(/data-action="toggle-week"/g) || []).length, 0,
+    'something dispatches toggle-week again — the drawer has a handle, so re-decide this');
+  const a = app();
+  const cur = a.currentWeekNum();
+  a.initExpanded();                    /* the bootstrap the real app runs on load */
+  assert.ok(a.expandedWeeks[cur], 'initExpanded no longer opens the week holding today');
+  const g = a.planPhaseGroups().filter(x => x.weeks.indexOf(cur) !== -1)[0];
+  const bare = a.renderWeeksList(false, g.phase);
+  assert.ok(bare.indexOf('id="week-' + cur + '"') > -1, 'the current week is not in its own phase');
+  assert.doesNotMatch(bare, /class="week[^"]* open/,
+    'a week under the carousel unfolded a drawer nothing can close');
+  const whole = a.renderWeeksList(true);
+  assert.match(whole, /class="week[^"]* open/,
+    'rendering the plan whole stopped opening its weeks');
+  /* AND THE LEAF NO LONGER DECIDES. renderWeekAccordion() reading
+     expandedWeeks itself is what made "open" mean two different things
+     depending on which caller you were. */
+  const fn = /function renderWeekAccordion\(weekNum, open\)\{[\s\S]*?\n\}/.exec(src)[0];
+  assert.ok(fn.indexOf('expandedWeeks') === -1,
+    'the week accordion reads expandedWeeks again instead of being told');
+});
+
+/* ---------- THE LAW THIS REPLACES TWO GUARDS WITH ----------
+   There were two here: "Full Plan leads with the block, and the figures keep
+   their period" and "This Week says the week; the block name belongs to Full
+   Plan". Both pinned an asBlock branch that printed the block's name over
+   "Week 10 of 11" -- and that subline is the exact line the founder had
+   already struck off This Week's hero one tab to the left, so Full Plan was
+   keeping a pattern that had been rejected.
+   But the first guard had hold of something real, and it is kept: the
+   figures under the hero are a WEEK's volume, so a hero that does not name
+   the week "orphans the figures under it" -- its own words. That is a law
+   about titles and numbers agreeing, not about which branch exists. It is
+   asserted as that law now, so either answer to "what should this hero say"
+   passes it honestly and no answer that measures one period while naming
+   another does. */
+test('the hero names the period its own figures cover', () => {
+  /* ---------- THE LAW TWO OLDER GUARDS WERE REACHING FOR ----------
+     One of them said it almost exactly: a hero that does not name the week
+     "orphans the figures under it". That is a rule about a title and its
+     numbers agreeing on a PERIOD -- not a rule about which branch exists,
+     which is all the old assertions actually pinned.
+     The hero is printed twice. This Week names a week and measures that
+     week. Full Plan names the block and measures the whole block. Either is
+     honest; naming one and measuring the other is the defect, and it is the
+     defect the screen actually shipped with -- FULL MARATHON over 21 /
+     46.5km, which is one week of a sixteen-week build. */
+  const i = SRC.indexOf('function renderWeekHeroBlock(');
+  assert.ok(i > -1, 'renderWeekHeroBlock is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  const split = body.indexOf('if (asBlock){');
+  assert.ok(split > -1, 'the two periods are no longer distinguished');
+  const weekSide = body.slice(0, split);
+  const blockSide = body.slice(split, body.indexOf('\n  }', split));
+
+  /* THIS WEEK: a week's title over a week's volume. */
+  assert.match(weekSide, /var vol = weekVolume\(weekNum\);/,
+    "This Week's hero no longer reads its figures from the week it names");
+  assert.match(weekSide, /var title = 'Week '\+weekNum/,
+    "This Week's hero stopped leading with the week whose volume it prints");
+
+  /* FULL PLAN: the block's title over the block's volume. Summed across
+     every week of the plan -- if the title goes back to the block while the
+     figures stay on weekNum, this is what catches it. */
+  assert.match(blockSide, /title = \(parts\.label \|\| title\)/,
+    'the Full Plan hero no longer leads with the block');
+  /* The block's sum now lives in blockDistanceProgress(), the one programme
+     figure (founder, Audit IV: "Keep the 24% Full Plan distance-based figure
+     as the consistent programme progress metric"), which the arrival screen
+     and the Coach page read as well. */
+  assert.match(blockSide, /var bp = blockDistanceProgress\(\);\s*planned = bp\.planned; done = bp\.done; pct = bp\.pct;/,
+    'the Full Plan hero names the block but no longer measures it');
+  const bdp = SRC.slice(SRC.indexOf('function blockDistanceProgress('), SRC.indexOf('\n}\n', SRC.indexOf('function blockDistanceProgress(')));
+  assert.match(bdp, /for \(var bw = 1; bw <= total; bw\+\+\)/, 'the block figure is not summed over every week');
+  assert.match(bdp, /planned \+= bv\.training; done \+= bv\.doneTraining;/);
+
+  /* NEITHER builds a subline. That line -- the block's name and the week
+     count under a title -- is the one the founder struck off This Week, and
+     Full Plan carried it for another two passes. */
+  assert.ok(!/sub\.push\(|sub = \[['"]/.test(body),
+    'the hero is building a subline again');
+
+  /* AND THE WEEK-SCOPED EXCEPTION LINE STAYS ON THE WEEK. "1 session
+     unlogged" counts weekNum's sessions; printed under block figures it
+     claims one unlogged session in the entire build. */
+  assert.match(body, /var notes = asBlock \? \[\] : weekStatusNotes\(weekNum\);/,
+    'the week-scoped exception line is being printed under the block hero, where it ' +
+    'reads as a count across the whole plan');
+
+  assert.match(SRC, /renderWeekHeroBlock\(cur, true\)/,
+    'Full Plan is no longer rendering the shared hero');
+
+  /* The space the old subline occupied stays. Measured before it went:
+     title ended y30, subline ran 33..53, figures began y64 -- with nothing
+     between them the figures climb 23px and the hero reads as a smaller
+     thing. */
+  assert.match(CSS, /\.wk-hero-title \+ \.wk-hero-figs\{margin-top:34px;?\}/,
+    'the air the subline left behind has been collapsed');
+});
+
+test('the day the block is for is a panel, not another row', () => {
+  /* ---------- THIS GUARD PASSED FOR EVERY PASS WHILE THE PANEL WAS DEAD ----
+     It asserted that the cherry panel's CSS TEXT existed. It did exist --
+     tint, rim, glow, all of it -- and measured in Chromium the element
+     painted background:none, border:0, border-radius:0, box-shadow:none,
+     because the de-boxing rule further down the sheet listed .race-event and
+     won on source order. A guard that reads the stylesheet for a declaration
+     cannot tell whether anything reached the screen, and this one could not.
+     So what is pinned now is the CONFLICT, not the declaration: the panel
+     must exist AND nothing after it may strip it. */
+  assert.match(BARE, /\.view-plan > \.race-event\{[^}]*var\(--cherry-tint\)/,
+    'Race Day is flat on the page again');
+  assert.match(BARE, /\.view-plan > \.race-event\{[^}]*border:1\.5px solid var\(--cherry\)/);
+
+  /* THE LINE THAT KILLED IT. Any de-boxing list naming .race-event takes the
+     panel away again, wherever in the sheet it sits. */
+  const stripped = BARE.split('\n').filter(l =>
+    /background:none/.test(BARE.slice(BARE.indexOf(l), BARE.indexOf(l) + 400)) &&
+    /:is\(/.test(l) && /\.race-event\b/.test(l));
+  assert.equal(stripped.length, 0,
+    'a de-boxing rule lists .race-event again, so the cherry panel is dead code ' +
+    'once more: ' + stripped.join(' | '));
+
+  /* And the fill is the product's token for a cherry surface carrying white
+     text -- 9.14:1 -- not a colour invented for this panel. */
+  const panel = /\.view-plan > \.race-event\{([^}]*var\(--cherry-tint\)[^}]*)\}/.exec(BARE);
+  assert.ok(panel, 'the lit panel rule has moved');
+  assert.ok(!/#[0-9A-Fa-f]{6}/.test(panel[1].replace(/rgba?\([^)]*\)/g, '')),
+    'the Race Day panel is painted with a hand-set hex rather than the cherry tokens');
+  /* LIT BY THE RIM, NOT BY THE FILL. Measured: this panel's interior is
+     (18,19,22) -- the page -- against (103,41,58) for the --cherry-fill
+     version that was tried and rejected. A filled slab this wide spends the
+     cherry-means-progress meaning on a card scrolled past every day. */
+  assert.match(panel[1], /box-shadow:0 0 16px var\(--cherry-dim\)/,
+    'the Race Day panel lost the halo that is doing the lighting');
+  assert.ok(!/--cherry-fill/.test(panel[1]),
+    'the Race Day panel has been filled again — it is lit by its rim, see the note on the rule');
+
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  assert.doesNotMatch(src, /class="rd-flag"/, 'Race Day leads with a glyph again');
+
+  /* THE STRATEGY IS NOT IN THIS PANEL. It is a control surface and this is
+     the block's destination; it lives on the session whose execution blocks
+     it reshapes. */
+  const ev = src.slice(src.indexOf('function renderRaceDayEvent('));
+  assert.ok(!/renderRaceStrategyPicker/.test(ev.slice(0, ev.indexOf('\n}\n'))),
+    'the strategy picker is back inside the Race Day panel');
+  const sess = src.slice(src.indexOf('function renderPlanSessionView('));
+  assert.match(sess.slice(0, sess.indexOf('\n}\n')), /renderRaceStrategyPicker\(dd\)/,
+    'the race session no longer carries the strategy, so it is homeless');
+
+  /* And the way in says it once. The panel it sits in is titled RACE DAY. */
+  assert.match(src, />View session<\/button>'/,
+    'the way into the race session is worded differently again');
+  assert.ok(!/>View race session/.test(src),
+    '"View race session" is back — the panel it sits in is already titled RACE DAY');
+});
+
+/* "This Week says the week; the block name belongs to Full Plan" stood here.
+   Both halves of it are now in "the hero names the period its own figures
+   cover" above: there is one hero and one title rule, so there is no longer
+   a This-Week branch and a Full-Plan branch to assert separately. */
+
+/* "the week status chip shares an edge with the figure under it" stood here,
+   and so did a second law holding the chip's top to --wk-hero-top so it sat
+   on the title's line. Both were about where the chip went, and there is no
+   chip -- founder: "remove the bloody pill from this week." A law whose only
+   subject has been deleted is not relaxed, it is finished; what replaces
+   them is the law below, that the corner stays empty on both screens. */
+
+test('neither week hero carries a recovery reading, on either screen', () => {
+  /* ---- CHANGED SIDES, AND IT SHOULD NOT HAVE TAKEN TWO ----
+     Founder, first: "Recovery normal top right doesn't need to be there
+     neither - that's all ok Sacoro tab." That was applied to Full Plan
+     only, and the law here asserted This Week KEPT the chip -- its failure
+     message read "This Week lost its recovery chip as well, which was not
+     the instruction." It was the instruction.
+     Founder, again: "remove the bloody pill from this week."
+     One element, one place it belongs, and that place is Sacoro. */
+  const a = app();
+  const cur = a.currentWeekNum();
+  [true, false].forEach(asBlock => {
+    const html = a.renderWeekHeroBlock(cur, asBlock);
+    assert.equal(html.indexOf('wk-chip'), -1,
+      'the recovery chip is back on ' + (asBlock ? 'Full Plan' : 'This Week'));
+    assert.doesNotMatch(html, /Recovery (normal|to watch|strained)/,
+      'the recovery reading is back in the week hero on ' +
+      (asBlock ? 'Full Plan' : 'This Week'));
+    assert.doesNotMatch(html, /On target|Load (climbing|spiking|dropping)/,
+      'the load reading the chip used to share its corner with is back on ' +
+      (asBlock ? 'Full Plan' : 'This Week'));
+  });
+  /* THE MACHINERY WENT WITH IT, rather than being left with no caller. */
+  ['renderWeekStatusChip', 'WEEK_CHIP_LOAD', 'WEEK_CHIP_REC', 'WEEK_CHIP_RANK'].forEach(id =>
+    assert.doesNotMatch(SRC, new RegExp('(function|var)\\s+' + id + '\\b'),
+      id + ' is declared again with nothing to call it'));
+  assert.doesNotMatch(CSS, /\.wk-chip\{/, 'the chip rule is back in the sheet');
+
+  /* AND THE TITLE KEEPS THE ROOM IT GOT BACK. padding-right:46% existed only
+     to stop the week's name running under the chip; with the corner empty it
+     would be a 46% indent on a heading for no reason at all. */
+  assert.doesNotMatch(CSS, /\.wk-hero-title\{padding-right/,
+    'the week title is indented again for a chip that is not there');
+
+  /* NOTHING STOPPED BEING COMPUTED. The chip was a surface, not a source:
+     the readings behind it are still produced and still have a home. */
+  const rep = a.coachAnalyse();
+  assert.ok(rep.recovery && rep.recovery.state, 'recovery stopped being computed');
+  assert.ok(rep.load && rep.load.band, 'load stopped being computed');
+});
+
+test('a missed day says so in the circle, the same way a done day does', () => {
+  /* Done was already stated in the ring. Missed was a 55% dimming — the same
+     thing a past rest day got — so a week scanned at a glance showed what was
+     run and said nothing about what was not. It takes the red the product
+     already uses for it: --c-threshold, the MISSED label's own colour.
+     Both states are asserted as a PAIR, on the same two properties at the
+     same two strengths, because "the same rule as completed" is the whole
+     instruction and a guard that checks them separately would not notice
+     them drifting apart. */
+  const done = /\.wk-day\.is-done\{([^}]*)\}/.exec(CSS);
+  const missed = /\.wk-day\.is-missed\{([^}]*)\}/.exec(CSS);
+  assert.ok(done && missed, 'one of the two day-circle states has lost its rule');
+
+  const recipe = body => ({
+    border: (/border-color:color-mix\(in srgb, var\((--[\w-]+)\) (\d+)%/.exec(body) || []).slice(1).join('@'),
+    fill:   (/background:color-mix\(in srgb, var\((--[\w-]+)\) (\d+)%/.exec(body) || []).slice(1).join('@'),
+  });
+  const d = recipe(done[1]), m = recipe(missed[1]);
+  assert.ok(d.border && d.fill, 'the done circle no longer states itself through its tokens');
+  assert.ok(m.border && m.fill, 'the missed circle no longer states itself through its tokens');
+  assert.equal(d.border.split('@')[1], m.border.split('@')[1],
+    'done and missed disagree on ring strength (' + d.border + ' vs ' + m.border + ')');
+  assert.equal(d.fill.split('@')[1], m.fill.split('@')[1],
+    'done and missed disagree on fill strength (' + d.fill + ' vs ' + m.fill + ')');
+  assert.equal(d.border.split('@')[0], '--ok', 'the done circle left the done token');
+  assert.equal(m.border.split('@')[0], '--c-threshold',
+    'the missed circle is not using the red the MISSED label uses');
+  /* ON THE DOT SINCE THE PILLS WENT. The MISSED label lost its outline and
+     its coloured type -- founder, "No pills. Text white." -- and its red
+     moved to the dot beside the word. The pairing this law protects is
+     unchanged: the circle in the week strip and the label on the card must
+     draw the same red from the same token, and both still do. */
+  assert.match(CSS, /\.day-status-label\.missed \.day-status-dot\{background:var\(--c-threshold\)/,
+    'the MISSED label changed colour, so the circle now matches nothing');
+});
+
+test('a rest day cannot be missed, and a declared day is never a reproach', () => {
+  /* The circle painted every past unfinished day, rest days included. That
+     was harmless while the state was a dimming and would be a red mark
+     against a day the athlete was never asked to run — or worse, against one
+     they told Sacoro about in advance. dayStatusLabel() has ranked
+     Restricted above Missed since it was written, for exactly that reason. */
+  const i = SRC.indexOf('function renderWeekDaySelector(');
+  assert.ok(i > -1, 'renderWeekDaySelector is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  assert.match(body, /dd\.type !== 'rest' && !dd\.restricted\s*\)\s*\?\s*' is-missed'/,
+    'the week circles are marking rest days or declared days as missed');
+  assert.match(body, /' is-past'/,
+    'past days that are not misses lost the quiet state, so they now look like days ahead');
+  assert.match(CSS, /\.wk-day\.is-past\{opacity:\.55;?\}/,
+    'the quiet past state is gone from the sheet');
+  /* And the definition this copies, so the two cannot drift. */
+  const lbl = SRC.indexOf("word = 'Missed'");
+  assert.ok(lbl > -1, 'the Missed label is gone');
+  assert.match(SRC.slice(lbl - 220, lbl), /dd\.type!=='rest'/,
+    'the status label stopped excluding rest days, so the circle is now copying a ' +
+    'rule that no longer says what it used to');
+});
+
+test('the taper line is coaching, lit like coaching', () => {
+  /* It was a dim left-aligned sentence behind a gold "Taper:" label, sitting
+     under the bar like a footnote to the numbers. It is not a footnote — it
+     is Sacoro saying what the week is for, which is the Coach's Note's job
+     on a session, so it takes the same treatment. */
+  assert.ok(!/<b>Taper:<\/b>/.test(SRC),
+    'the "Taper:" label is back. The title two lines above already says TAPER, so the ' +
+    'label is the third time this hero names the same thing.');
+
+  const rule = /\n  \.wk-taper\{([^}]*)\}/.exec(CSS);
+  assert.ok(rule, '.wk-taper rule is gone');
+  assert.match(rule[1], /text-align:center/, 'the taper line is no longer centred');
+  assert.match(rule[1], /position:relative/,
+    'without a positioning context the glow below it escapes to the nearest ancestor');
+
+  /* THE GLOW IS THE COACH'S NOTE'S, VALUE FOR VALUE. The two cannot share a
+     rule — that one is inside the sixty-rule focused-session selector and
+     this is the week hero — so what is held instead is that the numbers stay
+     in step. A glow that drifts from the one it was copied from is two
+     cherries on one product. */
+  /* The selector is a LIST now: What's Next on Full Plan is the same kind of
+     line -- Sacoro saying where this is going -- so it takes the same
+     light from the same declaration rather than a second copy of the
+     gradient. A copy is exactly how the taper SENTENCE ended up saying two
+     different things on two screens. */
+  const mine = /\.wk-taper::before(?:,\s*[^{]+)?\{([^}]*)\}/.exec(CSS);
+  assert.ok(mine, '.wk-taper lost its cherry glow');
+  assert.match(CSS, /\.wk-taper::before,\s*\n\s*\.view-plan \.yr-next::before\{/,
+    "What's Next no longer shares the coaching glow declaration — if it has been given " +
+    'its own copy, the two will drift');
+  const next = /\n  \.view-plan \.yr-next\{([^}]*)\}/.exec(CSS);
+  assert.ok(next, "What's Next has no block rule of its own");
+  assert.match(next[1], /text-align:center/, "What's Next is no longer centred like the coaching it is");
+  assert.match(next[1], /position:relative/,
+    'without a positioning context its glow escapes to the nearest ancestor');
+  /* THE NOTE'S GLOW IS GONE, SO THIS COMPARES AGAINST ITSELF NOW.
+     Founder: "Did we not decide the coaches note should be in the nice
+     simple cherry lines box?" -- the Coach's Note became a bordered box and
+     its full-bleed radial went with its borderlessness, so the reference
+     this law copied no longer exists. The taper line and What's Next are
+     still lit, still unchanged, and still must not drift from each other;
+     what is lost is only the third party they were both measured against.
+     So the properties are asserted DIRECTLY rather than by comparison. A
+     law that can only say "same as that one" stops saying anything the
+     moment that one is deleted. */
+
+  const radial = body => {
+    const m = /radial-gradient\(([\s\S]*?)\);/.exec(body);
+    return m ? m[1].replace(/\s+/g, ' ').trim() : null;
+  };
+  assert.ok(radial(mine[1]), 'the taper glow is no longer a radial');
+  assert.match(mine[1], /var\(--cherry(-text)?\)/,
+    'the taper glow is lit in a colour that is not on the cherry ramp');
+  const shape = mine[1].match(/radial-gradient\((\d+)% (\d+)%/);
+  assert.ok(shape && Number(shape[1]) < 50 && Number(shape[2]) < 50,
+    'the taper glow is wider than half its box on an axis, so it is cut at the edge');
+  assert.match(mine[1], /transparent 100%/, 'the taper falloff no longer reaches nothing');
+  const blur = (/filter:blur\((\d+)px\)/.exec(mine[1]) || [])[1];
+  assert.ok(blur && Number(blur) >= 10,
+    'the blur that hides the radial\'s gradient stops is gone or too tight');
+  assert.match(mine[1], /left:calc\(50% - 50vw\); width:100vw/,
+    'the taper glow stopped spanning the screen, so it reads as a panel behind the words ' +
+    'rather than as light');
+});
+
+test('the taper sentence is not on Full Plan at all', () => {
+  /* Founder: "Remove the words under the gold bar." Those words were
+     TAPER_COACHING_LINE in Full Plan's hero.
+     THE TRAP THIS GUARDS. Taking it out of the hero on its own would have
+     put the identical sentence back into the taper week's ROW, 300px lower
+     on the same screen -- that row's copy was only ever suppressed BECAUSE
+     the hero was speaking. The sentence would not have been removed, it
+     would have moved. So both copies are off this screen, and this checks
+     the whole screen rather than the hero.
+     NOTHING IS LOST: This Week's hero still prints it, from the same
+     constant, and that is the screen about the week the athlete is in. */
+  const probe = app();
+  const taperWeeks = [];
+  for (let w = 1; w <= probe.totalWeeksInPlan(); w++) if (probe.isTaperWeek(w)) taperWeeks.push(w);
+  assert.ok(taperWeeks.length, 'the fixture has no taper to prove this with');
+
+  const screen = (pin) => {
+    const a = loadApp({ pinnedDate: pin + 'T09:00:00Z' });
+    a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+    buildPlan(a, { weeks: 12, startDate: '2026-07-01', distanceKey: '10k', volume: 40 });
+    return a;
+  };
+  /* Pinned INSIDE the taper, which is the only state where either copy ever
+     rendered -- the first version of a guard here never landed in one and
+     was vacuously true for the case it was about. */
+  const a = screen(probe.weekDateRange(taperWeeks[0]).start);
+  assert.ok(a.isTaperWeek(a.currentWeekNum()), 'pinning inside the taper did not land in it');
+  const full = a.renderFullPlanView();
+  assert.ok(full.indexOf('Volume drops, but keep') === -1,
+    'the taper sentence is back on Full Plan');
+  assert.doesNotMatch(full, /class="wk-taper"/, 'the hero prints the taper panel again');
+  assert.doesNotMatch(full, /class="taper-note"/, 'the week row prints the taper note again');
+
+  /* AND NO SPACER EITHER, which is a later decision than "keep the space".
+     That spacer held the hero at the height it had while the sentence was
+     in it; the founder has since drawn where the picture should sit, and
+     the distance is --rail-air on the rail. A 92px spacer above it would be
+     the old gap fighting the new one, and the hero would still change
+     height between a taper and a build. */
+  assert.doesNotMatch(full, /class="wk-hero-gap"/,
+    'the taper spacer is back, and is now fighting --rail-air for the same space');
+  assert.ok(BARE.indexOf('.wk-hero-gap') === -1, 'the spacer rule is still in the sheet');
+  /* THE HERO IS ONE HEIGHT WHATEVER PHASE THE BLOCK IS IN, which is what
+     the spacer was for and what the rail's own margin now gives for free. */
+  const b = screen(probe.weekDateRange(1).start);
+  assert.equal(b.isTaperWeek(b.currentWeekNum()), false, 'pinning before the taper landed in it');
+  const inTaper = (full.match(/class="wk-hero"/g) || []).length;
+  assert.equal(inTaper, 1, 'Full Plan renders more than one hero');
+  assert.ok(b.renderFullPlanView().indexOf('Volume drops, but keep') === -1,
+    'a block outside its taper prints the taper sentence');
+
+  /* THIS WEEK IS UNTOUCHED, which is the whole reason removing it costs
+     nothing. */
+  assert.match(a.renderWeekHeroBlock(a.currentWeekNum(), false), /class="wk-taper"/,
+    'This Week stopped printing the taper sentence too');
+});
+
+test('the taper sentence still fits two lines', () => {
+  /* Measured in Chromium at 360, 412 and 430: two lines at every one, with
+     48px of text at a 24px line-height. There is no static way to assert a
+     rendered line count, so what is pinned is the thing that would break it
+     — the length of the sentence. It has ~14 characters of headroom at
+     360px; anything materially longer sets three lines on a narrow phone. */
+  /* IT IS A SHARED CONSTANT NOW, not a literal in the markup. It was
+     written out twice -- the hero and Full Plan's week note -- and the two
+     drifted the moment the hero's copy was revised: This Week dropped the
+     "Taper:" label and its bolt, Full Plan's week note kept both. One
+     definition is what makes "the same decision" literally the same string,
+     so the wrap is measured on that definition and both printers inherit it. */
+  const m = /var TAPER_COACHING_LINE = ([\s\S]*?);\n/.exec(SRC);
+  assert.ok(m, 'TAPER_COACHING_LINE is gone — re-measure the wrap wherever the copy now lives');
+  const words = m[1].replace(/'\s*\+\s*\n?\s*'/g, '').replace(/^'|'$/g, '')
+    .replace(/\\u2014/g, '—');
+
+  /* ONE PRINTER NOW, AND IT STILL TAKES THE CONSTANT. A second copy of this
+     sentence anywhere is the defect the constant exists to prevent, and that
+     is unchanged; what changed is how many places print it.
+     FULL PLAN NO LONGER DOES. Its hero's copy is what the founder asked be
+     removed from under the gold bar, and the week row's copy went with it
+     rather than becoming the same sentence 300px lower on the same screen.
+     This Week keeps it: it is coaching about the week the athlete is in. */
+  assert.ok(!/Volume drops, but keep/.test(SRC.replace(m[0], '')),
+    'the taper sentence has been written out a second time — the two will drift again');
+  assert.match(SRC, /class="wk-taper"><span>'\+TAPER_COACHING_LINE/,
+    "This Week's hero is no longer printing the shared taper sentence");
+  /* EXACTLY ONE PRINTER, counted off comment-stripped source -- this file's
+     own prose quotes the identifier, and matching prose instead of code has
+     produced a false pass in this suite before. One definition plus one use
+     is two mentions; anything more is a second place printing it. */
+  const code = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  assert.equal((code.match(/TAPER_COACHING_LINE/g) || []).length, 2,
+    'the taper sentence is printed in ' + ((code.match(/TAPER_COACHING_LINE/g) || []).length - 1) +
+    ' places; This Week\u2019s hero is meant to be the only one');
+  assert.ok(words.length <= 100,
+    'the taper sentence is ' + words.length + ' characters. It set two lines at 360px at ' +
+    '88; much past 100 and it wraps to three, which is the limit this layout was built to.');
+  assert.match(words, /^Volume drops,/,
+    'the taper sentence changed opening — if the copy is being rewritten, re-measure the wrap');
+});
+
+/* =========================================================================
+ * THE FULL PLAN PASS — the founder's five, each pinned to the measurement
+ * that settled it rather than to the number I happened to type.
+ * ========================================================================= */
+
+test('REPLACED: the phase track ran BETWEEN the marks', () => {
+  /* The stepper's track is gone with the stepper. What replaced the law --
+     a full-width slide, and dots that are controls rather than decoration
+     and therefore carry the thumb floor -- is asserted below. */
+  const slide = rule('.pp-slide, .wk-slide');
+  assert.match(slide, /flex:0 0 100%/,
+    'a phase slide is no longer full width, so the carousel shows two at once');
+  /* ONE RULE, BOTH RAILS. The week's slide and the phase's are the same
+     kind of thing and are declared together rather than twice. */
+  assert.ok(rule('.view-plan .pp-rail, .view-week .wk-rail').indexOf('overflow:hidden') > -1,
+    'the rail stopped clipping its track');
+  assert.match(rule('.view-plan .pp-rail, .view-week .wk-rail'), /touch-action:pan-y/,
+    'the rail took pan-x, so a vertical scroll starting on it is lost');
+  /* THE DOTS REPLACED FOUR BUTTONS, so they have to still be buttons: the
+     chips were tappable and keyboard-reachable and the carousel may not
+     quietly make phase selection swipe-only. */
+  assert.match(rule('.pp-dot'), /width:var\(--tap-min\)/,
+    'the phase dot is a 6px tap target');
+  assert.match(rule('.pp-dot::before'), /width:6px/,
+    'the dot itself grew to the size of its target');
+  const a = app();
+  assert.match(a.renderPhaseRail(), /<button type="button" class="pp-dot[^"]*"[^>]*data-action="phase-pick"/,
+    'the dots stopped being controls, so a phase can only be reached by swiping');
+});
+
+test('SUPERSEDED: the stepper geometry', { skip: 'the stepper was replaced by the phase carousel' }, () => {
+  /* THE DEFECT, MEASURED. The track was drawn from one dot's centre to the
+     next (left:-50% / right:50%) and relied on the dot's own opaque fill to
+     cover the overlap. In Chromium at 412px that put the line 13px inside
+     each 25px circle: it met the rim with no gap at all, which is what
+     "cutting through the circle" was. After: it stops 5px clear on each
+     side -- 81→141 between dots at 51–76 and 146–171.
+     Pinned as the RELATION, not as 17.5px: whatever the dot's size becomes,
+     the inset has to clear its radius with room to spare, because the whole
+     point is that the line is decorative and must not touch. */
+  const dot = rule('.pp-step-dot');
+  const w = /width:(\d+(?:\.\d+)?)px/.exec(dot);
+  assert.ok(w, 'the phase dot no longer declares a pixel width — re-derive the track inset');
+  const radius = parseFloat(w[1]) / 2;
+
+  const track = rule('.pp-step::before');
+  const left = /left:calc\(-50% \+ (\d+(?:\.\d+)?)px\)/.exec(track);
+  const right = /right:calc\(50% \+ (\d+(?:\.\d+)?)px\)/.exec(track);
+  assert.ok(left && right,
+    'the phase track is back to running centre-to-centre, so it meets each circle ' +
+    'rim with no gap and reads as cutting through it');
+  assert.equal(left[1], right[1], 'the track is inset further on one side than the other');
+
+  const gap = parseFloat(left[1]) - radius;
+  assert.ok(gap >= 3,
+    'the track stops ' + gap + 'px from the circle rim. It is decoration between the ' +
+    'phases and must visibly not touch them; under ~3px it reads as joined again.');
+
+  /* AND IT SITS ON THE DOT'S CENTRE LINE. top was 12px against a centre at
+     12.5px -- half a pixel low, which is the other half of why it looked
+     like it clipped the rim rather than meeting it. */
+  const top = /top:(\d+(?:\.\d+)?)px/.exec(track);
+  assert.ok(top, 'the track no longer declares a top');
+  const h = /height:(\d+(?:\.\d+)?)px/.exec(track);
+  const mid = parseFloat(top[1]) + parseFloat(h[1]) / 2;
+  assert.equal(mid, radius,
+    'the track centres on ' + mid + 'px but the dot centres on ' + radius + 'px');
+});
+
+test('Full Plan breathes on the same measure as This Week', () => {
+  /* Measured in Chromium: Full Plan was padding-top 22px / gap 9px against
+     This Week's 26 / 18 -- half the rhythm of the tab beside it, which is
+     what made two tabs of one app feel like two apps. Pinned to This Week's
+     own declaration so the two cannot drift: change the law there and this
+     fails until Full Plan follows. */
+  const week = rule('.view-week');
+  const plan = rule('.view-plan');
+  const padOf = r => (/padding-top:(\d+)px/.exec(r) || [])[1];
+  assert.equal(padOf(plan), padOf(week),
+    'Full Plan and This Week no longer start at the same height');
+  assert.match(plan, /gap:var\(--wk-gap\)/,
+    'Full Plan is setting its own gap instead of taking This Week\'s --wk-gap');
+  const gapOf = s => (/--wk-gap:(\d+)px/.exec(s) || [])[1];
+  assert.equal(gapOf(BARE.slice(BARE.indexOf('.view-plan{--wk-gap'))),
+               gapOf(BARE.slice(BARE.indexOf('.view-week{--wk-gap'))),
+    'the two tabs set --wk-gap to different values');
+});
+
+test('the Race Day panel balances its two figures and carries them in white', () => {
+  /* ---------- THE SHAPE CHANGED, AND SO DOES THIS GUARD ----------
+     It used to pin the distance to Today's 57.6px hero clamp. That came
+     from reading "give Race Day a hero feeling" as "make the number
+     enormous"; the founder's own reference answers it differently -- the
+     hero-ness is the LIT PANEL, and inside it RACE DAY and 42.2 KM sit on
+     one row as equals. At 412px they cannot both be hero-scale anyway: a
+     57.6px figure is ~160px and the title ~145px, which with the rule and
+     the padding overruns the screen. So two columns forces the size, and
+     the panel does the work the size used to.
+     What is still worth holding is everything the ORIGINAL defect was: a
+     13px --fs-meta figure in --ink-faint, set like a row of metadata for
+     the event the whole block exists for. */
+  const dist = rule('.view-plan > .race-event .race-event-dist b');
+  const label = rule('.view-plan > .race-event .race-divider .l');
+  const sizeOf = r => { const m = /font-size:(\d*(?:\.\d+)?)(px|rem)/.exec(r); return m ? parseFloat(m[1]) * (m[2] === 'rem' ? 16 : 1) : NaN; };
+
+  assert.ok(sizeOf(dist) >= 24,
+    'the Race Day distance is back to ' + sizeOf(dist) + 'px — a row figure for the ' +
+    'day the block exists for');
+  assert.equal(sizeOf(dist), sizeOf(label),
+    'the panel\'s two figures no longer balance: RACE DAY is ' + sizeOf(label) +
+    'px and the distance ' + sizeOf(dist) + 'px. They share a row as equals.');
+  [['distance', dist], ['label', label]].forEach(([what, r]) => {
+    assert.match(r, /color:#FFFFFF/, 'the Race Day ' + what + ' is no longer white on the lit panel');
+    assert.match(r, /text-shadow:/, 'the Race Day ' + what + ' lost its backlight');
+  });
+
+  /* AND THE TWO COLUMNS. One row, divided -- what and when on the left, how
+     far on the right. Stacking them is what made it a list item. */
+  const panel = /\.view-plan > \.race-event\{([^}]*grid-template-columns[^}]*)\}/.exec(BARE);
+  assert.ok(panel, 'the Race Day panel is no longer a grid');
+  assert.match(panel[1], /grid-template-columns:1fr auto/,
+    'Race Day has gone back to a single stacked column');
+  /* Matched across the sheet, not with rule(): that helper returns the FIRST
+     rule for a selector, and a selector may legitimately have more than one. */
+  assert.match(BARE, /\.view-plan > \.race-event \.race-event-dist\{[^}]*border-left:1px solid/,
+    'the hairline between the identity and the distance is gone');
+  /* --cherry-line, which is what that token was drawn for: a dark ground. */
+  assert.match(BARE, /\.view-plan > \.race-event \.race-event-dist\{[^}]*border-left:1px solid var\(--cherry-line\)/,
+    'the hairline is no longer the cherry token the dark panel was built around');
+});
+
+test('every control on the race panel clears the thumb floor', () => {
+  /* The custom differential steppers were 38px. They are pressed repeatedly
+     to tune a number, which is the worst place in the app to be 6px short. */
+  assert.match(rule('.rs-step'), /width:var\(--tap-min\); height:var\(--tap-min\)/,
+    'the race strategy steppers are back to a hand-set size under the 44px floor');
+});
+
+test('tapping the Full Plan tab returns to the Full Plan', () => {
+  /* Which of Full Plan's three screens is showing lives in two MODULE
+     variables, not in state.view -- so tapping the tab while a session was
+     open re-rendered that session and the tab appeared dead. The clear has
+     to happen BEFORE the already-on-this-view early return, for exactly the
+     reason the voice probe above it does: the case that needs it most is
+     the one where state.view is already 'full'. */
+  const i = SRC.indexOf('function handleSetView(');
+  assert.ok(i > -1, 'handleSetView is gone');
+  const body = SRC.slice(i, SRC.indexOf('\n}\n', i));
+  const clear = body.indexOf('planSessionOpen = null');
+  const earlyReturn = body.indexOf('if (state.view===view){');
+  assert.ok(clear > -1, 'the Full Plan tab no longer clears the open session');
+  assert.ok(body.indexOf('planWeekOpen = null') > -1,
+    'the Full Plan tab no longer clears the open week');
+  assert.ok(clear < earlyReturn,
+    'the sub-screens are cleared after the already-on-this-view return, so tapping ' +
+    'FULL PLAN while a session is open still does nothing — the exact bug this fixes');
+
+  /* And the re-tap still has to repaint, or the state changes under a screen
+     that never redraws.
+     THE CONDITION IS ALLOWED TO GROW. It reads `leftASubScreen || leftAPhase`
+     now -- the tab also clears a swiped-to phase, and that needs the same
+     repaint for the same reason -- so what is pinned is that clearing the
+     sub-screens is still one of the things that triggers it, not the exact
+     text of the test. */
+  assert.match(body, /if \(leftASubScreen[^)]*\) renderApp\(\);/,
+    'clearing the sub-screens no longer repaints, so the tab clears state and shows ' +
+    'the old screen anyway');
+});
+
+test('every phase starts closed', () => {
+  /* The current phase used to open itself. On a four-phase block that put a
+     section's worth of week rows between the stepper and Race Day every
+     time the screen was opened -- and this screen is for the SHAPE of the
+     block: the stepper says which phase is current, the hero says how far
+     through it is, and a phase is what you open to go and find a week. */
+  const a = app();
+  const groups = a.planPhaseGroups();
+  assert.ok(groups.length >= 2, 'the fixture block no longer has phases to close');
+  groups.forEach(g => {
+    assert.equal(a.phaseGroupOpen(g, false), false,
+      'the ' + g.phase + ' section opens itself on load');
+  });
+  const html = a.renderWeeksList();
+  assert.equal((html.match(/class="pp-phase [^"]*is-open/g) || []).length, 0,
+    'a phase section is rendered open on a fresh load');
+
+  /* A TAP STILL OPENS IT, and forceOpenAll still wins -- that is how the
+     whole plan is rendered open where something needs all of it at once,
+     and it is not a default. */
+  a.handleTogglePhase(groups[0].phase);
+  assert.equal(a.phaseGroupOpen(groups[0], false), true,
+    'tapping a phase no longer opens it');
+  assert.equal(a.phaseGroupOpen(groups[1], true), true,
+    'forceOpenAll no longer opens a phase');
+});
+
+test('the week list runs in columns, not wherever each row’s figures end', () => {
+  /* MEASURED AT 412px BEFORE: the volume block sat at x280-316 on a row
+     reading "0/18" and at x226-307 on one reading "31.5/34.5" -- its left
+     edge moving 54px from row to row, because both right-hand cells were
+     flex:none and sized to their own content. Down a list of eleven weeks
+     that is the ragged middle the founder asked to even out.
+     Fixed widths, and the volume CENTRED in its own: the figure runs from
+     four characters to nine and the only way it sits still is to be centred
+     in a box that does not move. */
+  const vol = rule('.view-plan .pp-body .week-vol');
+  const pct = rule('.view-plan .pp-body .week-pct');
+  assert.match(vol, /flex:0 0 \d+px/,
+    'the week volume is sized to its own content again, so the column goes ragged');
+  /* NOT CENTRED ANY MORE, AND THAT IS THE ROW CHANGING UNDER IT. When the
+     volume sat above its own unit in a stacked cell, centring was what kept
+     a four-character figure and a nine-character one in the same place. On
+     a single row the figure is one item in a line of items and it starts
+     where its column starts, like every other. The column is still FIXED,
+     which is what this test is actually for. */
+  assert.match(vol, /text-align:left/,
+    'the volume is centred in a single-row layout, so it floats away from the column ' +
+    'edge the rest of the row aligns to');
+  /* FIXED, IN THE ROW'S OWN TEXT SIZE (responsive correction 2): every
+     row has the same text size, so the column is the same width on every
+     row -- 36px at the normal 15px -- and it widens with the words when the
+     phone's text is larger instead of letting them overrun it. */
+  assert.match(pct, /flex:0 0 2\.4em/,
+    'the completion figure is sized to its own content again');
+
+  /* THE BOX HAS TO FIT THE WIDEST REAL FIGURE. "63.2/69.2" measured 81px on
+     an eleven-week block; under that and the number clips or wraps. */
+  /* SIZED FOR THE WIDEST FIGURE AN ATHLETE CAN HAVE, not the widest in a
+     test block. "123.4/145.6" -- a 120km week -- measures 100px at
+     --fs-data against the 84px my fixture's "63.2/69.2" needed. Size this
+     to the fixture and the first athlete running three figures clips. */
+  const w = parseInt(/flex:0 0 (\d+)px/.exec(vol)[1], 10);
+  /* And at the normal text size the reflow rule's width in em is that same
+     width, so nothing moved at the size it was measured at. */
+  const reflow = /\.view-plan \.pp-body \.week-vol\{font-size:var\(--fs-row\); flex-basis:([\d.]+)em;/.exec(BARE);
+  assert.ok(reflow, 'the volume column no longer grows with the row\u2019s text');
+  assert.ok(Math.abs(Number(reflow[1]) * 15 - w) < 1, 'the em width (' + reflow[1] + 'em at 15px) is not the ' + w + 'px it replaces');
+  assert.ok(w >= 100,
+    'the volume column is ' + w + 'px. A 120km week prints "123.4/145.6", which needs ' +
+    '100px at this size, so this clips it.');
+
+  /* AND THE LABEL KEEPS ENOUGH ROOM. Fixing the right-hand columns takes
+     width from .week-meta, which carries "Fitness Checkpoint". */
+  const a = app();
+  const html = a.renderWeeksList(true);
+  assert.ok(html.indexOf('week-meta') > -1, 'the week row no longer has a meta column');
+});
+
+test('the week hero states its own top offset as a token', () => {
+  /* MEASURED AT 412px: the title's cap centre was 112.2 and the chip's 121
+     -- 8.8px low on This Week and Full Plan alike, which reads as two
+     things on two lines. The cause is that the hero's padding-top moves the
+     title, an in-flow child, and does NOT move the chip, which is absolute
+     against the padding box. So they share one token: whatever shifts the
+     title shifts the chip by the same amount. */
+  const hero = rule('.wk-hero');
+  assert.match(hero, /--wk-hero-top:\s*\d+px/,
+    'the hero no longer states its content offset as a token');
+  assert.match(hero, /padding:var\(--wk-hero-top\)/,
+    'the hero padding stopped using its own token');
+  /* The third assertion here held the chip's top to the same token, so the
+     two could not drift apart. The chip is gone (see the empty-corner law
+     above) and the token stays because the hero's own padding still reads
+     it -- inlining 4px to tidy up would be a change nobody asked for. */
+});
+
+test('every wide glow carries a dither, and it is not inside the blur', () => {
+  /* MEASURED at device pixel ratio 3, across the glow: one 8-bit value
+     survived 20 device pixels, then 14, 12, 11 — nine runs of 10px or more.
+     Those runs are the rings. Four treatments measured:
+       as it ships      widest 20px   steps>=6px 49   >=10px  9
+       12 eased stops   widest 17px   steps>=6px 64   >=10px  9
+       harder + blur30  widest 26px   steps>=6px 51   >=10px 15   (peak 86->68)
+       fine dither      widest  9px   steps>=6px  5   >=10px  0
+     More stops cannot help: the banding is 8-bit quantisation, and the
+     browser rounds to the same 255 levels between any two stops. */
+  /* RE-ANCHORED, NOT RELAXED. This read the group through
+     `.view-planhq .v-call::after`, which left it when the founder had the
+     call's wash removed -- "a noise layer over bare background is visible
+     for nothing", in this rule's own words. The last arm is the anchor now
+     and the membership check below is unchanged, so the dither still has to
+     reach every glow that was measured. */
+  const i = BARE.indexOf('.view-plan .yr-next::after');
+  assert.ok(i > -1, 'the dither layer is gone — the wide glows band again');
+  const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
+  assert.match(body, /feTurbulence/, 'the dither is no longer a noise texture');
+  assert.match(body, /opacity:\.0\d/, 'the dither opacity has left the sub-perceptual range');
+
+  /* IT MUST BE ITS OWN LAYER. Inside the ::before, filter:blur() erases
+     exactly the high-frequency detail that does the work. */
+  assert.ok(!/filter:blur/.test(body),
+    'the dither layer is being blurred, which removes the grain that stops the banding');
+  assert.ok(!/mix-blend-mode/.test(body),
+    'the dither has taken a blend mode again — it measured no better than plain opacity ' +
+    'and forces a compositing layer on every glow in the app');
+
+  /* AND IT REACHES THE GLOWS THAT WERE MEASURED. */
+  const sel = BARE.slice(i - 400, BARE.indexOf('{', i));
+  ['.how-note::after', '.exec-review-card::after', '.wk-taper::after']
+    .forEach(s2 => assert.ok(sel.indexOf(s2) > -1, 'the dither no longer reaches ' + s2));
+});
+
+test('the dither feathers out before the box edge, so there is no rectangle', () => {
+  /* THE DITHER SHIPPED AS A RECTANGLE and the founder saw it: 100vw wide,
+     the element's full height, ONE opacity everywhere, hard edges all round.
+     Measured at dpr 3 in a column 20px from the screen edge -- far enough
+     out that the radial has reached zero and only the grain is painting --
+     bare canvas read 19.7 and inside the box read 23.6. Four levels of
+     uniform lift with a straight edge under it, full width of the phone.
+     The light was never the problem; the grain layer was given none of the
+     discipline every ::before here already had.
+     Nine mask profiles were measured on BOTH numbers, because the grain out
+     in the tail is what drew the rectangle AND what killed the rings:
+       flat, unmasked              EDGE 4.36    8px /  3 / 0
+       fade from 40% of a 48x46    EDGE 0.61    8px /  9 / 0
+       fade from 82% of a 49x48    EDGE 2.97    8px /  5 / 0
+       glow-shaped 46x43 tail 84%  EDGE 1.02    7px /  5 / 0
+       glow-shaped 46x43 tail 70%  EDGE 0.64    8px /  7 / 0   <- shipped
+       glow-shaped 44x41 tail 70%  EDGE 0.27   17px / 12 / 2
+     (No dither at all bands 20px / 49 / 9, for scale.) */
+  const i = BARE.indexOf('.view-plan .yr-next::after');
+  const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
+
+  assert.match(body, /-webkit-mask-image:radial-gradient/,
+    'the grain layer has lost its mask — it is a flat 100vw rectangle again, which is the box');
+  assert.match(body, /[^-]mask-image:radial-gradient/,
+    'only the -webkit- mask is set; the standard property has to be there too');
+
+  /* THE MECHANISM, not the presence. A mask still carrying alpha where it
+     meets the element's edge does not remove the rectangle — it moves the
+     rectangle into the mask. Under 50% on BOTH axes is the whole law, and
+     it is the same law every glow ::before on this screen already obeys. */
+  const shape = body.match(/-webkit-mask-image:radial-gradient\((\d+)% (\d+)% at/);
+  assert.ok(shape, 'the mask is no longer an explicit two-axis ending shape');
+  assert.ok(+shape[1] < 50, 'the grain mask is ' + shape[1] + '% wide — at or over 50% it is cut by the box edge and the rectangle is back');
+  assert.ok(+shape[2] < 50, 'the grain mask is ' + shape[2] + '% tall — at or over 50% it is cut by the box edge and the rectangle is back');
+  assert.match(body, /-webkit-mask-image:radial-gradient\([^;]*transparent 100%\)/,
+    'the grain mask no longer ends at transparent, so it stops dead instead of feathering');
+
+  /* AND IT STILL COVERS THE LIGHT. The mask is the glow's own shape; a mask
+     materially tighter than the glow stops dithering the part of the fade
+     that bands (44x41 measured two rings back over 10px). */
+  const glow = BARE.match(/\.wk-taper::before,[\s\S]*?radial-gradient\((\d+)% (\d+)% at/);
+  assert.ok(glow, 'the taper glow is no longer an explicit two-axis radial');
+  assert.ok(+shape[1] >= +glow[1] - 1 && +shape[2] >= +glow[2] - 1,
+    'the grain mask (' + shape[1] + 'x' + shape[2] + ') has shrunk below the glow it dithers (' +
+    glow[1] + 'x' + glow[2] + ') — the outer fade bands again');
+});
+
+test('a week is one row, at one size, in fixed columns', () => {
+  /* Measured in place at --fs-data (15px), widest of each column:
+       label 141   range 136   volume 106   pct 28   chevron 18   gaps 40
+       = 467px against 380px available.
+     The row cannot hold all five at 15px, and truncating a week's NAME so a
+     date can fit is the wrong trade. Saying the month once took the range
+     to 98, dropping the repeated unit took the volume to 73, and the rest
+     came from the size. Worst row — Fitness Checkpoint, which carries both
+     the longest name and the one range that crosses a month — now needs
+     347px, which fits with four 7px gaps. */
+  const body = rule('.view-plan .pp-body');
+  /* AND IT IS THE PRODUCT'S OWN TIER, not a number picked for this row.
+     Swept in Chromium against the widest row there is: 15px needs 363px of
+     the 380 available and 16px needs 383. --fs-data is 15px. */
+  assert.match(body, /--fs-row:var\(--fs-data\)/,
+    'the row has taken a size of its own again instead of the metric tier every other ' +
+    'figure in the app reads at');
+  ['.view-plan .pp-body .week-phase', '.view-plan .pp-body .week-range',
+   '.view-plan .pp-body .week-vol .v', '.view-plan .pp-body .week-pct'].forEach(sel => {
+    assert.match(rule(sel), /font-size:var\(--fs-row\)/,
+      sel + ' is sized on its own again — every item on this row carries the same weight');
+  });
+  assert.match(rule('.view-plan .pp-body .week-num'), /display:none/,
+    'the big numeral is back in front of a label that already says which week it is');
+  assert.match(rule('.view-plan .pp-body .week-meta'), /display:flex/,
+    'the label and its dates have gone back to stacking, so the row is two lines again');
+  assert.match(rule('.view-plan .pp-body .week-vol .l'), /display:none/,
+    'the unit is back on the row — the same three characters on all eleven of them');
+
+  /* THE RANGE NAMES ITS MONTH ONCE. */
+  assert.match(SRC, /function weekRangeLabel\(range\)/, 'the compact week range is gone');
+  const a = app();
+  const same = a.weekRangeLabel({ start: '2026-09-14', end: '2026-09-20' });
+  assert.ok(!/Sep[\s\S]*Sep/.test(same), 'a single-month range names September twice: ' + same);
+  const cross = a.weekRangeLabel({ start: '2026-09-28', end: '2026-10-04' });
+  assert.match(cross, /Sep/, 'a crossing range lost its first month');
+  assert.match(cross, /Oct/, 'a crossing range lost its second month');
+});
+
+test('a week row is still a thumb target once it is one line', () => {
+  /* Flattening two stacked lines into one took .week-head from 56px to 40 --
+     under the 44px floor, on the only way into a week. Caught by the
+     Chromium sweep, not by any of the guards above it, because every one of
+     them measures the row's CONTENT and none measured the row. */
+  assert.match(rule('.view-plan .pp-body .week-head'), /min-height:var\(--tap-min\)/,
+    'the week row has no floor again — flattening it to one line puts it under 44px');
+});
+
+test('the list calls the checkpoint week by its number', () => {
+  /* "Fitness Checkpoint" measured 127px on a row whose whole budget is 380
+     -- 84px more than any other label, and the single item deciding how
+     large every other item on every other row could be. Called Week 5 it is
+     43px, and the row went from 13.5px to the app's own 15px metric tier.
+     THE NAME IS NOT LOST. weekPhaseLabel() still returns it everywhere the
+     week is read rather than scanned -- the week screen, the export, the
+     coach's summary -- and the session inside it is still a Fitness
+     Checkpoint and still says so on its own card. */
+  const a = app();
+  const cp = a.state.days.filter(d => d.type === 'checkpoint')[0];
+  if (!cp) return;                       // this block has no checkpoint; nothing to prove
+  assert.equal(a.weekRowLabel(cp.week), 'Week ' + cp.week,
+    'the plan list is naming the checkpoint week again instead of numbering it');
+  assert.equal(a.weekPhaseLabel(cp.week), 'Fitness Checkpoint',
+    'the checkpoint week has lost its name everywhere, not just on the list row');
+  const html = a.renderWeeksList(true);
+  assert.ok(!/>Fitness Checkpoint</.test(html),
+    'the list row is printing the long name again');
+
+  /* ONLY THE CHECKPOINT. Numbering every row would buy more width and cost
+     the two weeks that genuinely are not "week N" -- the goal week and the
+     taper -- their names, which is the identity test/taperGoalWeekGrouping
+     exists to protect one surface over. */
+  const total = a.totalWeeksInPlan();
+  const goal = a.state.days.filter(d => d.type === 'race')[0];
+  if (goal) assert.equal(a.weekRowLabel(goal.week), a.weekPhaseLabel(goal.week),
+    'the goal week has been numbered like any other — it is the week the block exists for');
+  const taperWeek = [];
+  for (let w = 1; w <= total; w++) if (a.isTaperWeek(w) && !a.weekPhaseLabel(w).match(/^Week /)) taperWeek.push(w);
+  taperWeek.forEach(w => assert.equal(a.weekRowLabel(w), a.weekPhaseLabel(w),
+    'week ' + w + ' has been numbered, losing the phase name the list row carries'));
+});
+
+test('a phase says its state in colour, and still says it in words', () => {
+  /* "Weeks 3 - 7 . Completed" was a 12px line under every phase name saying
+     two things the screen already says. The RANGE is on the stepper at the
+     top of this view -- W1-2, W3-7, W8-9, W10-11, under the phase it
+     belongs to -- and the week rows inside are numbered. The STATE becomes
+     the colour of the name, the way This Week already says it.
+     Measured at 412px with every phase open: done names rgb(155,192,140)
+     (--ok-text), the current one rgb(245,208,97) (--gold-bright), head
+     height 49px against the 44px floor, and the chevron's centre 0.0px from
+     the name's on all four. */
+  const a = app();
+  const html = a.renderWeeksList(true);
+  assert.ok(html.indexOf('class="pp-meta"') === -1,
+    'the phase subtitle is back under the name');
+  /* Founder: "no symbols". The meta now reads "Weeks 3 to 6: Now"; both the old
+     and the new form must stay out of sight. */
+  assert.ok(!/Weeks \d+ (–|to) \d+( ·|:) (Completed|Now|Ahead)</.test(html.replace(/<span class="sr-only">[^<]*<\/span>/g, '')),
+    'the phase range and state are being printed visibly again');
+
+  /* COLOUR ALONE IS NOT A SIGNAL. The words it replaced stay in the button
+     for a screen reader, which is also why phaseGroupMeta() is still the
+     one place they are written. */
+  assert.match(html, /<span class="sr-only">Weeks [^<]*(Completed|Now|Ahead)<\/span>/,
+    'the state is now carried by colour alone — nothing announces it');
+
+  /* DONE IS THE DAY CIRCLE'S GREEN. --ok is the ring and field on
+     .wk-day.is-done; --ok-text is that same colour at text contrast. */
+  assert.match(rule('.pp-phase.is-done .pp-name'), /color:var\(--ok-text\)/,
+    'a completed phase is no longer green, so nothing says it is complete');
+  assert.match(rule('.pp-phase.is-now .pp-name'), /color:var\(--gold-bright\)/,
+    'the current phase has lost its gold, so done and now read the same');
+  assert.match(rule('.wk-day.is-done'), /var\(--ok\)/,
+    'the day circle has moved off --ok, so the phase name no longer matches it');
+
+  /* THE CHEVRON IS IN LINE WITH THE TITLE because the head centres a
+     single-line text block; a second line returning would move it off. */
+  assert.match(rule('.pp-head'), /align-items:center/,
+    'the phase head no longer centres its row, so the chevron drifts off the title');
+});
+
+test('a week is a week on whichever screen it is', () => {
+  /* Full Plan's week screen was a list of seven rows while This Week was
+     circles, a swipeable card and a way in: two presentations of one object.
+     On the founder's call they are the same thing now, built from the SAME
+     functions rather than a second set that resembles them --
+     renderWeekDaySelector and renderWeekSessionBox, both of which already
+     took a weekNum rather than assuming the current week, which is what
+     made this a re-use and not a rewrite.
+     Measured on the rebuilt screen at 412px: container 18px gap / 26px top
+     (This Week's rhythm, not the plan screens' 12/18), hero 158px with a
+     144px ring (so the focused-session scope is reaching it), and the way
+     in rendering at 52px in cherry — the same button Race Day carries. */
+  const a = app();
+  const html = a.renderPlanWeekView(3);
+  assert.match(html, /class="view-plan-week view-week"/,
+    'the week screen no longer wears .view-week, so none of This Week’s scope reaches it');
+  assert.match(html, /class="wk-days"/, 'the week screen has lost the day circles');
+  assert.match(html, /class="wk-rail"/, 'the week screen has lost the swipeable session box');
+  assert.ok(html.indexOf('pw-rows') === -1,
+    'the week screen is listing rows again as well — two presentations of one week');
+
+  /* THE ACCORDION STILL LISTS. Inside a phase on Full Plan a week is one
+     row, and that is a different job from the week's own screen. */
+  assert.match(a.renderWeeksList(true), /class="pw-rows"/,
+    'the phase accordion has stopped listing its weeks');
+
+  /* A WEEK THAT IS NOT THIS WEEK STILL RESOLVES A DAY. weekSelectedDay()
+     falls back to today-if-in-this-week and otherwise the week's first day,
+     so a past week opens on its own first day with no new state to keep. */
+  const past = a.renderPlanWeekView(1);
+  assert.match(past, /class="wk-day/, 'a past week renders no day circles');
+  assert.match(past, /wk-slide/, 'a past week resolves no session to show');
+});
+
+test('a day circle is one size, whatever else the week contains', () => {
+  /* This Week always has seven. Full Plan's week screen does not: the first
+     week of a block can be three days, and the race week is six. At
+     flex:1 1 0 with aspect-ratio 1/1 that gave each circle a THIRD of the
+     row -- 122px against 48px, as tall as it was wide -- and the week
+     opened on three dinner plates.
+     The cap is a seventh of the row, which is what a circle measures in a
+     seven-day week, and the row packs from the left. For seven the two are
+     identical: seven caps plus six 7px gaps is exactly 100%. */
+  assert.match(rule('.wk-day'), /max-width:calc\(\(100% - 42px\) \/ 7\)/,
+    'a day circle is uncapped again, so a short week draws it oversized');
+  assert.match(rule('.wk-days'), /justify-content:flex-start/,
+    'a short week’s circles are being strung across the full width again');
+});
+
+test('a day carousel steps within the week it is showing', () => {
+  /* The commit called weekStepDate(currentWeekNum()), which was the same
+     thing while This Week was the only screen with a carousel. Full Plan's
+     week screen now has one, and there the two differ: looking at week 11
+     and swiping stepped within week 10, the date that came back was not in
+     the week on screen, weekSelectedDay() fell through to the week's first
+     day, and the card did not move at all. Driven with a real touch
+     sequence before and after: This Week S8 -> S7 both times; the plan week
+     M9 -> M9 before, M9 -> T10 after. */
+  const a = app();
+  assert.match(a.renderPlanWeekView(3), /class="wk-rail" data-hswipe="1" data-week="3"/,
+    'the rail no longer carries the week it is showing');
+  const SRC2 = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ');
+  assert.match(SRC2, /railWeek = parseInt\(rail\.getAttribute\('data-week'\), 10\)/,
+    'the swipe commit has stopped reading the rail’s own week');
+  assert.ok(!/weekStepDate\(currentWeekNum\(\)/.test(SRC2),
+    'the swipe steps within the CURRENT week again, so it cannot move on any other week’s screen');
+});
+
+test('a rest day in the week carousel is the rest day Today shows', () => {
+  /* The carousel branched away from the hero because a rest day had no hero
+     -- renderDayHeroBlock() returned '' for a day with no ring and no
+     distance. It has one now, so the branch was a workaround for a hole
+     that is filled, and leaving it meant Today showed one rest day while
+     This Week and Full Plan showed another. */
+  const a = app();
+  const rest = a.state.days.filter(d => d.type === 'rest' && a.displayCardTitle(d) === 'Rest Day')[0];
+  if (!rest) return;
+  a.weekSelectedDate = rest.date;
+  const box = a.renderWeekSessionBox(a.weekNumForDate ? a.weekNumForDate(rest.date) : 1);
+  const SRC2 = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  assert.ok(SRC2.indexOf("class=\"wk-rest\"") === -1,
+    'the week carousel renders its own rest day again instead of the shared hero');
+  assert.ok(/th-hero|th-ring/.test(box) || !box,
+    'the rest day in the carousel has no hero');
+});
+
+/* ---------------------------------------------------------------------------
+ * FULL PLAN SAYS WHERE IN THE BLOCK YOU ARE
+ * ---------------------------------------------------------------------------
+ * Founder, weighing this against Runna's row of week dots: "put week 1 of 11
+ * then move the 0 / 796.6km then 0%".
+ * The figures answer "how much of the work is done"; nothing answered "how
+ * far through the plan am I", which on day one is the kinder question -- the
+ * denominator of a marathon build is close to a thousand kilometres. Dots
+ * were the alternative and were declined: the phase rail directly beneath
+ * this hero already owns a row of dots, and a second row meaning something
+ * else would be two dot languages a centimetre apart.
+ */
+test('the Full Plan hero names the week, the volume and the percentage, in that order', () => {
+  const a = app();
+  const cur = a.currentWeekNum();
+  const html = a.renderWeekHeroBlock(cur, true);
+  const wk = /<div class="wk-hero-wk[^"]*"[^>]*>([^<]*)<\/div>/.exec(html);
+  assert.ok(wk, 'the Full Plan hero no longer says which week of the block this is');
+  assert.equal(wk[1], 'Week ' + cur + ' of ' + a.totalWeeksInPlan(),
+    'the week position does not read "Week N of T"');
+
+  /* ---- AND IN THE ORDER THE FOUNDER GAVE ---- */
+  const iWk = html.indexOf('wk-hero-wk');
+  const iVol = html.indexOf('wk-hero-vol');
+  const iPct = html.indexOf('wk-hero-pct');
+  assert.ok(iWk > -1 && iVol > -1 && iPct > -1, 'the hero has lost one of its three figures');
+  assert.ok(iWk < iVol && iVol < iPct,
+    'the hero figures are not week, volume, percentage in that order');
+  /* All three inside the one row, or "in that order" is about nothing. */
+  const figs = html.indexOf('wk-hero-figs');
+  assert.ok(figs > -1 && figs < iWk, 'the week position is outside the figures row');
+
+  /* ---- THE NUMBERS ARE THE BLOCK'S, AND SO IS THE POSITION ----
+     The subline this replaces was struck off precisely because it named the
+     block over "Week 10 of 11" while the figures underneath measured the
+     CURRENT WEEK -- one period named, another measured. This only belongs
+     here while the figures are the block's. */
+  let bPlanned = 0;
+  for (let w = 1; w <= a.totalWeeksInPlan(); w++) bPlanned += a.weekVolume(w).training;
+  assert.ok(html.indexOf(a.fmtDist(bPlanned)) > -1,
+    'the hero prints a week total beside a block position again');
+});
+
+test('This Week does not repeat the week number in its own figures', () => {
+  /* Its title already reads "Week 10 · Taper". The same hero function serves
+     both screens, so the asBlock branch is the only thing keeping the number
+     off a screen that has said it one line above. */
+  const a = app();
+  const html = a.renderWeekHeroBlock(a.currentWeekNum(), false);
+  assert.equal(html.indexOf('wk-hero-wk'), -1,
+    'This Week prints "Week N of T" under a title that already says the week');
+  assert.match(html, /class="wk-hero-title font-head">Week /,
+    'the fixture assumption is gone: This Week no longer leads with the week');
+});
+
+/* ---------------------------------------------------------------------------
+ * FULL PLAN OPENS ON THE PHASE THE ATHLETE IS IN
+ * ---------------------------------------------------------------------------
+ * Founder: "When opening full plan. The default screen should be the phase
+ * the user is in."
+ * planPhaseIndex() always fell back to the stop holding the current week, so
+ * a cold open was right. What was wrong is that planPhaseSel LATCHES on the
+ * first swipe and nothing cleared it: glancing back at Base in week 9,
+ * tapping TODAY and tapping FULL PLAN again re-opened on Base. The screen
+ * remembered a glance as if it were a choice.
+ */
+function phaseApp(pin){
+  const a = loadApp({ pinnedDate: pin + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 11, startDate: '2026-09-04', distanceKey: 'full', volume: 46,
+    benchSec: 45 * 60, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 6 } });
+  a.state.athlete = a.makeAthleteRecord();
+  a.state.view = 'full';
+  return a;
+}
+
+test('a cold Full Plan opens on the phase holding the current week', () => {
+  /* Walked across the block rather than sampled, because "the phase the user
+     is in" is a different answer in every one of them, and a fallback that
+     returned a constant would pass any single probe. */
+  const seen = {};
+  [['2026-09-07', 'Base'], ['2026-09-28', 'Build'],
+   ['2026-10-26', 'Peak'], ['2026-11-02', 'Taper']].forEach(([pin, want]) => {
+    const a = phaseApp(pin);
+    const stops = a.planRailStops();
+    assert.ok(stops.length >= 4, pin + ': the fixture no longer builds a multi-phase rail');
+    assert.equal(a.planSelectedPhase(), want,
+      pin + ' (week ' + a.currentWeekNum() + '): Full Plan opens on the wrong phase');
+    seen[want] = true;
+  });
+  assert.equal(Object.keys(seen).length, 4,
+    'the sweep collapsed onto fewer phases than it names, so it proves less than it looks');
+});
+
+test('opening the tab clears a swipe; the back arrow inside it does not', () => {
+  const a = phaseApp('2026-10-26');            // week 9, Peak
+  assert.equal(a.planSelectedPhase(), 'Peak', 'fixture assumption: the athlete is in Peak');
+
+  a.handlePhasePick('Base');
+  assert.equal(a.planSelectedPhase(), 'Base', 'a swipe no longer selects anything');
+
+  /* ---- LEAVING AND COMING BACK IS "OPENING FULL PLAN" ---- */
+  a.handleSetView('today');
+  a.handleSetView('full');
+  assert.equal(a.planSelectedPhase(), 'Peak',
+    'Full Plan re-opened on a phase the athlete glanced at, not the one they are in');
+
+  /* ---- DRILLING IN AND PRESSING BACK IS NOT ----
+     handlePlanBack() is a different door on purpose. An athlete who opened a
+     Base week FROM Base must land back on Base, or the back arrow throws
+     away the place they were reading. */
+  a.handlePhasePick('Base');
+  a.handlePlanWeekOpenForTest ? a.handlePlanWeekOpenForTest(2) : (a.planWeekOpen = 2);
+  a.handlePlanBack();
+  assert.equal(a.planSelectedPhase(), 'Base',
+    'the back arrow inside Full Plan reset the carousel, losing the week the athlete was reading');
+});
+
+test('re-tapping FULL PLAN repaints when it changed something, and not otherwise', () => {
+  /* The clear happens before handleSetView's already-on-this-view return, so
+     without this pairing a re-tap would change which slide is selected and
+     leave the old one on screen until some unrelated render. */
+  const a = phaseApp('2026-10-26');
+  let renders = 0;
+  a.renderApp = () => { renders++; };
+
+  a.handlePhasePick('Base');
+  renders = 0;
+  a.handleSetView('full');
+  assert.equal(a.planSelectedPhase(), 'Peak', 're-tapping the active tab did not return to the current phase');
+  assert.equal(renders, 1, 're-tapping changed the selected phase without repainting');
+
+  renders = 0;
+  a.handleSetView('full');
+  assert.equal(renders, 0,
+    're-tapping FULL PLAN with nothing to clear is no longer the no-op every other tab is');
+});
+
+test('the Now pill is gone, and the row it used to light is still lit', () => {
+  /* Founder: "Can we remove the now tab on full plan? The gold text makes
+     that point."
+     THE PAIRING IS THE LAW. The pill was not only a label -- the sheet
+     selected the current row with :has(.week-today-flag), so deleting the
+     element on its own would have taken the gold text AND the glow with
+     it, which is the one thing the founder is keeping. The row carries
+     .is-now itself now, and both halves are asserted together so neither
+     can go without the other being noticed. */
+  const a = app();
+  const html = a.renderWeeksList(true, null);
+  assert.equal((html.match(/week-today-flag/g) || []).length, 0,
+    'the Now pill is back on the Full Plan week rows');
+  const lit = (html.match(/class="week[^"]*\bis-now\b/g) || []);
+  assert.equal(lit.length, 1,
+    lit.length + ' week rows claim to be the current one');
+  /* AND IT IS THE RIGHT ROW. A class on every row, or on none, would also
+     satisfy a bare count if the fixture had one week. */
+  const cur = a.currentWeekNum();
+  const row = new RegExp('<div class="(week[^"]*)" id="week-' + cur + '"').exec(html);
+  assert.ok(row, 'the current week has no row in the list');
+  assert.match(row[1], /\bis-now\b/,
+    'the lit row is not the week the athlete is in');
+
+  /* THE DAY-LEVEL FLAG IS A DIFFERENT ELEMENT WITH THE SAME CLASS, and it
+     is untouched -- it says "Today" on a day row, not "Now" on a week. */
+  const today = a.state.days.filter(d => d.date === a.todayStr())[0];
+  if (today) assert.match(a.renderDayCard(today), /week-today-flag/,
+    'the day row lost its Today flag along with the week pill');
+});
+
+/* "Full Plan does not carry the recovery chip; This Week does" stood here.
+   It asserted the half-applied reading of the founder's instruction, and is
+   replaced by "neither week hero carries a recovery reading, on either
+   screen" earlier in this file -- which holds both screens to the same rule
+   and quotes both instructions at the assertion. */

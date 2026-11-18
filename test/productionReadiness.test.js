@@ -361,11 +361,18 @@ test('the Android release document matches the manifest and the gradle build', (
      the drift worth failing on. RECORD_AUDIO joined it for the Ask Coach
      microphone -- runtime-requested, on-device recognition only, no audio
      retained or transmitted. */
-  const perms = (manifest.match(/uses-permission android:name="([^"]+)"/g) || [])
+  /* The daily reminder joined it: POST_NOTIFICATIONS (runtime-requested when
+     the athlete turns the reminder on), RECEIVE_BOOT_COMPLETED and WAKE_LOCK.
+     SCHEDULE_EXACT_ALARM, which the plugin asks for, is removed -- Play keeps
+     it for alarm-clock apps -- and a removal is not a request. */
+  const perms = (manifest.match(/uses-permission android:name="([^"]+)"(?! tools:node="remove")/g) || [])
     .map(x => x.replace(/.*name="|"$/g, '')).sort();
-  assert.deepEqual(perms, ['android.permission.INTERNET', 'android.permission.RECORD_AUDIO'],
+  assert.deepEqual(perms, ['android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS',
+    'android.permission.RECEIVE_BOOT_COMPLETED', 'android.permission.RECORD_AUDIO', 'android.permission.WAKE_LOCK'],
     'the manifest permissions changed -- update ANDROID-RELEASE.md and this list together');
-  assert.match(doc, /`INTERNET`, and `RECORD_AUDIO`/,
+  assert.match(manifest, /<uses-permission android:name="android\.permission\.SCHEDULE_EXACT_ALARM" tools:node="remove" \/>/,
+    'the exact-alarm permission Play restricts is no longer removed');
+  assert.match(doc, /`INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED` and `WAKE_LOCK`/,
     'the document no longer states the permissions the manifest asks for');
   assert.match(doc, /requested \*\*at runtime\*\*/, 'the document must say the microphone is runtime-requested');
   assert.match(doc, /on-device/, 'the document must state which recogniser is used');
@@ -377,12 +384,33 @@ test('the Android release document matches the manifest and the gradle build', (
   assert.match(gradle, /throw new GradleException/);
 });
 
-test('the iOS document does not quietly create an iOS project', () => {
+/* ---- CHANGED SIDES: THE iOS PROJECT EXISTS ----
+   This law held that the iOS project was not generated, because the
+   document said it should wait for a Mac and an Apple account. Founder:
+   "We need to build an iOS app bundle now." The Mac is CI; the account is
+   the founder's to add. What the law guards now is that the project is the
+   one the document describes, and still has nothing from HealthKit. */
+test('the iOS project is the one the document describes, and HealthKit is still nowhere', () => {
   const doc = read('IOS-READINESS.md');
-  assert.match(doc, /post-Android track/);
-  assert.equal(fs.existsSync(path.join(ROOT, 'ios')), false,
-    'the document says the project is not generated yet');
+  assert.match(doc, /The native iOS project \(generated 13 Nov 2026\)/);
   assert.match(doc, /Apple Health and HealthKit are explicitly out of scope/);
+  assert.ok(fs.existsSync(path.join(ROOT, 'ios', 'App', 'App.xcodeproj', 'project.pbxproj')), 'the document says the project exists');
+  const plist = read('ios/App/App/Info.plist');
+  assert.match(plist, /<key>CFBundleURLSchemes<\/key>\s*<array>\s*<string>com\.velvetviking\.valhalla<\/string>/,
+    'the magic link cannot reach the app');
+  assert.match(plist, /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/);
+  for (const k of ['NSMicrophoneUsageDescription', 'NSSpeechRecognitionUsageDescription', 'NSPhotoLibraryAddUsageDescription'])
+    assert.match(plist, new RegExp('<key>' + k + '</key>\\s*<string>SACORO [^<]+</string>'), k + ' is missing: iOS ends the app when it is asked without one');
+  assert.match(plist, /<key>UISupportedInterfaceOrientations<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<\/array>/);
+  const pbx = read('ios/App/App.xcodeproj/project.pbxproj');
+  assert.equal((pbx.match(/PRODUCT_BUNDLE_IDENTIFIER = com\.velvetviking\.valhalla;/g) || []).length, 2);
+  assert.doesNotMatch(pbx, /TARGETED_DEVICE_FAMILY = "1,2"/, 'iPad crept back in');
+  assert.match(pbx, /PrivacyInfo\.xcprivacy in Resources/, 'the privacy manifest is not in the app');
+  const privacy = read('ios/App/App/PrivacyInfo.xcprivacy');
+  assert.match(privacy, /<key>NSPrivacyTracking<\/key>\s*<false\/>/);
+  assert.match(read('ios/App/Podfile'), /pod 'CapacitorCommunityMedia'/, 'Save to photos would be missing on iPhone');
+  for (const f of ['ios/App/App/Info.plist', 'ios/App/App/PrivacyInfo.xcprivacy', 'ios/App/Podfile', 'ios/App/App.xcodeproj/project.pbxproj'])
+    assert.equal(/HealthKit|Samsung ?Health/i.test(read(f)), false, f);
   const runtime = read('protected/velvet-viking-valhalla.html');
   assert.equal(/HealthKit|Samsung ?Health/i.test(runtime), false);
 });

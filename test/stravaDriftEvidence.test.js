@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 // PHASE 4 WORKSTREAM 2 -- U. STRAVA COMPLETION DRIFT, and the Execution Score
 // boundary WS1 deliberately left narrow.
@@ -112,8 +112,13 @@ test('the drift is transient — a later sync heals it and the score appears', (
 
   const healed = a.findDay(dd.id);
   assert.equal(healed.completed, true, 'the canonical completion now succeeds');
-  assert.ok(a.computeExecutionScore(healed) != null,
-    'and the score arrives through the ordinary path, with no second definition of "scored"');
+  /* The drifted day is a structured quality session, and an imported total
+     says nothing about its reps: it is assessed, partially, through the
+     ordinary path, and scored the moment its sections are logged. */
+  assert.ok(a.computePartialAssessment(healed),
+    'and the assessment arrives through the ordinary path, with no second definition of "scored"');
+  logSections(a, healed, 1);
+  assert.ok(a.computeExecutionScore(healed) != null, 'and the score, once the reps are logged');
 });
 
 test('and the athlete has a manual route too, so nothing depends on Strava returning', () => {
@@ -123,6 +128,8 @@ test('and the athlete has a manual route too, so nothing depends on Strava retur
   assert.equal(a.canEditCompletion(dd), true,
     'but Edit Session can confirm any past day, so a drift that never re-syncs is not a trap');
   assert.equal(a.applyCompletion(dd, true), true);
+  assert.ok(a.computePartialAssessment(dd));
+  logSections(a, dd, 1);
   assert.ok(a.computeExecutionScore(dd) != null);
 });
 
@@ -133,7 +140,9 @@ test('scoring still requires enough real data, not merely a completion flag', ()
      whatever any flag says. */
   const a = app();
   buildPlan(a, { weeks: 10, startDate: a.addDays(TODAY, -28) });
-  const dd = a.state.days.filter(d => d.date < TODAY && d.type !== 'rest').pop();
+  /* A continuous run: a structured session needs its sections, not one pace,
+     which is a different gate (test/structuredWorkoutEvidence). */
+  const dd = a.state.days.filter(d => d.date < TODAY && (d.type === 'easy' || d.type === 'long')).pop();
   dd.completed = true;
   dd.actual = Object.assign(a.emptyActual(), { km: dd.km });          // no pace
   assert.equal(a.computeExecutionScore(dd), null,

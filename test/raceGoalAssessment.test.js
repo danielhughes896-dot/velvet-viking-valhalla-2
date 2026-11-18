@@ -2,7 +2,7 @@
 /* FITNESS CHECKPOINT -> RACE GOAL ASSESSMENT.
  * ===========================================================================
  * The question APP is parked on: "given where I am and the programme I am
- * about to run, which of my goals does Valhalla support?" Three rules govern
+ * about to run, which of my goals does Sacoro support?" Three rules govern
  * the answer, and each is asserted here.
  *
  *   CURRENT FITNESS IS NOT RACE-DAY DESTINATION. Comparing A/B/C against
@@ -101,7 +101,7 @@ test('an unsupported active goal names the one that is, and why', () => {
 
 test('where several goals are legitimate the quickest supported one is recommended', () => {
   /* Fitness admits a range and often admits more than one. There is no reason
-     to talk an athlete down from a goal Valhalla is prepared to stand behind. */
+     to talk an athlete down from a goal Sacoro is prepared to stand behind. */
   const a = athlete('half', IMPROVING, [88, 92, 100], 'C');
   const r = a.raceGoalAssessment(null);
   const supported = r.goals.filter(g => g.supported).map(g => g.key);
@@ -120,16 +120,26 @@ test('every goal faster than the projection recommends none of them', () => {
     'and the projected band is still reported, so the athlete sees what IS supported');
 });
 
-test('the marathon withholds rather than over-predicting from a short effort', () => {
-  /* Inherited from currentFitnessEstimate(), never re-decided here: an
-     equivalence from a 5K systematically over-predicts a marathon for an
-     athlete who has not done the volume, and the limiter is not the same one. */
+test('the marathon’s durability caveat is carried as confidence, not as silence', () => {
+  /* THIS TEST USED TO ASSERT THE OPPOSITE, AND THE RULE CHANGED BY INSTRUCTION.
+     An equivalence from a 5K does over-predict a marathon for an athlete who
+     has not done the volume, and that concern is unchanged -- but withholding
+     the whole assessment because of it left a week-7 marathon athlete with no
+     answer at all, 32 days out, which is the defect this work exists to fix.
+     HQ's locked rule: volume and long-run evidence move CONFIDENCE and
+     PREPAREDNESS; they do not decide whether an estimate exists.
+
+     So the caveat must still be VISIBLE, and that is what is asserted now:
+     an answer is given, and it says plainly what it is not sure about. */
   const a = athlete('full', IMPROVING, [210, 240, 270], 'B');
   const r = a.raceGoalAssessment(null);
-  assert.equal(r.verdict, 'withheld');
-  assert.equal(r.reason, 'marathon_estimate_withheld');
-  assert.ok(r.projection && r.projection.withheld && r.projection.reason,
-    'and it says why, in words the athlete can read');
+  assert.notEqual(r.verdict, 'withheld', 'the marathon is silent again');
+  assert.ok(r.projection && !r.projection.withheld);
+  const est = a.currentFitnessEstimate('full');
+  assert.ok(['low','moderate','high'].indexOf(est.confidence) !== -1,
+    'the estimate carries no confidence at all');
+  assert.ok((est.confidenceWhy || []).some(w => /volume|long run/i.test(w)),
+    'the durability caveat vanished instead of moving to confidence');
 });
 
 test('preparation is asked independently of fitness', () => {

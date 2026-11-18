@@ -196,7 +196,11 @@ test('one PROGRESS change rendered at all three experience levels: same decision
 // Adjusted vs Edited, and the Adjusted disclosure
 // ---------------------------------------------------------------------------
 
-test('dayStatusLabel: a Valhalla adjustment reads Adjusted, an athlete edit reads Edited, and Adjusted wins if both are present', () => {
+/* CHANGED SIDES ON THE WORD, NOT ON THE RULE. Founder: "I also don't care
+   about it say adjusted pill top right! Remove." An adjusted day prints no
+   status word now. What this test was really holding is unchanged and still
+   asserted: a Sacoro change is never described as the athlete's own edit. */
+test('dayStatusLabel: an athlete edit reads Edited, a Sacoro adjustment reads nothing, and never Edited if both are present', () => {
   const a = withPlan(app());
   const dd = a.state.days.find(d => d.type !== 'rest');
   dd.manualEdit = { at: new Date().toISOString(), fields: ['km'], from: { km: dd.km } };
@@ -206,76 +210,66 @@ test('dayStatusLabel: a Valhalla adjustment reads Adjusted, an athlete edit read
 
   dd.coachAdjust = { at: new Date().toISOString(), reason: 'test', from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc } };
   label = a.dayStatusLabel(dd).replace(/<[^>]+>/g, '');
-  assert.match(label, /Adjusted/);
-  assert.doesNotMatch(label, /Edited/, 'a Valhalla change must never be described as the athlete’s own edit, or vice versa');
+  /* Not "the label is empty": this fixture's day is in the past and unrun,
+     so it rightly reads Missed, which is a fact about the day and not about
+     who changed it. The words that must not appear are the two about that. */
+  assert.doesNotMatch(label, /Adjusted/, 'an adjusted session says Adjusted again');
+  assert.doesNotMatch(label, /Edited/, 'a Sacoro change must never be described as the athlete’s own edit, or vice versa');
 });
 
-test('renderAdjustedDetail: shows What/Why/consent provenance and a working Restore for an ordinary adjustment', () => {
+/* ---- CHANGED SIDES: THE ADJUSTED PANEL WAS DELETED ----
+   Five tests stood here reading renderAdjustedDetail()'s HTML: What changed,
+   Why, Accepted, and whether a Restore button was offered. Founder: "In fact
+   delete that whole box. I don't want it. To accept that change the user has
+   already seen this info!!!"
+   The renderer is gone, so they cannot ask it anything. What they were really
+   holding -- WHEN an accepted change may be undone -- was never the panel's
+   to decide; it asked coachRestoreState(). These ask it directly. */
+test('an ordinary accepted adjustment can be undone, and the card no longer says so', () => {
   const a = withPlan(app());
   const dd = a.state.days.find(d => d.type !== 'rest' && d.date > a.todayStr());
-  const originalTitle = dd.title, originalKm = dd.km;
   dd.coachAdjust = {
     at: '2026-03-10T09:00:00Z', reason: 'Recovery evidence outranked this session.',
-    from: { km: originalKm, type: dd.type, title: originalTitle, desc: dd.desc }
+    from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc }
   };
-  dd.km = Math.max(1, originalKm - 2);
-  const html = a.renderAdjustedDetail(dd);
-  assert.match(html, /What changed/);
-  assert.match(html, /Why/);
-  /* The third row used to be labelled "When" and print the date alone, which
-     left an athlete looking at an ADJUSTED session days later with no way to
-     tell whether anybody had asked them. coachAdjust.at is only ever stamped
-     by an accept handler, so it IS the record of their decision, and the row
-     now says so. The date must still be there -- that part never changed. */
-  assert.match(html, /Accepted/);
-  assert.match(html, /You accepted this change on Mar 10\./);
-  assert.match(html, /Restore the original session/);
-  assert.match(html, /Can be restored until you run or edit it\./);
-  assert.doesNotMatch(html, /at any time/i);
+  assert.equal(a.coachRestoreState(dd).ok, true);
+  const card = a.renderDayCard(dd);
+  ['adjusted-detail', 'What changed', 'You accepted this change', 'Restore the original session']
+    .forEach(frag => assert.equal(card.indexOf(frag), -1, 'the card carries "' + frag + '" again'));
 });
 
-test('renderAdjustedDetail: offers "Restore both sessions" and stays paired for a move', () => {
+test('a move stays paired: restoring one half means restoring both', () => {
   const a = withPlan(app());
   const days = a.state.days.filter(d => d.type !== 'rest' && d.date > a.todayStr());
   const [dd, other] = days;
   const now = '2026-03-10T09:00:00Z';
   dd.coachAdjust = { at: now, reason: 'Spacing.', from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc }, pairedWith: other.id };
   other.coachAdjust = { at: now, reason: 'Spacing.', from: { km: other.km, type: other.type, title: other.title, desc: other.desc }, pairedWith: dd.id };
-  const html = a.renderAdjustedDetail(dd);
-  assert.match(html, /Restore both sessions/);
+  const st = a.coachRestoreState(dd);
+  assert.equal(st.ok, true);
+  assert.equal(st.pairedWith, other.id, 'the restore forgot the session this one was swapped with');
 });
 
-test('renderAdjustedDetail: no Restore control once the session has been run, and the refusal is truthful', () => {
+test('a session that has been run cannot be restored, and the reason given is the true one', () => {
   const a = withPlan(app());
   const dd = a.state.days.find(d => d.type !== 'rest' && d.date > a.todayStr());
   dd.coachAdjust = { at: '2026-03-10T09:00:00Z', reason: 'x', from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc } };
-  dd.completed = true; // session_ran, via coachRestoreState -- not a rule this file re-derives
-  const html = a.renderAdjustedDetail(dd);
-  assert.doesNotMatch(html, /data-action="coach-restore"/);
-  assert.match(html, /already been run/);
+  dd.completed = true;
+  const st = a.coachRestoreState(dd);
+  assert.equal(st.ok, false);
+  assert.equal(st.reason, 'session_ran');
+  assert.match(a.restoreRefusalCopy(st.reason), /already been run/);
 });
 
-test('renderAdjustedDetail: no Restore control once the athlete has edited the adjusted session', () => {
+test('a session the athlete has edited since cannot be restored over their edit', () => {
   const a = withPlan(app());
   const dd = a.state.days.find(d => d.type !== 'rest' && d.date > a.todayStr());
   dd.coachAdjust = { at: '2026-03-10T09:00:00Z', reason: 'x', from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc } };
   dd.manualEdit = { at: '2026-03-11T09:00:00Z', fields: ['km'], from: { km: dd.km } };
-  const html = a.renderAdjustedDetail(dd);
-  assert.doesNotMatch(html, /data-action="coach-restore"/);
-  assert.match(html, /edited this session/);
-});
-
-test('the App layer asks coachRestoreState() rather than re-deriving restorability itself', () => {
-  const a = withPlan(app());
-  const dd = a.state.days.find(d => d.type !== 'rest' && d.date > a.todayStr());
-  dd.coachAdjust = { at: '2026-03-10T09:00:00Z', reason: 'x', from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc } };
-  // Monkeypatch the authority and confirm the renderer's answer changes with
-  // it -- proof the render path calls through rather than holding its own copy.
-  const real = a.coachRestoreState;
-  a.coachRestoreState = function () { return { ok: false, reason: 'session_ran' }; };
-  assert.doesNotMatch(a.renderAdjustedDetail(dd), /data-action="coach-restore"/);
-  a.coachRestoreState = real;
-  assert.match(a.renderAdjustedDetail(dd), /data-action="coach-restore"/);
+  const st = a.coachRestoreState(dd);
+  assert.equal(st.ok, false);
+  assert.equal(st.reason, 'athlete_edited');
+  assert.match(a.restoreRefusalCopy(st.reason), /edited this session/);
 });
 
 // ---------------------------------------------------------------------------
@@ -295,8 +289,8 @@ test('Recently evolved is bounded to the last two accepted entries, most recent 
   });
   const html = a.recentlyEvolvedSummary();
   assert.doesNotMatch(html, /Mar 1\b/, 'only the most recent two entries may show');
-  assert.match(html, /Mar 8/);
-  assert.match(html, /Mar 5/);
+  assert.match(html, /8 Mar/);
+  assert.match(html, /5 Mar/);
 });
 
 test('Recently evolved shows nothing for declined proposals', () => {
@@ -314,7 +308,9 @@ test('no raw evidence hash, internal change-kind string, or debugging jargon lea
   const a = withPlan(app());
   const dd = a.state.days.find(d => d.type !== 'rest' && d.date > a.todayStr());
   dd.coachAdjust = { at: '2026-03-10T09:00:00Z', reason: 'x', from: { km: dd.km, type: dd.type, title: dd.title, desc: dd.desc } };
-  const detail = a.renderAdjustedDetail(dd);
+  /* The adjusted panel used to be the third surface checked here; it is
+     deleted, so the day card it was mounted on stands in for it. */
+  const detail = a.renderDayCard(dd);
   a.state.evolutionHistory = [{
     at: '2026-03-01T09:00:00Z', date: '2026-03-01', state: 'ADAPT', confidence: 'established',
     reasons: ['x'], changes: [{ kind: 'reduce', dayId: dd.id, date: '2026-03-01' }],

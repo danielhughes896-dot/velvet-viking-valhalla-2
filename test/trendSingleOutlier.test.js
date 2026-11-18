@@ -49,7 +49,13 @@ function buildLongCleanHistoryWithOneOutlier(app) {
 }
 
 test('a single cut-short session among many clean ones is flagged as an outlier, not a trend', () => {
-  const app = loadApp();
+  /* PINNED (17 November 2026). This read the wall clock, so which session
+     landed last -- and whether cutting it to 30% crossed the falling
+     threshold at all -- depended on the weekday: it failed on 10, 17 and 24
+     November, where the cut moves the trend nowhere and there is no false
+     "falling" to flag. The behaviour under test is the outlier rule, not
+     the calendar. */
+  const app = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
   buildLongCleanHistoryWithOneOutlier(app);
   const trend = app.coachTrend();
   assert.equal(trend.direction, 'falling', 'sanity: the single bad session must still cross the threshold');
@@ -58,7 +64,7 @@ test('a single cut-short session among many clean ones is flagged as an outlier,
 });
 
 test('coachStatus() no longer claims "the last few sessions" for a single outlier', () => {
-  const app = loadApp();
+  const app = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });   // see the note above: not the wall clock
   buildLongCleanHistoryWithOneOutlier(app);
   const load = app.coachLoad();
   const recovery = app.coachRecovery();
@@ -69,7 +75,7 @@ test('coachStatus() no longer claims "the last few sessions" for a single outlie
 });
 
 test('a genuinely sustained multi-session decline still uses the "last few sessions" language', () => {
-  const app = loadApp();
+  const app = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });   // see the note above: not the wall clock
   const today = app.todayStr();
   const startDate = app.addDays(today, -40);
   buildPlan(app, { startDate, weeks: 12 });
@@ -98,7 +104,7 @@ test('a genuinely sustained multi-session decline still uses the "last few sessi
 });
 
 test('the rising side is untouched: singleOutlier is always false when not falling', () => {
-  const app = loadApp();
+  const app = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });   // see the note above: not the wall clock
   const today = app.todayStr();
   const startDate = app.addDays(today, -20);
   buildPlan(app, { startDate, weeks: 8 });

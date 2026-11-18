@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-// VALHALLA -- FRESH-LAUNCH DEFAULT DESTINATION.
+// SACORO -- FRESH-LAUNCH DEFAULT DESTINATION.
 //
 // state.view (the active bottom-nav tab) lives as an ordinary field on the
 // one state object persistState()/loadState() serialise wholesale to
@@ -68,7 +68,7 @@ test('3. last on Full Plan -- fresh launch still opens on Today', () => {
   assert.equal(b.state.view, 'today');
 });
 
-test('3b. last on This Week or Valhalla -- fresh launch still opens on Today', () => {
+test('3b. last on This Week or Sacoro -- fresh launch still opens on Today', () => {
   assert.equal(reopen(planned('week')).state.view, 'today');
   assert.equal(reopen(planned('planhq')).state.view, 'today');
 });

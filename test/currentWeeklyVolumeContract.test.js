@@ -24,73 +24,63 @@ const shape = res => crypto.createHash('sha256').update(JSON.stringify(
 const PATHWAYS = [['half','novice'], ['half','intermediate'], ['half','advanced'],
                   ['full','novice'], ['full','intermediate'], ['full','advanced']];
 
-test('RACE GOAL — an athlete with evidence builds the same plan for any typed volume', () => {
+/* ---- SUPERSEDED 14 NOVEMBER 2026: THE ATHLETE SETS THE STARTING POINT ----
+   This file answered "can the typed weekly volume leave the Race Goal
+   builder?" by proving no Race Goal read it. The founder has since ruled the
+   opposite: "The athlete's declared current sustainable weekly running volume
+   is the starting-volume authority. If the athlete says they currently run
+   35 km/week, SACORO should build Week 1 around 35 km ... Historical logs and
+   incomplete Strava data must not silently override declared capacity." The
+   coaching audit measured what the old contract cost: an Established 50km
+   athlete opened a 5K block at 25km, and Regenerate gave 46km from the same
+   answers. These laws now hold the new contract; the experience pathway is
+   still the destination and is asserted unchanged below. */
+const wk1 = r => r.dd.filter(d => d.week === 1 && d.km > 0).reduce((t, d) => t + d.km, 0);
+const dest = r => r.blk.weeks[0].bottomUp.longDestKm + '/' + r.blk.weeks[0].bottomUp.buildVolumeDestKm;
+
+test('RACE GOAL — the declared week sets week one, and logged evidence does not override it', () => {
   [].concat(R.CANON, R.CANON_10).forEach(c => {
-    const hs = TYPED.map(v => shape(R.build(Object.assign(
-      { dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks, stated:v }, c.ev))));
-    assert.equal(new Set(hs).size, 1,
-      c.key + ': the plan moved with the typed weekly volume');
+    const lo = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks, stated:30 }, c.ev));
+    const hi = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks, stated:60 }, c.ev));
+    assert.equal(lo.blk.weeks[0].bottomUp.entrySource, 'stated', c.key + ': logged evidence overrode the declaration');
+    assert.equal(lo.blk.weeks[0].bottomUp.entryKm, 30, c.key + ': week one did not open from the declaration');
+    /* EXCEPT WHERE THE LONG-RUN STEP HOLDS WEEK ONE (founder, 15 November
+       2026: a long run at most 10% (Half/Marathon 15%) over the longest of
+       the last 30 days). An athlete who has LOGGED a 10km longest run and
+       declares 60km a week used to open on a 26km long run; their long run is
+       now held to the step, and the week with it. */
+    const held = hi.dd.some(d => d.week === 1 && d.type === 'long' && d.stepWantKm > d.km);
+    if (!held) assert.ok(wk1(hi) > wk1(lo), c.key + ': 60km declared opened no bigger than 30km');
   });
 });
 
-test('RACE GOAL — an athlete with NO evidence builds the same plan with the field or without it', () => {
-  /* The harder case, because the typed figure was the only account of the
-     athlete Valhalla had. The pathway answers instead: removing the field
-     changes nothing, and typing a figure consistent with the pathway changes
-     nothing either. */
+test('RACE GOAL — with no declaration, evidence and then the pathway answer, as before', () => {
   PATHWAYS.forEach(([d, e]) => {
-    [15, 10].forEach(W => {
-      const hs = [null, 30, 90].map(v => shape(R.build(
-        { dist:d, exp:e, days:5, weeks:W, stated:v, tt5kMin:24 })));
-      assert.equal(new Set(hs).size, 1,
-        d + '/' + e + ' @' + W + 'w with no evidence: the plan moved with the typed volume');
-    });
+    const none = R.build({ dist:d, exp:e, days:5, weeks:15, tt5kMin:24 });
+    assert.equal(none.blk.weeks[0].bottomUp.entrySource, 'pathway', d + '/' + e);
   });
 });
 
-test('RACE GOAL — a typed figure below the safety floor still defers the field test', () => {
-  /* DELIBERATELY RETAINED, and the one job HQ left the typed number. An
-     athlete with no history who tells Valhalla they run five kilometres a week
-     is not given a maximal field test in week one on the strength of the
-     pathway's assumption. It defers the TEST; it sizes nothing, admits nothing
-     and moves no destination -- and once the field is gone there is no such
-     figure to read, so this protects only the athletes who still supply
-     one.
+test('RACE GOAL — the declaration moves the start, never the destination', () => {
+  PATHWAYS.forEach(([d, e]) => {
+    const a30 = R.build({ dist:d, exp:e, days:5, weeks:15, stated:30, tt5kMin:24 });
+    const a20 = R.build({ dist:d, exp:e, days:5, weeks:15, stated:20, tt5kMin:24 });
+    assert.equal(dest(a30), dest(a20), d + '/' + e + ': a smaller declaration lowered the destination');
+  });
+});
 
-     HQ NARROW PATHWAY CORRECTION -- moved from Half/Experienced to
-     Half/Advanced. Experienced Half's own entry dropped 30 -> 20, close
-     enough to what week one already needs to hold the calibration protocol
-     that BOTH the deferred and the immediate case now first become viable
-     at the same week (2), collapsing the gap this test measures without
-     the deferral itself having stopped working (elig.reason still reads
-     'insufficient_base' for the low case). Advanced Half's entry (45) did
-     not move, so it still shows the same asymmetry the old fixture did. */
+test('RACE GOAL — a declaration below the safety floor still defers the field test, and the pathway question is asked', () => {
+  /* Unchanged in purpose: an athlete who says they run five kilometres a
+     week is not given a maximal field test in week one. And since the
+     declaration now sets the start, SACORO also says when the chosen pathway
+     is out of reach from there (pathwayRecommendation()). */
   const low  = R.build({ dist:'half', exp:'advanced', days:6, weeks:15, stated:5, tt5kMin:18 });
   const none = R.build({ dist:'half', exp:'advanced', days:6, weeks:15, tt5kMin:18 });
   assert.equal(low.elig.reason, 'insufficient_base');
   assert.equal(none.elig.reason, 'eligible');
-  const calLow  = low.dd.filter(d => d.type === 'calibration')[0];
-  const calNone = none.dd.filter(d => d.type === 'calibration')[0];
-  assert.ok(calLow && calNone, 'one of the two blocks never calibrated');
-  assert.ok(calLow.week > calNone.week,
-    'a typed 5km week did not defer the field test');
-  /* And it moved the TEST only. The week-to-week differences that follow are
-     the calibration itself landing in a different week -- it takes over that
-     week's quality slot, and a fifty-two minute effort is not the same size as
-     the session it replaces. What the typed figure must not touch is what the
-     block is FOR: where it opens, where it is going, and what it prepares the
-     athlete for. */
-  const dest = r => r.blk.weeks[0].bottomUp.longDestKm + '/' +
-                    r.blk.weeks[0].bottomUp.buildVolumeDestKm + '/' +
-                    r.blk.weeks[0].bottomUp.entryKm;
-  assert.equal(dest(low), dest(none),
-    'the typed figure moved the block\'s entry or its destination');
-  assert.equal(low.a.raceGoalReadiness('half', 'intermediate', low.blk).verdict,
-               none.a.raceGoalReadiness('half', 'intermediate', none.blk).verdict,
-    'the typed figure changed what the block prepares the athlete for');
-  const wk1 = r => r.dd.filter(d => d.week === 1 && d.km > 0).reduce((t, d) => t + d.km, 0);
-  assert.ok(Math.abs(wk1(low) - wk1(none)) < 1.6,
-    'the typed figure moved the opening week: ' + wk1(low) + ' against ' + wk1(none));
+  const rec = low.a.pathwayRecommendation('half', 'advanced', 5, 15);
+  assert.equal(rec.chosen.feasible, false, 'an Advanced half from 5km a week was judged reachable');
+  assert.ok(rec.recommend || rec.recommendBase, 'neither a lower pathway nor a base block was recommended');
 });
 
 test('ENTRY — no field and no evidence is not a shortfall', () => {
@@ -104,18 +94,22 @@ test('ENTRY — no field and no evidence is not a shortfall', () => {
   assert.equal(none.shortfallKm, 0);
 });
 
-test('ENTRY — evidence outranks the typed figure in both directions', () => {
+test('ENTRY — the declaration answers first; evidence answers when nothing is declared', () => {
   const strong = R.build({ dist:'full', exp:'novice', days:5, weeks:15,
                            easyKm:9, longKm:24, easyDays:[0,2,4], tt5kMin:22 });
-  /* Real training of 51km a week, and a typed 2. The evidence is believed. */
-  const e = strong.a.raceGoalEntry(2);
+  /* Real training of about 51km a week. With nothing declared, it is believed. */
+  const e = strong.a.raceGoalEntry(null);
   assert.equal(e.entrySource, 'demonstrated');
-  assert.equal(e.allowed, true, 'a typed 2 overrode a demonstrated 51km week');
-  /* And with no history the typed figure still protects a genuine beginner. */
+  assert.equal(e.allowed, true);
+  /* A declaration is the athlete's own account of now, and is believed too. */
+  const d = strong.a.raceGoalEntry(40);
+  assert.equal(d.entrySource, 'stated');
+  assert.equal(d.haveKm, 40);
+  /* And with no history the declaration still protects a genuine beginner. */
   const blank = R.build({ dist:'full', exp:'novice', days:5, weeks:15, tt5kMin:24 });
   const b = blank.a.raceGoalEntry(3);
   assert.equal(b.entrySource, 'stated');
-  assert.equal(b.allowed, false, 'a typed 3km week entered a Race Goal');
+  assert.equal(b.allowed, false, 'a declared 3km week entered a Race Goal');
 });
 
 test('ADMISSION — the projection is independent of the typed figure', () => {

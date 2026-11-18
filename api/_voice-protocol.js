@@ -16,7 +16,7 @@
 // So the contract changed shape. The model now answers:
 //
 //     <athlete-facing prose>
-//     ###VALHALLA_TRAILER###
+//     ###SACORO_TRAILER###
 //     {"needsPlanChange":false,"changeReason":""}
 //
 // Prose first, because prose is the only part that is allowed to reach a human
@@ -53,7 +53,7 @@
         change; it can only fail to produce one.
 
    Defined once, here. The browser never learns it. */
-const SENTINEL = '###VALHALLA_TRAILER###';
+const SENTINEL = '###SACORO_TRAILER###';
 
 /* The response-format instruction, and ONLY the response-format instruction.
    The coaching prompt in _voice-ask.js is untouched: what the coach is, what

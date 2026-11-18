@@ -25,10 +25,19 @@ function fillNormally(app, dd) {
   };
 }
 
-// Builds a plan with a logged pain note on a recent day, which is enough
-// (per coachNoticed()) to raise the soreness cue that gives the next quality
-// session a pending "swap to easy" proposal -- mirrors the scenario in
-// test/coachDecision.test.js.
+// Builds a plan with pain reported in the two most recent sessions, which is
+// what makes the next quality session's "swap to easy" a PENDING proposal the
+// athlete is asked to accept or decline.
+//
+// TWO NOTES, AND WHY IT USED TO BE ONE. This fixture is ten days old, and
+// coachLoad() used to divide ten days of running by four weeks: it read
+// 2.58x, a "spike", on an athlete who had run exactly what was prescribed.
+// That false spike was what lifted the single pain note from "worth
+// watching" to an actionable change -- the pending card under test was being
+// produced by a defect. The load reading now offers no ratio before three
+// weeks of history (test/loadReading.test.js), so the scenario earns its
+// pending proposal from the evidence the test is actually about: pain in two
+// recent sessions is a safety reading, and the coach asks to swap the session.
 function buildPendingScenario(app) {
   const startDate = app.addDays(app.todayStr(), -10);
   const { days } = buildPlan(app, { startDate });
@@ -39,20 +48,21 @@ function buildPendingScenario(app) {
   // only ever apply to quality sessions), complete everything up to today
   // plus any easy/long days after it, and stop right before the first
   // upcoming quality day -- leaving that one as the next pending session.
-  let noted = false;
   let nextQuality = null;
   for (const dd of sorted) {
     if (dd.type === 'rest') continue;
     if (dd.date <= today || app.isRecoveryWorkoutType(dd.type)) {
       fillNormally(app, dd);
-      if (!noted) { dd.actual.notes = 'sharp pain in my calf, had to slow down'; noted = true; }
     } else {
       nextQuality = dd;
       break;
     }
   }
+  const ran = sorted.filter((dd) => dd.completed && dd.date <= today);
+  const sore = ran.slice(-2);
+  sore.forEach((dd) => { dd.actual.notes = 'sharp pain in my calf, had to slow down'; });
   assert.ok(nextQuality, 'fixture needs an upcoming quality day for this scenario to be meaningful');
-  assert.ok(noted, 'fixture needs at least one completed day to carry the pain note');
+  assert.equal(sore.length, 2, 'fixture needs two completed days to carry the pain notes');
   return { days, nextQuality };
 }
 

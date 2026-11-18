@@ -7,7 +7,7 @@ const { RUNTIME_RELATIVE } = require('./harness.js');
 
 /* CHERRY LACQUER — the Velvet Viking interactive accent.
  * ===========================================================================
- * #532D3A replaced the Valhalla violet across every place violet meant
+ * #532D3A replaced the Sacoro violet across every place violet meant
  * VELVET VIKING / PRIMARY INTERACTION / SELECTED BRAND STATE. These tests hold
  * the three things that migration can quietly lose:
  *
@@ -72,27 +72,25 @@ function workoutColours() {
   return out;
 }
 
-/* Token values are read from the shipped :root blocks, so these tests measure
-   what the app renders rather than what this file remembers. The dark block is
-   the first :root; the light block is the [data-theme="light"] override. */
-function tokens(scope) {
-  const start = scope === 'light'
-    ? CODE.indexOf('--cherry:', CODE.indexOf('--danger-text:#9A3540'))
-    : CODE.indexOf('--cherry:');
-  assert.notEqual(start, -1, 'no --cherry block for ' + scope);
+/* Token values are read from the shipped :root block, so these tests measure
+   what the app renders rather than what this file remembers. There is one
+   block now: light was retired, and with it the second copy of the accent. */
+function tokens() {
+  const start = CODE.indexOf('--cherry:');
+  assert.notEqual(start, -1, 'no --cherry block');
   const block = CODE.slice(start, start + 900);
   const out = {};
   [...block.matchAll(/(--cherry[a-z-]*)\s*:\s*([^;]+);/g)].forEach(m => { out[m[1]] = m[2].trim(); });
   return out;
 }
-function surfaces(scope) {
-  // --bg / --bg-2 / --bg-3 for the theme, from the same stylesheet.
-  const re = scope === 'light'
-    ? /--bg:#F4F1EA; --bg-2:#([0-9A-F]{6}); --bg-3:#([0-9A-F]{6});/i
-    : /--bg:#151417; --bg-2:#([0-9A-F]{6}); --bg-3:#([0-9A-F]{6});/i;
-  const m = CODE.match(re);
-  assert.ok(m, 'could not read the ' + scope + ' surfaces');
-  return [scope === 'light' ? '#F4F1EA' : '#151417', '#' + m[1], '#' + m[2]];
+function surfaces() {
+  /* --bg / --bg-2 / --bg-3, read from the stylesheet rather than pinned here,
+     because the ground moved to the Today charcoal when that card's language
+     became the product's and these ratios have to be measured against what
+     actually ships. */
+  const m = CODE.match(/--bg:#([0-9A-F]{6}); --bg-2:#([0-9A-F]{6}); --bg-3:#([0-9A-F]{6});/i);
+  assert.ok(m, 'could not read the surfaces');
+  return ['#' + m[1], '#' + m[2], '#' + m[3]];
 }
 
 /* A selector can carry more than one rule -- .switch input:checked +
@@ -132,13 +130,42 @@ test('no violet token survives anywhere in the runtime', () => {
     assert.doesNotMatch(CODE, re, 'an old violet literal is still in the stylesheet: ' + re));
 });
 
+test('Re-calibrate actually wins the cascade its rule is written for', () => {
+  /* MEASURED IN THE OPEN PANEL, where it had been losing silently. The
+     button carries .btn .btn-primary .btn-recal and sits inside .hq-panel,
+     so .hq-panel .btn-primary (0,2,0) beat .btn-recal (0,1,0) outright: the
+     resolved background-image was the BRONZE gradient, with .btn-recal's
+     cherry inset ring coming through underneath it -- two designs at once,
+     neither of them on purpose, and a gold-filled pill with dark text in a
+     panel whose every other control sits on the card's own ground.
+     Every colour assertion in this file passed throughout, because they ask
+     what the sheet SAYS and the sheet said cherry. What was wrong was which
+     rule applied, so that is what this guards: weight, and then order. */
+  /* THE RULE IT HAD TO BEAT IS GONE, AND THE ONE IT NOW HAS TO BEAT IS THE
+     BUILDER'S. .hq-panel .btn-primary forced bronze onto a panel's own
+     primary. Founder, on the Plan Evolution panel: "Accept evolution ect
+     should be the same as build a program." So a panel primary inherits
+     .builder-light .btn-primary -- the cherry FILL -- and Re-calibrate,
+     which is lit rather than filled, still has to win that tie on order. */
+  const recal = CODE.indexOf('.btn-recal, .hq-panel .btn-recal{');
+  const builderPrimary = CODE.indexOf('.builder-light .btn-primary{');
+  assert.equal(CODE.indexOf('.hq-panel .btn-primary{'), -1,
+    'a panel forces its own colour onto its primary again, instead of the builder\u2019s');
+  assert.ok(builderPrimary > -1, 'the builder\u2019s primary rule is gone');
+  assert.ok(recal > -1,
+    '.btn-recal lost the .hq-panel-weight half of its selector, so inside a ' +
+    'panel it is outranked by .builder-light .btn-primary');
+  assert.ok(recal > builderPrimary,
+    '.btn-recal is stated before .builder-light .btn-primary; the two tie ' +
+    'at (0,2,0), so the one written last wins and Re-calibrate goes filled');
+});
+
 test('every customer-facing brand control now resolves through the accent token', () => {
   /* The closed set, named. Each of these is a place violet meant Velvet Viking
      / primary interaction / selected brand state, and each must reach its
      colour through a token so the decision stays central. */
   const CONTROLS = [
     ['.builder-light .btn-primary',                 'the builder’s Continue / Build'],
-    ['.hq-panel .rec-panel-nav .btn-primary',       'the Plan HQ panels’ ← BACK'],
     ['.btn-recal',                                  'Settings’ Re-calibrate Training Zones launcher'],
     ['.bld-step.now',                               'the current build stage'],
     ['.bld-step.done',                              'the stages already covered'],
@@ -164,12 +191,33 @@ test('every customer-facing brand control now resolves through the accent token'
   // Approved-concept redesign: a full-circle ring rather than a semicircle
   // with a gradient and a needle -- the progress arc itself is still the
   // one place this figure carries the accent.
-  assert.match(CODE, /\.gauge-fill\{stroke:var\(--cherry\);\}/,
-    'the confidence gauge arc no longer takes the accent');
+  /* THE ARC STILL CARRIES THE ACCENT, it is simply no longer a single
+     stroke:var(--cherry). It takes the session ring's filament -- the same
+     four stops, near-white at the hot end falling through --cherry-text and
+     --cherry to --cherry-dim -- so the claim this guards (the arc is the one
+     place this figure wears the accent) is checked against the gradient the
+     arc actually paints with. */
+  /* The stroke declaration, not the closing brace: .gauge-fill carries an
+     entrance animation beside it now, and a colour guard should not fail
+     for a timing change. */
+  assert.match(CODE, /\.gauge-fill\{stroke:url\(#gaugeFill\);/,
+    'the confidence gauge arc no longer paints with its own gradient');
+  const gaugeGrad = /id="gaugeFill"[\s\S]*?<\/linearGradient>/.exec(CODE);
+  assert.ok(gaugeGrad, 'the gauge gradient is gone');
+  ['--cherry-text', '--cherry', '--cherry-dim'].forEach(tok => {
+    assert.ok(gaugeGrad[0].indexOf('var(' + tok + ')') > -1,
+      'the confidence gauge arc no longer takes the accent (' + tok + ')');
+  });
 });
 
 test('the primaries are SOLID, which is the treatment that was chosen', () => {
-  ['.builder-light .btn-primary', '.hq-panel .rec-panel-nav .btn-primary',
+  /* The Plan HQ panels' cherry BACK is gone from this list because the
+     button is gone: it fired the same action as the X in its own header, so
+     the panel had two controls for one outcome and the cherry one was the
+     heaviest thing on a surface built to show evidence. Cherry did not leave
+     the product -- it is still the builder's forward motion, the measured
+     band and the gauge arc below. */
+  ['.builder-light .btn-primary',
    '.outlook-band', '.ol-swatch.measured'].forEach(sel => {
     const i = CODE.indexOf(sel + '{');
     const body = CODE.slice(i + sel.length + 1, CODE.indexOf('}', i));
@@ -186,32 +234,50 @@ test('gold is still the identity, and the accent did not take any of it', () => 
     [/--bronze:#C0923F/,                                  'the bronze token'],
     [/--gold:#E3B15A/,                                    'the gold token'],
     [/:focus-visible\{outline:2px solid var\(--gold\)/,    'the global focus ring'],
-    [/\.setup-section-title\{[^}]*color:var\(--bronze-text\)/, 'section headings'],
+    /* Section headings left this list: white by instruction (founder,
+       15 November 2026: gold lettering for the brand and milestones only). */
     [/\.btn-primary\{background:linear-gradient\(135deg,var\(--bronze\)/, 'the ordinary primary'],
-    [/\.hq-panel \.btn-primary\{[^}]*var\(--bronze\)/,     'a panel’s own content primary'],
-    [/\.pbar-fill\{[^}]*var\(--bronze\)[^}]*var\(--gold\)/, 'the progress bars'],
+    /* 'a panel's own content primary' was the next row, held to bronze. It
+       is cherry now, by instruction ("Accept evolution ect should be the
+       same as build a program"), and is asserted where the accent is --
+       "Re-calibrate actually wins the cascade", above. */
+    /* The progress bars left this list: cherry by instruction (founder,
+       15 November 2026), so a bar and its cherry percentage agree. */
     [/\.sub-pill\.sub-active\{[^}]*--modal-active/,        'the ACTIVE subscription pill'],
   ].forEach(([re, what]) => assert.match(CODE, re, 'gold must remain on ' + what));
 });
 
 test('semantic colour is still semantic — the accent replaced none of it', () => {
   [
-    [/--c-easy:#84A56E/,                                  'green / easy'],
+    [/--c-easy:#E6E0D4/,                                  'neutral light / easy (Green = complete)'],
     [/--c-tempo:#CC9245/,                                 'amber / tempo'],
     [/--c-threshold:#B5505A/,                             'red / threshold'],
     [/--c-long:#5E93AC/,                                  'blue / long'],
     [/--c-rest:#8C8272/,                                  'neutral / rest'],
     [/\.btn-danger\{[^}]*var\(--c-threshold\)[^}]*var\(--danger-text\)/, 'the destructive button'],
     [/\.sub-pill\.sub-grace\{[^}]*var\(--c-threshold\)/,   'the grace-period pill'],
-    [/\.read-val\.good\{color:var\(--c-easy\);?\}/,         'a positive Reading verdict'],
-    [/\.read-val\.watch\{color:var\(--gold\);?\}/,          'a watch verdict'],
-    [/\.read-val\.bad\{color:var\(--c-tempo\);?\}/,         'a negative verdict'],
+    /* THE TONE MOVED TO THE DOT, AND THAT IS THE WHOLE CHANGE. Founder: "I
+       don't want symbols or pills! If there is a pill that adds value.
+       Change it to just a title with a small coloured dot." .read-val was
+       the pill; the word in it now takes white like every other title on
+       the panel, and the engine's good/watch/bad is drawn as the six-pixel
+       dot beside it. What this law protects is unchanged -- the three
+       semantic tokens must still reach the verdict -- so it follows the
+       colour to where the colour now is rather than being deleted with the
+       rule it used to name. */
+    [/\.read-val\.good \.read-dot\{--read-tone:var\(--c-easy\);?\}/,  'a positive Reading verdict'],
+    [/\.read-val\.watch \.read-dot\{--read-tone:var\(--gold\);?\}/,   'a watch verdict'],
+    [/\.read-val\.bad \.read-dot\{--read-tone:var\(--c-tempo\);?\}/,  'a negative verdict'],
+    /* And the word it sits beside is white, or the dot is decorating a
+       second copy of the tone rather than carrying it. */
+    [/\.read-val\{[^}]*color:#FFFFFF/,                    'the verdict word itself'],
     [/\.coach-state\.proceed\{background:(?:[^;]*,\s*)?var\(--c-easy-soft\)/, 'the PROCEED chip'],
   ].forEach(([re, what]) => assert.match(CODE, re, what + ' was swallowed by the migration'));
 
   // And no semantic rule quietly started resolving through the accent.
-  ['.btn-danger', '.sub-pill.sub-grace', '.read-val.good', '.read-val.watch',
-   '.read-val.bad', '.coach-state.proceed'].forEach(sel =>
+  ['.btn-danger', '.sub-pill.sub-grace', '.read-val.good .read-dot',
+   '.read-val.watch .read-dot', '.read-val.bad .read-dot',
+   '.coach-state.proceed'].forEach(sel =>
     rulesFor(sel).forEach(body =>
       assert.doesNotMatch(body, /--cherry/, sel + ' took the brand accent; it is semantic')));
 });
@@ -219,22 +285,9 @@ test('semantic colour is still semantic — the accent replaced none of it', () 
 // ===========================================================================
 // 3. MEASURED ACCESSIBILITY, BOTH THEMES
 // ===========================================================================
-test('LIGHT: the accent is the canonical #532D3A, unmodified', () => {
-  const t = tokens('light');
-  assert.equal(t['--cherry'], '#532D3A', 'the light theme must ship the canonical value');
-  assert.equal(t['--cherry-text'], '#532D3A', 'and use it unmodified as text');
-  assert.equal(t['--cherry-btn-ink'], '#FFFFFF');
-  assert.ok(ratio('#532D3A', '#FFFFFF') >= 4.5,
-    'the button label is ' + ratio('#532D3A', '#FFFFFF') + ':1');
-  surfaces('light').forEach(bg => assert.ok(ratio(t['--cherry'], bg) >= 3,
-    'a light control on ' + bg + ' is only ' + ratio(t['--cherry'], bg) + ':1'));
-  // and the pale node fill carries near-black
-  assert.ok(ratio(t['--cherry-soft'], t['--cherry-ink']) >= 4.5,
-    'the step numeral on its disc is ' + ratio(t['--cherry-soft'], t['--cherry-ink']) + ':1');
-});
 
-test('DARK: bare indicators are lifted only as far as 3:1 actually requires', () => {
-  const t = tokens('dark');
+test('bare indicators are lifted only as far as 3:1 actually requires', () => {
+  const t = tokens();
   const ind = t['--cherry'];
 
   assert.ok(IN_FAMILY(ind),
@@ -244,14 +297,14 @@ test('DARK: bare indicators are lifted only as far as 3:1 actually requires', ()
   /* A BARE INDICATOR -- a 3px rail segment, a gauge needle, a band -- is
      identified by nothing but its own colour, so 1.4.11's 3:1 applies against
      every dark surface it can sit on. */
-  surfaces('dark').forEach(bg => assert.ok(ratio(ind, bg) >= 3,
+  surfaces().forEach(bg => assert.ok(ratio(ind, bg) >= 3,
     'a bare dark indicator on ' + bg + ' is only ' + ratio(ind, bg) + ':1 -- WCAG 1.4.11 wants 3:1'));
 
   /* SMALLEST lift: one step darker must fail the boundary it was chosen for,
      or it is lighter than the colour needed to be. This gate is what stops the
      indicator tone creeping up towards pink over time. */
   const darker = '#' + hex(ind).map(v => Math.round(v * 0.94).toString(16).padStart(2, '0')).join('');
-  assert.ok(ratio(darker, surfaces('dark')[2]) < 3,
+  assert.ok(ratio(darker, surfaces()[2]) < 3,
     'a 6% darker indicator (' + darker + ') would still clear 3:1 -- the lift is bigger than it needs to be');
 });
 
@@ -261,8 +314,8 @@ test('DARK: bare indicators are lifted only as far as 3:1 actually requires', ()
    painting a large filled button with it produced dusty pink. A filled control
    carrying its own white label does not need that boundary to be identified,
    so it is free to be genuinely dark, and it must be. */
-test('DARK: filled controls are burgundy, not a mid-tone rose', () => {
-  const t = tokens('dark');
+test('filled controls are burgundy, not a mid-tone rose', () => {
+  const t = tokens();
   const fill = t['--cherry-fill'];
   assert.ok(fill, 'there is no --cherry-fill: labelled fills are back on the indicator tone');
 
@@ -280,17 +333,12 @@ test('DARK: filled controls are burgundy, not a mid-tone rose', () => {
   assert.ok(ratio(fill, t['--cherry-btn-ink']) >= 4.5,
     'the dark button label is only ' + ratio(fill, t['--cherry-btn-ink']) + ':1');
 
-  /* LIGHT NEEDED NO SOLVING, so light must not quietly acquire a second value:
-     both jobs there are the one canonical Cherry Lacquer. */
-  const L = tokens('light');
-  assert.equal(L['--cherry-fill'], '#532D3A',
-    'light mode paints filled controls ' + L['--cherry-fill'] + ' instead of the canonical #532D3A');
-  assert.equal(L['--cherry'], L['--cherry-fill'],
-    'light mode split the accent in two, but only dark mode had a reason to');
-
   /* A dark fill cannot supply its own 3:1 boundary, so the rim does -- and the
      rim has to be the indicator tone, which is the one that clears it. */
-  ['.builder-light .btn-primary', '.hq-panel .rec-panel-nav .btn-primary'].forEach(sel => {
+  /* One labelled cherry fill left in the product, not two: the Plan HQ
+     panels' BACK is gone, having fired the same action as the X beside it.
+     The contrast rule it was held to is unchanged for the one that remains. */
+  ['.builder-light .btn-primary'].forEach(sel => {
     const bodies = rulesFor(sel);
     assert.ok(bodies.some(b => /background:var\(--cherry-fill\)/.test(b)),
       sel + ' does not take the fill tone -- a labelled primary is back on the indicator tone');
@@ -299,14 +347,14 @@ test('DARK: filled controls are burgundy, not a mid-tone rose', () => {
   });
 });
 
-test('DARK: the accent used as TEXT gets its own tone, because 3:1 is not enough to read', () => {
-  const t = tokens('dark');
+test('the accent used as TEXT gets its own tone, because 3:1 is not enough to read', () => {
+  const t = tokens();
   assert.notEqual(t['--cherry-text'], t['--cherry'],
     'the dark theme reads its small accent text at the fill tone, which is under 4.5:1');
   assert.ok(IN_FAMILY(t['--cherry-text']),
     'the text tone drifted to hue ' + hue(t['--cherry-text']).toFixed(1) +
     'deg, outside the cherry/wine family');
-  surfaces('dark').forEach(bg => assert.ok(ratio(t['--cherry-text'], bg) >= 4.5,
+  surfaces().forEach(bg => assert.ok(ratio(t['--cherry-text'], bg) >= 4.5,
     'accent text on ' + bg + ' is only ' + ratio(t['--cherry-text'], bg) + ':1'));
 
   // And the two places it is actually used are the two that need it.
@@ -315,22 +363,19 @@ test('DARK: the accent used as TEXT gets its own tone, because 3:1 is not enough
       sel + ' paints accent text with the fill tone rather than the text tone'));
 });
 
-test('the accent is a per-theme token, so no component carries a per-theme rule', () => {
-  assert.equal((CODE.match(/--cherry:\s*#[0-9A-F]{6}/gi) || []).length, 2,
-    'the accent must be declared exactly once per theme');
-  /* And every --cherry* declaration in the file lives in one of those two
-     token blocks. A component that redefined the accent for one theme would
-     add a declaration somewhere else, which is what this counts. */
-  const declared = (CODE.match(/--cherry[a-z-]*\s*:/g) || []).length;
-  const perBlock = (CODE.match(/--cherry[a-z-]*\s*:/g) || []).length / 2;
-  assert.equal(declared, perBlock * 2, 'unreachable');
+test('the accent is one token, and no component redefines it', () => {
   const blocks = [...CODE.matchAll(/--cherry:\s*#[0-9A-F]{6}/gi)].map(m => m.index);
-  assert.equal(blocks.length, 2);
-  const inABlock = [...CODE.matchAll(/--cherry[a-z-]*\s*:/g)]
+  assert.equal(blocks.length, 1,
+    'the accent must be declared exactly once, at the root');
+  /* And every --cherry* declaration in the file lives in that one block. A
+     component that redefined the accent for itself would add a declaration
+     somewhere else, which is what this counts. */
+  const declared = (CODE.match(/--cherry[a-z-]*\s*:/g) || []).length;
+  const inTheBlock = [...CODE.matchAll(/--cherry[a-z-]*\s*:/g)]
     .filter(m => blocks.some(b => m.index >= b - 40 && m.index < b + 700)).length;
-  assert.equal(inABlock, declared,
-    'a --cherry declaration lives outside the two theme token blocks — a ' +
-    'component is redefining the accent instead of using it');
+  assert.equal(inTheBlock, declared,
+    'a --cherry declaration lives outside the token block — a component is ' +
+    'redefining the accent instead of using it');
 });
 
 
@@ -340,7 +385,7 @@ test('the accent is a per-theme token, so no component carries a per-theme rule'
    from 339deg to 347deg, which put it 6.8 deltaE from --c-threshold #B5505A --
    the colour of a threshold session's left edge. On an expanded threshold card
    the semantic edge and the brand accent then read as the same colour, and the
-   athlete loses the difference between "Valhalla" and "this session is hard".
+   athlete loses the difference between "Sacoro" and "this session is hard".
 
    Nothing caught it: every existing guard asked whether the accent was
    ACCESSIBLE and whether it was still in the cherry family, and it was both.
@@ -470,4 +515,91 @@ test('the connector cannot drift toward violet again, because it has no alpha le
     assert.match(t['--cherry'], /^#[0-9A-Fa-f]{6}$/,
       scope + ' --cherry is not a solid hex — the connector could drift again');
   });
+});
+
+/* ===========================================================================
+ * NAVIGATION IS ONE BUTTON; A COMMIT IS ANOTHER
+ * ---------------------------------------------------------------------------
+ * Race Day's "View session" and This Week's "View full session" do the same
+ * job -- go and look at this session -- and were two dialects of one button.
+ * Measured at 412px before this: identical shape, radius, ground, weight;
+ * differing in exactly two declarations, the rim (velvet against the neutral
+ * --t-tile-rim) and the ink (cherry against gold). After: colour, border
+ * width, border colour, radius and the layered background all read the same
+ * in Chromium on both screens.
+ *
+ * The founder's rule was "anywhere there is a filled cherry clickable box
+ * should follow the same rules as Race Day view session". This is the half
+ * of it that is navigation. The other half -- Continue, Got it, Tell
+ * Sacoro -- is a COMMIT, the one action that moves the athlete forward in
+ * a flow where nothing else carries weight, and stays filled. Race Day's can
+ * be rim-lit because it sits inside a cherry-rimmed panel that already
+ * supplies the weight; a modal's primary has no such panel behind it.
+ * ======================================================================== */
+
+const NAV_CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+const navRule = sel => {
+  const re = new RegExp('(^|[}\\n,])[ \\t]*' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{', 'g');
+  const hits = [...NAV_CSS.matchAll(re)];
+  assert.equal(hits.length, 1, 'expected exactly one rule for ' + sel + ', found ' + hits.length);
+  const i = hits[0].index + hits[0][0].length;
+  return NAV_CSS.slice(i, NAV_CSS.indexOf('}', i));
+};
+
+test('both ways into a session wear one treatment, stated once', () => {
+  const nav = navRule('.sess-nav');
+  assert.match(nav, /--t-rim-velvet/, 'session navigation has lost the velvet rim');
+  assert.match(nav, /color:var\(--cherry-text\)/, 'session navigation has lost the cherry ink');
+  assert.match(nav, /border:1px solid transparent/,
+    'the rim is painted by the border-box gradient, so the border itself has to be transparent');
+
+  /* BOTH BUTTONS WEAR IT. The class is the whole mechanism. */
+  assert.match(SRC, /class="rd-open sess-nav"/, 'Race Day no longer wears the shared treatment');
+  /* THE QUOTE MOVED, NOT THE CLASS. This read the source text up to the
+     opening quote of a concatenation -- class="wk-open sess-nav'+(isRest ?
+     ' is-ghost' : '')+'" -- and the ghost modifier is gone (no day can open
+     a full session any more), so the literal now closes with a double
+     quote. Either shape satisfies the claim, which is that both buttons
+     wear the shared class. */
+  assert.match(SRC, /class="wk-open sess-nav['"]/, 'This Week no longer wears the shared treatment');
+
+  /* THE METRICS ARE THE BUTTON TOO. They were left behind at first -- 14.5px
+     and 11px padding here, 15px and 14px in the Race Day panel -- on the
+     reasoning that each was tuned to its context. 15px is the app's own
+     metric tier; 14.5px occurs four times in a 60,000-line sheet. That was
+     drift, not tuning, and it left one control with two specs. */
+  assert.match(nav, /font-size:\.9375rem/, 'the shared button is off the app\u2019s 15px tier again');
+  assert.match(nav, /padding:14px/, 'the shared button no longer states one padding');
+  assert.match(nav, /min-height:var\(--tap-min\)/, 'the shared button has lost the 44px floor');
+
+  /* AND NEITHER RE-DECLARES ANY OF IT. Two rules setting one property on
+     one element is the fault this file's neighbours keep recording; all of
+     it came OUT of both rather than being left to be overridden. Each keeps
+     only where it sits. */
+  ['.wk-open', '.view-plan > .race-event .rd-open'].forEach(sel => {
+    const body = navRule(sel);
+    [['background:', 'ground'], ['color:', 'ink'], ['border:', 'border'],
+     ['font-size:', 'type size'], ['padding:', 'padding'], ['border-radius:', 'radius'],
+     ['font-weight:', 'weight']].forEach(([decl, what]) => {
+      assert.ok(body.indexOf(decl) === -1,
+        sel + ' states its own ' + what + ' again — the two can drift apart from here');
+    });
+  });
+});
+
+test('a commit is still filled, and that is the distinction', () => {
+  /* If this ever goes rim-lit, the builder's forward motion goes quiet and
+     the product loses any difference between "go look at this" and "commit
+     to this". It was considered and declined on the founder's call. */
+  const commit = navRule('.builder-light .btn-primary');
+  assert.match(commit, /background:var\(--cherry-fill\)/,
+    'the committing button is no longer a FILLED cherry — navigation and commit now read the same');
+  assert.match(commit, /color:var\(--cherry-btn-ink\)/, 'the committing button lost its ink');
+
+  /* And the neutral button recipe is untouched: saving a session edit is a
+     commit too, and deliberately NOT cherry -- it sits above a
+     cherry-outlined "Reset this session", and the control that saves must
+     not look like the one that destroys. */
+  assert.match(navRule('.es-actions .btn-primary'), /background:var\(--t-card\)/,
+    'Edit Session’s save has gone cherry — it sits above a cherry Reset and must not match it');
 });

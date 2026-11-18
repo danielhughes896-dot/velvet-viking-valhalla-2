@@ -157,7 +157,7 @@ test('a paused subscriber is not reported as active, and the resume date shows',
   const sub = { billing_period: 'monthly', paused_at: '2026-08-01T00:00:00Z',
                 pause_resumes_at: '2026-11-01T00:00:00Z' };
   const ent = E.resolveStandardEntitlement({
-    subscriptions: [Object.assign({ provider: 'web', product_code: 'VALHALLA_STANDARD',
+    subscriptions: [Object.assign({ provider: 'web', product_code: 'SACORO_STANDARD',
       condition: 'active', current_period_end: '2027-01-01T00:00:00Z' }, sub)],
     grants: [], now: '2026-09-01T00:00:00Z'
   });
@@ -383,10 +383,10 @@ test('the mirror sends the subscription the athlete is living under', async () =
   // A cancelled leftover sorted above a live one would put the wrong period and
   // the wrong pause state on the board.
   const Store = require(path.join(ROOT, 'api', '_commercial-store.js'));
-  const dead = { id: 'old', account_id: ACC, provider: 'web', product_code: 'VALHALLA_STANDARD',
+  const dead = { id: 'old', account_id: ACC, provider: 'web', product_code: 'SACORO_STANDARD',
                  condition: 'expired', billing_period: 'yearly',
                  current_period_end: '2025-01-01T00:00:00Z' };
-  const livesub = { id: 'now', account_id: ACC, provider: 'web', product_code: 'VALHALLA_STANDARD',
+  const livesub = { id: 'now', account_id: ACC, provider: 'web', product_code: 'SACORO_STANDARD',
                  condition: 'active', billing_period: 'monthly',
                  current_period_end: '2099-01-01T00:00:00Z' };
   const S = { sb: async (cfg, p) => {

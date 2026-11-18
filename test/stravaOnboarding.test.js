@@ -82,7 +82,13 @@ test('the offer sits on the orientation screen, not in the question flow', () =>
      so it must not become one -- and the stage count is asserted by three
      other suites that would all have to be told a different number. */
   const a = app({ available: true });
-  assert.equal(a.BLD_STAGE_NAMES.length, 10, 'the builder still asks ten questions');
+  /* Eleven since Athlete experience was lifted off the YOU screen. The
+     point of this line is that the Strava offer did NOT become a stage --
+     it sits on the orientation screen -- so it is read from the spec rather
+     than restating a number that a later split invalidates. */
+  const SPEC_STAGES = require('../assets/builder-spec.js').stages;
+  assert.equal(a.BLD_STAGE_NAMES.length, SPEC_STAGES.length,
+    'the builder asks ' + a.BLD_STAGE_NAMES.length + ' questions, not ' + SPEC_STAGES.length);
   assert.equal(a.BLD_STAGE_NAMES[0], 'Overview');
 
   const panel = SRC.slice(SRC.indexOf('data-stage="0"'), SRC.indexOf('data-stage="1"'));
@@ -180,7 +186,7 @@ test('an unnamed Strava account does not print a dangling "Connected as"', () =>
 // ---------------------------------------------------------------------------
 test('start.html never draws a Strava control', () => {
   /* THE ARCHITECTURAL REASON, asserted so it cannot be undone by accident.
-     The pre-account builder runs BEFORE the athlete has a Valhalla account:
+     The pre-account builder runs BEFORE the athlete has a Sacoro account:
      build, preview, "Save My Plan", then authenticate. A Strava authorization
      has nothing to attach to until that account exists -- strava_connections
      is keyed on auth.users(id) and every Strava route verifies a Supabase
@@ -189,8 +195,10 @@ test('start.html never draws a Strava control', () => {
   assert.ok(!/data-action="strava-connect"/.test(start));
   assert.ok(!/strava-connect-btn/.test(start));
 
-  /* And the sequence that makes it so is still the sequence. */
-  assert.match(start, /pane-build/);
+  /* And the sequence that makes it so is still the sequence: a banked preview,
+     then authenticate. The builder step left /start for the app (founder,
+     16 November 2026, item 9), where Strava is offered once there is an account. */
+  assert.doesNotMatch(start, /pane-build/);
   assert.match(start, /pane-preview/);
   assert.match(start, /pane-auth/);
 });

@@ -1,7 +1,7 @@
 // Velvet Viking -- the monthly pause, as a policy rather than as a provider call.
 //
 // WHY THIS IS ITS OWN FILE. A pause is two separate things that are easy to
-// confuse: a RULE about what Valhalla will allow, and an INSTRUCTION to whoever
+// confuse: a RULE about what Sacoro will allow, and an INSTRUCTION to whoever
 // is collecting the money. If those live together, the rule ends up expressed
 // in whatever vocabulary the current provider happens to use, and the day a
 // second provider arrives there is no rule left to port -- only a Stripe call
@@ -165,7 +165,7 @@ function mayPause(sub, now){
  * Returns the exact patch and the exact instruction for the provider, and
  * writes nothing. The caller applies the provider first and our row second: if
  * the provider refuses, no row has changed and the athlete's subscription is
- * untouched. The other order produces a subscription that Valhalla believes is
+ * untouched. The other order produces a subscription that Sacoro believes is
  * paused and Stripe is still charging for, which is the version that ends up in
  * a complaint.
  *

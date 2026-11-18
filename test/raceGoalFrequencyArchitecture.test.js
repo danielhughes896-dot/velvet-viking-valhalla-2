@@ -56,16 +56,26 @@ test('Advanced Marathon: additional availability increases prescribed frequency 
   const at5 = buildFor('full', 'advanced', 15, 5);
   const at6 = buildFor('full', 'advanced', 15, 6);
   const p4 = peakWeek(at4.blk), p5 = peakWeek(at5.blk), p6 = peakWeek(at6.blk);
+  /* THE PEAK WEEK NOW HOLDS TWO SESSIONS AT FIVE DAYS AND MORE (founder, 16
+     November 2026: "Take turns, add tempo"), and the second one takes an
+     easy run's day rather than adding a day. So the frequency claim is read
+     as the running days the week prescribes: long run + sessions + supporting
+     runs, which is what availability raises. */
+  const runDays = w => 1 + w.bottomUp.qSlots + w.bottomUp.supportDays;
   assert.equal(p4.bottomUp.supportDays, 2, '4 days: no longer stalls -- 2 is what 4 raw days can carry');
-  assert.equal(p5.bottomUp.supportDays, 3, '5 days: a real day genuinely used');
-  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Advanced is now tier-capped at 5
-     selected days for Half/Marathon (RACE_GOAL_MAX_DAYS, applied inside
-     raceGoalDestinationSolve() to mAvail before mNeed/mSupportDays ever run),
-     because splitting the same weekly floor across more days than the tier
-     needs was writing near-floor easy runs deep into Build. A 6th day offered
-     above that ceiling is therefore never reached at all: the mechanism stops
-     one day earlier than the coherence floor alone would have stopped it. */
-  assert.equal(p6.bottomUp.supportDays, 3, '6 days: capped at the tier ceiling of 5 selected days, same as 5');
+  assert.equal(runDays(p4), 4, '4 days: four running days');
+  assert.equal(p5.bottomUp.qSlots, 2, '5 days: the second Peak session');
+  assert.equal(runDays(p5), 5, '5 days: a real day genuinely used');
+  /* HQ PRESCRIBED-FREQUENCY RULING SUPERSEDES THE 5-DAY ADVANCED CAP.
+     This assertion previously read 3 -- "capped at the tier ceiling of 5
+     selected days, same as 5" -- which was the RACE_GOAL_MAX_DAYS behaviour
+     for Half/Marathon. The marathon now takes its prescribed-day requirement
+     from its own pathway (MARATHON_PRESCRIBED_DAYS: Developing 4,
+     Established 5, Advanced 6), so an Advanced athlete offering a sixth day
+     genuinely receives it: long run + 2 quality + 4 supporting = six.
+     The half is unchanged and still reads the old table. */
+  assert.equal(runDays(p6), 6, '6 days: the sixth day is now the pathway requirement, and is used');
+  assert.equal(p6.bottomUp.supportDays, 3, '6 days: long run + 2 sessions + 3 supporting');
 });
 
 test('5K/10K/Half Novice-Experienced: additional availability CAN raise frequency where it was previously invisible to the seed', () => {
@@ -184,8 +194,15 @@ test('Marathon: additional prescribed support running in Peak is only introduced
     const pk = peakWeek(blk);
     const taper = blk.weeks.find(w => w.isTaper);
     assert.ok(taper, 'a taper week must exist');
-    assert.equal(taper.bottomUp.supportDays, pk.bottomUp.supportDays,
-      `${dist} taper must retain Peak's own supportDays (${pk.bottomUp.supportDays}), got ${taper.bottomUp.supportDays}`);
+    /* RETAINED AS RUNNING DAYS (16 November 2026). A marathon Peak week now
+       carries two sessions and the taper one, so the taper's freed session day
+       is an easy run: the frequency the block established is the count of
+       running days, and that is what must carry into the taper. */
+    const runDays = w => 1 + (w.bottomUp.qSlots || 0) + w.bottomUp.supportDays;
+    if (dist === 'full') assert.equal(runDays(taper), runDays(pk),
+      `${dist} taper must retain Peak's own running days (${runDays(pk)}), got ${runDays(taper)}`);
+    else assert.equal(taper.bottomUp.supportDays, pk.bottomUp.supportDays,
+        `${dist} taper must retain Peak's own supportDays (${pk.bottomUp.supportDays}), got ${taper.bottomUp.supportDays}`);
     assert.ok(taper.volume < pk.volume, 'taper volume must be lower than Peak volume');
   });
 });
@@ -198,7 +215,9 @@ test('long-run destinations are read verbatim from the pathway table, at every a
      invent its own number regardless of what the table says, so it is
      re-pointed at the table's current value rather than a frozen one. */
   const a = app();
-  [['5k','advanced',16], ['10k','advanced',18], ['half','advanced',22], ['full','advanced',32]].forEach(([dist, exp, expectLong]) => {
+  /* 5K Advanced 16 -> 15: the founder's long-run range (12-15km), approved
+     15 November 2026. */
+  [['5k','advanced',15], ['10k','advanced',18], ['half','advanced',22], ['full','advanced',32]].forEach(([dist, exp, expectLong]) => {
     const pathway = a.raceGoalPathway(dist, exp);
     assert.equal(pathway.buildLongKm, expectLong, `${dist} ${exp} pathway table long-run destination must be unchanged`);
     [4,5,6].forEach(days => {
@@ -212,7 +231,11 @@ test('long-run destinations are read verbatim from the pathway table, at every a
 test('quality-session count (qSlots) is untouched by the frequency repair -- it is decided before supportDays and never re-derived by it', () => {
   [4,5,6].forEach(days => {
     const { blk } = buildFor('full', 'advanced', 15, days);
-    assert.equal(peakWeek(blk).bottomUp.qSlots, 1, `qSlots must be independent of availableDays at ${days}d`);
+    /* The frequency repair still never re-derives it. What sets it in Peak
+       now is the founder's ruling of 16 November 2026 ("Take turns, add
+       tempo"): two sessions where five days or more allow, as in Build, and
+       one at four. */
+    assert.equal(peakWeek(blk).bottomUp.qSlots, days >= 5 ? 2 : 1, `qSlots at ${days}d`);
   });
 });
 
@@ -329,18 +352,23 @@ test('raceGoalAvailabilityLimited: fires with named reasons on the reported case
 });
 
 test('raceGoalAvailabilityLimited: does not fire once the extra day has already been granted, and never sees a day above the tier cap at all', () => {
-  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Half/Marathon is now tier-capped
-     at RACE_GOAL_MAX_DAYS selected days (5 for Advanced), applied to mAvail
-     inside raceGoalDestinationSolve() before this trigger's own solve ever
-     runs. A 6th day therefore changes nothing for these two distances: it is
-     never offered to the mechanism, so the trigger reports the identical
-     state it reports at 5 -- not because the concentration resolved, but
-     because there is no further day this pathway will ever be given. */
+  /* HQ PRESCRIBED-FREQUENCY RULING. Under the old 5-day Advanced cap a sixth
+     day was never offered to the mechanism, so this asserted that 6 read
+     IDENTICALLY to 5. Advanced's marathon requirement is six now, so the
+     sixth day is real: at five the trigger correctly reports the athlete's
+     availability as the limitation, and at six that limitation genuinely
+     resolves -- three supporting runs of 15.2km each, at 48% of the long
+     run's distance, become four.
+
+     THE CAP IS STILL ASSERTED, one day further out: a seventh day must read
+     identically to the sixth, because six is where the marathon stops. */
   const a = app();
   const r5 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:5, easyPaceSecPerKm:330 });
   const r6 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:6, easyPaceSecPerKm:330 });
-  assert.equal(r5.limited, true);
-  assert.deepEqual(r6, r5, '6 days must read identically to 5 -- the tier cap holds, not a fresh resolution');
+  const r7 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:7, easyPaceSecPerKm:330 });
+  assert.equal(r5.limited, true, 'at five days availability is the constraint and must be reported');
+  assert.equal(r6.limited, false, 'the sixth day is the pathway requirement and resolves the concentration');
+  assert.deepEqual(r7, r6, '7 days must read identically to 6 -- six is the marathon ceiling');
 });
 
 test('raceGoalAvailabilityLimited: never fires from a raw kilometre threshold -- a smaller weekly total can need MORE days to resolve than a larger one', () => {
@@ -353,11 +381,14 @@ test('raceGoalAvailabilityLimited: never fires from a raw kilometre threshold --
      days -- the opposite of what a reading keyed on raw weekly kilometres
      would predict, because it is each pathway's long-run coherence share,
      not its total, that is actually being read. */
+  /* Re-read at the founder's 5K/10K ranges (15 November 2026): Advanced 10K
+     (80km, 18km long) is still larger than Advanced 5K (75km, 15km long), and
+     it is still the 10K that resolves first, now at eleven days. */
   const a = app();
-  const bigger = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:10, easyPaceSecPerKm:330 });
-  const biggerOneLess = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:9, easyPaceSecPerKm:330 });
-  const smaller = a.raceGoalAvailabilityLimited('5k', 'advanced', null, 12, { availableDays:10, easyPaceSecPerKm:330 });
-  assert.equal(bigger.limited, false, 'the larger pathway resolves by 10 days');
+  const bigger = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:11, easyPaceSecPerKm:330 });
+  const biggerOneLess = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:10, easyPaceSecPerKm:330 });
+  const smaller = a.raceGoalAvailabilityLimited('5k', 'advanced', null, 12, { availableDays:11, easyPaceSecPerKm:330 });
+  assert.equal(bigger.limited, false, 'the larger pathway resolves by 11 days');
   assert.equal(biggerOneLess.limited, true, 'and had not yet resolved one day earlier');
   assert.equal(smaller.limited, true, 'the smaller pathway is still flagged at the same day count the larger one already resolved at');
 });

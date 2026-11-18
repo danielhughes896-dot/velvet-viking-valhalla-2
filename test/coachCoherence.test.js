@@ -196,7 +196,10 @@ test('a week with no completed sessions is not reported as an assessment', () =>
   const dec = a.coachDecision();
   assert.ok(!/nothing unusual in the recent training/i.test(dec.recommendation),
     'there was no recent training to find anything unusual in');
-  assert.match(dec.recommendation, /nothing to read yet/i);
+  /* The wording moved in the voice pass; the claim it is guarding did not.
+     What must survive is that the sentence says there was nothing to read,
+     rather than implying either reassurance or alarm. */
+  assert.match(dec.recommendation, /nothing to go on/i);
   assert.match(dec.recommendation, /plan stands/i, 'and it must not be alarming');
   assert.ok(!/recover|reduce|hold back|concern/i.test(dec.recommendation),
     'insufficient evidence is not a risk signal');

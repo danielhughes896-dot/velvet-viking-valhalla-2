@@ -242,7 +242,12 @@ test('the two peak exposures are different sessions', () => {
   assert.strictEqual(segOf(last), 0,
     'the longest run is durability dominant -- no goal-pace finish');
   assert.ok(segOf(first) > 0, 'the earlier exposure is the specific one');
-  assert.ok(blk.weeks[first].isCutback, 'and absorption sits between them');
+  /* NOT ANY MORE (founder, 16 November 2026: "Surely that shouldn't be a
+     thing?", then "Lighter week before peak"). The absorption week is the
+     last Build week, in front of the exposures, and none sits between them. */
+  assert.ok(blk.weeks.slice(first - 1, last).every(w => !w.isCutback),
+    'a lighter week sits inside Peak');
+  assert.ok(blk.weeks[first - 2].isCutback, 'and the lighter week is the last Build week');
   // the longest exposure is never also the most specific
   assert.ok(!(longOf(last) >= longOf(first) && segOf(last) >= segOf(first)));
 });

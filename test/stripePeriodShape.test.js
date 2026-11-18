@@ -193,7 +193,7 @@ test('paid-through on a failed renewal reads the item too', () => {
   assert.equal(f.period_end, new Date(T0 + days(30)).toISOString(),
     'paid-through is the start of the unpaid period, read from the item');
   assert.equal(f.invoiced_through, new Date(T0 + days(60)).toISOString());
-  assert.equal(f.grace_period_end, null, 'and still no grace Valhalla invented');
+  assert.equal(f.grace_period_end, null, 'and still no grace Sacoro invented');
 });
 
 // ===========================================================================

@@ -137,7 +137,7 @@ test('the no-data state stays truthful and unalarming', () => {
   const dec = a.coachDecision();
   assert.ok(!/nothing unusual in the recent training/i.test(dec.recommendation),
     'there was no training to find anything unusual in');
-  assert.ok(!/supports keeping this session/i.test(dec.recommendation),
+  assert.ok(!/happy to leave this session/i.test(dec.recommendation),
     'and no evidence to support a positive claim either');
 });
 
@@ -145,10 +145,13 @@ test('where positive evidence exists, the claim may be positive', () => {
   const a = loadApp({ pinnedDate: PINNED });
   const sentence = a.coachDecisionSentence('proceed', null, [],
     [{ detail: 'Easy-run heart rate has settled.' }], null, true, 12);
-  assert.match(sentence, /supports keeping this session as written/,
+  /* The phrase moved in the voice pass. Both halves move together, or the
+     pair stops discriminating: a guard written against a string the product
+     no longer contains passes whatever the product says. */
+  assert.match(sentence, /happy to leave this session exactly as it is/,
     'positives.length > 0 means real evidence, so the wording may say so');
   const bare = a.coachDecisionSentence('proceed', null, [], [], null, true, 12);
-  assert.ok(!/supports keeping this session as written/.test(bare),
+  assert.ok(!/happy to leave this session exactly as it is/.test(bare),
     'and without positives it must not');
   assert.match(bare, /argues against it/, 'absence stated as absence');
 });
@@ -159,16 +162,16 @@ test('where positive evidence exists, the claim may be positive', () => {
 test('fluid guidance is not printed to the millilitre', () => {
   const a = loadApp({ pinnedDate: PINNED });
   const out = a.fmtFluidEstimate(816, 1224);
-  assert.match(out, /^≈/, 'it is an estimate and says so');
+  assert.match(out, /^about /, 'it is an estimate and says so');
   assert.match(out, /L$/, 'a litre-scale total is expressed in litres');
   assert.ok(!/816|1224/.test(out), 'four significant figures imply a precision nobody has');
-  assert.equal(out, '≈0.8–1.2 L');
+  assert.equal(out, 'about 0.8–1.2 L');
 });
 
 test('smaller totals stay in millilitres, still rounded', () => {
   const a = loadApp({ pinnedDate: PINNED });
   const out = a.fmtFluidEstimate(430, 645);
-  assert.match(out, /^≈\d+–\d+ ml$/);
+  assert.match(out, /^about \d+–\d+ ml$/);
   assert.ok(!/430|645/.test(out), 'rounded to something an athlete can act on');
 });
 
@@ -197,7 +200,7 @@ test('the fueling card marks its estimates and keeps its honest caveats', () => 
   const html = a.renderFuelingCard(long);
   assert.match(html, /Fluid guide \(est\.\)/);
   assert.match(html, /Total carbs \(est\.\)/);
-  assert.match(html, /≈/, 'the numbers are marked approximate');
+  assert.match(html, /about \d/, 'the numbers are marked approximate');
   assert.match(html, /drink to thirst/i, 'the existing honest caveat is preserved');
   assert.match(html, /adjust for the heat/i);
   assert.ok(!/\d{3,4}–\d{3,4}ml/.test(html), 'no bare four-figure millilitre range');

@@ -1,10 +1,25 @@
 name: Build Android APK
 
-# Runs on every push to the repository. This only builds the native Capacitor
-# app shell -- it never touches the Vercel deployment, which deploys straight
-# from the repo root independently of this workflow.
+# NOT ON EVERY PUSH ANY MORE. Founder: "I don't want a app being built taking
+# 20 mins every time we push haha as long as the app gets updates then normal
+# way."
+#
+# It does, and that is what makes this safe. capacitor.config.json sets
+# server.url to https://app.velvetviking.co.uk, so the Android app is a SHELL
+# that loads the live site -- it does not bundle protected/. A content change
+# reaches a phone through the Vercel deploy, which happens on push and is
+# untouched by this file. Nothing about the app going stale was ever fixed by
+# building an APK.
+#
+# So this now builds only when the artifact itself is the point:
+#   - a v* tag, which is also what makes the release job below fire;
+#   - a manual run from the Actions tab, for a one-off device build.
+# A native change -- a Capacitor or plugin bump, an icon, a permission, a
+# versionCode for Play -- needs one of those two. Ordinary pushes do not.
 on:
   push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       ref:
@@ -62,8 +77,23 @@ jobs:
           java-version: '21'
           cache: 'gradle'
 
+      # PACKAGES NAMED EXPLICITLY, AND THAT IS THE WHOLE FIX. The action's
+      # default list is "tools platform-tools", and Google has REMOVED the
+      # legacy `tools` package from the SDK repository -- so sdkmanager
+      # answers "Failed to find package 'tools'" and exits 1, six seconds in,
+      # taking the Capacitor sync and both gradle builds down with it as
+      # skipped steps. Nothing in this repository changed to cause it; the
+      # remote package list did.
+      # NOT FIXED BY BUMPING THE MAJOR: the same failure is reported against
+      # v4, so the version is left alone and the input that actually controls
+      # the request is set instead. platform-tools is what this build needs;
+      # the runner image already carries the SDK, and gradle fetches any
+      # missing platform or build-tools itself once the action has accepted
+      # the licences.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Sync Capacitor native project
         run: npx cap sync android

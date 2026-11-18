@@ -94,8 +94,8 @@ console.log('\n\n=== 3. RE-SOLVING AT SIX DAYS WITHOUT ASKING FOR A SEVENTH ==='
     r1(medLong.easyLen+3));
   console.log('     while the remaining easy runs stay ordinary.');
   console.log('  F. MORE RUNWAY. Volume rises more slowly over more weeks instead.');
-  console.log('  G/H. Or the classification stands: unpractised %s%%, and Valhalla says so.',
+  console.log('  G/H. Or the classification stands: unpractised %s%%, and Sacoro says so.',
     Math.round(100*(42.2-six.L)/42.2));
-  console.log('\n  What Valhalla must NOT do is conclude that because %s km/wk was the', target);
+  console.log('\n  What Sacoro must NOT do is conclude that because %s km/wk was the', target);
   console.log('  computed destination, the athlete therefore needs a seventh running day.');
 })();

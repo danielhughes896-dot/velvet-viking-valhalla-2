@@ -34,7 +34,10 @@ test('an open modal is closed on back, not exited past', () => {
   const body = SRC.slice(at, SRC.indexOf('\n}\n', at));
   assert.match(body, /getElementById\('modal-overlay'\)/,
     'must check for an open modal the same way closeModal() itself does');
-  assert.match(body, /closeModal\(\)/);
+  /* Through dismissModal() (Audit IV UX-A1), which is closeModal() for every
+     page but a result panel, where it is that panel's own OK. */
+  assert.match(body, /dismissModal\(\)/);
+  assert.match(SRC, /function dismissModal\(\)\{[\s\S]{0,400}closeModal\(\);\n\}/);
 });
 
 test('the no-modal path minimises the app rather than killing the process', () => {

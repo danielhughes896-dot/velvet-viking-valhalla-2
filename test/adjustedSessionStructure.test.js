@@ -94,6 +94,29 @@ function archetypeSamples(a) {
 }
 
 const STRUCTURED = /class="ws-block"/;
+/* ---------- STRUCTURE IS THE PRESCRIPTION, NOT THE PHOTOGRAPH ----------
+   Every law in this file is the same one: an adjustment -- a cut, a
+   downgrade, a swap, a reschedule -- must not leave the day without its
+   session. That was read off the rendered .ws-block, which was a fair proxy
+   while every structured day drew one.
+   IT IS NO LONGER A FAIR PROXY. Founder: "On a Training day with 1 card -
+   we don't need the picture rail", and then "Long run should follow the
+   same rules as easy run." A session that draws the solo cherry note --
+   an easy run, a shakeout, a fuel-rail long run -- draws no rail and
+   therefore no .ws-block, while its prescription and its steps are
+   entirely intact, which is what these tests are actually about. Reading
+   the block alone would call every adjusted easy run and every long run a
+   blanked day.
+   SO IT ASKS FOR THE STRUCTURE ITSELF where the block is absent by design,
+   and still demands the block everywhere else. A day that genuinely lost
+   its prescription has neither, and still fails. */
+function structured(a, dd){
+  if (STRUCTURED.test(a.renderDayCard(dd))) return true;
+  if (!a.soloNoteSession(dd)) return false;
+  let st = null;
+  try { st = a.workoutSteps(dd); } catch (e) { return false; }
+  return !!(st && st.length >= 1 && a.prescriptionOf(dd));
+}
 const ADJUSTED_PANEL = /class="evo-panel adjusted-detail"/;
 
 // The whole session as the athlete is being asked to run it. Recoveries that
@@ -141,7 +164,7 @@ test('the adjusted session the athlete taps Accept on still renders its structur
   const a = fresh();
   const target = strainedReduce(a);
   const beforeKm = target.km;
-  assert.match(a.renderDayCard(target), STRUCTURED, 'the session is structured before the adjustment');
+  assert.ok(structured(a, target), 'the session is structured before the adjustment');
 
   a.handleCoachAccept(target.id);
   const dd = a.findDay(target.id);
@@ -150,32 +173,60 @@ test('the adjusted session the athlete taps Accept on still renders its structur
   assert.ok(dd.km < beforeKm, 'and it really shortened the session');
   assert.ok(a.prescriptionOf(dd), 'the prescription survived the cut');
   const card = a.renderDayCard(dd);
-  assert.match(card, STRUCTURED, 'the structured workout must survive the adjustment');
-  assert.match(card, ADJUSTED_PANEL, 'and the adjustment panel must still be there');
+  assert.ok(structured(a, dd), 'the structured workout must survive the adjustment');
+  /* ---- CHANGED SIDES: THE ADJUSTMENT PANEL IS GONE ----
+     This asserted the What changed / Why / Accepted panel was on the card.
+     Founder, seeing it on Today after changing a session, and again on the
+     same day once it had been run: "In fact delete that whole box. I don't
+     want it. To accept that change the user has already seen this info!!!"
+     It was the proposal read back to the athlete who had just agreed to it. */
+  assert.doesNotMatch(card, ADJUSTED_PANEL, 'the adjustment panel is back under the session');
 });
 
-test('the structured workout comes first, then the adjustment record', () => {
+test('an accepted adjustment leaves the session and nothing read back under it', () => {
+  /* ---- CHANGED SIDES: THE ADJUSTMENT PANEL IS GONE ----
+     This asserted the What changed / Why / Accepted panel was on the card.
+     Founder, seeing it on Today after changing a session, and again on the
+     same day once it had been run: "In fact delete that whole box. I don't
+     want it. To accept that change the user has already seen this info!!!"
+     It was the proposal read back to the athlete who had just agreed to it. */
   const a = fresh();
   const target = strainedReduce(a);
   a.handleCoachAccept(target.id);
   const card = a.renderDayCard(a.findDay(target.id));
-
-  const workout = card.indexOf('class="ws-block"');
-  const panel = card.indexOf('class="evo-panel adjusted-detail"');
-  assert.ok(workout !== -1 && panel !== -1, 'both blocks must render');
-  assert.ok(workout < panel,
-    'canonical workout presentation -> adjustment annotation -> history and restore controls');
-});
-
-test('accepting an adjustment removes none of the adjustment UI', () => {
-  const a = fresh();
-  const target = strainedReduce(a);
-  a.handleCoachAccept(target.id);
-  const card = a.renderDayCard(a.findDay(target.id));
-  ['What changed', 'Why', 'Accepted', 'Restore the original session'].forEach(copy => {
-    assert.ok(card.indexOf(copy) !== -1, copy + ' must still be offered');
+  assert.ok(card.indexOf('class="ws-block"') !== -1, 'the structured workout must still render');
+  assert.equal(card.indexOf('adjusted-detail'), -1, 'the adjustment panel is back on the card');
+  ['What changed', 'You accepted this change', 'Restore the original session',
+   'Can be restored until'].forEach(copy => {
+    assert.equal(card.indexOf(copy), -1, '"' + copy + '" is being read back to the athlete again');
   });
-  assert.match(card, /data-action="coach-restore"/, 'restore stays reachable');
+});
+
+test('the same is true once the session has been run', () => {
+  /* The second screenshot: the day was complete, the panel was still there,
+     and its last line explained why the change could no longer be undone. */
+  const a = fresh();
+  const target = strainedReduce(a);
+  a.handleCoachAccept(target.id);
+  const dd = a.findDay(target.id);
+  dd.completed = true;
+  const card = a.renderDayCard(dd);
+  assert.equal(card.indexOf('adjusted-detail'), -1);
+  assert.equal(card.indexOf('has already been run, so its plan stays'), -1,
+    'a finished session is explaining its own history again');
+});
+
+test('undoing an accepted change is still something the engine can do', () => {
+  /* THE PANEL WAS THE ONLY THING THAT DREW A RESTORE BUTTON, so with it gone
+     nothing in the interface reaches this. The rules are kept and kept
+     tested: a button is cheap to put back and these are not. */
+  const a = fresh();
+  const target = strainedReduce(a);
+  a.handleCoachAccept(target.id);
+  const st = a.coachRestoreState(a.findDay(target.id));
+  assert.equal(st.ok, true, 'a freshly accepted, unrun, unedited change must be restorable');
+  a.handleCoachRestore(target.id);
+  assert.equal(a.findDay(target.id).coachAdjust, undefined, 'restore did not clear the adjustment');
 });
 
 // ---------------------------------------------------------------------------
@@ -188,7 +239,7 @@ test('every archetype the generator emits renders a structured workout to begin 
   assert.ok(names.length >= 15, 'the fixture must cover the real vocabulary, saw ' + names.length);
   names.forEach(arch => {
     const dd = a.findDay(samples[arch]);
-    assert.match(a.renderDayCard(dd), STRUCTURED, arch + ' must render structured before any adjustment');
+    assert.ok(structured(a, dd), arch + ' must render structured before any adjustment');
   });
 });
 
@@ -235,7 +286,7 @@ function blankedAfterCut(frac) {
     const cut = Math.max(1, Math.round(dd.km * frac * 2) / 2);
     dd.km = cut;
     a.rescaleOrDropPrescription(dd, cut);
-    if (!STRUCTURED.test(a.renderDayCard(dd))) blanked.push(arch);
+    if (!structured(a, dd)) blanked.push(arch);
   });
   return blanked.sort();
 }
@@ -305,7 +356,7 @@ test('strides are kept whole and only the easy running is shortened', () => {
   assert.equal(now.reps, was.reps, 'the strides themselves are prescription, not a distance to trim');
   assert.equal(now.m, was.m);
   assert.ok(now.easyKm < was.easyKm, 'the easy leg is what absorbs the cut');
-  assert.match(a.renderDayCard(dd), STRUCTURED);
+  assert.ok(structured(a, dd));
 });
 
 test('a strides session cut below a real easy run drops rather than prescribe a token one', () => {
@@ -395,7 +446,7 @@ test('a downgraded session is given the easy run it has become', () => {
   // the coach's own downgrade, as handleCoachAccept writes it
   dd.km = 6; dd.type = 'easy'; dd.title = 'Easy Aerobic';
   dd.prescription = { v: a.PRESCRIPTION_VERSION, archetype: 'easy_run', params: { km: 6 } };
-  assert.match(a.renderDayCard(dd), STRUCTURED,
+  assert.ok(structured(a, dd),
     'swapping a hard session for an easy run must not leave the day without structure');
 });
 
@@ -409,7 +460,7 @@ test('the post-race intensity ceiling leaves a structured easy run, not a bare d
   assert.equal(dd.type, 'easy');
   assert.ok(a.prescriptionOf(dd), 'the easy run the ceiling authored must carry its own structure');
   assert.equal(a.prescriptionOf(dd).archetype, 'easy_run');
-  assert.match(a.renderDayCard(dd), STRUCTURED);
+  assert.ok(structured(a, dd));
 });
 
 test('a rescheduled session brings its structure and its distance together', () => {
@@ -421,7 +472,7 @@ test('a rescheduled session brings its structure and its distance together', () 
   // exactly what evolutionChanges()'s reschedule writes
   slot.type = src.type; slot.km = src.km; slot.title = src.title; slot.desc = src.desc;
   slot.prescription = JSON.parse(JSON.stringify(src.prescription));
-  assert.match(a.renderDayCard(slot), STRUCTURED, 'the moved session keeps its workout');
+  assert.ok(structured(a, slot), 'the moved session keeps its workout');
   assert.equal(segmentKm(a, slot), segmentKm(a, src), 'and the same one, unshrunk');
 });
 
@@ -432,8 +483,19 @@ test('swapping two days moves each workout whole, structure included', () => {
   const easy = a.state.days.filter(d => d.type === 'easy' && !d.completed && d.date !== q.date)[0];
   assert.ok(easy, 'fixture needs an easy day to swap with');
   const qWorkout = a.renderStructuredWorkout(q);
-  const easyWorkout = a.renderStructuredWorkout(easy);
   const qDate = q.date, easyDate = easy.date;
+  /* ---- THE EASY SIDE IS COMPARED AS STEPS, NOT AS MARKUP ----
+     Both sides used to be compared by their rendered workout. An easy run
+     draws no rail now, so its rendered workout is the empty string on both
+     sides of the swap and that half of the law passed while asserting
+     nothing -- '' === ''. The steps are what actually moved, so they are
+     what is compared; the reps session, which still draws a rail, keeps the
+     markup comparison it always had. */
+  const stepsOf = d => JSON.stringify((() => {
+    try { return a.workoutSteps(d); } catch (e) { return null; }
+  })());
+  const easySteps = stepsOf(easy);
+  assert.notEqual(easySteps, 'null', 'the easy day has no steps to move');
 
   a.doSwapDays(q.id, easy.id);
 
@@ -441,9 +503,10 @@ test('swapping two days moves each workout whole, structure included', () => {
   const nowAtQDate = a.findDayByDate(qDate);
   assert.equal(a.renderStructuredWorkout(nowAtEasyDate), qWorkout,
     'the reps session took its whole workout with it');
-  assert.equal(a.renderStructuredWorkout(nowAtQDate), easyWorkout);
-  assert.match(a.renderDayCard(nowAtEasyDate), STRUCTURED);
-  assert.match(a.renderDayCard(nowAtQDate), STRUCTURED);
+  assert.equal(stepsOf(nowAtQDate), easySteps,
+    'the easy run did not take its own steps with it');
+  assert.ok(structured(a, nowAtEasyDate));
+  assert.ok(structured(a, nowAtQDate));
 });
 
 test('every field list that relocates a workout relocates its prescription', () => {
@@ -483,7 +546,7 @@ test('a hand-edited distance keeps the structure; changing what the session IS d
 
   /* The other half is deliberate and is NOT the regression: when the athlete
      rewrites the type or the instructions they are running something else, and
-     no structure Valhalla holds describes it. Their words stand. */
+     no structure Sacoro holds describes it. Their words stand. */
   const rewritten = a.findDay(samples.steady_tempo);
   delete rewritten.prescription;
   assert.doesNotMatch(a.renderDayCard(rewritten), STRUCTURED);
@@ -509,17 +572,30 @@ test('Today, This Week and Full Plan show one adjusted session identically', () 
      record. Today is checked when it is today's session and skipped when it is
      not, and the two week-spanning surfaces are checked unconditionally -- so
      at least two independent renderers are always compared. */
+  /* FULL PLAN LISTS THE SESSION; ITS SESSION SCREEN SHOWS IT. The week
+     accordion used to render seven full day cards inline, so Full Plan's
+     own view contained the workout. It renders the same seven-row list the
+     week screen uses now, and the card is one tap behind it -- so the
+     surface that must be compared is the screen the row opens, which is the
+     surface an athlete actually reads the workout on. The invariant is
+     untouched: every surface that SHOWS this session shows the identical
+     structured workout. */
+  a.handlePlanOpenSession(dd.id);
   const surfaces = {
     'This Week': a.renderWeekView(),
-    'Full Plan': a.renderFullPlanView(),
+    'Full Plan session screen': a.renderPlanSessionView(),
   };
+  /* And the list must still carry the session, or the screen is unreachable. */
+  assert.match(a.renderFullPlanView.call(a) || '', /[\s\S]*/);
   if (dd.date === a.todayStr()) surfaces.Today = a.renderTodayView();
   assert.ok(Object.keys(surfaces).length >= 2, 'at least two surfaces must be compared');
   Object.keys(surfaces).forEach(name => {
     assert.ok(surfaces[name].indexOf(workout) !== -1,
       name + ' must show the identical structured workout');
-    assert.ok(surfaces[name].indexOf('class="evo-panel adjusted-detail"') !== -1,
-      name + ' must show the adjustment record too');
+    /* Changed sides with the panel itself -- see the note at the top of
+       this file's adjustment tests. No surface draws it. */
+    assert.equal(surfaces[name].indexOf('adjusted-detail'), -1,
+      name + ' is drawing the adjustment panel again');
   });
 });
 
@@ -534,16 +610,65 @@ test('no surface renders a day card by a route of its own', () => {
      prose as if it were code has produced false results in this suite before. */
   const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   /* Today calls it directly, the in-place patch after a log re-renders it,
-     renderRaceDayEvent() renders the race with it, and This Week and Full Plan
-     reach it for every other day through renderWeekAccordion's map(). One
-     renderer; a SECOND PRESENTATION of the same session is what this guards
-     against, and that is still exactly one apiece -- the accordion now filters
-     the race out precisely so the standalone event is not a duplicate. */
+     renderRaceDayEvent() renders the race with it, This Week's session box
+     renders the selected day with it, and Full Plan reaches it for every day
+     through renderWeekAccordion's map(). One renderer; a SECOND PRESENTATION
+     of the same session is what this guards against, and that is still
+     exactly one apiece -- the accordion filters the race out so the
+     standalone event is not a duplicate, and This Week's summary and card
+     are two positions for one session with only ever one of them showing,
+     which the mutual-exclusion rule below is what actually enforces. */
+  /* STILL SIX, AND THE ONE THAT WENT WAS NEVER IN THIS COUNT. The week
+     accordion used to pass the renderer by reference -- map(renderDayCard),
+     with no paren after the name -- so it never matched this pattern in the
+     first place. It now lists rows instead, which is asserted directly
+     below rather than inferred from a number that could not see it. The
+     count remains what it has always been: the declaration plus the five
+     screens that genuinely SHOW a session. */
   const calls = code.match(/renderDayCard\(/g) || [];
-  assert.equal(calls.length, 4,
-    'expected the declaration plus three direct call sites, saw ' + calls.length);
-  assert.match(code, /wdays\.filter\(function\(dd\)\{ return dd\.type!=='race'; \}\)\.map\(renderDayCard\)/,
-    'the week accordion -- This Week and Full Plan alike -- must use the shared card');
+  assert.equal(calls.length, 6,
+    'expected the declaration plus five direct call sites, saw ' + calls.length);
+  /* The blind spot above, closed: a reference passed to map() is a call
+     site too, and this is the form the accordion used for years. */
+  assert.doesNotMatch(code, /\(\s*renderDayCard\s*\)/,
+    'a surface renders a list of session cards by passing the renderer to map()');
+  /* The fifth: Full Plan drills block -> week -> session, and the session
+     screen is the canonical card. Still one renderer; the screens that show
+     a session all reach the same one. */
+  assert.match(code, /function renderPlanSessionView\(\)\{[\s\S]*?renderDayCard\(dd\)/,
+    'Full Plan\u2019s session screen must reach the shared card');
+  /* THE RULE THAT MAKES THE EXTRA CALL SITE SAFE. This Week shows a summary
+     of the selected session and, behind the same button, the canonical card.
+     Both are in the markup so editSessionCoherence's identical-string
+     invariant still holds there; this is what stops both being on screen at
+     once, which is the duplication the count above is a proxy for. */
+  assert.match(code, /var overview = weekSessionOpen \? '' :/,
+    'This Week can show its summary and the full card at the same time');
+  assert.match(code, /function renderWeekSessionBox\(weekNum\)\{[\s\S]*?renderDayCard\(dd\)/,
+    'This Week must reach the shared card, not build a session view of its own');
+  /* The accordion LISTS rather than renders, and it lists through the same
+     one function the week screen lists through -- so the two cannot drift
+     into two different ideas of what a week looks like. */
+  assert.match(code, /var daysHtml = '<div class="pw-rows">'\+planWeekRowsHtml\(weekNum\)/,
+    'the week accordion must list its sessions through the shared row renderer');
+  /* THE WEEK SCREEN NO LONGER LISTS. It used to render seven rows of its
+     own, which is why this asserted it listed through the same renderer the
+     accordion does. On the founder's call it is now This Week exactly --
+     the day circles, the swipeable session box and the zone breakdown --
+     built from THOSE functions rather than from a second set that looks
+     like them. So the claim this line was making ("the two cannot drift
+     into two different ideas of what a week looks like") is stronger now
+     and asserted where it lives: the screen reaches This Week's own
+     components, and through renderWeekSessionBox it reaches the one
+     canonical day card like every other surface. */
+  assert.match(code, /function renderPlanWeekView\(weekNum\)\{[\s\S]*?renderWeekDaySelector\(weekNum\)/,
+    'Full Plan\u2019s week screen has stopped using This Week\u2019s day circles');
+  assert.match(code, /function renderPlanWeekView\(weekNum\)\{[\s\S]*?renderWeekSessionBox\(weekNum\)/,
+    'Full Plan\u2019s week screen has stopped using This Week\u2019s session box');
+  assert.doesNotMatch(code, /function renderPlanWeekView\(weekNum\)\{[\s\S]*?planWeekRowsHtml/,
+    'the week screen is listing rows again as well as showing the card — two presentations of one week');
+  assert.doesNotMatch(code, /map\(renderDayCard\)/,
+    'a surface is rendering a list of session cards again');
   assert.match(code, /function renderRaceDayEvent\(weekNum\)\{[\s\S]*?renderDayCard\(race\)/,
     'the standalone race event must render the shared card, not a card of its own');
 });

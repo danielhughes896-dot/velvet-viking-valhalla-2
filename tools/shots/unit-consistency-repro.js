@@ -140,7 +140,7 @@ async function fillAndChange(page, selector, value){
     }, dayId);
     results.push({ name: nameKm, errors: errors.slice() });
 
-    // ---- SWITCH TO MI via the real toggle button (lives on the Valhalla/Plan HQ hero) ----
+    // ---- SWITCH TO MI via the real toggle button (lives on the Sacoro/Plan HQ hero) ----
     await page.evaluate(() => window.handleSetView && window.handleSetView('planhq'));
     await page.waitForTimeout(200);
     await page.click('[data-action="set-units"][data-units="mi"]');

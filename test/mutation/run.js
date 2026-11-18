@@ -903,7 +903,7 @@ const CASES = [
      which an explicit in-repo comment records as deliberately removed --
      "requirement 9": "The standalone Fitness Checkpoint popup
      (actionPanelCheckpoint()) is gone." ACTION_PANELS now holds only
-     `newblock`, and the action trio itself is a duo (renderValhallaActionsRow()
+     `newblock`, and the action trio itself is a duo (renderSacoroActionsRow()
      returns exactly two tiles: New block, Plan settings) -- CHECKPOINT is no
      longer a member of the trio at all. What a checkpoint destination now
      means is handleGoToCheckpoint()'s `if (!chk) return;` guard inside
@@ -1043,8 +1043,8 @@ const CASES = [
   // heart-rate/TRAINING screen is now navBtns(7), not navBtns(6).
   ['consent: the permission drifts back onto the heart-rate screen',
    'protected/velvet-viking-valhalla.html',
-   "      '<div class=\"field-hint bld-reassure\">Don\u2019t know it? That\u2019s completely fine \u2014 Valhalla works without it.</div>'+\n      navBtns(7)+",
-   "      '<div class=\"field-hint bld-reassure\">Don\u2019t know it? That\u2019s completely fine \u2014 Valhalla works without it.</div>'+\n      consentStep+\n      navBtns(7)+", BUILDER_SUBSET],
+   "      '<div class=\"field-hint bld-reassure\">Don\u2019t know it? That\u2019s completely fine \u2014 Sacoro works without it.</div>'+\n      navBtns(7)+",
+   "      '<div class=\"field-hint bld-reassure\">Don\u2019t know it? That\u2019s completely fine \u2014 Sacoro works without it.</div>'+\n      consentStep+\n      navBtns(7)+", BUILDER_SUBSET],
   ['consent: the permission ships pre-ticked', 'protected/velvet-viking-valhalla.html',
    "'<input type=\"checkbox\" id=\"su-health-consent\" style=\"width:auto; margin:3px 7px 0 0;\">'+",
    "'<input type=\"checkbox\" id=\"su-health-consent\" checked style=\"width:auto; margin:3px 7px 0 0;\">'+", BUILDER_SUBSET],

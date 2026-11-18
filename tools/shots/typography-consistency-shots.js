@@ -87,7 +87,7 @@ function seed(p){
 
   for (const width of WIDTHS){
     for (const theme of ['light', 'dark']){
-      // ---- 1. VALHALLA overview + RECORD tab (Progress panel .stat .l) ----
+      // ---- 1. SACORO overview + RECORD tab (Progress panel .stat .l) ----
       {
         const ctx = await browser.newContext({ viewport: { width, height: 1200 }, deviceScaleFactor: 2,
           isMobile: true, hasTouch: true, colorScheme: theme });
@@ -100,7 +100,7 @@ function seed(p){
         await page.waitForTimeout(600);
         await page.evaluate(() => window.handleSetView && window.handleSetView('planhq'));
         await page.waitForTimeout(300);
-        const name = 'valhalla-overview-' + width + '-' + theme;
+        const name = 'sacoro-overview-' + width + '-' + theme;
         await page.screenshot({ path: path.join(OUT, name + '.png'), fullPage: true });
         results.push({ name, errors });
 

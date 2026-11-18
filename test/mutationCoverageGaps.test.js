@@ -11,7 +11,7 @@ const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 // four facts had no regression-catching test at all:
 //   - Race Outlook's measured-band colour token (--cherry)
 //   - Race Outlook's goal-marker colour token (--gold)
-//   - the two Valhalla action tiles dispatching to distinct actions
+//   - the two Sacoro action tiles dispatching to distinct actions
 //   - the action tile's minimum touch-target height
 // These are pinned directly here. Not exhaustive re-implementations of the
 // mutation harness's own cases -- narrow, targeted assertions on exactly
@@ -29,9 +29,9 @@ test('the Race Outlook goal marker stays gold', () => {
     'the goal marker must stay gold -- distinguishable from the cherry measured band');
 });
 
-test('Valhalla\'s two action tiles dispatch to two distinct actions, never the same one twice', () => {
+test('Sacoro\'s two action tiles dispatch to two distinct actions, never the same one twice', () => {
   const a = loadApp();
-  const row = a.renderValhallaActionsRow();
+  const row = a.renderSacoroActionsRow();
   const actions = Array.from(row.matchAll(/data-action="([^"]+)"/g)).map((m) => m[1]);
   assert.equal(actions.length, 2, 'sanity: exactly two action tiles');
   assert.notEqual(actions[0], actions[1],

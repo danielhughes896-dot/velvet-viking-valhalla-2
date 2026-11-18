@@ -88,7 +88,13 @@ test('a base block still builds aerobic volume -- it just does not build to a ra
   assert.ok(b.peakVolume < race.peakVolume,
     'the base block still ramps on the race-distance multiplier (' +
     b.peakVolume + ' vs ' + race.peakVolume + ')');
-  assert.equal(b.peakVolume, a.round1(45 * a.VOLUME_BLOCK_GROWTH_CAP));
+  /* A3 (founder, 15 November 2026): the destination is the 8% pathway
+     equation over the block's progressing weeks, capped at the experience's
+     build volume for the distance (Established Half: 55km). */
+  const zone = a.raceGoalPathway('half', a.athleteExperience());
+  const want = a.round1(Math.min(a.volumeCeilingFor('half'), Math.max(45 * a.VOLUME_BLOCK_GROWTH_CAP,
+    Math.min(zone.buildVolumeKm, 45 * Math.pow(a.PATHWAY_FEASIBLE_RATE, a.pathwayProgressingWeeks('base', 10))))));
+  assert.equal(b.peakVolume, want);
 });
 
 /* ---------------------------------------------------------------- *

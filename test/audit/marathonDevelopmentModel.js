@@ -11,7 +11,7 @@ const hhmm=s=>{const m=Math.round(s/60);return Math.floor(m/60)+'h'+String(m%60)
 
 /* ================= AUTHORITIES, EACH LABELLED BY EVIDENCE GRADE ============
    B  meta-analysis / RCT        D  coaching convention
-   C  observational/physiology   E  Valhalla engineering policy               */
+   C  observational/physiology   E  Sacoro engineering policy               */
 const READINESS_LONG_KM   = 30;      // D  normal benchmark, HQ-approved semantics
 const LONG_CAP_KM         = 32;      // D  existing longCapKm, preserved
 const TOF_BACKSTOP_SEC    = 3*3600;  // D  convention, MODIFIES rather than forbids

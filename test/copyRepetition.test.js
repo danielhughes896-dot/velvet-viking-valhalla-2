@@ -90,7 +90,15 @@ test('no single coaching sentence dominates a fortnight of cards', () => {
   /* Chrome is anything the card prints because it is a card: field labels,
      section headings, the fuelling table, and the static hints under form
      inputs. It repeats on every session by design and always will. */
-  const CHROME = /^(How to run this|Avg Pace|Actual|Notes|Feel|RPE|Execution Review|Compared With|Recovery Priority|Total carbs|Gels|Fluid guide|\+ Log the session|\+ Add laps|Anything the numbers|Fluid is a starting guide|Dial this in during training)/;
+  /* The two session tabs' subtitles are chrome by the same rule as a field
+     label: sessionTabHtml() prints them on every card that has a session,
+     and they describe what is behind the tab rather than anything the
+     coach chose to say about this athlete. "How to run this" was listed
+     here for exactly that reason before it became Session Details. */
+  /* The Training Trend's one line is chrome too: it says what the section
+     is, beside its heading, on every reviewed card -- the founder asked for
+     the trend and the execution score to be told apart in the review. */
+  const CHROME = /^(How to run this|Session Details|Templates · Your photos|Distance · Pace · Detail|Why · Execution|The verdict · Execution review|Avg Pace|Actual|Notes|Feel|RPE|Elevation gain|Execution Review|Compared With|Recovery Priority|Total carbs|Gels|Fluid guide|\+ Log the session|\+ Add laps|Anything the numbers|Fluid is a starting guide|Dial this in during training|Read across your recent sessions, separate from this session)/;
   /* AND THE PER-SESSION-TYPE GUIDANCE IS CHROME TOO, derived rather than
      listed. COACH_GUIDANCE, ARCHETYPE_GUIDANCE and TERSE_GUIDANCE describe
      what an easy run IS -- the same words for every easy run, by design, in
@@ -148,7 +156,13 @@ test('no single coaching sentence dominates a fortnight of cards', () => {
      rather than a quiet edit. What this guards is that a FOURTH does not
      appear -- which is exactly what the heart-rate note was doing at 43 of 43
      until it was suppressed. */
-  const KNOWN = [/running above target across the week/,
+  /* 4. "It felt harder than intended." -- the run's own logged fact, said as a
+     sentence since the analysis became prose (founder, 17 November 2026:
+     "normal flowing English"). It lands on every card here only because this
+     fixture logs every session at RPE 6, exactly as #3 lands identically
+     because every pace is the same: a real athlete's runs differ. */
+  const KNOWN = [/^It felt (?:harder|easier) than intended\.$/,
+                 /running above target across the week/,
                  /Prioritise recovery before the next quality session/,
                  /Executed at \d+% of the prescribed session/];
   const unexpected = blanket.filter(([s]) => !KNOWN.some(re => re.test(s)));

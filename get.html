@@ -1,17 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Get Velvet Viking</title>
+<title>Get SACORO</title>
 <meta name="description" content="Pace-zoned running training blocks from 5K to 50K ultra. Install on Android, or add to your home screen on iPhone.">
-<meta name="theme-color" content="#F4F1EA">
-<script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+<meta name="theme-color" content="#151417">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
-<link rel="icon" href="/assets/icon.png">
-<meta name="apple-mobile-web-app-title" content="Velvet Viking">
+<link rel="icon" href="/assets/favicon.png">
+<meta name="apple-mobile-web-app-title" content="SACORO">
 <!-- WhatsApp / iMessage / social preview card -->
-<meta property="og:title" content="Velvet Viking">
+<meta property="og:title" content="SACORO">
 <meta property="og:description" content="Pace-zoned running training blocks from 5K to 50K ultra. Earn your place.">
 <meta property="og:image" content="https://velvet-viking-valhalla-1.vercel.app/assets/icon.png">
 <meta property="og:type" content="website">
@@ -19,7 +18,7 @@
 <link rel="stylesheet" href="/assets/vvv-shell.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* palette lifted verbatim from the app so the two read as one product */
   /* Palette and controls come from /assets/vvv-shell.css -- this page used to
@@ -29,70 +28,90 @@
   html{-webkit-text-size-adjust:100%;}
   body{
     margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
-    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    font-family:var(--text-face);
     -webkit-font-smoothing:antialiased;
     display:flex; flex-direction:column; align-items:center;
     padding:calc(28px + env(safe-area-inset-top,0px)) 20px calc(32px + env(safe-area-inset-bottom,0px));
   }
   .wrap{width:100%; max-width:440px; text-align:center;}
-  .medallion{width:min(56vw,208px); height:auto; margin:0 auto 18px; display:block;}
-  h1{
-    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(1.05rem,5.2vw,1.5rem);
-    letter-spacing:0.05em; text-transform:uppercase; margin:0; white-space:nowrap;
-    background:linear-gradient(180deg,var(--gold-bright) 0%,var(--modal-active) 100%);
-    -webkit-background-clip:text; background-clip:text;
-    -webkit-text-fill-color:transparent; color:transparent;
-    text-shadow:0 1px 0 var(--gold-shadow-1),0 2px 0 var(--gold-shadow-2),0 3px 6px rgba(0,0,0,.8);
-  }
-  /* The metallic gradient is built for a near-black header; on cream it loses
-     its contrast and keeps a heavy black drop shadow that has nothing to sit
-     against. Same treatment the app already gives its own wordmark in light:
-     drop the gradient, use ink, keep a soft gold lift. */
-  :root[data-theme="light"] h1{
-    background:none; -webkit-text-fill-color:#2B2317; color:#2B2317;
-    text-shadow:0 1px 2px rgba(197,160,89,0.4);
-  }
-  .rule{width:64%; height:1px; margin:7px auto 0; background:rgba(197,160,89,.35);}
+  /* The crest and the metallic gold <h1> that stood under it are gone: the
+     mark is the name between two dots, set by /assets/vvv-shell.css exactly
+     as the other four pages set it. This page keeps the <h1> element, because
+     it is the page's only heading, and gives up its own styling of it. */
   .blurb{font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:20px 0 26px;}
   .card{
     background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);
     padding:20px 18px; margin-bottom:14px; text-align:left;
   }
   .card h2{
-    font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase;
-    color:var(--bronze); margin:0 0 12px; display:flex; align-items:center; gap:8px;
+    font-family:var(--text-face); font-size:11px; letter-spacing:1.5px; text-transform:uppercase;
+    color:#FFFFFF; margin:0 0 12px; display:flex; align-items:center; gap:8px;
   }
   .card h2 svg{width:15px; height:15px; flex:none;}
+  /* CHERRY, NOT THE BRONZE GRADIENT, and flat rather than a gradient.
+     Founder: "it needs to have the same visuals as the app. Cherry boards
+     ect." This button was the last gold primary action in the product. Every
+     other surface moved under the rule -- "Gold = brand/destination/
+     milestone. Cherry = active/training/interaction" -- and a download button
+     is interaction by definition; the app's own builder paints Continue in
+     exactly these values. This page did not move with them because the
+     tokens were not reachable from here: vvv-shell.css carried no cherry at
+     all until now, so `var(--bronze)` was the only fill available.
+     FLAT, because a gradient reads as a surface with a sheen rather than one
+     deliberate colour -- the same reasoning that took the gradient off the
+     app's own primary. The 1px rim is what gives a dark fill an edge against
+     a dark card without lightening its face back into rose. */
   .btn{
     display:flex; align-items:center; justify-content:center; gap:9px; width:100%;
-    background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);
-    border:none; border-radius:var(--radius-sm); padding:15px 18px; cursor:pointer;
-    font-family:'Oswald',sans-serif; font-size:14px; font-weight:600; letter-spacing:1px;
-    text-transform:uppercase; text-decoration:none;
+    background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    border:none; box-shadow:inset 0 0 0 1px var(--cherry);
+    border-radius:var(--radius-sm); padding:15px 18px; cursor:pointer;
+    font-family:var(--text-face); font-size:15px; font-weight:600; letter-spacing:.02em;
+    text-decoration:none;
   }
+  /* TITLE CASE, AS THE APP'S BUTTONS ARE, and no arrow (founder, Audit IV:
+     "Match the app's Title Case styling. Remove unnecessary arrows"). */
   .btn:active{filter:brightness(.93);}
   .btn svg{width:18px; height:18px; flex:none;}
-  .btn-ghost{background:none; border:1px solid var(--line); color:var(--ink);}
+  /* box-shadow:none IS THE LOAD-BEARING LINE. .btn now carries an inset 1px
+     cherry rim, and .btn-ghost only ever overrode background, border and
+     colour -- so the secondary action came out ringed in the accent and
+     competed with the primary directly above it. A ghost is quiet by
+     definition: neutral border, no rim. */
+  .btn-ghost{background:none; border:1px solid var(--line); color:var(--ink); box-shadow:none;}
+  /* The main button is the app's own: liquid glass, thin cherry rim, white
+     words, not a solid cherry fill. */
+  .btn:not(.btn-ghost){
+  background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,0) 55%), rgba(8,8,11,.26);
+  -webkit-backdrop-filter:blur(18px) saturate(150%); backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid var(--cherry); color:#FFFFFF;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.06), 0 0 16px var(--cherry-dim);
+  }
   .note{font-size:11.5px; line-height:1.55; color:var(--ink-faint); margin:11px 0 0;}
   .note b{color:var(--ink-dim); font-weight:600;}
   ol{margin:0; padding-left:19px; color:var(--ink-dim); font-size:13px; line-height:1.85;}
   ol b{color:var(--ink);}
   .other{
-    margin-top:6px; padding-top:16px; border-top:1px solid var(--line);
+    margin-top:18px; padding-top:4px;
     font-size:11.5px; color:var(--ink-faint); line-height:1.6;
   }
-  .other a{color:var(--bronze); text-decoration:underline;}
-  .foot{font-size:10.5px; color:var(--ink-faint); opacity:.65; margin-top:22px; line-height:1.6;}
-  .foot a{color:var(--ink-faint); text-decoration:underline;}
+  /* The iPhone switch is an action too, so it takes the interaction colour
+     rather than the brand one. --cherry-text, not --cherry: the fill is far
+     too dark to read as type on this ground, which is why the app keeps a
+     separate token for cherry as text. */
+  .other a{color:var(--cherry-text); text-decoration:underline;}
+  .foot{font-size:11px; color:var(--ink-faint); margin-top:22px; line-height:1.6;}
+  .foot a{color:var(--ink-faint); text-decoration:underline; display:inline-block; padding:14px 6px; margin:-14px -6px;}
   [hidden]{display:none !important;}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <img class="medallion" src="/assets/velvet-viking-crest-640.png" width="640" height="673"
-       alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place">
-  <h1>Velvet Viking</h1>
-  <div class="rule"></div>
+  <div class="vvv-brand">
+    <div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"></span><h1 class="vvv-wordmark">SACORO</h1><span class="vvv-dot" aria-hidden="true"></span></div>
+    <p class="vvv-by">By Velvet Viking</p>
+    <div class="vvv-rule"></div>
+  </div>
 
   <p class="blurb">
     Endurance coaching built around your goal, your training and what you actually do.
@@ -106,11 +125,10 @@
     </h2>
     <a class="btn" id="apk-link"
        href="https://github.com/danielhughes896-dot/velvet-viking-valhalla-2/releases/latest/download/app-debug.apk">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/></svg>
-      Download the app
+      Download the App
     </a>
     <p class="note">
-      Android will ask you to <b>allow installs from your browser</b> — that's expected,
+      Android will ask you to <b>allow installs from your browser</b>. That's expected,
       it just means the app doesn't come from the Play Store. Tap allow, then open the
       downloaded file.
     </p>
@@ -123,20 +141,19 @@
       Add to your iPhone
     </h2>
     <p class="note" style="margin:0 0 12px;">
-      Add <b>the app itself</b>, not this page — otherwise you'll get a shortcut
+      Add <b>the app itself</b>, not this page. Otherwise you'll get a shortcut
       back to these instructions.
     </p>
     <ol>
-      <li>Tap <b>Open the app</b> below</li>
+      <li>Tap <b>Open the App</b> below</li>
       <li>In <b>Safari</b>, tap the <b>Share</b> button</li>
       <li>Choose <b>Add to Home Screen</b></li>
     </ol>
     <a class="btn" href="/" style="margin-top:14px;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="13,6 19,12 13,18"/></svg>
-      Open the app
+      Open the App
     </a>
     <p class="note">
-      You'll get the gold medallion icon and a full-screen app with no browser bars —
+      You'll get the gold medallion icon and a full-screen app with no browser bars:
       that <i>is</i> the iPhone version. Apple only allows real installs through the
       App Store, so this is the way in on iOS.
     </p>
@@ -149,23 +166,22 @@
       Open in your browser
     </h2>
     <a class="btn" href="/">
-      Launch the app
+      Launch the App
     </a>
-    <p class="note">Works on any device. Your plan is saved on this device.</p>
+    <p class="note">Works on any device. Sign in and your plan follows you to each one.</p>
   </div>
 
-  <div class="card" style="padding-top:16px; padding-bottom:16px;">
-    <a class="btn btn-ghost" href="/">Just open it in this browser instead</a>
+  <div class="card" id="card-browser" style="padding-top:16px; padding-bottom:16px;">
+    <a class="btn btn-ghost" href="/">Just Open It in This Browser Instead</a>
   </div>
 
   <div class="other" id="other-platform"></div>
 
   <p class="foot">
-    Your training plan is stored privately on your own device by default. An account may
-    be needed to use Velvet Viking — signing in also backs your plan up and lets you use
-    it on more than one device, and your plan and email are then securely stored with your
-    Velvet Viking account. You can also back up any time from Settings → Export Full Backup.
-    <br><a href="https://velvetviking.co.uk/privacy">Privacy</a> · <a href="https://velvetviking.co.uk/beta-terms">Terms</a>
+    SACORO needs an account. Signing in backs your plan up and lets you use it on more than
+    one device: your plan and email are stored securely in your SACORO account, with a working
+    copy on your own device. You can also back up any time from Settings, then Export Full Backup.
+    <br><a href="https://velvetviking.co.uk/privacy">Privacy</a> &nbsp;&nbsp; <a href="https://velvetviking.co.uk/beta-terms">Terms</a>
   </p>
 </div>
 
@@ -179,13 +195,15 @@
 
   var show = isAndroid ? 'card-android' : (isIOS ? 'card-ios' : 'card-web');
   document.getElementById(show).hidden = false;
+  // On a computer "Launch the App" already opens it here: one button, not two.
+  if (show === 'card-web') document.getElementById('card-browser').hidden = true;
 
   // Always offer the other platforms too -- people share this link onward, and
   // detection should steer rather than lock anyone out.
   var others = {
     'card-android':'On an iPhone instead? <a href="#" data-show="card-ios">Add it to your home screen</a>.',
-    'card-ios':'On Android instead? <a href="#" data-show="card-android">Download the app</a>.',
-    'card-web':'On a phone? <a href="#" data-show="card-android">Android download</a> · <a href="#" data-show="card-ios">iPhone instructions</a>.'
+    'card-ios':'On Android instead? <a href="#" data-show="card-android">Download the App</a>.',
+    'card-web':'On a phone? <a href="#" data-show="card-android">Android download</a> or <a href="#" data-show="card-ios">iPhone instructions</a>.'
   };
   var other = document.getElementById('other-platform');
   other.innerHTML = others[show];

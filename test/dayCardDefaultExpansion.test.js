@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-// VALHALLA -- DEFAULT DAY-CARD EXPANSION.
+// SACORO -- DEFAULT DAY-CARD EXPANSION.
 //
 // isDayExpanded() is the ONE function every day card (Today, This Week, an
 // opened Full Plan week) reads to decide its initial open/closed state --
@@ -24,7 +24,11 @@ const app = () => loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
 
 function plannedApp() {
   const a = app();
-  buildPlan(a, { weeks: 4, startDate: a.addDays(TODAY, -14) });
+  /* 60km a week so the Tuesday is a running day. Since A5 (founder, 15
+     November 2026) a short week runs fewer, longer runs rather than easy runs
+     under 5km, so at the default 40km this week's taper keeps three runs and
+     Tuesday rests. */
+  buildPlan(a, { weeks: 4, volume: 60, startDate: a.addDays(TODAY, -14) });
   a.showToast = () => {};
   return a;
 }
@@ -90,10 +94,25 @@ test('a manual tap still overrides the default in either direction', () => {
   a.handleToggleDay(future.id);
   assert.equal(a.isDayExpanded(future), false, 'and a second tap closes it again');
 
+  /* TODAY IS THE EXCEPTION, AND IT IS THE EXCEPTION ON PURPOSE. On the three
+     screens that exist to show one session -- Today, This Week's opened day,
+     Full Plan's session screen -- the card is the whole page, so collapsing
+     it leaves a header and a bottom nav. It is not a control there at all:
+     no chevron, no role, no action, and the handler refuses. The default
+     rule below is unchanged for every other day on every other surface. */
   const today = a.state.days.find(d => d.date === TODAY && d.type !== 'rest');
+  a.state.view = 'today';
   assert.equal(a.isDayExpanded(today), true, 'starts expanded by default');
   a.handleToggleDay(today.id);
-  assert.equal(a.isDayExpanded(today), false, 'and can still be manually collapsed');
+  assert.equal(a.isDayExpanded(today), true,
+    'the one session the screen is about was collapsed to nothing');
+
+  /* Away from those three screens it is an ordinary card again -- a week
+     listing, where there is something else to see when it shuts. */
+  a.state.view = 'settings';
+  assert.equal(a.isDayExpanded(today), true, 'today still defaults open elsewhere');
+  a.handleToggleDay(today.id);
+  assert.equal(a.isDayExpanded(today), false, 'and can still be manually collapsed there');
 });
 
 test('the same rule drives Today, This Week and Full Plan alike -- one function, no per-view logic', () => {

@@ -7,7 +7,7 @@ Branch `claude/record-empty-typography`, cut from `main` @ `fbd0113`.
 
 ## 1. Where the typography was inherited from
 
-The card is on the **Valhalla tab**, in `renderValhallaRecordPreview()` →
+The card is on the **Sacoro tab**, in `renderSacoroRecordPreview()` →
 `recordPlate()`. Three chamfered plates, value over label:
 
 ```

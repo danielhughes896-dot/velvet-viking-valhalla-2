@@ -5,7 +5,7 @@ the integration refuses at its own boundary until `VVV_GARMIN_ENABLED=1` and
 both credentials are present.
 
 This file exists so the application can be submitted and, after approval,
-credentials supplied — with no further architecture phase. Valhalla's side is
+credentials supplied — with no further architecture phase. Sacoro's side is
 built (`GARMIN-INTEGRATION.md` has the design); this is the paperwork.
 
 **Apple Health and Samsung Health are explicitly out of scope** and appear
@@ -15,7 +15,7 @@ nowhere in this repository or this application.
 
 ## 1. Integration purpose — the sentence to give Garmin
 
-> Velvet Viking Valhalla is an adaptive running-coaching application. Athletes
+> Velvet Viking Sacoro is an adaptive running-coaching application. Athletes
 > receive a personalised training programme and log what they actually did.
 > The Garmin integration does two things: it sends the athlete's scheduled
 > workout to their watch so they can run it as prescribed, and it reads the
@@ -63,7 +63,7 @@ Training API**.
 
 ## 4. Consent and privacy position
 
-Valhalla treats heart rate as health-indicating and processes it **only** with
+Sacoro treats heart rate as health-indicating and processes it **only** with
 the athlete's separate, explicit, affirmative consent — recorded against
 `health_data_consent_v1`, default off, withdrawable in one step, and separate
 from accepting the Terms. Authorising Garmin is **not** that consent, and is not
@@ -125,7 +125,7 @@ trimmed.
 | Deregistration endpoint | same host — Garmin requires one; the exact path is fixed at implementation |
 
 Garmin issues the exact contract only to approved members, so these paths are
-Valhalla's side of it and may need one line changed to match what Garmin
+Sacoro's side of it and may need one line changed to match what Garmin
 specifies. That is configuration, not architecture.
 
 ## 9. Development vs production
@@ -145,7 +145,7 @@ identifier shapes.
 
 | Field | Answer |
 |---|---|
-| Application name | Velvet Viking Valhalla |
+| Application name | Velvet Viking Sacoro |
 | Company | *(the registered entity — user supplies)* |
 | Website | `https://velvetviking.co.uk` |
 | Application URL | `https://app.velvetviking.co.uk` |

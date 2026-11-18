@@ -346,7 +346,17 @@ test('the Race Day summary describes the chosen strategy instead of contradictin
      contradicts outright. The card must not print it. */
   const card = a.renderDayCard(race);
   assert.doesNotMatch(card, /Even effort through the first two-thirds/);
-  assert.match(card, /Negative split/i);
+  /* CHANGED SIDES. This asserted the summary WAS on the card. Founder, on
+     the goal day: "Remove the text between the rail and hero. It's
+     repeated." The cards under it and the picker's own line already said
+     it. So the card prints neither sentence, has no description element at
+     all, and still shows which strategy is chosen -- on the picker. */
+  assert.ok(card.indexOf(neg) === -1 && card.indexOf(even) === -1,
+    'the race summary sentence is back between the hero and the rail');
+  assert.ok(card.indexOf('class="day-desc"') === -1,
+    'the race card has a description element again');
+  assert.match(a.renderRaceStrategyPicker(race), /class="rs-chip active"[^>]*data-strategy="negative"/,
+    'with the sentence gone the picker is the only thing naming the strategy, and it does not');
 });
 
 // =====================================================================
@@ -371,11 +381,28 @@ test('the custom stepper appears only while Custom is chosen', () => {
   assert.match(a.renderRaceStrategyPicker(race), /data-action="race-custom"/);
 });
 
-test('the selected chip takes the Valhalla accent, and gold is not the selection colour', () => {
+test('the selected chip takes the Sacoro accent, and gold is not the selection colour', () => {
   const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  const i = CODE.indexOf('.rs-chip.on{');
+  /* CHANGED SIDES ON WHERE, NOT ON WHAT. Founder: "Can race strategy tabs
+     follow the build programme tabs please." The picker had its own
+     .rs-chip.on rule; it is drawn with the builder's .opt-grid tiles now,
+     so the chosen strategy is .opt-grid button.active and that is the rule
+     the colour law is asked of. A private selected rule coming back is the
+     regression. */
+  const CSSONLY = CODE.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/\.rs-chip\.(on|active)\s*\{/.test(CSSONLY) && CSSONLY.indexOf('.rs-rec') === -1,
+    'the picker has a selected style of its own again instead of the builder\u2019s');
+  const { a: pa, race: prace } = athlete('full');
+  const picker = pa.renderRaceStrategyPicker(prace);
+  assert.match(picker, /class="rs-chips opt-grid cols-3"/,
+    'the picker is not drawn with the builder\u2019s option grid');
+  assert.equal((picker.match(/class="rs-chip active"/g) || []).length, 1,
+    'exactly one strategy is chosen, and it is marked the way the builder marks a choice');
+  assert.match(picker, /<span class="sub">Recommended<\/span>/,
+    'Recommended is not the tile\u2019s sub-line');
+  const i = CSSONLY.indexOf('.opt-grid button.active{');
   assert.ok(i > 0);
-  const body = CODE.slice(i, CODE.indexOf('}', i));
+  const body = CSSONLY.slice(i, CSSONLY.indexOf('}', i));
   assert.match(body, /var\(--cherry[a-z-]*\)/, 'selection is Cherry Lacquer, as everywhere else');
   assert.doesNotMatch(body, /--modal-active|--gold/, 'gold stays Race Day identity, not selection');
   assert.doesNotMatch(body, /#[0-9a-f]{3,8}/i);
@@ -385,12 +412,22 @@ test('the selected chip takes the Valhalla accent, and gold is not the selection
 });
 
 test('the planned finish shown is the athlete’s own goal time, whichever strategy', () => {
+  /* THE FINISH MOVED TO THE RING, where this card already states what a
+     session is aimed at -- it used to sit in the corner of the strategy
+     picker under a PLANNED FINISH label. The LAW is untouched and is the
+     whole point of this test: every strategy finishes on the athlete's own
+     declared goal, so changing strategy must never change the time. Read
+     from wherever it is printed; what matters is that it is one number and
+     it does not move. */
   const { a, race } = athlete('full');
   const goalClock = a.secToClock(Math.round(a.getGoalPaceSecPerKm() * race.km));
+  assert.ok(!/rs-finish/.test(a.renderRaceStrategyPicker(race)),
+    'the strategy picker is printing the finish again as well as the ring');
   ['even', 'negative', 'custom'].forEach(k => {
     a.handleSetRaceStrategy(k);
-    const html = a.renderRaceStrategyPicker(race);
-    const shown = (html.match(/rs-finish font-mono">([^<]+)</) || [])[1];
+    const ring = a.renderDayTargetRing(race, a.getDayTargets(race));
+    const shown = (ring.match(/(\d+:[0-5]\d:[0-5]\d)/) || [])[1];
+    assert.ok(shown, k + ' put no finish time on the ring at all');
     const diff = Math.abs(a.clockToSec(shown) - a.clockToSec(goalClock));
     assert.ok(diff <= 6, k + ' showed ' + shown + ' against a goal of ' + goalClock);
   });
@@ -439,7 +476,7 @@ test('the picker labels and accessibility text both say Even Pace', () => {
   assert.doesNotMatch(html, /Even Effort/);
   // the chip is a real button carrying its own label, so its accessible name
   // is that text — there is no second string to drift out of step
-  assert.match(html, /<button[^>]*data-action="set-race-strategy" data-strategy="even">Even Pace/);
+  assert.match(html, /<button[^>]*data-action="set-race-strategy" data-strategy="even"><span class="rs-name">Even Pace<\/span>/);
 });
 
 test('the long-run "even effort, not even pace" distinction is untouched', () => {
@@ -483,7 +520,7 @@ test('the Custom summary names itself and states its own differential', () => {
     assert.match(line, /^Custom:/, 'it must identify itself as Custom');
     assert.ok(line.indexOf(shown) !== -1, 'it must state ' + shown + ': ' + line);
     assert.doesNotMatch(line, /^Negative split/,
-      'a custom differential is the athlete’s own choice, not a Valhalla strategy name');
+      'a custom differential is the athlete’s own choice, not a Sacoro strategy name');
     assert.doesNotMatch(line, /0\.0\d/, 'and it must not leak the implementation maths');
     assert.doesNotMatch(line, /for you|based on|your history|we recommend/i,
       'it must not imply personalised evidence that does not exist');
@@ -502,7 +539,16 @@ test('the execution guidance stays consistent with a Custom selection', () => {
   assert.match(g.cue, /2%/, 'the cue names the athlete’s own figure');
   assert.match(g.cue, /slower than goal pace/);
   const card = a.renderDayCard(race);
-  assert.match(card, /Custom:/);
+  /* WAS assert.match(card, /Custom:/) -- the summary sentence, which the
+     founder took off the card ("Remove the text between the rail and hero.
+     It's repeated."). What says Custom now is the picker under the card:
+     the chosen tile, and the stepper carrying the athlete's own figure. */
+  assert.match(a.raceSummarySentence(race), /^Custom:/);
+  assert.equal(card.indexOf(a.raceSummarySentence(race)), -1);
+  const picker = a.renderRaceStrategyPicker(race);
+  assert.match(picker, /class="rs-chip active"[^>]*data-strategy="custom"/);
+  assert.match(picker, /data-action="race-custom"/);
+  assert.match(picker, /2%/, 'the stepper no longer shows the athlete\u2019s own figure');
   assert.doesNotMatch(card, /Even effort through the first two-thirds/);
 });
 
@@ -519,9 +565,94 @@ test('a race block is one scannable line of instruction, not two of prose', () =
       assert.ok(ph.label && ph.spanLabel && ph.pace, 'and still carries action, distance and pace');
     });
   });
+  /* Purpose and cue render as ONE paragraph now, so a block carrying only a
+     cue produces exactly one prose line -- which is what "not two of prose"
+     has always meant. The class it lands in changed; the count did not, and
+     the data assertion above still pins purpose to null at the source. */
+  /* ---- THE CLASS MOVED WITH THE SENTENCE ----
+     Founder: "Can any of the current coaches notes be added to the rails?"
+     The block's one instruction used to render as .strat-phase-purpose in
+     a caption under the rail; it renders as .strat-phase-say on the block's
+     own card. The count is what this law is about and the count is
+     unchanged -- one prose line per block, never two. */
   const card = a.renderDayCard(race);
-  assert.doesNotMatch(card, /strat-phase-purpose/, 'no purpose line renders on a race block');
-  assert.equal((card.match(/strat-phase-cue/g) || []).length, 5, 'one instruction per block');
+  assert.equal((card.match(/strat-phase-say/g) || []).length, 5,
+    'one instruction per block');
+  assert.doesNotMatch(card, /strat-phase-purpose/,
+    'the retired caption class is being emitted again alongside the card line');
+  assert.doesNotMatch(card, /strat-phase-cue/,
+    'the separate italic cue line is retired, not re-emitted alongside');
+});
+
+/* ===========================================================================
+ * NO TWO BLOCKS OF A RACE SAY THE SAME THING
+ * ---------------------------------------------------------------------------
+ * Founder, looking at the rail: "I don't think it needs a commit page?
+ * Commit and push us the same message? ... Same with hold?"
+ * MEASURED BEFORE ANSWERING, on a real marathon: HOLD 10-20km and HOLD
+ * 20-30km carried a byte-identical sentence -- "Goal pace, unremarkable,
+ * boring. Take your fuel on schedule." -- so two pages of the plan said one
+ * thing and the athlete swiped past the second having just read it.
+ * PRESS AND COMMIT DID NOT. "Where the race starts. Effort rises for the
+ * same pace now" against "The last stretch. If you are still in control,
+ * press. If you are not, hold on and finish." Two different pieces of
+ * coaching that only LOOKED alike, because the Coach's Note repeated
+ * verbatim on all five pages and buried the one line that differed. So the
+ * blocks were not merged -- RACE_BLOCKS_KM feeds the per-block paces and
+ * the implied finish, and dropping one changes the race plan's arithmetic
+ * rather than its screen. The middle was given the two different jobs it
+ * actually has, and the repetition under it was removed.
+ * CAUGHT BY MUTATION: forcing the middle branch off left every other guard
+ * in this file green. */
+test('no two blocks of a race carry the same instruction', () => {
+  ['5k', '10k', 'half', 'full', 'ultra'].forEach(key => {
+    const { a, race } = athlete(key);
+    ['even', 'negative'].forEach(k => {
+      a.handleSetRaceStrategy(k);
+      const phases = a.executionStrategy(race).phases;
+      const cues = phases.map(p => a.resolveDesc(p.cue || ''));
+      /* Built with indexOf rather than a seen-map: a map keyed on the cue
+         stores index 0 as a falsy value, so a block repeating the FIRST
+         one's words slips through -- and the failure message dereferenced
+         that undefined index, which node evaluates even when the assertion
+         passes. Found by running it. */
+      cues.forEach((c, i) => {
+        if (!c) return;
+        const first = cues.indexOf(c);
+        if (first === i) return;
+        assert.fail(
+          key + '/' + k + ': blocks ' + first + ' and ' + i + ' (' +
+          phases[first].label + ' ' + phases[first].spanLabel + ' and ' +
+          phases[i].label + ' ' + phases[i].spanLabel +
+          ') carry the identical instruction: "' + c + '"');
+      });
+    });
+  });
+});
+
+/* AND THE MARATHON'S MIDDLE IS TWO DIFFERENT JOBS, NAMED.
+   The rule is counted from the number of blocks rather than keyed to a
+   distance, so it follows RACE_BLOCKS_KM instead of a second list that
+   could drift from it: a half has exactly one middle block and keeps the
+   patient line it already had, a 5K and a 10K have none at all. */
+test('only a race with more than one middle block gets a second middle voice', () => {
+  const widths = { '5k': 0, '10k': 0, 'half': 1, 'full': 2, 'ultra': 2 };
+  Object.keys(widths).forEach(key => {
+    const { a, race } = athlete(key);
+    const phases = a.executionStrategy(race).phases;
+    const middles = Math.max(0, phases.length - 3);
+    assert.equal(middles, widths[key],
+      key + ' has ' + middles + ' middle blocks, not ' + widths[key] +
+      ' — the middle rule is counted from the block table and has drifted from it');
+    if (middles < 2) return;
+    const mid = phases.slice(1, 1 + middles).map(p => a.resolveDesc(p.cue || ''));
+    assert.notEqual(mid[0], mid[mid.length - 1],
+      key + ': the first and last middle blocks say the same thing again');
+    /* The later one is where holding the pace starts to cost something, and
+       it is the block whose fuelling is paid for after 30km. */
+    assert.match(mid[mid.length - 1], /stops being free|steps down/,
+      key + ': the last middle block lost the line that tells it apart');
+  });
 });
 
 test('suppressing the purpose line is scoped to races and nothing else', () => {
@@ -532,4 +663,174 @@ test('suppressing the purpose line is scoped to races and nothing else', () => {
   if (!s || s.suppressed) return;
   assert.ok(s.phases.some(ph => ph.purpose),
     'a long run keeps the standing purpose wording it always had');
+});
+
+/* =====================================================================
+ * GOAL DAY SAYS EACH THING ONCE
+ * ---------------------------------------------------------------------
+ * Three separate duplications on the one screen the whole block is built
+ * for, each removed on the founder's call, each with the fact it duplicated
+ * still present somewhere better.
+ * ===================================================================== */
+
+test('the ceiling keeps the fast edge and loses the words', () => {
+  const { a, race } = athlete();
+  const s = a.executionStrategyForDisplay(race);
+  const settle = s.phases.filter(p => p.paceRole === 'ceiling')[0];
+  assert.ok(settle, 'sanity: an even-pace race opens with a ceiling phase');
+
+  const shown = a.fmtStrategyPace(settle.pace, settle.paceRole);
+  assert.doesNotMatch(shown, /no faster than/,
+    'the rail panel is prefixing the figure again — the caption under it already says it');
+
+  /* THE BEHAVIOUR IS UNCHANGED, which is the half that matters: a ceiling
+     is the FAST EDGE ONLY and never a band, because a ceiling caps how
+     fast and not how slow. Dropping the words must not have dropped that. */
+  const band = a.fmtStrategyPace(settle.pace, 'target');
+  if (settle.pace.slow != null && settle.pace.slow !== settle.pace.fast)
+    assert.notEqual(shown, band, 'the ceiling is printing a BAND now — it has stopped being a ceiling');
+  assert.equal(shown.indexOf('–'), -1, 'the ceiling printed a range');
+
+  /* AND THE CEILING IS STILL SAID, in the Coach's Note, which is where the
+     founder asked for it. This is the fact the rail stopped repeating. */
+  /* AND THE CEILING IS STILL SAID -- on the SETTLE card itself now, which
+     is where the founder asked the coaching to go. This read the caption
+     renderer, and that function is deleted rather than left building a
+     second copy of a sentence the card already carries. Asserted on the
+     rendered card, which is stricter: a string in a renderer nobody calls
+     would have satisfied the old line. */
+  const settleCard = (a.renderDayCard(race)
+    .match(/<div class="how-mod strat-phase">[\s\S]*?<\/div><\/div>/g) || [])[0] || '';
+  assert.match(settleCard, /No faster than goal pace/,
+    'the ceiling is now said NOWHERE — it came off the rail on the grounds the note carries it');
+
+  /* The split that rendered the qualifier above the figure goes with it. */
+  const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  assert.ok(CODE.indexOf('sp-q') === -1,
+    'the qualifier line is still in the markup or the sheet with nothing left to put in it');
+});
+
+test('goal day drops time-on-feet; every long run keeps it', () => {
+  /* On goal day the hero ring above this rail carries the goal time, so the
+     panel was that number rounded worse, one swipe away. Every other
+     session is the only place a duration can be read at all. */
+  const { a, race, days } = athlete();
+  const key = r => r.short || r.k;
+  const raceRows = a.fuelFacts(race).rows.map(key);
+  assert.ok(raceRows.indexOf('Time on feet') === -1,
+    'time-on-feet is back on goal day, under a ring that already states the goal time');
+  assert.ok(raceRows.length >= 3, 'the race lost more than the one row it was meant to');
+
+  const long = days.filter(d => d.type === 'long' && d.km > 0).slice(-1)[0];
+  assert.ok(long, 'sanity: the fixture has a long run');
+  assert.ok(a.fuelFacts(long).rows.map(key).indexOf('Time on feet') > -1,
+    'a long run lost time-on-feet — it was only ever meant to come off the race');
+
+  /* TAKEN OUT BY THE DAY, NEVER BY THE SURFACE. renderDayCard() must emit
+     one identical string for Today, This Week and Full Plan, so the stacked
+     Fueling card and the rail have to agree about whether this fact exists. */
+  assert.equal(a.fuelSectionBody(race).indexOf('time-on-feet'), -1,
+    'the stacked card still shows time-on-feet while the rail does not — two surfaces, two answers');
+});
+
+test('the race prints no lede, and a focused description is still centred', () => {
+  const { a, race, days } = athlete();
+  /* WAS "and only the race lede", asserting a .day-desc-race modifier. The
+     founder extended the centring to every session description under a
+     focused session, so the modifier has nothing left to say and is gone --
+     what remains to protect is that the line is centred, and that it is
+     centred where a session is BEING READ rather than in a list, where
+     centring prose makes a ragged column. */
+  /* AND THEN THE RACE LEDE ITSELF WENT. Founder, on the goal day: "Remove
+     the text between the rail and hero. It's repeated." This asserted the
+     race card carried a .day-desc; it must not now. The centring law below
+     is unchanged, because the optional days still print one. */
+  const card = a.renderDayCard(race);
+  assert.ok(card.indexOf('class="day-desc"') === -1,
+    'the race lede is back between the hero and the rail');
+  const CSS = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8')
+    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  /* The rule carries an ink now as well as the alignment -- founder, on
+     the race card: "Text white." It was the last warm grey left on a
+     focused card once the labels went white. This matched the whole
+     declaration body, so it is anchored on the property it is about. */
+  assert.match(CSS, /\.view-week \.wk-overview\) \.day-desc\{[^}]*text-align:center/,
+    'the focused session description is no longer centred');
+  assert.ok(!/\n  \.day-desc\{[^}]*text-align:center/.test(CSS),
+    'every description is centred now, in lists too — it was scoped to the focused session on purpose');
+});
+
+// =====================================================================
+// THE GOAL DAY, CLEANED UP
+// =====================================================================
+/* Founder, on the marathon goal day:
+     "Feel (but not feeling, just the words after) can be added to the settle
+      page. Hold (1st) - add watch trying to bank time early. Then drop goal
+      pace from the gun!! Just remove it. ... That clears the coaches note. So
+      you should be able to introduce a line gap from coaches note to the
+      first line - if you can do that across the rest of the sessions that
+      would be class."
+   The Coach's Note on a race said Feel, Watch For and the strategy's cue.
+   The first two are on the cards now and the third is gone from the note. */
+
+test('the Feel words are on SETTLE and the Watch words on the first HOLD, at every distance', () => {
+  ['5k', '10k', 'half', 'full'].forEach(dk => {
+    ['even', 'negative', 'custom'].forEach(k => {
+      const { a, race } = athlete(dk);
+      a.handleSetRaceStrategy(k);
+      if (k === 'custom') a.state.setup.raceStrategyCustom = 0.02;
+      const ph = a.executionStrategy(race).phases;
+      const has = (p, v) => p.cue.indexOf(v) > -1;
+      const tag = dk + '/' + k + ': ';
+      assert.equal(ph[0].label, 'Settle', tag + 'the opening block is no longer SETTLE');
+      assert.ok(has(ph[0], a.RACE_DAY_FEEL), tag + 'SETTLE does not carry the Feel words');
+      assert.equal(ph.filter(p => has(p, a.RACE_DAY_FEEL)).length, 1, tag + 'the Feel words are on more than one card');
+      assert.equal(ph.filter(p => has(p, a.RACE_DAY_WATCH)).length, 1,
+        tag + 'the Watch words should be on exactly one card');
+      /* The first HOLD where the race is long enough to have one. A 5K and
+         a 10K go SETTLE, PRESS, COMMIT -- and by PRESS the time to warn
+         somebody about banking it has passed -- so there SETTLE says it. */
+      const firstHold = ph.findIndex(p => p.label === 'Hold');
+      const home = firstHold > -1 ? firstHold : 0;
+      assert.ok(has(ph[home], a.RACE_DAY_WATCH),
+        tag + 'the Watch words are not on ' + (firstHold > -1 ? 'the first HOLD' : 'SETTLE'));
+      /* just the words after: the label "Feel" is not printed on the card */
+      assert.doesNotMatch(ph[0].cue, /\bFeel\b/, tag + 'the card prints the label as well as the words');
+    });
+  });
+});
+
+test('the goal day’s Coach’s Note says neither Feel, Watch For nor the strategy’s cue', () => {
+  ['even', 'negative', 'custom'].forEach(k => {
+    const { a, race } = athlete('full');
+    a.handleSetRaceStrategy(k);
+    const html = a.renderDayCard(race);
+    const at = html.indexOf('class="how-note"');
+    assert.ok(at > -1, k + ': the goal day lost its Coach’s Note, and the fuelling caveats with it');
+    const note = html.slice(at);
+    const cue = a.raceStrategyGuidance(race).cue;
+    assert.ok(cue && note.indexOf(cue) === -1,
+      k + ': the note still prints ' + JSON.stringify(cue));
+    assert.doesNotMatch(note, /<b>(Feel|Watch For|Why)<\/b>/, k + ': a labelled row is back in the note');
+    assert.equal(html.indexOf('class="why-session"'), -1, k + ': WHY THIS SESSION is back on the goal day');
+    assert.equal(html.indexOf('day-status-label'), -1, k + ': the goal day carries a status label again');
+    /* and what is left is the fuelling caveats, which were never the clutter */
+    a.fuelFacts(race).railHints.forEach(h => assert.ok(note.indexOf(a.escapeHtml(h)) > -1 || note.indexOf(h) > -1,
+      k + ': the note dropped a fuelling caveat: ' + JSON.stringify(h.slice(0, 40))));
+  });
+});
+
+test('the Coach’s Note heading stands a line clear of its first line, and the note clear of the rail', () => {
+  const CSS = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8')
+    .match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  /* "introduce a line gap from coaches note to the first line - if you can
+     do that across the rest of the sessions": the rule is unscoped by
+     session type on purpose. */
+  const k = /\.view-week \.wk-overview\) \.how-note \.k\{([^}]*)\}/.exec(CSS);
+  assert.ok(k, 'the note heading rule is gone');
+  const mb = /margin-bottom:(\d+)px/.exec(k[1]);
+  assert.ok(mb && +mb[1] >= 12, 'the heading sits on top of the first line again (' + (mb && mb[1]) + 'px)');
+  /* "Coaches note is very close to the rail." */
+  const gap = /\.how-table \+ \.how-note:not\(\[data-solo\]\)\{margin-top:(\d+)px;?\}/.exec(CSS);
+  assert.ok(gap && +gap[1] >= 22, 'the note is back up against the rail');
 });

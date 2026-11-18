@@ -1,6 +1,6 @@
 // Velvet Viking -- the entitlement authority.
 //
-// ONE QUESTION: may this authenticated athlete use Valhalla Standard right now?
+// ONE QUESTION: may this authenticated athlete use Sacoro Standard right now?
 //
 // Everything in this file is a PURE function of (facts, now). No network, no
 // clock, no environment, no provider SDK. That is deliberate and it is the
@@ -340,7 +340,7 @@ function grantAccess(grant, now){
 // ===========================================================================
 
 /* THE canonical access decision. Everything else in the product that wants to
-   know whether an athlete may use Valhalla asks this and nothing else.
+   know whether an athlete may use Sacoro asks this and nothing else.
    Deliberately takes facts rather than an account id: the store fetches, this
    decides, and the two are separately testable.
 

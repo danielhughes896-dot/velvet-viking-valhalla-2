@@ -58,14 +58,15 @@ test('doSwapDays: a logged day swaps normally once the confirmation is accepted'
   assert.equal(a.completed, undefined);
 });
 
-test('confirmSwapIfLogged: both days logged still resolves to a single confirmation, not two', () => {
+test('the logged-run question: both days logged still resolves to a single confirmation, not two', () => {
   const app = loadApp();
   buildPlan(app, {});
   let calls = 0;
   app.confirm = () => { calls++; return true; };
   const a = day('2026-08-10', 'easy', 5, { completed: true, actual: { km: 5, pace: '5:30', hr: null, rpe: null, notes: '' } });
   const b = day('2026-08-11', 'tempo', 8, { completed: true, actual: { km: 8, pace: '4:40', hr: null, rpe: null, notes: '' } });
-  const ok = app.confirmSwapIfLogged(a, b);
+  let ok = false;
+  app.askSwapThen(a, b, () => { ok = true; });
   assert.equal(ok, true);
   assert.equal(calls, 1, 'one confirmation covers the whole swap, regardless of how many sides are logged');
 });

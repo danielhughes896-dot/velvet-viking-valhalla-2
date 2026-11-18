@@ -8,7 +8,7 @@ const { buildPlan } = require('./fixtures.js');
  * ===========================================================================
  * Every heart-rate figure in this product descends from state.setup.lthr. An
  * athlete who never typed one gets no HR zones at all -- correct behaviour,
- * poor outcome, because Valhalla can measure the anchor in one session.
+ * poor outcome, because Sacoro can measure the anchor in one session.
  *
  * The failure this guards against is not a missing session. It is a WRONG
  * THRESHOLD, which does not announce itself: it silently moves every zone,
@@ -160,13 +160,19 @@ test('an athlete who already MEASURED an LTHR is not sent out to test again', ()
      from threshold, that is a guess governing the whole block. A measured
      anchor still suppresses the test, which is the protection this was
      written for and it is unchanged. */
+  /* FOUNDER RULING, 16 November 2026 ("Everyone at 20km+", "Week 1 + every
+     6 weeks"): a measured LTHR no longer withholds the test, because the test
+     is also the pace measurement and it repeats through the block. What
+     withholds it now is a test inside the last six weeks. */
   const a = app();
   buildPlan(a, { weeks: 10, volume: 45, lthr: 168, maxHR: 190, startDate: TODAY });
-  const measured = a.calibrationEligibility({ healthConsent: true, lthr: a.state.setup.lthr,
-    lthrSource: 'calibration', performances: [], today: TODAY, currentVolume: 45 });
-  assert.equal(measured.needed, false);
-  assert.equal(measured.reason, 'lthr_known',
-    'a MEASURED LTHR is trustworthy -- every HR figure already descends from it');
+  const recent = a.calibrationEligibility({ healthConsent: true, lthr: a.state.setup.lthr,
+    lthrSource: 'calibration', measuredOn: a.addDays(TODAY, -20), performances: [], today: TODAY, currentVolume: 45 });
+  assert.equal(recent.needed, false);
+  assert.equal(recent.reason, 'recent_measured_effort', 'a test three weeks ago is not repeated yet');
+  const due = a.calibrationEligibility({ healthConsent: true, lthr: a.state.setup.lthr,
+    lthrSource: 'calibration', measuredOn: a.addDays(TODAY, -42), performances: [], today: TODAY, currentVolume: 45 });
+  assert.equal(due.needed, true, 'six weeks on, the test is due again');
 
   const estimate = a.calibrationEligibility({ healthConsent: true, lthr: a.state.setup.lthr,
     performances: [], today: TODAY, currentVolume: 45 });
@@ -337,10 +343,13 @@ test('a measured anchor is not overwritten by a wildly different one', () => {
 // ---------------------------------------------------------------------------
 // THE ARTICLE 9 BOUNDARY
 // ---------------------------------------------------------------------------
-test('without consent there is no calibration session at all', () => {
+test('without consent the session still measures pace; its heart rate is withheld below', () => {
+  /* FOUNDER RULING, 16 November 2026 ("Everyone at 20km+"): consent no longer
+     decides whether the session exists. The heart-rate half stays behind the
+     consent gate at deriveCalibrationLTHR(), asserted in the next test. */
   const a = app();
   assert.equal(a.calibrationEligibility({ healthConsent: false, lthr: null,
-    performances: [], today: TODAY, currentVolume: 45 }).reason, 'no_health_consent');
+    performances: [], today: TODAY, currentVolume: 45 }).reason, 'eligible');
 });
 
 test('without consent no threshold is derived, and none is stored', () => {
@@ -508,9 +517,13 @@ test('it renders in Today, This Week and Full Plan', () => {
   const a = calibratedPlan();
   const dd = calDay(a);
   a.state.view = 'today';
+  /* This Week is a day browser now -- a week hero, a seven-day selector and
+     the SELECTED session -- so reaching a session there means selecting its
+     day first, exactly as an athlete would. The assertion is unchanged: the
+     calibration session must be presented on all three surfaces. */
   const views = {
     today: () => { a.pinnedToday = dd.date; return a.renderWeekAccordion(1, true); },
-    week: () => a.renderWeekView(),
+    week: () => { a.handleWeekPickDay(dd.date); return a.renderWeekView(); },
     full: () => a.renderFullPlanView()
   };
   Object.keys(views).forEach(k => {

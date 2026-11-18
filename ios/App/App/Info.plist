@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>SACORO</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- The sign-in link. The runtime asks Supabase to send the athlete back to
+	     com.velvetviking.valhalla://auth inside any native shell (see
+	     NATIVE_AUTH_REDIRECT); this is what makes iOS open SACORO for it. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.velvetviking.valhalla</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.velvetviking.valhalla</string>
+			</array>
+		</dict>
+	</array>
+	<!-- No encryption beyond the system's own HTTPS: answers the export
+	     compliance question in App Store Connect once, for every build. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<!-- Asked only when the athlete chooses to speak a question to the coach. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SACORO uses the microphone only when you choose to speak a question to your coach.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>SACORO turns your spoken question into text so your coach can answer it.</string>
+	<!-- Asked only when the athlete saves a share image. -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SACORO saves the share images you create to your photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SACORO saves the share images you create to your photos.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<!-- iPhone, upright. Every SACORO screen is drawn for a phone held in the
+	     hand; iPad is not offered (TARGETED_DEVICE_FAMILY = 1). -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	<key>UIUserInterfaceStyle</key>
+	<string>Dark</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+</dict>
+</plist>

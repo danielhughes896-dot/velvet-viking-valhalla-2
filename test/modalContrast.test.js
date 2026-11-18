@@ -37,9 +37,17 @@ const modalCard = cssBlock('.modal-card', HTML);
 // which is what a dark-theme athlete already sees. Pinning a modal to these
 // literal values (not `var(--ink)`, which light theme redefines) is the only
 // way "inside a modal" stops depending on the athlete's theme choice.
+/* CHANGED SIDES ON THE TWO INK TIERS. They were pinned here to #BBB4A4 and
+   #9D9787, the greys dark theme rendered. Founder, asking for a sweep of
+   every first-layer screen and touch point: "The grey text I'm not keen on.
+   I think white text is best ... Space needs to do the talking." -- and, of
+   the panels a modal draws, "No grey text. All white." So both tiers
+   resolve to the modal's own ink. What this file is FOR is unchanged and
+   still asserted: they are pinned inside the modal, to the modal's ink
+   rather than to whatever theme is active outside it. */
 const DARK_NATIVE = {
-  '--ink-dim': '#BBB4A4',
-  '--ink-faint': '#9D9787',
+  '--ink-dim': 'var\\(--ink\\)',
+  '--ink-faint': 'var\\(--ink\\)',
   '--line-soft': '#232126',
 };
 

@@ -10,7 +10,7 @@ const askMod = require('../api/_voice-ask.js');
  * The contract is:
  *
  *     <athlete-facing prose>
- *     ###VALHALLA_TRAILER###
+ *     ###SACORO_TRAILER###
  *     {"needsPlanChange":false,"changeReason":""}
  *
  * Prose streams to the athlete as it arrives. Everything from the marker

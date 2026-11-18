@@ -14,7 +14,7 @@ const S = require('./_strava.js');
 async function handleStart(req, res, cfg, uid){
 
   /* IS THERE A SEAT. Asked here, before an athlete is walked into a Strava
-     authorisation screen that Valhalla already knows it has no room to honour.
+     authorisation screen that Sacoro already knows it has no room to honour.
      An athlete who is already connected passes this without consuming
      anything -- see stravaMayConnect(). */
   const may = await S.stravaMayConnect(cfg, uid);

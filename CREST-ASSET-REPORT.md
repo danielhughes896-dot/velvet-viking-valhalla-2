@@ -73,7 +73,7 @@ actually receives. Corrected, WebP lossless measures exactly 0.
 `tools/assets/crest-candidates/`
 
 - `comparison-zoom-dark.png` — master / PNG-8 / AVIF q80 / WebP q90, the
-  "VALHALLA AWAITS — EARN YOUR PLACE" band at **3× nearest-neighbour zoom**,
+  "SACORO AWAITS — EARN YOUR PLACE" band at **3× nearest-neighbour zoom**,
   which is where palette banding and codec ringing would appear first. They are
   indistinguishable. No banding in the gold gradient, no ringing on the
   letterforms, the navy field texture intact.

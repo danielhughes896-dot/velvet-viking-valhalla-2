@@ -5,7 +5,7 @@
 //   1. showNotification(), so the daily 08:00 workout reminder can appear
 //      while the tab is only backgrounded. Unchanged.
 //   2. Keeping the application shell available when the phone has no usable
-//      connection, so Valhalla opens from the athlete's own device instead of
+//      connection, so Sacoro opens from the athlete's own device instead of
 //      failing to open at all.
 //
 // THE ONLINE PATH IS UNCHANGED, AND THAT IS DELIBERATE. Navigation is

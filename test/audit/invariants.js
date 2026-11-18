@@ -266,7 +266,15 @@ function checkCase(c){
   const w1 = c.weeks[0];
   if (w1 && !w1.isRace){
     const org = (w1.bottomUp && w1.bottomUp.origin) || {};
-    const entry = org.demonstratedKm > 0
+    /* ---- SUPERSEDED 14 NOVEMBER 2026: THE ATHLETE SETS THE STARTING POINT ----
+       The block now opens from the athlete's declaration (founder ruling), so
+       the entry this law measures week one against is the one the block
+       records it opened from: the declaration, then demonstrated evidence,
+       then the pathway -- read from the block's own origin, never re-derived
+       here. The reasoning above is the record of the rule it replaced. */
+    const entry = org.volumeSource === 'stated' && inputs.volume > 0
+        ? { km: inputs.volume, source: 'stated' }
+      : org.demonstratedKm > 0
         ? { km: org.demonstratedKm, source: 'demonstrated' }
       : org.pathwayEntryVolumeKm > 0
         ? { km: org.pathwayEntryVolumeKm, source: 'pathway' }
@@ -282,7 +290,12 @@ function checkCase(c){
       const jump = w1.actualVolume / entry.km;
       /* The smallest week these sessions could have been written as. */
       const runs = (w1.sessions || []).filter(s => s.km > 0).length;
-      const floorKm = runs * 3;                       // EASY_MIN_KM
+      /* FOUNDER RULING, 15 NOVEMBER 2026 (A5): NO RUN UNDER 5KM. The smallest
+         session the engine may write is now WEEK_FIT_MIN_EASY_KM, and the week
+         may round a run up by WEEK_FIT_ROUND_UP_KM rather than lose it, so the
+         floor a week cannot go below is 5km a run plus that round-up. The
+         EASY_MIN_KM (3km) floor this replaced is the record above. */
+      const floorKm = runs * 5 + 1;                   // WEEK_FIT_MIN_EASY_KM + WEEK_FIT_ROUND_UP_KM
       const detail = { entry: entry.km, entrySource: entry.source,
                        weekOne: w1.actualVolume, runs: runs,
                        ratio: Math.round(jump * 100) / 100 };

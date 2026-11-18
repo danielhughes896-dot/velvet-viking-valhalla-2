@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan, logAsPrescribed } = require('./fixtures.js');
 
-/* VALHALLA SAID THE SAME THING TO EVERYONE.
+/* SACORO SAID THE SAME THING TO EVERYONE.
  *
  * An athlete who had missed one session and an athlete who had missed seven
  * both got: "A threshold session went unlogged on Wednesday and it is still
@@ -13,7 +13,7 @@ const { buildPlan, logAsPrescribed } = require('./fixtures.js');
  * something has changed -- and then stop saying it, because a coach who
  * repeats one warning forever is nagging rather than coaching.
  *
- * Three tiers, and the difference between them is what Valhalla DOES: an
+ * Three tiers, and the difference between them is what Sacoro DOES: an
  * isolated miss is acknowledged and nothing changes, an emerging pattern is
  * named once with an offer, a persistent one is an honest conversation about
  * whether the block still fits the athlete's life.
@@ -69,7 +69,19 @@ const past = a => a.state.days.filter(d => d.date < TODAY && d.type !== 'rest')
 /* The athlete who is doing everything right. Every session logged at the
    middle of the app's OWN pace window for that day and the middle of its own
    effort band -- see logAsPrescribed, and the reason it had to be written. */
-function textbook(a){ past(a).forEach(dd => logAsPrescribed(a, dd)); return a; }
+/* The checkpoint is logged first. Logged "as prescribed" it is not the
+   athlete's bench result, so it re-sets the training paces, and every earlier
+   session is then scored against paces it was never set. Structured sessions
+   are now scored section by section (founder: no invented 100 from one
+   total), which is narrower than the old whole-run window, so that drift --
+   not the athlete -- took them under the bar. Logged first, every session is
+   logged against the paces it is scored by. */
+function textbook(a){
+  const all = past(a);
+  all.filter(d => d.type === 'checkpoint').concat(all.filter(d => d.type !== 'checkpoint'))
+     .forEach(dd => logAsPrescribed(a, dd, { sections: true }));
+  return a;
+}
 // slice(-0) is slice(0), i.e. the whole array. Spelled out rather than relied
 // on, because getting it wrong silently marks every session missed.
 const lastN = (arr, n) => (n <= 0 ? [] : arr.slice(-n));
@@ -81,7 +93,7 @@ function underperform(a, n){
   // Only sessions the athlete actually ran, so this composes with miss()
   // instead of quietly un-missing what it just marked.
   const q = past(a).filter(d => a.isQualityType(d.type) && d.completed);
-  lastN(q, n).forEach(dd => logAsPrescribed(a, dd, { quality: 0.65 }));
+  lastN(q, n).forEach(dd => logAsPrescribed(a, dd, { quality: 0.65, sections: true }));
   return a;
 }
 
@@ -152,7 +164,7 @@ test('escalation is monotonic: more missed is never a milder tier', () => {
 });
 
 test('an accepted adjustment is not a missed session', () => {
-  /* A session the athlete and Valhalla agreed to change is the opposite of one
+  /* A session the athlete and Sacoro agreed to change is the opposite of one
      they ignored, and counting it as a miss would punish the athlete for using
      the feature. */
   const a = textbook(athlete());

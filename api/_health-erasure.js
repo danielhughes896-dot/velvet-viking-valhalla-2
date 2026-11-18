@@ -29,7 +29,7 @@
  * evidence that the processing which happened was lawful at the time.
  */
 
-/* WHERE COVERED VALUES ARE STORED. Two places, and this list is the whole of
+/* WHERE COVERED VALUES ARE STORED. Three places, and this list is the whole of
  * it — it mirrors the runtime's own covered vocabulary, and the test asserts
  * the two do not drift apart.
  *
@@ -40,10 +40,15 @@
  *
  *   staged activities   payload.hr, payload.maxHR    from a provider
  *
+ *   coach memory        every line marked health     pain, illness and the
+ *                                                    like (see _coach-memory.js)
+ *
  * The athlete's own note TEXT is not on this list and is not touched. It is
  * theirs, they wrote it, and the covered part of a note is the READING the
  * parser derives at display time — which is computed, never stored, and
  * therefore already gone the moment consent is absent. */
+const M = require('./_coach-memory.js');
+
 const PLAN_SETUP_FIELDS = ['lthr', 'maxHR'];
 const PLAN_DAY_FIELDS = ['readiness'];
 const PLAN_ACTUAL_FIELDS = ['hr', 'feel'];
@@ -198,6 +203,17 @@ async function eraseCoveredForAccount(S, cfg, userId, opts){
     }
   }
   report.activities = { examined: acts.length, changed: touched };
+
+  // ---- the coach's notes ----
+  /* A NOTE ABOUT PAIN IS A COVERED VALUE IN A SENTENCE. Coach Memory keeps a
+     line about the athlete's body only with health consent, and marks it; an
+     erasure request removes every such line and leaves the decisions and
+     questions the athlete chose to keep. Deleting whole lines rather than
+     editing them, because a line with the covered words cut out of it is a
+     sentence that says something the athlete never said. */
+  const mem = await M.eraseHealthLines(S, cfg, userId, { dryRun: dryRun });
+  if (!mem.ok) return { ok: false, reason: mem.reason };
+  report.coachMemory = { examined: mem.examined, removed: mem.removed };
   return report;
 }
 

@@ -21,7 +21,7 @@ If you have never made an app there, it asks you to create one.
 
 | Field | What to put |
 | --- | --- |
-| Application Name | Velvet Viking Valhalla |
+| Application Name | Velvet Viking Sacoro |
 | Category | Training |
 | Website | `https://velvetviking.co.uk` |
 | **Authorization Callback Domain** | `app.velvetviking.co.uk` |
@@ -118,8 +118,8 @@ What this does:
   authorization or block a deletion.
 
 **Eligibility is no longer an allowlist.** Any athlete with a verified
-Valhalla account may connect Strava, up to the private-beta capacity. That is
-not public access: Valhalla accounts are themselves a closed beta, so the
+Sacoro account may connect Strava, up to the private-beta capacity. That is
+not public access: Sacoro accounts are themselves a closed beta, so the
 account is the first gate and the capacity is the second. See
 STRAVA-BETA-STATUS.md for how that decision was reached.
 

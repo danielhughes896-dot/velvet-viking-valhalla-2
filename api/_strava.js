@@ -130,22 +130,22 @@ function stravaEnabled(){
    VVV_STRAVA_ALLOWED_USER_IDS, was the single thing permitted to touch Strava
    while a policy question was open. Clarification was requested from Strava and
    their intended use disclosed; Strava declined to give individual feedback and
-   referred Valhalla back to the published API Agreement and API Policy. That is
+   referred Sacoro back to the published API Agreement and API Policy. That is
    NEITHER approval NOR rejection, and STRAVA-BETA-STATUS.md records it as
    exactly that. On the strength of it the founder authorised the integration
    for the private beta already available to this application.
 
-   SO ELIGIBILITY IS NO LONGER A LIST. Any athlete with a verified Valhalla
-   account may connect Strava. That is not "public": Valhalla accounts are
+   SO ELIGIBILITY IS NO LONGER A LIST. Any athlete with a verified Sacoro
+   account may connect Strava. That is not "public": Sacoro accounts are
    themselves a closed beta, so the account IS the first gate, and the seat
    count below is the second.
 
-   WHY A SEAT COUNT AND NOT A CLAIM ABOUT STRAVA. Valhalla cannot see how many
+   WHY A SEAT COUNT AND NOT A CLAIM ABOUT STRAVA. Sacoro cannot see how many
    athletes Strava believes this application has, and must not pretend to.
    What it CAN count exactly is its own roster -- the rows in
    strava_connections, a table it owns. That is what is capped here. Strava
    remains authoritative for its own limit, and a refusal from Strava is handled
-   on its own terms at the callback; this cap simply stops Valhalla walking an
+   on its own terms at the callback; this cap simply stops Sacoro walking an
    athlete into an authorisation it already knows it has no room for.
 
    IT FAILS CLOSED, AND ONLY IN ONE DIRECTION. If the roster cannot be counted,
@@ -563,7 +563,7 @@ function normaliseActivity(a){
    * did for every Strava run before this existed.
    *
    * FLAT, WITH NO segId, AND THAT IS CORRECT. These are Strava's kilometre
-   * markers, not Valhalla's prescribed segments; splitsAreLegacyFlat() already
+   * markers, not Sacoro's prescribed segments; splitsAreLegacyFlat() already
    * keeps such a log on the flat editor rather than rebuilding it as segments,
    * which would be guessing which kilometre was which rep.
    *
@@ -600,7 +600,7 @@ function normaliseActivity(a){
    * no intensity, nothing that says which lap was a rep. Distance, time, heart
    * rate and cadence are all it has. So these rows are stored as what they
    * are, RECORDED laps, and nothing here labels one a rep or matches it to a
-   * prescribed segment: that would be reading Valhalla's prescription back
+   * prescribed segment: that would be reading Sacoro's prescription back
    * onto the athlete's watch and calling it evidence. A lap boundary is not
    * reliably a workout-step boundary either -- a single prescribed 1500m rep
    * can arrive as a 1000m lap followed by a 500m lap -- which is exactly why
@@ -658,7 +658,7 @@ function isUsableRun(a){ return !!(a && a.isRun && a.date && a.km != null && a.k
 async function stageActivity(cfg, userId, activity){
   /* THE HEALTH BOUNDARY, ENFORCED WHERE THE ROW IS WRITTEN. Authorising Strava
      is permission to read the athlete's activities; it is not their explicit
-     agreement to Valhalla processing the health-indicating part of them. Both
+     agreement to Sacoro processing the health-indicating part of them. Both
      ingest paths -- the manual sync and the webhook -- land here, so stripping
      the heart rate at this one point means an athlete who has not consented
      never has it stored, rather than having it stored and then ignored.

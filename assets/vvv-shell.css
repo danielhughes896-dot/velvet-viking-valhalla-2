@@ -29,51 +29,75 @@
      fact about the phone, not a request about Velvet Viking. */
 
 :root{
-  --bg:#151417; --bg-2:#1B1A1E; --bg-3:#201F23;
-  --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+  /* TWO RULES, AND ONLY TWO -- one face for every word, one for every
+     standalone figure. Declared here as well as in the app because /get,
+     /privacy and /terms carry no :root of their own and reach the product's
+     tokens only through this file. See the full note in the app's :root. */
+  --text-face:'Oswald',sans-serif;
+  --num-face:'JetBrains Mono',monospace;
+  /* The charcoal ground and raised face the app adopted when the Today
+     card's language became the product's. Kept in step here deliberately:
+     /start, /get and the account shell are the same product as the app and
+     an athlete crosses between them in one session. */
+  --bg:#121316; --bg-2:#1B1A1E; --bg-3:#1C1E24;
+  /* White, no grey: the app maps both secondary inks to --ink, and the
+     website is the same product, so it does too. */
+  --ink:#F4F1EA; --ink-dim:var(--ink); --ink-faint:var(--ink);
   --line:#302E36;
-  --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
+  --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A;
   --gold-text:var(--gold); --bronze-text:var(--bronze);
   --gold-bright:#F5D061; --modal-active:#c5a059;
-  --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
-  /* Controls. Dark keeps the app's fixed dark-Viking ramp character for
-     character, so nothing about the dark theme moves. */
-  --ctl-bg:#24201c; --ctl-border:#3d352b; --ctl-text:#e6dfd5;
-  --ctl-placeholder:#8d857a;
-  --ctl-accent:#c5a059; --ctl-accent-rgb:197,160,89;
-  --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
+  /* CHERRY, WHICH THIS FILE DID NOT HAVE, AND THAT WAS THE WHOLE PROBLEM.
+     The palette here predates the move that made cherry the interaction
+     colour -- "Gold = brand/destination/milestone. Cherry = active/training/
+     interaction." The app and /start both got it, because both declare their
+     own :root. /get, /privacy, /terms and the account shell reach the
+     product's tokens ONLY through this file, exactly as the note at the top
+     of this block says, so cherry never arrived and their buttons kept
+     falling back to the bronze gradient. A reader tapping DOWNLOAD THE APP on
+     /get met the brand colour where every other surface in the product paints
+     the action.
+     The values are the app's own, character for character -- the point of a
+     shared shell is that there is one set, not a second set that agrees for
+     now. --cherry-ink and --cherry-btn-ink are both here and both white
+     because the app distinguishes them, and a page reaching for either
+     through this file should not have to know which one the app happened to
+     use. */
+  --cherry:#9A546C; --cherry-fill:#7A2E42; --cherry-soft:#9A546C;
+  --cherry-line:rgba(154,84,108,0.45); --cherry-dim:rgba(154,84,108,0.50);
+  --cherry-text:#C46A89; --cherry-ink:#FFFFFF; --cherry-btn-ink:#FFFFFF;
+  /* Controls. The app's own text field (Your Name, Coach Voice): clear
+     glass on a fine white rim, white words, and cherry when it is the field
+     you are in. The old warm brown ramp is gone from the website. */
+  --ctl-bg:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 60%), rgba(8,8,11,.3);
+  --ctl-border:rgba(255,255,255,.2); --ctl-text:#FFFFFF;
+  --ctl-placeholder:#FFFFFF;
+  --ctl-accent:#9A546C; --ctl-accent-rgb:154,84,108;
+  --ctl-disabled-bg:#18191D; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2A2C32;
   --danger-ink:#E0A0A0;
   --radius:16px; --radius-sm:10px;
+  /* THE CARD LANGUAGE, so /start and the account shell build their controls
+     from the same values the app does. Declared here rather than copied into
+     each page: a pasted palette is how these drifted apart before, and
+     test/builderVisualParity exists because the builder is reached both at
+     /start and inside the app and must not be two different screens. */
+  --tile-radius:20px;
+  --t-tile:rgba(20,22,27,.8);
+  --t-tile-rim:rgba(255,255,255,.08);
+  --t-lift:0 6px 18px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.055);
+  --t-card-grad:linear-gradient(100deg,
+    #24262D 0%, #202229 24%, #1C1E25 48%, #181A21 72%, #141620 88%, #121419 100%);
   color-scheme:dark;
-}
-:root[data-theme="light"]{
-  --bg:#F4F1EA; --bg-2:#FCFBFB; --bg-3:#EBE5D8;
-  --ink:#171717; --ink-dim:#514D45; --ink-faint:#5D574C;
-  --line:#DAD1BB;
-  --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
-  /* Warm paper, warm stone edge, near-black ink -- the same measured set the
-     app uses, so the sign-in field on this page and the sign-in field inside
-     Settings are the same control. Ratios are against what they sit on:
-       border  #8F8569  3.57:1 on the field, 3.25:1 on the page  (AA non-text)
-       text    #171717 17.46:1 on the field                       (AAA)
-       holder  #6B6558  5.64:1 on the field                       (AA)
-       focus   #8A6D2B  4.75:1 on the field                       (AA non-text) */
-  --ctl-bg:#FDFCF8; --ctl-border:#8F8569; --ctl-text:#171717;
-  --ctl-placeholder:#6B6558;
-  --ctl-accent:#8A6D2B; --ctl-accent-rgb:138,109,43;
-  --ctl-disabled-bg:#EDEAE1; --ctl-disabled-text:#847E71; --ctl-disabled-border:#C4BCA6;
-  --danger-ink:#9A3540;   /* 6.30:1 on the page; the dark theme's #E0A0A0 is 1.9:1 there */
-  color-scheme:light;
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html{-webkit-text-size-adjust:100%;}
 body{
   margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-family:var(--text-face);
   -webkit-font-smoothing:antialiased;
 }
-a{color:var(--bronze-text);}
+a{color:#FFFFFF;}
 :focus-visible{outline:2px solid var(--ctl-accent); outline-offset:2px; border-radius:4px;}
 
 /* ---------- the shell ----------
@@ -84,32 +108,49 @@ a{color:var(--bronze-text);}
    sign-in field rather than a landing page. */
 .vvv-shell{width:100%; max-width:420px; margin:0 auto;}
 .vvv-brand{text-align:center; margin-bottom:24px;}
-/* The canonical crest already CARRIES the wordmark and EARN YOUR PLACE, cast
-   into the artwork. Setting both again above and below it is the repetitive
-   decoration we were told to avoid -- the athlete reads the same two phrases
-   three times before reaching the sign-in field.
-   So: at full size the crest speaks for itself and the type is suppressed. At
-   `compact`, where the crest is 86px and its cast lettering is unreadable, the
-   type carries the identity instead. One shell, two legitimate sizes. */
-.vvv-brand:not(.compact) .vvv-wordmark,
-.vvv-brand:not(.compact) .vvv-tagline{display:none;}
-.vvv-wordmark{
-  font-family:'Cinzel',serif; font-weight:800;
-  /* clamped, because VELVET VIKING at a fixed size is the first thing to
+/* ---- CHANGED SIDES: THE CREST WENT, THE MARK IS THE NAME AND TWO DOTS ----
+   This block drew the full Velvet Viking crest on every page, with the type
+   suppressed at full size because the artwork carried it. Founder: "We don't
+   need an emblem everywhere for the app. It's simply the name with the dots.
+   That's it. Clean & sleek." -- and, of these five pages: "They should both
+   change to the dot SACORO dot."
+   There was a second reason it had to go. The crest's lettering is part of
+   the artwork, and the artwork reads VALHALLA AWAITS: a rename that could
+   reach every string in the product could never have reached that.
+   So this is the app's own lockup, in the app's own proportions -- Cinzel
+   600 tracked .17em, 7px dots and a 15px gap beside a 26px name -- scaled to
+   the size each page sets it at. The byline stays under it here: these are
+   the pages where someone meets the product for the first time. */
+.vvv-lockup{display:flex; align-items:center; justify-content:center; gap:18px;}
+.vvv-dot{flex:none; width:9px; height:9px; border-radius:50%;
+  background:var(--gold-bright, #F5D061);
+  box-shadow:0 0 10px rgba(245,208,97,.42);}
+/* .vvv-brand IN FRONT OF BOTH, AND IT IS NOT DECORATION. Two of the five pages
+   set the lockup inside .vvv-shell, whose own rule for every <p> -- 13.5px,
+   18px beneath -- is one element more specific than a bare class. Measured in
+   Chromium before this was added: the name rendered at 13.5px on /start and
+   /account and at 33px on /get, from the same markup. */
+.vvv-brand .vvv-wordmark{
+  font-family:'Cinzel',serif; font-weight:600;
+  /* clamped, because a tracked name at a fixed size is the first thing to
      overflow a narrow phone and the last thing anyone tests */
-  font-size:clamp(0.72rem, 3.6vw, 0.94rem);
-  letter-spacing:.2em; text-transform:uppercase; color:var(--gold-text);
-  margin:0; white-space:nowrap;
+  font-size:clamp(26px, 8.4vw, 34px); line-height:1.15;
+  letter-spacing:.17em; text-transform:uppercase; color:var(--ink);
+  /* the trailing track is cancelled, or the right dot sits further from the
+     O than the left dot does from the S */
+  margin:0 -.17em 0 0; white-space:nowrap;
 }
-.vvv-crest{
-  display:block; margin:0 auto 14px;
-  width:min(34vw,132px); height:auto;
+.vvv-brand .vvv-by{
+  font-family:var(--text-face); font-weight:600; font-size:11px; line-height:1.3;
+  letter-spacing:.3em; text-transform:uppercase; color:var(--gold-text);
+  margin:9px -.3em 0 0; white-space:nowrap;
 }
-.vvv-crest.sm{width:min(24vw,86px); margin:10px auto 8px;}
-.vvv-tagline{
-  font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.34em;
-  text-transform:uppercase; color:var(--ink-faint); margin:0;
-}
+/* `compact` is the legal pages, where the mark heads a document rather than
+   opening a screen. Same lockup, two thirds the size. */
+.vvv-brand.compact .vvv-lockup{gap:12px;}
+.vvv-brand.compact .vvv-dot{width:6px; height:6px;}
+.vvv-brand.compact .vvv-wordmark{font-size:clamp(18px, 5.6vw, 22px);}
+.vvv-brand.compact .vvv-by{font-size:11px; margin-top:6px;}
 .vvv-rule{width:58%; height:1px; margin:14px auto 0;
   background:linear-gradient(90deg,transparent,rgba(197,160,89,.45),transparent);}
 
@@ -124,8 +165,9 @@ a{color:var(--bronze-text);}
 /* ---------- controls ---------- */
 .vvv-shell input, .vvv-shell select, .vvv-shell textarea{
   width:100%; padding:12px 13px; font-size:16px; /* 16px: anything smaller makes iOS zoom the page on focus */
-  border-radius:8px; font-family:inherit;
+  border-radius:14px; font-family:inherit;
   background:var(--ctl-bg); border:1px solid var(--ctl-border); color:var(--ctl-text);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
 }
 .vvv-shell input::placeholder, .vvv-shell textarea::placeholder{color:var(--ctl-placeholder); opacity:1;}
 .vvv-shell input:focus, .vvv-shell select:focus, .vvv-shell textarea:focus{
@@ -140,7 +182,7 @@ a{color:var(--bronze-text);}
   display:flex; align-items:center; justify-content:center;
   width:100%; min-height:48px; margin-top:14px; padding:12px 18px;
   border:1px solid transparent; border-radius:8px; font-family:inherit;
-  background:var(--bronze); color:var(--bronze-ink);
+  background:transparent; color:#FFFFFF;
   font-size:14px; font-weight:600; letter-spacing:.04em; cursor:pointer;
 }
 .vvv-btn:hover{filter:brightness(1.06);}
@@ -155,7 +197,18 @@ a{color:var(--bronze-text);}
 /* ---------- messages ---------- */
 .vvv-msg{margin-top:16px; font-size:12.5px; line-height:1.55; min-height:1em;}
 .vvv-msg.err{color:var(--danger-ink);}
-.vvv-msg.ok{color:var(--gold-text);}
+.vvv-msg.ok{color:#FFFFFF;}
 .vvv-foot{margin-top:26px; text-align:center; font-size:11.5px; color:var(--ink-faint);}
 .vvv-foot a{color:var(--ink-faint);}
 .vvv-hidden{display:none;}
+
+/* ONE ACTION STYLE BEFORE THE APP OPENS. The app's primary is liquid glass
+   inside a thin cherry rim with white words, and the website is the same
+   product an athlete crosses on the way in, so its main button is that same
+   glass rather than the old solid gold. Ghost buttons keep their quieter style. */
+.vvv-btn:not(.vvv-btn-ghost):not(:disabled):not([disabled]){
+  background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,0) 55%), rgba(8,8,11,.26);
+  -webkit-backdrop-filter:blur(18px) saturate(150%); backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid var(--cherry); color:#FFFFFF;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.06), 0 0 16px var(--cherry-dim);
+}

@@ -4,13 +4,13 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 const HC = require('../api/_health-consent.js');
 const G = require('../api/_garmin.js');
 
 /* EXPLICIT CONSENT FOR HEALTH AND READINESS INFORMATION.
  *
- * Some of what an athlete may tell Valhalla can reveal something about their
+ * Some of what an athlete may tell Sacoro can reveal something about their
  * health, and running a training programme is not a lawful basis for
  * processing that on its own. This file is the behavioural proof of the
  * mechanism: what is covered, what is not, that consent is a real affirmative
@@ -57,6 +57,8 @@ function loggedDay(a, extra) {
   // would prove the wrong thing about why the score is absent.
   dd.actual = Object.assign(a.emptyActual(),
     { km: dd.km, pace: '5:00', hr: 158, rpe: 6, feel: 'good' }, extra || {});
+  // and, for a structured session, its sections: one total is not scored.
+  logSections(a, dd, 1);
   return dd;
 }
 
@@ -219,7 +221,7 @@ test('9d. withdrawal touches nothing commercial and nothing about the plan', () 
 // ---------------------------------------------------------------------------
 // 10-12. DECLINING LEAVES A WORKING PRODUCT
 // ---------------------------------------------------------------------------
-test('10. declining does not prevent ordinary use of Valhalla', () => {
+test('10. declining does not prevent ordinary use of Sacoro', () => {
   const a = withholding();
   const dd = loggedDay(a, { hr: null, feel: null });
   ['renderTodayView', 'renderWeekView', 'renderFullPlanView', 'renderPlanHQView',
@@ -366,7 +368,7 @@ test('13b. an existing athlete keeps their plan and their programme', () => {
   const dd = loggedDay(a, { hr: 150 });
   assert.ok(a.state.days.length > 50, 'the plan is intact');
   assert.ok(a.computeExecutionScore(dd) != null, 'their logged sessions still score');
-  assert.doesNotThrow(() => a.renderTodayView(), 'and entry into Valhalla is not broken');
+  assert.doesNotThrow(() => a.renderTodayView(), 'and entry into Sacoro is not broken');
 });
 
 test('14. ordinary athlete memory survives — ATHLETE is still not PLAN', () => {
@@ -375,6 +377,7 @@ test('14. ordinary athlete memory survives — ATHLETE is still not PLAN', () =>
     dd.completed = true;
     dd.actual = Object.assign(a.emptyActual(), { km: dd.km, pace: '5:00', rpe: 6, hr: 150,
                                                  feel: 'good' });
+    logSections(a, dd, 1);              // a structured session is scored from its sections
   });
   const mem = a.athleteMemory(60).filter(r => r.completed);
   assert.ok(mem.length >= 5, 'the record still exists');
@@ -472,6 +475,9 @@ test('15b. the notes themselves are never edited or withheld from the athlete', 
   const dd = loggedDay(a, { notes: 'sore calf the whole way' });
   assert.equal(dd.actual.notes, 'sore calf the whole way',
     'their words are theirs; the consent boundary is on the reading, not the text');
+  /* Your Log is a tab now, closed until asked -- open it, or this renders
+     an empty log and the assertion below proves nothing. */
+  a.logOpenFor[dd.id] = true;
   assert.match(a.renderDayCard(dd), /sore calf the whole way/,
     'and they can still see what they wrote');
 });
@@ -515,7 +521,7 @@ test('15d. a covered decision path is not merely quiet — it changes the outcom
   assert.equal(on.state, 'recover', 'and a reported pain reaches safety, as it always did');
   assert.ok(off, 'the withholding athlete still gets a decision');
   assert.notEqual(off.state, 'recover',
-    'but it is not built from information Valhalla was not allowed to read');
+    'but it is not built from information Sacoro was not allowed to read');
   assert.ok(!(off.reasons || []).some(r => /pain|sore|injur/i.test(r)),
     'and nothing it says is derived from that information');
 });

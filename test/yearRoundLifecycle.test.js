@@ -14,7 +14,7 @@ const { buildPlan } = require('./fixtures.js');
 // handover from a race to it, and from it to whatever comes next.
 //
 // Every path below ends somewhere. "No dead end" is the property under test as
-// much as any individual recommendation, so each campaign asserts that Valhalla
+// much as any individual recommendation, so each campaign asserts that Sacoro
 // still has something to say at the end of it.
 
 const ROOT = path.join(__dirname, '..');
@@ -361,11 +361,18 @@ test('SAFETY: the marathon keeps its volume qualification', () => {
   logPast(a);
   raceHappened(a);
   a.recordRaceOutcome('raced');
+  /* THE QUALIFICATION IS KEPT, AS CONFIDENCE RATHER THAN AS SILENCE -- see
+     yearRound.test.js's own note. Equivalence still over-predicts the marathon
+     without the volume behind it, so this athlete's estimate is capped at low
+     confidence and says exactly why; what it no longer does is refuse to
+     answer, which also silenced athletes who had done the work. */
   const est = a.measuredFitnessEstimate('full');
-  assert.ok(est, 'the marathon must be answered, even if the answer is a refusal');
-  assert.equal(est.withheld, true,
+  assert.ok(est, 'the marathon must be answered');
+  assert.equal(est.withheld, false, 'the marathon went silent again');
+  assert.equal(est.confidence, 'low',
     'equivalence over-predicts the marathon without the volume behind it');
-  assert.match(est.reason, /volume/i, 'and it must say why rather than simply going blank');
+  assert.ok((est.confidenceWhy || []).some(w => /volume/i.test(w)),
+    'and it must say why rather than simply going blank');
 });
 
 // ===========================================================================
@@ -550,7 +557,7 @@ test('MUTATION: historical coaching cannot fall back to current-plan-only', () =
 
 /* THE GAP THIS CLOSES, found by mutation rather than by inspection.
 
-   The test below drives startDevelopmentBlock(), which is how Valhalla builds
+   The test below drives startDevelopmentBlock(), which is how Sacoro builds
    a non-race block when the athlete accepts a recommendation. But there is a
    SECOND way in -- handleGeneratePlan(), the builder -- and forcing hasEvent
    to true there changed nothing any test could see. An athlete who picked
@@ -987,15 +994,16 @@ test('SURFACE: Plan HQ names the block and the week within it', () => {
   logPast(a);
   raceHappened(a);
   a.recordRaceOutcome('raced');
-  assert.match(a.blockIdentityLine(), /Half Marathon Build · Week \d+ of \d+/,
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(a.blockIdentityLine(), /Half Marathon Build, Week \d+ of \d+/,
     'a race block should read as its distance');
 
   a.startDevelopmentBlock('maintain');
-  assert.match(a.blockIdentityLine(), /^Maintain & Protect · Week \d+ of \d+$/);
+  assert.match(a.blockIdentityLine(), /^Maintain & Protect, Week \d+ of \d+$/);
   a.startDevelopmentBlock('base');
-  assert.match(a.blockIdentityLine(), /^Aerobic Base · Week \d+ of \d+$/);
+  assert.match(a.blockIdentityLine(), /^Aerobic Base, Week \d+ of \d+$/);
   a.startDevelopmentBlock('speed');
-  assert.match(a.blockIdentityLine(), /^Speed & Threshold · Week \d+ of \d+$/);
+  assert.match(a.blockIdentityLine(), /^Speed & Threshold, Week \d+ of \d+$/);
 });
 
 test('SURFACE: the countdown stops shouting GO once the day has passed', () => {

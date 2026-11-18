@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 /* THE READING, THE RACE OUTLOOK, AND THE ACTION TRIO.
  *
@@ -61,38 +61,78 @@ function withHistory(a) {
     const mid = tgt && tgt.fast != null ? Math.round((tgt.fast + tgt.slow) / 2) : 320;
     dd.completed = true;
     dd.actual = { km: dd.km, pace: a.secToPace(mid), hr: 148, rpe: 5, feel: 'good', notes: '' };
+    logSections(a, dd, 1);            // a structured session is scored from its sections
     if (dd.type === 'race' || dd.type === 'checkpoint') a.recordMeasuredPerformance(dd);
   });
   return a;
 }
+/* The Reading's destinations are the circles on Sacoro now -- the Coach
+   tab's list of rectangular rows is gone, and with it the one screen that
+   restated what the circles already said. Same action, same panels; a
+   different element carries them. */
 function readingCards(html) {
-  return (html.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
+  /* The COLUMN, not the button. A Reading circle is the instrument plus the
+     name of the instrument, and the name moved out of the face and under the
+     circle (it had 46px of a 66px face to live in, which is what forced it
+     to 6.4px). Matching only the <button> would capture the circle and call
+     the title missing -- which is exactly what it did. */
+  // Anchored on the title, not on a closing tag: the column nests spans, so
+  // a lazy match to the first '</span></span>' stops inside the face.
+  return (html.match(/<span class="b-dial-col">[\s\S]*?<span class="rd-cat">[^<]*<\/span><\/span>/g) || [])
     .filter(c => c.indexOf('data-action="open-reading"') !== -1);
 }
 
 // ===========================================================================
 // 1. THE READING'S CARDS
 // ===========================================================================
-test('READING: five destination cards, one per interpretation the engine produces', () => {
+/* FOUR CIRCLES AND THE GAUGE. Readiness held the centre of the arc while
+   the hero gauge directly above it was showing the same number off the same
+   field -- both read report.confidence. The duplication was deliberate once:
+   the centre is where the graduation puts the reading that matters most, and
+   this is that reading. But it spent the arc's strongest position restating
+   a number the athlete had just looked at, so the circle went and the gauge
+   became the door to the readiness panel instead. What this test is FOR is
+   unchanged and is asserted below in full: nothing the engine interprets can
+   be undisplayable. It is only the count that moved. */
+test('READING: every interpretation the engine produces is reachable', () => {
   const a = withHistory(planHQ());
-  a.planhqTab = 'coach';
   const html = a.renderPlanHQView();
   const cards = readingCards(html);
-  assert.equal(cards.length, 5, 'expected five Reading cards, found ' + cards.length);
+  assert.equal(cards.length, 4, 'expected four Reading circles, found ' + cards.length);
 
   const keys = cards.map(c => (c.match(/data-reading="([^"]+)"/) || [])[1]);
-  assert.equal(keys.join(','), 'readiness,recovery,evolution,patterns,adaptation');
-  // The set is the engine's, not a list typed twice.
-  assert.equal(a.readingSections(a.coachAnalyse()).map(s => s.key).join(','), keys.join(','));
+  // Laid out from the arc's outside in, which is the reading order the
+  // graduation is for -- not the order readingSections() happens to build in.
+  /* THE ORDER IS THE FOUNDER'S PAIRS, not the arc's outside-in graduation:
+     "plan evolution - adaption, fitness - progress, recovery - patterns".
+     Fitness and Progress sit between these four in the grid and are Record
+     facts, so they are checked in test/planHqRecord rather than here. */
+  /* ---- AND THE ORDER CHANGED SIDES AGAIN, WITH THE SHAPE ----
+     Founder, with the approved dashboard: "horizontal coaching-circle rail
+     ... Rail 3 circles wrapped visually." The pairs were rows of a grid
+     that is now one row, and the design draws it Recovery, Evolution,
+     Adaptation -- how the athlete is, what the plan is doing about it, how
+     the body is answering -- with Patterns the next position along. */
+  assert.equal(keys.join(','), 'recovery,evolution,adaptation,patterns');
+  // Readiness is still one of the engine's sections and still has to be
+  // openable. Its door is the gauge that was already showing it.
+  const gaugeTag = (html.match(/<button[^>]*class="gauge-wrap"[^>]*>/) || [])[0] || '';
+  assert.ok(gaugeTag, 'the confidence gauge is not a button at all');
+  assert.match(gaugeTag, /data-action="open-reading"/,
+    'readiness lost its circle and the gauge did not become its door');
+  assert.match(gaugeTag, /data-reading="readiness"/,
+    'the gauge opens something other than the readiness panel');
+  // The SET is still the engine's, not a list typed twice -- the circles
+  // plus the gauge, which is the whole of what the screen can reach.
+  assert.equal(keys.concat('readiness').sort().join(','),
+    a.readingSections(a.coachAnalyse()).map(s => s.key).sort().join(','));
 
   cards.forEach(c => {
-    // Rectangular list rows, not dials (requirement 7) -- Coach's own
-    // read-val/hq-row grammar, the same one readingPanel() restates the
-    // verdict with when the card is opened.
-    assert.match(c, /class="read-val/, 'a Reading card states no conclusion');
-    assert.match(c, /class="hq-row-l"/, 'a Reading card carries no title');
-    assert.match(c, /class="rs-syn"/, 'a Reading card carries no explanatory text');
-    assert.match(c, /<svg/, 'a Reading card has no chevron affordance');
+    assert.match(c, /class="rd-cat"/, 'a Reading circle carries no title');
+    assert.match(c, /class="rd-val"/, 'a Reading circle states no conclusion');
+    // The full title and verdict reach a screen reader even though the face
+    // is short enough to fit a 66px circle.
+    assert.match(c, /aria-label="[^"]+, [^"]+"/, 'a Reading circle is unlabelled');
   });
 });
 
@@ -106,37 +146,69 @@ test('READING: nothing expands in place any more', () => {
   assert.doesNotMatch(CODE, /case 'toggle-hq-section'/, 'a dispatcher case with no handler');
 });
 
-test('READING: a card may carry a verdict, and a Record card may not', () => {
-  const a = withHistory(planHQ());
-  // The Reading now lives on the Coach tab, the Record on its own tab -- both
-  // rules still hold, just checked against the tab each one actually renders
-  // on. A verdict is now carried by the dial's own tone-coloured ring rather
-  // than a separate coloured span; a fact never gets that ring at all.
-  a.planhqTab = 'coach';
-  const coachHtml = a.renderPlanHQView();
-  // Recovery is the one the engine always classifies, so it always has a tone.
-  const rec = readingCards(coachHtml).filter(c => c.indexOf('data-reading="recovery"') !== -1)[0];
-  const report = a.coachAnalyse();
-  const secs = a.readingSections(report);
-  const recTone = secs.filter(s => s.key === 'recovery')[0].tone;
-  assert.ok(['good', 'watch', 'bad'].indexOf(recTone) !== -1, 'recovery lost its tone');
-  // The row's tone is now a class on .read-val plus its dot -- the exact
-  // grammar readingPanel()'s own header already uses -- not an SVG stroke.
-  assert.match(rec, new RegExp('class="read-val ' + recTone + '"'),
-    'recovery\'s row does not carry its tone');
-  assert.match(rec, /class="read-dot"/, 'recovery\'s row lost its tone dot');
+test('READING: the ring says which reading, the face says what it says', () => {
+  /* THE LAW MOVED CHANNELS, DELIBERATELY, AND THIS IS THE RECORD OF IT.
+     Recovery, evolution and adaptation used to take their ring colour from
+     the engine's tone, so three of the five circles traffic-lighted
+     themselves independently -- and on a good day all three were the same
+     green as each other, which made the one circle the row is built around
+     indistinguishable from its neighbours. Colour now says WHICH reading a
+     circle is; the engine's own word in the face says what it reads.
 
-  a.planhqTab = 'record';
-  const recordHtml = a.renderPlanHQView();
-  const recordCards = (recordHtml.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
-    .filter(c => c.indexOf('data-action="open-record"') !== -1);
-  // Three now, not four -- Training paces moved to Settings' Training &
-  // Zones card (requirement 6); Measured Fitness, Benchmark and Progress are
-  // the genuinely historical facts left on The Record.
-  assert.equal(recordCards.length, 3);
-  recordCards.forEach(c => {
-    assert.doesNotMatch(c, /rs-dial|read-dot|read-val/, 'a Record card grew a verdict dial');
+     Nothing is lost, and that is what this asserts rather than assumes: the
+     verdict was always written in the face, so the face must still move when
+     the engine moves, and the panel behind the circle must still carry the
+     tone in .read-val. What must NOT move is the colour -- on either row. */
+  const a = withHistory(planHQ());
+  const report = a.coachAnalyse();
+  const recTone = a.readingSections(report).filter(s => s.key === 'recovery')[0].tone;
+  assert.ok(['good', 'watch', 'bad'].indexOf(recTone) !== -1, 'recovery lost its tone');
+
+  const recDial = s => (s.match(/<button type="button" class="b-dial"[\s\S]*?<\/button>/g) || [])
+    .filter(c => c.indexOf('data-reading="recovery"') !== -1)[0];
+  const accent = s => (s.match(/--rd-base:([^;]+);/) || [])[1];
+  const face = s => (s.match(/<b style="[^"]*">([^<]*)<\/b>/) || [])[1];
+
+  const before = recDial(a.renderSacoroInstruments());
+  /* THE RECORD FACTS ONLY. This took a snapshot of the whole Record preview
+     and compared it after the verdict moved. The two previews are one
+     renderer now, so a whole-block compare would include the reading
+     circles -- which are SUPPOSED to move -- and the check would fail on the
+     thing it is meant to allow. Narrowed to the facts themselves, which is
+     what "a fact took a tone" was ever about. */
+  const statusOnly = s => (s.match(/<button type="button" class="b-(?:dial b-stat|plate)"[\s\S]*?<\/button>/g) || []).join('');
+  const statusBefore = statusOnly(a.renderSacoroInstruments());
+  assert.ok(before, 'no recovery circle at all');
+
+  // Drive the engine to the opposite verdict.
+  const other = recTone === 'bad' ? 'fresh' : 'strained';
+  a.coachAnalyse = (function(orig){
+    return function(){ const r = orig.apply(this, arguments); r.recovery.state = other; return r; };
+  })(a.coachAnalyse);
+
+  const after = recDial(a.renderSacoroInstruments());
+  assert.notEqual(face(after), face(before),
+    'the recovery circle says the same word for the opposite verdict — the reading is not live');
+  assert.equal(accent(after), accent(before),
+    'the recovery circle changed colour with the engine — the ring is meant to be its identity');
+  assert.equal(statusOnly(a.renderSacoroInstruments()), statusBefore,
+    'an Athlete Status fact moved when the coaching verdict moved — a fact took a tone');
+
+  // The panel is still where tone is carried, so the verdict is not colourless.
+  /* The circle now holds the word in the panel too, so the chip went; the
+     engine's verdict rides on the hero as data-tone. */
+  assert.match(a.readingPanel('recovery'), /class="rp-hero[^"]*" data-tone="(good|watch|bad)"/,
+    'the recovery panel lost the tone the circle gave up');
+
+  /* And neither map consults the engine at all -- the strongest form of
+     "fixed", since a function that cannot see the tone cannot follow it. */
+  [a.READING_ACCENT, a.STATUS_ACCENT].forEach(map => {
+    Object.keys(map).forEach(k => {
+      assert.doesNotMatch(map[k], /tone|good|watch|bad/, k + "'s accent is named after a verdict");
+    });
   });
+  assert.doesNotMatch(String(a.dialAccentBase), /tone/,
+    'dialAccentBase still reads sec.tone');
 });
 
 test('READING: tone is borrowed from the engine, never invented here', () => {
@@ -169,17 +241,22 @@ test('READING: tone is borrowed from the engine, never invented here', () => {
 test('READING: every value and synopsis is live, not written into the markup', () => {
   const a = withHistory(planHQ());
   a.planhqTab = 'coach';
-  const readinessCard = html => readingCards(html).filter(c => c.indexOf('data-reading="readiness"') !== -1)[0];
-  const before = readinessCard(a.renderPlanHQView());
+  /* Confidence is read off the GAUGE now. The readiness circle this used to
+     read was removed for duplicating this very number, so the liveness check
+     follows the number to the one place it still appears. */
+  const gauge = html => (html.match(/<button[^>]*class="gauge-wrap"[\s\S]*?<\/button>/) || [])[0] || '';
+  const before = gauge(a.renderPlanHQView());
 
-  const pct = s => Number((s.match(/>(\d+)%/) || [])[1]);
+  // Anchored on .gauge-num, not on the first '>NN%' in the string: the SVG
+  // above it is full of percentage attributes.
+  const pct = s => Number((s.match(/class="gauge-num"><b[^>]*>(\d+)%/) || [])[1]);
   const confBefore = pct(before);
-  assert.ok(confBefore > 0, 'the readiness card states no confidence at all');
+  assert.ok(confBefore > 0, 'the gauge states no confidence at all');
 
   // Confidence is execution fidelity, so running every session a long way off
   // what was prescribed has to move it -- downwards.
   a.state.days.filter(d => d.completed).forEach(d => { d.actual.pace = '9:30'; });
-  const after = readinessCard(a.renderPlanHQView());
+  const after = gauge(a.renderPlanHQView());
   assert.notEqual(after, before, 'a block of badly executed sessions changed no card');
   assert.ok(pct(after) < confBefore,
     'confidence went from ' + confBefore + '% to ' + pct(after) + '% on a ruined block');
@@ -200,43 +277,113 @@ test('PANEL: every Reading card opens the panel that belongs to it', () => {
       key + "'s panel is titled something else");
     // The body is the accordion's body, rendered verbatim somewhere else.
     assert.ok(panel.indexOf(sec.body) !== -1, key + "'s panel does not host its own evidence");
-    assert.match(panel, /The evidence/);
+    assert.match(panel, /The Evidence/, key + ' lost the rule that labels its evidence');
+    /* THE PANEL OPENS ON A RESTATEMENT of the reading the athlete pressed,
+       so they are never asked to remember which one it was. What carries
+       that restatement now depends on the value's shape. A figure gets the
+       circle, inert, exactly as before. A word does not: the heading, the
+       circle and the toned chip were all saying "Watch" before a line of
+       evidence, and of those three the chip is the one shaped for a word --
+       so the circle goes and the hero is marked is-wordless. Either way the
+       athlete lands on the verdict they pressed. */
+    assert.match(panel, /class="rp-hero(?: is-wordless| is-word)?"/,
+      key + ' does not open on a restatement of itself');
+    if (/class="rp-hero is-wordless"/.test(panel)) {
+      assert.match(panel, /class="rp-hero-verdict"/,
+        key + ' has no circle AND no verdict chip, so it restates nothing');
+      assert.doesNotMatch(panel, /class="b-dial/,
+        key + ' is marked wordless but still draws a circle');
+    } else {
+      // the circle may carry its shape: Readiness restates its three rings
+      assert.match(panel, /class="b-dial(?: is-(?:rings|petals|torus|orb))?"/,
+        key + ' keeps a circle-bearing hero but draws no circle');
+    }
+    assert.ok(panel.indexOf('data-action="open-reading"') === -1,
+      key + "'s own circle is still a button inside the panel it opened");
   });
 });
 
 test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
   const a = withHistory(planHQ());
-  // Ten now, not eleven -- the standalone Fitness Checkpoint popup
-  // (requirement 9) is gone; there is no twelfth panel replacing it, only a
-  // row inside Measured Fitness's own panel.
+  /* THE COUNT IS NOT THE POINT; THE SHELL IS. This has been ten, then
+     eleven when Goal arrived with the Record tab's retirement, and is now
+     larger again because Settings became a list of destinations and its
+     sections moved into panels of their own. Pinning a number here just
+     means editing it every time the product gains a surface, which teaches
+     the next reader nothing. What matters is that EVERY panel in the
+     registries goes through one shell with one exit -- so the set is
+     enumerated and each member is held to it, and the two that must exist
+     are named. */
   const keys = a.READING_KEYS
     .concat(Object.keys(a.RECORD_PANELS))
     .concat(Object.keys(a.ACTION_PANELS));
-  assert.equal(keys.length, 10);
+  assert.ok(keys.length >= 11, 'panels vanished from the registries: ' + keys.length);
+  assert.ok(keys.indexOf('goal') !== -1, 'the goal panel is not in the registry');
+  assert.ok(keys.indexOf('health') !== -1, "Settings' health panel is not in the registry");
   keys.forEach(key => {
     const panel = a.hqPanelHtml(key);
     assert.ok(panel, key + ' produced no panel');
     assert.match(panel, /<div class="modal-head"><h2 class="font-head">[^<]+<\/h2>/, key);
     assert.match(panel, /class="icon-btn" data-action="close-record-panel"/, key + ' has no X');
-    // Exactly one primary in the navigation. A panel MAY carry a content
-    // primary of its own -- Plan evolution hosts the proposal's Accept -- and
-    // .hq-panel is what stops that one wearing the accent of the way out.
-    const nav = panel.slice(panel.indexOf('rec-panel-nav'));
-    assert.equal((nav.match(/class="btn btn-primary[^"]*"/g) || []).length, 1,
-      key + ' has more than one primary in its navigation');
-    assert.match(panel,
-      /<button type="button" class="btn btn-primary btn-block" data-action="close-record-panel">← BACK<\/button>/,
-      key + ' does not end on a full-width ← BACK');
     assert.doesNotMatch(panel, /bld-progress|bld-stage-no/, key + ' grew a build-stage rail');
-    // Two exits, and both the same action.
-    assert.equal((panel.match(/data-action="close-record-panel"/g) || []).length, 2, key);
+    /* ONE EXIT, NOT TWO. The panel ended on a full-width cherry BACK that
+       fired the identical action as the X above it -- the same close, the
+       same scroll restoration -- so an athlete had to work out that the two
+       were one before discovering they were, and the cherry one was the
+       heaviest object on a surface whose job is to show evidence. The X
+       remains, because every other sheet in the product closes with it and
+       it costs no line of its own. */
+    assert.equal((panel.match(/data-action="close-record-panel"/g) || []).length, 1,
+      key + ' has more than one way out again');
+    assert.doesNotMatch(panel, /← BACK/, key + ' grew a second exit back');
+    assert.doesNotMatch(panel, /rec-panel-nav/, key + ' still carries the old nav block');
   });
   // The rule that keeps a content primary off the navigation colour.
-  assert.match(CODE, /\.hq-panel \.btn-primary\{[^}]*var\(--bronze\)/,
-    'a Plan HQ panel repaints every primary in the accent again');
-  assert.match(CODE, /\.hq-panel \.rec-panel-nav \.btn-primary\{[^}]*var\(--cherry\)/,
-    'BACK lost the Cherry Lacquer that marks it as the way out');
+  /* CHANGED SIDES. This held a panel's primary to bronze so that it would
+     never wear the accent. Founder, on the Plan Evolution panel: "Accept
+     evolution ect should be the same as build a program." The builder's
+     primary IS the accent, so the rule that kept it off is gone and the
+     panel's Accept is the same button the builder's Continue is. */
+  assert.equal(CODE.indexOf('.hq-panel .btn-primary{'), -1,
+    'a Plan HQ panel has a primary colour of its own again');
+  assert.match(CODE, /openModal\(html, 'modal-themed builder-light hq-panel '/,
+    'the panel no longer opens as a builder surface, so its primary is not the builder\u2019s');
+  /* The cherry exit is gone with BACK, so the rule that painted it is too.
+     What the pair of them existed to protect -- that a content primary never
+     wears the colour of the way out -- is now unconditional: nothing in a
+     panel is cherry, so a proposal's Accept cannot be mistaken for a close. */
+  assert.doesNotMatch(CODE, /rec-panel-nav/,
+    'the retired BACK button\u2019s styling is back');
   assert.match(CODE, /openModal\([\s\S]{0,80}?hq-panel/, 'the panels stopped carrying .hq-panel');
+
+  /* ---- A MODAL THAT REDRAWS UNDER ITS OWN CONTROLS IS NOT REBUILT ----
+     The restriction sheet re-renders on every level and duration pick, on
+     purpose, so that what is on screen is always what would be saved. Each
+     of those went through openModal(), which tore the overlay out of the
+     document and built a new one -- so the card replayed its .22s slideup
+     and returned to scroll top, and changing "for how long" made the whole
+     sheet jump. A caller that is REFRESHING says so with a key, and then
+     only the card's contents change.
+     Asserted on the mechanism because the suite's document stub returns
+     null from getElementById, so the in-place branch can never be reached
+     here; the behaviour itself (same element, no running animation, scroll
+     kept) was measured in a browser. */
+  const openModalFn = CODE.match(/function openModal\(html, extraClass, key\)\{[\s\S]*?\n\}/);
+  assert.ok(openModalFn, 'openModal no longer accepts a refresh key');
+  assert.match(openModalFn[0], /getAttribute\('data-modal-key'\) === key/,
+    'the in-place path no longer checks it is the same modal');
+  assert.match(openModalFn[0], /card\.innerHTML = html/,
+    'the in-place path stopped swapping contents');
+  /* Through modalScrollSet: a glass sheet scrolls its body, not the card. */
+  assert.match(openModalFn[0], /modalScrollSet\(card, y\)/,
+    'the in-place path stopped keeping the scroll position');
+  assert.match(openModalFn[0], /openRecordPanelKey = null/,
+    'the in-place path skips the side effect closeModal() exists for');
+  /* The class list grew when the sheet became a Settings page; the key, which
+     is what this law is about, is where it was. */
+  assert.match(CODE, /openModal\(html, 'modal-themed builder-light '\+STG_PAGE, 'restriction'\)/,
+    'the restriction sheet stopped asking for the in-place redraw, so every ' +
+    'level and duration pick rebuilds and re-animates it again');
 });
 
 test('PANEL: every action a panel offers is handled somewhere', () => {
@@ -286,9 +433,14 @@ test('OUTLOOK: no measurement produces an honest empty state, no band, but the p
   if (a.raceOutlook().goalSec != null){
     assert.match(html, /oi-goal/, 'a goal marker was withheld even though a goal time exists');
   }
-  // And Programme Status still carries it, so the empty state is visible
-  // rather than the section silently disappearing.
-  assert.match(a.renderProgrammeStatus(), /id="outlook-mount"/);
+  /* And it is still CARRIED somewhere, so the empty state is visible rather
+     than the section silently disappearing. It left the hero for the panel
+     the Goal circle opens -- the hero was showing four readings before The
+     Reading's five began -- so that is where the guard now looks. */
+  assert.doesNotMatch(a.renderProgrammeStatus(), /id="outlook-mount"/,
+    'Race Outlook is still in the hero');
+  assert.ok(a.recordPanelGoal().indexOf(html) !== -1,
+    'Race Outlook left the hero and is not in the Goal panel either');
 });
 
 test('OUTLOOK: ordinary training runs cannot move it, however fast they are', () => {
@@ -302,9 +454,26 @@ test('OUTLOOK: ordinary training runs cannot move it, however fast they are', ()
     dd.completed = true;
     dd.actual = { km: dd.km, pace: '2:55', hr: 130, rpe: 3, feel: 'good', notes: '' };
   });
+  /* THE DISTINCTION THIS TEST PROTECTS IS UNCHANGED AND IS STILL ASSERTED: a
+     training run, however fast, never becomes a MEASUREMENT.
+
+     WHAT CHANGED, BY INSTRUCTION: this athlete has logged a whole block, and
+     HQ's locked rule is that after fourteen days of usable evidence Race
+     Outlook must give Sacoro's best assessment, with race/checkpoint data
+     explicitly not mandatory. Returning 'none' to somebody who has logged
+     eight weeks was the defect -- the week-7 marathon athlete with no estimate
+     at all. So the band is drawn, and the honesty lives where it belongs: in
+     the STATE, which is 'estimated' and not 'measured', and in the copy, which
+     says a race or a checkpoint would sharpen it. */
   assert.equal(a.measuredPerformances().length, 0, 'a training run became a measurement');
-  assert.equal(a.raceOutlook().state, 'none');
-  assert.doesNotMatch(a.renderRaceOutlook(), /oi-band/);
+  assert.equal(a.raceOutlook().state, 'estimated',
+    'a fully logged block still produced no assessment at all');
+  assert.notEqual(a.raceOutlook().state, 'measured',
+    'training runs were promoted to measured evidence');
+  const html = a.renderRaceOutlook();
+  assert.match(html, /Estimated from your training so far/);
+  assert.doesNotMatch(html, /Training runs do not move it/,
+    'an estimate claimed the authority of a measurement');
 });
 
 test('OUTLOOK: a benchmark cannot move it either', () => {
@@ -370,8 +539,13 @@ test('OUTLOOK: it is not the confidence gauge, and does not restate it', () => {
   const ps = a.renderProgrammeStatus();
   assert.ok(ps.indexOf(a.renderConfidenceGauge()) !== -1);
   assert.match(a.readingPanel('readiness'), /Confidence reflects how closely your logged sessions have matched/);
-  assert.ok(ps.indexOf('id="confidence-gauge-mount"') < ps.indexOf('id="outlook-mount"'),
-    'the outlook was placed above the gauge it sits beneath');
+  /* The two are no longer on one surface at all, which settles the question
+     the ordering assertion was asking: the gauge is the hero's, the outlook
+     is the Goal panel's. They cannot restate each other from there. */
+  assert.doesNotMatch(ps, /outlook-instrument/, 'the outlook is back in the hero');
+  assert.match(a.recordPanelGoal(), /outlook-instrument/);
+  assert.doesNotMatch(a.recordPanelGoal(), /confidence-gauge-mount/,
+    'the gauge followed the outlook into the Goal panel');
 });
 
 test('OUTLOOK: logging a race repaints it through the same patch path as the gauge', () => {
@@ -386,14 +560,14 @@ test('ACTIONS: New Block and Plan Settings moved to Settings; Checkpoint has no 
   const a = withHistory(planHQ());
   // New Block and Plan Settings are programme-management actions, not
   // day-to-day coaching or athlete evidence -- requirement 5 moved both out
-  // of the daily Valhalla page and into Settings, at Settings' own
+  // of the daily Sacoro page and into Settings, at Settings' own
   // restrained button weight rather than as prominent act-tiles. Checkpoint
   // is no longer a tile anywhere -- requirement 9 removed the standalone
   // Fitness Checkpoint popup it used to open, folding "your next checkpoint"
   // directly into Measured Fitness instead.
-  a.planhqTab = 'valhalla';
-  const valhallaTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
-  assert.equal(valhallaTiles.length, 0, 'a management tile is still on the daily Valhalla page');
+  a.planhqTab = 'sacoro';
+  const sacoroTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
+  assert.equal(sacoroTiles.length, 0, 'a management tile is still on the daily Sacoro page');
 
   a.planhqTab = 'record';
   const recordTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
@@ -402,13 +576,19 @@ test('ACTIONS: New Block and Plan Settings moved to Settings; Checkpoint has no 
   assert.equal(a.ACTION_PANELS.checkpoint, undefined, 'the standalone Fitness Checkpoint popup is still registered');
 
   const settingsHtml = a.renderSettingsHubView();
-  // 400, not 300: these rows are .ev-card.stg-nav now (VALHALLA CONSISTENCY
+  // 400, not 300: these rows are .ev-card.stg-nav now (SACORO CONSISTENCY
   // PASS -- icon, label, chevron, same shell Coach's Reading rows use), and
   // an inlined icon SVG between the tag and its label can itself run past
   // 300 characters -- see ICONS.layers, at 311.
   assert.match(settingsHtml, /data-action="open-new-block"[^>]*>[\s\S]{0,400}?Start a New Block/,
     'New Block is not reachable from Settings');
-  assert.match(settingsHtml, /data-action="open-setup"[^>]*>[\s\S]{0,400}?Edit Plan Settings/,
+  /* Plan Settings moved one step deeper with the rest of the training
+     configuration, behind Settings' Training & Zones row -- Settings is a
+     list of destinations now rather than a scroll of open sections. */
+  assert.match(settingsHtml, /data-action="open-settings-panel" data-panel="training"/,
+    'Settings has no Training & Zones destination');
+  assert.match(a.hqPanelHtml('training'),
+    /data-action="open-setup"[^>]*>[\s\S]{0,400}?Edit Plan Settings/,
     'Plan Settings is not reachable from Settings');
   assert.match(CODE, /case 'open-new-block':/, 'open-new-block is not handled');
   assert.match(CODE, /case 'open-setup':/, 'open-setup is not handled');
@@ -434,13 +614,18 @@ test('TRIO: PLAN SETTINGS goes to the plan editor the product already calls that
   const a = withHistory(planHQ());
   // Plan Settings lives only in Settings now (requirement 5) -- Settings has
   // called openSetupModal() "Edit Plan Settings" all along, and there is no
-  // longer a second door onto it from the daily Valhalla page.
-  const html = a.renderSettingsHubView();
-  assert.match(html, /data-action="open-setup"[^>]*>[\s\S]{0,600}?Edit Plan Settings/,
+  // longer a second door onto it from the daily Sacoro page.
+  /* One step deeper, behind Settings' Training & Zones row, with the rest
+     of the plan configuration -- Settings lists destinations now. */
+  assert.match(a.renderSettingsHubView(),
+    /data-action="open-settings-panel" data-panel="training"/);
+  assert.match(a.hqPanelHtml('training'),
+    /data-action="open-setup"[^>]*>[\s\S]{0,600}?Edit Plan Settings/,
     'Edit Plan Settings does not fire open-setup');
-  assert.match(CODE, /case 'open-setup': openSetupModal\(\);/);
+  /* Through stgOpenSub(), so closing the editor returns to Training & Zones. */
+  assert.match(CODE, /case 'open-setup': stgOpenSub\(openSetupModal\);/);
   assert.doesNotMatch(a.renderPlanHQView(), /data-action="open-setup"/,
-    'Plan Settings is still duplicated on the daily Valhalla page');
+    'Plan Settings is still duplicated on the daily Sacoro page');
 });
 
 test('CHECKPOINT: Measured Fitness names it and always has a real action, no separate popup', () => {
@@ -449,19 +634,19 @@ test('CHECKPOINT: Measured Fitness names it and always has a real action, no sep
   assert.match(panel, /<h2 class="font-head">Measured Fitness<\/h2>/);
   // "Why races/checkpoints count as measurements" is said once, here, not
   // repeated in a second popup that no longer exists.
-  assert.match(panel, /What counts as a measurement/);
+  assert.match(panel, /What Counts as Evidence/);
   // Never generic scheduling.
   assert.doesNotMatch(panel, /schedule a (workout|session|run)/i);
   assert.doesNotMatch(panel, /add a session/i);
 
   const chk = a.state.days.filter(d => d.type === 'checkpoint')[0];
   assert.ok(chk, 'the generator scheduled no checkpoint to test against');
-  assert.match(panel, /Your (next )?checkpoint/);
+  assert.match(panel, /Your Checkpoint|Next Checkpoint/);
   assert.ok(panel.indexOf(chk.title || 'Fitness Checkpoint') !== -1, 'the checkpoint\'s own name is missing');
   assert.match(panel, new RegExp('Week ' + chk.week));
   // The row/action goes directly to Full Plan -- not to another popup.
   assert.match(panel, /data-action="go-checkpoint"/);
-  assert.match(panel, new RegExp('Open week ' + chk.week));
+  assert.match(panel, new RegExp('Open Week ' + chk.week + ' in Your Plan'));
 });
 
 test('CHECKPOINT: navigates to the real session directly from Measured Fitness', () => {
@@ -483,42 +668,71 @@ test('CHECKPOINT: navigates to the real session directly from Measured Fitness',
 // ===========================================================================
 // 5. THE WHOLE SCREEN
 // ===========================================================================
-test('HQ: Valhalla, Coach and Record each open on the right question, in the right order within themselves', () => {
+test('HQ: Sacoro opens on the right question, in the right order down one page', () => {
   const a = withHistory(planHQ());
-  // The single long scroll is gone -- VALHALLA/COACH/RECORD are three tabs
-  // now, so "summary first, interpretation second, record third, actions
-  // last" is a rule about ordering WITHIN each tab, not down one page.
-  a.planhqTab = 'valhalla';
-  const valhalla = a.renderPlanHQView();
-  const atV = s => valhalla.indexOf(s);
-  assert.ok(atV('class="v-hero"') < atV('id="outlook-mount"'), 'the outlook is above the gauge');
-  // New Block and Plan Settings no longer render here at all (requirement 5
-  // moved both to Settings) -- the daily Valhalla page ends on the Record
-  // preview and the block-transition card, with no action-tile row below it.
-  assert.doesNotMatch(valhalla, /class="act-trio/, 'a management action tile is still on the daily Valhalla page');
-
-  a.planhqTab = 'coach';
-  const coach = a.renderPlanHQView();
-  assert.ok(coach.indexOf('>The Reading<') !== -1, 'THE READING left the Coach tab');
-
-  a.planhqTab = 'record';
-  const record = a.renderPlanHQView();
-  const atR = s => record.indexOf(s);
-  assert.ok(atR('Active Goal') < atR('>The Record<'), 'Active Goal is above THE RECORD');
-  // No action-tile row follows it any more -- Checkpoint's own tile is gone
-  // with the popup it used to open (requirement 9).
-  assert.doesNotMatch(record, /class="act-trio/, 'an action tile is still on Record');
+  /* The three tabs are gone and the single scroll is back -- but not the one
+     that was split up originally. The order is the order the athlete reads
+     in: where am I (the hero band), what is the call, what does it mean (the
+     Reading arc), what is it built on (the Athlete Status), then the
+     coaching that has no depth behind it. */
+  const html = a.renderPlanHQView();
+  const at = s => html.indexOf(s);
+  /* THE ORDER SURVIVED THE RESTRUCTURE AND THE TWO HEADINGS DID NOT.
+     Founder: "hero stays exactly the same!! Then 6 circles ... then 2 even
+     sized rectangular boxes ... the reading and the athlete status and gold
+     decor lines can be removed." So the same four questions are asked in the
+     same sequence; they are simply no longer announced by a headed row. */
+  /*
+     ---- CHANGED SIDES: SACORO'S CALL IS GONE ----
+     Founder: "I don't like Sacoro's call - proceed / Recovery fresh,
+     trend still building. We know the user should proceed."
+     The engine returns PROCEED on most days, so a band under the hero
+     announcing it told the athlete what opening the app already assumed,
+     and both readings in its sub-line are circles in the grid beneath it
+     with panels of their own. It had already given up its dot and then its
+     wash for the same reason; this is that argument reaching the block. */
+  assert.doesNotMatch(html, /class="v-call/, 'Sacoro\u2019s Call is back under the hero');
+  assert.ok(at('class="v-hero"') < at('class="b-grid"'), 'the circles are above the hero');
+  assert.ok(at('class="b-grid"') < at('class="b-grid b-minis"'),
+    'the small circles are above the main circles');
+  assert.ok(at('class="b-grid b-minis"') < at(a.renderCoachPanel()),
+    'the coach cards are above the small circles');
+  assert.doesNotMatch(html, />The Reading</, 'the retired Reading heading is back');
+  assert.doesNotMatch(html, />The Athlete Status</, 'the retired Athlete Status heading is back');
+  assert.doesNotMatch(html, /class="act-trio/,
+    'a management action tile is still on the daily Sacoro page');
 });
 
-test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a destination', () => {
+test('HQ: nothing on Sacoro/Coach/Record expands inline, and every card is a destination', () => {
   const a = withHistory(planHQ());
-  a.planhqTab = 'coach';
-  const readingCardsHtml = a.renderPlanHQView().match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [];
-  assert.equal(readingCardsHtml.length, 5, 'expected five Reading cards on Coach');
-  a.planhqTab = 'record';
-  const recordCardsHtml = a.renderPlanHQView().match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [];
-  // Three now, not four -- Training paces moved to Settings (requirement 6).
-  assert.equal(recordCardsHtml.length, 3, 'expected three Record cards on Record');
+  const html = a.renderPlanHQView();
+  const circles = html.match(/<button type="button" class="b-dial[^"]*"[\s\S]*?<\/button>/g) || [];
+  const readingCardsHtml = circles.filter(c => c.indexOf('open-reading') !== -1);
+  const recordCardsHtml = circles.filter(c => c.indexOf('open-record') !== -1);
+  // Four since readiness left the arc for the gauge, which is itself a
+  // destination and is checked for one below.
+  assert.equal(readingCardsHtml.length, 4, 'expected four Reading circles');
+  /* ---- CHANGED SIDES: FOUR PLATES, NO CIRCLES ----
+     Founder: "I think we make the fitness and progress circles the same as
+     goal and benchmark. And then put them under the circles."
+     This read "two circles and two plates" while Fitness and Progress were
+     still in the grid. The claim underneath is the one that matters and it
+     is unchanged -- all four facts are destinations and none of them
+     expands in place -- so only the shape they are counted in moves. */
+  /* ---- CHANGED SIDES AGAIN: FOUR SMALL CIRCLES ----
+     Founder: "Smaller circles establish a secondary visual hierarchy beneath
+     the main coaching circles. All four values are immediately accessible."
+     The claim is unchanged: four facts, each a destination, none inline. */
+  const plates = (html.match(/<button type="button" class="b-dial b-mini"[\s\S]*?<\/button>/g) || []);
+  assert.equal(recordCardsHtml.length, 4, 'expected four small Record circles');
+  assert.equal(plates.length, 4, 'expected four Athlete Status circles');
+  plates.forEach(p => {
+    assert.match(p, /data-action="open-record"/, 'a plate that goes nowhere');
+    assert.doesNotMatch(p, /aria-expanded/, 'a plate that expands rather than opens');
+  });
+  const gaugeTag = (html.match(/<button[^>]*class="gauge-wrap"[^>]*>/) || [])[0] || '';
+  assert.match(gaugeTag, /data-action="open-reading"/, 'the gauge goes nowhere');
+  assert.doesNotMatch(gaugeTag, /aria-expanded/, 'the gauge expands rather than opens');
   readingCardsHtml.concat(recordCardsHtml).forEach(c => {
     assert.match(c, /data-action="open-(reading|record)"/, 'a card that goes nowhere');
     assert.doesNotMatch(c, /aria-expanded/, 'a card that expands rather than opens');
@@ -527,24 +741,39 @@ test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a d
 
 test('HQ: the coaching that has no depth behind it stays on the page', () => {
   const a = withHistory(planHQ());
-  a.planhqTab = 'coach';
   const html = a.renderPlanHQView();
   const report = a.coachAnalyse();
-  // Athlete Status is the headline and is rendered verbatim.
-  assert.ok(html.indexOf(a.renderAthleteStatusCard(report)) !== -1,
-    'Athlete Status left the Coach tab');
-  // And the coach cards are still the ones the coach panel produces.
+  /* renderAthleteStatusCard() led this and has been deleted: load is the
+     hero band's right-hand figure, recovery is a circle with a panel, trend
+     is a row inside the Readiness panel, and the sentence it carried is
+     Sacoro's Call at the top of the screen. It was the same three readings
+     a fourth time, directly beneath them. The REST of the coach's voice --
+     the cards with no depth behind them and so nothing to tap into -- is
+     what this test has always been about, and it stays on the page. */
+  assert.equal(typeof a.renderAthleteStatusCard, 'undefined');
+  /* The status sentence and its surface are both gone, on instruction --
+     see the order law above. What this test is about is the REST of the
+     coach's voice, which is unchanged and asserted below. */
+  assert.doesNotMatch(html, /class="v-call /, 'Sacoro\u2019s Call is back');
   assert.ok(html.indexOf(a.renderCoachPanel()) !== -1);
   assert.ok(a.renderCoachPanel().indexOf(a.renderBreakthroughCard(report)) !== -1,
     'Breakthrough Sessions left the coach panel');
-  assert.ok(a.renderCoachPanel().indexOf(a.renderCoachWatchCard(report)) !== -1,
-    'Coach Watch left the coach panel');
+  /* COACH WATCH LEFT ON INSTRUCTION -- founder: "is coaches watch there?
+     Because I don't want that!" The renderer is deleted rather than left
+     unreferenced, so this asserts its absence instead of its presence.
+     WHAT IT CARRIED IS ON THE RECORD in the comment on renderCoachPanel():
+     report.watch holds the coach's standing cautions, the unlogged-session
+     notice among them, and that warning now has no surface on Sacoro. */
+  assert.equal(typeof a.renderCoachWatchCard, 'undefined',
+    'the Coach Watch renderer is back');
+  assert.doesNotMatch(html, />Coach Watch</, 'the Coach Watch card is back on Sacoro');
 });
 
 test('HQ: an athlete with no plan is never asked to render any of this', () => {
   const a = loadApp({ pinnedDate: PINNED });
   a.state = a.makeDefaultState();
-  assert.equal(a.renderReadingSection(), '');
+  assert.equal(a.renderSacoroInstruments(), '');
+  assert.equal(a.renderSacoroInstruments(), '');
   assert.equal(a.renderRaceOutlook(), '');
   assert.equal(a.raceOutlook(), null);
   a.openHQPanel('recovery');

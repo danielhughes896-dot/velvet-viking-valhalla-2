@@ -48,7 +48,7 @@ waiting for a token to expire.
 
 Both are **Supabase Auth settings**, not application code, and they are the
 right place for them — a link's lifetime is a property of the credential, and
-GoTrue is what issues and redeems it. Valhalla neither extends nor shortens
+GoTrue is what issues and redeems it. Sacoro neither extends nor shortens
 them.
 
 The application's protection against a stale or replayed link is the layer

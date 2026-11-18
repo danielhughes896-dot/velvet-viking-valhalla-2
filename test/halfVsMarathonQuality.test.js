@@ -59,11 +59,19 @@ test('THE LONG RUN — the marathon carries roughly twice the half\'s goal-pace 
   });
 });
 
-test('PEAK — the marathon\'s hardest session is materially bigger than the half\'s', () => {
+test('PEAK — the marathon\'s goal-pace session is bigger than the half\'s', () => {
+  /* RE-STATED, 16 November 2026 (founder: "Take turns, add tempo"). The 1.3x
+     margin was carried by an 8 x 1200m VO2 session in the marathon's biggest
+     week; the ruling keeps one short VO2 session in Peak and gives the peak
+     weeks to marathon pace and threshold. What still separates the events is
+     the race-specific session: the marathon's goal-pace work in Peak is the
+     larger of the two. */
   EXPS.forEach(e => {
     const h = sessions('half', e), f = sessions('full', e);
-    assert.ok(f.peakMax > h.peakMax * 1.3,
-      e + ': marathon Peak session ' + f.peakMax + 'km against the half\'s ' + h.peakMax);
+    const gpMax = s => Math.max.apply(null, [0].concat(s.q.filter(d =>
+      s.res.blk.weeks[d.week - 1].phase === 'Peak' && /^goal_pace/.test(d.prescription.archetype)).map(d => d.km)));
+    assert.ok(gpMax(f) > gpMax(h),
+      e + ': marathon Peak goal-pace session ' + gpMax(f) + 'km against the half\'s ' + gpMax(h));
   });
 });
 
@@ -74,7 +82,20 @@ test('TEMPO — the marathon\'s continuous work runs longer than the half\'s', (
                            h.param('split_tempo', 'min'));
     const fMin = [].concat(f.param('progressive_tempo', 'min'), f.param('steady_tempo', 'min'),
                            f.param('split_tempo', 'min'));
-    assert.ok(hMin.length && fMin.length, e + ': no tempo work on one of the two distances');
+    /* A NOVICE MARATHON'S CONTINUOUS WORK IS THRESHOLD, IN KILOMETRES (16
+       November 2026). With the lighter week now ending Build, a novice
+       marathon's short Build holds one tempo turn, and the turn is
+       continuous threshold, which is stated as a distance. Where a distance
+       has no minute-stated tempo, the continuous threshold runs are compared
+       instead, the same claim in the unit the session carries. */
+    if (!(hMin.length && fMin.length)){
+      const thr = s => s.param('threshold_continuous', 'km');
+      assert.ok(thr(h).length && thr(f).length, e + ': no continuous work on one of the two distances');
+      assert.ok(Math.max.apply(null, thr(f)) > Math.max.apply(null, thr(h)),
+        e + ': marathon continuous threshold runs to ' + Math.max.apply(null, thr(f)) +
+        'km against the half\'s ' + Math.max.apply(null, thr(h)));
+      return;
+    }
     assert.ok(Math.max.apply(null, fMin) > Math.max.apply(null, hMin),
       e + ': marathon tempo runs to ' + Math.max.apply(null, fMin) +
       ' minutes against the half\'s ' + Math.max.apply(null, hMin));

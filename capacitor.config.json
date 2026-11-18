@@ -1,8 +1,17 @@
 {
   "appId": "com.velvetviking.valhalla",
-  "appName": "Velvet Viking",
+  "appName": "SACORO",
   "webDir": "www",
   "server": {
     "url": "https://app.velvetviking.co.uk"
+  },
+  "android": {
+    "zoomEnabled": true,
+    "backgroundColor": "#121316"
+  },
+  "ios": {
+    "backgroundColor": "#121316",
+    "contentInset": "never",
+    "limitsNavigationsToAppBoundDomains": false
   }
 }

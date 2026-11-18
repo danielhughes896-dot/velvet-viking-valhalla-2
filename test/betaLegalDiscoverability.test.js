@@ -82,75 +82,102 @@ test('the app does not embed a copy of either document', () => {
 });
 
 // ---------------------------------------------------------------------------
-// SETTINGS -> LEGAL & SUPPORT
+// SETTINGS -> PRIVACY, TERMS AND CONTACT
 // ---------------------------------------------------------------------------
-test('Settings has a Legal & Support section with all three links', () => {
+/* Founder: "Legal and support. Currently the 3 options go nowhere. And we
+   have the 2 greyed out options at the bottom so they can be removed from
+   there and delete the legal title. Contact should then be a standalone
+   option."
+   So the documents are reached from the footer under the Settings list, the
+   Legal & Support heading is gone, and Contact is a row of its own. Every
+   one of them leaves the app through openExternal(), because a link opening
+   a new window is what went nowhere in the installed app. */
+test('Settings reaches both documents from its footer, and Contact is a row of its own', () => {
   const a = app();
   buildPlan(a, { weeks: 12, startDate: TODAY, distanceKey: 'half' });
   const html = a.renderSettingsHubView();
-
-  assert.ok(html.indexOf('Legal &amp; Support') !== -1, 'the section must exist');
-  assert.ok(html.indexOf('href="' + CANON_PRIVACY + '"') !== -1, 'Privacy Policy link');
-  assert.ok(html.indexOf('href="' + CANON_BETA_TERMS + '"') !== -1, 'Private Beta Terms link');
-  assert.ok(html.indexOf('href="mailto:' + SUPPORT + '"') !== -1, 'Support link');
-  assert.ok(html.indexOf('Privacy Policy') !== -1);
-  assert.ok(html.indexOf('Private Beta Terms') !== -1);
+  assert.equal(html.indexOf('Legal &amp; Support'), -1, 'the Legal & Support heading is back');
+  assert.match(html, /<button type="button" class="legal-link" data-action="open-legal" data-doc="privacy">Privacy<\/button>/);
+  assert.match(html, /<button type="button" class="legal-link" data-action="open-legal" data-doc="terms">Terms<\/button>/);
+  /* No second copy of the links up in the list. */
+  assert.equal((html.match(/Privacy Policy|Private Beta Terms|Terms of Service/g) || []).length, 0, 'the documents are listed twice');
+  /* Contact, on its own, with the address on it -- so the athlete has it
+     whether or not the phone has a mail app to open. */
+  const contact = /<div class="hub-card tile-card stg-group stg-solo"><button type="button" class="ev-card stg-nav stg-row" data-action="open-contact">([\s\S]*?)<\/button><\/div>/.exec(html);
+  assert.ok(contact, 'Contact is not a row of its own');
+  assert.match(contact[1], /<span class="stg-row-title">Contact<\/span>/);
+  assert.match(contact[1], new RegExp('<span class="stg-row-sub">' + SUPPORT + '</span>'));
+  assert.ok(!/class="setup-section-title">[^<]*<\/div><button[^>]*data-action="open-contact"/.test(html), 'Contact sits under a heading');
 });
 
-test('the external links cannot be used to hijack the app tab', () => {
+test('every link out of the app goes through one door, and lands on the canonical documents', () => {
   const a = app();
   buildPlan(a, { weeks: 12, startDate: TODAY, distanceKey: 'half' });
+  const went = [], wins = [];
+  a.window.open = (u, n, f) => { went.push(['open', u, n, f]); const w = { opener: a.window }; wins.push(w); return w; };
+  const loc = { href: '' };
+  Object.defineProperty(a.window, 'location', { value: loc, configurable: true, writable: true });
+  /* In a browser: a new tab, with no way back into this one, and the app's
+     own tab left where it was (Audit IV UX-R2: with 'noopener' window.open()
+     returns null by specification, so the old fallback sent the app tab, or
+     the whole Home Screen app, to the website as well). */
+  a.isNativeApp = () => false;
+  a.openExternal(a.LEGAL_URLS.privacy);
+  a.openExternal(a.LEGAL_URLS.terms);
+  assert.deepEqual(went, [['open', CANON_PRIVACY, '_blank', undefined], ['open', CANON_BETA_TERMS, '_blank', undefined]]);
+  assert.ok(wins.every(w => w.opener === null), 'the new tab can still reach back into the app');
+  assert.equal(loc.href, '', 'the app tab left the app');
+  /* Only a pop-up genuinely blocked (no window at all) falls back to this tab. */
+  a.window.open = () => null;
+  a.openExternal(CANON_PRIVACY);
+  assert.equal(loc.href, CANON_PRIVACY);
+  loc.href = '';
+  a.window.open = (u, n, f) => { went.push(['open', u, n, f]); return {}; };
+  /* In the installed app: the page itself navigates, which the shell hands
+     to the system browser. A new window is what went nowhere. */
+  a.isNativeApp = () => true;
+  a.openExternal(CANON_PRIVACY);
+  assert.equal(loc.href, CANON_PRIVACY);
+  assert.equal(went.length, 2, 'the installed app tried to open a window');
+  /* The mail app, either way. */
+  a.isNativeApp = () => false;
+  a.openContact();
+  assert.equal(loc.href, 'mailto:' + SUPPORT);
+  /* And nothing on the Settings page still opens a window of its own. */
   const html = a.renderSettingsHubView();
-  // Every off-origin link opens in a new context and drops the opener. The
-  // mailto is deliberately exempt — target="_blank" on a mailto leaves a blank
-  // tab behind on some browsers.
-  const external = html.match(/<a[^>]*href="https:\/\/velvetviking\.co\.uk[^"]*"[^>]*>/g) || [];
-  /* BOTH DOCUMENTS, AND EVERY LINK TO THEM. Settings reaches each document
-     twice now -- once from the Legal & Support cards and once from the small
-     build-tag footer, which used to point at this deployment's own superseded
-     copies. Asserting the SAFETY PROPERTY on every off-origin tag rather than
-     counting to two: a future third link to the same documents is fine, a
-     single one that drops the opener protection is not. */
-  assert.ok(external.length >= 2, 'both documents linked');
-  for (const tag of external) {
-    assert.match(tag, /target="_blank"/, tag);
-    assert.match(tag, /rel="noopener noreferrer"/, tag);
-  }
-  const hrefs = external.join(' ');
-  assert.match(hrefs, /velvetviking\.co\.uk\/privacy/, 'the privacy notice must be reachable');
-  assert.match(hrefs, /velvetviking\.co\.uk\/(beta-)?terms/, 'and the Terms in force');
-  /* And Settings no longer offers this deployment's own stale copies. */
-  assert.ok(!/href="\/(terms|privacy)"/.test(html),
-    'Settings must not link to the superseded local documents');
+  assert.doesNotMatch(html, /target="_blank"/, 'a link that goes nowhere in the app is back');
+  assert.ok(!/href="\/(terms|privacy)"/.test(html), 'Settings must not link to the superseded local documents');
+  assert.match(RUNTIME, /case 'open-legal': openExternal\(target\.getAttribute\('data-doc'\) === 'terms' \? LEGAL_URLS\.terms : LEGAL_URLS\.privacy\); break;/);
+  assert.match(RUNTIME, /case 'open-contact': openContact\(\); break;/);
 });
 
 test('the Settings section reuses the existing hub architecture', () => {
-  // No second settings system. The card and heading class are the ones every
-  // other Settings section already uses. The three links themselves reuse
-  // .ev-card -- the exact tappable-destination shell Coach's Reading rows use
-  // -- rather than the plain .btn-ghost box a navigational entry used to get;
-  // see the VALHALLA CONSISTENCY PASS comment on .ev-card.stg-nav.
-  const at = RUNTIME.indexOf("'<div class=\"setup-section-title\">Legal &amp; Support</div>'");
-  assert.ok(at !== -1, 'must use the existing setup-section-title heading');
-  const card = RUNTIME.slice(RUNTIME.lastIndexOf('hub-card', at), at + 1200);
-  assert.match(card, /ev-card stg-nav/, 'must use the shared tappable-destination row class');
-  // And exactly one Settings hub renderer exists.
+  const a0 = app();
+  buildPlan(a0, { weeks: 12, startDate: TODAY, distanceKey: 'half' });
+  const view = a0.renderSettingsHubView();
+  assert.match(view, /<div class="setup-section-title">Data &amp; Privacy<\/div>/, 'must use the existing setup-section-title heading');
+  assert.match(view, /data-action="open-contact"/);
+  assert.match(view.slice(view.indexOf('open-contact') - 200, view.indexOf('open-contact')), /ev-card stg-nav/, 'must use the shared tappable-destination row class');
+  assert.equal((RUNTIME.match(/function stgGroup\(/g) || []).length, 1,
+    'there must be one group builder, or the eight copies are back');
   assert.equal((RUNTIME.match(/function renderSettingsHubView\(/g) || []).length, 1);
 });
 
-test('the destructive Reset action is still the last thing in Settings', () => {
+test('one way to start again: New Block stays, Reset Plan leaves the list', () => {
+  /* Founder: "Is start a new block needed? We have that, reset plan and
+     update plan." Asked which should stay: "Keep New Block, drop Reset."
+     New Block keeps the finished weeks as history and carries everything
+     learned; Edit Plan Settings, in Training & Zones, still changes the plan
+     you are in. */
   const a = app();
   buildPlan(a, { weeks: 12, startDate: TODAY, distanceKey: 'half' });
   const html = a.renderSettingsHubView();
-  assert.ok(
-    html.indexOf('Legal &amp; Support') < html.indexOf('Reset Plan'),
-    'a red destructive button belongs last; the legal card must not displace it'
-  );
+  assert.doesNotMatch(html, /Reset Plan|data-panel="resetplan"/, 'Reset Plan is back in Settings');
+  assert.match(html, /data-action="open-new-block"[\s\S]*?Start a New Block[\s\S]*?Keeps your history and everything learned/);
+  assert.doesNotMatch(html, /data-action="reset-plan"/, 'a reset button is on the Settings page itself');
+  assert.match(a.settingsPanelTraining(), /data-action="open-setup"/, 'Edit Plan Settings left Training & Zones');
 });
 
-// ---------------------------------------------------------------------------
-// ONBOARDING VISIBILITY
-// ---------------------------------------------------------------------------
 test('a first-time athlete is told which documents govern the beta', () => {
   const a = app();
   a.openModal = (html) => { a.__modal = html; };

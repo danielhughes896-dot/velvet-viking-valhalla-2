@@ -46,9 +46,45 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8'
    false pass in this suite before. */
 const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
+/* ---------- FULL PLAN SHOWS ONE PHASE AT A TIME ----------
+   Under the phase carousel the screen lists the weeks of the phase the
+   athlete is looking at, and opens on the phase holding the CURRENT week.
+   racingBlock() pins today five weeks into a thirteen-week build, so that
+   is the Build phase -- and a test asking "what does this screen say about
+   week 13" has to say which phase it is looking at, exactly as an athlete
+   has to swipe to it.
+   THROUGH THE REAL HANDLER, not by poking the variable: handlePhasePick()
+   is what a dot tap and a swipe both call, so these read the screen the
+   athlete actually gets rather than one assembled by the test. */
+function planViewOn(a, weekNum){
+  const g = a.planPhaseGroups().filter(x => x.weeks.indexOf(weekNum) !== -1)[0];
+  assert.ok(g, 'week ' + weekNum + ' belongs to no phase');
+  const render = a.renderApp;
+  a.renderApp = () => {};
+  a.handlePhasePick(g.phase);
+  a.renderApp = render;
+  return a.renderFullPlanView();
+}
+
 /* A real race block through the app's own generator, exactly as
    handleGeneratePlan builds one -- so the race day, its distance and its
    prescription are the engine's and not this file's. */
+/* THE GOAL DAY'S OWN STOP. Founder: "I think it should be added to the rail
+   at the end. Base -> Build -> Peak -> Taper -> Race Day." The standalone
+   event used to be appended to the week list under every phase, so any phase
+   view carried it; it has a slide of its own now and only that slide's body
+   carries it. Selected the way the athlete selects it -- handlePhasePick on
+   the stop's own name -- rather than by reaching into the renderer. */
+function planStopView(a){
+  const stops = a.planRailStops();
+  const last = stops[stops.length - 1];
+  assert.ok(last && last.race, 'the rail does not end at the goal day');
+  const render = a.renderApp;
+  a.renderApp = () => {};
+  a.handlePhasePick(last.phase);
+  a.renderApp = render;
+  return a.renderFullPlanView();
+}
 function racingBlock(opts){
   const o = opts || {};
   const a = loadApp({ pinnedDate: (o.today || '2026-08-27') + 'T09:00:00Z' });
@@ -84,6 +120,16 @@ function raceDay(a){
 /* The header figure the week accordion prints, read out of the rendered
    markup rather than recomputed -- recomputing it would test the arithmetic
    twice and the display not at all. */
+/* This Week no longer prints the accordion header -- it leads with a week
+   hero instead -- but it prints the SAME pair from the same weekVolume()
+   call: completed training over planned training. This reads that figure so
+   the cross-surface comparison below still compares rendered markup on both
+   sides rather than quietly recomputing one of them. */
+function heroVolume(html){
+  const m = /<div class="wk-hero-vol"><b>([^<]*)<\/b><span> \/ ([^<]*)<\/span><\/div>/.exec(html);
+  assert.ok(m, 'This Week did not render its hero volume');
+  return [m[1], m[2].replace(/[^0-9.]/g, '')];
+}
 function headerVolume(html, weekNum){
   const week = new RegExp('<div class="week[^"]*" id="week-' + weekNum + '">([\\s\\S]*?)</button>')
     .exec(html);
@@ -112,7 +158,7 @@ test('the race week header shows training volume only, not training + race', () 
   assert.ok(vol.training < vol.total,
     'the training figure and the all-in figure are the same number');
 
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
   assert.equal(headerVolume(html, race.week), '0/' + a.kmToDisplay(vol.training),
     'the race week header prints a figure that is not the training total');
   assert.ok(headerVolume(html, race.week).indexOf(a.kmToDisplay(vol.total)) === -1,
@@ -174,42 +220,73 @@ test('the race session is still in the programme, with its prescription intact',
     'the race is no longer a key session');
 });
 
-test('the race day renders exactly once, as a standalone event below the last week', () => {
+test('the race day renders exactly once, as a standalone event on its own stop', () => {
+  /* ---- THIS LAW MOVED SCREENS, NOT CLAIMS ----
+     It used to read the event off the phase holding the race week, because
+     renderWeeksList() appended it to every phase's list. That is what the
+     founder saw and named: "The goal day card looks like the last version of
+     the app" -- it was the old card, printed under Base, Build, Peak and
+     Taper alike. The event is on the rail's last stop now. What is asserted
+     is unchanged: it renders once, it is introduced as an event rather than
+     listed as a session, and the week accordion does not carry it. */
   const a = racingBlock();
   const race = raceDay(a);
-  const html = a.renderFullPlanView();
+  const phase = planViewOn(a, race.week);
+  const stop = planStopView(a);
 
+  /* COUNTED ON THE OPENING TAG, NOT ON THE PREFIX. The panel's own class is
+     "race-event race-stop" and it contains .race-event-when and
+     .race-event-dist, so a prefix count reads 3 for one event. Matched up to
+     the character that ends the name. */
+  assert.equal((stop.match(/class="race-event[ "]/g) || []).length, 1,
+    'the standalone event did not render exactly once on its own stop');
+  /* ---- THE IDENTITY IS ON THE SLIDE, NOT IN THE PANEL ----
+     The two assertions that were here required a title row and a distance
+     INSIDE the panel. Founder, having seen it: "we don't need the title
+     within it as the card tells us... the look gives it a hero finish and
+     shouldn't look like the rest of the full plan." The slide directly above
+     carries the name, the date and the distance; the panel carries what the
+     slide does not say. Both halves are asserted, so "withheld from the
+     panel" cannot quietly become "gone from the screen". */
+  const above = stop.slice(0, stop.indexOf('class="race-event race-stop"'));
+  assert.ok(above.indexOf('42.2') > -1,
+    'the race distance has gone from the slide as well as the panel');
+  assert.ok(above.indexOf(a.vGoalDay()) > -1, 'the slide no longer names the day');
+  assert.equal(stop.indexOf('race-divider'), -1,
+    'the panel grew back the title row the slide already writes');
+  assert.match(stop, /data-action="plan-open-session"/,
+    'the standalone event is no longer the way in to the race session');
+
+  /* ---- AND THE WEEK NEVER CARRIES IT ----
+     The original claim, and the one that still bites: the race is excluded
+     from the week's own session list, so the week's total and the event
+     cannot describe the same seven days twice. */
   const cardId = 'id="day-' + race.id + '"';
-  const occurrences = html.split(cardId).length - 1;
-  assert.equal(occurrences, 1,
-    'the race day card rendered ' + occurrences + ' times, not once');
+  assert.equal(phase.indexOf('class="race-event"'), -1,
+    'the goal-day card is back under the phase holding race week');
+  assert.equal(phase.indexOf(cardId), -1,
+    'the race is one of the week accordion\'s day cards again');
+  assert.equal(phase.indexOf('data-action="plan-open-session" data-day="' + race.id + '"'), -1,
+    'race week lists the race as one of its sessions');
 
-  /* It is introduced as the event, not listed as a session. */
-  assert.match(html, /class="phase-divider race-divider"/,
-    'the race day has no divider of its own');
-  assert.match(html, /class="race-event"/, 'the standalone race event did not render');
-  assert.match(html, /class="race-event-dist font-mono"><b>42\.2<\/b>/,
-    'the race distance is not shown on the standalone event');
-
-  /* And it sits AFTER the final week accordion, not inside it. */
-  const weekIdx = html.indexOf('id="week-' + race.week + '"');
-  const eventIdx = html.indexOf('class="race-event"');
-  const cardIdx = html.indexOf(cardId);
-  assert.ok(weekIdx > -1 && eventIdx > weekIdx, 'the race event is not below its week');
-  assert.ok(cardIdx > eventIdx, 'the race card is not inside the standalone event');
-
-  /* The week body itself no longer lists it. */
-  const body = html.slice(weekIdx, eventIdx);
-  assert.ok(body.indexOf(cardId) === -1,
-    'the race is still one of the week accordion\'s day cards');
+  /* ---- THE HIDDEN CARD IS GONE FROM FULL PLAN, AND THAT IS THE POINT ----
+     renderRaceDayEvent() carried renderDayCard(race) and Full Plan hid it in
+     CSS (.view-plan > .race-event > .day{display:none}). The stop does not
+     build it at all: dead markup on this screen, and a second copy of the
+     race's id in a document that already has one on This Week. */
+  assert.equal(stop.indexOf(cardId), -1,
+    'the stop builds the day card Full Plan then hides, which is markup for nobody');
 });
 
 test('every other day of race week is still listed inside the week', () => {
   const a = racingBlock();
   const race = raceDay(a);
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
+  /* The week lists its sessions as rows now; the race is still excluded from
+     that list and emitted separately as its own event. Same claim, read off
+     the element the week actually renders. */
   a.state.days.filter(d => d.week === race.week && d.type !== 'race').forEach(d => {
-    assert.ok(html.indexOf('id="day-' + d.id + '"') > -1,
+    assert.ok(html.indexOf('data-action="plan-open-session" data-day="' + d.id + '"') > -1,
       'day ' + d.date + ' (' + d.type + ') disappeared from race week');
   });
 });
@@ -221,18 +298,31 @@ test('every other day of race week is still listed inside the week', () => {
 test('weeks without a race are completely unaffected', () => {
   const a = racingBlock();
   const rw = raceDay(a).week;
-  const html = a.renderFullPlanView();
+  /* ONE RENDER PER WEEK, because the screen shows one phase at a time -- and
+     this is a claim about EVERY week, so every week is actually looked at
+     rather than inferred from the one phase that happened to be open. */
   for (let w = 1; w <= a.totalWeeksInPlan(); w++){
     if (w === rw) continue;
     const vol = a.weekVolume(w);
     assert.equal(vol.race, 0, 'week ' + w + ' reports race kilometres');
     assert.equal(vol.training, vol.total, 'week ' + w + ' training total drifted from its total');
-    assert.equal(headerVolume(html, w), a.kmToDisplay(vol.done) + '/' + a.kmToDisplay(vol.total),
+    assert.equal(headerVolume(planViewOn(a, w), w),
+      a.kmToDisplay(vol.done) + '/' + a.kmToDisplay(vol.total),
       'week ' + w + ' header changed');
   }
-  /* Exactly one standalone race event in the whole plan. */
-  assert.equal(html.split('class="race-event"').length - 1, 1,
-    'more than one standalone race event rendered');
+  /* ---- AND NO PHASE CARRIES THE EVENT ----
+     THIS REVERSES THE LAW THAT WAS HERE, which required exactly one event on
+     every phase view on the reasoning that Race Day is not inside a phase
+     and is not filtered by one. True of the day; false of the card, which
+     was then printed four times over -- once under each phase the athlete
+     could swipe to. It is not inside a phase BECAUSE it has a stop of its
+     own, which is where the one copy now lives. */
+  for (let w = 1; w <= a.totalWeeksInPlan(); w++){
+    assert.equal(planViewOn(a, w).split('class="race-event"').length - 1, 0,
+      'a phase view carried the standalone race event while looking at week ' + w);
+  }
+  assert.equal((planStopView(a).match(/class="race-event[ "]/g) || []).length, 1,
+    'the goal day\u2019s stop does not carry exactly one standalone event');
 });
 
 test('the all-in figures are still available to callers that want them', () => {
@@ -276,7 +366,7 @@ test('logging the race does not push the header past its own target', () => {
      subtracting the race would print 71.7/29.5. */
   assert.ok(vol.done > vol.doneTraining, 'the completed race was not recorded at all');
 
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
   assert.equal(headerVolume(html, race.week),
     a.kmToDisplay(vol.training) + '/' + a.kmToDisplay(vol.training));
 });
@@ -333,7 +423,7 @@ test('This Week shows the same split as Full Plan during race week', () => {
 
   const week = a.renderWeekView();
   const full = a.renderFullPlanView();
-  assert.equal(headerVolume(week, race.week), headerVolume(full, race.week),
+  assert.equal(heroVolume(week).join('/'), headerVolume(full, race.week),
     'This Week and Full Plan print different totals for the same week');
   assert.equal(week.split('id="day-' + race.id + '"').length - 1, 1,
     'the race renders more or less than once on This Week');
@@ -349,8 +439,8 @@ test('a non-race week on This Week is unchanged and carries no race event', () =
   const html = a.renderWeekView();
   assert.ok(!/class="race-event"/.test(html),
     'a mid-block week renders a race event');
-  assert.equal(headerVolume(html, w),
-    a.kmToDisplay(a.weekVolume(w).done) + '/' + a.kmToDisplay(a.weekVolume(w).total));
+  assert.deepEqual(heroVolume(html),
+    [String(a.kmToDisplay(a.weekVolume(w).done)), String(a.kmToDisplay(a.weekVolume(w).total))]);
 });
 
 // ---------------------------------------------------------------------------
@@ -374,8 +464,26 @@ test('the live stats patch writes the training split, not the all-in total', () 
 test('the week accordion filters the race out exactly once, in one place', () => {
   const acc = /function renderWeekAccordion\([\s\S]*?\n\}/.exec(CODE);
   assert.ok(acc, 'renderWeekAccordion is gone');
-  assert.match(acc[0], /wdays\.filter\(function\(dd\)\{ return dd\.type!=='race'; \}\)\.map\(renderDayCard\)/,
-    'the week body no longer excludes the race from its day cards');
+  /* THE FILTER MOVED WITH THE LIST, AND IS STILL IN EXACTLY ONE PLACE -- a
+     stronger position than before. The accordion used to filter the race out
+     of its own map, and the week SCREEN filtered it out of its own rows: two
+     copies of one rule. Both list through planWeekRowsHtml() now, so the
+     exclusion is written once and neither surface can forget it. */
+  assert.match(acc[0], /planWeekRowsHtml\(weekNum\)/,
+    'the week body no longer lists through the shared row renderer');
+  const rows = /function planWeekRowsHtml\([\s\S]*?\n\}/.exec(CODE);
+  assert.ok(rows, 'planWeekRowsHtml is gone');
+  /* And the rows do not filter for themselves either: they ask
+     weekSessionDays(), which is where "the race is not one of the week's
+     sessions" is defined once for This Week and Full Plan alike. */
+  assert.match(rows[0], /weekSessionDays\(weekNum\)/,
+    'the row renderer filters the week for itself instead of asking weekSessionDays()');
+  const defn = /function weekSessionDays\([\s\S]*?\n\}/.exec(CODE);
+  assert.ok(defn, 'weekSessionDays is gone');
+  assert.match(defn[0], /dd\.type!=='race'/,
+    'the week body no longer excludes the race from its sessions');
+  assert.equal((CODE.match(/dd\.week===weekNum && dd\.type!=='race'/g) || []).length, 1,
+    'the race exclusion is written in more than one place again');
   assert.match(acc[0], /kmToDisplay\(vol\.doneTraining\)\+'\/'\+kmToDisplay\(vol\.training\)/,
     'the week header no longer prints the training split');
 });
@@ -429,19 +537,34 @@ test('a half-marathon block splits the same way', () => {
   assert.equal(race.km, 21.1);
   const vol = a.weekVolume(race.week);
   assert.equal(vol.training, a.round1(vol.total - 21.1));
-  const html = a.renderFullPlanView();
+  const html = planViewOn(a, race.week);
   assert.equal(headerVolume(html, race.week), '0/' + a.kmToDisplay(vol.training));
-  assert.equal(html.split('id="day-' + race.id + '"').length - 1, 1);
+  /* THE SPLIT, READ WHERE EACH HALF LIVES: the week's header counts training
+     only, and the 21.1km it leaves out is on the goal day's own stop --
+     on its slide, which is where the distance moved when the panel became a
+     hero figure and two conditions. */
+  assert.equal(html.indexOf('id="day-' + race.id + '"'), -1,
+    'the half-marathon is listed inside its week again');
+  assert.ok(planStopView(a).indexOf('21.1') > -1,
+    'the half-marathon is not on the goal day\u2019s stop either, so it is nowhere');
 });
 
 test('the standalone event uses the plan\'s own name for the day', () => {
   /* "Race Day" for a real event, "Goal Day" for a self-set target -- vGoalDay()
      already decides that everywhere else and this must not invent a second
      vocabulary. */
+  /* ---- THE NAME MOVED TO THE SLIDE, AND THERE IS ONLY ONE OF IT ----
+     This read the panel's own divider until the founder took that row off:
+     "we don't need the title within it as the card tells us". The claim is
+     unchanged -- the day is named with the plan's own vocabulary, "Race Day"
+     for a real event and "Goal Day" for a self-set target -- and is now read
+     where the name lives. */
   const a = racingBlock();
-  const html = a.renderFullPlanView();
-  const divider = /<div class="phase-divider race-divider"><span class="l font-head">([^<]*)<\/span>/.exec(html);
-  assert.ok(divider, 'the race divider did not render');
-  assert.equal(divider[1], a.vGoalDay(),
-    'the standalone event names the day something the rest of the app does not');
+  const html = planStopView(a);
+  assert.ok(html.indexOf('<span class="pp-slide-k">' + a.vGoalDay() + '</span>') > -1,
+    'the stop\u2019s slide names the day something the rest of the app does not');
+  /* ONCE ON THE SCREEN. Two names for one day is what vGoalDay() exists to
+     prevent, and a panel that names it again is the second one. */
+  assert.equal((html.match(new RegExp('>' + a.vGoalDay() + '<', 'g')) || []).length, 1,
+    'the goal day is named more than once on its own stop');
 });

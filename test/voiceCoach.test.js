@@ -9,7 +9,7 @@ const { buildPlan } = require('./fixtures.js');
 /* THE TODAY VOICE COACH
  * ===========================================================================
  * THE PRODUCT RULE EVERY TEST HERE SERVES: the coach may become conversational,
- * but the coaching may not become generative. Valhalla's deterministic engine
+ * but the coaching may not become generative. Sacoro's deterministic engine
  * decides what the athlete should run and how it went; voice explains that
  * decision out loud and can never make one.
  *

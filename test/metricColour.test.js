@@ -15,7 +15,7 @@ const path = require('path');
 //
 // This is checked at the CSS-rule level because that is where the mistake was
 // made and where it would be made again -- a future rule reaching for
-// --bronze-text because it "looks like a Valhalla number".
+// --bronze-text because it "looks like a Sacoro number".
 const ROOT = path.join(__dirname, '..');
 const APP = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
 
@@ -64,13 +64,37 @@ test('prescribed values resolve through an --ink token, so both themes work', ()
   });
 });
 
-test('gold still means what it means: headings, badges, status, the confidence figure', () => {
+test('gold still means what it means: the brand and the milestones', () => {
   /* The counterpart assertion. If a future pass "cleans up" gold by removing
      it from these, the accent system has lost its other half. */
-  [['.gauge-num b', 'the confidence figure'],
-   ['.exec-pill', 'the execution score pill'],
-   ['.coach-cue', 'the coaching cue'],
-   ['.day-status-label.key', 'the Key-session status label']].forEach(([sel, what]) => {
+  /* ---- CHANGED SIDES: THE CONFIDENCE FIGURE IS WHITE ----
+     Founder: "50% should now be white ... Confidence inside should be
+     white ... I also think this page shouldn't have the off white text. All
+     white."
+     .gauge-num b was in this list because a reading takes gold, which was
+     the law while the gauge stood alone above a block name. It is one of
+     five circles now, and the other four state their readings in white with
+     the RING carrying the colour -- so gold here made the gauge a different
+     kind of instrument from its own row. The counterpart claim this test
+     exists for is untouched: gold still means heading, badge and status,
+     and the three below still prove it. The gauge's ring keeps the cherry
+     accent, which was never the question. */
+  /* ---- AND NOW GOLD IS THE BRAND AND THE MILESTONE ----
+     Founder (15 November 2026): gold lettering for the brand and for
+     destination or milestone words only. The score pill and the coaching
+     cue are information, so their words went white; what still proves the
+     counterpart claim is the brand line, the race-day countdown and the
+     current phase. */
+  [['.pe-by', 'the brand byline'],
+   ['.cd-race-day', 'the race-day countdown'],
+   ['.pp-phase.is-now .pp-name', 'the current phase']
+   /* A THIRD ROW STOOD HERE: the gold dot beside a status word -- first
+      Key's, then Adjusted's. Founder: "Theres a bloody pill!!! Key! Remove."
+      and then "I also don't care about it say adjusted pill top right!
+      Remove." Neither word is printed now, so no status dot is gold and
+      there is nothing left to hold to it. The dots that remain (Missed,
+      Restricted, Recovery) were never gold. */
+  ].forEach(([sel, what]) => {
     const body = ruleBody(sel);
     assert.ok(body, sel + ': rule not found (' + what + ')');
     assert.match(body, /--(gold|bronze)[a-z0-9-]*\)/,
@@ -83,9 +107,19 @@ test('the gauge keeps the accent on the mechanism and gold on the reading', () =
   // semicircular gradient arc with a needle and pivot. The ring itself is
   // still the one place this figure carries the accent; the ticks are the
   // scale around it and must not have been given the accent too.
+  /* THE ARC STILL CARRIES THE ACCENT, it is simply no longer a single
+     stroke:var(--cherry). It takes the session ring's filament -- the same
+     four stops, near-white at the hot end falling through --cherry-text and
+     --cherry to --cherry-dim -- so the claim this guards (the arc is the one
+     place this figure wears the accent) is checked against the gradient the
+     arc actually paints with. */
   const fill = ruleBody('.gauge-fill');
   assert.ok(fill, 'the gauge progress ring is gone');
-  assert.match(fill, /var\(--cherry\)/);
+  assert.match(fill, /url\(#gaugeFill\)/, 'the arc stopped painting with its own gradient');
+  const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const grad = /id="gaugeFill"[\s\S]*?<\/linearGradient>/.exec(src);
+  assert.ok(grad && /var\(--cherry\)/.test(grad[0]),
+    'the gauge arc no longer carries the accent');
   const tick = ruleBody('.gauge-tick');
   if (tick) assert.doesNotMatch(tick, /--cherry/, 'the gauge ticks took the accent — they are the scale, not the progress');
 });

@@ -12,7 +12,7 @@ const { buildPlan } = require('./fixtures.js');
  * changes which larynx says the words, and nothing else. Not the coaching, not
  * the prescription, not Guidance Level, not Ask Coach's reasoning, not the
  * athlete's state, and not one character of the text handed to the speech
- * vendor. The same Valhalla coach, speaking through a different voice.
+ * vendor. The same Sacoro coach, speaking through a different voice.
  *
  * The rest of the file covers the delivery layer that sits under it: the
  * premium voice is primary, the device's own engine is the floor beneath every
@@ -175,14 +175,36 @@ test('the control says plainly that it changes nothing about the coaching', () =
 });
 
 test('Coach Voice sits in Settings with the other presentation preferences', () => {
+  /* Settings is a list of destinations now, so "in Settings with the other
+     presentation preferences" means behind the Preferences row, beside the
+     same three it always sat with -- notifications, coaching detail and
+     strength & mobility. That it is one of exactly those four is a stronger
+     statement of the claim than its position in a scroll was. */
   const a = app();
+  /* Founder, agreeing the Settings review: Preferences is shown on the
+     Settings screen itself, and Coach Voice is a row there that raises a
+     glass sheet with the voices in it. */
   const html = a.renderSettingsHubView();
-  assert.ok(html.indexOf('coach-voice-row') !== -1, 'Coach Voice is not in Settings');
-  const prefs = html.indexOf('Preferences');
-  const voice = html.indexOf('coach-voice-row');
-  const training = html.indexOf('Training &amp; Zones');
-  assert.ok(prefs !== -1 && voice > prefs && (training === -1 || voice < training),
-    'Coach Voice is not inside the Preferences card');
+  const prefsAt = html.indexOf('>Preferences<');
+  assert.ok(prefsAt !== -1, 'Settings has no Preferences group');
+  const panel = html.slice(prefsAt, html.indexOf('setup-section-title', prefsAt + 20));
+  assert.match(panel, /id="coach-voice-hub-row"[^>]*data-action="open-stg-sheet" data-sheet="voice"/, 'Coach Voice is not in Preferences');
+  assert.ok(panel.indexOf('notify-toggle-row') !== -1, 'the reminder left Preferences');
+  assert.ok(a.renderCoachVoiceRow().indexOf('coach-voice-row') !== -1, 'the voices are not in the sheet');
+  /* COACHING DETAIL IS GONE. Founder: "Coach detail - should be the same for
+     everyone - remove." Everyone gets the one level, Adaptive, and a save
+     still carrying Full or Concise is brought back to it when it loads. */
+  assert.ok(panel.indexOf('guidance-level-row') === -1, 'the Coaching detail choice is back in Preferences');
+  assert.ok(panel.indexOf('Coaching detail') === -1);
+  const b = loadApp({ pinnedDate: '2026-09-10T09:00:00Z' });
+  const saved = JSON.parse(JSON.stringify(a.state)); saved.guidanceLevel = 'concise'; saved.units = 'mi';
+  assert.ok(saved.setup && saved.days && saved.days.length, 'the fixture has no plan, so the save would not load');
+  b.window.localStorage.setItem(b.STORAGE_KEY, JSON.stringify(saved));
+  b.loadState();
+  assert.equal(b.state.units, 'mi', 'the save did not load, so this proves nothing');
+  assert.equal(b.guidanceLevel(), 'adaptive', 'a save carrying Concise kept it');
+  assert.ok(panel.indexOf('Training &amp; Zones') === -1,
+    'Preferences swallowed the training configuration too');
 });
 
 // ---------------------------------------------------------------------------

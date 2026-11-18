@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan, logAsPrescribed } = require('./fixtures.js');
 
-/* DOES VALHALLA HAVE A DEFENSIBLE COACHING REASON FOR EVERY INCREASE?
+/* DOES SACORO HAVE A DEFENSIBLE COACHING REASON FOR EVERY INCREASE?
  *
  * Before this file the answer was no, and the reason was arithmetic rather
  * than a bug anyone could point at. A block started at absorbedWeeklyVolume()
@@ -164,7 +164,7 @@ function blockRun(opts){
   a.state.athlete.blocks.push({ id: 'prev', purpose: 'race', status: 'closed',
     anchorVolume: 55, startVolume: 55, peakVolume: o.peak != null ? o.peak : 1 });
   a.state.days.filter(d => d.date < TODAY && d.type !== 'rest')
-    .forEach((d, i) => { if (o.runs(i)) logAsPrescribed(a, d, { quality: o.quality(i) }); });
+    .forEach((d, i) => { if (o.runs(i)) logAsPrescribed(a, d, { quality: o.quality(i), sections: true }); });
   return a;
 }
 

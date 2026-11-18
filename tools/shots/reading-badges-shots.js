@@ -1,8 +1,8 @@
 'use strict';
-/* Visual proof for THE READING's five dimensional badges on Valhalla.
+/* Visual proof for THE READING's five dimensional badges on Sacoro.
    ===========================================================================
    Captures, at 360px and 390px width, light + dark:
-     valhalla.<w>.<theme>       the whole Valhalla screen
+     sacoro.<w>.<theme>       the whole Sacoro screen
      badges.<w>.<theme>         just the five-badge block, tightly cropped
 
    And MEASURES the concerns the brief called out by name:
@@ -70,7 +70,7 @@ function seed(theme){
     if (dd.type === 'race' || dd.type === 'checkpoint') recordMeasuredPerformance(dd);
   });
   state.theme = theme; state.themeExplicit = true; applyThemeToDocument();
-  state.view = 'planhq'; planhqTab = 'valhalla';
+  state.view = 'planhq'; planhqTab = 'sacoro';
   renderApp();
 }
 
@@ -102,7 +102,7 @@ async function main(){
       await page.waitForTimeout(400);
 
       const tag = width + '.' + theme;
-      await page.screenshot({ path: path.join(OUT, 'valhalla.' + tag + '.png'), fullPage: true });
+      await page.screenshot({ path: path.join(OUT, 'sacoro.' + tag + '.png'), fullPage: true });
       const clip = await clipOf(page, '.b-dials', 40, 10, width);
       if (clip) await page.screenshot({ path: path.join(OUT, 'badges.' + tag + '.png'), fullPage: true, clip });
 

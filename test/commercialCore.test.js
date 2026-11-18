@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 
-// VALHALLA COMMERCIAL CORE -- Phase 1.
+// SACORO COMMERCIAL CORE -- Phase 1.
 //
 // The three concepts this suite exists to keep apart:
 //
@@ -77,7 +77,7 @@ const resolve = (subs, grants, acct, now) => E.resolveStandardEntitlement({
 // ===========================================================================
 test('there is one product, and entitlement is keyed on it rather than on a price', () => {
   assert.equal(Object.keys(P.PRODUCTS).length, 1);
-  assert.equal(P.STANDARD, 'VALHALLA_STANDARD');
+  assert.equal(P.STANDARD, 'SACORO_STANDARD');
   const offers = P.offersFor(P.STANDARD);
   assert.equal(offers.length, 2);
   // Both offers grant the SAME product. That is the whole distinction.
@@ -233,7 +233,7 @@ test('a PROVIDER grace period keeps access, and ending it ends access', () => {
   assert.equal(after.reason, 'payment_hold');
 });
 
-test('Valhalla invents no grace of its own: past_due with no provider window is inactive', () => {
+test('Sacoro invents no grace of its own: past_due with no provider window is inactive', () => {
   /* The rule is "honour the provider's grace, add none". A past_due row with
      no grace_period_end is missing information, and missing information must
      not hand out a product. */
@@ -243,7 +243,7 @@ test('Valhalla invents no grace of its own: past_due with no provider window is 
   assert.equal(r.reason, 'payment_hold');
   const src = fs.readFileSync(path.join(ROOT, 'api', '_entitlement.js'), 'utf8');
   assert.doesNotMatch(src, /GRACE_DAYS|graceDays\s*=/,
-    'a Valhalla-invented grace length has appeared in the resolver');
+    'a Sacoro-invented grace length has appeared in the resolver');
 });
 
 test('a failed payment inside an already-paid period does not end the period', () => {
@@ -356,7 +356,7 @@ test('an unknown lifecycle condition fails closed', () => {
 });
 
 test('an unknown product fails closed', () => {
-  assert.equal(resolve([sub({ product_code: 'VALHALLA_PRO' })]).active, false);
+  assert.equal(resolve([sub({ product_code: 'SACORO_PRO' })]).active, false);
 });
 
 test('malformed dates fail safely rather than granting access', () => {
@@ -695,7 +695,7 @@ test('a subscription is validated at the boundary, not stored and puzzled over l
     [{ provider_subscription_id: null }, 'no_provider_subscription_id'],
     [{ account_id: null }, 'no_account_id'],
     [{ condition: 'incomplete' }, 'unknown_condition'],
-    [{ product_code: 'VALHALLA_PRO' }, 'unknown_product'],
+    [{ product_code: 'SACORO_PRO' }, 'unknown_product'],
     [{ offer_code: 'STANDARD_LIFETIME' }, 'unknown_offer'],
     [{ billing_period: 'weekly' }, 'unknown_billing_period'],
     [{ environment: 'staging' }, 'unknown_environment'],

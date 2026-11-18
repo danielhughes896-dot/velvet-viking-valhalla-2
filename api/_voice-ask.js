@@ -1,4 +1,4 @@
-// Ask Coach. The one place Valhalla speaks to a language model.
+// Ask Coach. The one place Sacoro speaks to a language model.
 //
 //   POST { question, context } -> { answer, grounded, proposal? }
 //
@@ -12,7 +12,7 @@
 //   * the model returns TEXT, and optionally a flag saying it believes a plan
 //     change is warranted. It cannot name a session, a distance, a pace or a
 //     date to change anything to. The app maps that flag onto the adjustment
-//     Valhalla's OWN engine had already computed, or ignores it;
+//     Sacoro's OWN engine had already computed, or ignores it;
 //   * nothing here writes to a plan, and this endpoint has no database access
 //     of any kind. The service-role key is not read in this file.
 //
@@ -26,6 +26,11 @@ const V = require('./_voice.js');
    which is what stops the fallback becoming a second set of rules. */
 const PROTO = require('./_voice-protocol.js');
 const SSE = require('./_voice-sse.js');
+/* COACH MEMORY'S RULES, AND ONLY ITS RULES. A pure module: no table, no key,
+   no connection. The remembered lines arrive from the browser beside the
+   question, and are re-checked and fenced here as background before they go
+   anywhere -- this file still reads no database. */
+const MEM = require('./_coach-memory-lines.js');
 
 /* Named here, beside the only fetch that uses them, rather than in the shared
    module -- see the note in _voice.js. One file in api/ names a model. */
@@ -58,18 +63,18 @@ const VOICE_MAX_TOKENS = 16000;
    about what the coach may NOT do, because that is the part that has to hold
    when a question is phrased persuasively. */
 const SYSTEM = [
-  'You are the voice of Valhalla, a running coach inside the Velvet Viking training app.',
+  'You are the voice of Sacoro, a running coach inside the Velvet Viking training app.',
   'You are speaking to one athlete about their own training. Your reply will be read aloud.',
   '',
-  'WHAT YOU ARE. You explain and discuss coaching decisions that Valhalla has ALREADY made.',
+  'WHAT YOU ARE. You explain and discuss coaching decisions that Sacoro has ALREADY made.',
   'The training plan, the paces, the progression and any recommended change are computed by',
-  'Valhalla\'s own deterministic engine. You are not that engine and must never act as it.',
+  'Sacoro\'s own deterministic engine. You are not that engine and must never act as it.',
   '',
   'HARD RULES.',
   '1. Never invent a session, a distance, a pace, a heart-rate zone or a date. If it is not in',
   '   the context you were given, you do not know it. Say so plainly.',
   '2. Never tell the athlete their plan has been changed. You cannot change it. If you think a',
-  '   change is warranted, set needsPlanChange true and explain why in one sentence; Valhalla',
+  '   change is warranted, set needsPlanChange true and explain why in one sentence; Sacoro',
   '   decides whether to offer it, and the athlete decides whether to accept it.',
   '3. Never diagnose, and never give medical advice. For pain, injury or illness: be',
   '   conservative, say plainly that you are a running coach and not a doctor, and recommend',
@@ -84,10 +89,17 @@ const SYSTEM = [
   '   in from a connected app -- say plainly that you cannot go through that one here and offer',
   '   what you CAN discuss. Never mention policies, providers, syncing or data rules; the athlete',
   '   wants their answer, not an explanation of your plumbing.',
+  '7. ' + MEM.SYSTEM_LINE,
+  '8. A session in the context may carry targetPace, goalPace and targetHeartRate: the targets',
+  '   exactly as the athlete\'s session card shows them. Quote them exactly as written when they',
+  '   help; never change, round, widen or narrow one, and never invent one for a session that',
+  '   does not carry it.',
   '',
   'HOW YOU SOUND. Warm, calm, direct, British. A serious coach talking to an adult athlete.',
-  'Short: two or three sentences unless genuinely more is needed. No greetings, no sign-offs,',
-  'no bullet points, no headings, no emoji. No generic advice that would be true for anybody',
+  'Short: two or three sentences unless genuinely more is needed. Flowing conversational prose,',
+  'the way you would say it aloud: plain sentences, never bullet points, numbered lists,',
+  'headings, bold or any other markdown, even when the answer covers several things. No',
+  'greetings, no sign-offs, no emoji. No generic advice that would be true for anybody',
   '("remember to hydrate") -- everything you say should be about THIS athlete\'s plan.',
   '',
   /* ---- THE ONLY PART OF THIS PROMPT THE STREAMING PASS TOUCHED ----
@@ -184,12 +196,24 @@ async function handle(req, res){
     return V.json(res, 422, { error: 'context_refused', code: 'STRAVA_DERIVED_CONTEXT' });
   }
 
+  /* WHAT THE COACH REMEMBERS, AS BACKGROUND. At most eight lines, each
+     re-checked (length, no Strava, nothing shaped like an instruction), a
+     health line only when this conversation has health information at all,
+     and the whole block labelled as background in the message itself. Absent
+     or unusable, the question goes exactly as it always did. */
+  let memoryBlock = '';
+  try{
+    memoryBlock = MEM.promptBlock(MEM.fenceForPacket(body.memory,
+      { health: !!(context && context.healthDataAvailable === true) }));
+  }catch(e){ memoryBlock = ''; }
+
   /* THE BROWSER ASKS, THE SERVER DECIDES. A client that cannot read a stream
      never sends the header and is never sent one; a platform that cannot write
      one degrades inside readStreamed(). Both land on the same contract. */
   return askUpstream(res, cfg, contextJson, question, {
     receivedAt: receivedAt,
-    wantStream: clientWantsStream(req) && typeof res.write === 'function'
+    wantStream: clientWantsStream(req) && typeof res.write === 'function',
+    memoryBlock: memoryBlock
   });
 }
 
@@ -408,6 +432,7 @@ async function askUpstream(res, cfg, contextJson, question, opts){
     system: SYSTEM,
     messages: [{ role: 'user',
                  content: 'My training context:\n' + contextJson +
+                          (opts.memoryBlock ? '\n\n' + opts.memoryBlock : '') +
                           '\n\nMy question: ' + question }]
   };
   /* Effort low rather than thinking disabled: a short conversational answer
@@ -471,7 +496,7 @@ async function askUpstream(res, cfg, contextJson, question, opts){
          whole thing the athlete waited for rather than only the second half. */
       return askUpstream(res, cfg, contextJson, question,
                          { noEffort: true, receivedAt: opts.receivedAt,
-                           wantStream: opts.wantStream });
+                           wantStream: opts.wantStream, memoryBlock: opts.memoryBlock });
     }
     return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_UPSTREAM' });
   }

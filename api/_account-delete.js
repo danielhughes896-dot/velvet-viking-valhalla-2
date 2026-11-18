@@ -25,6 +25,7 @@
 
 const S = require('./_strava.js');
 const A = require('./_access.js');
+const M = require('./_coach-memory.js');
 
 function log(what){ try{ console.log('account-delete: ' + what); }catch(e){} }
 
@@ -88,6 +89,15 @@ async function handle(req, res){
      longer exists. */
   if (cfg.serviceKey){
     try{ await A.revokeLeasesForUser(S, cfg, who.uid); }catch(e){ log('LEASE_REVOKE_FAILED'); }
+    /* THE COACH'S NOTES, for the same reason as the leases. coach_memory
+       cascades from auth.users too, and the consent sheet promised "they're
+       deleted with your account" -- so the promise is kept here as well as
+       by the cascade, rather than resting on a foreign key nobody reads.
+       Non-fatal: the account is already gone, and the cascade has them. */
+    try{
+      const m = await M.clearForUser(S, cfg, who.uid);
+      if (!m.ok) log('MEMORY_CLEAR_FAILED');
+    }catch(e){ log('MEMORY_CLEAR_FAILED'); }
   }
   res.setHeader('Set-Cookie', A.clearCookie());
 

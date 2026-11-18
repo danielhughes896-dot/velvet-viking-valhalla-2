@@ -9,13 +9,13 @@ const { buildPlan } = require('./fixtures.js');
 /* ASK COACH — THE GENERATIVE LAYER, AND EVERYTHING THAT BOUNDS IT
  * ===========================================================================
  * THE ARCHITECTURAL RULE THIS FILE ENFORCES: the language model is not the
- * training methodology. It may explain a decision Valhalla already made. It may
+ * training methodology. It may explain a decision Sacoro already made. It may
  * not make one, and it may not reach anything that could.
  *
  * The three properties that make that true rather than intended:
  *
  *   1. THE MODEL CANNOT WRITE A PLAN. The endpoint has no database access, and
- *      a plan change is only ever offered when Valhalla's OWN engine already
+ *      a plan change is only ever offered when Sacoro's OWN engine already
  *      recommended one -- routed through the existing coach-accept handler,
  *      with the existing provenance.
  *   2. THE MODEL CANNOT SEE WHAT IT MAY NOT SEE. Strava-derived days and
@@ -266,7 +266,7 @@ test('an answer is readable text before it is ever speech', () => {
   assert.match(a.renderAskPanel(a.findDayByDate(TODAY)), /Keep tomorrow easy\./);
 });
 
-test('what Valhalla heard is shown back before the answer', () => {
+test('what Sacoro heard is shown back before the answer', () => {
   const a = athlete();
   a.askSet('thinking', { heard: 'why intervals tomorrow' });
   const panel = a.renderAskPanel(a.findDayByDate(TODAY));
@@ -296,7 +296,7 @@ test('the client defaults to unavailable and only the server can open it', () =>
 });
 
 test('the model id is pinned in one place', () => {
-  assert.equal(V.VOICE_MODEL, 'claude-opus-5');
+  assert.equal(V.VOICE_MODEL, 'claude-opus-5-5');
   const runtimeCode = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ');
   assert.ok(!/claude-|opus|sonnet/i.test(runtimeCode),
     'a model name reached the file served to the browser');
@@ -349,11 +349,12 @@ test('the narrator and the speech layer reach no endpoint', () => {
 // THE MODEL IDENTIFIER
 // ---------------------------------------------------------------------------
 test('the pinned model id is the verified production identifier', () => {
-  /* Verified 2026-08-26 against platform.claude.com/docs/en/about-claude/
-     models/overview.md: Claude API ID `claude-opus-5`, 1M context, 128K max
-     output, adaptive thinking, $5/$25 per MTok, retirement not sooner than
-     2027-07-24. Pinned as a dateless snapshot -- no date suffix belongs on it. */
-  assert.equal(V.VOICE_MODEL, 'claude-opus-5');
+  /* Claude Opus 5.5, API ID `claude-opus-5-5`: 1M context, 128K max output,
+     thinking always adaptive (effort is the only control), forced tool_choice
+     and sampling parameters rejected -- none of which this request uses.
+     $4/$20 per MTok. Moved from `claude-opus-5` on 2026-11-17. Pinned as a
+     dateless id -- no date suffix belongs on it. */
+  assert.equal(V.VOICE_MODEL, 'claude-opus-5-5');
   assert.ok(!/\d{8}/.test(V.VOICE_MODEL),
     'a date suffix was appended to a dateless pinned id');
 });

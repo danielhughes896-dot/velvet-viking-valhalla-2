@@ -283,7 +283,8 @@ test('a grant cannot be reached without a record that proves it', () => {
   assert.match(fn, /if \(granted && cloudSignedIn\(\)\)\{/);
   assert.match(fn, /return recordHealthConsentAudit\(rec\)\.then\(function\(recorded\)\{/);
   assert.match(fn, /if \(!recorded\)\{/);
-  assert.match(fn, /nothing has been turned on/);
+  /* "No em dashes": the notice is two sentences now, so this reads either case. */
+  assert.match(fn, /nothing has been turned on/i);
   // The builder reads LTHR immediately afterwards, so it must wait.
   assert.match(runtime, /await handleHealthConsentDecision\(!!consentBox\.checked, \{ quiet:true \}\)/);
 });

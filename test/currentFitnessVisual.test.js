@@ -52,7 +52,7 @@ test('the Pace Reference provenance line follows the anchor to a calibration', (
   const line = a.paceReferenceProvenanceLine();
   assert.match(line, /^Calibrated from/);
   assert.match(line, /Threshold Calibration/);
-  assert.match(line, /Feb 27/, 'the date is the anchor\'s own date, not today');
+  assert.match(line, /27 Feb/, 'the date is the anchor\'s own date, not today');
 });
 
 test('renderCompactPaceReference() prints the same provenance line, not a second copy of it', () => {
@@ -91,10 +91,22 @@ test('currentFitnessEstimate() converts through the same equivalence table as ev
 
 test('currentFitnessEstimate() withholds the marathon exactly when measuredFitnessEstimate() would', () => {
   const a = planned({ distanceKey: 'full' });
-  // No absorbed-volume model in this fixture, so absorbedWeeklyVolume().source is not 'measured'.
+  /* STILL WITHHELD HERE, AND STILL IN STEP WITH measuredFitnessEstimate() --
+     this fixture logs nothing at all, so there is no evidence of any kind.
+     WHAT CHANGED IS THE CONDITION, by instruction: it used to be absorbed
+     weekly volume, which an athlete logging only distance and pace could never
+     satisfy however much they ran. It is now fourteen days of usable evidence
+     (or any measured race/checkpoint), after which volume moves confidence
+     instead of silence. The wording follows the condition. */
   const est = a.currentFitnessEstimate('full');
   assert.equal(est.withheld, true);
-  assert.match(est.reason, /volume/);
+  /* measuredFitnessEstimate() returns null outright with no measured
+     performance, so the property the two share is that NEITHER offers a
+     number -- not that both carry the same withheld flag. */
+  const m = a.measuredFitnessEstimate('full');
+  assert.ok(m == null || m.withheld === true, 'the two have diverged');
+  assert.match(est.reason, /marathon/);
+  assert.doesNotMatch(est.reason, /sustained weekly volume/, 'the superseded wording survived');
 });
 
 // ---------------------------------------------------------------------------
@@ -135,7 +147,7 @@ test('renderCurrentFitnessPanel() follows the anchor off the goal once real evid
   a.state.setup.thresholdPaceMeasuredOn = '2026-02-27';
   const html = a.renderCurrentFitnessPanel();
   assert.match(html, /Threshold Calibration/);
-  assert.match(html, /Feb 27/);
+  assert.match(html, /27 Feb/);
 });
 
 // ---------------------------------------------------------------------------
@@ -178,7 +190,7 @@ test('both accepted: the result says so, with real numbers, and the goal-unchang
 
   const html = a.renderCalibrationResult(dd);
   assert.match(html, /Calibration complete/);
-  assert.match(html, /Valhalla has learned from what you just demonstrated/);
+  assert.match(html, /SACORO has learned from what you just demonstrated/);
   assert.match(html, /171 BPM/);
   assert.match(html, /goal hasn.t changed/);
   assert.equal(html.indexOf('Measured Fitness'), -1,
@@ -215,7 +227,7 @@ test('a real recalibration shows the real stored before/after, and a confirmed r
 
   dd.calibration = Object.assign({}, dd.calibration, { lthr: 171, previousLTHR: 171 });
   html = a.renderCalibrationResult(dd);
-  assert.match(html, /Confirms what Valhalla already had/);
+  assert.match(html, /Confirms what SACORO already had/);
   assert.equal(html.indexOf('Moved from'), -1);
 });
 
@@ -315,13 +327,13 @@ test('renderDayCard() only ever shows the calibration result on a calibration da
 });
 
 // ---------------------------------------------------------------------------
-// THE PRIMARY CURRENT FITNESS INSTRUMENT (Valhalla hero)
+// THE PRIMARY CURRENT FITNESS INSTRUMENT (Sacoro hero)
 // ---------------------------------------------------------------------------
 test('currentFitnessEvidenceState() is a truthful category from the real anchor, never a fabricated percentage', () => {
   const a = planned();
   delete a.state.setup.benchmark;
   let ev = a.currentFitnessEvidenceState();
-  assert.equal(ev.label, 'Using your goal — nothing measured yet');
+  assert.equal(ev.label, 'Using your goal. Nothing measured yet');
   assert.equal(ev.tone, 'watch');
 
   a.state.setup.benchmark = { distanceKey: '10k', timeSec: 2700 };
@@ -366,7 +378,7 @@ test('renderCurrentFitnessInstrument() follows currentFitnessAnchor(), not a dup
   a.state.setup.thresholdPaceMeasuredOn = '2026-02-27';
   const html = a.renderCurrentFitnessInstrument();
   assert.match(html, /Threshold Calibration/);
-  assert.match(html, /Feb 27/);
+  assert.match(html, /27 Feb/);
   const est = a.currentFitnessEstimate(a.state.setup.distanceKey);
   assert.ok(html.indexOf(a.secToClock(est.fastSec)) !== -1,
     'the headline value is currentFitnessEstimate()\'s own number, not recomputed here');

@@ -186,7 +186,7 @@ test('askTimings degrades rather than throwing when a stage never happened', () 
 // 2. NOTHING ELSE CHANGED — the point of the whole exercise
 // ---------------------------------------------------------------------------
 test('the model, effort and token ceiling are untouched', () => {
-  assert.equal(V.VOICE_MODEL, 'claude-opus-5');
+  assert.equal(V.VOICE_MODEL, 'claude-opus-5-5');
   assert.match(ASK_SRC, /output_config = \{ effort: 'low' \}/, 'effort changed');
   assert.match(ASK_SRC, /const VOICE_MAX_TOKENS = 16000;/, 'the token ceiling changed');
   /* STREAMING ARRIVED IN A LATER, SEPARATE PASS. This used to assert that it
@@ -208,7 +208,7 @@ test('the coaching prompt is untouched, and only its reply format moved', () => 
      format is now prose + marker + trailer, which is the one part that had to
      change and the only part that did. */
   const p = ask.SYSTEM;
-  assert.match(p, /You are the voice of Valhalla/);
+  assert.match(p, /You are the voice of Sacoro/);
   assert.match(p, /deterministic engine/);
   assert.match(p, /Never invent a session, a distance, a pace/);
   assert.match(p, /never give medical advice/);
@@ -289,14 +289,38 @@ test('the Strava boundary and the athlete-facing UX are untouched', () => {
 test('the diagnostic adds no dependency and no new require', () => {
   /* The project legitimately depends on Capacitor for the Android shell. What
      must not happen is a NEW one arriving for a logging change, so the set is
-     pinned rather than required to be empty. */
+     pinned rather than required to be empty.
+
+     @capacitor-community/media was added deliberately, by owner ruling, so
+     that "Save to photos" writes to the device photo library instead of
+     caching the file and opening a share sheet under a label that promised
+     otherwise. The pin is updated rather than loosened: the next dependency
+     still has to be argued for here.
+
+     @capacitor/local-notifications was added for the daily reminder. Founder:
+     "Daily alarm - doesn't work." A web page cannot wake a phone at 08:00 with
+     the app closed; only the operating system can, and this plugin is how a
+     Capacitor app asks it to.
+
+     @capacitor/haptics was added for the founder's haptic table: "Swipe
+     between main tabs: very light tick. Complete daily check-in: light
+     confirmation. Save session: success pulse. Accept coaching
+     recommendation: firm confirmation." The WebView has no vibration of its
+     own on iOS, and Android's WebView ignores navigator.vibrate.
+
+     @capacitor/ios was added for the iOS app. Founder: "We need to build an
+     iOS app bundle now." It is the iOS twin of @capacitor/android. */
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.deepEqual(Object.keys(pkg.dependencies || {}).sort(), [
+    '@capacitor-community/media',
     '@capacitor-community/text-to-speech',
     '@capacitor/android',
     '@capacitor/app',
     '@capacitor/core',
     '@capacitor/filesystem',
+    '@capacitor/haptics',
+    '@capacitor/ios',
+    '@capacitor/local-notifications',
     '@capacitor/share'
   ], 'the dependency list changed');
   const code = ASK_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

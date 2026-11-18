@@ -1,5 +1,5 @@
 'use strict';
-/* Visual proof for the VALHALLA SOFT SURFACE / ROUNDED TILE pass:
+/* Visual proof for the SACORO SOFT SURFACE / ROUNDED TILE pass:
    Active Goal A/B/C, Athlete Status (Load/Recovery/Trend), the "How to run
    this" workout-card disclosure, and Reading/Record evidence cards.
 

@@ -6,7 +6,7 @@ const { buildPlan } = require('./fixtures.js');
 
 // PRESCRIPTION-AWARE LOGGING.
 //
-// The athlete already ran a session Valhalla wrote. Asking them to rebuild it
+// The athlete already ran a session Sacoro wrote. Asking them to rebuild it
 // as anonymous numbered laps is asking them to do the app's work -- the real
 // beta report was someone reconstructing a Garmin interval session by hand.
 //
@@ -279,12 +279,21 @@ test('a time-prescribed rep logged by distance alone still yields a pace', () =>
   assert.equal(s.paceSec, Math.round(120 / 0.58));
 });
 
-test('rep distance round-trips at rep precision, not session precision', () => {
+/* ---- CHANGED SIDES ----
+   Founder: "The m:ss and HR placeholders are too subtle ... The labels
+   should be explicit. Athletes shouldn't have to work out whether m:ss
+   means total time, average pace or something else." A row asks for the
+   average pace, by name, and the prescription supplies the other half. */
+test('a rep distance is stored at rep precision, and shown as the pace it implies', () => {
   const a = app();
   const dd = fartlekDay(a);
   a.handleStructuredSplitChange(dd.id, REP_IDS[0], 'km', '0.55');
   assert.equal(dd.actual.splits[0].km, 0.55, 'one decimal would make this 0.6 -- a 9% error');
-  assert.match(a.renderSplitsBlock(dd), /value="0\.55"/, 'and it must redisplay as entered');
+  /* Two minutes over 0.55km is 3:38 per km: the row shows the pace, which is
+     what it asks for, and the distance behind it is untouched. */
+  assert.match(a.renderYourLogAnswers(dd), /value="3:38"[^>]*data-field="pace"[^>]*data-seg="s\.1\.0\.0\.0"/,
+    'the stored rep is not shown as its pace');
+  assert.equal(dd.actual.splits[0].km, 0.55);
 });
 
 test('invalid values are refused without creating a phantom segment', () => {
@@ -378,7 +387,13 @@ test('structured claims never become medical claims', () => {
 test('the structured read reaches the review card once there is evidence', () => {
   const a = app();
   const dd = loggedFartlek(a, [0.58,0.57,0.56,0.55,0.54]);
-  assert.match(a.renderExecutionReview(dd), /Execution by segment/);
+  // Behind View Analysis now; the segment read itself is unchanged.
+  a.handleViewAnalysis(dd.id);
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections: the segment read is said, not headed. */
+  const html = a.renderExecutionReview(dd);
+  const se = a.structuredExecutionEvidence(dd);
+  assert.ok(se && se.claims.length, 'the fixture has a segment read');
+  se.claims.forEach(c => assert.ok(html.indexOf(a.escapeHtml(c)) !== -1, 'the segment read is not in the analysis: ' + c));
 });
 
 // ---------------------------------------------------------------------------
@@ -390,7 +405,9 @@ test('a day with no prescription falls back to the flat editor', () => {
                km:8, completed:true, actual:a.emptyActual() };
   a.state.days.push(dd);
   assert.equal(a.loggingModeFor(dd).mode, 'flat');
-  assert.match(a.renderSplitsBlock(dd), /Add laps \/ splits/);
+  /* A flat day with no laps is offered nothing: the lap-by-lap invitation
+     went with its toggle. */
+  assert.equal(a.renderSplitsBlock(dd), '');
 });
 
 // An edited-down workout keeps the structured form wherever the session can
@@ -523,19 +540,31 @@ test('the logging structure is identical at every experience level', () => {
   assert.equal(shapes[1], shapes[2], 'experience changes explanation, never what was prescribed');
 });
 
-test('the worst-case sessions stay bounded and collapsed by default', () => {
+/* ---- CHANGED SIDES ----
+   Founder: "Remove redundant 'Hide Detail', 'Add Laps / Splits' and
+   unnecessary gold subheadings. Keep Avg HR, elevation and notes directly
+   visible, with no duplicate inputs." And: "multi-part sessions
+   automatically show separate Warm-up, Main Set and Cool-down inputs,
+   including appropriate interval/rep details, while easy runs remain
+   simple ... three sections should appear only when the prescription
+   actually contains them." */
+test('the worst-case sessions stay bounded, and recoveries are not asked for one by one', () => {
   const a = app();
   ['short_reps','deuce','hill_repeats'].forEach(arch => {
     const dd = dayFor(a, arch, { completed:true, actual:a.emptyActual() });
     const plan = a.structuredLoggingPlan(dd);
     assert.ok(plan.rows.length <= 20, arch + ' must not explode: ' + plan.rows.length);
-    const closed = a.renderSplitsBlock(dd);
-    assert.doesNotMatch(closed, /slog-row/, arch + ' must be closed until asked for');
-    // Collapsed + structured now renders the soft-raised summary card
-    // (VALHALLA -- SESSION BREAKDOWN pass) rather than the old plain toggle
-    // text -- same closed guarantee, new presentation.
-    assert.match(closed, /class="ev-card splits-summary"/);
-    assert.match(closed, /Session breakdown/i);
+    const html = a.renderYourLogAnswers(dd);
+    const drawn = (html.match(/class="slog-row[^"]*"/g) || []).length;
+    /* Founder: "Replace individual pace/HR entry boxes with simple
+       rep-by-rep assessments ... Exactly the number of repetitions
+       prescribed." So the rows drawn are the stages either side of the set,
+       and the reps are marks: one each, and no more than the plan has. */
+    const stages = plan.rows.filter(r => r.role === 'warmup' || r.role === 'cooldown').length;
+    assert.equal(drawn, stages, arch + ': a rep or a recovery was given typed boxes');
+    assert.equal((html.match(/data-action="log-mark"/g) || []).length, a.logShape(dd).reps, arch + ': the marks are not one per rep');
+    assert.doesNotMatch(html, /slog-row is-rec/, arch + ' asks for every recovery by number');
+    assert.doesNotMatch(a.renderSplitsBlock(dd), /splits-summary|Session breakdown/i);
     a.state.days.pop();
   });
 });
@@ -543,65 +572,74 @@ test('the worst-case sessions stay bounded and collapsed by default', () => {
 // ---------------------------------------------------------------------------
 // 10. THE COLLAPSED SUMMARY DESCRIBES THE REAL PLAN, NEVER A FIXED SHAPE
 // ---------------------------------------------------------------------------
-test('the summary card counts warm-up, reps, recoveries and cool-down from the actual plan', () => {
+test('the sections are the plan\'s own: warm-up, the reps in the main set, cool-down', () => {
   const a = app();
-  const dd = dayFor(a, 'track_reps');
+  const dd = dayFor(a, 'track_reps', { completed:true, actual:a.emptyActual() });
   const plan = a.structuredLoggingPlan(dd);
-  // 5 x 1000m: warm-up + 5 reps + 4 recoveries (between reps, not after the
-  // last one) + cool-down = 11 rows -- read from the plan, not asserted by
-  // guessing at the archetype's shape.
+  // 5 x 1000m: warm-up + 5 reps + 4 recoveries + cool-down = 11 rows.
   assert.equal(plan.rows.length, 11);
-  const summary = a.splitsBreakdownSummary(plan);
-  assert.equal(summary.eyebrow, 'Session breakdown · 11 laps');
-  assert.equal(summary.detail, 'Warm-up · 5 reps · 4 recoveries · cool-down');
-  const closed = a.renderSplitsBlock(dd);
-  assert.match(closed, /Session breakdown · 11 laps/);
-  assert.match(closed, /Warm-up · 5 reps · 4 recoveries · cool-down/);
+  const html = a.renderYourLogAnswers(dd);
+  const part = p => (new RegExp('data-part="' + p + '">([\\s\\S]*?)(?=<div class="yl-sec|<div class="yl-box|<div class="yl-grp|<div id="splits-total)').exec(html) || [,''])[1];
+  assert.equal((part('warmup').match(/class="slog-row/g) || []).length, 1);
+  assert.equal((part('cooldown').match(/class="slog-row/g) || []).length, 1);
+  /* The reps in the main set are marked now, one tile each -- see
+     yourLogSections.test.js -- and it is still the plan's five. */
+  assert.deepEqual([...part('main').matchAll(/data-action="log-mark" data-rep="(\d+)"/g)].map(m => m[1]),
+    ['1', '2', '3', '4', '5']);
+  assert.deepEqual([...part('main').matchAll(/<span class="slog-label">([^<]+)</g)].map(m => m[1]), []);
+  assert.ok(html.indexOf('data-part="warmup"') < html.indexOf('data-part="main"') &&
+            html.indexOf('data-part="main"') < html.indexOf('data-part="cooldown"'), 'the sections are out of order');
+  a.state.days.pop();
 });
 
-test('a phase-sourced plan (a long run) is summarised as phases, never as invented reps', () => {
+test('a phase-sourced plan (a long run) is its stages, with no warm-up or cool-down invented', () => {
   const a = app();
-  const dd = dayFor(a, 'long_run_goal_finish');
+  const dd = dayFor(a, 'long_run_goal_finish', { completed:true, actual:a.emptyActual() });
   const plan = a.structuredLoggingPlan(dd);
   assert.equal(plan.source, 'phases');
-  const summary = a.splitsBreakdownSummary(plan);
-  assert.match(summary.eyebrow, /Session breakdown · \d+ phases?/);
-  assert.doesNotMatch(summary.detail, /rep|recovery|warm-up|cool-down/i,
-    'a long run has no reps or recoveries to invent');
+  const html = a.renderYourLogAnswers(dd);
+  assert.doesNotMatch(html, /data-part="(warmup|cooldown)"|>Warm-up<|>Cool-down<|>Rep \d</,
+    'a long run has no warm-up, cool-down or reps to invent');
+  assert.equal((html.match(/class="slog-row/g) || []).length, plan.rows.length);
+  a.state.days.pop();
 });
 
-test('the summary rewrites itself when the athlete opens the detailed breakdown', () => {
+test('the per-segment rows are there without being opened, and no summary card stands in for them', () => {
   const a = app();
-  const dd = dayFor(a, 'track_reps');
-  const closedHtml = a.renderSplitsBlock(dd);
-  assert.match(closedHtml, /class="ev-card splits-summary"/);
-  assert.doesNotMatch(closedHtml, /slog-row/);
-
-  a.handleToggleSplits(dd.id);
-  const openHtml = a.renderSplitsBlock(dd);
-  assert.doesNotMatch(openHtml, /class="ev-card splits-summary"/,
-    'the summary card must not coexist with the open detailed editor');
-  assert.match(openHtml, /slog-row/, 'opening it must still show the real per-segment rows');
-  assert.match(openHtml, /Hide session breakdown/);
+  const dd = dayFor(a, 'track_reps', { completed:true, actual:a.emptyActual() });
+  const html = a.renderYourLogAnswers(dd) + a.renderSplitsBlock(dd);
+  assert.doesNotMatch(html, /splits-summary|Session breakdown|Hide session breakdown/);
+  assert.match(html, /slog-row/, 'the real per-segment rows are not shown');
+  assert.equal(typeof a.handleToggleSplits, 'undefined');
+  a.state.days.pop();
 });
 
-test('a partial structured log is not reported as a discrepancy', () => {
+test('the sections total nothing, because no distance is typed in them', () => {
+  /* "Logged so far" and "Lap total" compared the distances an athlete typed
+     row by row with the session's own. A row asks for a pace now, so there
+     is nothing typed to add up, and a total of distances nobody entered
+     would be a number the athlete never gave. */
   const a = app();
   const dd = loggedFartlek(a, [0.58, 0.57, 0.56, 0.55, 0.54]);   // reps only
   assert.equal(dd.actual.km, 8, 'the whole-session distance is still 8km');
-  const html = a.renderSplitsBlock(dd);
-  assert.match(html, /Logged so far/, 'five reps out of eleven segments is normal use');
-  assert.doesNotMatch(html, /correct whichever is off/,
-    'the athlete has contradicted nothing by leaving recoveries blank');
+  const html = a.renderYourLogAnswers(dd);
+  assert.doesNotMatch(html, /Logged so far|Lap total|correct whichever is off/,
+    'the athlete is shown a total of distances they were not asked for');
 });
 
-test('a complete structured log that really disagrees still says so', () => {
+test('a flat lap list that really disagrees with the session still says so', () => {
+  /* The check itself is not gone: where an athlete DID type distances lap
+     by lap -- a list from before sections existed -- a material gap is
+     still named, and neither number overwrites the other. */
   const a = app();
-  const dd = fartlekDay(a);
-  const plan = a.structuredLoggingPlan(dd);
-  plan.rows.forEach(r => a.handleStructuredSplitChange(dd.id, r.segId, 'km', '0.2'));
+  const dd = { id:'2026-05-26', date:'2026-05-26', week:1, type:'easy', title:'Hand written',
+               km:8, completed:true, actual:a.emptyActual() };
+  dd.actual.km = 8;
+  dd.actual.splits = [{ km:1, sec:300 }, { km:1, sec:302 }];
+  a.state.days.push(dd);
+  assert.equal(a.loggingModeFor(dd).mode, 'flat');
   const html = a.renderSplitsBlock(dd);
   assert.match(html, /Lap total/);
-  assert.match(html, /correct whichever is off/,
-    'every segment answered and the total is 2.2km against a logged 8km');
+  assert.match(html, /correct whichever is off/, 'two laps totalling 2km against a logged 8km');
+  a.state.days.pop();
 });

@@ -278,7 +278,7 @@ test('the streaming work is untouched by this pass', () => {
   assert.match(src, /function askReadStream\(resp\)/);
   assert.match(src, /id="ask-answer-announce"/);
   assert.match(src, /d\.needsPlanChange && d\.complete !== false/);
-  assert.ok(src.indexOf('###VALHALLA_TRAILER###') === -1);
+  assert.ok(src.indexOf('###SACORO_TRAILER###') === -1);
 });
 
 // ---------------------------------------------------------------------------

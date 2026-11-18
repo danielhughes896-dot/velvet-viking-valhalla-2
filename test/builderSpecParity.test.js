@@ -31,8 +31,8 @@ const TODAY = '2026-08-20T09:00:00Z';
 // ---------------------------------------------------------------------------
 // 1. EXACTLY NINE STAGES, ONE CANONICAL LIST
 // ---------------------------------------------------------------------------
-test('the canonical spec defines exactly ten stages', () => {
-  assert.equal(BUILDER_SPEC.stages.length, 10);
+test('the canonical spec defines exactly eleven stages', () => {
+  assert.equal(BUILDER_SPEC.stages.length, 11);
   BUILDER_SPEC.stages.forEach((s) => {
     assert.equal(typeof s.key, 'string');
     assert.equal(typeof s.name, 'string');
@@ -43,7 +43,7 @@ test('the canonical spec defines exactly ten stages', () => {
 
 test('the app builder exposes exactly the canonical spec\'s ten stage names, in order', () => {
   const app = loadApp({ pinnedDate: TODAY });
-  assert.equal(app.BLD_STAGE_NAMES.length, 10);
+  assert.equal(app.BLD_STAGE_NAMES.length, BUILDER_SPEC.stages.length);
   assert.equal(JSON.stringify(Array.from(app.BLD_STAGE_NAMES)),
     JSON.stringify(BUILDER_SPEC.stages.map((s) => s.name)),
     'the app\'s stage names/order no longer match the canonical spec');
@@ -53,32 +53,11 @@ test('the app builder exposes exactly the canonical spec\'s ten stage names, in 
     'the app redeclares its own stage-name list instead of reading the canonical spec');
 });
 
-test('/start\'s wizard reads the same ten stages from the same object, not a second list', () => {
-  assert.match(START_SRC, /var BLD_STAGES = BS\.stages;/,
-    '/start no longer sources its stage list from window.BUILDER_SPEC');
-  // Ten render functions, one per stage, in the same order the spec lists.
-  const arr = /var BLD_RENDERERS = \[([^\]]*)\];/s.exec(START_SRC);
-  assert.ok(arr, 'BLD_RENDERERS was not found');
-  const names = arr[1].split(',').map((s) => s.trim()).filter(Boolean);
-  assert.equal(names.length, 10, '/start does not render exactly ten stages');
-});
-
-test('the old condensed all-fields-on-one-page builder no longer exists', () => {
-  // The exact markup the condensed form used to render: a plain <select> per
-  // field, all mounted at once inside #pane-build. Its removal, not merely
-  // its being hidden, is the requirement -- so this greps for the literal
-  // tags, not for visibility.
-  assert.doesNotMatch(START_SRC, /<select id="purpose">/, 'the condensed purpose <select> still exists');
-  assert.doesNotMatch(START_SRC, /<select id="distance">/, 'the condensed distance <select> still exists');
-  assert.doesNotMatch(START_SRC, /<select id="longday">/, 'the condensed long-run-day <select> still exists');
-  assert.doesNotMatch(START_SRC, /id="weeks" type="number"/, 'the condensed weeks field still exists statically');
-  assert.doesNotMatch(START_SRC, /Race goal — train for a distance/,
-    'the old condensed purpose option copy is still present');
-  // In its place: a single per-stage mount point the nine render functions
-  // draw into, one stage visible at a time.
-  assert.match(START_SRC, /id="bld-stage-body"/, 'there is no single staged mount point');
-  assert.match(START_SRC, /function bldGoToStage\(/, 'there is no stage-navigation function');
-  assert.match(START_SRC, /function bldValidateStage\(/, 'there is no per-stage validation function');
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
+/* So the parity below is the app, the spec and the server; /start asks nothing. */
+test('/start holds no builder of its own, staged or condensed', () => {
+  assert.doesNotMatch(START_SRC, /id="pane-build"|id="bld-stage-body"|BUILDER_SPEC|BLD_STAGES/);
+  assert.doesNotMatch(START_SRC, /<select id="(purpose|distance|longday)">/, 'the condensed builder is back');
 });
 
 // ---------------------------------------------------------------------------
@@ -138,7 +117,9 @@ test('the goal-ambition mapping is identical across the app, the spec and the se
 // ---------------------------------------------------------------------------
 test('validation thresholds are the same numbers, read from the same object, everywhere', () => {
   assert.deepEqual(BUILDER_SPEC.validation.weeksRange, [4, 24]);
-  assert.deepEqual(BUILDER_SPEC.validation.daysRange, [3, 6]);
+  /* A5 (founder, 15 November 2026): one to seven running days, provided no
+     easy run falls under 5km (the week-fit check and the merge solver). */
+  assert.deepEqual(BUILDER_SPEC.validation.daysRange, [1, 7]);
   assert.equal(BUILDER_SPEC.validation.volumeMustExceed, 0);
 
   // The server -- fixed here to match, closing the drift the investigation
@@ -163,58 +144,64 @@ test('validation thresholds are the same numbers, read from the same object, eve
   assert.match(gpBody, /BUILDER_SPEC\.validation\.weeksRange/);
   assert.match(gpBody, /BUILDER_SPEC\.validation\.volumeMustExceed/);
 
-  // /start's own bldValidateStage() equivalent, same source.
-  const sv = START_SRC.slice(START_SRC.indexOf('function bldValidateStage'));
-  const svBody = sv.slice(0, sv.indexOf('\n  }\n'));
-  assert.match(svBody, /BS\.validation\.weeksRange/);
-  assert.match(svBody, /BS\.validation\.volumeMustExceed/);
-  assert.match(svBody, /BS\.validation\.daysRange/);
-  assert.match(svBody, /BS\.validation\.benchmarkSecondsRange/);
+  /* /start's copy of the validator is retired with the web builder (item 9). */
 });
 
-test('a preview request the app builder would refuse (7 running days) is refused by the server too', () => {
-  // The concrete regression: before this reconciliation, LIMITS.days=[2,7]
-  // let a 7-day build preview fine and then fail silently at adoption --
-  // see adoptPendingBuildIfAny()'s own 3-6 check. That gap is now closed at
-  // the source both sides read.
-  const v = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 40,
+test('the server accepts exactly the day counts the app builder accepts', () => {
+  // The concrete regression: LIMITS.days=[2,7] once let a 7-day build preview
+  // fine and then fail silently at adoption (adoptPendingBuildIfAny() reads
+  // the same range). Both sides read one source, so when A5 (founder, 15
+  // November 2026) opened the range to 1-7, the server moved with it: seven
+  // days and one day are accepted, and no days at all is still refused.
+  const seven = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 40,
     activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 0, benchmarkSeconds: 2700 });
-  assert.equal(v.ok, false);
-  assert.equal(v.code, 'training_days_out_of_range');
+  assert.equal(seven.ok, true, 'seven running days are accepted');
+  const one = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 10,
+    activeDays: [6], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.equal(one.ok, true, 'one running day is accepted');
+  const none = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 10,
+    activeDays: [], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.equal(none.ok, false);
 });
 
-test('a preview request with zero weekly volume is refused, matching the app\'s own ">0" rule', () => {
-  const v = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 0,
+test('a preview request with ZERO weekly volume is accepted, because zero is an answer', () => {
+  /* ---- RE-POINTED ---- HQ RULING: "0 is valid evidence and MUST remain
+     different from null/unknown."
+     This contract asserted the opposite, and the endpoint's own comment had
+     already noticed the tension -- "zero is a real answer an athlete could
+     submit, not a missing one" -- immediately above a line that refused it. An
+     athlete who is not running yet is exactly the athlete the question exists
+     for, and refusing their answer meant /start could not build them anything.
+     WHAT IT GUARDS IS UNCHANGED: a figure we cannot believe is still refused.
+     Only the boundary moved, from "must exceed zero" to "must be answered". */
+  const ok = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 0,
     activeDays: [0, 1, 2, 4, 5], longRunDay: 5, benchmarkSeconds: 2700 });
-  assert.equal(v.ok, false);
-  assert.equal(v.code, 'volume_out_of_range');
+  assert.equal(ok.ok, true, 'a stated zero is an answer and must be accepted');
+  [-1, NaN, 'x', undefined, 201].forEach(bad => {
+    const v = Preview.validate({ distanceKey: '10k', weeks: 12, volume: bad,
+      activeDays: [0, 1, 2, 4, 5], longRunDay: 5, benchmarkSeconds: 2700 });
+    assert.equal(v.ok, false, String(bad) + ' is not an answer and must be refused');
+    assert.equal(v.code, 'volume_out_of_range');
+  });
 });
 
 // ---------------------------------------------------------------------------
 // 4. THE REVIEW STAGE IS IDENTICAL IN MEANING AND DATA
 // ---------------------------------------------------------------------------
-test('the review stage covers the same set of answers on both surfaces', () => {
-  // Not byte-identical markup -- /start renders its own review card -- but
-  // the same underlying facts must be summarised: what the block is for and
-  // its distance, its length or event date, experience, weekly schedule,
-  // benchmark, and the goal/ambition. Read out of each function's own body
-  // rather than the rendered HTML, so the assertion survives a copy edit.
+test('the review stage covers every answer the builder asked', () => {
+  /* /start's side of this comparison is retired with the web builder (item 9). */
   const appReview = APP_SRC.slice(APP_SRC.indexOf('function bldRenderReview'));
   const appBody = appReview.slice(0, appReview.indexOf('\n}\n'));
-  const startReview = START_SRC.slice(START_SRC.indexOf('function renderReviewStage'));
-  const startBody = startReview.slice(0, startReview.indexOf('\n  }\n'));
-
   const CONCEPTS = [
-    [/su-distance|profile\.label/, /purposeMeta\(\)\.label|NAME\[Ans\.distanceKey\]/, 'distance/purpose'],
-    [/su-racedate|su-weeks/, /Ans\.raceDate|Ans\.weeks/, 'event date or block length'],
-    [/athleteExperience/, /Ans\.experience|BS\.experience/, 'experience'],
-    [/su-weekdays|longSel/, /Ans\.activeDays|Ans\.longRunDay/, 'training days / long run day'],
-    [/su-bench-dist|su-bench-time/, /Ans\.benchDist|Ans\.benchTime/, 'benchmark'],
-    [/su-goal-/, /Ans\.goalAmbition/, 'goal / ambition']
+    [/su-distance|profile\.label/, 'distance/purpose'],
+    [/su-racedate|su-weeks/, 'event date or block length'],
+    [/athleteExperience/, 'experience'],
+    [/su-weekdays|longSel/, 'training days / long run day'],
+    [/su-bench-dist|su-bench-time/, 'benchmark'],
+    [/su-goal-/, 'goal / ambition']
   ];
-  CONCEPTS.forEach(([appPattern, startPattern, label]) => {
+  CONCEPTS.forEach(([appPattern, label]) => {
     assert.match(appBody, appPattern, 'the app\'s review no longer shows ' + label);
-    assert.match(startBody, startPattern, '/start\'s review no longer shows ' + label);
   });
 });
 

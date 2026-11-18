@@ -68,7 +68,7 @@ athlete buys on the open web and then signs in to use, and — since the 2021
 policy updates and subsequent regulatory settlements — it permits an app to
 inform users of alternative purchase options in most jurisdictions.
 
-**The Android decision, stated plainly:** Valhalla ships on Android with the web
+**The Android decision, stated plainly:** Sacoro ships on Android with the web
 subscription only. The app does not sell anything in-app, so Play Billing is not
 engaged. The `google` provider value exists so that adding Play Billing later is
 an adapter, not a migration of every subscription row.

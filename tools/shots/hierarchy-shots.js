@@ -42,8 +42,8 @@ const STATE = athlete();
 const FRAMES = {
   /* PART C — the states the hierarchy brief asks to see before anything is
      redesigned. Photographed from the product's own render path. */
-  'valhalla-nothing-measured': { view: 'planhq', setup: `planhqTab='valhalla'; state.athlete.performances=[];` },
-  'valhalla-measured':         { view: 'planhq', setup: `planhqTab='valhalla';
+  'sacoro-nothing-measured': { view: 'planhq', setup: `planhqTab='sacoro'; state.athlete.performances=[];` },
+  'sacoro-measured':         { view: 'planhq', setup: `planhqTab='sacoro';
       state.athlete.performances=[{date:'2026-08-10',km:5,timeSec:23*60,source:'race'}];` },
   'record-nothing-measured':   { view: 'planhq', setup: `planhqTab='record'; state.athlete.performances=[];` },
   'record-measured':           { view: 'planhq', setup: `planhqTab='record';

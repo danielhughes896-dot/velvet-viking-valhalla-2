@@ -45,7 +45,7 @@ reading of a table.
 ## 2. Architecture
 
 ```
-Valhalla engine  →  voiceBriefingScript()  →  /api/voice-tts  →  ElevenLabs  →  <audio>
+Sacoro engine  →  voiceBriefingScript()  →  /api/voice-tts  →  ElevenLabs  →  <audio>
 (deterministic,      (the exact words,        (server, holds       (renders          (device)
  on the device)       already approved)        the credential)      only)
                                    │
@@ -260,7 +260,7 @@ The screenshot harness resolves the fill from the live stylesheet: `50%` radius,
 Radios in one `role="radiogroup"`, so assistive technology hears that one voice
 is in force. Every row is a 44px tap target.
 
-**Preview** speaks one fixed Valhalla sentence, identical for every voice, so
+**Preview** speaks one fixed Sacoro sentence, identical for every voice, so
 they are compared on the same words: *"Easy today. Keep it conversational, and
 save the hard running for the sessions built for it."* It is a literal in the
 source. It calls no coaching endpoint and no model — asserted — and it does not

@@ -111,7 +111,7 @@ request carries the payload.
 
 ## Exact monday-side actions
 
-1. **Create a board** named `Valhalla — Operational`. It must be a *different*
+1. **Create a board** named `Sacoro — Operational`. It must be a *different*
    board from the content/evidence board; the two have different rules and
    different blast radius.
 2. **Create one group** on it, e.g. `Accounts`.

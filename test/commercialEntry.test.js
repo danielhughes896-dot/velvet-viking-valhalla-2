@@ -10,8 +10,8 @@ const P = require('../api/_products.js');
 
 // THE COMMERCIAL FRONT DOOR.
 //
-// The property the whole phase rests on: an athlete may see what Valhalla built
-// for them without receiving Valhalla. Everything else is routing.
+// The property the whole phase rests on: an athlete may see what Sacoro built
+// for them without receiving Sacoro. Everything else is routing.
 
 const ROOT = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
@@ -123,13 +123,18 @@ test('the builder refuses input that would abuse the engine', () => {
     [{ weeks: 500 }, 'weeks_out_of_range'],
     [{ weeks: 1 }, 'weeks_out_of_range'],
     [{ volume: 9999 }, 'volume_out_of_range'],
-    [{ activeDays: [1] }, 'training_days_out_of_range'],
+    /* A5 (founder, 15 November 2026): the builder accepts one to seven
+       running days, so the refusal is now no days at all. */
+    [{ activeDays: [] }, 'training_days_out_of_range'],
+    [{ activeDays: [6] }, null],
     /* De-duplicated to seven distinct days -- once ABOVE the endpoint's own
        (looser) days:[2,7], now above the canonical builder's own 3-6, which
        assets/builder-spec.js's validation.daysRange makes this endpoint
        enforce too. Accepting eight running days was the drift this file's
        own header describes: a build the app itself could never generate. */
-    [{ activeDays: [1,2,3,4,5,6,0,1] , longRunDay: 6 }, 'training_days_out_of_range'],
+    /* ...and seven distinct days (eight entries, one repeated) is now inside
+       the canonical range the endpoint reads, so it is accepted. */
+    [{ activeDays: [1,2,3,4,5,6,0,1] , longRunDay: 6 }, null],
     [{ longRunDay: 4 }, 'long_run_day_not_a_training_day'],
     [{ benchmarkSeconds: 5 }, 'benchmark_out_of_range']
   ];
@@ -153,7 +158,7 @@ test('duplicate training days are de-duplicated, not counted twice', () => {
 //
 // The trial takes a payment method upfront and converts to the interval the
 // athlete chose, so there is no separate trial endpoint any more: Checkout
-// creates a real subscription with fourteen free days.
+// creates a real subscription with free days.
 // ---------------------------------------------------------------------------
 test('the standalone trial endpoint is gone, not merely unrouted', () => {
   assert.equal(fs.existsSync(path.join(ROOT, 'api/_trial.js')), false);
@@ -218,7 +223,7 @@ test('a hung server does not strand the athlete on a spinner', () => {
   const html = read('start.html');
   assert.match(html, /function within\(ms, p\)/, 'route resolution must be time-bounded');
   assert.match(html, /within\(10000, establish\(tok\)\)/);
-  assert.match(html, /We could not reach Valhalla just then/,
+  assert.match(html, /We could not reach SACORO just then/,
     'and it must say something actionable rather than nothing');
   // Falling back to sign-in grants nothing: the server still decides access.
   assert.match(html, /show\('pane-auth'\);\s*\n\s*fail\('auth-err'/);

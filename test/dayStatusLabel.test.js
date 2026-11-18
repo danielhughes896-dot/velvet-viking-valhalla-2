@@ -9,7 +9,16 @@ const { buildPlan } = require('./fixtures.js');
 // pill. Each now carries its own tone class and a small dot -- the word
 // stays the primary signal, tone is reinforcement, not a replacement.
 
-test('dayStatusLabel: Adjusted, Key, Missed and Recovery each get a distinct tone class', () => {
+/* CHANGED SIDES: KEY IS GONE. Founder, on the goal day: "Theres a bloody
+   pill!!! Key! Remove." This test asserted four tones, Key among them. A
+   race and a Fitness Checkpoint print no status word at all now; the other
+   three are still told apart, and the goal day is still never relabelled
+   Missed once it is in the past.
+   AND THEN ADJUSTED WENT TOO. Founder, on a completed hill session: "I also
+   don't care about it say adjusted pill top right! Remove." A session
+   Sacoro changed prints no status word; Missed and Recovery are still told
+   apart. */
+test('dayStatusLabel: Missed and Recovery each get a distinct tone class; an adjusted day and a goal day get none', () => {
   const app = loadApp();
   const today = app.todayStr();
   const yesterday = app.addDays(today, -1);
@@ -39,17 +48,27 @@ test('dayStatusLabel: Adjusted, Key, Missed and Recovery each get a distinct ton
   dd.coachReview.trainingSignal = 'recovery_priority';
   const recovery = app.dayStatusLabel(dd);
 
-  assert.match(adjusted, /class="day-status-label font-head adjusted"/);
-  assert.match(key, /class="day-status-label font-head key"/);
+  assert.equal(adjusted, '', 'an adjusted session is labelled Adjusted again');
+  /* and losing its own word does not hand it somebody else's */
+  assert.equal(app.dayStatusLabel({ coachAdjust: { at: 'x' }, manualEdit: true, type: 'easy', completed: false, date: today }), '',
+    'a session Sacoro changed is now called the athlete\u2019s own edit');
+  /* but a fact about the day still shows on an adjusted one */
+  assert.match(app.dayStatusLabel({ coachAdjust: { at: 'x' }, type: 'easy', completed: false, date: yesterday }),
+    />Missed<\/span>$/, 'an adjusted session that was missed no longer says so');
+  assert.equal(key, '', 'a Fitness Checkpoint is labelled Key again');
+  assert.equal(app.dayStatusLabel({ type: 'race', completed: false, date: today }), '',
+    'a race is labelled Key again');
+  ['checkpoint', 'race'].forEach(t => assert.equal(
+    app.dayStatusLabel({ type: t, completed: false, date: yesterday }), '',
+    'a ' + t + ' in the past is called Missed now that it is not called Key'));
   assert.match(missed, /class="day-status-label font-head missed"/);
   assert.match(recovery, /class="day-status-label font-head recovery"/);
 
-  // All four are genuinely distinct tone classes, not four labels sharing one.
-  const tones = [adjusted, key, missed, recovery].map(html => /font-head (\w+)"/.exec(html)[1]);
-  assert.equal(new Set(tones).size, 4, 'each status word must resolve to its own tone class');
+  // Genuinely distinct tone classes, not two labels sharing one.
+  const tones = [missed, recovery].map(html => /font-head (\w+)"/.exec(html)[1]);
+  assert.equal(new Set(tones).size, 2, 'each status word must resolve to its own tone class');
 
   // The word itself is still the primary, always-present signal.
-  assert.match(adjusted, />Adjusted<\/span>$/);
   assert.match(missed, />Missed<\/span>$/);
 });
 
@@ -69,12 +88,15 @@ test('dayStatusLabel: a declined adjustment (coachKeptAt) is now visible outside
   assert.notEqual(kept, '', 'This Week / Full Plan previously showed nothing at all for a declined adjustment');
 });
 
-test('dayStatusLabel: an accepted adjustment still wins over a declined one on the same record', () => {
+test('dayStatusLabel: an accepted adjustment is still never called a declined one', () => {
   const app = loadApp();
   const today = app.todayStr();
   // Not a real reachable combination (accept and keep are mutually exclusive
   // answers to the same proposal), but the priority order should still be
   // deterministic rather than accidental.
   const both = app.dayStatusLabel({ coachAdjust: { at: 'x' }, coachKeptAt: 'y', type: 'easy', completed: false, date: today });
-  assert.match(both, /class="day-status-label font-head adjusted"/);
+  /* WAS: it reads Adjusted. Adjusted prints nothing now ("I also don't care
+     about it say adjusted pill"), and the order this test protects is the
+     same one: accepted beats declined, so the day must not read Kept. */
+  assert.equal(both, '', 'an accepted adjustment reads ' + JSON.stringify(both));
 });

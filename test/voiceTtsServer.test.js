@@ -8,7 +8,7 @@ const { RUNTIME_RELATIVE } = require('./harness.js');
 /* HEAR TODAY'S PREMIUM VOICE — THE SERVER HALF
  * ===========================================================================
  * THE ARCHITECTURAL RULE THIS FILE ENFORCES: ElevenLabs is a loudspeaker, not
- * a coach. It renders words Valhalla's own deterministic engine already chose,
+ * a coach. It renders words Sacoro's own deterministic engine already chose,
  * on the athlete's device, before this route is reached. It is never asked
  * what to say.
  *
@@ -438,7 +438,11 @@ test('no log line can carry the briefing, the key or the athlete', async () => {
 // ---------------------------------------------------------------------------
 test('the voice router serves speech alongside Ask Coach, on one function', () => {
   const r = require('../api/voice.js');
-  assert.deepEqual(r.ROUTES.slice().sort(), ['voice-ask','voice-enabled','voice-tts']);
+  /* 'voice-note' joined on the founder's instruction: "Upgrade Coach's Note
+     to genuinely personalised, AI-written coaching using existing Anthropic
+     integration." A route behind this same function, not a function of its
+     own -- see coachNoteAi.test.js for everything that bounds it. */
+  assert.deepEqual(r.ROUTES.slice().sort(), ['voice-ask','voice-enabled','voice-explain','voice-note','voice-tts']);
   assert.equal(r.resolveRoute({ url:'/api/voice?route=voice-tts', query:{} }), 'voice-tts');
   assert.equal(r.resolveRoute({ url:'/api/voice-tts', query:{} }), 'voice-tts');
   const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
@@ -449,7 +453,7 @@ test('the voice router serves speech alongside Ask Coach, on one function', () =
 test('Ask Coach was not touched by the speech change', () => {
   const ask = fs.readFileSync(path.join(ROOT, 'api', '_voice-ask.js'), 'utf8');
   assert.ok(!/elevenlabs/i.test(ask), 'the speech vendor leaked into the Ask Coach path');
-  assert.equal(V.VOICE_MODEL, 'claude-opus-5', 'the Ask Coach model changed');
+  assert.equal(V.VOICE_MODEL, 'claude-opus-5-5', 'the Ask Coach model changed');
 });
 
 test('the speech route holds no Strava or health surface at all', () => {

@@ -119,8 +119,22 @@ function effectiveDays(exp, days){ return Math.min(days, TIER_DAY_CAP[exp]); }
         const { days: builtDays } = buildDays(a, blk, N, activeDaysFor(days), 6);
         const c = definiteRestOptional(builtDays, 1);
         const eff = effectiveDays(exp, days);
-        assert.ok(c.definite >= eff - 1,
-          `week 1, ${days} selected (tier cap ${eff}): expected at least ${eff - 1} prescribed, got ${c.definite}`);
+        /* A5 (founder, 15 November 2026): no easy run under 5km, so the floor
+           is also what the week can hold. Beside its long run (and any
+           quality session), the week's other kilometres make at most
+           floor((km + 1) / 5) runs of 5km or more, allowing the kilometre of
+           rounding up; the New Half's 15km entry is an 8km long run and one
+           7km easy run, not two of 3.5km. The days it does not need are
+           Optional, which the second assertion still requires. */
+        const wk1 = builtDays.filter(d => d.week === 1 && d.km > 0 && d.type !== 'rest');
+        const longKm = wk1.filter(d => d.type === 'long').reduce((m, d) => Math.max(m, d.km), 0);
+        const fixedRuns = wk1.filter(d => d.type !== 'easy').length;
+        const easyKm = wk1.filter(d => d.type === 'easy').reduce((t, d) => t + d.km, 0);
+        const canHold = fixedRuns + Math.floor((easyKm + 1 + 1e-9) / 5);
+        const need = Math.min(eff - 1, canHold);
+        assert.ok(longKm > 0, 'week 1 has its long run');
+        assert.ok(c.definite >= need,
+          `week 1, ${days} selected (tier cap ${eff}): expected at least ${need} prescribed, got ${c.definite}`);
         assert.equal(c.definite + c.optional, days,
           `week 1, ${days} selected: every selected day must be prescribed or Optional (got ${c.definite} + ${c.optional} of ${days})`);
         assert.equal(c.rest, 7 - days,
@@ -204,7 +218,15 @@ test('the generic volume-feasibility bound (expressibleRunningDays) is bypassed 
   const blk = buildFor(a, 'half', 'novice', 12, 6, 15);
   const { days } = buildDays(a, blk, 12, activeDaysFor(6), 6);
   const c = definiteRestOptional(days, 1);
-  assert.ok(c.definite >= 3, 'the feasibility bound must not silently override the day-count floor');
+  /* A5 (founder, 15 November 2026): the floor is also what the week can hold
+     at 5km a run. 15km is an 8km long run and one 7km easy run, and the other
+     selected days are Optional, never plain Rest. What this guards is still
+     guarded: the generic bound does not remove a run the week can hold. */
+  const wk1 = days.filter(d => d.week === 1 && d.km > 0 && d.type !== 'rest');
+  const easyKm = wk1.filter(d => d.type === 'easy').reduce((t, d) => t + d.km, 0);
+  const canHold = wk1.filter(d => d.type !== 'easy').length + Math.floor((easyKm + 1 + 1e-9) / 5);
+  assert.ok(c.definite >= Math.min(3, canHold), 'the feasibility bound must not silently override the day-count floor');
+  assert.equal(c.definite + c.optional, 6, 'every selected day is prescribed or Optional');
 });
 
 test('5K/10K keep the generic feasibility bound -- this bypass is Half/Marathon only', () => {

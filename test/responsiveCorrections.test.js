@@ -1,0 +1,250 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { RUNTIME_RELATIVE } = require('./harness.js');
+
+/* Founder, after the cross-device responsive audit: "Proceed with all 10
+   findings ... This is a responsive-design correction, not a visual
+   redesign. Preserve SACORO's existing typography, colours, liquid glass,
+   spacing character, transitions and navigation. The interface must
+   reflow naturally across screen sizes rather than simply shrink
+   proportionally." Each test names the finding it holds. */
+
+const RT = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+const CSS = RT.slice(RT.indexOf('<style'), RT.indexOf('</style>'));
+const fnIn = (n) => {
+  const i = RT.indexOf('function ' + n + '(');
+  assert.ok(i > -1, n);
+  return RT.slice(i, RT.indexOf('\n}', i) + 2);
+};
+
+test('3. a picture rail grows with its words: re-measured whenever a card\'s contents change size', () => {
+  /* Measured at 200% Android text and the largest iOS size, the session
+     stage text was cut mid-sentence: the rail had been sized once, for the
+     text as it was then, and every card is clipped to it. */
+  const wire = fnIn('wireCoachingRail');
+  assert.match(wire, /new ResizeObserver\(function\(\)\{ measure\(\); \}\)/, 'nothing re-measures the rail when the words grow');
+  /* The card's CONTENTS are watched, not the card: the cards are stretched
+     to the rail, so watching them would re-measure on its own result. */
+  assert.match(wire, /var kids = mods\[ri\]\.children \|\| \[\];/);
+  assert.match(wire, /railRO\.observe\(kids\[rk\]\)/);
+  assert.doesNotMatch(wire, /railRO\.observe\(mods\[/, 'the stretched card itself is watched, which loops');
+  /* A phone without ResizeObserver keeps the two measurements it had. */
+  assert.match(wire, /if \(typeof ResizeObserver === 'function'\)\{/);
+});
+
+test('2. a Full Plan week row reflows for its text instead of cutting the week\'s name', () => {
+  /* At iOS xxxLarge the name read "WE..."; at AX1 it vanished and the date
+     ran into "60/60". The figure columns are measured in the row's own text
+     size, and a container query in em moves the figures and chevron, as a
+     group, under the name when the row cannot hold them. */
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\.view-plan \.pp-body \.week\{container:weekrow \/ inline-size;\}/);
+  assert.match(bare, /\.view-plan \.pp-body \.week-pct\{font-size:var\(--fs-row\); flex:0 0 2\.4em;/);
+  const wide = /@media \(min-width:375px\)\{\s*@container weekrow \(max-width:([\d.]+)em\)\{([\s\S]*?)\}\s*\}/.exec(bare);
+  const narrow = /@media \(max-width:374px\)\{\s*@container weekrow \(max-width:([\d.]+)em\)\{([\s\S]*?)\}\s*\}/.exec(bare);
+  assert.ok(wide && narrow, 'the row no longer reflows when its text outgrows it');
+  [wide, narrow].forEach(m => {
+    assert.match(m[2], /\.week-head\{flex-wrap:wrap; row-gap:2px;\}/);
+    assert.match(m[2], /\.week-meta\{flex:1 0 100%;\}/, 'the name does not keep the first line');
+    assert.match(m[2], /\.week-vol\{margin-left:auto;/, 'the figures do not move right as a group');
+  });
+  /* THE THRESHOLDS ARE THE MEASURED ONES, in the box's ems (the row text is
+     15/16 of the box): 22 row-ems on a phone 375 and up, 18.5 below it. At
+     the normal size every phone from 320 to 430 stays on one line. */
+  assert.equal(Number(wide[1]), +(22 * 15 / 16).toFixed(1));
+  assert.equal(Number(narrow[1]), +(18.5 * 15 / 16).toFixed(1));
+  [[320, 288], [360, 328]].forEach(([w, box]) => assert.ok(box / 16 > Number(narrow[1]), w + 'px reflows at the normal size'));
+  [[375, 343], [393, 361], [430, 398]].forEach(([w, box]) => assert.ok(box / 16 > Number(wide[1]), w + 'px reflows at the normal size'));
+  /* And it does reflow where the audit found it broken. */
+  assert.ok(361 / (16 * 1.235) < Number(wide[1]), 'iPhone 16 at xxxLarge stays on one line and cuts the name');
+});
+
+test('5. the Coach graph names scroll inside their row instead of widening the page', () => {
+  /* At 200% Android text the five names were wider than a 360px phone and
+     laid the whole Coach page out at 485px, every panel cut at the right. */
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\.cg-tabs\{column-gap:8px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none;\}/);
+  assert.match(bare, /\.cg-tabs::-webkit-scrollbar\{display:none;\}/);
+  /* The 8px floor costs nothing at the normal size: the five measured 241px
+     of names in a 288px row on a 320px phone, and 303 of 343 at 375. */
+  assert.ok(241 + 4 * 8 <= 288 && 303 + 4 * 8 <= 343);
+  /* And the chosen graph's name is brought into view when it changes. */
+  assert.match(fnIn('handleCoachGraph'), /if \(t2\)\{ t2\.scrollLeft = keep; cgTabInView\(t2\); \}/);
+  assert.match(fnIn('cgTabInView'), /if \(!on \|\| tabs\.scrollWidth <= tabs\.clientWidth \+ 1\) return;/, 'it moves the names when they all fit');
+});
+
+test('5. a figure is drawn small enough for its circle, and only when it would not fit', () => {
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const kid = (w, h) => {
+    const b = { getBoundingClientRect: () => ({ width: w }) };
+    return { style: {}, offsetHeight: h, firstElementChild: b };
+  };
+  const medal = (W, H, kids) => ({ clientWidth: W, clientHeight: H, children: kids });
+  const fits = medal(68, 68, [kid(40, 30)]);
+  const wide = medal(68, 68, [kid(72, 40)]);
+  const tall = medal(68, 68, [kid(40, 40), kid(30, 30)]);
+  a.document = { querySelectorAll: () => [fits, wide, tall] };
+  a.fitDialValues();
+  assert.equal(fits.children[0].style.transform, '', 'a figure that fits was touched');
+  assert.equal(wide.children[0].style.transform, 'scale(' + (68 * a.DIAL_FIT_WIDE / 72).toFixed(3) + ')');
+  const r = (68 * a.DIAL_FIT_ROOM / 70).toFixed(3);
+  assert.deepEqual(tall.children.map(k => k.style.transform), ['scale(' + r + ')', 'scale(' + r + ')'], 'a face whose lines are too tall is not fitted as one');
+  /* Run again at a size where it fits: the old scale comes off. */
+  wide.children[0].firstElementChild.getBoundingClientRect = () => ({ width: 30 });
+  a.fitDialValues();
+  assert.equal(wide.children[0].style.transform, '');
+});
+
+test('5. fitted after every render, every panel, every size or text-size change', () => {
+  assert.match(RT, /try \{ easeDials\(\); \} catch\(e\)\{\}\n  try \{ fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\); \} catch\(e\)\{\}/, 'not fitted after a render');
+  const om = fnIn('openModal');
+  assert.equal((om.match(/try \{ fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\); \} catch\(e\)\{\}/g) || []).length, 2, 'a panel opened or redrawn in place is not fitted');
+  assert.match(fnIn('applyDynamicType'), /fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\);/, 'an iOS text-size change is not fitted');
+  assert.match(RT, /window\.addEventListener\('resize', function\(\)\{ fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\); \}\)/);
+  assert.match(RT, /document\.fonts\.ready\.then\(function\(\)\{ fitDialValues\(\); fitTabLabels\(\); fitZoneBars\(\); \}\)/);
+});
+
+test('7. every small control takes a 44px tap without being drawn bigger', () => {
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  /* The week's seven day circles: an invisible 44px disc centred on each. */
+  assert.match(bare, /\.wk-day::before\{content:''; position:absolute; left:50%; top:50%;\s*width:max\(100%, var\(--tap-min\)\); height:max\(100%, var\(--tap-min\)\);\s*transform:translate\(-50%,-50%\); border-radius:50%;\}/);
+  /* The phase dots: 34px buttons, 44px bands. */
+  assert.match(bare, /\.pp-dot::after\{content:''; position:absolute; left:0; right:0; top:50%;\s*height:var\(--tap-min\); transform:translateY\(-50%\);\}/);
+  /* The graph names reach 9px either side: DRIFT, 28px at 320, is 46. */
+  assert.match(bare, /\.cg-tab::after\{content:''; position:absolute; top:0; bottom:0; left:-9px; right:-9px;\}/);
+  assert.ok(28 + 2 * 9 >= 44);
+  /* KM and MI: a clipped pill cannot reach past itself, so each half is 44. */
+  /* KM and MI keep the widths the founder's toggle has: widening them was a
+     visible change at the normal size (before-and-after on the Pixel). */
+  assert.match(bare, /\.stg-row-units \.tb-unit-toggle button\{font-size:\.84375rem; padding:0 10px;\}/);
+  assert.doesNotMatch(bare, /tb-unit-toggle button\{[^}]*min-width:var\(--tap-min\)/);
+  /* The builder's weekday circles: the box that takes the tap is centred
+     on the circle and at least 44px. */
+  assert.match(bare, /\.field \.wd-check input\{\s*position:absolute; left:50%; top:50%; transform:translate\(-50%,-50%\);\s*width:max\(100%, var\(--tap-min\)\); height:max\(100%, var\(--tap-min\)\); margin:0;/);
+  /* The flat heart-rate and benchmark fields: back to 44 tall. */
+  assert.match(bare, /\.benchmark-row > \.field input\{min-height:var\(--tap-min\); margin-top:-2px; margin-bottom:-2px;\}/,
+    'the 44px target must not take more room than the 40px box did');
+  /* The two the audit's box measure flagged that were already 44 by a band
+     of their own -- Injured or ill and the switches -- keep them. */
+  assert.match(bare, /\.coach-why-btn::after\{[^}]*height:44px/);
+  assert.match(bare, /\.switch::after\{[^}]*width:var\(--tap-min\); height:var\(--tap-min\)/);
+});
+
+test('4. every font size follows iOS text size: stated in rem, the same size at the normal root', () => {
+  /* At a larger iOS size the coaching grew and 247 px-sized labels around it
+     did not. iOS Dynamic Type reaches the page through the root font size
+     (applyDynamicType), so only rem follows it. */
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  const px = bare.match(/font-size:\s*(?:calc\()?[\d.]+px/g) || [];
+  assert.deepEqual(px, [], 'a font size is written in px again, so iOS text size does not reach it');
+  /* The figures bound to the screen's width keep px inside clamp(): they
+     scale with the width, not the text size, and are fitted to it. */
+  assert.ok((bare.match(/font-size:clamp\([\d.]+px, [\d.]+vw/g) || []).length >= 3);
+  /* /start carries the builder's shared rules, so it moved with them. */
+  const START = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
+  const sCss = START.slice(START.indexOf('<style'), START.indexOf('</style>')).replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.deepEqual(sCss.match(/font-size:\s*[\d.]+px/g) || [], []);
+  /* And the bridge is still the root, capped as measured. */
+  assert.match(fnIn('applyDynamicType'), /root\.style\.fontSize = \(16 \* scale\) \+ 'px';/);
+});
+
+test('6. a tab\'s name is drawn smaller to fit its tab, never cut, and only when it would not fit', () => {
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const lab = (room, need) => { const c = new Set(); return { clientWidth: room, scrollWidth: need, style: {}, classList: { add: x => c.add(x), remove: x => c.delete(x), has: x => c.has(x) } }; };
+  const fits = lab(63, 50), wide = lab(63, 79);
+  a.document = { querySelectorAll: () => [fits, wide] };
+  a.fitTabLabels();
+  assert.equal(fits.style.transform, ''); assert.ok(!fits.classList.has('is-fit'));
+  assert.equal(wide.style.transform, 'scale(' + (63 / 79).toFixed(3) + ')'); assert.ok(wide.classList.has('is-fit'));
+  /* Fitted, it is shown whole: no ellipsis, scaled from its start. */
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\.bn-item span\.is-fit\{overflow:visible; text-overflow:clip; transform-origin:0 50%;\}/);
+  /* It runs wherever the circle figures are fitted. */
+  assert.match(fnIn('applyDynamicType'), /fitTabLabels\(\);/);
+});
+
+test('8. Android phones stay upright, tablets are free to turn', () => {
+  const MA = fs.readFileSync(path.join(__dirname, '..', 'android/app/src/main/java/com/velvetviking/valhalla/MainActivity.java'), 'utf8');
+  assert.match(MA, /super\.onCreate\(savedInstanceState\);\s*lockPhonesToPortrait\(\);/, 'the lock is not applied when the app opens');
+  assert.match(MA, /static final int TABLET_MIN_DP = 600;/, 'the phone and tablet line moved off Android’s own 600dp');
+  assert.match(MA, /int sw = getResources\(\)\.getConfiguration\(\)\.smallestScreenWidthDp;\s*if \(sw > 0 && sw < TABLET_MIN_DP\) \{\s*setRequestedOrientation\(ActivityInfo\.SCREEN_ORIENTATION_USER_PORTRAIT\);/,
+    'a tablet is locked too, or the phone’s own rotation setting is overridden');
+  /* Not in the manifest: it cannot tell a phone from a tablet. */
+  const MF = fs.readFileSync(path.join(__dirname, '..', 'android/app/src/main/AndroidManifest.xml'), 'utf8');
+  assert.doesNotMatch(MF, /screenOrientation/);
+  /* And no restart on turning: the activity handles orientation itself. */
+  assert.match(MF, /android:configChanges="[^"]*orientation[^"]*"/);
+  /* The iPhone app was already portrait-only. */
+  const plist = fs.readFileSync(path.join(__dirname, '..', 'ios/App/App/Info.plist'), 'utf8');
+  assert.match(plist, /<key>UISupportedInterfaceOrientations<\/key>\s*<array>\s*<string>UIInterfaceOrientationPortrait<\/string>\s*<\/array>/);
+});
+
+test('9. words that inform meet an 11px floor; glyphs in fixed circles and the tab labels keep their size', () => {
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  const floor = /\.coach-why-btn,\s*\.v-hero-fig span,\s*\.gauge-num span,\s*\.zleg-item,\s*\.cr-cmp,\s*\.build-tag\{font-size:\.6875rem;\}\s*$/.exec(bare.trimEnd());
+  assert.ok(floor, 'the 11px floor is not the last word on these, so an earlier rule wins');
+  assert.equal(.6875 * 16, 11);
+  /* Still rem, so it follows the reader's text size like everything else. */
+  assert.doesNotMatch(floor[0], /px/);
+});
+
+test('10. a zone bar whose words outgrow it wraps them; the review heading wraps at a word', () => {
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const bar = (cw, sw) => { const c = new Set(['is-tight']); return { clientWidth: cw, scrollWidth: sw, classList: { add: x => c.add(x), remove: x => c.delete(x), has: x => c.has(x) } }; };
+  const fits = bar(328, 328), over = bar(328, 420), hidden = bar(0, 300);
+  a.document = { querySelectorAll: () => [fits, over, hidden] };
+  a.fitZoneBars();
+  assert.ok(!fits.classList.has('is-tight'), 'a bar that fits was marked');
+  assert.ok(over.classList.has('is-tight'));
+  assert.ok(!hidden.classList.has('is-tight'), 'a collapsed bar was marked');
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\.zbar\.is-tight \.zbar-seg\{min-width:min-content;\}/);
+  assert.match(bare, /\.zbar\.is-tight \.zbar-k\{white-space:normal; text-align:center; line-height:1\.15;\}/);
+  /* Untouched when it fits: the bands still take at least their words. */
+  assert.match(bare, /\.zbar-seg\{\s*position:relative; flex-basis:0; min-width:max-content;/);
+  assert.match(bare, /\.exec-review-head>span:first-of-type\{min-width:0;\}/);
+  assert.doesNotMatch(bare, /\.exec-review-head>span:first-of-type\{[^}]*ellipsis/);
+});
+
+test('5. a figure in a circle stays one word on one line; words keep their two lines', () => {
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  /* "95%" in a 68px face: allowed to break, it would be "9" over "5%". */
+  const fig = (text, natural) => {
+    const f = { tagName: 'B', textContent: text, style: {}, get scrollWidth(){ return this.style.whiteSpace === 'nowrap' ? natural : 50; }, getBoundingClientRect(){ return { width: 50 }; } };
+    return { style: {}, offsetHeight: 40, firstElementChild: f };
+  };
+  const num = fig('95%', 80), word = fig('Worth watching', 120), small = fig('3', 20);
+  const medal = k => ({ clientWidth: 68, clientHeight: 68, children: [k] });
+  a.document = { querySelectorAll: () => [medal(num), medal(word), medal(small)] };
+  a.fitDialValues();
+  assert.equal(num.firstElementChild.style.whiteSpace, 'nowrap', 'a figure was left free to break');
+  assert.equal(num.style.transform, 'scale(' + (68 * a.DIAL_FIT_WIDE / 80).toFixed(3) + ')');
+  assert.equal(word.firstElementChild.style.whiteSpace, '', 'words were forced onto one line');
+  assert.equal(small.firstElementChild.style.whiteSpace, '', 'a figure that fits had its layout changed');
+  assert.equal(small.style.transform, '');
+});
+
+test('re-audit: the week hero\'s readings wrap rather than widen the page at the largest iOS size', () => {
+  const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(bare, /\n  \.wk-hero-figs\{flex-wrap:wrap; row-gap:4px;\}/);
+});
+
+test('visual gate: at the Pixel\u2019s normal size the pace circle\u2019s figure is left as it was', () => {
+  /* "1:42-1:49" is 74px in the Pixel's 80px face and fitted before the
+     corrections; at 0.84 it was drawn at 91%. */
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
+  const f = { tagName: 'B', textContent: '1:42\u20131:49', style: {}, scrollWidth: 74, getBoundingClientRect(){ return { width: 74 }; } };
+  const kid = { style: {}, offsetHeight: 15, firstElementChild: f };
+  a.document = { querySelectorAll: () => [{ clientWidth: 80, clientHeight: 80, children: [kid] }] };
+  a.fitDialValues();
+  assert.equal(kid.style.transform, '', 'a figure that fits its circle was shrunk');
+  assert.ok(a.DIAL_FIT_WIDE <= 0.95, 'a wider allowance runs the figure into the curve');
+});

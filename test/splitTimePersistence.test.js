@@ -86,8 +86,7 @@ test('no lap time field asks for a colon on a keypad that has none', () => {
   assert.doesNotMatch(flat.match(/<input[^>]*class="split-time"[^>]*>/)[0], /inputmode="numeric"/,
     'a digits-only keypad cannot type m:ss');
   const dd = dayWith(a, fartlek(a), 'interval', 8);
-  a.splitsEditorOpen[dd.id] = true;
-  const struct = a.renderSplitsBlock(dd);
+  const struct = a.renderYourLogAnswers(dd);
   const timeInput = struct.match(/<input[^>]*data-field="sec"[^>]*>/);
   if (timeInput) assert.doesNotMatch(timeInput[0], /inputmode="numeric"/);
 });
@@ -156,16 +155,26 @@ test('a seeded row that the athlete never answered is not a phantom segment', ()
 // ---------------------------------------------------------------------------
 // D. PARTIAL LOGS
 // ---------------------------------------------------------------------------
+/* ---- CHANGED SIDES ----
+   Founder: "The m:ss and HR placeholders are too subtle ... The labels
+   should be explicit. Athletes shouldn't have to work out whether m:ss
+   means total time, average pace or something else." A row asks for the
+   average pace, by name, and the prescription supplies the other half. */
 test('filled rows keep their times and blank rows stay blank', () => {
   const a = app();
   const dd = dayWith(a, threshold(a), 'threshold', 8);
-  a.splitsEditorOpen[dd.id] = true;
   const plan = a.structuredLoggingPlan(dd);
   a.handleStructuredSplitChange(dd.id, plan.rows[0].segId, 'sec', '1200');
   a.handleStructuredSplitChange(dd.id, plan.rows[2].segId, 'sec', '600');
   assert.equal(dd.actual.splits.length, 2);
-  const shown = timeInputs(a.renderSplitsBlock(dd));
-  assert.deepEqual(shown, ['12:00', '', '6:00'], 'middle row untouched, and still empty');
+  assert.deepEqual(Array.from(dd.actual.splits).map(x => x.sec), [720, 360], 'a stored time was changed by being drawn');
+  /* "1200" from a keypad is 12:00, and "600" is 6:00. Shown as what the row
+     asks for: 12:00 over a 2km warm-up and 6:00 over a 1km cool-down are
+     both 6:00 per km. The middle row is still empty. */
+  const paces = [...a.renderYourLogAnswers(dd).matchAll(/<input[^>]*data-action="slog-field" data-field="pace"[^>]*>/g)]
+    .map(t => (t[0].match(/value="([^"]*)"/) || [,''])[1]);
+  assert.deepEqual(paces, ['6:00', '', '6:00'], 'middle row untouched, and still empty');
+  assert.deepEqual(Array.from(dd.actual.splits).map(x => x.sec), [720, 360]);
 });
 
 // ---------------------------------------------------------------------------
@@ -251,7 +260,6 @@ test('deleting one lap leaves the other lap\'s time alone', () => {
 test('legacy flat splits are unchanged and still analysed', () => {
   const a = app();
   const dd = dayWith(a, null);
-  a.splitsEditorOpen[dd.id] = true;
   dd.actual.splits = [{paceSec:300},{paceSec:305},{paceSec:310},{paceSec:315}];
   const before = JSON.stringify(dd.actual.splits);
   a.renderSplitsBlock(dd);
@@ -262,7 +270,6 @@ test('legacy flat splits are unchanged and still analysed', () => {
 test('a time already stored in seconds is never re-parsed on render', () => {
   const a = app();
   const dd = dayWith(a, null);
-  a.splitsEditorOpen[dd.id] = true;
   dd.actual.splits = [{ km:3, sec:1050, paceSec:350, hr:150 }];
   const before = JSON.stringify(dd.actual.splits);
   for (let i = 0; i < 5; i++) a.renderSplitsBlock(dd);

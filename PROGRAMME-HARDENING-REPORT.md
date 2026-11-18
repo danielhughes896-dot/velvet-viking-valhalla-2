@@ -1,8 +1,8 @@
-# VALHALLA — YEAR-ROUND PROGRAMME HARDENING
+# SACORO — YEAR-ROUND PROGRAMME HARDENING
 
 **Branch** `audit/programme-and-history` · **NOT MERGED** · held for review.
 
-Valhalla is not a coach. It is a programme that learns how you train. Everything
+Sacoro is not a coach. It is a programme that learns how you train. Everything
 below is measured against that: whether an athlete could put this on their phone
 in January and still be using it, sensibly, three years later.
 
@@ -187,12 +187,12 @@ to satisfy the cap.
 
 ## §8–§9 · ESCALATION
 
-**Was.** Valhalla said the same thing to an athlete who had missed one session
+**Was.** Sacoro said the same thing to an athlete who had missed one session
 and one who had missed seven: *"A threshold session went unlogged on Wednesday
 and it is still worth having this week."* Poor execution escalated exactly once
 and then went flat.
 
-**Now, three tiers, and the difference between them is what Valhalla does:**
+**Now, three tiers, and the difference between them is what Sacoro does:**
 
 | tier | trigger | what it says |
 |---|---|---|
@@ -439,7 +439,7 @@ here and green, and none of them is mine to decide:
    goal effort, time trial and race-distance multiplier; Speed trades a taper week
    for a development week; Recovery stops ramping. Every one is defensible and
    every one changes what an athlete runs.
-2. **Valhalla still cannot tell an athlete they are going well.** Sustained
+2. **Sacoro still cannot tell an athlete they are going well.** Sustained
    correct execution produces no positive language at all, which is a strange
    silence in a product whose promise is that it learns how you train.
 3. **The visual evidence is Chromium, not a phone.** No physical-device pass has

@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
+const { buildPlan, logSections } = require('./fixtures.js');
 
 // NEWLY DISCOVERED DURING REMEDIATION (adjacent to Final Full Product Audit
 // Part 2/3, finding C9). The audit found SESSION_PURPOSE.tempo.label
@@ -32,6 +32,7 @@ function fillAt(app, dd, fraction) {
     rpe: band ? Math.round((band[0] + band[1]) / 2) : null,
     notes: '',
   };
+  logSections(app, dd, 1);            // a structured session is scored from its sections
 }
 
 test('a well-executed tempo session reads as a real sentence, not "of marathon-specific"', () => {

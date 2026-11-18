@@ -49,30 +49,23 @@ const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 const ATHLETE = '11111111-1111-4111-8111-111111111111';
 const OTHER   = '22222222-2222-4222-8222-222222222222';
-/* ANCHORED TO WHEN THE SUITE RUNS, NOT TO A CALENDAR DATE.
- *
- * A fixed date here (this used to be a literal 1 September 2026) is a clock
- * this file does not control racing the one that decides real access: every
- * subscription created in this file goes through the REAL webhook and the
- * REAL /api/checkout, /api/subscription routes, and those resolve entitlement
- * against `new Date()` when nothing more specific is supplied (see
- * Store.syncEntitlementRow()'s default, called with no `now` from the webhook
- * path) -- correctly, because a production webhook arriving today must be
- * judged against today. A T0 fixed months in the past means every trial this
- * file starts has ALREADY ENDED by the time that real clock reads it, and the
- * suite starts reporting "expired" in place of "trial" the day the gap between
- * T0 and whoever is running the tests exceeds the trial length -- which is
- * exactly what shortening the trial from fourteen days to seven did to a
- * literal September anchor. Tying T0 to Date.now() means the gap is always
- * the few minutes this test file takes to run, never months.
- *
- * ROUNDED TO THE SECOND, because every fact that crosses the fake Stripe
- * wire goes through secs() first -- Stripe's own timestamps are seconds, not
- * milliseconds -- and a T0 holding a sub-second remainder would compare
- * unequal to the same instant read back after that round trip. */
-const T0 = Math.floor(Date.now() / 1000) * 1000;
+/* RELATIVE TO NOW, NOT TO A DATE IN 2026.
+   This was Date.UTC(2026, 8, 1) -- the day the file was written. The fixtures
+   built a 14-day trial from it and the entitlement resolver reads the real
+   clock, so every trial assertion in this file passed until 15 September 2026
+   and failed every day after it. Eight tests went permanently red for a reason
+   that had nothing to do with the product.
+
+   Anchored a day ago instead, so a trial that starts at T0 is genuinely live
+   now and stays live whenever this suite is run. Everything downstream already
+   derives from T0, so nothing else in the file changes. */
 const secs = ms => Math.floor(ms / 1000);
 const days = n => n * 24 * 3600 * 1000;
+/* FLOORED TO A WHOLE SECOND. Fixtures store Stripe timestamps with secs(),
+   which floors; assertions compare the ISO string the resolver rebuilds from
+   them. A T0 carrying milliseconds survives one conversion and not the other,
+   so the two differ by a fraction of a second and the string comparison fails. */
+const T0 = Math.floor((Date.now() - days(1)) / 1000) * 1000;
 
 const KEY = 'sk_test_1';
 const SIGNING = 'whsec';
@@ -462,7 +455,7 @@ test('a signed-in athlete who already subscribes is not offered a trial', async 
      checkout. Same dishonesty as the hardcoded `true`, from the other side. */
   await withWorld({ seed: { subscriptions: [{
     account_id: ATHLETE, provider: 'web', provider_subscription_id: 'sub_live',
-    product_code: 'VALHALLA_STANDARD', offer_code: 'STANDARD_MONTHLY',
+    product_code: 'SACORO_STANDARD', offer_code: 'STANDARD_MONTHLY',
     condition: 'active', current_period_end: new Date(Date.now() + days(20)).toISOString()
   }] } }, async ({ api }) => {
     const r = await api.call('preview', 'POST', PREVIEW_BODY);
@@ -646,7 +639,7 @@ test('the trial is spent when the provider says a trialing subscription exists',
     assert.equal(subRow(f).condition, 'trialing');
     assert.equal(entRow(f).state, 'trial', 'the projection follows the resolver');
     assert.equal(resolveAt(f, T0 + days(3)).active, true);
-    assert.equal(resolveAt(f, T0 + days(15)).active, false);
+    assert.equal(resolveAt(f, T0 + days(10)).active, false);
   });
 });
 
@@ -738,7 +731,7 @@ test('a reconcile racing the webhook spends one allowance between them', async (
 test('cancelling during the trial keeps the week and stops the renewal', async () => {
   /* Stripe does not move a subscription to 'cancelled' merely because
      auto-renew was switched off, so the row stays 'trialing' and access runs to
-     trial_end. Somebody who tries Valhalla for a week and decides against it
+     trial_end. Somebody who tries Sacoro for a week and decides against it
      keeps the week they were promised. */
   await withWorld({}, async ({ f, stripe, api }) => {
     await withHook(f, stripe, stripe.put(stripe.sub({ id: 'sub_t' })), 'evt_1');
@@ -816,7 +809,7 @@ test('nothing anywhere in the repository clears a consumed trial', () => {
 test('an athlete who already subscribes cannot buy a second subscription', async () => {
   await withWorld({ seed: { subscriptions: [{
     account_id: ATHLETE, provider: 'web', provider_subscription_id: 'sub_live',
-    product_code: 'VALHALLA_STANDARD', offer_code: 'STANDARD_MONTHLY',
+    product_code: 'SACORO_STANDARD', offer_code: 'STANDARD_MONTHLY',
     condition: 'active', current_period_end: new Date(Date.now() + days(20)).toISOString()
   }] } }, async ({ stripe, api }) => {
     const r = await api.call('checkout', 'POST', { period: 'yearly' });
@@ -829,7 +822,7 @@ test('an athlete who already subscribes cannot buy a second subscription', async
 test('an athlete who subscribes through a store is sent to that store, not sold again', async () => {
   await withWorld({ seed: { subscriptions: [{
     account_id: ATHLETE, provider: 'apple', provider_subscription_id: 'apple_1',
-    product_code: 'VALHALLA_STANDARD', condition: 'active',
+    product_code: 'SACORO_STANDARD', condition: 'active',
     current_period_end: new Date(Date.now() + days(20)).toISOString()
   }] } }, async ({ api }) => {
     const r = await api.call('checkout', 'POST', { period: 'monthly' });
@@ -1110,9 +1103,9 @@ test('a delivery that is not Stripe is refused, not interpreted', async () => {
    about the beta programme -- are written on the grant that still works.
    The retirement itself is asserted immediately after this line. */
 const compGrant = { account_id: ATHLETE, source: 'admin_comp',
-                    product_code: 'VALHALLA_STANDARD', expires_at: null, revoked_at: null };
+                    product_code: 'SACORO_STANDARD', expires_at: null, revoked_at: null };
 const betaGrant = { account_id: ATHLETE, source: 'admin_beta',
-                    product_code: 'VALHALLA_STANDARD', expires_at: null, revoked_at: null };
+                    product_code: 'SACORO_STANDARD', expires_at: null, revoked_at: null };
 
 test('a beta athlete is gated once the commercial flag is switched on', async () => {
   /* THE COMMERCIAL LAUNCH, END TO END. This asserted the opposite for the

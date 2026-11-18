@@ -37,8 +37,13 @@ function resetState(){
 const DISTANCES = ['5k', '10k', 'half', 'full', 'ultra'];
 
 /* The schedules a real athlete can actually choose: BUILDER_SPEC.validation
-   .daysRange is [3,6], and the long run day must be one of the chosen days. */
+   .daysRange is [1,7] (founder ruling 15 November 2026, A5: any day count,
+   provided no run falls under 5km), and the long run day must be one of the
+   chosen days. */
 const SCHEDULES = {
+  d1: { activeDays: [6], longRunDay: 6 },                    // Sun
+  d2: { activeDays: [2, 6], longRunDay: 6 },                 // Wed/Sun
+  d7: { activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 6 },  // every day
   d3: { activeDays: [1, 3, 6], longRunDay: 6 },              // Tue/Thu/Sun
   d4: { activeDays: [1, 3, 5, 6], longRunDay: 6 },           // Tue/Thu/Sat/Sun
   d5: { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 },        // Tue/Wed/Thu/Sat/Sun

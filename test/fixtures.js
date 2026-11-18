@@ -20,7 +20,12 @@ function buildPlan(app, opts) {
   const schedule = opts.schedule || { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 }; // Tue/Wed/Thu/Sat/Sun
   const startDate = opts.startDate || app.todayStr();
   const benchSec = opts.benchSec != null ? opts.benchSec : app.clockToSec('0:45:00'); // 10K in 45:00
-  const hasEvent = false;
+  /* AN ACTUAL START LINE, or a goal effort with no event behind it. Both
+     shapes produce a type:'race' day; only one of them is a race the athlete
+     entered, and several surfaces (race-morning coaching among them) are
+     written for one and must not fire for the other. Defaults false, which
+     is what every fixture written before this assumed. */
+  const hasEvent = opts.hasEvent === true;
 
   const startMonday = app.addDays(startDate, -app.isoWeekday(startDate));
   const raceDate = app.addDays(startMonday, weeks * 7 - 1);
@@ -52,11 +57,21 @@ function buildPlan(app, opts) {
     app.blockEffectiveness = () => ({ state: 'ADAPTING' });
   }
   let blockResult, days;
+  /* THE EXPERIENCE THE PLAN IS BUILT FOR, read by the generator itself
+     (athleteExperience()). It used to be written to state.setup only after the
+     block was built, so a fixture asking for a Developing athlete was built
+     as Established and only labelled Developing afterwards. */
+  if (opts.experience) app.state.experience = opts.experience;
+  /* THE HARD SESSIONS A WEEK THE ATHLETE CHOSE (5K and 10K, founder 15
+     November 2026). Unset, the engine's own default (two) applies. */
+  const realChoice = app.builderQualityChoice;
+  if (opts.qualitySessions != null) app.builderQualityChoice = opts.qualitySessions;
   try {
     blockResult = app.buildBlockWeeks(distanceKey, volume, weeks);
     days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
   } finally {
     app.athleteResponseModel = realModel; app.blockEffectiveness = realBlock;
+    app.builderQualityChoice = realChoice;
   }
 
   app.state = app.makeDefaultState();
@@ -82,13 +97,14 @@ function buildPlan(app, opts) {
     // buildPlan()-then-mutate-state.setup.experience pattern several other
     // test files already use around this exact gap.
     experience: opts.experience || 'experienced',
+    qualitySessions: opts.qualitySessions != null ? opts.qualitySessions : null,
   };
   app.state.days = days;
   /* HEALTH AND READINESS CONSENT — WHY THE FIXTURE GRANTS IT.
    *
    * Most of this suite is about coaching: what heart rate, feel and the
    * morning readiness answers tell the engine, and what it does about them.
-   * Every one of those tests describes an athlete who agreed to Valhalla
+   * Every one of those tests describes an athlete who agreed to Sacoro
    * reading that information, so the fixture says so explicitly instead of
    * leaving it implied. The alternative -- a fixture that silently withholds
    * consent -- would make a hundred coaching tests assert the behaviour of a
@@ -119,7 +135,7 @@ function buildPlan(app, opts) {
  * 4:45/km is a good easy run, a mediocre threshold and a hopeless 8x1200m.
  * Every quality session in that fixture scored below the poor-execution bar,
  * so the run measured the fixture rather than the app, and the honest answer
- * to "what does Valhalla say to an athlete who is going well" was: unknown.
+ * to "what does Sacoro say to an athlete who is going well" was: unknown.
  *
  * This asks the app what it wanted -- the day's own execution pace target and
  * its own expected effort band -- and logs the middle of both. `quality`
@@ -127,6 +143,47 @@ function buildPlan(app, opts) {
  * progressively outside the window on the slow side and short of the
  * distance, which is how a real athlete falls short.
  */
+/**
+ * logSections(app, dd, ratio) -- a structured session's own evidence.
+ * A session with more than one intensity is scored from its sections (the
+ * founder: "SACORO needs to distinguish missing evidence from successful
+ * execution"); one total gives a partial assessment and no score. So a
+ * fixture that means "ran it as prescribed" logs each section at the middle
+ * of that section's own band, times `ratio` (1 on target, above 1 slower),
+ * as the athlete would type it into Your Log. A session that needs no
+ * sections is left exactly as it was.
+ */
+function logSections(app, dd, ratio) {
+  const r = ratio != null ? ratio : 1;
+  let need = false;
+  try { need = app.executionNeedsSections(dd); } catch (e) { need = false; }
+  if (!need) return dd;
+  const plan = app.structuredLoggingPlan(dd);
+  if (!plan || !plan.rows || !plan.rows.length) return dd;
+  const p = app.prescriptionOf(dd);
+  const paces = app.getActivePaces(), goal = app.getGoalPaceSecPerKm();
+  const phases = plan.source === 'phases' ? app.strategyPhasesFor(dd, p, app.segmentsFor(p)) : null;
+  const segs = app.orderedSegments(p) || [];
+  dd.actual = dd.actual || app.emptyActual();
+  if (!Array.isArray(dd.actual.splits)) dd.actual.splits = [];
+  /* Each row as Your Log writes it when a pace is typed: the same split
+     object, the time or distance filled from the prescription by the app's
+     own rule, and nothing else touched. */
+  Array.from(plan.rows).forEach((row, i) => {
+    const seg = phases ? (phases[i] ? { intensity: phases[i].intensity } : null)
+                       : segs.find(s => s.segId === row.segId);
+    const b = seg ? app.segmentPaceBand(seg, paces, goal) : null;
+    if (!b || b.fast == null || b.slow == null) return;
+    const sp = app.upsertStructuredSplit(dd, plan, row);
+    sp.paceEntered = true;
+    sp.paceSec = Math.round((b.fast + b.slow) / 2 * r);
+    app.slogFillFromPace(sp, row);
+    const paceKm = (sp.km != null && sp.km > 0) ? sp.km : (!row.asks.dist && row.presKm > 0) ? row.presKm : null;
+    sp.kmFromPrescription = (sp.km == null && paceKm != null) ? true : undefined;
+  });
+  return dd;
+}
+
 function logAsPrescribed(app, dd, opts) {
   const o = opts || {};
   const q = o.quality != null ? o.quality : 1;
@@ -147,9 +204,12 @@ function logAsPrescribed(app, dd, opts) {
     paceUnit: 'km',
     rpe: rpe,
   }, o.extra || {});
+  /* `sections: true` also types each section's pace into Your Log, which a
+     structured session needs to be scored (see logSections). */
+  if (o.sections) logSections(app, dd, (sec != null && range) ? sec / ((range.slow + range.fast) / 2) : 1);
   delete dd.coachReview;
   try { app.coachPersistReview(dd); } catch (e) {}
   return dd;
 }
 
-module.exports = { buildPlan, logAsPrescribed };
+module.exports = { buildPlan, logAsPrescribed, logSections };

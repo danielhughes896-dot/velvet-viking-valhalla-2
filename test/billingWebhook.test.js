@@ -20,7 +20,7 @@ const A = require('../api/_access.js');
  *   could say something the subscriptions and grants behind it did not;
  *
  *   and it invented seven days of grace on a failed payment, when the approved
- *   rule is that Valhalla honours provider-supplied grace and adds nothing.
+ *   rule is that Sacoro honours provider-supplied grace and adds nothing.
  *
  * These tests are now about the door that remains, the door that is refused,
  * and the guarantee that no third one can be opened by accident. The Stripe

@@ -5,14 +5,14 @@ const { loadApp } = require('./harness.js');
 
 /* OPTIONAL RUN — THE PRODUCT CONTRACT
  * ===========================================================================
- * Valhalla has three athlete-facing day states, and they must never be
+ * Sacoro has three athlete-facing day states, and they must never be
  * confused with one another:
  *
- *   REST DAY           Valhalla actively wants recovery. No invitation.
- *   OPTIONAL RUN       the athlete made the day available and Valhalla did not
+ *   REST DAY           Sacoro actively wants recovery. No invitation.
+ *   OPTIONAL RUN       the athlete made the day available and Sacoro did not
  *                      need another prescribed run. Run or rest; both are
  *                      complete answers, and neither is scored.
- *   PRESCRIBED SESSION Valhalla wants the session performed. It counts.
+ *   PRESCRIBED SESSION Sacoro wants the session performed. It counts.
  *
  * The hard part is not the card. It is that a logged optional run has to
  * become REAL completed activity -- evidence the frequency model reads -- while
@@ -132,11 +132,20 @@ test('2. it does NOT also present itself as a Rest Day, on any surface', () => {
   assert.doesNotMatch(card, /Full rest/i);
   assert.doesNotMatch(card, /day-badge type-rest/);
 
+  /* TWO SHAPES, ONE QUESTION. Today and This Week render the day as a card
+     (id="day-..."); Full Plan's week lists it as a row (data-day="..."), and
+     the row is just as much an athlete-facing naming of the day as the card
+     is. The region is sliced from whichever marker that surface uses, and
+     both must avoid calling this day a rest day. */
   const dayRegion = html => {
-    const i = html.indexOf('id="day-' + dd.id + '"');
+    const marks = ['id="day-' + dd.id + '"', 'data-day="' + dd.id + '"'];
+    let i = -1, mark = '';
+    marks.forEach(m => { const k = html.indexOf(m); if (k >= 0 && (i < 0 || k < i)) { i = k; mark = m; } });
     assert.ok(i >= 0, 'the day must appear');
-    const j = html.indexOf('id="day-', i + 10);
-    return html.slice(i, j > 0 ? j : html.length);
+    const nextCard = html.indexOf('id="day-', i + mark.length);
+    const nextRow = html.indexOf('data-day="', i + mark.length);
+    const ends = [nextCard, nextRow].filter(x => x > 0);
+    return html.slice(i, ends.length ? Math.min.apply(null, ends) : html.length);
   };
   [a.renderTodayView(), a.renderWeekView(), a.renderWeekAccordion(dd.week, true)]
     .forEach(h => {
@@ -169,7 +178,27 @@ test('3. a protected rest day still renders Rest, and offers nothing', () => {
     const html = a.renderDayCard(d);
     assert.match(html, /day-badge type-rest font-head">Rest</, d.date + ' keeps the rest badge');
     assert.match(html, /Rest Day/, d.date + ' keeps the rest title');
-    assert.match(html, /Full rest/, d.date + ' keeps the rest instruction');
+    /* WAS /Full rest/. That line -- "Full rest. Legs up, hydrate, stay
+       ahead of the block." -- was removed on the founder's call because the
+       Coach's Note under it says the same thing as coaching rather than as
+       stage directions. The day still says what it is for; this checks the
+       sentence that now says it. */
+  /* THE REST CUE IS CONTEXTUAL NOW, so this asks for the line this day
+     actually resolves to rather than one particular sentence. A rest day in
+     Base and a rest day in Taper are explaining different things on purpose
+     -- that is the repetition fix. What the law still protects is that the
+     rest day IS coached, in both positions, from the rest pool. */
+    const restLine = a.coachingEntryFor(d).cue;
+    assert.ok(restLine && html.indexOf(a.escapeHtml(restLine)) !== -1,
+      d.date + ' keeps the rest instruction');
+    /* The stage directions were "Full rest. Legs up, hydrate, stay ahead of
+       the block." Those two words have since MOVED to the ring, which is
+       where this card states what a session is aimed at -- so the phrase to
+       check is the part that went, and "Full rest" must appear exactly
+       once, on the ring. */
+    assert.doesNotMatch(html, /Legs up/, d.date + ' is printing the old stage directions again');
+    assert.equal((html.match(/Full rest/g) || []).length, 1,
+      d.date + ' does not state its instruction exactly once');
     assert.doesNotMatch(html, /optional-block/, d.date + ' must not be invited to run');
     assert.doesNotMatch(html, /Log a run/, d.date + ' must not offer logging');
     assert.equal(a.optionalRunDayState(d), null);
@@ -262,7 +291,7 @@ test('9. Log a run records an actual completed activity', () => {
   assert.equal(d.date, dd.date, 'on the day it was run');
   const html = a.renderDayCard(d);
   assert.doesNotMatch(html, /Log a run/, 'the invitation is gone');
-  assert.match(html, /Logged — Valhalla will take this into account/);
+  assert.match(html, /Logged\. SACORO will take this into account/);
 });
 
 test('10. the actual distance persists, and is what is shown', () => {
@@ -279,15 +308,27 @@ test('11. the optional average pace persists, and is omitted when absent', () =>
   const d = a.findDay(dd.id);
   assert.equal(d.actual.pace, '5:34');
   assert.equal(a.actualPaceSecPerKm(d), 334);
-  assert.match(a.renderDayCard(d), /5\.2km · 5:34\/km/);
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(a.renderDayCard(d), /5\.2km, 5:34\/km/);
 
   const b = optionalToday();
   logRun(b.a, b.dd, 5.2, null);
   const e = b.a.findDay(b.dd.id);
   assert.equal(e.actual.pace, null);
   assert.equal(e.completed, true, 'a pace is never required to record a run');
-  assert.match(b.a.renderDayCard(e), /5\.2km/);
-  assert.doesNotMatch(b.a.renderDayCard(e), /·/, 'and nothing is invented in its place');
+  const card = b.a.renderDayCard(e);
+  assert.match(card, /5\.2km/);
+  /* NARROWED TO THE LINE IT IS ABOUT. This used to ban the middot from the
+     WHOLE card, which worked only while nothing else on the card used one.
+     Session Details carries "Why · Execution · Feel · Coach’s Note" now, so
+     the broad form fails on chrome rather than on an invented pace. What is
+     actually guarded is that the optional run's own line reads "5.2km" and
+     not "5.2km · <something>/km" when no pace was given. */
+  const line = (card.match(/<div class="optional-line[^"]*">([^<]*)<\/div>/) || [])[1] || '';
+  assert.ok(line, 'the optional run line is gone, so the guard protects nothing');
+  /* The separator is a comma now (founder: "no symbols"), so a comma is
+     what an invented pace would bring with it. */
+  assert.doesNotMatch(line, /,/, 'and nothing is invented in its place');
 });
 
 test('12. km/mi conversion is correct in both directions', () => {
@@ -310,7 +351,8 @@ test('12. km/mi conversion is correct in both directions', () => {
      existing converter rather than a second one, which is the property under
      test here. Asserting 3.00 would be asserting a conversion the product does
      not perform. */
-  assert.match(a.renderDayCard(d), /2\.98mi · 9:00\/mi/);
+  /* Founder: "no symbols". The middle dot became natural punctuation. */
+  assert.match(a.renderDayCard(d), /2\.98mi, 9:00\/mi/);
   assert.equal(a.kmToDisplay(d.actual.km), 2.98, 'shown is exactly what is stored, converted once');
   /* The same record read by an athlete who has switched to kilometres. */
   a.state.units = 'km';
@@ -422,7 +464,7 @@ test('17. a reload preserves a completed optional run', () => {
   assert.equal(d.actual.km, 5.2);
   assert.equal(d.actual.pace, '5:34');
   assert.equal(revived.optionalRunDayState(d), 'logged');
-  assert.match(revived.renderDayCard(d), /Logged — Valhalla/);
+  assert.match(revived.renderDayCard(d), /Logged\. SACORO/);
   assert.equal(revived.planContentSignature(revived.state), sig, 'and it signs the same');
 
   /* THE MARKER IS PART OF THE SIGNATURE, or a device that dropped it would
@@ -452,7 +494,7 @@ test('18. it can be corrected and removed through the same activity path', () =>
   assert.equal(d.optionalRun, undefined);
   assert.equal(d.actual.km, null);
   assert.equal(a.optionalRunDayState(d), 'offered', 'and the offer comes back');
-  assert.match(a.renderDayCard(d), /Log a run/);
+  assert.match(a.renderDayCard(d), /Log a Run/);
 });
 
 // =====================================================================

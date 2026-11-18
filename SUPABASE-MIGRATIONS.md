@@ -24,6 +24,8 @@ dependency shows up.
 | 9 | `supabase-operational-view-provider-trial.sql` | rebuilds `account_operational_state` so the trial is read from `subscriptions` |
 | 10 | `supabase-security-posture.sql` | InitPlan policy rewrite, service-only assertions, definer search paths, `rls_auto_enable()` |
 | 11 | `supabase-health-consent.sql` | `health_data_consent` — the append-only explicit-consent record for health and readiness information |
+| 12 | `supabase-circles.sql` | Circles: `circles`, `circle_members`, `circle_invites`, `circle_days`, `circle_cheers`, `circle_sharing_log` — a private group of 2 to 8 that sees whether each member did their own plan; consent recorded on joining, everything else through checked functions |
+| 13 | `supabase-coach-memory.sql` | `coach_memory` — Coach Memory's one-line notes (a decision, a conversation or a flag; at most 200 characters; never Strava). Owner reads only; written and cleared only by the server; newest 100 kept |
 
 Applied in this order against an empty database plus the Supabase substrate
 (`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles, and the default
@@ -58,6 +60,40 @@ old file 7 can be corrected without replaying anything. That is not the mistake
 file 6 avoids. A view is derived, not data: re-running the corrected 7 and
 running 9 leave a database in exactly the same state, and neither touches a row.
 The two definitions are asserted identical by test, not compared by eye.
+
+File 12 was applied to production on 14 November 2026. Its first live
+application came from outside this file and added a "done must be real" check
+that copied the plan's distance into the shared row after the km gate, so km
+reached the circle with km switched off. No circle existed yet. The check now
+in the file (STEP 4b) confirms a done day against the athlete's own plan and
+never sets km or the session name; it was applied over the live one the same
+day, and every circle function in production now matches this file exactly.
+
+File 12 is the first table where one athlete's data is visible to another,
+so it is the first migration proved by ACTING AS PEOPLE rather than by reading
+the SQL: see "Proving a migration" below. Like 11 it goes after 10, is created
+with RLS on, and asserts its own posture (every circle policy for signed-in
+users only and scoped to the caller or their circle, no client writes to
+membership, invites, Nice work or the consent log, every circle function on
+the empty search path and closed to the anonymous key).
+
+File 13 is Coach Memory (Phase 4). It follows the posture of 11 and 12: after
+10, row-level security on in the statement after the table exists, and a
+closing block that refuses — *"Nothing has been changed."* — if RLS is off, if
+any policy other than the owner's SELECT exists, if a policy reaches beyond
+signed-in users or is not scoped to the caller, if the browser roles hold
+INSERT/UPDATE/DELETE (or the anonymous key SELECT) at the GRANT layer, if a
+line check is missing, or if the prune function is callable or unpinned. There
+is deliberately no client write policy of any kind: the server builds every
+line from a fixed sentence or the athlete's own question and checks it
+(`api/_coach-memory-lines.js`), and "Clear memory" is a server call scoped to
+the verified uid, the same one account deletion makes. The line checks are in
+the table too (1–200 characters, one line, never the word Strava, one of three
+kinds), so a server bug cannot store what the rules forbid. The app treats a
+missing table as "nothing kept", so the code can ship before this file is
+applied; nothing is kept until it is. Proved by acting as people:
+`tools/db-proof/run.sh supabase-coach-memory.sql tools/db-proof/coach-memory-proof.sql`,
+and it is in `full-chain.sh`, after which file 10 re-runs cleanly.
 
 ## Deployment parameters
 
@@ -106,3 +142,24 @@ what was applied to production by hand, not a step in building a new one.
 | `supabase-beta-verification.sql` | Read-only reporting. |
 | `supabase-web-billing-verification.sql` | Read-only reporting. Answers "is this database ready to sell" — which of the files above are actually applied, whether the two gates that close the product are still closed, and whether anybody's access exists only in the legacy override column. Safe to paste into production. |
 | `supabase-pre-beta-least-privilege.sql` | The record of a hand-applied production hardening. See above. |
+
+## Proving a migration
+
+`tools/db-proof/` builds a disposable Postgres, gives it just enough of the
+Supabase substrate (the platform roles, `auth.users`, `auth.uid()` read from
+the request claims, and the default grants that leave the deciding to RLS),
+applies a migration twice to prove it re-runs, then acts as real users to try
+every thing the rules forbid, and deletes the cluster.
+
+- `tools/db-proof/run.sh supabase-circles.sql tools/db-proof/circles-proof.sql`
+  proves circles on its own.
+- `tools/db-proof/run.sh supabase-coach-memory.sql tools/db-proof/coach-memory-proof.sql`
+  proves Coach Memory on its own: the owner reads only their own lines, no
+  browser write gets through even with the grants put back, the line checks
+  refuse, only the newest 100 are kept, and the lines go with the account.
+- `tools/db-proof/full-chain.sh` rebuilds the whole order above (the two
+  operator placeholders get throwaway test values in a temporary copy, never
+  in these files), applies circles, re-runs file 10 after it, and proves
+  circles on top.
+
+`substrate.sql` must never be run against a real Supabase project.

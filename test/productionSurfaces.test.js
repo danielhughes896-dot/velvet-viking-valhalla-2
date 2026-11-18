@@ -44,7 +44,7 @@ test('every subscription state says something true and offers a way to act', () 
       says: /Trial until/, acts: /Cancel my subscription/ },
     { name: 'active',     info: ENT({}), says: /active until/, acts: /Cancel my subscription/ },
     { name: 'cancelling', info: ENT({ cancel_at_period_end: true }),
-      says: /Cancelled .* paid up until/, acts: null },
+      says: /Cancelled\. Paid up until/, acts: null },
     { name: 'grace',      info: ENT({ state: 'grace' }),
       says: /payment didn/i, acts: /Update payment details/ },
     { name: 'expired',    info: ENT({ state: 'expired', access_until: '2026-08-01T00:00:00Z' }),
@@ -79,7 +79,7 @@ test('an already-cancelling subscription is not asked to cancel again', () => {
 });
 
 test('a card cannot contradict itself', () => {
-  /* "Active" beside "Valhalla is not charging for access yet" was a real
+  /* "Active" beside "Sacoro is not charging for access yet" was a real
      rendering: the entitlement carries a state whether or not the commercial
      gate is on. */
   const off = text(signedIn(ENT({ commercial_required: false })).renderSubscriptionCard());
@@ -160,13 +160,22 @@ test('NATIVE STORE RULES: no web payment steering inside the app shell', () => {
 test('the reversible act and the permanent one do not look alike', () => {
   const a = signedIn(ENT({}));
   buildPlan(a, { weeks: 10, startDate: '2026-08-01', distanceKey: '10k' });
-  const settings = a.renderSettingsHubView();
+  /* BOTH CONTROLS MOVED ONE STEP DEEPER, into the panels of the rows that
+     name them -- Settings lists destinations now. The claim is unchanged
+     and is the only thing that matters here: the reversible act and the
+     permanent one must not wear the same treatment, wherever they live. */
+  const settings = a.renderSettingsHubView() + a.hqPanelHtml('resetplan') + a.hqPanelHtml('account') +
+    a.deleteAccountSheetBody();
 
   const resetBtn = /<button[^>]*data-action="reset-plan"[^>]*>/.exec(settings);
   assert.ok(resetBtn, 'Reset Plan is missing from Settings');
-  const deleteBtn = /<button[^>]*data-action="cloud-delete-account"[^>]*>/.exec(settings)[0];
+  /* The page's control opens the glass sheet that asks; the sheet's own
+     control deletes. Both keep the danger treatment. */
+  const deleteBtn = /<button[^>]*data-sheet="deleteaccount"[^>]*>/.exec(settings)[0];
+  const confirmBtn = /<button[^>]*data-action="cloud-delete-account-confirmed"[^>]*>/.exec(settings)[0];
 
   assert.match(deleteBtn, /btn-danger/, 'deleting an account must keep the danger treatment');
+  assert.match(confirmBtn, /btn-danger/, 'the sheet that deletes lost the danger treatment');
   assert.doesNotMatch(resetBtn[0], /btn-danger/,
     'Reset Plan keeps every logged run — dressing it as destruction makes the ' +
     'genuinely destructive control look ordinary by comparison');
@@ -184,13 +193,16 @@ test('EVERY Reset Plan control, not just the one on the hub', () => {
      drifts away from the other. Scanned at source, so both are covered
      wherever they live. */
   const buttons = CODE.match(/<button[^>]*data-action=\\?"reset-plan\\?"[^>]*>/g) || [];
-  assert.ok(buttons.length >= 2,
-    'expected Reset Plan on both Settings surfaces, found ' + buttons.length);
+  /* The older Settings pop-up that carried the second copy is gone: the
+     onboarding shield opens the Settings screen itself now. One remains,
+     on the Reset page, and it is checked the same way. */
+  assert.ok(buttons.length >= 1,
+    'expected Reset Plan on the Reset page, found ' + buttons.length);
   buttons.forEach((b, i) => {
     assert.doesNotMatch(b, /btn-danger/, 'Reset Plan #' + (i + 1) + ' still reads as destruction');
     assert.match(b, /btn-ghost/, 'Reset Plan #' + (i + 1) + ' has lost its ordinary treatment');
   });
-  const deletes = CODE.match(/<button[^>]*data-action=\\?"cloud-delete-account\\?"[^>]*>/g) || [];
+  const deletes = CODE.match(/<button[^>]*(?:data-action=\\?"cloud-delete-account(?:-confirmed)?\\?"|data-sheet=\\?"deleteaccount\\?")[^>]*>/g) || [];
   assert.ok(deletes.length >= 1);
   deletes.forEach(b => assert.match(b, /btn-danger/,
     'account deletion must keep the danger treatment everywhere it appears'));
@@ -219,7 +231,9 @@ test('a failed sign-in never points at a screen the athlete cannot reach', () =>
   ['otp_expired', 'access_denied', 'anything_else'].forEach(code => {
     const said = withPlan.cloudAuthErrorCopy(code);
     assert.ok(said.length > 20, code + ' produced no usable sentence');
-    assert.match(said, /—/, code + ' gives a reason but no next step');
+    /* Founder: "no em dashes". The reason and the next step are two
+       sentences now, so the next step is the second one. */
+    assert.match(said, /^[^.]+\.\s+(Request|Sign in)\b/, code + ' gives a reason but no next step');
   });
 });
 
@@ -240,10 +254,22 @@ test('Settings carries the whole legal and support surface', () => {
   const a = signedIn(ENT({}));
   buildPlan(a, { weeks: 10, startDate: '2026-08-01', distanceKey: '10k' });
   const settings = a.renderSettingsHubView();
-  assert.match(settings, new RegExp(a.LEGAL_URLS.privacy.replace(/[/.]/g, '\\$&')));
-  assert.match(settings, new RegExp(a.LEGAL_URLS.terms.replace(/[/.]/g, '\\$&')));
-  assert.match(settings, /mailto:support@velvetviking\.co\.uk/);
-  const said = text(settings);
+  /* The documents are reached from the footer and leave the app through
+     openExternal(), which opens the canonical addresses; Contact is its own
+     row and opens the mail app. See betaLegalDiscoverability. */
+  assert.match(settings, /data-action="open-legal" data-doc="privacy"/);
+  assert.match(settings, /data-action="open-legal" data-doc="terms"/);
+  assert.match(settings, /data-action="open-contact"[\s\S]*?support@velvetviking\.co\.uk/);
+  const went = [];
+  a.isNativeApp = () => false;
+  a.window.open = u => { went.push(u); return {}; };
+  a.openExternal(a.LEGAL_URLS.privacy); a.openExternal(a.LEGAL_URLS.terms);
+  assert.deepEqual(went, ['https://velvetviking.co.uk/privacy', a.LEGAL_URLS.terms]);
+  /* The cancellation paragraph travels with the Subscription it describes,
+     which is where an athlete looking for how to stop paying actually goes
+     -- it used to sit at the foot of Legal & Support, three cards away from
+     the card it told them to use. */
+  const said = text(settings + a.hqPanelHtml('subscription'));
   assert.match(said, /Cancelling\./, 'cancellation information is missing from Settings');
   assert.match(said, /nothing further is charged/);
   assert.match(said, /never deletes your training/);
@@ -382,19 +408,22 @@ const START = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
 
 test('/start routes every commercial state, and explains every failure', () => {
   /* access -> the product; expired -> the locked shell; signed in without a
-     subscription -> the builder; anything else -> sign in. */
+     subscription -> a banked preview, else the app's builder at /get (the web
+     builder is retired: founder, 16 November 2026, item 9); anything else ->
+     sign in. */
   assert.match(START, /if \(b\.access === true\)\{ enter\(\); return; \}/,
     'an athlete with access must not be shown acquisition screens again');
   assert.match(START, /reason === 'expired'[^]*?show\('pane-locked'\)/,
     'an expired athlete needs the locked shell, not the builder');
-  assert.match(START, /show\('pane-build'\)/);
+  assert.doesNotMatch(START, /show\('pane-build'\)/);
+  assert.match(START, /location\.replace\('\/get'\)/, 'a signed-in athlete with no plan has nowhere to build one');
 
   /* Four failures, four explanations. A blank form with no reason is the
      defect these each exist to prevent. */
   assert.match(START, /r\.status >= 500/,
     'a server error is indistinguishable from "not signed in" without this');
   assert.match(START, /having a moment/, 'a 5xx must say what happened');
-  assert.match(START, /could not reach Valhalla/, 'a timeout must say what happened');
+  assert.match(START, /could not reach SACORO/, 'a timeout must say what happened');
   assert.match(START, /otp_expired: 'That sign-in link has expired/);
   assert.match(START, /access_denied: 'That sign-in link has already been used/);
   assert.match(START, /within\(10000,/, 'a hung request must be raced against a deadline');
@@ -412,24 +441,11 @@ test('/start starts no trial by accident', () => {
     'the commercial act must be a deliberate press');
 });
 
-test('/start offers every objective the app builds', () => {
-  // The nine-stage wizard renders its purpose/distance pickers from
-  // window.BUILDER_SPEC at runtime (renderGoalStage()/renderDistanceStage()
-  // map over BS.purposes.order / BS.distances.order), not a static list of
-  // value="..." options -- so what proves parity is that both stages read
-  // the canonical spec's own arrays, and that those arrays are themselves
-  // the app's real BUILDER_PURPOSE_ORDER/DISTANCE_ORDER (asserted by
-  // test/builderSpecParity.test.js). A literal per-value grep would pass on
-  // dead markup; reading the actual source of each value is what cannot.
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get).
+   So /start offers no objectives; what is left is that the spec every builder
+   reads is the app's own list. */
+test('the canonical spec offers every objective the app builds', () => {
   const app = loadApp({ pinnedDate: TODAY });
-  const goalFn = START.slice(START.indexOf('function renderGoalStage'));
-  const goalBody = goalFn.slice(0, goalFn.indexOf('\n  }\n'));
-  assert.match(goalBody, /BS\.purposes\.order\.map\(/,
-    '/start\'s purpose picker no longer reads the canonical spec\'s own purpose order');
-  const distFn = START.slice(START.indexOf('function renderDistanceStage'));
-  const distBody = distFn.slice(0, distFn.indexOf('\n  }\n'));
-  assert.match(distBody, /BS\.distances\.order\.map\(/,
-    '/start\'s distance picker no longer reads the canonical spec\'s own distance order');
   // JSON.stringify rather than assert.deepEqual: these arrays were built
   // inside the VM sandbox, and Node's strict assertions treat that as a
   // different realm even when every value matches (same as elsewhere in

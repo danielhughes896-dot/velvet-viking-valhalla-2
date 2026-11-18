@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-// VALHALLA -- EDIT SESSION MUST NOT LEAVE STALE COACHING IDENTITY BEHIND.
+// SACORO -- EDIT SESSION MUST NOT LEAVE STALE COACHING IDENTITY BEHIND.
 //
 // REPRODUCED DEFECT. An athlete edits an Easy session's title, distance and
 // instructions to "10km best effort" and turns on the goal-pace segment, but
@@ -167,13 +167,27 @@ test('3. materially contradictory custom prescription cannot retain stale Easy g
   const targets = a.getDayTargets(after);
   assert.equal(targets.pace, null, 'no stale Easy-zone pace target');
   assert.equal(targets.hr, null, 'no stale Easy-zone HR target');
-  // The athlete's own goal race pace is not a type-zone lookup and survives.
-  assert.equal(targets.goalPace, 'Goal ' + a.fmtPaceFromSecPerKm(a.getGoalPaceSecPerKm()));
+  // The goal-pace line is not a type-zone lookup and survives.
+  /* WHAT IT SAYS CHANGED SIDES. It was the raw goal: goal time over race
+     distance. On a training day the goal-pace work is prescribed by
+     racePacePrescription(), which asks for literal goal pace only when
+     current fitness is within 2% of it -- so the ring read "Goal 4:22/km"
+     over a stage prescribed and scored at 4:26-4:30. Found checking paces
+     for the founder: "Interesting finding on the pacing. Please check which
+     one is right." The stage is, so the line is the stage's own band,
+     through the same formatter. */
+  assert.equal(targets.goalPace, 'Goal ' + a.fmtStrategyPace(a.strategyPaceBand('goal_pace'), null));
   // renderDayCard() renders getDayTargets() verbatim into .day-targets, so a
   // pace RANGE (the only "–"-joined figure getDayTargets ever produces) can
   // only appear there if the Easy zone leaked back in.
   const cardTargets = (a.renderDayCard(after).match(/class="day-targets">([\s\S]*?)<\/div>/) || [])[1] || '';
-  assert.doesNotMatch(cardTargets, /\d:\d\d\u2013\d:\d\d/, 'no pace band may appear in the card\'s target line');
+  /* "The only range getDayTargets ever produces" is no longer true: the
+     goal-pace line is a band whenever the prescription is not the goal
+     itself. That line is the one thing allowed to be a range here, so it is
+     taken out by its own class before asking the question this is for --
+     did the Easy zone leak back in. */
+  const zoneTargets = cardTargets.replace(/<span class="mp">[\s\S]*?<\/span>/g, '');
+  assert.doesNotMatch(zoneTargets, /\d:\d\d\u2013\d:\d\d/, 'no pace band may appear in the card\'s target line');
   // And the daily notification body, which reads the same function.
   after.date = a.todayStr();
   a.state.days = [after];
@@ -216,13 +230,24 @@ test('4. an edited session renders identically -- and coherently -- in Today, Th
 
   const today = a.renderTodayView();
   const week = a.renderWeekView();
-  const full = a.renderFullPlanView();
-  // renderDayCard() is a pure function of the day object -- if all three
-  // views embed the exact same string it produced, they cannot have each
-  // independently re-derived (and possibly disagreed on) its coherence.
+  /* FULL PLAN LISTS; ITS SESSION SCREEN SHOWS. The week accordion rendered
+     seven day cards inline and so contained this string directly; it lists
+     rows now and the card is one tap behind. The invariant is unchanged and
+     still the point -- renderDayCard() is a pure function of the day, so a
+     surface that embeds the exact string it produced cannot have re-derived
+     the session's coherence for itself -- and it is asserted on the Full
+     Plan surface that actually shows a session. */
+  /* The list is taken BEFORE the session is opened: renderFullPlanView()
+     is the whole Full Plan destination, and once planSessionOpen is set it
+     returns the session screen rather than the list. */
+  const list = a.renderFullPlanView();
+  a.handlePlanOpenSession(dd.id);
+  const full = a.renderPlanSessionView();
   assert.ok(today.indexOf(canonical) !== -1, 'Today must render the same card');
   assert.ok(week.indexOf(canonical) !== -1, 'This Week must render the same card');
-  assert.ok(full.indexOf(canonical) !== -1, 'Full Plan must render the same card');
+  assert.ok(full.indexOf(canonical) !== -1, 'Full Plan\u2019s session screen must render the same card');
+  assert.ok(list.indexOf('data-action="plan-open-session" data-day="' + dd.id + '"') !== -1,
+    'Full Plan no longer lists the session at all');
   // NOT a claim that "aerobic base" is absent from the whole page -- the
   // fixture's OTHER, untouched easy days correctly still say it. The
   // substring checks above are the real assertion: this specific day's
@@ -256,7 +281,14 @@ test('5. reload/persistence retains the corrected identity and guidance', () => 
 
 test('6. Reset restores a coherent (Rest) identity -- no leftover Easy guidance, and no leftover edit provenance', () => {
   const a = plannedApp();
-  const dd = findEasyDay(a);
+  /* A rest day's note is chosen by what ran the day before (after a quality
+     session it says so), so the day reset here is one whose neighbour gives
+     the ordinary rest note, and the untouched day compared against below
+     follows the same kind of session. */
+  const dayBefore = d => a.state.days.find(x => x.date === a.addDays(d.date, -1));
+  const kindBefore = d => { const p = dayBefore(d); return !p ? null : p.type === 'long' ? 'long' :
+    ['rest', 'easy', 'recovery'].includes(p.type) ? 'ordinary' : 'quality'; };
+  const dd = a.state.days.find(d => d.type === 'easy' && kindBefore(d) === 'ordinary');
   mockEditModalDom(a, dd, {
     'ef-title': { value: 'Lavidia race race' }, 'ef-km': { value: '10' },
     'ef-mp': { checked: true }, 'ef-desc': { value: '10km best effort' },
@@ -267,7 +299,32 @@ test('6. Reset restores a coherent (Rest) identity -- no leftover Easy guidance,
   const after = a.findDay(dd.id);
   assert.equal(after.type, 'rest');
   assert.equal(after.title, 'Rest Day');
-  assert.equal(a.renderCoachingDepth(after), '');
+  /* WAS assert.equal(renderCoachingDepth(after), ''). That expressed "no
+     leftover Easy guidance" as "nothing at all", which was only ever true
+     because a rest day rendered nothing at all -- the hole this file's own
+     comment, three lines below, says should not exist: a reset day "gets
+     the SAME ordinary Rest guidance any untouched generated Rest day
+     gets". Emptiness could never check that claim. This does, and it is
+     the stronger assertion: byte-identical to a rest day the athlete never
+     touched, which fails on leftover Easy guidance AND on rest guidance
+     that differs for having been edited. */
+  /* The untouched counterpart is THE SAME DAY in an identical plan, made a
+     generated rest day from that plan's own rest-day record. A rest day's note
+     depends on its neighbours (after a quality session it says so) and rotates
+     its wording by position, so any other rest day is a different question. */
+  const twin = plannedApp();
+  const tmpl = twin.state.days.filter(d => d.type === 'rest' && !d.manualEdit && d.week === after.week)[0] ||
+               twin.state.days.filter(d => d.type === 'rest' && !d.manualEdit)[0];
+  assert.ok(tmpl, 'sanity: the fixture has an untouched rest day to compare against');
+  const twinDay = twin.findDay(dd.id);
+  Object.keys(twinDay).forEach(k => { delete twinDay[k]; });
+  Object.assign(twinDay, JSON.parse(JSON.stringify(tmpl)), { id: after.id, date: after.date, week: after.week });
+  assert.equal(a.renderCoachingDepth(after), twin.renderCoachingDepth(twinDay),
+    'a reset rest day no longer renders what an untouched rest day renders');
+  assert.match(a.renderCoachingDepth(after), /Rest is part of the plan/,
+    'the reset rest day carries no rest coaching at all');
+  assert.doesNotMatch(a.renderCoachingDepth(after), /aerobic|best effort|Lavidia|tempo|threshold/i,
+    'the edited Easy session\u2019s guidance survived the reset');
   assert.equal(a.coachIntentLine(after), '');
   assert.doesNotMatch(a.renderDayCard(after), /aerobic base|best effort|Lavidia/i);
   // Reset produces a genuinely clean Rest day, not one still quarantined by

@@ -1,7 +1,7 @@
 'use strict';
 /* HQ'S ADMISSION RULING — TEN WEEKS IS A CONTAINER, NOT AN ELIGIBILITY.
  * ===========================================================================
- * Valhalla permits a ten-week Race Goal. It does not promise that every
+ * Sacoro permits a ten-week Race Goal. It does not promise that every
  * athlete can use one. Before a block is constructed, admission asks whether
  * this athlete can credibly establish the preparation the event requires
  * inside the runway they have -- and where the answer is no, it routes them
@@ -115,7 +115,7 @@ test('TEN WEEKS — every fifteen-week pathway is admitted, and admission says w
   });
 });
 
-test('TEN WEEKS — the floor is the driver where the safe route can reach it, and an explicit refusal where it cannot', () => {
+test('TWELVE WEEKS — the floor is the driver where the safe route can reach it, and an explicit refusal where it cannot', () => {
   /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION, THEN THE SAFETY-FLOOR
      NARROW CORRECTION -- "the floor needs to be the main driver", and then
      "the floor remains non-negotiable... do not silently redefine the
@@ -141,15 +141,41 @@ test('TEN WEEKS — the floor is the driver where the safe route can reach it, a
      HQ LONG-RUN PHASE STRUCTURE CORRECTION, LATER -- a novice's long run
      now meets its first race-specific work in the back portion of Build
      rather than waiting for Peak (raceGoalSpecificityFromWeek()), which
-     moves the step count this projection walks (intervals 6 -> 7) and both
-     reach figures with it: reachWeekKm now clears the 50km Build floor
-     (52.6, met) and reachLongKm closes further too (25, up from 22) though
-     still short of the 28km durability floor. So this pathway now falls
-     short on durability ALONE -- workload is no longer named, because it is
-     no longer short. */
-  const c = R.CANON_10.filter(x => x.key.indexOf('New Marathon') === 0)[0];
-  const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, c.ev));
-  const adm = res.a.raceGoalAdmission('full', 10, null,
+     moves the step count this projection walks (intervals 6 -> 7).
+
+     ---- C3 + C4: THE 50km BUILD FIGURE IS NO LONGER THE SUCCESS BAR ----
+     HQ RULING. Two things moved underneath this contract and neither is a
+     change to what it is testing.
+       THE BAR. Developing Marathon reachability is judged against the LOCKED
+       PEAK destination -- 60km / 28km LR -- at prescription granularity with
+       no separate tolerance, not against the 50km Build figure this comment
+       used to cite. Judged there, workload is short again (46.5 against 60),
+       so BOTH dimensions are now named rather than durability alone.
+       THE PROJECTION. reachWeekKm is no longer a two-point curve raised to
+       the destination; it is what the block the builder actually produces
+       delivers. That is why the week figure reads 46.5 rather than the old
+       curve's 52.6 -- the curve was reporting a week this runway never
+       builds. reachLongKm is unmoved at 25, because the long run's curve was
+       already read the honest way.
+     The ruling this test exists for is untouched: starting capacity controls
+     the safe route, the race controls the destination, and a safe route that
+     provably falls short of the locked destination is refused and routed
+     rather than built short and declared MARGINAL. */
+  /* ---- RE-POINTED FROM TEN WEEKS TO TWELVE ---- HQ MARATHON RUNWAY RULING.
+     Twelve weeks is the minimum RECOMMENDED proper Marathon preparation
+     runway, so at ten weeks the RUNWAY now objects first ('too_short') and
+     this contract's question -- can the safe route reach the locked
+     destination? -- is never asked. Twelve weeks is where that question is
+     asked for the first time, so it is where this contract belongs.
+     NOTHING ABOUT WHAT IS BEING TESTED MOVED. The runway minimum is not an
+     admission gate and clearing it promises nothing: this athlete clears it
+     and is STILL refused, on reachability, exactly as the ruling requires.
+     Two delivered figures are re-measured for the longer runway (46.5 -> 53
+     and 25 -> 26); the entry, the locked destination and both named
+     shortfalls are unchanged. */
+  const c = R.CANON.filter(x => x.key.indexOf('New Marathon') === 0)[0];
+  const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:12 }, c.ev));
+  const adm = res.a.raceGoalAdmission('full', 12, null,
                 { availableDays:c.days, easyPaceSecPerKm:res.pace });
   assert.equal(adm.admitted, false, 'decision: ' + adm.decision);
   assert.equal(adm.decision, 'preparation_not_reachable');
@@ -158,22 +184,48 @@ test('TEN WEEKS — the floor is the driver where the safe route can reach it, a
   assert.equal(adm.preparation.entryKm, 21);
   assert.equal(adm.preparation.entryLongKm, 10);
   assert.equal(adm.preparation.verdict, 'INSUFFICIENT');
-  assert.equal(adm.preparation.reachWeekKm, 52.6,
-    'the Nielsen safety rate\'s own ceiling from a 21km entry, now clearing the 50km Build floor');
-  assert.equal(adm.preparation.reachLongKm, 25,
+  /* 53 -> 54 (16 November 2026): the repeat threshold test now sits in week 9
+     and the climb around it is re-spread; the shortfall is unchanged. */
+  assert.equal(adm.preparation.reachWeekKm, 54,
+    'the week the block actually delivers from a 21km entry in twelve weeks, short of the locked 60km peak');
+  assert.equal(adm.preparation.reachLongKm, 26,
     'the long run reaches the Nielsen safety rate\'s own ceiling from a 10km entry, still short of the 28km floor');
-  assert.equal(adm.preparation.shortfall.length, 1);
+  /* JUDGED AGAINST THE LOCKED PEAK, both dimensions are short. */
+  assert.equal(adm.preparation.requiredWeekKm, 60, 'the locked Developing peak week');
+  assert.equal(adm.preparation.requiredLongKm, 28, 'the locked Developing peak long run');
+  assert.equal(adm.preparation.shortfall.length, 2);
   assert.ok(adm.preparation.shortfall.indexOf('durability') !== -1);
+  assert.ok(adm.preparation.shortfall.indexOf('workload') !== -1);
 });
 
-test('TEN WEEKS — a pathway that reaches the standard is admitted normally', () => {
-  ['Experienced Marathon', 'Advanced Marathon', 'Advanced Half'].forEach(name => {
-    const c = R.CANON_10.filter(x => x.key.indexOf(name) === 0)[0];
-    const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, c.ev));
-    const adm = res.a.raceGoalAdmission(c.dist, 10, null,
-                  { availableDays:c.days, easyPaceSecPerKm:res.pace });
-    assert.equal(adm.admitted, true, name + ': ' + adm.decision);
-    assert.equal(adm.preparation.verdict, 'READY');
+test('TEN WEEKS — the half admits a pathway that reaches its standard; the marathon answers its runway first', () => {
+  /* HQ MARATHON RUNWAY RULING. The half's floor has not moved, so Advanced
+     Half at ten weeks is admitted READY exactly as this contract always
+     asserted. The marathon's floor is now twelve, so at ten weeks a marathon
+     pathway -- however capable -- meets the RUNWAY decision before the
+     reachability one. These two are asserted together because the contrast
+     IS the ruling: capability does not buy runway, and runway does not
+     promise capability. */
+  const admit = (name, W) => {
+    const c = R.CANON.filter(x => x.key.indexOf(name) === 0)[0];
+    const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:W }, c.ev));
+    return { adm: res.a.raceGoalAdmission(c.dist, W, null,
+               { availableDays:c.days, easyPaceSecPerKm:res.pace }), key:c.key };
+  };
+  const half = admit('Advanced Half', 10);
+  assert.equal(half.adm.admitted, true, 'Advanced Half @10w: ' + half.adm.decision);
+  assert.equal(half.adm.preparation.verdict, 'READY');
+
+  ['Experienced Marathon', 'Advanced Marathon'].forEach(name => {
+    const r = admit(name, 10).adm;
+    assert.equal(r.admitted, false, name + ' @10w: ' + r.decision);
+    assert.equal(r.decision, 'too_short',
+      name + ' @10w must meet the runway decision, not a reachability one');
+    /* AND IT IS A WARNING, NOT A REJECTION -- the preparation route is
+       recommended and Continue Marathon stays available.
+       marathonRunwayMinimum.test.js owns that behaviour. */
+    assert.equal(r.recommend, 'aerobic_base');
+    assert.equal(r.minWeeks, 12);
   });
 });
 
@@ -213,15 +265,38 @@ test('TEN WEEKS — a shortfall within reach is admitted and now closed, not mer
 // ---------------------------------------------------------------------------
 // 3. IT IS EVIDENCE, NOT THE EXPERIENCE LABEL
 // ---------------------------------------------------------------------------
-test('EVIDENCE OVER LABEL — a strong New athlete is admitted to a ten-week marathon', () => {
+test('EVIDENCE OVER LABEL — strong evidence buys the pathway, and it does not buy runway', () => {
   /* Nominally New. Their logged training is not: 55km weeks and a 26km long
      run, sustained. The label chooses the pathway; the evidence says what they
      can do, and refusing them because of the word would be exactly the
-     hard-coded NEW_10_WEEK = REFUSE that HQ ruled out. */
-  const res = R.build({ dist:'full', exp:'novice', days:5, weeks:10,
-                        easyKm:9, longKm:26, qKm:10, easyDays:[0,2,4], tt5kMin:22 });
-  const adm = res.a.raceGoalAdmission('full', 10, null,
-                { availableDays:5, easyPaceSecPerKm:res.pace });
+     hard-coded NEW_10_WEEK = REFUSE that HQ ruled out.
+
+     ---- AND THE RUNWAY IS NOT SOMETHING EVIDENCE CAN BUY ---- HQ MARATHON
+     RUNWAY RULING. This athlete is strong and ten weeks is still ten weeks:
+     twelve is the minimum recommended proper Marathon preparation runway, and
+     a capable athlete does not get a shorter one for being capable. The
+     distinction this contract exists for survives intact and is asserted at
+     twelve weeks below -- the EVIDENCE still decides the pathway and the
+     entry, which is what "evidence over label" ever meant. What it never
+     meant is that evidence overrides the calendar.
+
+     'too_short' IS A COACHING WARNING, NOT A REJECTION: the preparation route
+     is recommended and Continue Marathon remains available, which
+     marathonRunwayMinimum.test.js owns. */
+  const build = W => {
+    const res = R.build({ dist:'full', exp:'novice', days:5, weeks:W,
+                          easyKm:9, longKm:26, qKm:10, easyDays:[0,2,4], tt5kMin:22 });
+    return res.a.raceGoalAdmission('full', W, null,
+             { availableDays:5, easyPaceSecPerKm:res.pace });
+  };
+  const short = build(10);
+  assert.equal(short.admitted, false, 'ten weeks is still ten weeks: ' + short.decision);
+  assert.equal(short.decision, 'too_short',
+    'a strong athlete was refused on reachability rather than told about the runway');
+  assert.equal(short.recommend, 'aerobic_base');
+
+  /* GIVEN THE RUNWAY, THE EVIDENCE GOVERNS -- the label does not demote them. */
+  const adm = build(12);
   assert.equal(adm.admitted, true,
     'a New athlete with real evidence was refused on the label: ' + adm.decision);
   assert.equal(adm.preparation.entrySource, 'demonstrated');
@@ -229,7 +304,7 @@ test('EVIDENCE OVER LABEL — a strong New athlete is admitted to a ten-week mar
     'the projection ignored the evidence: entry read as ' + adm.preparation.entryKm);
 });
 
-test('EVIDENCE OVER LABEL — a thin Experienced athlete is admitted and developed to the floor', () => {
+test('EVIDENCE OVER LABEL — the evidence governs the route, and the locked destination still governs admission', () => {
   /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- "the floor needs to be the
      main driver." Nominally Experienced; their recent training is 36km a
      week and a 15km long run -- well below the pathway's own 40km/18km
@@ -252,16 +327,45 @@ test('EVIDENCE OVER LABEL — a thin Experienced athlete is admitted and develop
      fixture keeps the same shape -- meaningfully below the pathway's own
      40km assumed entry, still a thin-evidence case -- while staying inside
      what six steps can safely close against the new, higher floor. */
-  const res = R.build({ dist:'full', exp:'intermediate', days:4, weeks:10,
+  /* ---- RE-POINTED FROM TEN WEEKS TO TWELVE ---- HQ MARATHON RUNWAY RULING.
+     The same fixture, the same thin evidence, the same locked destination:
+     only the runway moved, from ten weeks to the marathon's own floor, so the
+     admission path reaches this contract's question instead of stopping at
+     the runway. EVERY assertion below holds unchanged at twelve weeks,
+     including the delivered 73km -- measured, not assumed. Nothing was
+     thickened, no destination was altered, no tolerance was introduced and
+     no fixture was manufactured; the 79.5/80 boundary observed elsewhere is
+     outside this correction and is not reopened here. */
+  const res = R.build({ dist:'full', exp:'intermediate', days:4, weeks:12,
                         easyKm:7, longKm:15, easyDays:[0,2,4], tt5kMin:26 });
-  const adm = res.a.raceGoalAdmission('full', 10, null,
+  const adm = res.a.raceGoalAdmission('full', 12, null,
                 { availableDays:4, easyPaceSecPerKm:res.pace });
-  assert.equal(adm.admitted, true, 'decision: ' + adm.decision);
-  assert.equal(adm.decision, 'race_goal');
+  /* ---- C4: THE EVIDENCE STILL GOVERNS THE ROUTE; IT NEVER LOWERS THE
+     DESTINATION ---- HQ RULING.
+     THE PRINCIPLE THIS TEST EXISTS FOR IS UNCHANGED AND IS ASSERTED FIRST:
+     the entry point reads this athlete's thin demonstrated evidence honestly
+     -- entrySource stays 'demonstrated' and entryKm stays their own 36km, not
+     the pathway's 52km assumption. Evidence decides where they START.
+     WHAT CHANGED IS THE BAR, not the principle. Admission is now judged
+     against the LOCKED Established peak destination -- 80km / 30km LR -- and
+     not against the Build figure this test was written over. From a 36km
+     entry in a ten-week runway the delivered programme reaches 73km, a
+     genuine 7km short of 80, while the long run reaches 30 exactly. A safe
+     route that provably cannot reach the locked destination is
+     preparation_not_reachable: refused and routed, which is HQ's own ruling
+     on the matter ("it must not lower the Established preparation
+     destination"). The athlete arriving honest is not a reason to redefine
+     what the marathon asks of them. */
   assert.equal(adm.preparation.entrySource, 'demonstrated');
   assert.ok(adm.preparation.entryKm < 40,
     'the pathway assumption overrode the evidence: entry read as ' + adm.preparation.entryKm);
-  assert.equal(adm.preparation.verdict, 'READY');
+  assert.equal(adm.admitted, false, 'decision: ' + adm.decision);
+  assert.equal(adm.decision, 'preparation_not_reachable');
+  assert.equal(adm.preparation.verdict, 'INSUFFICIENT');
+  assert.equal(adm.preparation.requiredWeekKm, 80, 'the locked Established peak week');
+  assert.equal(adm.preparation.requiredLongKm, 30, 'the locked Established peak long run');
+  assert.deepEqual(adm.preparation.shortfall, ['workload'],
+    'the long run reaches its locked 30km; only the week falls short');
   /* HQ narrow pathway correction: Experienced marathon's Peak volume floor
      is now 75 (was null, falling back to the 55km Build figure), and its
      LR floor is 30 (was 29) -- both genuinely reached from a 22/14 entry
@@ -275,20 +379,47 @@ test('EVIDENCE OVER LABEL — a thin Experienced athlete is admitted and develop
      raceGoalPreparationOutlook()'s curve-limited reachWeekKm now reports
      rather than the unconditional floor. The long run's own destination
      (30) is unchanged and still reached exactly. */
-  assert.equal(adm.preparation.reachWeekKm, 79.1, 'the Experienced marathon Peak floor, curve-limited from this fixture\'s thin entry');
-  assert.equal(adm.preparation.reachLongKm, 30, 'the Experienced marathon Peak floor');
+  /* C3: these are what the BLOCK DELIVERS, not what a two-point curve
+     projects -- the projection now reads the builder's own output, so the week
+     figure is the 73km this runway actually produces rather than the 79.1 the
+     old curve reported for a week it never built. */
+  /* 73 -> 72 (16 November 2026): a repeat threshold test now sits in the climb. */
+  assert.equal(adm.preparation.reachWeekKm, 72, 'the week this twelve-week runway actually delivers from a 36km entry');
+  assert.equal(adm.preparation.reachLongKm, 30, 'the Experienced marathon Peak floor, reached exactly');
 });
 
-test('NO EVIDENCE — the pathway supplies the entry, and nothing invents a low one', () => {
+test('NO EVIDENCE — the pathway supplies the entry, and that does not guarantee reachability', () => {
   /* Somebody who has logged nothing is not a six-kilometre-a-week beginner.
      They are somebody who chose this pathway, and absent anything
-     contradicting it the pathway's own designed entry stands. */
+     contradicting it the pathway's own designed entry stands. That half of
+     this contract is unchanged and is asserted first.
+     ---- C4: AN ENTRY ASSUMPTION IS NOT A PROMISE ---- HQ RULING.
+     What the pathway supplies is where the athlete may safely BEGIN. Whether
+     the programme built from there reaches what the event asks is a separate
+     question, and at a ten-week runway against the locked Established
+     destination of 80km / 30km LR the answer is no: the delivered programme
+     reaches 74km, 6km short, with the long run meeting its 30km exactly. So
+     INSUFFICIENT is the correct outcome and the entry assumption is untouched
+     by it -- the pathway still answers, it simply does not also certify the
+     result.
+     THE TEN-WEEK RUNWAY IS DELIBERATELY STILL EXERCISED HERE. The separate
+     12-week minimum runway rule is not part of this change, so these cases go
+     on testing the reachability engine underneath it. */
   const res = R.build({ dist:'full', exp:'intermediate', days:4, weeks:10, tt5kMin:24 });
   const o = res.a.raceGoalPreparationOutlook('full', 'intermediate', 10,
               { availableDays:4, easyPaceSecPerKm:res.pace });
   assert.equal(o.entrySource, 'pathway');
   assert.equal(o.entryKm, 52, 'the Experienced marathon pathway opens at 52km');
-  assert.equal(o.verdict, 'READY');
+  assert.equal(o.verdict, 'INSUFFICIENT');
+  assert.equal(o.requiredWeekKm, 80, 'the locked Established peak week');
+  assert.equal(o.requiredLongKm, 30, 'the locked Established peak long run');
+  /* 74 -> 73 (16 November 2026, founder: "Take turns, add tempo"): the hard
+     sessions now take turns, so this four-day block's peak week is written
+     from a slightly different session; the verdict and both locked
+     destinations are unchanged. */
+  assert.equal(o.reachWeekKm, 73, 'what ten weeks from the pathway entry actually delivers');
+  assert.equal(o.reachLongKm, 30, 'the long run reaches its locked destination exactly');
+  assert.deepEqual(o.shortfall, ['workload']);
 });
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 // Shared server-side helpers for the Voice Coach. Everything that needs the
 // model API key lives behind this module and never crosses into the browser.
 //
-// THE ONE RULE THIS FILE EXISTS TO HOLD. Valhalla's coaching engine is
+// THE ONE RULE THIS FILE EXISTS TO HOLD. Sacoro's coaching engine is
 // deterministic arithmetic over the athlete's own logged sessions, and it stays
 // the authority. The model reached from here may explain, summarise and
 // converse about what the engine has already decided. It may not decide
@@ -16,7 +16,15 @@ const S = require('./_strava.js');
    exactly one file in api/ names a model endpoint. A constant here would have
    made this shared module look like a second call site to that check, and to a
    reader. */
-const VOICE_MODEL = 'claude-opus-5';
+/* Ask Coach (and the Coach's Note). Moved from Opus 5 to Opus 5.5 at the
+   founder's word, 17 November 2026: same request shape (one user turn, no
+   thinking setting, effort low, no tools), and cheaper per token. */
+const VOICE_MODEL = 'claude-opus-5-5';
+/* THE ROUTINE WRITING MODEL (the coach's word on a finished run or week).
+   Its own setting so Ask Coach and the routine summaries can be priced
+   separately; VVV_NOTE_MODEL overrides it. Chosen by a side-by-side test of
+   Haiku 5.5 and Sonnet 5.5 on the same run and week packets. */
+const NOTE_MODEL = 'claude-haiku-5-5';
 
 function env(name){ return process.env[name] || ''; }
 
@@ -33,7 +41,8 @@ function voiceConfig(){
   return {
     enabled: voiceEnabled(),
     apiKey: env('ANTHROPIC_API_KEY'),
-    model: env('VVV_VOICE_MODEL') || VOICE_MODEL
+    model: env('VVV_VOICE_MODEL') || VOICE_MODEL,
+    noteModel: env('VVV_NOTE_MODEL') || NOTE_MODEL
   };
 }
 
@@ -46,7 +55,7 @@ function voiceConfig(){
 function log(what){ try{ console.log('voice: ' + what); }catch(e){} }
 
 module.exports = {
-  VOICE_MODEL,
+  VOICE_MODEL, NOTE_MODEL,
   voiceEnabled, voiceConfig, log,
   json: S.json, readBody: S.readBody, verifyUser: S.verifyUser
 };

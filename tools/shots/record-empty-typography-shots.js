@@ -1,7 +1,7 @@
 'use strict';
 /* THE RECORD'S EMPTY PLATE, PHOTOGRAPHED BESIDE THE MEASURED ONES.
  * ===========================================================================
- * Valhalla tab -> The Record. Three chamfered plates, value over label:
+ * Sacoro tab -> The Record. Three chamfered plates, value over label:
  *
  *     Nothing measured   |   5K · 23:00        9%
  *     MEASURED FITNESS   |   BENCHMARK      PROGRESS
@@ -107,7 +107,7 @@ const WIDTHS = [430, 412, 390, 384, 360, 320];
       await page.goto(url, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(900);
       try { await page.evaluate(() => window.handleSetView && window.handleSetView('planhq')); } catch (e) {}
-      try { await page.evaluate(() => window.handleSetPlanhqTab && window.handleSetPlanhqTab('valhalla')); } catch (e) {}
+      try { await page.evaluate(() => window.handleSetPlanhqTab && window.handleSetPlanhqTab('sacoro')); } catch (e) {}
       try { await page.evaluate(() => window.renderApp && window.renderApp()); } catch (e) {}
       await page.waitForTimeout(500);
 

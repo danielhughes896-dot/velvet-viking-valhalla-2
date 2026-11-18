@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const Preview = require('../api/_preview.js');
 
-// VALHALLA FIRST-TIME ONBOARDING ORDER
+// SACORO FIRST-TIME ONBOARDING ORDER
 //
 // The approved acquisition journey: Builder -> Personalised Preview ->
 // "Save My Plan" / Authenticate -> Trial or Purchase -> App. Before this, the
@@ -34,39 +34,33 @@ const fnBody = (name) => {
 // ---------------------------------------------------------------------------
 // 1 & 2. A NEW VISITOR REACHES THE BUILDER AND THE PREVIEW BEFORE IDENTITY
 // ---------------------------------------------------------------------------
-test('the builder is step one, the preview is step two, saving the plan is step three', () => {
-  // The builder used to be a single condensed step, hence "Step one of
-  // three"; it is now ten stages, so it carries its own "0X / 10" progress
-  // indicator (bld-no, zero-padded via pad2()) instead of that fixed label
-  // -- see bldGoToStage(). Preview and auth are untouched: they were never
-  // staged.
-  assert.match(SRC, /id="pane-build"[^]*?id="bld-no"/, 'the builder no longer carries its own stage indicator');
-  assert.match(SRC, /pad2\(no\) \+ ' \/ ' \+ pad2\(BLD_STAGES\.length\);/,
-    'the builder no longer counts its own stages against BLD_STAGES.length');
-  assert.match(SRC, /bld-stage-label'\)\.textContent = BLD_STAGES\[bldCurrentStage\]\.name;/,
-    'the current stage name is no longer shown alongside the count');
+/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
+/* So the builder that was step one now lives in the app; a banked preview is
+   still step two here, and saving it still step three. */
+test('the preview is step two and saving the plan is step three, with no builder on the page', () => {
+  assert.doesNotMatch(SRC, /id="pane-build"/, 'the web builder is back on /start');
+  assert.doesNotMatch(SRC, /function submitBuild\(|function bldGoToStage\(|id="signin-instead"/);
   assert.match(SRC, /id="pane-preview"[^]*?Step two of three/, 'the preview is no longer step two');
   assert.match(SRC, /id="auth-step">Step three of three/, 'saving the plan is no longer step three');
 });
 
-test('a visitor with no session goes to the builder, not to sign-in', () => {
+test('"Change something" lets the banked plan go and sends the athlete to build in the app', () => {
+  assert.match(SRC, /id="rebuild"[^>]*>Change Something</);
+  const h = /\$\('rebuild'\)\.addEventListener\('click', function\(\)\{([^}]*)\}\);/.exec(SRC);
+  assert.ok(h, 'the Change something handler has gone');
+  assert.match(h[1], /clearPending\(\);\s*location\.replace\('\/get'\);/,
+    'Change something no longer clears the banked plan and goes to /get');
+  assert.doesNotMatch(h[1], /pane-build/);
+});
+
+test('a visitor with no session goes to install the app, not to sign-in', () => {
   const fn = routeFn();
   const noTok = /if \(!tok\)\{[^]*?\n    \}/.exec(fn)[0];
-  assert.match(noTok, /show\('pane-build'\)/, 'no-session no longer resolves to the builder');
+  assert.match(noTok, /location\.replace\('\/get'\)/, 'no-session no longer resolves to the app install page');
   assert.doesNotMatch(noTok, /show\('pane-auth'\)/, 'no-session still resolves to sign-in first');
 });
 
-test('the build call no longer requires a session', () => {
-  // authed() rejects with no_session when there is no token; apiCall() does
-  // not. submitBuild() -- fired from the review stage's Continue button,
-  // now that the builder is nine stages rather than one form -- must use
-  // the one that works for a first-time, signed-out visitor.
-  const build = fnBody('submitBuild');
-  assert.ok(build, 'submitBuild() was not found');
-  assert.match(build, /apiCall\('\/api\/preview'/, 'the builder still calls the auth-required helper');
-  assert.doesNotMatch(build, /authed\('\/api\/preview'/);
-});
-
+/* "The build call no longer requires a session": retired with submitBuild() (item 9). */
 test('the preview endpoint itself has no auth gate left to trip', () => {
   const src = read('api/_preview.js');
   assert.equal(/if \(!uid\) return S\.json\(res, 401/.test(src), false,
@@ -76,32 +70,8 @@ test('the preview endpoint itself has no auth gate left to trip', () => {
 // ---------------------------------------------------------------------------
 // 3. BUILDER STATE AND THE PREVIEW SURVIVE THE AUTH ROUND TRIP
 // ---------------------------------------------------------------------------
-test('a successful build banks the answers and the preview before showing either', () => {
-  const build = fnBody('submitBuild');
-  assert.ok(build, 'submitBuild() was not found');
-  const savedBeforeShown = build.indexOf('savePending(');
-  const shown = build.indexOf('showPreview(');
-  assert.ok(savedBeforeShown !== -1, 'nothing is banked on a successful build');
-  assert.ok(shown !== -1, 'the preview is never rendered after building');
-  assert.ok(savedBeforeShown < shown, 'the preview can be shown before it is safely banked');
-});
-
-test('the banked build carries every field the builder actually asked for', () => {
-  const build = fnBody('submitBuild');
-  assert.ok(build, 'submitBuild() was not found');
-  const input = /var input = \{[^]*?\};/.exec(build)[0];
-  // The full nine-stage field set -- hasEvent/raceDate (stage 03), experience
-  // and benchmarkDistanceKey (stages 04/05) are new; the mini-builder never
-  // asked them, which is exactly the drift this reconciliation closed.
-  ['purpose', 'distanceKey', 'hasEvent', 'raceDate', 'weeks', 'volume', 'activeDays',
-   'longRunDay', 'benchmarkSeconds', 'benchmarkDistanceKey', 'experience', 'goalAmbition']
-    .forEach(field => assert.match(input, new RegExp(field), 'the banked answers are missing ' + field));
-  assert.match(build, /savePending\(\{ input: input, preview: r\.body\.preview, build: r\.body\.build,/,
-    'the preview is banked without the answers that produced it');
-  assert.match(build, /savedAt: Date\.now\(\)/,
-    'the banked build carries no timestamp, so it can never be aged out as abandoned');
-});
-
+/* "A successful build banks the answers" and "the banked build carries every field": retired with
+   submitBuild() (item 9). The app's own adoption of a banked build is unchanged. */
 test('every route() branch that would otherwise show the builder checks for a banked preview first', () => {
   const fn = routeFn();
   const resumeChecks = (fn.match(/pending && pending\.preview/g) || []).length;
@@ -159,13 +129,7 @@ test('loading a banked preview cannot throw on missing or corrupt storage', () =
 // ---------------------------------------------------------------------------
 // 7. RETURNING ATHLETES STILL SIGN IN DIRECTLY
 // ---------------------------------------------------------------------------
-test('"Sign In" is still one tap away from the builder, and it skips the builder entirely', () => {
-  assert.match(SRC, /id="signin-instead"/, 'there is no direct sign-in route from the builder screen');
-  const handler = /\$\('signin-instead'\)\.addEventListener\('click', function\(\)\{[^]*?\}\);/.exec(SRC)[0];
-  assert.match(handler, /show\('pane-auth'\)/, 'the direct sign-in link no longer opens sign-in');
-  assert.doesNotMatch(handler, /pane-build/, 'the direct sign-in link still routes through the builder');
-});
-
+/* "Sign In is one tap away from the builder": retired with the builder (item 9). */
 test('a signed-in athlete with access is still sent straight into the app', () => {
   const fn = routeFn();
   const seg = /if \(b\.access === true\)\{[^]*?\}/.exec(fn);

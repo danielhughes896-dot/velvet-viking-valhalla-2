@@ -11,7 +11,7 @@ const P = require('../api/_products.js');
  *
  * The repository and production had diverged, and the shape of the divergence
  * mattered more than the fact of it: for a while there were two answers to
- * "may this athlete use Valhalla", written by two different code paths into
+ * "may this athlete use Sacoro", written by two different code paths into
  * the same row.
  *
  *   THE CORE       account_commercial + subscriptions + entitlement_grants,

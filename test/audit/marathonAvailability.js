@@ -69,7 +69,7 @@ console.log('  athlete is only RISING -- which is the correct coaching answer.')
 console.log('\n\n=== 2. WHEN DOES PRESSURE ACTUALLY APPEAR? ===');
 console.log('Walking a 5h00 athlete up their volume ladder on four authorised days.\n');
 console.log(pad('week V',9)+num('long',7)+num('easy len',10)+num('easy time',11)+
-  num('pressure',10)+'  what Valhalla should do');
+  num('pressure',10)+'  what Sacoro should do');
 const p5=paceFromMarathon(5*3600);
 [[40,13],[46,15],[52,17],[58,19],[62,20.5],[68,23],[74,25]].forEach(([V,L])=>{
   const w=week(V,L,8,4,p5);

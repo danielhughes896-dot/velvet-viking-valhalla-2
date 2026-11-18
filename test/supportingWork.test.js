@@ -6,7 +6,7 @@ const { buildPlan, logAsPrescribed } = require('./fixtures.js');
 
 /* SUPPORTING WORK — STRENGTH, CONDITIONING AND MOBILITY
  * ===========================================================================
- * VALHALLA IS A RUNNING COACH, and the whole risk in this feature is that it
+ * SACORO IS A RUNNING COACH, and the whole risk in this feature is that it
  * stops behaving like one. Three things are protected here, and every one of
  * them fails silently:
  *
@@ -548,7 +548,19 @@ test('the companion is closed by default and the running stays the primary objec
   assert.ok(collapsed.indexOf('Supporting work') !== -1, 'the athlete is not told it exists');
   assert.ok(collapsed.indexOf(k.label) !== -1, 'the kind is hidden behind the disclosure');
   assert.ok(collapsed.indexOf(k.minutes + ' min') !== -1, 'the duration is hidden');
-  assert.ok(collapsed.indexOf(a.escapeHtml(k.why)) !== -1, 'no purpose is given without opening it');
+  /* A PURPOSE, NOT THAT PARTICULAR PURPOSE. This pinned the KIND's own why,
+     which was the only purpose supporting work had. It now takes the same
+     contextual line a run does -- the reason this work is here differs
+     between Base and Taper -- so what the law protects is that the collapsed
+     card still ANSWERS "why is this here", from whichever source applies.
+     The kind's own why remains the fallback, so a kind with no contextual
+     line is unchanged. */
+  const purpose = /<div class="support-why">([^<]+)<\/div>/.exec(collapsed);
+  assert.ok(purpose && purpose[1].trim().length > 20,
+    'no purpose is given without opening it');
+  const ctx = a.supportContextualWhy(dd);
+  assert.ok(purpose[1] === a.escapeHtml(ctx || k.why),
+    'the purpose shown is neither the contextual line nor the kind\'s own');
 
   /* And the movements and remaining coaching really are inside it. THE
      PRESCRIBED routine, read from the item -- a kind now has more than one
@@ -563,8 +575,11 @@ test('the companion is closed by default and the running stays the primary objec
     assert.ok(inside.indexOf('>' + key + '<') !== -1, key + ' is not behind the disclosure'));
   /* Nothing was lost in the move: every movement is still there. */
   steps.forEach(st => assert.ok(html.indexOf(st.label) !== -1, 'lost a movement: ' + st.label));
-  /* And Why is said once, not twice. */
-  assert.equal(html.split(a.escapeHtml(k.why)).length - 1, 1, 'the purpose is stated twice');
+  /* And Why is said once, not twice -- whichever purpose was shown. The
+     kind's own why is no longer necessarily the one on the card (the
+     contextual line takes precedence), so this counts the purpose that was
+     actually rendered rather than a particular string. */
+  assert.equal(html.split(purpose[1]).length - 1, 1, 'the purpose is stated twice');
 });
 
 test('the companion is materially shorter than the running prescription it supports', () => {
@@ -748,28 +763,33 @@ test('the decline action is subordinate to logging it', () => {
 
 test('the Settings control reflects and toggles the stored preference', () => {
   const a = app({});
-  assert.ok(a.renderSupportWorkRow().indexOf('aria-pressed="true"') !== -1);
+  // a switch now, like the other on/off settings beside it
+  assert.match(a.renderSupportWorkRow(), /data-action="toggle-support-work"[^>]* checked>/);
   a.handleSetSupportWork(false);
   assert.equal(a.state.setup.supportWork, 'off');
-  assert.ok(a.renderSupportWorkRow().indexOf('aria-pressed="false"') !== -1);
+  assert.doesNotMatch(a.renderSupportWorkRow(), / checked>/);
   a.handleSetSupportWork(true);
   assert.equal(a.state.setup.supportWork, 'on');
 });
 
 test('logging is additive and declining is remembered', () => {
-  const a = app({});
-  const items = week(a, a.currentWeekNum());
-  if (!items.length) return;
   /* THE DAY HAS TO BE TODAY NOW. Supporting work inherits the running
      session's date rule, so handleSupportDone() refuses a day that has not
-     arrived -- which is the point of that change, and used to be the bug. The
-     week's first companion is not necessarily today's, so the day under test
-     is moved onto today rather than the rule being worked around. */
-  const dd = a.state.days.filter(d => d.id === items[0].dayId)[0];
-  dd.date = a.todayStr(); dd.id = dd.date;
+     arrived -- which is the point of that change, and used to be the bug.
+     The athlete is placed on the day of a companion rather than the day being
+     moved, because a companion is chosen by its neighbours: moved, it is no
+     longer the same day. */
+  const start = '2026-07-30';
+  const probe = app({ plan: { startDate: start } });
+  const items = week(probe, probe.currentWeekNum()).concat(week(probe, probe.currentWeekNum() + 1));
+  if (!items.length) return;
+  const on = probe.state.days.filter(d => d.id === items[0].dayId)[0].date;
+  const a = app({ today: on, plan: { startDate: start } });
+  const dd = a.state.days.filter(d => d.date === on)[0];
+  assert.ok(a.supportForDay(dd), 'the companion moved with the day it was read on');
   const km = dd.km, type = dd.type, completed = dd.completed;
   a.handleSupportDone(dd.id);
-  assert.ok(dd.support.completedAt, 'nothing was logged');
+  assert.ok(dd.support && dd.support.completedAt, 'nothing was logged');
   assert.equal(dd.km, km); assert.equal(dd.type, type); assert.equal(dd.completed, completed);
   const dd2 = a.state.days.filter(d => d.type === 'easy')[1];
   a.handleSupportSkip(dd2.id);
@@ -808,12 +828,23 @@ function panelBodies(html){
   return out;
 }
 
-test('the permission is presented on stage 07, with the week it belongs to', () => {
+/* ---------- FIND THE WEEK STAGE BY NAME, NOT BY NUMBER ----------
+   These read `x.stage === 6`. Athlete experience became its own stage at
+   04, Your week moved to 07, and every one of these started asserting
+   against Training data instead -- failing as "the permission is not on the
+   week stage" in a screen nothing had touched. The spec is the one
+   definition of the order, so they resolve through it now. */
+const SPEC_STAGES = require('../assets/builder-spec.js').stages;
+const WEEK_STAGE = SPEC_STAGES.findIndex((s) => s.key === 'WEEK');
+const REVIEW_STAGE = SPEC_STAGES.findIndex((s) => s.key === 'REVIEW');
+
+test('the permission is presented with the week it belongs to', () => {
   const { html } = journey();
   const p = panelBodies(html);
-  assert.equal(p.length, 10, 'the builder no longer renders ten panels');
-  const week = p.filter(x => x.stage === 6)[0];
-  assert.ok(week, 'stage 07 (Your week) was not found');
+  assert.equal(p.length, SPEC_STAGES.length,
+    'the builder rendered ' + p.length + ' panels, not ' + SPEC_STAGES.length);
+  const week = p.filter(x => x.stage === WEEK_STAGE)[0];
+  assert.ok(week, 'the Your week stage was not found');
   assert.ok(week.body.indexOf('id="su-support-work"') !== -1,
     'the permission is not on the week stage');
   /* And exactly once in the whole journey -- two copies would mean two ids and
@@ -822,8 +853,8 @@ test('the permission is presented on stage 07, with the week it belongs to', () 
 });
 
 test('it sits below the long run day and above the stage actions', () => {
-  const week = panelBodies(journey().html).filter(x => x.stage === 6)[0];
-  assert.ok(week, 'stage 07 was not found');
+  const week = panelBodies(journey().html).filter(x => x.stage === WEEK_STAGE)[0];
+  assert.ok(week, 'the Your week stage was not found');
   const html = week.body;
   const longAt = html.indexOf('id="f-longday"');
   const supportAt = html.indexOf('id="su-support-work"');
@@ -835,17 +866,17 @@ test('it sits below the long run day and above the stage actions', () => {
 });
 
 test('the concise copy is the week stage’s, and it still says a tick is not a quota', () => {
-  const week = panelBodies(journey().html).filter(x => x.stage === 6)[0].body;
+  const week = panelBodies(journey().html).filter(x => x.stage === WEEK_STAGE)[0].body;
   assert.ok(week.indexOf('Supporting work') !== -1, 'the section is unnamed');
   assert.ok(week.indexOf('Include strength &amp; mobility work') !== -1, 'the question changed');
-  assert.match(week, /Valhalla may add strength, conditioning or mobility where it helps your running/);
+  assert.match(week, /SACORO may add strength, conditioning or mobility where it helps your running/);
   assert.match(week, /Some weeks may have none/,
     'nothing on the screen prevents the tick being read as a guaranteed weekly session');
 });
 
 test('Review no longer offers the decision — it states it back', () => {
   const { html } = journey();
-  const review = panelBodies(html).filter(x => x.stage === 9)[0].body;
+  const review = panelBodies(html).filter(x => x.stage === REVIEW_STAGE)[0].body;
   assert.ok(review.indexOf('id="su-support-work"') === -1,
     'Review still carries an interactive permission control');
   assert.ok(review.indexOf('bld-review') !== -1, 'Review lost its summary container');
@@ -872,15 +903,15 @@ test('the health permission has not moved', () => {
      other with it. Consent still lives on Review, where it is recorded. */
   const { html } = journey(a => { a.state.healthConsent = null; });
   const p = panelBodies(html);
-  const review = p.filter(x => x.stage === 9)[0].body;
-  const week = p.filter(x => x.stage === 6)[0].body;
+  const review = p.filter(x => x.stage === REVIEW_STAGE)[0].body;
+  const week = p.filter(x => x.stage === WEEK_STAGE)[0].body;
   assert.ok(review.indexOf('id="su-health-consent"') !== -1,
     'the health permission left the Review stage');
   assert.ok(week.indexOf('id="su-health-consent"') === -1,
     'the health permission followed supporting work onto the week stage');
 });
 
-test('stage 07 still validates on its own questions, not on the permission', () => {
+test('the week stage still validates on its own questions, not on the permission', () => {
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   const src = require('fs').readFileSync(
     require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
@@ -891,7 +922,13 @@ test('stage 07 still validates on its own questions, not on the permission', () 
   assert.match(body, /BLD_STAGE\.WEEK/, 'the week stage lost its validation');
   assert.ok(body.indexOf('su-support-work') === -1,
     'the permission became a validation gate — a tick can now block the builder');
-  assert.equal(a.BLD_STAGE.WEEK, 6, 'the week stage moved');
+  /* Where the week stage SITS is the spec's business, not this test's --
+     it was pinned at 6 and moved to 7 when Athlete experience became its
+     own stage. What matters here is that the validator and the spec agree,
+     so a rule can never be left pointing at a neighbouring screen. That is
+     exactly what went wrong when BLD_STAGE was a hand-written literal. */
+  assert.equal(a.BLD_STAGE.WEEK, WEEK_STAGE,
+    'the validator and the spec disagree about where the week stage is');
 });
 
 test('the tick still writes the same stored value, and off is still off', () => {
@@ -935,10 +972,14 @@ test('the plan itself is unchanged by where the question is asked', () => {
   assert.equal(off.state.setup.supportWork, undefined);
 });
 
-test('the builder stays at ten stages and /start is untouched', () => {
+/* The count moved from ten to eleven when Athlete experience was lifted off
+   the YOU screen. What this test is actually for is that the permission did
+   not wander off the week stage or leak into /start, so it asserts WEEK is
+   present and where the spec puts it rather than restating a total. */
+test('the permission stays on the week stage and /start is untouched', () => {
   const spec = require('../assets/builder-spec.js');
-  assert.equal(spec.stages.length, 10, 'the canonical builder gained or lost a stage');
-  assert.equal(spec.stages[6].key, 'WEEK');
+  assert.notEqual(WEEK_STAGE, -1, 'the canonical builder lost its week stage');
+  assert.equal(spec.stages[WEEK_STAGE].key, 'WEEK');
   const start = require('fs').readFileSync(
     require('path').join(__dirname, '..', 'start.html'), 'utf8');
   assert.ok(start.indexOf('su-support-work') === -1,

@@ -109,19 +109,77 @@ const WORK_SURFACES = [
   ['openBackupTextModal', 'Copy Backup'],
   ['openPasteBackupModal', 'Paste Backup'],
   ['openHQPanel', "Plan HQ's Record / Reading / action panels"],
+  /* The same shell, the same single exit and the same scroll restoration as
+     openHQPanel -- it exists only because openHQPanel refuses without a
+     plan, and Account, Subscription, Backup and Legal are true before one
+     exists. A surface an athlete works in either way. */
+  ['openSettingsPanel', "Settings' own panels"],
+  /* The glass sheets Settings raises for a choice or a confirmation: Your
+     Name, Coach Voice, Sign Out and Delete Account. */
+  ['openStgSheet', "Settings' glass sheets"],
+  /* The morning check-in, risen in the same glass sheet. */
+  ['openCheckinSheet', 'the daily check-in sheet'],
+  /* Yesterday not logged: a quick question on Today, the same glass sheet. */
+  ['openUnloggedSheet', 'the yesterday-not-logged sheet'],
+  /* Welcome back: sign-in from the first screen, the same glass sheet. */
+  ['openSigninSheet', 'the welcome-back sign-in sheet'],
+  /* Signed out, Ask Coach asks for the email first (Audit IV UX-A9): the
+     same glass sign-in sheet. */
+  ['openAskSigninSheet', 'the sign-in sheet in front of Ask Coach'],
+  /* The Preparation offer is a glass sheet now (founder, Audit IV: "Replace
+     the old photo style with our new glass treatment"). */
+  ['openRaceGoalPreparationModal', 'the race preparation offer'],
+  /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
+     it, picks how much the card says and then approves it -- that is working
+     in a modal, not answering an interrupt, and it has a close control and
+     costs nothing to abandon. So its chrome follows the athlete's theme like
+     Settings and Edit Session do. The PREVIEW inside it is dark in both
+     themes, because the exported PNG is; that is a rule about one element,
+     not about the modal, and it is why this surface is themed rather than
+     pinned. */
+  ['openShareModal', 'the social sharing composer'],
   /* Two marathon offers. Both are work surfaces rather than interrupts: each
      has a close control, each presents two real choices, and declining costs
      the athlete nothing -- so both sit on the themed ramp with everything else
      the athlete is meant to read and think about. */
   ['openRunwayOfferModal', 'the surplus-runway development offer'],
   ['openRaceGoalEntryModal', 'the Race Goal entry boundary — Aerobic Base first'],
-  /* The third offer, and the same shape as the other two: HQ's admission
-     ruling says Valhalla must tell an athlete BEFORE building that the runway
-     they have cannot reach what the event asks for. It has a close control,
-     it presents the recommended route and "build it anyway" as two real
-     choices, and declining costs nothing -- a work surface, not an interrupt. */
-  ['openRaceGoalPreparationModal', 'the preparation boundary — this runway cannot reach it'],
+  /* ---- THE PREPARATION DECISION IS DELIBERATELY NOT ON THIS LIST ----
+     HQ RULING. openRaceGoalPreparationModal() was a themed work surface and
+     is now the app's one DECISION SURFACE: it opens on `modal-decision`,
+     which pins the Sacoro dark ramp and a photographic hero in BOTH themes.
+     WHY IT IS DIFFERENT FROM THE OTHER TWO OFFERS. The runway and entry
+     offers are routing conveniences -- the athlete is being pointed at a
+     better-ordered path. This one tells an athlete that the preparation
+     standard for the event they have entered is not safely reachable from
+     where they stand, and asks them to choose between developing first and
+     continuing with a programme that will fall short. HQ's ruling is that
+     this is a significant Sacoro coaching decision rather than an error
+     popup, and that it carries the brand's own register.
+     THE GUARD BELOW STILL BINDS. The themed set must still EQUAL this list,
+     so nothing else can quietly leave the theme ramp; this surface left it by
+     an explicit decision recorded here, and the decision treatment itself is
+     asserted in test/marathonAuthorityAndChoice.test.js. */
   ['openAvailabilityOfferModal', 'the availability-expansion offer'],
+  /* Injury / illness. A work surface by every test this list applies: it has
+     a close control, the athlete reads two levels and four ways of saying
+     how long before choosing anything, and closing it costs them nothing --
+     no declaration is made and the plan is untouched. */
+  ['openRestrictionModal', 'declaring an injury or illness restriction'],
+  ['openRestrictionPanel', 'the injury or illness page, opened from Today'],
+  ['openCirclePageNow', 'the circle page: the weekly table'],
+  /* Context Insight. A work surface by this list's own test: it has a close
+     control, closing it costs the athlete nothing, and it asks for no
+     decision at all -- it is the one entry here that only ever explains. It
+     is opened by maybeOpenContextInsight() rather than by an open*Modal()
+     name because the athlete does not summon it; a transition does. */
+  ['maybeOpenContextInsight', 'the Context Insight explanation'],
+  /* Session Complete and Week Complete (founder: bottom glass panels for
+     every pop-up). Nothing to answer and nothing lost by dismissing them:
+     OK, or a tap above the sheet, closes either. */
+  ['openSessionResult', 'the Session Complete panel'],
+  ['openWeekResult', 'the Week Complete panel'],
+  ['openRecoveryCheck', 'the Recovery Check panel'],
 ];
 
 /* The other side of the classification, and the reason the count is a rule
@@ -130,10 +188,15 @@ const WORK_SURFACES = [
    the transient decision .modal-card's fixed dark ramp was written for, and
    its deliberate difference from the surface behind it is what marks it as a
    thing that has to be answered. */
-test('a modal that must interrupt keeps the fixed dark ramp', () => {
+/* NOW A BOTTOM GLASS PANEL LIKE EVERY OTHER QUESTION (founder, of every
+   pop-up: "Yeh use them for all"). What still marks it as a thing that must
+   be answered is that it has no close control: a sheet swipes away only
+   through its own X (pageSwipeCloseOf), so with none it cannot be flicked
+   off either. */
+test('the modal that must interrupt is a glass sheet with no way out but an answer', () => {
   const body = fnBody('openCloudConflictModal');
-  assert.doesNotMatch(body, /modal-themed/,
-    'the one modal that must interrupt now looks like the ones that do not');
+  assert.match(body, /'modal-themed stg-sheet'/,
+    'the forced choice is not drawn as the glass bottom sheet every other question is');
   assert.doesNotMatch(body, /data-action="close-modal"/,
     'it grew a close control -- if it can be dismissed it is no longer a forced choice');
 });
@@ -166,9 +229,18 @@ test('Edit Session in particular, because it is the one that regressed', () => {
   const body = fnBody('openEditModal');
   assert.match(body, /openModal\([\s\S]{0,120}?['"][^'"]*\bmodal-themed\b/,
     'Edit Session is dark over a cream app again');
-  // A bottom sheet like every other short form -- NOT the centred builder.
-  assert.doesNotMatch(body, /\bbuilder-light\b/,
-    'Edit Session picked up the builder centring it was never given');
+  /* ---- THIS LINE CHANGED SIDES, TWICE ----
+     It first held Edit Session to a bottom sheet, then to a centred card
+     that must not take the builder's class. Founder, with a screenshot of
+     that card over Today: "the tabs inside them fully open. But when you
+     first click the edit button this pops up. Full page please."
+     So it is a page, in the shell the Coach page's panels open in. */
+  /* ...AND A THIRD TIME. Founder, 15 November 2026: "should edit session be on a bottom glass screen? Then change workout edit details and reschedule be the 3 box choices. Then they all open as bottom?" -- and, shown the mock-up, "Yes".
+     A glass sheet from the bottom: the session's tile and three boxes, each
+     opening its own page in the same sheet. Still themed. */
+  assert.match(body, /openModal\(html, 'modal-themed stg-sheet es-sheet'\);/,
+    'Edit Session is not the glass sheet');
+  assert.doesNotMatch(body, /openModal\([^;]*\bmodal-centred\b/, 'Edit Session is a centred card again');
   // And the fix moved the token ramp only. Every field, id and action stays.
   ['ef-title', 'ef-type', 'ef-km', 'ef-mp', 'ef-desc', 'ef-swap']
     .forEach(id => assert.match(body, new RegExp('id="' + id + '"'),
@@ -176,7 +248,12 @@ test('Edit Session in particular, because it is the one that regressed', () => {
   assert.match(body, /data-action="save-edit"/);
   assert.match(body, /data-action="reset-day"/);
   assert.match(body, /renderEditCompletion\(dd\)/);
-  assert.match(body, /<legend>Reschedule<\/legend>/);
+  /* Reschedule is its own section now rather than a fieldset/legend -- same
+     job, same place in the modal, different container. */
+  assert.match(body, /'Reschedule',\n\s*'Move or swap this session with another day\.'/);
+  /* Session type is chosen in Change Workout now; the select stays, hidden,
+     so Save reads the day's own type. */
+  assert.match(body, /<select id="ef-type" class="bld-mirror"/);
 });
 
 test('a modal that does not opt in keeps the fixed dark ramp', () => {
@@ -185,20 +262,100 @@ test('a modal that does not opt in keeps the fixed dark ramp', () => {
      quietly becoming the default for every confirm, and it names the offender
      instead of reporting an off-by-one. */
   const themed = openModalCallers().filter(([, on]) => on).map(([n]) => n).sort();
-  const declared = WORK_SURFACES.map(w => w[0]).sort();
+  const declared = WORK_SURFACES.map(w => w[0]).concat([DELIBERATE_INTERRUPT]).sort();
   assert.deepEqual(themed, declared,
     'themed modals and declared work surfaces disagree.\n  themed:   ' +
     themed.join(', ') + '\n  declared: ' + declared.join(', '));
 });
 
+/* THE CLASSES A MODAL MAY BELONG TO. Every one is named, and a modal that
+   belongs to none of them fails the guard below rather than quietly inventing
+   a fourth. */
+const DELIBERATE_INTERRUPT = 'openCloudConflictModal';
+/* THE DECISION SURFACE -- HQ RULING. One modal, pinned to the Sacoro dark
+   ramp and a photographic hero in both themes, because it asks the athlete to
+   decide what to do about a preparation standard they cannot safely reach.
+   Named here rather than exempted by a pattern, so a second one cannot appear
+   without this line being edited. Its own treatment is asserted in
+   test/marathonAuthorityAndChoice.test.js. */
+/* EMPTY SINCE AUDIT IV: the Preparation offer took the glass sheet (founder,
+   "Replace the old photo style with our new glass treatment"). Kept named for
+   the reason MOMENT_SURFACES is: a second one must be a decision. */
+const DECISION_SURFACES = [];
+/* THE COMPLETION MOMENT. A fourth kind, named deliberately rather than
+   squeezed into one of the three it is not. It is not a work surface: there
+   is nothing to fill in, and theming it put a cream rim around a card that is
+   black in both themes. It is not the deliberate interrupt: it has a close
+   control and costs nothing to dismiss. And it is not a decision: nothing
+   must be answered before the athlete moves on.
+
+   What it is, is the brand's own register around a thing that just happened --
+   so like the decision surface it keeps the fixed dark ramp in both themes,
+   and like a work surface it can simply be closed. */
+/* THE MOMENT IS RETIRED, AND THE SET IS EMPTY RATHER THAN DELETED. The
+   popup fired at the completion tick -- before any figure had been logged --
+   so it scored a session it knew nothing about and delivered the result in
+   the register of an arrival. The completion card itself is unchanged and
+   still renders in the day card, where it says the same thing once the
+   numbers are actually in.
+
+   The category stays named because the classification below must keep
+   working if one is ever introduced again, and because an empty set is a
+   decision somebody made rather than a line somebody forgot. */
+const MOMENT_SURFACES = [];
+
 test('every modal in the product has been classified one way or the other', () => {
-  // Nothing may open a modal without appearing in exactly one of the two sets.
+  // Nothing may open a modal without appearing in exactly one of the sets.
   const callers = openModalCallers().map(([n]) => n);
   const declared = new Set(WORK_SURFACES.map(w => w[0]));
-  const unclassified = callers.filter(n => !declared.has(n) && n !== 'openCloudConflictModal');
+  const unclassified = callers.filter(n => !declared.has(n) &&
+    n !== DELIBERATE_INTERRUPT && DECISION_SURFACES.indexOf(n) === -1 &&
+    MOMENT_SURFACES.indexOf(n) === -1);
   assert.deepEqual(unclassified, [],
-    'these open a modal and are neither a declared work surface nor the one ' +
-    'deliberate interrupt: ' + unclassified.join(', '));
+    'these open a modal and are neither a declared work surface, the one ' +
+    'deliberate interrupt, a named decision surface, nor a named moment: ' +
+    unclassified.join(', '));
+});
+
+test('a moment, if one exists, is dark in both themes and dismissible', () => {
+  MOMENT_SURFACES.forEach(fn => {
+    const body = fnBody(fn);
+    assert.match(body, /openModal\(/, fn + ' no longer opens a modal');
+    /* Pinned, not themed -- the card it carries is black whatever theme the
+       athlete chose, and opting into the ramp framed it in cream. */
+    assert.doesNotMatch(body, /['"][^'"]*\bmodal-themed\b/,
+      fn + ' opted into the theme ramp; its card is black in both themes');
+    assert.match(body, /\bwc-modal\b/, fn + ' lost its own surface class');
+  });
+  /* The completion popup is gone, and so is the surface it opened on --
+     left behind, .wc-modal would be a stylesheet describing a modal that
+     cannot be opened, which is what the next person edits by mistake. */
+  assert.doesNotMatch(CODE, /\bwc-modal\b/,
+    'the retired completion popup\u2019s surface class is back');
+  assert.doesNotMatch(CODE, /raiseCompletionMoment/,
+    'the retired completion popup is back');
+  /* The card it carried is not gone: it renders in the day card, and
+     Continue is still how an athlete leaves it. */
+  assert.match(CODE, /case 'wc-continue'/, 'the completion card lost its way out');
+  assert.match(CODE, /function renderExecutionReview\(/,
+    'the completion card itself was deleted with its popup');
+});
+
+test('the decision surface is exactly one modal, and it opts out deliberately', () => {
+  /* The counterpart to the themed-set guard above: that one stops a modal
+     quietly JOINING the theme ramp, this one stops modals quietly LEAVING it.
+     A decision surface must actually be one -- it opens on modal-decision and
+     never on modal-themed -- and there must still be only the one. */
+  assert.equal(DECISION_SURFACES.length, 0,
+    'a decision surface came back; that is a brand decision, not a refactor');
+  DECISION_SURFACES.forEach(fn => {
+    const body = fnBody(fn);
+    assert.match(body, /openModal\(/, fn + ' no longer opens a modal at all');
+    assert.match(body, /['"]modal-decision\b/,
+      fn + ' is declared a decision surface but does not open on modal-decision');
+    assert.doesNotMatch(body, /\bmodal-themed\b/,
+      fn + ' opens on both ramps at once');
+  });
 });
 
 test('the Plan HQ panels opt in, and carry the builder accent deliberately', () => {
@@ -220,7 +377,7 @@ test('the Plan HQ panels opt in, and carry the builder accent deliberately', () 
 });
 
 test('theming and positioning are two separate opt-ins, both available to any surface that needs them', () => {
-  // VALHALLA CONSISTENCY PASS: Re-calibrate Training Zones and the Race Day
+  // SACORO CONSISTENCY PASS: Re-calibrate Training Zones and the Race Day
   // Pacing Strategy modal were both bottom sheets, sitting low on the mobile
   // viewport, while the builder and the Record/HQ panels already had the
   // premium centred/keyboard-safe treatment. They now opt into that same
@@ -239,17 +396,52 @@ test('theming and positioning are two separate opt-ins, both available to any su
   assert.match(fnBody('openPacingModal'), /\bmodal-themed\b/,
     'Race Day Pacing Strategy lost its theme opt-in');
 
-  assert.match(CODE, /\.modal-overlay:has\(>\s*\.builder-light\)\s*\{[^}]*align-items\s*:\s*center/,
-    'the builder centring rule no longer keys on .builder-light');
+  // The centring now answers to two classes, not one. .builder-light still
+  // triggers it, so nothing above moves; .modal-centred triggers it without
+  // the builder's face or its Cherry Lacquer primary, for surfaces that need
+  // the geometry and must not take the look. Both are asserted, because a
+  // selector list that quietly loses one half strands whichever surfaces
+  // depended on it at the bottom of the viewport.
+  assert.match(CODE, /\.modal-overlay:has\(>\s*\.builder-light\),\s*\n?\s*\.modal-overlay:has\(>\s*\.modal-centred\)\s*\{[^}]*align-items\s*:\s*center/,
+    'the centring rule no longer keys on BOTH .builder-light and .modal-centred');
 
   assert.match(fnBody('openSetupModal'), /\bbuilder-light\b/,
     'the builder lost the class its positioning depends on');
 
-  // Edit Session is the control: it is a genuinely short, transient form and
-  // stays a bottom sheet on purpose -- proving .builder-light is still an
-  // opt-in, not something every themed modal now inherits automatically.
-  assert.doesNotMatch(fnBody('openEditModal'), /\bbuilder-light\b/,
-    'Edit Session picked up the builder centring class -- .builder-light stopped being opt-in');
+  /* THE CONTROL MOVED, AND THE REASON IS MEASURED, NOT PREFERRED.
+     This used to point at Edit Session: "a genuinely short, transient form
+     [that] stays a bottom sheet on purpose". The premise was wrong. Edit
+     Session holds a title field, a type picker, a distance, the session's
+     instructions, the completion log, a notes textarea, a reschedule control,
+     Reset and Save -- the function's own comment lists them -- and a walk of
+     the navigation tree measured it one of only three modals left docked out
+     of sixteen. It is also the worst case for a drawer: a docked sheet has no
+     keyboard-safe height, so opening the keyboard on that title field puts it
+     behind the keyboard. It is centred now, via .modal-centred.
+
+     So the law this test protects is unchanged and the exemplar is honest.
+     "Room for another day?" is the real short transient: two paragraphs, two
+     buttons, nothing to type into. It stays a drawer, which is what still
+     proves the positioning is an opt-in rather than something every themed
+     modal inherits. */
+  assert.doesNotMatch(fnBody('openAvailabilityOfferModal'), /\bbuilder-light\b|\bmodal-centred\b/,
+    'the short availability offer picked up a centring class -- positioning stopped being opt-in');
+  assert.match(fnBody('openAvailabilityOfferModal'), /\bmodal-themed\b/,
+    'the availability offer lost its theme opt-in');
+
+  // Edit Session was the surface that proved the geometry could be taken
+  // without the builder's face. It is a full page now, on the founder's
+  // instruction ("Full page please"), so what is held is that it is one: the
+  // Coach page's shell, full height -- which answers the keyboard worry
+  // better than centring did -- and still themed. .modal-centred stays in the
+  // stylesheet as the opt-in it is, asserted by the rule above.
+  /* Founder, 15 November 2026: "should edit session be on a bottom glass screen? Then change workout edit details and reschedule be the 3 box choices. Then they all open as bottom?" -- and, shown the mock-up, "Yes".
+     So it is the glass bottom sheet (.stg-sheet), and what keeps a field
+     above the keyboard is the sheet's dynamic-viewport height cap. */
+  assert.match(fnBody('openEditModal'), /'modal-themed stg-sheet es-sheet'/,
+    'Edit Session is not the glass bottom sheet');
+  assert.match(CODE, /\.modal-card\.es-sheet\{max-height:88vh; max-height:88dvh;/,
+    'the Edit Session sheet has no keyboard-safe height');
   assert.match(fnBody('openEditModal'), /\bmodal-themed\b/,
     'Edit Session lost its theme opt-in');
 });

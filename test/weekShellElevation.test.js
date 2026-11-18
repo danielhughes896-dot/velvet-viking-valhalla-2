@@ -62,14 +62,81 @@ test('the shell keeps its own radius, spacing and overflow clipping (the accordi
   assert.match(week, /overflow\s*:\s*hidden/);
 });
 
-test('the taper accent still overrides the border colour on top of the new tile border', () => {
-  const taper = ruleFor('.week.is-taper');
-  assert.match(taper, /border-color\s*:\s*var\(--bronze\)/);
+test('the taper week is not accented at all any more', () => {
+  /* THIS HELD THE OPPOSITE UNTIL THE FOUNDER LOOKED AT IT: "Remove the gold
+     in full week taper week. Just leave it the same as the rest." The
+     bronze border and the --c-gold-soft head band are gone, so there is
+     nothing left to override .week's own treatment.
+     ASSERTED AS AN ABSENCE OF RULES, not of declarations: an empty
+     .week.is-taper{} would satisfy a "no bronze" check while reading like
+     something that still fires, and the next person to touch this would
+     have to work out whether it mattered. */
+  /* CODE is this file's comment-stripped copy of the runtime -- the same
+     one ruleFor() reads, so an explanation mentioning the selector cannot
+     be mistaken for the selector. */
+  const bare = CODE;
+  assert.equal(bare.indexOf('.week.is-taper{'), -1,
+    'the taper week has a block rule again — it is meant to look like the rest');
+  assert.equal(bare.indexOf('.week.is-taper .week-head'), -1,
+    'the gold band is back behind the taper week head');
+  /* AND THE GROUPING IS UNTOUCHED: the class still goes on the element,
+     because it is what puts the taper weeks under one heading. */
+  assert.ok(SRC.indexOf("(taperLook?' is-taper':'')") > -1,
+    'is-taper stopped being applied, which regroups the taper weeks');
 });
 
-test('.tb-unit-toggle -- the recipe .week borrowed -- still exists with the same values, so the two stay in sync', () => {
+test('.week now owns the hairline-lift recipe outright, because the control it borrowed it from is gone', () => {
+  /* .week took its surface from .tb-unit-toggle -- the KM/MI pill -- and
+     this test existed so the two could not drift apart. The pill has been
+     rebuilt in the bottom nav's language: two standalone labels, crisp bold
+     white with the selected one in gold, no track, no fill, no border. So
+     there is no second copy of the recipe to stay in sync with, and .week's
+     own values (asserted above, verbatim) are the only definition left.
+
+     What is checked here is that the borrowing really did end rather than
+     being half-undone: the toggle must carry none of the surface, or the
+     pill is quietly back. */
   const toggle = ruleFor('.tb-unit-toggle');
-  assert.match(toggle, /var\(--tile-sheen\)/);
-  assert.match(toggle, /var\(--tile-border\)/);
-  assert.match(toggle, /box-shadow\s*:\s*0 1px 2px rgba\(0,0,0,\.14\), inset 0 1px 0 rgba\(255,255,255,\.10\)/);
+  assert.doesNotMatch(toggle, /var\(--tile-sheen\)/, 'the KM/MI pill grew its surface back');
+  assert.doesNotMatch(toggle, /var\(--tile-border\)/, 'the KM/MI pill grew its border back');
+  assert.doesNotMatch(toggle, /box-shadow\s*:\s*0 1px 2px/, 'the KM/MI pill grew its lift back');
+  /* And it took the nav's voice instead, which is the whole point.
+     ---- CHANGED SIDES: THE CHOSEN UNIT IS CHERRY ----
+     This held it to gold, from before the colours were given jobs. Founder,
+     on Settings: "Same cherry and gold colour language." Gold is the brand
+     and the destination; a thing the athlete has picked is cherry, which is
+     also literally the nav's voice now -- .bn-item.active is cherry. */
+  const btn = ruleFor('.tb-unit-toggle button.active');
+  assert.match(btn, /color\s*:\s*var\(--cherry-text\)/, 'the selected unit is not cherry');
+  assert.doesNotMatch(btn, /gold/, 'the selected unit is still lit in gold');
+  assert.match(btn, /text-shadow/, 'the selected unit lost its illumination');
+});
+
+// ---------------------------------------------------------------------------
+// A TILE MAY BE LIFTED ONLY IF NOTHING ABOVE IT IS.
+//
+// The rule this file already states for .week -- "giving it the same
+// --tile-shadow would make the shell as loud as its contents and flatten the
+// hierarchy between them" -- is the same rule read the other way up. The
+// raised-tile recipe is the app's premium card and is right on a PAGE
+// ground: measured across Today, This Week, Full Plan, Sacoro and
+// Settings, every tile wearing it has nothing above it wearing it.
+//
+// These four render only inside a modal card, so each was a tile as loud as
+// the surface holding it. Named individually rather than swept, because the
+// test is cheap to read and the sweep is not: the question for any new tile
+// is not "does it use --tile-shadow" but "is there a card above it".
+test('a tile that lives inside a modal card is not lifted as well', () => {
+  [['#bld-review',        'the builder\u2019s review panel'],
+   ['.bld-strava-offer',  'the builder\u2019s Strava offer'],
+   ['.pace-table-card',   'the pacing modal\u2019s table'],
+   ['.zone-paces-card',   'zone paces, which only ever render in a panel'],
+  ].forEach(([sel, what]) => {
+    const body = ruleFor(sel);
+    assert.ok(body !== null && body !== undefined, 'rule not found: ' + sel);
+    assert.doesNotMatch(body, /--tile-shadow/,
+      what + ' is lifted again inside the card that already is: ' + sel);
+    assert.doesNotMatch(body, /--tile-sheen/,
+      what + ' took the raised tile\u2019s ground back: ' + sel);
+  });
 });

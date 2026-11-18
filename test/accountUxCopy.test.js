@@ -90,7 +90,7 @@ test('a stranded athlete keeps a route back to their displaced plan', () => {
   const html = a.renderHero();
   assert.match(html, /data-action="open-restore"/,
     'with no bottom nav this is the only way back to Restore a Plan');
-  assert.match(html, /Restore a plan from this device/);
+  assert.match(html, /Restore a Plan From This Device/);
 });
 
 test('a built plan replaces the no-plan hero, so the recovery route is not offered on top of an active plan', () => {
@@ -174,8 +174,11 @@ test('Settings: a session the server has revoked is shown as ended, without hidi
   const html = a.renderCloudCard();
   assert.match(html, /Access ended/);
   assert.match(html, /no longer has access/i);
-  assert.match(html, /data-action="cloud-sign-out"/, 'signing out must still be reachable');
-  assert.match(html, /data-action="cloud-delete-account"/, 'deleting the account must still be reachable');
+  // both are asked on a glass sheet now, which the Account page opens
+  assert.match(html, /data-action="open-stg-sheet" data-sheet="signout"/, 'signing out must still be reachable');
+  assert.match(html, /data-action="open-stg-sheet" data-sheet="deleteaccount"/, 'deleting the account must still be reachable');
+  assert.match(a.signOutSheetBody(), /data-action="stg-sign-out"/);
+  assert.match(a.deleteAccountSheetBody(), /data-action="cloud-delete-account-confirmed"/);
 });
 
 test('Settings: entitlementInfo remains display-only -- a revoked flag changes copy, never what is offered', () => {
@@ -190,7 +193,7 @@ test('Settings: entitlementInfo remains display-only -- a revoked flag changes c
 
 // ---------------------------------------------------------------------------
 // /get copy -- must not claim "no account needed" now that account gating is
-// real architecture, even while VVV_ACCOUNT_REQUIRED stays off
+// real architecture; the founder has made an account required
 // ---------------------------------------------------------------------------
 
 test('get.html no longer claims no account is needed', () => {
@@ -201,7 +204,7 @@ test('get.html no longer claims no account is needed', () => {
   assert.doesNotMatch(flat, /subscription/i, 'no commercial claims before commercial activation');
   assert.doesNotMatch(flat, /\btrial\b/i, 'no trial claims before a trial exists');
   assert.doesNotMatch(flat, /strava/i, 'no Strava claims on an unrelated install page');
-  assert.match(flat, /account may be needed/i);
+  assert.match(flat, /SACORO needs an account/i, 'founder: an account is required, and every page says so');
 });
 
 test('account.html references an icon file that actually exists', () => {

@@ -43,8 +43,14 @@ function athlete(distanceKey, weeks, opts) {
     weeks: weeks || 12, lthr: 172, maxHR: 188 }, opts || {}));
   return a;
 }
+/* The section headings of the plan, in document order. Phases are collapsible
+   cards now rather than a heading with a rule, so their name lives in
+   .pp-name; Race Day still introduces itself with the original divider, which
+   is why both forms are read here. What the tests below assert is unchanged:
+   WHICH sections exist and in WHAT ORDER. */
 const dividerLabels = html =>
-  [...html.matchAll(/phase-divider[^>]*>\s*<span class="l font-head">([^<]+)</g)].map(m => m[1]);
+  [...html.matchAll(/(?:phase-divider[^>]*>\s*<span class="l font-head">|<span class="pp-name">)([^<]+)</g)]
+    .map(m => m[1]);
 const weekClasses = (html, w) =>
   ((html.match(new RegExp('class="week([^"]*)" id="week-' + w + '"')) || [])[1] || '').trim();
 const weekLabel = (html, w) =>
@@ -157,7 +163,14 @@ test('the goal week takes the SAME taper treatment as the week above it', () => 
   assert.match(taper, /\bis-taper\b/, 'the taper week above is unchanged');
   assert.doesNotMatch(taper, /\bis-taper-final\b/, 'and is not the goal week');
 
-  const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  /* READ WITH THE COMMENTS STRIPPED, the same correction this repo has
+     made before. Both assertions below are substring searches for a class
+     name, and the runtime's own prose names it -- the note beside the taper
+     rules explains what is-taper-final is for and why it carries no colour.
+     Read raw, that explanation IS a match, and the guard starts answering a
+     question about the prose instead of about the sheet. */
+  const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
   /* is-taper-final is a MARKER. If it ever acquires styling of its own, the two
      cards can diverge again -- which is exactly what this amendment undid. */
   assert.doesNotMatch(CODE, /\.week\.is-taper-final\s*[,{]/,
@@ -236,6 +249,24 @@ test('Race Day and Race Strategy rendering is unaffected', () => {
   assert.ok(race, 'the block still ends in a race day');
   const ev = a.renderRaceDayEvent(total);
   assert.match(ev, /race-event/);
-  assert.match(ev, /race-strategy/, 'the strategy picker still renders on Race Day');
-  assert.match(ev, /id="day-/, 'and so does the race card');
+  /* THE STRATEGY MOVED, BY INSTRUCTION. It is a control surface -- three
+     chips, a blurb, a planned finish, sometimes a stepper -- and it sat
+     between the race's identity and the way into it, inside what reads as
+     the block's destination. It now renders on the race SESSION, with the
+     execution blocks it reshapes. This test is about the taper/goal-week
+     grouping not disturbing race rendering, so it checks the race event
+     still renders and that the picker landed somewhere, not that it is
+     still in the old place. */
+  assert.ok(!/race-strategy/.test(ev),
+    'the strategy picker is back inside the Race Day panel');
+  assert.match(ev, /id="day-/, 'the race card no longer renders');
+  /* A TOKEN IN THE LIST, not the whole attribute: the button gained
+     .sess-nav, the treatment it now shares with This Week's way into a
+     session. The claim here is that the way in exists. */
+  assert.match(ev, /class="[^"]*\brd-open\b[^"]*"/, 'the way into the race session is gone');
+  const src = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const sess = src.slice(src.indexOf('function renderPlanSessionView('));
+  assert.match(sess.slice(0, sess.indexOf('\n}\n')), /renderRaceStrategyPicker\(dd\)/,
+    'the strategy picker has left Race Day without arriving on the race session');
 });

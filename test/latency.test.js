@@ -105,10 +105,25 @@ test('the font stylesheet cannot block first paint or script execution', () => {
 test('the font faces still swap rather than blocking on the font files', () => {
   assert.match(HEAD, /display=swap/,
     'without display=swap the text is invisible until the webfonts land');
-  /* Real fallbacks, so the pre-swap paint is readable rather than broken. */
-  assert.match(SRC, /font-family:'Inter',-apple-system,sans-serif/);
+  /* Real fallbacks, so the pre-swap paint is readable rather than broken.
+     Checked on the TOKENS now: the product declares two faces and nothing
+     names a family directly (see typographyConsistency), so these are the
+     two stacks the whole app paints with, plus the wordmark's. What this
+     test is about is that each ends in a real generic family -- without one,
+     the pre-swap paint falls back to whatever the UA picks. */
+  assert.match(SRC, /--text-face:'Oswald',sans-serif;/);
+  assert.match(SRC, /--num-face:'JetBrains Mono',monospace;/);
   assert.match(SRC, /font-family:'Cinzel',serif/);
-  assert.match(SRC, /font-family:'JetBrains Mono',monospace/);
+
+  /* AND NOTHING IS DOWNLOADED THAT NOTHING USES. Inter was still being
+     requested in four weights after the last rule that named it was gone --
+     a webfont fetched on every first paint for no glyph on the screen. */
+  assert.doesNotMatch(HEAD, /family=Inter/,
+    'Inter is being downloaded again, and nothing in the product sets it');
+  ['Oswald', 'JetBrains\\+Mono', 'Cinzel'].forEach(fam => {
+    assert.match(HEAD, new RegExp('family=' + fam),
+      fam.replace('\\+', ' ') + ' is used by the product but no longer requested');
+  });
 });
 
 test('preconnect to the font hosts is kept', () => {

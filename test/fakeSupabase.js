@@ -43,7 +43,7 @@ const DEFAULTS = {
   account_commercial: { trial_consumed_at: null, trial_consumed_provider: null,
                         trial_consumed_subscription_id: null, trial_blocked_at: null,
                         trial_blocked_reason: null },
-  subscriptions: { product_code: 'VALHALLA_STANDARD', environment: 'production',
+  subscriptions: { product_code: 'SACORO_STANDARD', environment: 'production',
                    auto_renew: true, cancel_at_period_end: false,
                    /* The columns supabase-trial-via-provider.sql added. Present
                       and null, exactly as they are in the database -- a fake
@@ -55,7 +55,7 @@ const DEFAULTS = {
                    price_locked_at: null, catalogue_version: null,
                    paused_at: null, pause_resumes_at: null,
                    last_pause_started_at: null },
-  entitlement_grants: { product_code: 'VALHALLA_STANDARD', revoked_at: null,
+  entitlement_grants: { product_code: 'SACORO_STANDARD', revoked_at: null,
                         revoked_by: null, expires_at: null, granted_by: null, note: null },
   billing_events: { environment: 'production', processed_at: null, result: null },
   entitlements: { state: 'expired', tier: 'standard', access_until: null,

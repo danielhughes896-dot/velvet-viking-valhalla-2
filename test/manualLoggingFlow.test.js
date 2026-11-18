@@ -41,29 +41,50 @@ function logged(a, actual){
   dd.actual = actual;
   return dd;
 }
-const card = (a, dd) => a.renderDayCard(dd);
+/* THE LOG IS BEHIND ITS OWN TAB NOW -- Share, Session Details, Your Log,
+   Sacoro Analysis -- and it is closed until asked. Every test in this file
+   is about what the FIELDS do, so the tab is opened here, at the one seam
+   they all render through. Without it they would each be asserting against
+   an empty string, which is the kind of green that means nothing. Where the
+   TAB itself belongs is asserted in completedSessionSurface. */
+const card = (a, dd) => { a.logOpenFor[dd.id] = true; return a.renderDayCard(dd); };
 const has = (html, field) => new RegExp('data-field="' + field + '"').test(html);
 
 // ---------------------------------------------------------------------------
 // THE DEFAULT SURFACE
 // ---------------------------------------------------------------------------
-test('a completed session asks for distance and pace, and nothing else', () => {
+/* THIS LAW CHANGED SIDES. It used to say distance and pace "and nothing
+   else", with effort a typed box behind Add detail. The founder: "SACORO
+   needs to extract the maximum coaching intelligence from the minimum
+   athlete effort." So the two numbers a watch gives are still the only
+   things TYPED, and what only the athlete knows is answered beneath them
+   with a thumb. Effort is one of those answers: a slider, never a box. */
+test('a completed session types distance and pace, and answers the rest with a thumb', () => {
   const a = app();
   const html = card(a, logged(a, { km: 8 }));
   assert.ok(has(html, 'km'), 'distance is not asked for');
   assert.ok(has(html, 'pace'), 'pace is not asked for');
-  assert.ok(!has(html, 'hr'), 'heart rate is still on the default surface');
-  assert.ok(!has(html, 'rpe'), 'RPE is still on the default surface');
-  assert.ok(!has(html, 'notes'), 'notes are still on the default surface');
-  assert.match(html, /data-action="toggle-detail"/, 'there is no way to reach the detail');
+  /* Heart rate, elevation and notes are simply there now, each once -- see
+     the laws further down. They are still the only other things typed. */
+  ['hr', 'elevationGainM', 'notes'].forEach(f =>
+    assert.equal((html.match(new RegExp('data-action="actual-field" data-field="' + f + '"', 'g')) || []).length, 1,
+      f + ' is not shown exactly once'));
+  assert.match(html, /<input type="range"[^>]*data-field="rpe"/, 'effort is not a slider on the default surface');
+  assert.ok(!/<input type="number"[^>]*data-field="rpe"/.test(html), 'effort is still a typed box');
+  const typed = [...html.matchAll(/<input type="(?:number|text)"[^>]*data-field="([A-Za-z]+)"[^>]*>/g)]
+    .filter(m => !/data-seg=/.test(m[0])).map(m => m[1]).sort();
+  assert.deepEqual(typed, ['elevationGainM', 'hr', 'km', 'pace'],
+    'the whole-session numbers that are typed have changed');
+  assert.ok(!/data-action="toggle-detail"/.test(html), 'the detail is behind a toggle again');
 });
 
 test('pace is offered as optional, never as a requirement', () => {
-  /* A missing pace narrows what Valhalla will CLAIM. It is not a failure and
+  /* A missing pace narrows what Sacoro will CLAIM. It is not a failure and
      must not be presented as one. */
   const a = app();
   const html = card(a, logged(a, { km: 8 }));
-  assert.match(html, /Avg Pace[^<]*optional/i, 'pace does not read as optional');
+  /* "optional" is in the box rather than the label: three figures share a row. */
+  assert.match(html, /Avg Pace \/[a-z]+<\/label><input type="text" placeholder="optional"/i, 'pace does not read as optional');
   assert.ok(!/required|must|need to log/i.test(html.slice(html.indexOf('data-field="pace"') - 200,
                                                           html.indexOf('data-field="pace"'))),
     'the pace field is framed as compulsory');
@@ -78,14 +99,25 @@ test('distance alone still earns a real assessment on the same card', () => {
 // ---------------------------------------------------------------------------
 // ADD DETAIL — offered, not demanded; and never hiding what exists
 // ---------------------------------------------------------------------------
-test('opening the detail reveals every field that used to be flat', () => {
+/* ---- CHANGED SIDES ----
+   Founder: "Remove redundant 'Hide Detail', 'Add Laps / Splits' and
+   unnecessary gold subheadings. Keep Avg HR, elevation and notes directly
+   visible, with no duplicate inputs." And: "multi-part sessions
+   automatically show separate Warm-up, Main Set and Cool-down inputs,
+   including appropriate interval/rep details, while easy runs remain
+   simple ... three sections should appear only when the prescription
+   actually contains them." */
+test('heart rate, effort and notes are on the log with nothing to open', () => {
   const a = app();
   const dd = logged(a, { km: 8 });
-  a.handleToggleDetail(dd.id);
   const html = card(a, dd);
-  ['hr', 'rpe', 'notes'].forEach(f =>
-    assert.ok(has(html, f), f + ' was lost rather than disclosed'));
-  assert.match(html, /data-action="set-feel"/, 'feel was lost rather than disclosed');
+  ['hr', 'rpe', 'notes', 'elevationGainM'].forEach(f =>
+    assert.ok(has(html, f), f + ' is behind something'));
+  assert.ok(!/Add detail|Hide detail|st-k|st-sub|splits-toggle/.test(html), 'a disclosure is back in the log');
+  /* Feel is no longer five buttons in the detail: it is the answer to "How
+     did it feel?", asked once, on the default surface. */
+  assert.ok(has(html, 'mainSetFelt'), 'how it felt was lost rather than moved');
+  assert.ok(!/data-action="set-feel"/.test(html), 'feel is asked twice: the old buttons are still drawn');
 });
 
 test('a day that already carries detail opens showing it', () => {
@@ -100,37 +132,36 @@ test('a day that already carries detail opens showing it', () => {
   });
 });
 
-test('an empty log stays closed, and toggling is symmetric', () => {
+test('there is no detail state left to open or close', () => {
   const a = app();
-  const dd = logged(a, { km: 8 });
-  assert.equal(a.isDetailOpen(dd), false);
-  a.handleToggleDetail(dd.id);
-  assert.equal(a.isDetailOpen(dd), true);
-  a.handleToggleDetail(dd.id);
-  assert.equal(a.isDetailOpen(dd), false, 'the control does not close again');
+  assert.equal(typeof a.isDetailOpen, 'undefined', 'the detail disclosure still has state');
+  assert.equal(typeof a.handleToggleDetail, 'undefined');
+  const SRC = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.ok(!/case 'toggle-detail'|case 'toggle-splits'/.test(SRC), 'a retired toggle is still wired');
 });
 
-test('closing the detail never discards a stored value', () => {
+test('drawing the log never discards a stored value', () => {
   const a = app();
   const dd = logged(a, { km: 8, hr: 152, rpe: 7, notes: 'Solid.' });
-  a.handleToggleDetail(dd.id);              // explicitly closed
-  assert.equal(a.isDetailOpen(dd), false);
-  assert.equal(dd.actual.hr, 152, 'heart rate was dropped by a UI toggle');
+  const html = card(a, dd);
+  assert.equal(dd.actual.hr, 152, 'heart rate was dropped by a render');
   assert.equal(dd.actual.rpe, 7);
   assert.equal(dd.actual.notes, 'Solid.');
+  assert.match(html, /value="152"[^>]*data-field="hr"/, 'the stored heart rate is not shown');
+  assert.match(html, />Solid\.<\/textarea>/, 'the stored note is not shown');
 });
 
 // ---------------------------------------------------------------------------
 // CONSENT GATES SURVIVE THE MOVE
 // ---------------------------------------------------------------------------
-test('without health consent, heart rate and feel are absent even when the detail is open', () => {
+test('without health consent, heart rate and feel are absent from the log', () => {
   const a = app({ plan: { healthConsent: false } });
   const dd = logged(a, { km: 8 });
-  a.handleToggleDetail(dd.id);
   const html = card(a, dd);
   assert.equal(a.healthConsentGranted(), false, 'the fixture granted consent');
   assert.ok(!has(html, 'hr'), 'a heart-rate box appeared without consent');
-  assert.ok(!/data-action="set-feel"/.test(html), 'a feel control appeared without consent');
+  ['mainSetFelt', 'hurting'].forEach(f =>
+    assert.ok(!has(html, f), f + ' was asked without consent'));
   /* RPE and notes are ordinary training data and are unaffected. */
   assert.ok(has(html, 'rpe'), 'RPE was gated on health consent');
   assert.ok(has(html, 'notes'), 'notes were gated on health consent');
@@ -139,15 +170,24 @@ test('without health consent, heart rate and feel are absent even when the detai
 // ---------------------------------------------------------------------------
 // THE THIRD RUNG IS UNTOUCHED
 // ---------------------------------------------------------------------------
-test('the session breakdown keeps its own disclosure, above and beyond the detail', () => {
+/* ---- CHANGED SIDES ----
+   Founder: "Remove redundant 'Hide Detail', 'Add Laps / Splits' and
+   unnecessary gold subheadings. Keep Avg HR, elevation and notes directly
+   visible, with no duplicate inputs." And: "multi-part sessions
+   automatically show separate Warm-up, Main Set and Cool-down inputs,
+   including appropriate interval/rep details, while easy runs remain
+   simple ... three sections should appear only when the prescription
+   actually contains them." */
+test('the session breakdown is on the log itself, in the sections the session has', () => {
   const a = app();
   const dd = logged(a, { km: 8 });
   const html = card(a, dd);
-  assert.match(html, /data-action="toggle-splits"/, 'the segment breakdown is unreachable');
-  /* Two independent controls: collapsing the detail must not collapse the
-     breakdown, and neither must swallow the other. */
-  assert.notEqual(html.indexOf('data-action="toggle-detail"'),
-                  html.indexOf('data-action="toggle-splits"'));
+  assert.ok(!/data-action="toggle-splits"|splits-summary/.test(html), 'the breakdown is behind a card again');
+  const plan = a.structuredLoggingPlan(dd);
+  assert.ok(plan && plan.rows.length >= 3, 'the fixture threshold session has no structure');
+  ['warmup', 'main', 'cooldown'].forEach(p =>
+    assert.match(html, new RegExp('data-part="' + p + '"'), 'the ' + p + ' section is missing'));
+  assert.ok((html.match(/data-action="slog-field"/g) || []).length >= 3, 'the segment inputs are unreachable');
 });
 
 test('segment evidence is still segment evidence, and is never fabricated', () => {
@@ -166,13 +206,14 @@ test('segment evidence is still segment evidence, and is never fabricated', () =
 test('every evidence field the panel ever offered is still reachable', () => {
   const a = app();
   const dd = logged(a, { km: 8 });
-  a.handleToggleDetail(dd.id);
   const html = card(a, dd);
   ['km', 'pace', 'hr', 'rpe', 'notes'].forEach(f =>
     assert.ok(has(html, f), 'evidence field removed: ' + f));
-  assert.match(html, /data-action="set-feel"/, 'feel removed');
-  assert.match(html, /data-action="toggle-splits"/, 'segment logging removed');
-  assert.match(html, /data-action="clear-actual"/, 'clear log removed');
+  assert.ok(has(html, 'mainSetFelt'), 'feel removed');
+  assert.match(html, /data-action="slog-field"/, 'segment logging removed');
+  /* Clear log was removed by the founder; Save ends the log instead. */
+  assert.doesNotMatch(html, /data-action="clear-actual"/, 'Clear log is back');
+  assert.match(html, /data-action="log-save"/, 'Save removed');
 });
 
 test('rich evidence is not flattened to the simplified surface', () => {
@@ -187,8 +228,10 @@ test('rich evidence is not flattened to the simplified surface', () => {
   assert.equal(dd.actual.splits.length, 1, 'segment evidence was discarded');
   assert.equal(dd.actual.hr, 158);
   assert.ok(has(html, 'hr'), 'imported heart rate is not shown');
-  const b = a.computeExecutionBreakdown(dd);
-  assert.ok(b && b.score != null, 'a rich record stopped being scored');
+  /* A threshold session's one total and an unmatched lap are not its
+     sections: it is assessed, partially, from what was stored, all of it. */
+  const pa = a.computePartialAssessment(dd);
+  assert.ok(pa && pa.km === 8.02 && pa.paceSec === 312, 'a rich record stopped being assessed');
 });
 
 // ---------------------------------------------------------------------------

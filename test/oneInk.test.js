@@ -1,0 +1,196 @@
+'use strict';
+/* ONE INK, AND A COACH PANEL IS A PAGE.
+ *
+ * Founder, asking for a sweep of "every first layer sister card and end user
+ * touch point": "The grey text I'm not keen on. I think white text is best if
+ * you agree. I know it says a different message but visually it's busy and
+ * off putting? Space needs to do the talking."
+ *
+ * And then, on the panels the Coach page's circles open: "The dot ... should
+ * follow the colour of the cards. Accept evolution ect should be the same as
+ * build a program. There should be no raised black boxes. I actually think
+ * the cards that open up should be full size? Then that creates ect space.
+ * Because even on my big screen that's hard to read. ... No grey text. All
+ * white. Scope of we make it full screen. The max the text sizes could be."
+ */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { RUNTIME_RELATIVE } = require('./harness.js');
+
+const SRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
+const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ');
+const SCOPE = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview)';
+/* every rule as [selector, body] */
+const RULES = [];
+CSS.replace(/([^{}]+)\{([^{}]*)\}/g, (m, sel, body) => { RULES.push([sel.trim(), body]); return m; });
+const bodyOf = sel => {
+  /* Matched on the END of the selector text: a rule that follows a stripped
+     comment or sits in a group carries what came before it, and an exact
+     match quietly found nothing. The character before must not be part of
+     a longer selector. */
+  const r = RULES.filter(x => x[0] === sel ||
+    (x[0].endsWith(sel) && /[\s,}]/.test(x[0].charAt(x[0].length - sel.length - 1))));
+  assert.ok(r.length, 'rule not found: ' + sel);
+  return r.map(x => x[1]).join(';');
+};
+
+test('the two grey ink tiers resolve to the ink, everywhere they are defined', () => {
+  const defs = CSS.match(/--ink-dim:[^;]+;\s*--ink-faint:[^;]+;/g) || [];
+  /* :root, .modal-card, the themed modal (inherit) and the decision modal */
+  assert.ok(defs.length >= 4, 'only ' + defs.length + ' definitions of the dim tiers were found');
+  /* #FFFFFF is the Coach page and its panels, which the founder took to
+     pure white before this sweep ("All white"); that is not a grey. */
+  defs.forEach(d => assert.match(d, /^--ink-dim:(var\(--ink\)|inherit|#FFFFFF);\s*--ink-faint:(var\(--ink\)|inherit|#FFFFFF);$/,
+    'a scope still gives the dim tiers a grey of their own: ' + d));
+  assert.doesNotMatch(CSS, /--ink-(dim|faint):#(?!FFFFFF)/, 'a grey hex is back on a dim tier');
+  /* the completion card's own pair, for the same instruction */
+  assert.match(CSS, /--wc-dim:var\(--wc-ink\); --wc-faint:var\(--wc-ink\);/,
+    'the completion card still dims its second and third tiers');
+});
+
+test('what keeps a grey is a mark, a placeholder or a control that is off, never copy', () => {
+  assert.match(CSS, /--ink-quiet:#9D9787; --mark-faint:#9D9787; --mark-dim:#BBB4A4;/);
+  /* a mark is drawn, not read: it is a background or the colour of an icon */
+  RULES.forEach(([sel, body]) => {
+    if (/var\(--mark-(faint|dim)\)/.test(body)) {
+      const asText = /(^|;)\s*color:var\(--mark-(faint|dim)\)/.test(body);
+      if (asText) assert.match(sel, /chev|icon-btn|arrow|svg/,
+        sel + ' sets WORDS in the mark grey');
+    }
+    if (/var\(--ink-quiet\)/.test(body)) {
+      assert.match(sel, /placeholder|\[disabled\]|is-muted|locked/,
+        sel + ' uses the quiet ink on something that is neither a placeholder nor switched off');
+    }
+    /* and a dot is not painted through a text token any more */
+    assert.doesNotMatch(body, /background:var\(--ink-(dim|faint)\)/, sel + ' paints a mark with a text tier');
+  });
+});
+
+test('no first-layer line is dimmed by opacity or a translucent white instead', () => {
+  [['.share-ov span', 'the share overlay names'], ['.share-k', 'the share composer labels'],
+   ['.share-row > span', 'the share composer row labels'], ['.wk-day-d', 'the week strip’s day letters'],
+   ['.build-tag', 'the build number'], ['.hq-panel .field-hint', 'a panel’s explaining line'],
+   ['.hq-panel .rec-lede', 'a panel’s lede']].forEach(([sel, what]) => {
+    assert.doesNotMatch(bodyOf(sel), /opacity:\s*\.\d/, what + ' is dimmed by opacity again (' + sel + ')');
+  });
+  assert.match(bodyOf('.view-planhq .b-dials-hint'), /opacity:1/, 'the hint under the circles is dimmed');
+  [[SCOPE + ' .ws-rail .ws-note', 'a stage card’s note'],
+   [SCOPE + ' .ws-rail .how-mod .fuel-v-note', 'a fuel card’s note'],
+   ['.pp-slide.is-ahead .pp-slide-w', 'a phase still ahead']].forEach(([sel, what]) => {
+    assert.match(bodyOf(sel), /color:#fff/, what + ' is a translucent white again');
+  });
+  assert.match(bodyOf(SCOPE + ' .ws-rail .pair-foot-k'), /color:#fff/, 'the fuel card’s small labels are dimmed');
+  assert.match(bodyOf('.day-badge.type-rest'), /color:var\(--ink\)/, 'the Rest badge’s word is the rest grey again');
+});
+
+test('the two buttons stand clear of whatever is above them', () => {
+  /* "I think there's scope to create space between the bottom of why this
+     session and hear today and ask coach." */
+  const m = /margin:(\d+)px 0 0/.exec(bodyOf(SCOPE + ' .voice-row'));
+  assert.ok(m && +m[1] >= 26, 'Hear Today and Ask Coach sit ' + (m && m[1]) + 'px under the line above');
+});
+
+test('a Coach panel opens as a tall glass sheet, and a Settings panel does not', () => {
+  assert.match(CODE, /var coachPanel = READING_KEYS\.indexOf\(key\) !== -1 \|\| !!RECORD_PANELS\[key\];/,
+    'which panels are pages is no longer decided from the reading and record lists');
+  assert.match(CODE, /\+\(coachPanel \? ' hq-full' : ''\)\)/, 'a Coach panel is not marked as a page');
+  /* Pages became tall glass bottom sheets (founder, Audit III): docked to
+     the bottom, stopping short of the status bar, glass, top corners only. */
+  assert.match(bodyOf('.modal-overlay:has(> .hq-full)'), /align-items:flex-end; padding:0/,
+    'the overlay no longer docks the sheet to the bottom');
+  const page = bodyOf('.modal-overlay:has(> .hq-full) > .hq-full');
+  ['width:100%', 'height:auto', 'max-height:calc(100% - env(safe-area-inset-top, 0px) - 28px)',
+   'backdrop-filter:blur(22px)', 'border-radius:24px 24px 0 0', 'border-bottom:0'].forEach(d =>
+    assert.ok(page.indexOf(d) > -1, 'the sheet lost ' + d));
+});
+
+test('the page’s type is a step up from the card’s, set once through the tokens', () => {
+  const page = bodyOf('.modal-overlay:has(> .hq-full) > .hq-full');
+  const rem = name => { const m = new RegExp(name + ':([\\d.]+)rem').exec(page); assert.ok(m, name + ' is not set on the page'); return +m[1] * 16; };
+  const root = name => +new RegExp(name + ':([\\d.]+)rem').exec(CSS)[1] * 16;
+  [['--fs-label', 14], ['--fs-support', 17], ['--fs-panel-row', 19], ['--fs-body', 20]].forEach(([t, want]) => {
+    assert.ok(rem(t) > root(t), t + ' is no larger on the page than in the app');
+    assert.equal(rem(t), want, t + ' moved off the measured size');
+  });
+  /* the row is the ceiling: label and value share a line, and wrap whole */
+  assert.match(bodyOf('.hq-full .hq-row'), /flex-wrap:wrap/, 'a long row breaks mid-value instead of dropping it whole');
+  assert.match(bodyOf('.hq-full .modal-head h2'), /min-width:0/, 'a long title can run into the close ring');
+});
+
+test('no box inside the page, the builder’s buttons, and the dot in the panel’s colour', () => {
+  const evo = bodyOf('.hq-full .evo-panel');
+  assert.ok(/background:none/.test(evo) && /border:0/.test(evo) && /padding:0/.test(evo),
+    'the proposal is a raised box again');
+  assert.equal(CSS.indexOf('.hq-panel .btn-primary{'), -1, 'a panel paints its own primary instead of the builder’s');
+  assert.match(bodyOf('.builder-light .btn-primary'), /background:var\(--cherry-fill\)/);
+  assert.match(bodyOf('.hq-panel .read-val .read-dot'), /background:var\(--rp-accent\)/,
+    'the status dot wears the reading’s tone rather than the panel’s colour');
+});
+
+/* ---- THE SECOND LAYER, WHICH THE FIRST SWEEP DID NOT OPEN ----
+   Form labels and the builder's helper lines were greyed by opacity rather
+   than by a token, inside modals the first-layer audit never visited. The
+   founder's next screenshot was a builder page with both still grey. */
+test('form labels and the builder\u2019s helper lines are not dimmed', () => {
+  assert.doesNotMatch(bodyOf('.field label'), /opacity:\s*\.\d/, 'every form label is a grey again');
+  assert.ok(!RULES.some(r => /\.bld-panel \.field-hint$/.test(r[0]) && /opacity:\s*\.\d/.test(r[1])),
+    'the builder\u2019s helper lines are dimmed again');
+});
+
+test('the goal is chosen on the builder\u2019s tiles, not under a gold glow', () => {
+  /* "The selection of A B or C should be the same as build a plan! Not the
+     old gold hazey glow haha" */
+  const { loadApp } = require('./harness.js');
+  const { buildPlan } = require('./fixtures.js');
+  const a = loadApp();
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { distanceKey: 'full', volume: 55, weeks: 14 });
+  a.state.setup.goals = { A: { timeSec: 12000 }, B: { timeSec: 12600 }, C: { timeSec: 13200 } };
+  a.state.setup.activeGoal = 'B';
+  const html = a.renderGoalButtons();
+  assert.match(html, /^<div class="goal-options opt-grid cols-3" style="grid-template-columns:repeat\(3,1fr\);">/,
+    'the three goals are not laid out on the builder\u2019s grid');
+  const tiles = html.match(/<button[^>]*>/g) || [];
+  assert.equal(tiles.length, 3);
+  assert.equal(tiles.filter(t => /class="goal-opt active"/.test(t)).length, 1, 'exactly one goal is chosen');
+  assert.match(html, /class="goal-opt active" aria-pressed="true" data-action="set-goal" data-goal="B"/,
+    'the chosen goal is not marked the way the builder marks a choice');
+  assert.equal((html.match(/aria-pressed="false"/g) || []).length, 2);
+  /* the time rides as the tile's sub-line, and every goal still shows its own */
+  ['3:20:00', '3:30:00', '3:40:00'].forEach(t =>
+    assert.ok(html.indexOf('<span class="sub font-mono">' + t + '</span>') > -1, 'the goal time ' + t + ' is not on its tile'));
+  /* one goal is one tile, not a third of a row */
+  a.state.setup.goals = { A: { timeSec: 12000 } }; a.state.setup.activeGoal = 'A';
+  assert.match(a.renderGoalButtons(), /grid-template-columns:repeat\(1,1fr\)/);
+  /* and the tap still does what it did */
+  assert.match(html, /data-action="set-goal" data-goal="C"/);
+  assert.equal(CSS.indexOf('.goal-opt.active'), -1, 'the goal selector has a chosen style of its own');
+  assert.doesNotMatch(CSS, /\.goal-opt[^{]*\{[^}]*(227,177,90|245,208,97)/, 'the gold glow is back on the goal selector');
+});
+
+/* Founder, on Your Targets: "When they're selected. The old gold style box
+   pops up." -- the notice. And: "Build your training block title. White
+   please." */
+test('the pop-up notice is not the old gold slab', () => {
+  const CODE = require('fs').readFileSync(require('path').join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  const i = CODE.indexOf('  .toast{');
+  assert.ok(i > 0);
+  const body = CODE.slice(i, CODE.indexOf('}', i));
+  assert.doesNotMatch(body, /--bronze|--gold/, 'a bronze fill with near-black text is the old primary-button look');
+  assert.doesNotMatch(body, /border-radius:99px/, 'and it was a pill');
+  assert.match(body, /background:var\(--bg-2\)/);
+  assert.match(body, /color:var\(--ink\)/);
+  assert.match(body, /border:1px solid var\(--cherry\)/);
+  assert.match(body, /max-width:calc\(100vw - 32px\)/, 'a long notice must not run off the screen');
+});
+
+test('the Build Your Training Block title is white', () => {
+  const CODE = require('fs').readFileSync(require('path').join(__dirname, '..', require('./harness.js').RUNTIME_RELATIVE), 'utf8');
+  const i = CODE.indexOf('  .setup-cta h2{');
+  const body = CODE.slice(i, CODE.indexOf('}', i));
+  assert.match(body, /color:var\(--ink\)/);
+  assert.doesNotMatch(body, /gold/);
+});

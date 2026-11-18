@@ -85,16 +85,27 @@ test('declining leaves the plan exactly as it was', () => {
 // ---------------------------------------------------------------------------
 // 2. THE ATHLETE CAN TELL THAT THEY CONSENTED
 // ---------------------------------------------------------------------------
-test('the ADJUSTED card states that the athlete accepted it, not merely a date', () => {
+test('the acceptance is recorded at the moment of the tap, and is no longer read back', () => {
+  /* ---- CHANGED SIDES ----
+     This asserted that the adjusted card printed "You accepted this change
+     on <date>", so an athlete days later could tell they had been asked.
+     Founder: "Remove the accepted from that prompt ... In fact delete that
+     whole box. I don't want it. To accept that change the user has already
+     seen this info!!!"
+     What survives is the half that was never about the screen: the stamp is
+     written by the accept handler and by nothing else, so the record of the
+     decision exists whether or not anything draws it. */
   const a = proposingPlan(app());
   const ev = a.planEvolution();
   const targetId = ev.changes[0].dayId;
   a.handleAcceptEvolution(ev.proposalId);
-  const html = a.renderAdjustedDetail(a.findDay(targetId));
-  assert.match(html, /You accepted this change on/,
-    'consent provenance must be visible on the surface where the change is seen');
-  assert.match(html, /What changed/);
-  assert.match(html, /Restore the original session/, 'the safety net stays');
+  const dd = a.findDay(targetId);
+  assert.ok(dd.coachAdjust && /^\d{4}-\d{2}-\d{2}T/.test(dd.coachAdjust.at),
+    'accepting a change no longer stamps when it was accepted');
+  const card = a.renderDayCard(dd);
+  assert.equal(card.indexOf('You accepted this change'), -1,
+    'the acceptance is being read back on the session card again');
+  assert.equal(card.indexOf('What changed'), -1);
 });
 
 test('the provenance survives a persistence round-trip, like the change itself', () => {
@@ -109,8 +120,6 @@ test('the provenance survives a persistence round-trip, like the change itself',
   b.state = JSON.parse(JSON.stringify(a.state));
   const back = b.findDay(targetId);
   assert.equal(back.coachAdjust.at, stampedAt, 'the acceptance timestamp is persisted state');
-  assert.match(b.renderAdjustedDetail(back), /You accepted this change on/,
-    'so the provenance is still readable after a reload');
 });
 
 test('Next Move no longer attributes an accepted change to the coach acting alone', () => {

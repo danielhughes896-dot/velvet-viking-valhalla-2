@@ -69,60 +69,62 @@ function fillFourLaps(a, dd, opts) {
 // ---------------------------------------------------------------------------
 // 1. THE EDITOR IS QUIET AND OPTIONAL
 // ---------------------------------------------------------------------------
-test('the splits editor is closed by default and never forces lap entry', () => {
-  /* TWO PRESENTATIONS, ONE INVARIANT. A day whose prescription has a structure
-     gets the session-breakdown summary card; a flat or legacy day gets the
-     plain "Add laps / splits" toggle. The rule being tested belongs to
-     neither: the editor is CLOSED, no rows are rendered, and the control is
-     an offer rather than a requirement. The earlier form pinned the flat
-     wording and passed only while the fixture's first day happened to be
-     unstructured. Both are now exercised, so neither can regress. */
+/* ---- CHANGED SIDES ----
+   Founder: "Remove redundant 'Hide Detail', 'Add Laps / Splits' and
+   unnecessary gold subheadings. Keep Avg HR, elevation and notes directly
+   visible, with no duplicate inputs." And: "multi-part sessions
+   automatically show separate Warm-up, Main Set and Cool-down inputs,
+   including appropriate interval/rep details, while easy runs remain
+   simple ... three sections should appear only when the prescription
+   actually contains them." */
+test('no lap editor is offered on an unstructured run, and a structured one has its rows', () => {
   const a = app();
   const structured = structuredDay(a);
-  /* A day distinct from `structured` -- an ordinary easy or long run, which
-     the fixture always has several of regardless of which structure the
-     quality rotation happened to land on. */
-  const flat = a.state.days.filter(x => (x.type === 'easy' || x.type === 'long') && x !== structured)[0]
+  const flat = a.state.days.filter(x => (x.type === 'easy' || x.type === 'long') && x !== structured &&
+                                        a.loggingModeFor(x).mode === 'flat')[0]
             || (function(){ const d = completedDay(a); delete d.prescription; return d; })();
-
   [structured, flat].forEach(dd => {
-    assert.equal(a.isSplitsOpen(dd), false, 'the editor opens closed');
     const html = a.renderSplitsBlock(dd);
-    assert.doesNotMatch(html, /split-row/, 'no rows render before the control is opened');
-    assert.match(html, /data-action="toggle-splits"/, 'a control is offered');
-    assert.match(html, /aria-expanded="false"/, 'and it says it is closed');
+    assert.doesNotMatch(html, /split-row/, 'empty lap rows are drawn on a day with no laps');
+    assert.doesNotMatch(html, /toggle-splits|Add laps|Session breakdown|Log the session breakdown/,
+      'a retired control is back');
   });
-  /* And each keeps its own presentation, so this test cannot pass by the two
-     collapsing into one. */
-  assert.match(a.renderSplitsBlock(flat), /Add laps \/ splits/,
-    'a day with no structure still offers the plain lap editor');
-  assert.match(a.renderSplitsBlock(structured), /Session breakdown|Log the session breakdown/,
-    'a structured day offers its own breakdown instead');
+  assert.equal(a.renderSplitsBlock(flat), '', 'an easy run is asked for laps');
+  flat.completed = true; flat.actual = flat.actual || a.emptyActual();
+  assert.doesNotMatch(a.renderYourLogAnswers(flat), /slog-row|data-part="(warmup|cooldown)"/,
+    'an unstructured run was given sections');
+  structured.completed = true; structured.actual = structured.actual || a.emptyActual();
+  assert.match(a.renderYourLogAnswers(structured), /slog-row/, 'a structured day lost its segment rows');
 });
 
 test('a session with no logged laps still completes and scores normally', () => {
   const a = app();
-  const dd = completedDay(a);
+  /* A run of one intensity: a structured session's total is a partial
+     assessment whatever laps exist, which is a different law. */
+  const dd = a.state.days.filter(x => x.type === 'easy')[0];
+  dd.completed = true; dd.actual = a.emptyActual();
   dd.actual.km = dd.km;
-  dd.actual.pace = '5:00';
+  dd.actual.pace = a.secToPace(Math.round((a.executionPaceTarget(dd).fast + a.executionPaceTarget(dd).slow) / 2));
   assert.equal(a.computeExecutionScore(dd) != null, true, 'scoring must not depend on laps existing');
 });
 
-test('opening the editor is a pure UI toggle -- it writes no data', () => {
+test('drawing the log writes no data', () => {
   const a = app();
   const dd = completedDay(a);
-  a.handleToggleSplits(dd.id);
-  assert.equal(a.isSplitsOpen(dd), true);
-  assert.equal(dd.actual.splits, undefined, 'toggling open must not create an empty splits array');
-  a.handleToggleSplits(dd.id);
-  assert.equal(a.isSplitsOpen(dd), false);
+  a.renderSplitsBlock(dd); a.renderYourLogAnswers(dd);
+  assert.equal(dd.actual.splits, undefined, 'drawing the rows created an empty splits array');
 });
 
-test('a day that already carries lap data opens by default, without a stored override', () => {
+test('a lap list the athlete already typed is shown, with nothing to hide it behind', () => {
   const a = app();
   const dd = completedDay(a);
+  delete dd.prescription;
+  if (a.loggingModeFor(dd).mode !== 'flat') return;
   a.handleAddSplit(dd.id);
-  assert.equal(a.isSplitsOpen(dd), true, 'existing evidence should not be hidden behind another tap');
+  const html = a.renderSplitsBlock(dd);
+  assert.match(html, /split-row/, 'existing evidence is hidden');
+  assert.match(html, /data-action="add-split"/, 'the athlete can no longer add to their own list');
+  assert.doesNotMatch(html, /toggle-splits|Hide laps/);
 });
 
 // ---------------------------------------------------------------------------
@@ -293,8 +295,13 @@ test('Execution Review states the honest first-half-vs-second-half read once the
   dd.actual.km = dd.km;
   dd.actual.pace = '5:00';
   fillFourLaps(a, dd);
+  /* The detailed marking now sits behind View Analysis -- the completion
+     moment leads instead. Nothing about the read changed, so the assertion is
+     the same; it just has to open the drawer the athlete opens. */
+  a.handleViewAnalysis(dd.id);
   const html = a.renderExecutionReview(dd);
-  assert.match(html, /<div class="cr-k">Splits<\/div>/);
+  /* Founder, 17 November 2026: "I want it to be normal flowing English." The analysis is paragraphs now, not labelled sections: the splits read is a sentence in the analysis. */
+  assert.match(html, /class="wc-prose"/);
   assert.match(html, /Paced slower in the second half than the first/);
   assert.match(html, /pace consistency across 4 laps/);
 });
@@ -403,6 +410,9 @@ test('the splits control lives inside the existing logging panel, not a new card
   const a = app();
   const dd = completedDay(a);
   fillFourLaps(a, dd);
+  /* Your Log is a tab now, closed until asked -- open it, or this renders
+     an empty log and the assertion below proves nothing. */
+  a.logOpenFor[dd.id] = true;
   const card = a.renderDayCard(dd);
   const panelStart = card.indexOf('actual-panel');
   const panelEnd = card.indexOf('</div>\n', card.indexOf('actual-clear'));

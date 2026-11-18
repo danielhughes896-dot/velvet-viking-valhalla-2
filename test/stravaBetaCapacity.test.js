@@ -11,13 +11,13 @@ const S = require('../api/_strava.js');
  * as VVV_STRAVA_ALLOWED_USER_IDS was the single thing permitted to touch the
  * integration while a policy question was open. Clarification was requested
  * from Strava and the intended use disclosed; Strava declined to give
- * individual feedback and referred Valhalla back to the published API
+ * individual feedback and referred Sacoro back to the published API
  * Agreement and API Policy. That is NEITHER approval NOR rejection. On the
  * strength of it the founder authorised the private beta this application
  * already has capacity for.
  *
  * SO ELIGIBILITY IS NO LONGER A LIST, AND THE CAP IS NOT A CLAIM ABOUT STRAVA.
- * Valhalla cannot see how many athletes Strava believes this application has,
+ * Sacoro cannot see how many athletes Strava believes this application has,
  * and must not pretend to. What it can count exactly is its OWN roster -- the
  * rows in strava_connections. That is what is capped. Strava stays
  * authoritative for its own limit.
@@ -226,7 +226,7 @@ test('the OAuth callback is gated where the token would be WRITTEN', () => {
   assert.ok(save > gate, 'a token is stored before the seat is checked');
 });
 
-test('OAuth still requires an authenticated Valhalla account', () => {
+test('OAuth still requires an authenticated Sacoro account', () => {
   const src = read('api/_strava-callback.js');
   assert.match(src, /verifyUser|uid/, 'the callback does not identify the athlete');
   assert.match(src, /state/, 'the callback does not bind to signed state');

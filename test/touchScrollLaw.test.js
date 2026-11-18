@@ -1,0 +1,244 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
+
+/* A REGION MAY ONLY REFUSE THE VERTICAL PAN IF IT ACTUALLY SCROLLS SIDEWAYS.
+ * ===========================================================================
+ * THE FAULT. Opening a session on This Week produced a screen that could not
+ * be scrolled with a finger. Measured in Chromium at 412x915 with the full
+ * card open: 2137px of card, 1861px of page still to scroll, and a touch drag
+ * starting anywhere on the card moved it 0px. A mouse wheel over the same
+ * pixel moved it 600px.
+ *
+ * That gap is the whole reason this went unfound for so long, and it is worth
+ * stating plainly: touch-action is honoured for TOUCH input and ignored by
+ * the wheel and by scrollTo(). Every desktop probe reported a healthy,
+ * fully scrollable page, and every one of them was asking the wrong question.
+ *
+ * THE CAUSE. [data-hswipe]{touch-action:pan-x} is the default handed to any
+ * region that wants the horizontal gesture. pan-x means "you may pan this
+ * subtree horizontally and NOT vertically", so applying it to a 2137px card
+ * refuses every finger that lands on the card -- which, at that height, is
+ * every finger.
+ *
+ * WHY THE OVERRIDE IS FREE. data-hswipe is what the view pager checks, and it
+ * is an ATTRIBUTE: the pager stands down whether the touch-action is pan-x or
+ * pan-y. Both gesture handlers are registered { passive: true } and never
+ * call preventDefault -- they watch the touch and commit on touchend -- so
+ * neither ever needed the browser to withhold the vertical pan. With pan-y
+ * the same drag on the same pixel moves 570px and the horizontal swipe still
+ * changes day.
+ *
+ * WHAT THIS FILE HOLDS. The two overrides, and the two facts that make them
+ * load-bearing: the default is still pan-x, and both regions still carry the
+ * attribute that would otherwise hand them pan-x. If any one of those four
+ * drifts, the screen quietly stops scrolling on a phone and keeps scrolling
+ * on every machine a developer owns.
+ */
+const ROOT = path.join(__dirname, '..');
+const RUNTIME = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+
+/* ---- WHAT A touch-action RULE CLAIMS, READ AS TOKENS ----
+   These laws used to pin the exact declaration text ("touch-action:pan-x;}").
+   That is a FORMATTING pin, not a behavioural one: adding the pinch-zoom
+   token to restore native zoom -- which changes none of the panning these
+   rules exist to control -- broke all three at once while the screens
+   behaved identically. Read the tokens and assert what each one MEANS: the
+   axis that is allowed, the axis that is not, and that zooming survived. */
+const CSS_BARE = RUNTIME.replace(/\/\*[\s\S]*?\*\//g, '');
+function touchTokens(selector){
+  const i = CSS_BARE.indexOf(selector + '{touch-action:');
+  assert.ok(i > -1, 'no touch-action rule for: ' + selector);
+  const from = i + selector.length + '{touch-action:'.length;
+  return CSS_BARE.slice(from, CSS_BARE.indexOf(';', from)).trim().split(/\s+/);
+}
+
+function app(){
+  const a = loadApp({ pinnedDate: '2026-11-06T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {};
+  a.scheduleSave = () => {}; a.flushSave = () => {};
+  buildPlan(a, { weeks: 14, startDate: '2026-09-04', distanceKey: 'full',
+    volume: 46, lthr: 165, maxHR: 190,
+    schedule: { activeDays: [1,2,3,5,6], longRunDay: 6 } });
+  return a;
+}
+
+test('the pan-x default is still what the overrides are overriding', () => {
+  /* If this ever becomes pan-y on its own, the two rules below stop being
+     load-bearing and should be deleted rather than left as decoration. */
+  const t = touchTokens('[data-hswipe]');
+  assert.ok(t.indexOf('pan-x') !== -1,
+    'the horizontal-region default changed; re-read the two overrides below: ' + t.join(' '));
+  assert.equal(t.indexOf('pan-y'), -1,
+    'the horizontal-region default now allows vertical panning too, which is ' +
+    'what the two overrides below exist to grant: ' + t.join(' '));
+  assert.ok(t.indexOf('pinch-zoom') !== -1,
+    'the horizontal regions stopped allowing pinch-zoom, so the app no longer ' +
+    'zooms over a rail: ' + t.join(' '));
+});
+
+test('the open week session lets the page scroll vertically', () => {
+  const t = touchTokens('.wk-session.is-open[data-hswipe]');
+  assert.ok(t.indexOf('pan-y') !== -1 && t.indexOf('pan-x') === -1,
+    'This Week’s open session takes pan-x again -- the card cannot be ' +
+    'scrolled past on a phone, and no mouse will ever show it: ' + t.join(' '));
+  assert.ok(t.indexOf('pinch-zoom') !== -1,
+    'the open week session stopped allowing pinch-zoom: ' + t.join(' '));
+});
+
+test('the coaching stack outside a focused session lets the page scroll', () => {
+  /* Outside the focused views .how-mod is display:contents, so .fuel-body is
+     not a sideways rail at all -- it is a tall vertical stack of coaching
+     rows, and pan-x over it blocks the page exactly as it did on the week
+     card. The focused copy has carried its own pan-y for a long time. */
+  const t = touchTokens('.how-card .fuel-body[data-hswipe]');
+  assert.ok(t.indexOf('pan-y') !== -1 && t.indexOf('pan-x') === -1,
+    'the unfocused coaching stack takes pan-x again: ' + t.join(' '));
+  assert.ok(t.indexOf('pinch-zoom') !== -1,
+    'the unfocused coaching stack stopped allowing pinch-zoom: ' + t.join(' '));
+  assert.match(RUNTIME, /\.how-mod\{display:contents;\}/,
+    'the unfocused rail is no longer a vertical stack -- re-check the rule above');
+});
+
+test('both regions still carry the attribute the overrides key off', () => {
+  /* A selector that matches nothing passes every string check and protects
+     nothing, so the markup is asserted too. */
+  const a = app();
+  const w = a.currentWeekNum();
+  a.weekSessionOpen = true;
+  const open = a.renderWeekSessionBox(w);
+  /* data-week sits between the class and data-hswipe now -- the open card
+     is swipeable and its commit has to step within the week it is SHOWING,
+     not the athlete's current one. Matched as separate attributes rather
+     than as one literal string, because their order is not the claim. */
+  assert.match(open, /class="wk-session is-open"/, 'the open week session lost its class');
+  assert.match(open, /data-hswipe="1"/,
+    'the open week session no longer matches .wk-session.is-open[data-hswipe]');
+  /* The coaching columns are not a rail any more; the blueprint and the
+     execution phases are, and they carry the attribute. */
+  assert.match(RUNTIME, /class="fuel-body ws-rail" data-hswipe="1"/,
+    'the blueprint rail no longer matches .fuel-body[data-hswipe]');
+});
+
+/* A GESTURE BELONGS TO THE INNERMOST THING THAT WANTS IT.
+ * ===========================================================================
+ * Swiping the coaching rail inside an open session on This Week changed the
+ * DAY instead of moving the rail. Both handlers were seeing the same touch:
+ * the rail calls preventDefault but never stopPropagation, so its swipes
+ * bubbled to .wk-session.is-open, which commits a day change at 13% of screen
+ * width -- about 54px on a phone, where the rail moves its focus one module
+ * per 26px. So an ordinary two-module swipe also flipped the day and
+ * re-rendered the card mid-gesture.
+ *
+ * Measured at 412x915, a 200px horizontal drag on the rail:
+ *   before  day "Goal Pace Block 11.5km" -> "Easy Aerobic",  rail 0 -> 0
+ *   after   day unchanged,                                   rail 0 -> 1
+ */
+test('the day pager stands down for a gesture that starts inside the rail', () => {
+  const fn = RUNTIME.slice(RUNTIME.indexOf('function wireWeekFullSwipe('));
+  const body = fn.slice(0, fn.indexOf('\n}'));
+  assert.match(RUNTIME, /function weekSwipeOwnedInside\(node, card\)/,
+    'the ownership check is gone; the rail and the day pager share a swipe again');
+  assert.match(body, /inner = weekSwipeOwnedInside\(e\.target, card\)/,
+    'the card no longer asks who owns the gesture when the finger lands');
+  assert.match(body, /if \(inner \|\| decided/,
+    'touchmove no longer stands down for the rail');
+  assert.match(body, /if \(inner \|\| !claimed/,
+    'touchend no longer stands down for the rail -- the day still flips under the rail');
+});
+
+test('the ownership walk stops at the card, or the day swipe dies silently', () => {
+  /* .wk-session.is-open carries data-hswipe ITSELF -- that attribute is what
+     makes the PAGE pager stand down for it. A walk that did not stop at the
+     card would find the card's own attribute, answer "owned inside" for every
+     touch, and the day swipe would never fire again. Nothing else in the
+     suite would notice, so it is asserted here. */
+  const fn = RUNTIME.slice(RUNTIME.indexOf('function weekSwipeOwnedInside('));
+  const body = fn.slice(0, fn.indexOf('\n}'));
+  assert.match(body, /el !== card/,
+    'the walk no longer stops at the card, so every swipe reads as owned inside');
+  assert.match(body, /hasAttribute\('data-hswipe'\)/,
+    'the walk no longer looks for the attribute that marks an inner region');
+  /* And the rail it protects still carries that attribute. The bare
+     `class="fuel-body" data-hswipe="1"` this matched was the fuel rail's
+     own track, and fuel has no track of its own any more -- its panels are
+     in the merged card rail. Matched on the attribute next to the class
+     the merged rail actually carries. */
+  assert.match(RUNTIME, /class="fuel-body ws-rail'[\s\S]{0,120}?data-hswipe="1"/,
+    'the coaching rail no longer advertises that it owns the sideways gesture');
+});
+
+/* A LAYER THAT MOVES MUST CARRY ITS OWN GROUND.
+ * ===========================================================================
+ * Swiping This Week flashed black on a phone. Measured in Chromium, the
+ * whole swiping stack is transparent: .wk-rail, .wk-track and .wk-slide are
+ * all rgba(0,0,0,0), and so is every ancestor up to BODY -- eight levels,
+ * with body's --bg the only paint in the chain. .wk-track carries
+ * will-change:transform, which promotes it to its own compositor layer.
+ *
+ * A promoted layer with nothing opaque in it has no backdrop of its own, so
+ * while it slides the compositor has nothing to sample for the area it is
+ * uncovering. Desktop resolves that against the page behind it and looks
+ * perfectly fine -- which is why this, like the pan-x scroll lock, could not
+ * be reproduced here at all. iOS paints black.
+ *
+ * Three surfaces move: the week rail's track, the screen pager while paging,
+ * and .view-peek -- the worst of them, being position:fixed over the ground,
+ * full width, with contain:paint and no background at all.
+ */
+const sliding = sel => {
+  const i = RUNTIME.indexOf(sel + '{');
+  assert.ok(i > -1, 'rule not found: ' + sel);
+  return RUNTIME.slice(i + sel.length + 1, RUNTIME.indexOf('}', i));
+};
+
+test('every surface that slides paints its own ground', () => {
+  [['.wk-track', 'the week rail\u2019s moving row'],
+   ['.view-pager.is-paging', 'the screen pager while paging'],
+   ['.view-peek', 'the screen being revealed']].forEach(([sel, what]) => {
+    assert.match(sliding(sel), /background:var\(--bg\)/,
+      what + ' is transparent while it moves, so the compositor has nothing to '+
+      'sample for the area it uncovers');
+  });
+});
+
+test('nothing opaque sits between those layers and the page, so --bg is the right ground', () => {
+  /* The ground has to be the page's own or the moving layer would show as a
+     differently-coloured slab at rest. body is the only painted surface in
+     the chain -- asserted here so that if something above ever takes a
+     background, this choice is revisited rather than silently wrong. */
+  const body = sliding('body');
+  assert.match(body, /background:var\(--bg\)/, 'body stopped painting --bg');
+  ['.app-root', '.view-pager', '.wrap', '.view-week', '.wk-rail'].forEach(sel => {
+    const i = RUNTIME.indexOf(sel + '{');
+    if (i === -1) return;
+    const r = RUNTIME.slice(i + sel.length + 1, RUNTIME.indexOf('}', i));
+    assert.doesNotMatch(r, /background:(?!none)/,
+      sel + ' now paints a ground of its own; the sliding layers assume --bg');
+  });
+});
+
+test('every touch-action in the sheet still allows pinch-zoom', () => {
+  /* Founder: "Enable native pinch-to-zoom across the entire Sacoro app.
+     This must be a GLOBAL behaviour, not implemented separately per screen."
+     pan-x, pan-y and none each name the ONLY gestures the browser may
+     perform on that subtree, and none of those lists includes zooming -- so
+     every such declaration is a place the app stops zooming, and a new one
+     added later is a new such place. This is the law that makes the
+     behaviour global rather than six separate fixes: it does not care which
+     selectors exist, only that no declaration anywhere withholds zoom.
+     manipulation and auto are not listed because neither blocks zooming. */
+  const decls = CSS_BARE.match(/touch-action:[^;}]+/g) || [];
+  assert.ok(decls.length >= 6,
+    'the touch-action declarations vanished -- this law is reading nothing');
+  const offenders = decls
+    .map(d => d.slice('touch-action:'.length).trim())
+    .filter(v => /\b(pan-x|pan-y|none)\b/.test(v) && !/\bpinch-zoom\b/.test(v));
+  assert.deepEqual(offenders, [],
+    'these touch-action declarations withhold pinch-zoom, so the app stops ' +
+    'zooming wherever they apply: ' + offenders.join(' | '));
+});

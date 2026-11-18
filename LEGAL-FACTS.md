@@ -69,14 +69,14 @@ or backfill is involved.
 > **Use my health and readiness information**
 >
 > If you choose to share things like heart rate, sleep, aches, pain, illness or
-> how a session felt, Valhalla can read how you are responding to training and
+> how a session felt, Sacoro can read how you are responding to training and
 > adjust your programme around it.
 >
-> Valhalla works without any of it. Your paces, distances and sessions are
+> Sacoro works without any of it. Your paces, distances and sessions are
 > enough to run your programme. You can change your mind at any time in
 > Settings.
 >
-> *(Settings adds:)* Withdrawing stops Valhalla using this information from that
+> *(Settings adds:)* Withdrawing stops Sacoro using this information from that
 > moment on. It does not undo anything it was lawfully used for before.
 
 **Covered — processed only with consent:**
@@ -113,7 +113,7 @@ append-only, one row per decision (`user_id`, `agreement_type`,
 `agreement_version`, `decision`, `surface`, `privacy_version`, `offer_code`,
 `decided_at`, `created_at`). Two types and only two: **`terms`**, acceptance of
 the published Terms; and **`immediate_start`**, the acknowledgement that the
-athlete is asking Valhalla to begin the service inside the statutory
+athlete is asking Sacoro to begin the service inside the statutory
 cancellation period for a distance contract. RLS allows the athlete to SELECT
 and INSERT their own rows only; there is no UPDATE and no DELETE policy, so the
 history cannot be rewritten by the person it describes.
@@ -144,7 +144,7 @@ granted_at, withdrawn_at) so the gate works offline.
 **How it is withdrawn.** One switch in Settings → Health & Readiness, the same
 control in both directions, no confirmation step.
 
-**Effect of declining.** Valhalla remains fully usable. The two covered input
+**Effect of declining.** Sacoro remains fully usable. The two covered input
 controls (Avg HR, Feel) and the readiness block are not shown, with one line
 saying why; every other control is unchanged. Sessions are still scored — the
 Execution Score re-normalises over the components present, so withholding heart
@@ -290,15 +290,16 @@ has ever been sent to an operational board.
   (see below), so this is an operator action to honour, not something the
   code enforces on its own.
 - **Cancelling after conversion, outside that 14-day window**: access
-  continues to the end of the current paid month or year. `cancelled` is not
-  `ended` — the period bought is the period delivered.
+  continues to the end of the current
+  paid month or year. `cancelled` is not `ended` — the period bought is the
+  period delivered.
 - **Cancelling while paused**: ends the relationship immediately, because no
   period is running and nothing is being collected.
 - A cancelled subscription that later ends produces no further charge of any
   kind.
 - Cancellation is performed through the payment provider's own management
   surface for the rail the athlete bought on (`web` → Stripe's customer portal).
-  Valhalla never holds a card.
+  Sacoro never holds a card.
 - **Refunds are not automated.** A refund is an operator action. A refund
   accompanied by a payment dispute revokes access immediately (§4).
 
@@ -310,7 +311,7 @@ has ever been sent to an operational board.
 |---|---|
 | `trial` | inside the 7 days |
 | `paid` | inside a paid period |
-| `grace_period` | the provider has told us it is retrying until a stated date. Valhalla adds no grace of its own. |
+| `grace_period` | the provider has told us it is retrying until a stated date. Sacoro adds no grace of its own. |
 | `paused` | inside a pause window: no billing, no access |
 | `expired` | the period ran out, nothing owed |
 | `payment_hold` | a payment failed and the paid period is over |
@@ -326,7 +327,7 @@ value — an ordinary cancellation or a failed card is not a revocation.
 ## 5. `last_active_at`
 
 **What it is:** one nullable timestamp per account, recording when the athlete
-last opened Valhalla. Written when a delivery lease is minted.
+last opened Sacoro. Written when a delivery lease is minted.
 
 **What makes it minimal, as a schema decision rather than a policy note:**
 - It is **overwritten, never appended**, so it cannot accumulate into a movement
@@ -343,7 +344,7 @@ churn risk. It is used for operations, not marketing.
 
 ## 6. Account deletion and anonymisation
 
-Proven on a fresh cluster against the completed commercial schema. Ten
+Proven on a fresh cluster against the completed commercial schema. These
 foreign keys reference `auth.users`:
 
 | Table | On delete |
@@ -359,6 +360,10 @@ foreign keys reference `auth.users`:
 | `health_data_consent` | CASCADE |
 | `account_agreements` | CASCADE |
 | `billing_events` | **SET NULL** |
+| `circle_members` | CASCADE |
+| `circle_invites` | CASCADE |
+| `circle_sharing_log` | CASCADE |
+| `coach_memory` | CASCADE |
 
 **Website can safely state:**
 - Deleting an account removes the athlete's training plan, every staged
@@ -378,20 +383,42 @@ foreign keys reference `auth.users`:
   function takes no arguments and every statement in it is scoped to the
   caller's own verified id. An unauthenticated caller cannot execute it at all.
 - Deletion is immediate, not queued.
+- **Circles** (applied to production on 14 November 2026; `supabase-circles.sql`,
+  proven on a fresh cluster by `tools/db-proof/`). Deleting an account removes the athlete's circle
+  membership, and with it, by cascade through the membership, every day they
+  shared (`circle_days`) and every "Nice work" they gave or received
+  (`circle_cheers`), plus any invites they made and their circle consent log.
+  The circle itself holds only its name and no reference to any person, so the
+  remaining members keep their circle. When the last member's account goes,
+  the circle, its name and its invites are deleted too.
+- **Coach Memory** (`supabase-coach-memory.sql`, migration 13; **not yet
+  applied to production** at the commit that added it). Off until the athlete
+  turns it on through its own consent sheet. When on, the coach keeps one-line
+  notes (at most 200 characters) of decisions the athlete made in the app
+  (with, if they pick one, a fixed reason for turning a suggestion down, such
+  as "short on time"; "legs tired" only with health-data consent) and of the
+  questions they asked Ask Coach — never the coach's answers, never run
+  notes verbatim, never anything from Strava, and pain, illness or other health
+  details only with health-data consent. The athlete can read them and clear
+  them in Settings at any time; they are included in the account export;
+  deleting the account deletes them; a health-data erasure request deletes
+  every line marked as health. Only the newest 100 are kept. On account
+  deletion the server also deletes them explicitly, so the promise does not
+  rest on the cascade alone.
 
 ---
 
 ## 7. Payment processor facts
 
-- **Processor:** Stripe. Valhalla never sees, receives, stores or transmits a
+- **Processor:** Stripe. Sacoro never sees, receives, stores or transmits a
   card number, a last-four, an expiry or a brand. Checkout is hosted by Stripe.
-- **What Valhalla sends Stripe:** a price identifier, the account uuid in
+- **What Sacoro sends Stripe:** a price identifier, the account uuid in
   metadata, and the athlete's email address so Stripe can send the receipt.
   Nothing else. No training data, no health data, no name.
-- **What Valhalla stores about the payment relationship:** an opaque Stripe
+- **What Sacoro stores about the payment relationship:** an opaque Stripe
   customer id and subscription id, the offer bought, the billing period, the
   condition, the period dates, and the agreed price. No instrument data.
-- **What Valhalla never does:** construct an amount or a currency for a charge.
+- **What Sacoro never does:** construct an amount or a currency for a charge.
   Prices exist only as Stripe price identifiers configured by a human.
 - **Live charging is OFF.** No live key is configured and liveness is not
   derived from a key being present.
@@ -426,7 +453,7 @@ foreign keys reference `auth.users`:
 and no Garmin data has ever been received or transmitted. `VVV_GARMIN_ENABLED`
 is unset and the integration refuses at the boundary.
 
-Valhalla's side of the integration is built and provider-isolated; Garmin's side
+Sacoro's side of the integration is built and provider-isolated; Garmin's side
 requires approved Developer Program membership and a contract Garmin supplies
 only to approved members. Nothing about the blocker is internal.
 
@@ -507,4 +534,7 @@ It becomes publishable on the day the first real subscription locks a price.
 - That the founding-price guarantee is in effect.
 - That Garmin is supported or coming on a date.
 - That signup is open.
+- That circles exist, until the privacy policy has a section on them. The database
+  is live (14 November 2026) and what a circle sees is listed in section 6; the
+  website copy has not caught up.
 - Any price as chargeable today.

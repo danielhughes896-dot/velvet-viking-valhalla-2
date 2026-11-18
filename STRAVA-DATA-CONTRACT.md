@@ -1,9 +1,9 @@
-# Strava → Valhalla: the data contract
+# Strava → Sacoro: the data contract
 
-What Valhalla consumes when it reasons about a completed run, what Strava can
+What Sacoro consumes when it reasons about a completed run, what Strava can
 supply under the scopes we request, and what happens to the difference.
 
-Written from the code on both sides: the Valhalla column is what
+Written from the code on both sides: the Sacoro column is what
 `ACTUAL_MANUAL_FIELDS` / `ACTUAL_IMPORTED_FIELDS` declare and what the coaching
 layer actually reads; the Strava column is what `normaliseActivity()` in
 `api/_strava.js` maps. Where the two disagree, the disagreement is written down
@@ -22,7 +22,7 @@ therefore absent when zero. Elevation gain is not: a flat run really does climb
 
 ## The matrix
 
-| Valhalla field | Strava source | Available | Scope | Transformation | Required? | Fallback if absent | Downstream if absent |
+| Sacoro field | Strava source | Available | Scope | Transformation | Required? | Fallback if absent | Downstream if absent |
 |---|---|---|---|---|---|---|---|
 | `stravaActivityId` | `id` | ✅ | `activity:read_all` | to string | **required** | not staged | — the identity every idempotency rule keys on |
 | — (ownership) | `owner_id` / token | ✅ | `read` | matched to `strava_connections.strava_athlete_id` | **required** | event dropped | cross-athlete isolation |
@@ -36,7 +36,7 @@ therefore absent when zero. Elevation gain is not: a flat run really does climb
 | `elapsedTimeSec` | `elapsed_time` | ✅ | `activity:read_all` | positive only | optional | absent | nothing scored; recorded for completeness |
 | `pace` | *derived* | ✅ | `activity:read_all` | `moving_time / (distance/1000)` | optional | absent | **pace score omitted, not zeroed** |
 | — | `average_speed` | ✅ (unused) | `activity:read_all` | — | **not requested** | — | pace is derived from the two primitives so it agrees with the imported distance exactly; the rounded average would not |
-| — | `max_speed` | ✅ (unused) | `activity:read_all` | — | **not requested** | — | nothing in Valhalla reads a peak speed |
+| — | `max_speed` | ✅ (unused) | `activity:read_all` | — | **not requested** | — | nothing in Sacoro reads a peak speed |
 | `hr` | `average_heartrate` | ✅ | `activity:read_all` | round; gated on `has_heartrate` | optional | absent | **HR score omitted**; drift, efficiency and HR-cost evidence stand down |
 | `maxHR` | `max_heartrate` | ✅ | `activity:read_all` | round; gated on `has_heartrate` | optional | absent | as above |
 | HR availability | `has_heartrate` | ✅ | `activity:read_all` | gate, not stored | **required for HR** | HR treated as absent | stops a 0 bpm being read as a measurement |
@@ -45,9 +45,9 @@ therefore absent when zero. Elevation gain is not: a flat run really does climb
 | `splits` | `splits_metric[]` | ✅ *(detail endpoint only)* | `activity:read_all` | per-km → `{km, sec, paceSec, hr}` | optional | absent | **`coachSplitMetrics()` returns null** — no consistency %, no fade %, no split type |
 | `trainer` | `trainer` | ✅ | `activity:read_all` | boolean | optional | false | treadmill context |
 | `manual` | `manual` | ✅ | `activity:read_all` | boolean | optional | false | a manual Strava entry carries no device evidence |
-| activity name | `name` | ✅ | `activity:read_all` | **not imported** | — | — | deliberate: it is athlete prose, and Valhalla writes its own titles |
+| activity name | `name` | ✅ | `activity:read_all` | **not imported** | — | — | deliberate: it is athlete prose, and Sacoro writes its own titles |
 | device / gear | `device_name`, `gear_id` | ✅ | `activity:read_all` | **not requested** | — | — | nothing consumes it |
-| calories | `calories` | detail only | `activity:read_all` | **not requested** | — | — | Valhalla has no energy model and must not imply one |
+| calories | `calories` | detail only | `activity:read_all` | **not requested** | — | — | Sacoro has no energy model and must not imply one |
 | laps | `laps[]` | detail only | `activity:read_all` | **not requested** | — | — | `splits_metric` already answers the only question asked of per-segment data |
 | streams | `/streams` | separate call | `activity:read_all` | **not requested** | — | — | a much larger request for data that would be reduced back to `splits_metric` |
 | `rpe` | — | ❌ | — | — | optional | athlete enters it | **effort score omitted** — Strava has no opinion on how a run felt |
@@ -55,7 +55,7 @@ therefore absent when zero. Elevation gain is not: a flat run really does climb
 | `notes` | — | ❌ | — | — | optional | athlete enters it | the notes wand, environment parsing |
 | `tempC`, `humidity` | — | ❌ | — | — | optional | parsed from the athlete's own notes | heat/humidity context in Execution Review |
 
-### What Valhalla wants that Strava cannot give
+### What Sacoro wants that Strava cannot give
 
 Three of the four scoring components are objective and imported. **The fourth
 is not, and never can be:** `rpe` and `feel` are the athlete's own account of
@@ -81,7 +81,7 @@ around it.
 
 `STRAVA_SCOPE = 'read,activity:read_all'` (`api/_strava.js`).
 
-| Scope | Why Valhalla needs it | Feature that requires it |
+| Scope | Why Sacoro needs it | Feature that requires it |
 |---|---|---|
 | `read` | The athlete's own name, to show *which* Strava account is connected in Settings and in the builder offer. | "Connected as …" — an athlete with more than one Strava login cannot otherwise tell which they authorised. |
 | `activity:read_all` | The activities themselves, **including ones the athlete marked private**. | Every import: matching, Execution Review, training history, athlete state, plan evolution. |
@@ -92,7 +92,7 @@ that happened. Importing a partial history would leave silent holes in the
 evidence the coaching engine reasons from — a missed session that was actually
 run, scored as missed.
 
-**No write scope is requested at all.** Valhalla never creates, edits or
+**No write scope is requested at all.** Sacoro never creates, edits or
 uploads a Strava activity, and `activity:write` would grant a capability the
 product has no use for.
 

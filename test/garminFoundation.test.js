@@ -11,7 +11,7 @@ const { buildPlan } = require('./fixtures.js');
 // Everything provider-neutral that a device integration needs, and the boundary
 // where the vendor-specific half will go. Three questions this file answers:
 //
-//   Can Valhalla say which workout belongs on which date, deterministically?
+//   Can Sacoro say which workout belongs on which date, deterministically?
 //   Can it reconcile a changed plan without duplicating an athlete's calendar?
 //   Is the Garmin half genuinely inert until Garmin's contract exists?
 //
@@ -411,9 +411,25 @@ test('the card carries its future states without drawing them yet', () => {
 test('the Settings view mounts the Garmin card', () => {
   const a = app();
   a.state.view = 'settings';
+  /* UNAVAILABLE IS STATED ON THE ROW; THE CARD APPEARS WITH THE CAPABILITY.
+     renderGarminSection()'s unavailable branch is a row plus a paragraph
+     about what will happen once it is switched on, and that paragraph is
+     not worth a destination on a screen whose point is that a row leads
+     somewhere. So Settings states the absence itself, and the moment the
+     server says the athlete may use it the row becomes a real one opening
+     the same renderGarminSection() -- which is what the second half here
+     asserts, so the card cannot be lost along with the paragraph. */
+  /* NOT LISTED UNTIL IT EXISTS. Founder, agreeing the Settings review: the
+     greyed "Not yet available" row was dead and the only grey on the screen. */
   const html = a.renderSettingsHubView();
-  assert.ok(html.indexOf('id="garmin-section"') > -1, 'Garmin is not in Settings');
-  assert.ok(html.indexOf('Not yet available') > -1);
+  assert.ok(html.indexOf('Garmin Connect') === -1, 'an unavailable Garmin is listed again');
+  assert.ok(html.indexOf('Not yet available') === -1);
+  a.garminCapability = { available: true, connected: false };
+  const live = a.renderSettingsHubView();
+  assert.match(live, /data-action="open-settings-panel" data-panel="garmin"/,
+    'an available Garmin has no destination in Settings');
+  assert.ok(a.hqPanelHtml('garmin').indexOf('id="garmin-section"') > -1,
+    'the Garmin panel does not mount the Garmin card');
 });
 
 test('no Garmin control exists on any training surface', () => {
@@ -472,4 +488,33 @@ test('activity ingestion is a documented seam, not a second coaching engine', ()
    'prescriptionOf', 'segmentsFor', 'buildPlan'].forEach(f =>
     assert.equal(code.indexOf(f), -1,
       'the adapter reimplements coaching: ' + f));
+});
+
+/* ---------------------------------------------------------------------------
+ * THE TWO BUTTONS THE CARD DRAWS
+ * -------------------------------------------------------------------------*/
+test('the Garmin card\'s own actions are handled, and refuse honestly while the gate is shut', () => {
+  const a = loadApp({ pinnedDate: '2026-03-10T09:00:00Z' });
+  // These shipped drawn but unhandled: no case in the dispatcher, so a press
+  // did nothing at all -- no navigation, no message, no error. Latent only
+  // because .available is false and the connected branch never renders, which
+  // is the kind of bug that surfaces on the day the gate opens.
+  assert.equal(typeof a.handleGarminConnect, 'function');
+  assert.equal(typeof a.handleGarminDisconnect, 'function');
+  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  assert.match(src, /case 'garmin-connect': handleGarminConnect\(\); break;/);
+  assert.match(src, /case 'garmin-disconnect': handleGarminDisconnect\(\); break;/);
+
+  // And the guard is the honest part: unavailable is the real state today,
+  // and it must produce a true answer rather than silence -- or a request.
+  const said = [];
+  a.showToast = function(m){ said.push(m); };
+  let posted = 0;
+  a.stravaPost = function(){ posted++; return Promise.resolve({}); };
+  a.garminCapability = { provider:'garmin', available:false, connected:false };
+  a.handleGarminConnect();
+  a.handleGarminDisconnect();
+  assert.equal(posted, 0, 'a client talked itself into calling Garmin while the server says unavailable');
+  assert.deepEqual(said, ['Garmin sync is not switched on yet', 'Garmin sync is not switched on yet'],
+    'pressing an unavailable Garmin control says nothing');
 });

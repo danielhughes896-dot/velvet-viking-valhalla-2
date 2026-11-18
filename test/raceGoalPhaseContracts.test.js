@@ -121,7 +121,11 @@ SETS.forEach(({ label, cases }) => {
       const build = phase(rows, 'Build'), base = phase(rows, 'Base');
       assert.ok(build.length === alloc.build,
         c.key + ': Build is ' + build.length + ' weeks, geometry says ' + alloc.build);
-      const exit = lastOf(build);
+      /* THE LAST FULL BUILD WEEK (founder, 16 November 2026: "Lighter week
+         before peak", and for short novice plans "Same rule for all"). The
+         last Build week is now the lighter week in front of Peak, so the
+         athlete Build hands over is the one in its last full week. */
+      const exit = lastOf(build.filter(r => !r.isCutback)) || lastOf(build);
       assert.ok(exit, c.key + ': no Build phase at all');
       /* BUILD MUST HAVE BUILT. Its job is to develop the athlete materially
          toward the event, so the athlete leaving it must be carrying more than
@@ -133,7 +137,15 @@ SETS.forEach(({ label, cases }) => {
          not finishing Build -- so the athlete arriving in Peak carries most of
          the durability the block will ever ask of them. */
       const peakLong = Math.max.apply(null, phase(rows, 'Peak').map(r => r.longKm).concat([0]));
-      if (peakLong > 0)
+      /* A MARATHON BELOW ITS OWN TWELVE-WEEK FLOOR IS EXEMPT (15 November
+         2026). The long-run step (15% for the marathon, the founder's Option
+         A) now holds Build's long runs, and only the culminating long run is
+         left where the block puts it. Below the floor the block is already
+         declared short of its destination (raceGoalReachability: New Marathon
+         @10w, DECLARED), so Peak carrying the gap is what the athlete was told
+         before they chose to continue. */
+      const belowFloor = c.dist === 'full' && c.weeks < 12;
+      if (peakLong > 0 && !belowFloor)
         assert.ok(exit.longKm >= peakLong * 0.7 - 0.05,
           c.key + ': Build exits at ' + exit.longKm + 'km against a Peak long run of ' +
           peakLong + ' — Peak is being asked to do Build\'s work');
@@ -251,18 +263,30 @@ test('GEOMETRY — the phase lengths are HQ\'s table, and Experience cannot move
   });
 });
 
-test('ADMISSION — nine weeks refuses, ten to fifteen builds, sixteen hands off', () => {
+test('ADMISSION — each distance refuses below its own floor, builds inside it, hands off above fifteen', () => {
   const a = R.build({ dist:'half', exp:'novice', days:5, weeks:15,
                       easyKm:3.5, longKm:8, easyDays:[0,2], tt5kMin:28 }).a;
-  ['half', 'full'].forEach(d => {
-    [4, 8, 9].forEach(W => {
+  /* ---- THE TWO DISTANCES NO LONGER SHARE ONE FLOOR ---- HQ MARATHON RUNWAY
+     RULING. Twelve weeks is the minimum RECOMMENDED proper Marathon
+     preparation runway, so ten and eleven weeks move from the marathon's
+     admitted group to its short-runway group. The half's floor has not moved
+     and its rows below are the ones this contract always asserted.
+
+     'too_short' IS A RUNWAY WARNING, NOT A REJECTION: below twelve the
+     marathon athlete keeps Continue Marathon, which marathonRunwayMinimum
+     .test.js owns. What is asserted here is only where each distance's
+     window opens. */
+  [{ d:'half', short:[4, 8, 9],         open:[10, 12, 15] },
+   { d:'full', short:[4, 8, 9, 10, 11], open:[12, 15] }].forEach(row => {
+    const d = row.d;
+    row.short.forEach(W => {
       const adm = a.raceGoalAdmission(d, W);
       assert.equal(adm.admitted, false, d + ' @' + W + 'w must not be admitted');
       assert.equal(adm.decision, 'too_short');
       assert.equal(adm.recommend, 'aerobic_base',
         d + ' @' + W + 'w must recommend the useful preparation for the time left');
     });
-    [10, 12, 15].forEach(W => {
+    row.open.forEach(W => {
       const adm = a.raceGoalAdmission(d, W);
       assert.equal(adm.admitted, true, d + ' @' + W + 'w must be admitted');
       assert.equal(adm.raceGoalWeeks, W, d + ' @' + W + 'w must build the whole runway');

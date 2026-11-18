@@ -43,15 +43,38 @@ test('.day-top is a real (keyboard-discoverable) button for a genuine day', () =
   assert.match(top, /aria-expanded="(true|false)"/);
 });
 
-test('aria-expanded reflects the real accordion state (isDayExpanded)', () => {
+test('aria-expanded reflects the real accordion state, where there is one', () => {
   const a = plannedApp();
   const today = a.state.days.find((d) => d.date === TODAY);
   const other = a.state.days.find((d) => d.date !== TODAY && d.type !== 'rest');
   assert.ok(today && other, 'sanity: fixture needs both a today day and another day');
-  const topToday = (a.renderDayCard(today).match(/<div class="day-top"[^>]*>/) || [])[0];
   const topOther = (a.renderDayCard(other).match(/<div class="day-top"[^>]*>/) || [])[0];
-  assert.match(topToday, /aria-expanded="true"/, 'today defaults open');
   assert.match(topOther, /aria-expanded="false"/, 'an untouched other day defaults collapsed');
+  assert.match(topOther, /role="button"/, 'a real accordion lost its role');
+  assert.match(topOther, /tabindex="0"/, 'a real accordion lost its keyboard reach');
+});
+
+test('the one session a screen is about offers no control it cannot honour', () => {
+  /* THE OTHER HALF OF THE SAME ACCESSIBILITY RULE. The original finding was
+     that .day-top was an interactive control announced as nothing. The
+     inverse is just as bad: on Today, This Week's opened day and Full Plan's
+     session screen the card is forced open and cannot usefully be shut --
+     tapping the header collapsed the only thing on the screen. A header
+     announced as a button, reachable by Tab and activated by Enter, that
+     empties the page is worse than an unlabelled one. So on those three
+     screens it is not a control at all: no role, no tabindex, no
+     aria-expanded, no action, and no chevron advertising one. */
+  const a = plannedApp();
+  const today = a.state.days.find((d) => d.date === TODAY);
+  a.state.view = 'today';
+  const card = a.renderDayCard(today);
+  const top = (card.match(/<div class="day-top"[^>]*>/) || [])[0];
+  assert.ok(top, 'the focused card lost its header');
+  assert.equal(top, '<div class="day-top">', 'the focused header still advertises a control: ' + top);
+  assert.doesNotMatch(card, /class="day-chevron"/, 'the focused card kept its disclosure arrow');
+  /* And the handler refuses too, so a stale listener cannot collapse it. */
+  a.handleToggleDay(today.id);
+  assert.equal(a.isDayExpanded(today), true, 'the focused session was collapsed anyway');
 });
 
 test('the nested edit button and completion checkbox keep their own data-action, distinct from day-top', () => {

@@ -56,17 +56,29 @@ var BUILDER_SPEC = {
       lede: 'The distance this block prepares you for.' },
     { key: 'EVENT',      name: 'Event',           heading: 'Your event',
       lede: 'Do you have a target event? Either answer builds a full block.' },
-    { key: 'YOU',        name: 'You',             heading: 'You',
-      lede: 'Where your running is right now — not where you want it to be.' },
+    /* ---------- EXPERIENCE IS ITS OWN SCREEN ----------
+       It used to lead the YOU stage, above weekly volume, running days and
+       the longest recent run. Those are four answers and two different
+       questions: experience chooses the PATHWAY the programme is built on,
+       and the rest is evidence about the last few weeks. Asking them
+       together made the screen the longest in the builder and buried the
+       one choice that changes the architecture.
+       It also could not carry its own figures there. Each level now shows
+       what that pathway actually prescribes for the chosen distance, which
+       needs the room a dedicated screen has. */
+    { key: 'EXPERIENCE', name: 'Experience',      heading: 'Athlete experience',
+      lede: 'Choose the level that best matches your running background.' },
+    { key: 'YOU',        name: 'You',             heading: 'Your recent running',
+      lede: 'Where your running is right now, not where you want it to be.' },
     { key: 'BENCHMARK',  name: 'Benchmark',       heading: 'Benchmark',
       lede: 'A recent honest-effort 5K or 10K. Your training paces are built from it.' },
     { key: 'WEEK',       name: 'Week',            heading: 'Your week',
-      lede: 'Pick 3–6 days you can run. Workouts land only on these; everything else is rest.' },
+      lede: 'Pick the days you can run, from 1 to 7. Workouts land only on these; everything else is rest.' },
     { key: 'TRAINING',   name: 'Training data',   heading: 'Training data',
       lede: 'Optional heart-rate numbers, if you have them.' },
     { key: 'TARGETS',    name: 'Targets',         heading: 'Your targets',
       lede: 'The finish times you are chasing.' },
-    { key: 'REVIEW',     name: 'Review',          heading: 'What Valhalla understands',
+    { key: 'REVIEW',     name: 'Review',          heading: 'What Sacoro understands',
       lede: 'Check this reads like your training. Step back to change anything.' }
   ],
 
@@ -98,7 +110,7 @@ var BUILDER_SPEC = {
         blurb: 'Hold the fitness you have built, at a lower cost.',
         distanceLabel: 'Fitness to protect',
         distanceHint: 'The shape of running to hold on to. Volume sits below what you have been absorbing; the quality stays.',
-        weeksHint: 'Eight weeks is a review point, not a limit — Valhalla asks what is next rather than simply stopping.',
+        weeksHint: 'Eight weeks is a review point, not a limit. Sacoro asks what is next rather than simply stopping.',
         stageTitle: 'What you are protecting',
         stageLede: 'The fitness you have already built. This block holds it rather than chasing more.',
         lockDistance: null,
@@ -109,7 +121,7 @@ var BUILDER_SPEC = {
         blurb: 'Build sustainable running capacity.',
         distanceLabel: 'Building towards',
         distanceHint: 'The distance this capacity is for. Base work starts at what you already absorb, and builds from there.',
-        weeksHint: 'Long enough for the aerobic work to count. There is no weekly percentage rule — progression follows what you actually absorb.',
+        weeksHint: 'Long enough for the aerobic work to count. There is no weekly percentage rule, because progression follows what you actually absorb.',
         stageTitle: 'What you are building',
         stageLede: 'Sustainable capacity, built from what you already absorb. No event needed.',
         lockDistance: null,
@@ -119,7 +131,7 @@ var BUILDER_SPEC = {
         label: 'Speed & Threshold',
         blurb: 'Sharpen speed and threshold without a race to aim at.',
         distanceLabel: 'Sharpening at',
-        distanceHint: 'Speed work uses the 5K block’s existing methodology — no new intensity system, and nothing invented for this purpose.',
+        distanceHint: 'Speed work uses the 5K block’s existing methodology. There is no new intensity system and nothing invented for this purpose.',
         weeksHint: 'Short and sharp. Sharpening is a phase, not a season.',
         stageTitle: 'What you are sharpening',
         stageLede: 'Speed and threshold work, using the 5K block’s existing sessions. No event needed.',
@@ -170,16 +182,16 @@ var BUILDER_SPEC = {
     default: 'experienced',
     meta: {
       novice: { label: 'Developing', short: 'Developing',
-        hint: 'Building experience with structured training — tell me what to do, how to do it and what it should feel like.' },
+        hint: 'Building experience with structured training. Tell me what to do, how to do it and what it should feel like.' },
       experienced: { label: 'Established', short: 'Established',
-        hint: 'Comfortable with regular structured training — give me the session, targets and the important coaching cues.' },
+        hint: 'Comfortable with regular structured training. Give me the session, targets and the important coaching cues.' },
       advanced: { label: 'Advanced', short: 'Advanced',
-        hint: 'Highly experienced with structured training and higher training demands — keep it concise and let me run.' }
+        hint: 'Highly experienced with structured training and higher training demands. Keep it concise and let me run.' }
     }
   },
 
   /* ---------- BENCHMARK ----------
-     The two distances Valhalla accepts as an honest-effort reference. */
+     The two distances Sacoro accepts as an honest-effort reference. */
   benchmarkDistances: { order: ['5k', '10k'], default: '10k' },
 
   /* ---------- TARGETS: GOAL A / B / C ----------
@@ -203,6 +215,57 @@ var BUILDER_SPEC = {
      THE SAME REQUIREMENTS bldValidateStage()/handleGeneratePlan() enforce in
      the app, and api/_preview.js enforces server-side before an athlete has
      an account. One set of numbers; both surfaces read them from here. */
+  /* ---------- STAGE 05's RECENT-RUNNING ANSWERS ----------
+     ONE DEFINITION, SO EVERY ROAD ASKS THE SAME QUESTION. The protected app,
+     /start and the preview endpoint all read this object, so the label, the
+     hint and the bounds cannot drift between the surfaces the way the weekly
+     volume question already had -- the app hid it for a Race Goal while /start
+     asked it and refused anything but a positive number.
+
+     THESE ANSWERS ESTABLISH THE SAFE STARTING ROUTE, NOT THE PATHWAY.
+     Experience Level remains the pathway and destination authority; these say
+     where the athlete is starting from today.
+
+     ZERO IS AN ANSWER AND NOT THE ABSENCE OF ONE -- hence `zeroAllowed` on the
+     three numeric fields, and hence the UI must require an answer rather than
+     requiring a positive number. An athlete running nothing is exactly the
+     athlete whose answer matters most.
+
+     ONE SIGNAL NEVER SPEAKS FOR ANOTHER: three separate answers, read
+     separately. A long run is not a weekly volume, a weekly volume is not a
+     day count, and none of them is evidence about workout tolerance -- which
+     stays learned from training rather than asked here. */
+  entryEvidence: {
+    heading: 'Your recent running',
+    fields: {
+      weeklyKm: {
+        label: 'Current Weekly Volume', unit: true, zeroAllowed: true,
+        range: [0, 200],
+        hint: 'Your honest recent average, not your best week. Enter 0 if you are not running at all right now.'
+      },
+      runDaysPerWeek: {
+        label: 'Running days in a typical recent week', zeroAllowed: true,
+        range: [0, 7], control: 'grid',
+        hint: 'How many days you have actually been running lately. You will pick the days you can train on in a moment.'
+      },
+      longestRunKm: {
+        /* "Longest recent run", not "in the last few weeks": the DATE below
+           establishes recency, and naming a window in the question both
+           imposes a rule the question does not enforce and discourages an
+           athlete from telling us about a run just outside it. */
+        label: 'Longest recent run', unit: true, zeroAllowed: true,
+        range: [0, 100],
+        hint: 'The furthest you have run in one go. Enter 0 if you have not done a longer run.'
+      },
+      longestRunDate: {
+        label: 'When did you run it?', control: 'date',
+        /* Shown only when a distance above zero has been given -- there is no
+           date to ask for otherwise. */
+        dependsOnPositive: 'longestRunKm',
+        hint: 'Roughly is fine.'
+      }
+    }
+  },
   validation: {
     weeksRange: [4, 24],
     volumeMustExceed: 0,
@@ -229,7 +292,7 @@ var BUILDER_SPEC = {
        which routes a below-minimum race request to a base block server-side so
        the pre-auth surface cannot produce a state the app would not build. */
     raceGoalMinWeeklyKm: 6,
-    daysRange: [3, 6],
+    daysRange: [1, 7],   // A5, founder 15 November 2026: open to 1-7; the week-fit check keeps every easy run 5km or more
     benchmarkSecondsRange: [300, 40000]
   }
 };

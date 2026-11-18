@@ -119,7 +119,11 @@ test('5K: a novice with no evidence is admitted and developed toward the floor a
   assert.equal(adm.preparation.entrySource, 'pathway');
   assert.ok(adm.preparation && adm.preparation.confident);
   assert.equal(adm.preparation.verdict, 'READY');
-  assert.equal(adm.preparation.reachWeekKm, adm.preparation.requiredWeekKm);
+  /* The founder's ranges (15 November 2026): the requirement is the bottom
+     of the Developing range (25km) and the block aims for its top (35km), so
+     the reach meets the requirement rather than equalling it. */
+  assert.ok(adm.preparation.reachWeekKm >= adm.preparation.requiredWeekKm);
+  assert.equal(adm.preparation.requiredWeekKm, 25);
   assert.equal(adm.preparation.reachLongKm, 7.4,
     'the Nielsen-rate curve\'s own reach from a 5km entry in three steps');
   assert.ok(adm.preparation.dimensions.find(d => d.key === 'durability').met,

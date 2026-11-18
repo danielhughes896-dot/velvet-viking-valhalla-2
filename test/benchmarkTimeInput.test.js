@@ -148,14 +148,33 @@ test('SAVE: Re-calibrate persists the same benchmark seconds whether the athlete
 // ===========================================================================
 // 4. THE VISIBLE COPY AND KEYBOARD HINT
 // ===========================================================================
-test('COPY: the /start Benchmark Time field shows the new format hint and an easier keyboard', () => {
+/* NAMED FOR WHAT IT ACTUALLY ASSERTS. This said "/start" and tests
+   su-bench-time -- the IN-APP setup modal -- so the standalone /start page
+   (start.html, a different file with its own copy of the field and its own
+   parser) read as covered when it was not. It kept inputmode="numeric" and
+   the strict clockToSec() for a year, and an athlete on an iPhone could not
+   type a benchmark time at all. The assertion below is unchanged; only its
+   name is, and start.html now has its own file:
+   test/startBenchmarkKeypad.test.js. */
+test('COPY: the in-app builder\'s Benchmark Time field shows the format hint and an easier keyboard', () => {
   const { html } = buildJourney();
   const inputStart = html.indexOf('id="su-bench-time"');
   assert.ok(inputStart !== -1);
   const tag = html.slice(html.lastIndexOf('<input', inputStart), html.indexOf('>', inputStart) + 1);
   assert.match(tag, /inputmode="decimal"/, 'still forces the awkward default keyboard');
-  assert.match(tag, /placeholder="23:25 or 23\.25"/);
-  assert.match(html, /Enter your time as minutes and seconds, e\.g\. 23\.25 or 23:25\./);
+  /* The hint is the format, mm:ss, not an example time (founder, Audit III):
+     the time wheel sets the value, so nobody types the dot form here now. */
+  assert.match(tag, /placeholder="mm:ss"/);
+  /* SHORTENED, AND THE ASSERTION WITH IT. Founder, on the Benchmark
+     stage: "there's also a lot of small text." What this law protects is
+     unchanged and still checked: the athlete is told BOTH formats work,
+     which is the thing that stops a dot being read as a rejection. Both
+     surfaces moved together -- the hint is the same sentence in the
+     builder and in Re-calibrate, which is what the second test below is
+     for. The toast after a REJECTED entry keeps the long wording: an
+     error message is the one place worth spelling it out. */
+  // Nobody types it now: the time wheel sets it (test/timeWheel.test.js).
+  assert.match(html, /Tap the time to set it\./);
 });
 
 test('COPY: the Re-calibrate modal\'s benchmark field carries the same hint and keyboard', () => {
@@ -169,8 +188,19 @@ test('COPY: the Re-calibrate modal\'s benchmark field carries the same hint and 
   assert.ok(inputStart !== -1);
   const tag = html.slice(html.lastIndexOf('<input', inputStart), html.indexOf('>', inputStart) + 1);
   assert.match(tag, /inputmode="decimal"/);
-  assert.match(tag, /placeholder="23:25 or 23\.25"/);
-  assert.match(html, /Enter your time as minutes and seconds, e\.g\. 23\.25 or 23:25\./);
+  /* The hint is the format, mm:ss, not an example time (founder, Audit III):
+     the time wheel sets the value, so nobody types the dot form here now. */
+  assert.match(tag, /placeholder="mm:ss"/);
+  /* SHORTENED, AND THE ASSERTION WITH IT. Founder, on the Benchmark
+     stage: "there's also a lot of small text." What this law protects is
+     unchanged and still checked: the athlete is told BOTH formats work,
+     which is the thing that stops a dot being read as a rejection. Both
+     surfaces moved together -- the hint is the same sentence in the
+     builder and in Re-calibrate, which is what the second test below is
+     for. The toast after a REJECTED entry keeps the long wording: an
+     error message is the one place worth spelling it out. */
+  // Nobody types it now: the time wheel sets it (test/timeWheel.test.js).
+  assert.match(html, /Tap the time to set it\./);
 });
 
 // ===========================================================================
