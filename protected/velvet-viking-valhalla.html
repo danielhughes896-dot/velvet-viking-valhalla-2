@@ -19315,6 +19315,18 @@ function runLimitContext(days, weeks, blockResult, schedule){
   var dated = (days || []).filter(function(dd){ return dd && dd.date; });
   ctx.firstIso = dated.map(function(dd){ return dd.date; }).sort()[0] || null;
   ctx.firstWeek = dated.reduce(function(m, dd){ return dd.week != null && (m == null || dd.week < m) ? dd.week : m; }, null);
+  /* WEEK 1 RESPECTS THE LIMIT (founder, 18 November 2026). A stated longest
+     run dated more than 30 days before the plan begins fell outside the
+     window, so week 1 had nothing to be measured from and was not checked:
+     a runner who said 13km opened on a 23km long run. The builder accepts a
+     stated run up to CALIBRATION_EVIDENCE_DAYS old; it is still the best
+     word we have on what the athlete can run, so with nothing logged inside
+     the window it stands as the day before the plan begins. */
+  if (ctx.firstIso){
+    var winFrom = addDays(ctx.firstIso, -RUN_LIMIT_WINDOW_DAYS);
+    var inWindow = h.runs.some(function(r){ return r.date < ctx.firstIso && r.date >= winFrom; });
+    if (!inWindow) h.runs.forEach(function(r){ if (r.stated && r.date < winFrom) r.date = addDays(ctx.firstIso, -1); });
+  }
   ctx.hasEvidence = !!ctx.firstIso && h.runs.some(function(r){
     return r.date < ctx.firstIso && r.date >= addDays(ctx.firstIso, -RUN_LIMIT_WINDOW_DAYS); });
   return ctx;

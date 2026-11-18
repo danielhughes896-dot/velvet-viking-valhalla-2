@@ -346,3 +346,20 @@ test('9. the validator names a run over the line, with the reason, and leaves ex
   a.pendingEntryEvidence = { weeklyKm: 4, runDaysPerWeek: 2, longestRunKm: 2, longestRunDate: '2026-11-10', recordedAt: TODAY + 'T09:00:00Z' };
   assert.equal(a.planRunLimitViolations([{ date: '2026-11-17', week: 1, type: 'easy', km: 5 }], { weeks, blockResult: blk }).length, 0);
 });
+
+/* WEEK 1 RESPECTS THE LIMIT EVEN WHEN THE STATED RUN IS OLDER THAN 30 DAYS
+   (founder, 18 November 2026). The audit's second population found a runner
+   who said 13km, dated six weeks back, opening on a 23km long run: outside
+   the window the stated run counted for nothing and week 1 went unchecked. */
+test('10. a stated longest run older than the window still bounds week 1', () => {
+  /* The audit's own cases: 71km on 6 days, 13km longest dated 146 days back;
+     57km on 5 days, 17km dated 105 days back; 25km on 7 days, 7km 67 days back. */
+  for (const [dist, purpose, weekly, days, long, longDate] of [['half', 'base', 71, 6, 13, '2026-06-23'], ['half', 'base', 57, 5, 17, '2026-08-03'],
+       ['5k', 'race', 25, 5, 7, '2026-09-10'], ['half', 'race', 50, 5, 13, '2026-10-06']]){
+    const o = { dist, purpose, weekly, days, long, longDate, weeks: 12 };
+    const r = build(o);
+    const w1 = Math.min(...r.days.map(d => d.week));
+    const top = Math.max(...r.days.filter(d => d.week === w1 && d.type !== 'race').map(d => d.km));
+    assert.ok(top <= Math.max(long * 1.1, long + 1) + 1e-9, dist + ' ' + purpose + ': week 1 has a ' + top + 'km run against a stated ' + long + 'km');
+  }
+});
