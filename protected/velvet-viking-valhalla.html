@@ -13811,7 +13811,23 @@ function actualPaceToSecPerKm(dd){
 // currently selected. THE write-to-screen boundary.
 function actualPaceDisplayStr(dd){
   var sec = actualPaceToSecPerKm(dd);
+  if (sec != null && stravaGpsDistanceDoubt(dd)) return '';
   return sec==null ? '' : secToPace(paceSecToDisplay(sec));
+}
+/* GPS DISTANCE LOOKS WRONG (founder, 18 November 2026). Strava's pace is
+   its moving time over its distance (api/_strava.js), so a watch that
+   recorded a few hundred metres against a full half hour arrives as a
+   100-minute kilometre. The readers already refuse it (paceIsPlausible);
+   what the athlete saw was the figure itself. A Strava day whose pace no
+   runner produces is read as what it is, a distance fault, and every
+   surface that shows a pace shows none: Your Log says why instead (see
+   logTotalsNote). Worked out from the record rather than stamped on it, so
+   a run imported before this is read the same way, and a pace the athlete
+   picks over it clears it. */
+function stravaGpsDistanceDoubt(dd){
+  if (!isStravaDerived(dd) || !dd.actual || !dd.actual.pace) return false;
+  var sec = actualPaceToSecPerKm(dd);
+  return sec != null && !paceIsPlausible(sec);
 }
 function clamp(n,lo,hi){ return Math.max(lo,Math.min(hi,n)); }
 function escapeHtml(s){
@@ -41286,6 +41302,7 @@ function logApplyStageTotals(dd){
    came from. Empty when the athlete typed them. */
 function logTotalsNote(dd){
   var a = (dd && dd.actual) || {};
+  if (stravaGpsDistanceDoubt(dd)) return 'GPS distance looks wrong, so this run shows no pace. Pick the pace you ran to correct it.';
   var made = [];
   if (a.kmDerived) made.push('distance');
   if (a.paceDerived) made.push('average pace');
@@ -79584,6 +79601,52 @@ function markLogEdited(dayId){
   } catch(e){}
   patchTodayTray();
 }
+/* ---------- AN IMPOSSIBLE PACE IS ASKED ABOUT, NOT KEPT ----------
+   Founder, 18 November 2026: the pace box should ask when a pace is
+   impossible. "62:00" was a run's total time typed where its pace goes, and
+   it was kept as 62 minutes a kilometre. The rule is paceIsPlausible(), the
+   Execution Review's own range (2:30 to 15:00 per km), so the box and the
+   review can never disagree about what a runner produces.
+   With a distance known, the figure is read as the total time it most
+   likely is, and that pace is offered only when it is itself a pace a
+   runner produces: "Use 6:12/km", or "Edit". Without one, or when the
+   arithmetic gives another impossible pace, the sheet says the pace looks
+   wrong and offers Edit alone. Edit, or closing the sheet, stores nothing:
+   the field goes back to the pace already logged, ready to be picked again.
+     shownSec   what was typed, seconds per unit on screen
+     km         the distance it was run over, or null
+     sel        the field(s) showing it
+   Returns true when it asked, and the caller stops there. */
+function impossiblePaceSay(shownSec, km){
+  var unit = displayUnit(), per = unit === 'mi' ? 'per mile' : 'per km';
+  var typed = secToPace(shownSec);
+  var perKm = unit === 'mi' ? shownSec / 1.60934 : shownSec;
+  if (paceIsPlausible(perKm)) return null;
+  var conv = km > 0 ? shownSec / km : null;            // a total time over the distance, per km
+  if (conv != null && paceIsPlausible(conv)){
+    var use = secToPace(paceSecToDisplay(conv));
+    return { use:use, title:'Check Your Pace',
+      say: typed+' '+per+' looks like your total time. Use '+use+' '+per+' instead?',
+      hint: typed+' over '+kmToDisplay(km)+' '+unit+' is '+use+' '+per+'.',
+      yes: 'Use '+use+'/'+unit, no: 'Edit' };
+  }
+  var lo = secToPace(paceSecToDisplay(ASSESS_CAL.plausiblePaceSec[0])), hi = secToPace(paceSecToDisplay(ASSESS_CAL.plausiblePaceSec[1]));
+  return { use:null, title:'Check Your Pace',
+    say: typed+' '+per+' looks wrong for a run.',
+    hint: 'A run\u2019s pace is between '+lo+' and '+hi+' '+per+'. Check it and pick it again.',
+    yes: 'Edit', no: false };
+}
+function askImpossiblePace(shownSec, km, sel, onUse, onEdit){
+  var q = impossiblePaceSay(shownSec, km);
+  if (!q) return false;
+  var edit = function(){
+    onEdit();
+    try { var el = document.querySelector(sel); if (el && el.focus) el.focus(); } catch(e){}
+  };
+  askSacoro({ title:q.title, say:q.say, hint:q.hint, yes:q.yes, no:q.no,
+    onYes: q.use ? function(){ onUse(q.use); } : edit, onNo: edit });
+  return true;
+}
 function handleActualFieldChange(dayId, field, value){
   var dd = findDay(dayId);
   if (!dd) return;
@@ -79632,6 +79695,11 @@ function handleActualFieldChange(dayId, field, value){
       try{ showToast(PACE_FORMAT_HELP); }catch(e){}
       return;
     }
+    /* A pace no runner produces is asked about before it is kept: see
+       askImpossiblePace(). Nothing is stored until it is answered. */
+    if (paceSec != null && askImpossiblePace(paceSec, (dd.actual.km > 0) ? dd.actual.km : (dd.km > 0 ? dd.km : null), paceSel,
+        function(use){ handleActualFieldChange(dayId, 'pace', use); },
+        function(){ setPaceFieldsShown(paceSel, actualPaceDisplayStr(dd)); })) return;
     dd.actual.pace = paceSec != null ? secToPace(paceSec) : null;
     if (dd.actual.pace) setPaceFieldsShown(paceSel, dd.actual.pace);
     delete dd.actual.paceDerived;                    // typed, so the athlete's
@@ -79877,6 +79945,16 @@ function handleStructuredSplitChange(dayId, segId, field, value){
     setPaceFieldsShown(slogPaceSel, had && had.paceSec != null ? secToPace(paceSecToDisplay(had.paceSec)) : '');
     try{ showToast(PACE_FORMAT_HELP); }catch(e){}
     return;
+  }
+  /* A stage's pace is asked about the same way as the run's, over the
+     stage's own distance: the athlete's, else the one prescribed. */
+  if (field === 'pace' && String(value).trim()){
+    var was = structuredSplitFor(dd, row.segId);
+    var stageKm = (was && was.kmEntered && was.km > 0) ? was.km : (row.presKm > 0 ? row.presKm : null);
+    if (askImpossiblePace(parsePaceInput(value), stageKm, slogPaceSel,
+        function(use){ handleStructuredSplitChange(dayId, segId, 'pace', use); },
+        function(){ var h = structuredSplitFor(dd, row.segId);
+          setPaceFieldsShown(slogPaceSel, h && h.paceSec != null ? secToPace(paceSecToDisplay(h.paceSec)) : ''); })) return;
   }
   var s = upsertStructuredSplit(dd, m.plan, row);
   if (field === 'km'){
@@ -82614,6 +82692,7 @@ function coachGraphXLabels(items, width){
   });
   return kept.map(function(l){ return { x:l.x, label:l.label }; });
 }
+var COACH_GRAPH_GAP_DAYS = 14;
 function coachGraphSvg(s){
   var g0 = COACH_GRAPH_BOX, W = g0.W, H = g0.H, L = g0.L, R = g0.R, T = g0.T, B = g0.B;
   var all = s.points.concat(s.predicted);
@@ -82637,9 +82716,26 @@ function coachGraphSvg(s){
     return '<text class="cg-xlab" x="'+f(l.x)+'" y="'+(B+20)+'" text-anchor="middle">'+escapeHtml(l.label)+'</text>';
   }).join('');
   var m = s.points, lastM = m[m.length - 1];
-  var area = m.length > 1
-    ? '<polygon class="cg-area" points="'+f(px(m[0].x))+','+B+' '+m.map(xy).join(' ')+' '+f(px(lastM.x))+','+B+'"/>' : '';
-  var line = m.length > 1 ? '<polyline class="cg-line" points="'+m.map(xy).join(' ')+'"/>' : '';
+  /* A LONG GAP IS A GAP IN THE LINE (founder, 18 November 2026). With
+     points at their dates, two readings weeks apart were still joined by a
+     straight line, which drew a steady response across weeks nobody
+     measured. Where consecutive dated readings are more than
+     COACH_GRAPH_GAP_DAYS apart the line and its fill stop and start again:
+     blank, not dashed, since a dashed line here would read as Predicted.
+     The readings either side stay as dots. A weekly graph has no dates on
+     its points and is drawn as it always was. */
+  var runs = [];
+  m.forEach(function(p, i){
+    var prev = m[i - 1];
+    if (!i || (prev.date && p.date && daysBetween(prev.date, p.date) > COACH_GRAPH_GAP_DAYS)) runs.push([p]);
+    else runs[runs.length - 1].push(p);
+  });
+  var area = '', line = '';
+  runs.forEach(function(r){
+    if (r.length < 2) return;
+    area += '<polygon class="cg-area" points="'+f(px(r[0].x))+','+B+' '+r.map(xy).join(' ')+' '+f(px(r[r.length - 1].x))+','+B+'"/>';
+    line += '<polyline class="cg-line" points="'+r.map(xy).join(' ')+'"/>';
+  });
   var dots = m.map(function(p){
     return '<circle class="cg-dot" cx="'+f(px(p.x))+'" cy="'+f(py(p.v))+'" r="3.4"/>'; }).join('');
   var pred = s.predicted.length
@@ -88418,7 +88514,9 @@ function askSacoroHtml(o){
     '<div class="stg-sheet-say">'+escapeHtml(o.say)+'</div>'+
     (o.hint ? '<div class="field-hint">'+escapeHtml(o.hint)+'</div>' : '')+
     '<div class="stg-sheet-acts">'+
-      '<button type="button" class="btn btn-ghost" data-action="ask-no">'+escapeHtml(o.no || 'Cancel')+'</button>'+
+      /* no:false asks a question with one answer (an impossible pace with
+         nothing better to offer: "Edit"). Closing it is still the no. */
+      (o.no === false ? '' : '<button type="button" class="btn btn-ghost" data-action="ask-no">'+escapeHtml(o.no || 'Cancel')+'</button>')+
       '<button type="button" class="btn '+(o.danger ? 'btn-danger' : 'btn-primary')+'" data-action="ask-yes">'+escapeHtml(o.yes)+'</button>'+
     '</div>'+
   '</div>';
