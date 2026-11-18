@@ -61,7 +61,11 @@ test('a brand-new address is not refused by anything this route decides', () => 
   const src = code(read('api/beta-signin.js'));
   const codes = (src.match(/error:\s*'([a-z_]+)'/g) || [])
     .map((m) => m.replace(/.*'([a-z_]+)'.*/, '$1'));
-  const permitted = ['method_not_allowed', 'unavailable', 'bad_email', 'send_failed'];
+  /* provider_disabled ADDED (founder, 18 November 2026: Apple and Google
+     sign-in built and HIDDEN until configured). It refuses an OAuth provider
+     the deployment has not switched on (VVV_AUTH_PROVIDERS), which is about
+     the request, never about who the athlete is. */
+  const permitted = ['method_not_allowed', 'unavailable', 'bad_email', 'send_failed', 'provider_disabled'];
   codes.forEach((c) => assert.ok(permitted.indexOf(c) !== -1,
     'the sign-in route gained a refusal that is not about the request: ' + c));
 });

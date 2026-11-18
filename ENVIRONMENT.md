@@ -45,7 +45,8 @@ absence is a deliberate off state, not a misconfiguration.
 | `VVV_PRICE_WEB_STANDARD_YEARLY` | no | The Stripe price id for £79.99/year. | **REQUIRED** | Stripe → Products |
 | `VVV_COMMERCE_ENABLED` | no | **SWITCH.** Unset = checkout refuses with `commerce_disabled`. | **OFF** | you |
 | `VVV_COMMERCIAL_REQUIRED` | no | **SWITCH.** Unset = an ended subscription does not lock anybody out. Turning it on makes commerce load-bearing. | **OFF** | you |
-| `VVV_ACCOUNT_REQUIRED` | no | **SWITCH.** Whether an account is needed to reach the runtime. | as configured | you |
+| `VVV_ACCOUNT_REQUIRED` | no | **SWITCH.** Whether an account is needed to reach the app. **On:** a visitor with no session at all is served the app in *journey-only* mode (see below); a stale or revoked session goes to sign-in, a denied athlete to the locked shell, as before. **Off:** the app is served to everyone, unchanged. | as configured (**on** in production) | you |
+| `VVV_AUTH_PROVIDERS` | no | **SWITCH.** Which OAuth sign-ins the first-time journey offers beside email: `apple`, `google` or `apple,google`. Unset = email only, and the Apple and Google buttons are not drawn. Set it only after the provider is configured; see AUTH-AND-EMAIL.md. | **OFF** | you |
 | `VVV_CHECKOUT_URL` | no | Legacy external checkout link, superseded by the Stripe path. | not needed | — |
 | `VVV_BILLING_WEBHOOK_SECRET` | **YES** | The provider-neutral webhook's HMAC secret, used by the non-Stripe path. Unset = 503. | optional | you |
 | `VVV_PRICE_APPLE_*`, `VVV_PRICE_GOOGLE_*` | no | Reserved. No adapter exists, so these do nothing today. | not needed | — |
@@ -176,3 +177,37 @@ the code reports it rather than assuming it:
 
 To confirm the rest, read the project's Environment Variables screen. Do not
 paste any value into a chat or a file.
+
+## The account gate and the first-time journey (18 November 2026)
+
+Founder: "Open steps 1-6 to everyone." With `VVV_ACCOUNT_REQUIRED` on, a
+request for the app (`/`, `/app`, `/auth`) that carries **no gate cookie at
+all** used to be redirected to `/account?why=signin`. It is now answered by
+`api/app.js` with the same runtime marked `data-vvv-access="journey"` on
+`<html>` (`x-vvv-gate: journey`, `cache-control: private, no-store`, and no
+`x-vvv-entitled-at`, so the service worker never keeps it as a grant).
+
+**What an anonymous visitor can reach:** the journey's Welcome, What would you
+love to achieve, What drives you, the builder, the three slides, the preview
+and Make It Yours; Existing Member sign-in; the legal pages. Everything they
+build stays on their device. On the server, only the public routes: the
+catalogue and agreement wording (`GET /api/checkout`), the plan preview
+(`POST /api/preview`), the ways in (`GET /api/beta-signin`, and sending a
+magic link), and the configuration probes (`/api/voice-enabled`,
+`/api/strava-enabled`, `/api/garmin-status`).
+
+**What they cannot reach:** Today, This Week, Full Plan, Coach, Settings,
+Share, Circles, Ask Coach, the trial and everything after it (the app holds
+them at Make It Yours and its dispatcher refuses every other action), and on
+the server every account, money or model route (subscription, checkout,
+portal, account data and deletion, coach memory, Ask Coach, the Coach's Note,
+the result panels, speech, Strava, admin, the session bridge and the billing
+webhook), each of which refuses an anonymous caller itself.
+`test/m8-journeyGate.test.js` proves both halves.
+
+**Sign-up is still invite-only.** Creating the account is the magic link (or
+Apple or Google when switched on), and the beta allowlist trigger refuses any
+address not on it, with the same "private beta" sentence. Once the account
+exists the app exchanges the session for the gate cookie and reloads through
+the gate into the full app, where the journey continues at the trial with the
+plan it built.

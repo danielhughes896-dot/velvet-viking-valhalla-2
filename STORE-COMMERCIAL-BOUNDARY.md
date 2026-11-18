@@ -110,3 +110,24 @@ A pause counts as blocking. Pausing is not leaving.
 about a trial taken on the web, Google does not know about either, and an
 athlete who could take one of each would get six weeks free by changing which
 button they press.
+
+---
+
+## The first-time journey's payment step (18 November 2026)
+
+The founder's journey has a "Start your 7-day free trial" screen and then
+"payment confirmation: website = the existing Stripe checkout; installed store
+apps = Apple / Google store billing". The runtime has one seam for it,
+`JOURNEY_PAYMENT` with `journeyPaymentProvider()`, and what each side does
+today is:
+
+| Where | Provider | What the athlete sees | What happens |
+|---|---|---|---|
+| Website, commerce on | `web` | Annual and Monthly from `GET /api/checkout` (the catalogue in `_products.js`), the two existing agreement ticks, Start My Free Trial | `POST /api/checkout {period}` opens Stripe Checkout; Stripe returns to `/account?checkout=complete`, which reconciles and enters the app; the journey sees `subscription_trial` and moves to Welcome to SACORO |
+| Website, commerce off (today) | `web` | the same prices as information, "Subscriptions are not open yet", Continue | nothing is charged and no agreement is recorded; access is the open beta gate (`pre_commercial`) |
+| Installed app (Android APK today, iOS later) | `store` | no price, no tickbox, no link to the web checkout; "Subscriptions are not available in the app yet", Continue | `store.start()` answers `store_unavailable`; nothing is sold, which is the rule above |
+
+When Play Billing or StoreKit is approved, the `store` provider's `start()`
+is the one thing in the runtime that changes, beside the `_google.js` /
+`_apple.js` adapter this file already describes. Until then there is still no
+Apple or Google purchase code in the repository.

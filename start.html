@@ -380,7 +380,12 @@
          build it on the website. It should take them to the app." So a
          visitor with nothing in progress goes to the install page. Sign-in
          returns, expired links and a banked preview are still handled here. */
-      location.replace('/get');
+      /* AND NOW STRAIGHT INTO THE FIRST-TIME JOURNEY (founder, 18 November
+         2026: "the SAME screens, in this order, for the website and the
+         installed app"). The journey's Welcome is the app's own first screen,
+         so a new visitor goes there; the install page is the journey's
+         second-to-last step, reached after Welcome to SACORO. */
+      location.replace('/');
       return;
     }
     within(10000, establish(tok)).then(function(r){
@@ -423,7 +428,10 @@
       /* Signed in, no access yet, and a preview is already banked from before
          the "Save My Plan" round trip -- show it rather than the builder. */
       if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
-      location.replace('/get');
+      /* Signed in with nothing built: the journey picks them up where an
+         account with no plan belongs, at its Welcome (founder, 18 November
+         2026). */
+      location.replace('/');
     }).catch(function(){
       /* Unreachable, refused, or too slow to be useful. */
       if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
@@ -470,7 +478,10 @@
      the web builder on /start is removed; the plan is built in the app (/get).
      A banked preview is still shown, saved and paid for here, and changing
      anything in it is a new plan, so the banked one is let go. */
-  $('rebuild').addEventListener('click', function(){ clearPending(); location.replace('/get'); });
+  /* Changing anything is a new plan, built in the journey's builder
+     (founder, 18 November 2026), so the banked one is let go and the athlete
+     goes to the app rather than to the install page. */
+  $('rebuild').addEventListener('click', function(){ clearPending(); location.replace('/'); });
 
   /* ---------- preview ---------- */
   /* Keyed on what the server sends back, which is now always an engine key --

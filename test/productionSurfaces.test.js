@@ -416,7 +416,9 @@ test('/start routes every commercial state, and explains every failure', () => {
   assert.match(START, /reason === 'expired'[^]*?show\('pane-locked'\)/,
     'an expired athlete needs the locked shell, not the builder');
   assert.doesNotMatch(START, /show\('pane-build'\)/);
-  assert.match(START, /location\.replace\('\/get'\)/, 'a signed-in athlete with no plan has nowhere to build one');
+  /* UPDATED (founder, 18 November 2026): the builder is the first-time
+     journey's, in the app, so the way to build is '/', not the install page. */
+  assert.match(START, /location\.replace\('\/'\)/, 'a signed-in athlete with no plan has nowhere to build one');
 
   /* Four failures, four explanations. A blank form with no reason is the
      defect these each exist to prevent. */

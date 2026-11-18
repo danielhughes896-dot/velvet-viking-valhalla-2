@@ -206,6 +206,9 @@ async function handle(req, res){
     memoryBlock = MEM.promptBlock(MEM.fenceForPacket(body.memory,
       { health: !!(context && context.healthDataAvailable === true) }));
   }catch(e){ memoryBlock = ''; }
+  /* AND WHAT DRIVES THEM (founder, 18 November 2026: "Shape the coach"):
+     codes in, our own sentence out, as background beside the notes. */
+  try{ memoryBlock = MEM.withDrives(memoryBlock, body.drives); }catch(e){}
 
   /* THE BROWSER ASKS, THE SERVER DECIDES. A client that cannot read a stream
      never sends the header and is never sent one; a platform that cannot write

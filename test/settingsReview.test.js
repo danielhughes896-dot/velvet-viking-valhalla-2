@@ -48,8 +48,11 @@ test('GROUPING: what the plan does under Training, how the app speaks under Pref
   const html = a.renderSettingsHubView();
   assert.deepEqual(groupRows(html, 'Training'),
     ['Training & Zones', 'Strength & Mobility', 'Training Availability', 'Start a New Block']);
+  /* What Drives You ADDED beside Your Name (founder, 18 November 2026,
+     choosing "Shape the coach": the drives picked on the first-time journey
+     are "editable in Settings (a row in the athlete/profile area)"). */
   assert.deepEqual(groupRows(html, 'Preferences'),
-    ['Your Name', 'Coach Voice', 'Daily Reminder', 'Distance Units']);
+    ['Your Name', 'What Drives You', 'Coach Voice', 'Daily Reminder', 'Distance Units']);
   assert.deepEqual(groupRows(html, 'Data & Privacy'),
     ['Health & Readiness', 'Export / Import Backup']);
   assert.doesNotMatch(html, /data-panel="prefs"/, 'Preferences is behind a row again');

@@ -44,19 +44,27 @@ test('the preview is step two and saving the plan is step three, with no builder
   assert.match(SRC, /id="auth-step">Step three of three/, 'saving the plan is no longer step three');
 });
 
+/* UPDATED (founder, 18 November 2026: the first-time journey, "the SAME
+   screens, in this order, for the website and the installed app"). Building
+   happens in the journey's builder, inside the app, so the banked plan is let
+   go and the athlete goes to the app ('/') rather than to the install page,
+   which is now the journey's second-to-last step. */
 test('"Change something" lets the banked plan go and sends the athlete to build in the app', () => {
   assert.match(SRC, /id="rebuild"[^>]*>Change Something</);
   const h = /\$\('rebuild'\)\.addEventListener\('click', function\(\)\{([^}]*)\}\);/.exec(SRC);
   assert.ok(h, 'the Change something handler has gone');
-  assert.match(h[1], /clearPending\(\);\s*location\.replace\('\/get'\);/,
-    'Change something no longer clears the banked plan and goes to /get');
+  assert.match(h[1], /clearPending\(\);\s*location\.replace\('\/'\);/,
+    'Change something no longer clears the banked plan and goes to the journey');
   assert.doesNotMatch(h[1], /pane-build/);
 });
 
-test('a visitor with no session goes to install the app, not to sign-in', () => {
+/* UPDATED (founder, 18 November 2026): a new visitor goes into the first-time
+   journey, whose Welcome is the app's own first screen ('/'), not to the
+   install page, which the journey now reaches after Welcome to SACORO. */
+test('a visitor with no session goes into the journey, not to sign-in', () => {
   const fn = routeFn();
   const noTok = /if \(!tok\)\{[^]*?\n    \}/.exec(fn)[0];
-  assert.match(noTok, /location\.replace\('\/get'\)/, 'no-session no longer resolves to the app install page');
+  assert.match(noTok, /location\.replace\('\/'\)/, 'no-session no longer resolves to the journey');
   assert.doesNotMatch(noTok, /show\('pane-auth'\)/, 'no-session still resolves to sign-in first');
 });
 

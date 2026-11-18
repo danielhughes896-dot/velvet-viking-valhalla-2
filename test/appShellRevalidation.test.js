@@ -80,10 +80,18 @@ test('every denial path still refuses without storing anything', () => {
   assert.match(shell[0], /no-store/, 'a denial became cacheable');
   assert.ok(!/etag/i.test(shell[0]), 'a denial carries a validator');
   /* And the denial branches route through it rather than through the runtime. */
-  ['no-session', 'no-lease', 'denied', 'unavailable'].forEach(state => {
+  /* 'no-session' LEFT THIS LIST (founder, 18 November 2026: "Open steps 1-6 to
+     everyone"): a visitor with no cookie gets the journey-only runtime, and
+     that copy must be no-store and carry no entitlement stamp, which is the
+     same "refuses without storing anything" this test is about. */
+  ['no-lease', 'denied', 'unavailable'].forEach(state => {
     assert.match(CODE, new RegExp("stamp\\(res, '" + state + "'\\);[\\s\\S]{0,80}?toShell\\("),
       "the '" + state + "' branch no longer ends at the account shell");
   });
+  const journey = /function serveJourneyOnly\(res\)\{[\s\S]*?\n\}/.exec(CODE);
+  assert.ok(journey, 'the journey-only branch is gone');
+  assert.match(journey[0], /no-store/, 'the journey copy became cacheable');
+  assert.ok(!/etag|x-vvv-entitled-at/i.test(journey[0]), 'the journey copy carries a validator or a grant stamp');
 });
 
 // ---------------------------------------------------------------------------
