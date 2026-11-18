@@ -113,7 +113,7 @@
     <div class="vvv-rule"></div>
   </div>
 
-  <p class="blurb">
+  <p class="blurb" id="blurb">
     Endurance coaching built around your goal, your training and what you actually do.
   </p>
 
@@ -165,14 +165,14 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>
       Open in your browser
     </h2>
-    <a class="btn" href="/">
+    <a class="btn" href="/" id="web-launch">
       Launch the App
     </a>
     <p class="note">Works on any device. Sign in and your plan follows you to each one.</p>
   </div>
 
   <div class="card" id="card-browser" style="padding-top:16px; padding-bottom:16px;">
-    <a class="btn btn-ghost" href="/">Just Open It in This Browser Instead</a>
+    <a class="btn btn-ghost" href="/" id="browser-launch">Just Open It in This Browser Instead</a>
   </div>
 
   <div class="other" id="other-platform"></div>
@@ -205,6 +205,20 @@
     'card-ios':'On Android instead? <a href="#" data-show="card-android">Download the App</a>.',
     'card-web':'On a phone? <a href="#" data-show="card-android">Android download</a> or <a href="#" data-show="card-ios">iPhone instructions</a>.'
   };
+  /* THE JOURNEY'S DOWNLOAD STEP (founder, 18 November 2026). After Welcome
+     to SACORO the website hands the athlete here, with ?from=journey: the
+     same three choices, the plan already made, and the way on into Today is
+     to carry on in the browser. The installed app never comes here; it goes
+     straight to Today. Without the parameter this is the page it always was,
+     and Launch the App opens the journey's Welcome for somebody new. */
+  var fromJourney = /(?:^|[?&])from=journey(?:&|$)/.test(location.search || '');
+  if (fromJourney){
+    document.getElementById('blurb').textContent =
+      'Your plan is ready. Take SACORO with you, or carry on here in your browser.';
+    document.getElementById('web-launch').textContent = 'Continue in the Browser';
+    document.getElementById('browser-launch').textContent = 'Continue in the Browser';
+  }
+
   var other = document.getElementById('other-platform');
   other.innerHTML = others[show];
   other.addEventListener('click', function(e){

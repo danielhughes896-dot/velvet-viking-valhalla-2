@@ -289,6 +289,8 @@ async function handle(req, res, deps){
     memoryBlock = MEM.promptBlock(MEM.fenceForPacket(body.memory,
       { health: evidence.healthInformation === 'included' }));
   } catch (e) { memoryBlock = ''; }
+  /* What drives the athlete, as background (founder, 18 November 2026). */
+  try { memoryBlock = MEM.withDrives(memoryBlock, body.drives); } catch (e) {}
 
   const started = Date.now();
   let resp;

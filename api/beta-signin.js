@@ -3,6 +3,21 @@
 // the browser cannot interpret.
 //
 //   POST { email, redirect } -> 200 { sent:true }
+//   GET                      -> 200 { providers: { email, apple, google } }
+//   POST { provider, redirect } -> 200 { url }  (Apple / Google, when enabled)
+//
+// APPLE AND GOOGLE (founder, 18 November 2026: "build all three, with Apple
+// and Google HIDDEN until configured"). Supabase OAuth, started here for the
+// same reason the email link is: the redirect target GoTrue is given is one
+// this server validated, never one a page made up. Each provider is OFF until
+// the owner names it in VVV_AUTH_PROVIDERS (e.g. "apple,google"), after the
+// provider itself is set up in Apple, Google and Supabase -- the steps are in
+// AUTH-AND-EMAIL.md. A provider that is off is not listed by GET, so the app
+// draws no button for it, and POST refuses it.
+//
+// NOTHING HERE OPENS SIGNUP. An OAuth sign-in by somebody with no account is
+// the same INSERT into auth.users as a magic link for a new address, so the
+// database's own allowlist trigger answers both, in the same way.
 //
 // PUBLIC AT COMMERCIAL LAUNCH. This route used to read public.beta_allowlist
 // and answer 403 not_in_beta to any address that was not on it. That check is
@@ -34,6 +49,23 @@ const S = require('./_strava.js');   // the canonical Supabase access layer:
                                      // and sb() all live there already.
 
 const NATIVE_REDIRECT = 'com.velvetviking.valhalla://auth';
+
+/* Which OAuth providers this deployment offers. Read from the environment on
+   every call, so switching one on or off is a configuration change and not a
+   deploy. Unknown names are ignored: the list can only ever name these two. */
+const OAUTH_PROVIDERS = ['apple', 'google'];
+function enabledProviders(env){
+  const raw = String(((env || process.env).VVV_AUTH_PROVIDERS) || '').toLowerCase();
+  const named = raw.split(/[\s,]+/).filter(Boolean);
+  return OAUTH_PROVIDERS.filter(function(p){ return named.indexOf(p) !== -1; });
+}
+/* The GoTrue address that starts an OAuth sign-in. The implicit flow: the
+   tokens come back in the fragment of the validated redirect, exactly where a
+   magic link puts them, so the app's existing return path consumes both. */
+function authorizeUrl(supabaseUrl, provider, redirect){
+  return String(supabaseUrl || '').replace(/\/+$/, '') + '/auth/v1/authorize?provider=' +
+    encodeURIComponent(provider) + '&redirect_to=' + encodeURIComponent(redirect);
+}
 
 function log(what){ try{ console.log('beta-signin: ' + what); }catch(e){} }
 
@@ -101,8 +133,15 @@ function safeRedirect(requested, origins){
 module.exports = async function handler(req, res){
   const cfg = S.config();
 
+  /* What a sign-in screen may offer. Public, and it says nothing about anybody:
+     only which ways in this deployment has switched on. */
+  if (req.method === 'GET'){
+    const on = enabledProviders();
+    return S.json(res, 200, { providers: { email: true,
+      apple: on.indexOf('apple') !== -1, google: on.indexOf('google') !== -1 } });
+  }
   if (req.method !== 'POST'){
-    res.setHeader('Allow', 'POST');
+    res.setHeader('Allow', 'GET, POST');
     return S.json(res, 405, { error: 'method_not_allowed' });
   }
   if (!cfg.serviceKey){
@@ -111,6 +150,21 @@ module.exports = async function handler(req, res){
   }
 
   const body  = S.readBody(req);
+
+  /* APPLE OR GOOGLE. Refused unless switched on; otherwise the answer is the
+     authorize address, with the redirect validated exactly as the email
+     link's is. No call is made from here: the browser goes to GoTrue itself. */
+  if (body && body.provider != null){
+    const provider = String(body.provider || '').toLowerCase();
+    if (enabledProviders().indexOf(provider) === -1){
+      log('PROVIDER_OFF');
+      return S.json(res, 404, { error: 'provider_disabled' });
+    }
+    const target = safeRedirect(body.redirect, webOrigins(req));
+    log('OAUTH_START provider=' + provider);
+    return S.json(res, 200, { url: authorizeUrl(cfg.supabaseUrl, provider, target) });
+  }
+
   const email = String(body.email || '').trim().toLowerCase();
   // Shape only. Deliverability is Supabase's problem, not this route's.
   if (!email || email.indexOf('@') < 1 || email.length > 254){
@@ -179,3 +233,6 @@ module.exports.safeRedirect = safeRedirect;
 module.exports.webOrigins = webOrigins;
 module.exports.NATIVE_REDIRECT = NATIVE_REDIRECT;
 module.exports.ENTRY_PATH = ENTRY_PATH;
+module.exports.enabledProviders = enabledProviders;
+module.exports.authorizeUrl = authorizeUrl;
+module.exports.OAUTH_PROVIDERS = OAUTH_PROVIDERS;

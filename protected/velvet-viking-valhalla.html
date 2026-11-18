@@ -12532,6 +12532,229 @@
   :is(.prep-sheet, .bld-decide) .decision-rec-tag{font-family:var(--label-face); font-size:.6875rem; letter-spacing:var(--label-track);
     text-transform:uppercase; color:#FFFFFF; margin-bottom:5px;}
   :is(.prep-sheet, .bld-decide) .decision-rec-body, :is(.prep-sheet, .bld-decide) .yr-foot{color:#FFFFFF;}
+  /* =========================================================
+     THE FIRST-TIME JOURNEY (founder, 18 November 2026)
+     ---------------------------------------------------------
+     The founder's mock-ups set the order, the words and the layout; the
+     look is the app's own. Their uppercase serif titles are not copied:
+     a title here is the builder's own stage heading (the label face,
+     uppercase by CSS, Title Case in the source), the name is the Cinzel
+     lockup the top bar wears, the primary action is the app's cherry glass
+     button, choices are the builder's option rows, and gold marks the
+     brand and the one claim. Only the Welcome carries a photograph: the
+     founder's own race photo, from assets/onboarding/.
+     Every size here is at or above the 11px floor, every control is at
+     least 44px, and no rule draws a hairline between two things. */
+  .jr{position:relative; min-height:100vh; min-height:100dvh; box-sizing:border-box;
+    color:var(--ink); font-family:var(--text-face);}
+  /* The journey owns the whole screen: no gutter from .wrap and none of the
+     clearance the app root keeps for a bottom nav that is not there. */
+  .app-root:has(.jr){padding-bottom:0;}
+  .app-root:has(.jr) .wrap{padding:0;}
+  .jr-page{display:flex; flex-direction:column; max-width:520px; margin:0 auto;
+    padding:calc(10px + env(safe-area-inset-top,0px)) 20px calc(24px + env(safe-area-inset-bottom,0px));}
+  .jr-head{display:flex; align-items:center; justify-content:space-between; min-height:56px;}
+  .jr-back, .jr-back-space{flex:none; width:44px; height:44px;}
+  .jr-back{display:inline-flex; align-items:center; justify-content:center; padding:0; margin-left:-10px;
+    background:none; border:none; color:var(--gold); border-radius:50%; cursor:pointer;}
+  .jr-back svg{width:24px; height:24px;}
+  /* The mark is the top bar's own (.bm-name, .bm-dot, .bm-word). */
+  .jr-head .jr-lockup{flex:1 1 auto;}
+  /* Progress, not a divider: a 4px track that fills in cherry. */
+  .jr-progress{height:4px; border-radius:4px; margin:6px 4px 0; overflow:hidden;
+    background:rgba(255,255,255,.10);}
+  .jr-progress span{display:block; height:100%; border-radius:inherit; background:var(--cherry-text);
+    box-shadow:0 0 10px var(--cherry-dim);}
+  .jr-title{font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
+    letter-spacing:var(--label-track); font-size:1.625rem; line-height:1.12; margin:26px 0 10px; color:#FFFFFF;}
+  .jr-title-lg{font-size:2rem; text-align:center; margin-top:40px;}
+  .jr-lede{font-size:var(--fs-body); line-height:var(--lh-body); margin:0 0 20px; color:var(--ink);}
+  .jr-say{font-size:var(--fs-support); line-height:var(--lh-support); margin:0 0 14px; color:var(--ink);}
+  .jr-quiet{font-size:var(--fs-support); text-align:center; color:var(--ink);}
+  .jr-fine{font-size:.75rem; line-height:1.5; color:var(--ink); margin:12px 0 0;}
+  .jr-fine a, .jr-legal a{color:var(--ink); text-decoration:underline;}
+  /* A link inside a sentence still takes a thumb: a 44px band around the
+     words, the way /get's footer links are padded, without moving the line. */
+  .jr a[data-action="open-external"]{display:inline-block; padding:13px 2px; margin:-13px -2px;}
+  .jr-centre{text-align:center;}
+  .jr-kicker{font-family:var(--label-face); font-weight:700; font-size:var(--fs-label); letter-spacing:.12em;
+    text-transform:uppercase; color:var(--gold); margin:0 0 10px;}
+  .jr-foot{margin-top:auto; padding-top:20px; display:flex; flex-direction:column; gap:10px;}
+  .jr-text-btn{align-self:center; min-height:44px; padding:0 16px; background:none; border:none;
+    font-family:var(--text-face); font-size:var(--fs-support); color:var(--ink); cursor:pointer;
+    text-decoration:underline; text-underline-offset:3px;}
+  .jr-error{color:var(--danger-text); font-size:var(--fs-support); margin:12px 0 0; text-align:center;}
+
+  /* ---------- THE CREST ----------
+     The S from the app icon, cut out as a mask (assets/onboarding/sacoro-s.png)
+     so it can be drawn in white on the photograph and in cherry on the
+     arrival without a second image. */
+  .jr-crest{width:58px; height:78px; margin:0 auto 14px; background:#FFFFFF;
+    -webkit-mask:url('/assets/onboarding/sacoro-s.png') center / contain no-repeat;
+            mask:url('/assets/onboarding/sacoro-s.png') center / contain no-repeat;
+    filter:drop-shadow(0 0 18px rgba(154,84,108,.85));}
+  .jr-crest-arrive{width:104px; height:140px; margin-bottom:22px;
+    background:linear-gradient(170deg, #B24A68, var(--cherry-fill));
+    filter:drop-shadow(0 0 22px rgba(154,84,108,.45));}
+
+  /* ---------- 1. WELCOME: THE ONE SCREEN WITH A PHOTOGRAPH ---------- */
+  .jr-welcome{display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; background:#0B0B0D;}
+  .jr-photo{position:absolute; inset:0; background:#0B0B0D url('/assets/onboarding/welcome-runner.webp') center top / cover no-repeat;}
+  /* The words need a dark floor to stand on, so the lower half falls away
+     to black; the face stays in the light. */
+  .jr-photo::after{content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(8,8,10,0) 34%, rgba(8,8,10,.55) 56%, rgba(8,8,10,.94) 74%, #08080A 100%);}
+  .jr-welcome-body{position:relative; z-index:1; text-align:center; max-width:460px; width:100%; margin:0 auto;
+    box-sizing:border-box; padding:0 24px calc(30px + env(safe-area-inset-bottom,0px));}
+  .jr-welcome .jr-title{font-size:2rem; margin:0 0 8px; text-shadow:0 2px 14px rgba(0,0,0,.7);}
+  .jr-welcome .jr-lede{margin:0 0 24px; text-shadow:0 1px 10px rgba(0,0,0,.7);}
+  .jr-welcome .btn{min-height:52px; font-size:var(--fs-data);}
+  .jr-welcome .jr-cta{margin-bottom:12px;}
+  .jr-gold{border-color:color-mix(in srgb, var(--gold) 70%, transparent); color:#FFFFFF;}
+
+  /* ---------- 2 AND 3. THE OPTION ROWS ----------
+     The builder's own option row (.bld-purpose button): the tile, its lift,
+     the cherry line and glow when chosen. A glyph in gold leads, as the
+     mock-ups draw it; the tick or the round mark trails. */
+  .jr-opts{display:grid; gap:10px; margin-bottom:6px;}
+  .jr-opt{position:relative; display:flex; align-items:center; gap:14px; width:100%; min-height:64px;
+    text-align:left; padding:12px 14px; border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile); box-shadow:var(--t-lift); color:var(--ink); cursor:pointer;
+    font-family:var(--text-face); transition:border-color .18s, box-shadow .18s;}
+  .jr-opt.is-on{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
+  .jr-opt:active{transform:scale(.995);}
+  .jr-opt-glyph{flex:none; width:30px; display:inline-flex; justify-content:center; color:var(--gold);}
+  .jr-opt-glyph svg{width:26px; height:26px; stroke-width:1.6;}
+  .jr-opt-text{flex:1 1 auto; min-width:0;}
+  .jr-opt-name{display:block; font-size:1.0625rem; font-weight:500; line-height:1.25;}
+  .jr-opt.is-on .jr-opt-name{color:var(--cherry-text);}
+  .jr-opt-sub{display:block; font-size:var(--fs-support); line-height:var(--lh-support); margin-top:3px; color:var(--ink);}
+  .jr-opt-mark{flex:none; width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+    box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55); color:#FFFFFF;}
+  .jr-opt.is-on .jr-opt-mark{background:var(--cherry-fill); box-shadow:inset 0 0 0 1.5px var(--cherry), 0 0 10px var(--cherry-dim);}
+  .jr-opt-mark svg{width:15px; height:15px; stroke-width:2.6;}
+  .jr-opts-sheet{margin:14px 0 4px;}
+
+  /* ---------- 5. THE SLIDES ----------
+     Scroll-snap does the swipe; data-hswipe tells the tab pager to stand
+     down. Each slide is a rounded glass frame holding a real screen of the
+     athlete's own plan, inert. */
+  .jr-slides{display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none; margin:0 -20px;}
+  .jr-slides::-webkit-scrollbar{display:none;}
+  .jr-slide{flex:0 0 100%; scroll-snap-align:center; box-sizing:border-box; padding:4px 20px 0; text-align:center;}
+  .jr-device{position:relative; height:min(55vh, 470px); border-radius:34px; overflow:hidden; margin:6px auto 0;
+    max-width:330px; background:var(--bg); pointer-events:none; user-select:none;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.14), 0 0 0 6px #0B0B0D, 0 0 0 7px rgba(255,255,255,.12), 0 18px 40px rgba(0,0,0,.55);}
+  .jr-device::after{content:''; position:absolute; left:0; right:0; bottom:0; height:70px;
+    background:linear-gradient(180deg, rgba(18,19,22,0), var(--bg));}
+  /* At full size, not scaled down: a picture of the product still keeps the
+     11px floor, so the frame shows the top of the real screen and fades out. */
+  .jr-screen{padding:26px 14px 0; box-sizing:border-box; text-align:left;}
+  .jr-screen .pp-rail.jr-pp{margin-top:16px; overflow:hidden;}
+  .jr-screen .pp-rail.jr-pp .pp-track{transform:none;}
+  .jr-screen .jr-warm{margin-top:18px;}
+  .jr-screen .jr-warm .ws-rail{overflow:hidden;}
+  .jr-screen .jr-warm .how-mod{flex:0 0 100%; width:100%;}
+  .jr-slide-title{font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
+    letter-spacing:var(--label-track); font-size:1.375rem; line-height:1.15; margin:26px 0 8px; color:#FFFFFF;}
+  .jr-slides-page .jr-lede{margin:0 0 6px;}
+  .jr-dots{display:flex; justify-content:center; gap:2px; margin-top:6px;}
+  .jr-dotbtn{width:44px; height:44px; padding:0; background:none; border:none; cursor:pointer; position:relative;}
+  .jr-dotbtn::after{content:''; position:absolute; left:50%; top:50%; width:9px; height:9px; border-radius:50%;
+    transform:translate(-50%,-50%); background:rgba(255,255,255,.28);}
+  .jr-dotbtn.is-on::after{background:var(--gold-bright); box-shadow:0 0 10px color-mix(in srgb, var(--gold-bright) 50%, transparent);}
+
+  /* ---------- 6. THE PREVIEW ----------
+     /start's "Here is your programme", in the app's glass. Rows are spaced,
+     not ruled. */
+  .jr-figs{display:flex; gap:10px; margin:2px 0 14px;}
+  .jr-fig{flex:1 1 0; min-width:0; padding:12px 10px; border-radius:16px; text-align:center;
+    background:var(--glass-sheen), var(--glass-tint); box-shadow:var(--glass-rim);}
+  .jr-fig b{display:block; font-size:1.375rem; line-height:1.1; color:#FFFFFF; white-space:nowrap;}
+  .jr-fig span{display:block; margin-top:4px; font-family:var(--label-face); font-weight:700; font-size:var(--fs-label);
+    letter-spacing:.08em; text-transform:uppercase;}
+  .jr-card{padding:14px 16px; border-radius:16px; margin:0 0 12px;
+    background:var(--glass-sheen), var(--glass-tint); box-shadow:var(--glass-rim);}
+  .jr-card-k{font-family:var(--label-face); font-weight:700; font-size:var(--fs-label); letter-spacing:.1em;
+    text-transform:uppercase; color:var(--gold); margin:0 0 6px;}
+  .jr-row{display:flex; justify-content:space-between; gap:12px; padding:6px 0; font-size:var(--fs-support); line-height:1.35;}
+  .jr-row-r{flex:none; text-align:right; white-space:nowrap;}
+  .jr-paces{margin:0 0 12px;}
+  .jr-note-card .jr-say{margin:0;}
+
+  /* ---------- 7. MAKE IT YOURS ---------- */
+  .jr-account .jr-lede{text-align:center;}
+  .jr-ways{display:flex; flex-direction:column; gap:12px; margin-top:12px;}
+  .jr-way{min-height:54px; gap:12px; font-size:var(--fs-data); color:#FFFFFF;
+    background:var(--glass-sheen), var(--glass-tint); border:1px solid rgba(255,255,255,.22);}
+  .jr-way svg{width:20px; height:20px;}
+  .jr-google{background:#FFFFFF; color:#1F1F1F; border-color:#FFFFFF;}
+  .jr-email{display:flex; flex-direction:column; gap:4px;}
+  .jr-email .field{margin:0 0 8px;}
+  .jr-sent{margin-top:12px; padding:16px; border-radius:16px; background:var(--glass-sheen), var(--glass-tint); box-shadow:var(--glass-rim);}
+  .jr-sent-k{font-family:var(--label-face); font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:var(--fs-data); margin:0 0 8px; color:#FFFFFF;}
+  .jr-member{text-align:center; font-size:var(--fs-body); margin:22px 0 0;}
+  .jr-inline{min-height:44px; padding:0 4px; background:none; border:none; font:inherit; color:var(--cherry-text); font-weight:600; cursor:pointer;}
+  .jr-legal{text-align:center; margin-top:14px;}
+  .jr-lockline{display:flex; align-items:center; justify-content:center; gap:10px; margin:auto 0 0; padding-top:26px;
+    font-size:var(--fs-support); color:var(--gold);}
+  .jr-lockline svg{flex:none; width:20px; height:20px;}
+
+  /* ---------- 8. THE TRIAL ---------- */
+  .jr-trial .jr-title{text-align:center; font-size:1.5rem;}
+  .jr-trial .jr-lede{text-align:center;}
+  .jr-plans{display:grid; gap:12px; margin-bottom:18px;}
+  .jr-plan{position:relative; display:flex; align-items:flex-start; gap:14px; width:100%; min-height:64px; text-align:left;
+    padding:16px; border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius); background:var(--t-tile);
+    box-shadow:var(--t-lift); color:var(--ink); cursor:pointer; font-family:var(--text-face);}
+  .jr-plan.is-on{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
+  .jr-radio{flex:none; width:22px; height:22px; margin-top:2px; border-radius:50%; box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.6);}
+  .jr-plan.is-on .jr-radio{box-shadow:inset 0 0 0 1.5px var(--cherry-text), inset 0 0 0 6px var(--bg), inset 0 0 0 11px var(--cherry-text);}
+  .jr-plan-text{flex:1 1 auto; min-width:0;}
+  .jr-plan-name{display:block; font-family:var(--label-face); font-weight:700; font-size:1.125rem; text-transform:uppercase; letter-spacing:.04em; color:#FFFFFF;}
+  .jr-plan-price{display:block; margin-top:4px; font-size:var(--fs-body);}
+  .jr-plan-price b{font-weight:700; color:#FFFFFF;}
+  .jr-plan-extra{display:block; margin-top:3px; font-size:var(--fs-support);}
+  .jr-badge{flex:none; align-self:flex-start; padding:4px 9px; border-radius:8px; background:var(--gold); color:#141414;
+    font-family:var(--label-face); font-weight:700; font-size:var(--fs-label); letter-spacing:.06em; text-transform:uppercase;}
+  .jr-timeline{list-style:none; margin:0 0 14px; padding:0;}
+  .jr-timeline li{position:relative; display:flex; align-items:center; gap:14px; min-height:34px; font-size:var(--fs-body);}
+  .jr-timeline li + li{margin-top:12px;}
+  .jr-timeline li + li::before{content:''; position:absolute; left:8px; top:-26px; width:2px; height:28px; border-radius:2px;
+    background:rgba(255,255,255,.55);}
+  .jr-tl-dot{flex:none; width:18px; height:18px; border-radius:50%; box-sizing:border-box; border:2px solid rgba(255,255,255,.75);}
+  .jr-tl-dot.is-now{border-color:var(--cherry-text); background:var(--cherry-text); box-shadow:0 0 10px var(--cherry-dim);}
+  .jr-agree{margin:4px 0 0;}
+  .jr-check{display:flex; align-items:flex-start; gap:12px; min-height:44px; padding:6px 0; font-size:var(--fs-support); line-height:1.45; cursor:pointer;}
+  .jr-check input{flex:none; width:22px; height:22px; margin:1px 0 0; accent-color:var(--cherry-fill);}
+  .jr-check a{color:var(--ink); text-decoration:underline;}
+  .jr-agree-say{margin:2px 0 0 34px;}
+
+  /* ---------- 10. WELCOME TO SACORO ---------- */
+  .jr-arrive{display:flex; flex-direction:column; max-width:520px; margin:0 auto; text-align:center;
+    padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(28px + env(safe-area-inset-bottom,0px));}
+  .jr-arrive-mid{flex:1 1 auto; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .jr-lockup-lg{gap:16px; margin:0 0 30px;}
+  .jr-lockup-lg .bm-word{letter-spacing:.3em; margin-right:-.3em;}
+  .jr-arrive .jr-title{font-size:1.75rem; margin:0 0 18px;}
+  .jr-lines{display:flex; flex-direction:column; gap:8px; margin:0 0 28px; font-size:1.0625rem;}
+  .jr-claim{font-family:var(--label-face); font-weight:700; font-size:.8125rem; letter-spacing:.42em; margin-right:-.42em;
+    text-transform:uppercase; color:var(--gold);}
+  .jr-arrive .jr-foot{margin-top:0;}
+  .jr-wait{display:flex; flex-direction:column; align-items:center; justify-content:center;}
+
+  /* At 320 the titles and the device frame give up a little so nothing
+     scrolls sideways and Continue stays on the first screen. */
+  @media (max-width:360px){
+    .jr-title{font-size:1.4375rem;}
+    .jr-welcome .jr-title, .jr-title-lg{font-size:1.75rem;}
+    .jr-opt{gap:10px; padding:10px 12px;}
+    .jr-opt-glyph{width:24px;}
+    .jr-device{height:min(50vh, 340px);}
+    .jr-figs{gap:6px;}
+    .jr-fig b{font-size:1.125rem;}
+  }
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -33401,7 +33624,11 @@ var CLOUD_AUTH_ERROR_REASON = {
   access_denied: 'That sign-in link didn’t work',
   default: 'That sign-in link didn’t work'
 };
-function cloudAuthErrorCopy(code){
+function cloudAuthErrorCopy(code, description){
+  /* AN APPLE OR GOOGLE ACCOUNT THE BETA DOES NOT KNOW. The allowlist trigger
+     refuses the auth.users insert, and GoTrue reports that as a database
+     error saving a new user: said here as what it means. */
+  if (/saving new user/i.test(String(description || ''))) return signInErrorCopy('not_in_beta');
   return (CLOUD_AUTH_ERROR_REASON[code] || CLOUD_AUTH_ERROR_REASON.default) +
          '. ' + authRetryDestination();
 }
@@ -33436,7 +33663,7 @@ function cloudConsumeAuthHash(url){
   // A link was opened but carried no usable session — surface why instead of
   // silently landing the athlete back on the signed-out screen with nothing
   // to explain it. Never shows the raw backend error.
-  showToast(cloudAuthErrorCopy(p.error_code));
+  showToast(cloudAuthErrorCopy(p.error_code, p.error_description));
   return false;
 }
 
@@ -33530,6 +33757,8 @@ function initHardwareBackButton(){
          system's back is that arrow -- on Android it is also the edge swipe.
          It used to send the app to the background from inside a week. */
       if (planSubScreenOpen()){ handlePlanBack(); return; }
+      /* The journey's own back arrow, before the app is sent away. */
+      if (journeyActive() && journeyBack()) return;
       if (App.minimizeApp) App.minimizeApp();
     });
   }catch(e){}
@@ -34227,7 +34456,8 @@ function adoptPendingBuildIfAny(){
          Training data/Targets stages, same as a signed-in athlete choosing
          it in the builder -- falling back to the device default only for a
          pending build banked before this question existed. */
-      experience: normaliseExperience(b.experience) || athleteExperience()
+      experience: normaliseExperience(b.experience) || athleteExperience(),
+      drives: carryDrives(null)
     };
     state.days = days;
     initExpanded();
@@ -51508,6 +51738,8 @@ function startDevelopmentBlock(purpose, opts){
        this is provenance rather than an input -- and the athlete is not made
        to describe themselves again every block. */
     entryEvidence: state.setup.entryEvidence || null,
+    /* Carried like the entry answers: it is the athlete's, not the block's. */
+    drives: carryDrives(state.setup),
     raceDate: goalDate, hasEvent: false,
     startDate: startDate, planWeeks: blockResult.planWeeks,
     schedule: schedule,
@@ -67097,9 +67329,13 @@ function phaseSlug(phase){
    FEWER THAN TWO PHASES IS NOT A CAROUSEL. A maintenance block is one phase
    from end to end; renderFullPlanView() shows the headed section there
    instead, so this returns nothing rather than a carousel of one. */
-function renderPhaseRail(){
-  var groups = planRailStops();
-  if (groups.length < 2) return '';
+/* `only`: ONE STOP, AS ITS BARE SLIDE. The first-time journey's first slide
+   (founder, 18 November 2026) shows the athlete's opening phase with the very
+   card the Full Plan draws, so it asks this function for it rather than
+   drawing a copy. No rail, no dots, nothing to swipe: a picture of the card. */
+function renderPhaseRail(only){
+  var groups = only ? [only] : planRailStops();
+  if (!only && groups.length < 2) return '';
   var i = planPhaseIndex(groups);
   var slides = groups.map(function(g){
     /* ---------- THE GOAL DAY'S OWN SLIDE ----------
@@ -67139,6 +67375,7 @@ function renderPhaseRail(){
       '</div>'+
     '</div>';
   }).join('');
+  if (only) return slides;
   return '<div class="pp-rail" data-hswipe="1" data-index="'+i+'" '+
       'data-count="'+groups.length+'" role="group" aria-label="Training phases">'+
       '<div class="pp-track wk-track" style="transform:translate3d(-'+(i*100)+'%,0,0)">'+
@@ -68262,6 +68499,11 @@ function openSetupModal(){
   /* A non-race block has no event, so the box opens on the length question
      rather than on a date field the purpose cannot use. */
   var openPurpose = isBlockPurpose(su.purpose) && su.purpose !== 'recovery' ? su.purpose : 'race';
+  /* THE JOURNEY HAS ALREADY ASKED (founder, 18 November 2026: the achieve
+     screen "sets the builder's purpose, so the builder must not ask it
+     again"). Its answer opens the builder, and Goal is stepped over. */
+  var journeyPurpose = journeyBuilderPurpose();
+  if (journeyPurpose && !planHasContent()) openPurpose = journeyPurpose;
   var eventMode = (openPurpose === 'race' && planHasEvent(su)) ? 'event' : 'none';
   var experience = athleteExperience(su);
   var blockWeeks = su.planWeeks || builderDefaultWeeks(openPurpose);
@@ -69786,6 +70028,7 @@ function handleBldNext(){
   if (!bldValidateStage(bldCurrentStage)) return;
   if (bldReviewReturn){ bldStage(BLD_STAGE_NAMES.length - 1); return; }
   var to = bldCurrentStage + 1;
+  if (to === BLD_STAGE.GOAL && journeySkipsGoal()) to++;
   if (to === BLD_STAGE.TARGETS && bldSkipsTargets()) to++;
   if (to === BLD_STAGE.WEEK) bldPreselectWeekFromAnswers();
   bldStage(to);
@@ -69821,6 +70064,7 @@ function handleBldBack(){
   if (bldReviewReturn){ handleBldNext(); return; }
   var to = bldCurrentStage - 1;
   if (to === BLD_STAGE.TARGETS && bldSkipsTargets()) to--;
+  if (to === BLD_STAGE.GOAL && journeySkipsGoal()) to--;
   bldClearErrors(); bldStage(to);
 }
 /* A line on the summary was tapped: open the screen that asks it, with both
@@ -71073,6 +71317,9 @@ async function handleGeneratePlan(){
        read only by supportForWeek(), which resolves companions at render time
        from the plan this block has already built. */
     supportWork: supportPref,
+    /* WHAT DRIVES THE ATHLETE (founder, 18 November 2026: "Shape the
+       coach"). Read by the coach's context and by nothing here. */
+    drives: carryDrives(state.setup),
     /* ---- THE PREPARATION LIMITATION, CARRIED BY THE PLAN ---- HQ RULING.
        Recorded only where the athlete was shown the shortfall and chose to
        continue anyway, and only for the admission signature they were shown it
@@ -71095,6 +71342,9 @@ async function handleGeneratePlan(){
   pendingEntryEvidence = null;
   pendingWeekFit = null;
   state.days = days;
+  /* A plan built from the first-time journey goes on to the slides drawn
+     from it. A no-op for every other build. */
+  journeyPlanBuilt();
   initExpanded();
   /* MAKE ROOM FOR YOUR WEEK IS ASKED WHERE THE BUILD WAS PRESSED (Audit IV
      UX-A10): a week made smaller keeps the review page up and asks there. */
@@ -75162,6 +75412,15 @@ function coachMemoryWithPacket(body){
   var packet = [];
   try { packet = coachMemoryPacket(); } catch(e){ packet = []; }
   if (packet.length) body.memory = packet;
+  /* WHAT DRIVES THE ATHLETE, BESIDE THE MEMORY AND NEVER INSIDE THE CONTEXT
+     (founder, 18 November 2026: "Shape the coach"). Codes only: the
+     server owns the one sentence each becomes (api/_coach-memory-lines.js,
+     drivesLine), so no text from this page reaches a model. Ask Coach, the
+     Coach's Note and the result panels all send through here. Absent when
+     nothing is chosen, so the request is then exactly what it was. */
+  var drives = [];
+  try { drives = athleteDrives(); } catch(e){ drives = []; }
+  if (drives.length) body.drives = drives;
   return body;
 }
 function coachMemoryKeep(entry){
@@ -84866,6 +85125,7 @@ function appInstalledVersionLine(){
    Account page, and Cancel returns to it. */
 var STG_SHEETS = {
   name:          { title:'Your Name',      body:function(){ return athleteNameSheetBody(); } },
+  drives:        { title:'What Drives You', body:function(){ return drivesSheetBody(); } },
   voice:         { title:'Coach Voice',    body:function(){ return renderCoachVoiceRow(); } },
   /* Coach Memory: the founder-approved consent sheet, and the notes behind
      the row (what is kept, and Clear Memory). Both titled as approved. */
@@ -85190,6 +85450,9 @@ function renderCloudCard(){
 function patchCloudCard(){
   var el = document.getElementById('cloud-card');
   if (el) el.outerHTML = renderCloudCard();
+  /* The journey's screen can turn on exactly the two answers that arrive
+     here: an account's plan, and a subscription. */
+  journeyMaybeRefresh();
 }
 /* ---------- restore a plan ----------
    One screen for the returning athlete, covering both routes back: a plan still
@@ -85500,6 +85763,7 @@ function renderSettingsHubView(){
      IS the decision and there is no page behind it. */
   var prefs =
     renderAthleteNameRow()+
+    renderDrivesRow()+
     coachVoiceHubRow()+
     /* BESIDE THE COACH'S VOICE, because it is the other thing about how the
        coach talks to you. Drawn only where there is a coach to remember for
@@ -86084,7 +86348,1036 @@ function renderSignedOutLanding(st){
   '</div></div>';
 }
 
+/* =========================================================
+   THE FIRST-TIME JOURNEY
+   ---------------------------------------------------------
+   Founder, 18 November 2026: "the SAME screens, in this order, for the
+   website and the installed app." Welcome; What would you love to achieve;
+   What drives you; the builder; three slides drawn from the plan just built;
+   the programme preview; Make It Yours; the seven-day trial; payment;
+   Welcome to SACORO; the download page (website only); then Today.
+
+   WHY IT LIVES IN THE RUNTIME AND NOT ON /start. The builder, the plan and
+   every component the slides show are here, and the installed app IS this
+   page loaded from the same origin. One journey, one set of screens, so the
+   website and the app cannot drift into two first impressions. /start and
+   /get now send a new visitor here rather than holding screens of their own.
+
+   WHO SEES IT. A device with no plan and an athlete with no history: nothing
+   built, nothing logged, no block on record. An existing athlete never does,
+   and that includes one signing in on a new phone: while their account is
+   still being asked, the journey waits rather than greeting them as new, and
+   a plan that arrives from the account (rather than from this journey's own
+   builder) ends it on the spot.
+
+   WHAT IT REMEMBERS, AND WHERE. Its own progress, on this device, under
+   JOURNEY_KEY: the step, the chosen purpose, the drives picked before a plan
+   existed, the trial period. Never synced: it is the state of a screen, not a
+   fact about the athlete. The facts it gathers go where facts go: the
+   purpose into the builder, the drives into state.setup.drives, the plan into
+   the plan. The magic-link and OAuth round trips leave the page and come
+   back, which is why the step is stored rather than held in memory: the same
+   reason /start banks its build in localStorage.
+   ========================================================= */
+var JOURNEY_KEY = 'vvv_journey';
+/* The order, said once. `wait` is not a step: it is the moment an account is
+   being asked whether it already has a plan. */
+var JOURNEY_STEPS = ['welcome', 'achieve', 'drives', 'slides', 'preview', 'account', 'trial', 'arrive', 'done'];
+/* Steps that come before the builder has made a plan. A plan that appears
+   while the journey is still on one of these did not come from it. */
+var JOURNEY_PRE_BUILD = ['welcome', 'achieve', 'drives'];
+/* What the athlete would love to achieve, and the builder purpose it sets.
+   The founder's four, in the founder's order. The line under each is the
+   builder's own blurb for that purpose (BUILDER_PURPOSE_META), so the two
+   screens cannot describe one purpose two ways. */
+var JOURNEY_ACHIEVE = [
+  { key:'race',      purpose:'race',     label:'Achieve a Race Goal', glyph:'flag' },
+  { key:'endurance', purpose:'base',     label:'Build My Endurance',  glyph:'mountain' },
+  { key:'faster',    purpose:'speed',    label:'Run Faster',          glyph:'zap' },
+  { key:'maintain',  purpose:'maintain', label:'Maintain My Fitness', glyph:'pulse' }
+];
+/* ---------- WHAT DRIVES THE ATHLETE ----------
+   Founder, 18 November 2026, choosing "Shape the coach": the answer is kept
+   with the athlete's setup, editable in Settings, and given to the coach as
+   context. Stable keys, because the keys are what is stored and synced and
+   what the server turns into its one sentence (api/_coach-memory-lines.js,
+   DRIVES); the labels are only what the athlete reads.
+   THESE NEVER TOUCH THE PLAN. Nothing in generation reads them, and
+   test/m8-onboarding.test.js builds the same plan with and without them. */
+var ATHLETE_DRIVES = [
+  { key:'prove_myself',    label:'Prove Something to Myself',       glyph:'trophy' },
+  { key:'personal_best',   label:'Achieve a Personal Best',         glyph:'trend' },
+  { key:'confidence',      label:'Become a More Confident Runner',  glyph:'person' },
+  { key:'health',          label:'Improve My Health and Wellbeing', glyph:'heart' },
+  { key:'limits',          label:'Challenge My Limits',             glyph:'summit' },
+  { key:'love_of_running', label:'Rediscover My Love of Running',   glyph:'smile' }
+];
+var ATHLETE_DRIVE_KEYS = ATHLETE_DRIVES.map(function(d){ return d.key; });
+/* Only known keys, each once, in the order the screen lists them. Anything
+   else (an old backup, a hand-edited file) is dropped rather than carried. */
+function sanitiseDrives(v){
+  if (!Array.isArray(v)) return [];
+  return ATHLETE_DRIVE_KEYS.filter(function(k){ return v.indexOf(k) !== -1; });
+}
+function athleteDrives(){
+  return sanitiseDrives(state && state.setup && state.setup.drives);
+}
+/* Carried across every place state.setup is rebuilt (the builder, a new
+   block, an adopted build): the previous setup's answer, or, on the very
+   first plan, the one the journey gathered before a setup existed. */
+function carryDrives(prev){
+  var had = prev && Array.isArray(prev.drives) ? sanitiseDrives(prev.drives) : null;
+  if (had) return had;
+  var r = journeyRead();
+  return r && Array.isArray(r.drives) ? sanitiseDrives(r.drives) : [];
+}
+/* The line in Settings: the athlete's own words, joined, or what the row is
+   for when nothing is chosen. */
+function drivesSummary(keys){
+  var picked = ATHLETE_DRIVES.filter(function(d){ return keys.indexOf(d.key) !== -1; })
+    .map(function(d){ return d.label; });
+  if (!picked.length) return 'Tell your coach what matters to you';
+  if (picked.length <= 2) return picked.join(', ');
+  return picked.slice(0, 2).join(', ') + ' and ' + (picked.length - 2) + ' more';
+}
+
+/* Stroke glyphs in the house shape (svgWrap: 24 grid, round caps), drawn for
+   the journey's option rows. Where the app already had the shape, it is the
+   app's own icon. */
+var JOURNEY_GLYPHS = {
+  flag:     svgWrap('<path d="M5.5 21V4"/><path d="M5.5 4.5h11l-2.2 4 2.2 4h-11"/>'),
+  mountain: svgWrap('<polyline points="2.5,19.5 9,8.5 13,14.5 15.5,11 21.5,19.5"/>'),
+  zap:      ICONS.zap,
+  pulse:    ICONS.pulse,
+  trophy:   svgWrap('<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5.5a3 3 0 0 0 3 4"/><path d="M16 6h2.5a3 3 0 0 1-3 4"/><path d="M12 13v4"/><path d="M8.5 20h7"/><path d="M12 17v3"/>'),
+  trend:    ICONS.trend,
+  person:   svgWrap('<circle cx="10" cy="8" r="3.5"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 9.5v6M16 12.5h6"/>'),
+  heart:    ICONS.heart,
+  summit:   svgWrap('<polyline points="2.5,20 9.5,10 12.5,14 14.5,11.5 21.5,20"/><path d="M14.5 11.5V4l4 1.6-4 1.6"/>'),
+  smile:    ICONS.smile,
+  back:     svgWrap('<line x1="19.5" y1="12" x2="5" y2="12"/><polyline points="11,6 5,12 11,18"/>'),
+  lock:     svgWrap('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+  mail:     svgWrap('<rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3.5,6 12,13 20.5,6"/>')
+};
+/* The two brand marks Apple and Google require on their own buttons. Filled
+   marks rather than house strokes, because the stores' guidelines say so and
+   these two are theirs, not ours. */
+var JOURNEY_BRAND_MARKS = {
+  apple: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.1 2.5-1.8 3.1-.5 7.6 1.3 10.1.8 1.2 1.8 2.6 3.1 2.5 1.3-.1 1.7-.8 3.3-.8 1.5 0 1.9.8 3.3.8 1.4 0 2.2-1.2 3-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-3.9zM14 5.2c.7-.8 1.1-2 1-3.2-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3.1 1.1.1 2.2-.6 2.9-1.4z"/></svg>',
+  google: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h5.9c-.3 1.4-1 2.5-2.2 3.3v2.7h3.6c2.1-1.9 3.3-4.8 3.3-8.1z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.1v2.8C3.9 20.6 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.8 14.2c-.2-.7-.4-1.4-.4-2.2s.1-1.5.4-2.2V7H2.1C1.4 8.5 1 10.2 1 12s.4 3.5 1.1 5l3.7-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2C17.5 2.1 15 1 12 1 7.7 1 3.9 3.4 2.1 7l3.7 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>'
+};
+
+/* ---------- THE RECORD ---------- */
+function journeyRead(){
+  var r = null;
+  try { r = readStored(JOURNEY_KEY); } catch(e){ r = null; }
+  return (r && typeof r === 'object' && JOURNEY_STEPS.indexOf(r.step) !== -1) ? r : null;
+}
+function journeyWrite(r){
+  try { writeStored(JOURNEY_KEY, r); } catch(e){}
+}
+/* The record, created on first use. Rendering never creates it: an athlete
+   who only looks at the Welcome has not started anything. */
+function journeyRec(){
+  return journeyRead() || { v:1, step:'welcome', purpose:null, drives:[], period:'yearly', slide:0 };
+}
+function journeySet(patch){
+  var r = journeyRec();
+  Object.keys(patch || {}).forEach(function(k){ r[k] = patch[k]; });
+  journeyWrite(r);
+  return r;
+}
+/* Nothing learned, nothing logged, nothing built. An athlete who reset their
+   plan keeps their history and is not new; nor is one whose account is
+   bringing a plan down right now. */
+function athleteIsNew(){
+  var a = state && state.athlete;
+  if (!a) return true;
+  return !((Array.isArray(a.blocks) && a.blocks.length) ||
+           (Array.isArray(a.sessions) && a.sessions.length) ||
+           (Array.isArray(a.performances) && a.performances.length));
+}
+/* An account is signed in on this device and has not yet said whether it
+   already has a plan. Until it answers, the journey waits rather than greet
+   somebody who may well be an existing member on a new phone. */
+function journeyAccountUnanswered(){
+  var signed = cloudSignedIn() || storedCloudSessionPresent();
+  if (!signed) return false;
+  return !(cloudStatus === 'synced' || cloudStatus === 'error' || cloudStatus === 'signed-out');
+}
+function journeyActive(){
+  var r = journeyRead();
+  if (r){
+    if (r.step === 'done') return false;
+    if (!r.built && planHasContent() && JOURNEY_PRE_BUILD.indexOf(r.step) !== -1){
+      /* The account brought a plan down: an existing member, not a new one. */
+      r.step = 'done'; r.endedBy = 'restored'; journeyWrite(r);
+      return false;
+    }
+    return true;
+  }
+  if (cloudPendingReconcile) return false;
+  if (planHasContent() || !athleteIsNew()) return false;
+  return true;
+}
+/* Which screen, with the two moves that are decided by facts rather than by
+   a tap: an athlete who is already signed in has no account to make, and one
+   whose subscription the server already reports has nothing left to start. */
+function journeyStep(){
+  var r = journeyRead();
+  var step = r ? r.step : 'welcome';
+  if (JOURNEY_PRE_BUILD.indexOf(step) !== -1 && journeyAccountUnanswered()) return 'wait';
+  if (step === 'slides' || step === 'preview' || step === 'account' || step === 'trial' || step === 'arrive'){
+    /* A screen about the plan with no plan under it (storage cleared, a
+       sign-out on a shared phone) starts again rather than drawing nothing. */
+    if (!planHasContent()) step = 'welcome';
+  }
+  if (step === 'account' && cloudSignedIn()) step = 'trial';
+  if (step === 'trial' && journeySubscribed()) step = 'arrive';
+  if (r && step !== r.step){ r.step = step; journeyWrite(r); }
+  return step;
+}
+/* The server says a real subscription stands behind this account: a trial or
+   a paid period, never a grant and never the beta gate being open. */
+function journeySubscribed(){
+  var i = (typeof entitlementInfo !== 'undefined') ? entitlementInfo : null;
+  return !!(i && i.signed_in && /^subscription_(trial|active|grace)$/.test(String(i.reason || '')));
+}
+function journeyGo(step, extra){
+  var patch = Object.assign({ step: step }, extra || {});
+  journeySet(patch);
+  renderApp();
+  try { window.scrollTo(0, 0); } catch(e){}
+}
+/* Leaving the page. One seam so a test can see where the journey sends the
+   athlete without a browser to send them in. */
+function journeyNavigate(url){
+  try { window.location.assign(url); return true; } catch(e){ return false; }
+}
+
+/* ---------- WHERE EACH BACK ARROW GOES ---------- */
+function journeyBack(){
+  var step = journeyStep();
+  var r = journeyRec();
+  if (step === 'achieve') return journeyGo('welcome');
+  if (step === 'drives') return journeyGo('achieve');
+  if (step === 'slides'){
+    if ((r.slide || 0) > 0) return journeySlideTo((r.slide || 0) - 1);
+    /* Before the first slide is the builder that made the plan, opened on
+       the answers it was built from. */
+    return journeyOpenBuilder();
+  }
+  if (step === 'preview') return journeyGo('slides', { slide: 2 });
+  if (step === 'account') return journeyGo('preview');
+  if (step === 'trial') return journeyGo(cloudSignedIn() ? 'preview' : 'account');
+  return false;
+}
+
+/* ---------- THE BUILDER, WITH THE PURPOSE ALREADY ANSWERED ----------
+   The achieve screen asked what the builder's Goal stage asks, so the builder
+   opens on that answer and steps over Goal both ways (handleBldNext and
+   handleBldBack). The summary still lists the purpose and still opens Goal
+   when it is tapped: skipping a question is not taking the answer away. */
+function journeyBuilderPurpose(){
+  if (!journeyActive()) return null;
+  var r = journeyRead();
+  var p = r && r.purpose;
+  return (p && isBlockPurpose(p) && p !== 'recovery') ? p : null;
+}
+function journeySkipsGoal(){
+  return !!journeyBuilderPurpose();
+}
+function journeyOpenBuilder(){
+  /* A builder parked earlier on a different purpose would reopen on the old
+     answer; the athlete has since chosen again on the achieve screen. */
+  try {
+    var want = journeyBuilderPurpose();
+    var parkedSel = bldParked && bldParked.querySelector ? bldParked.querySelector('#su-purpose') : null;
+    if (parkedSel && want && parkedSel.value !== want) bldParked = null;
+  } catch(e){}
+  openSetupModal();
+  return true;
+}
+/* Called by handleGeneratePlan() once a plan exists. The slides are next,
+   and they are drawn from this plan. */
+function journeyPlanBuilt(){
+  var r = journeyRead();
+  if (!r || r.step === 'done') return;
+  r.step = 'slides'; r.slide = 0; r.built = true;
+  journeyWrite(r);
+}
+
+/* ---------- THE SCREENS ---------- */
+function journeyHead(withBack, progress){
+  return '<div class="jr-head">'+
+    (withBack
+      ? '<button type="button" class="jr-back" data-action="journey-back" aria-label="Back">'+JOURNEY_GLYPHS.back+'</button>'
+      : '<span class="jr-back-space" aria-hidden="true"></span>')+
+    /* The top bar's own mark (.bm-name), not a second drawing of it. */
+    '<div class="bm-name jr-lockup" aria-label="SACORO"><span class="bm-dot" aria-hidden="true"></span>'+
+      '<span class="bm-word">SACORO</span><span class="bm-dot" aria-hidden="true"></span></div>'+
+    '<span class="jr-back-space" aria-hidden="true"></span>'+
+  '</div>'+
+  (progress != null
+    ? '<div class="jr-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+progress+'" aria-label="Your progress">'+
+        '<span style="width:'+progress+'%"></span></div>'
+    : '');
+}
+function journeyOptionRow(o, on, kind, sub){
+  return '<button type="button" class="jr-opt'+(on ? ' is-on' : '')+'" data-action="'+kind+'" data-key="'+o.key+'" '+
+      (kind !== 'journey-achieve' ? 'role="checkbox"' : 'role="radio"')+' aria-checked="'+(on ? 'true' : 'false')+'">'+
+    '<span class="jr-opt-glyph" aria-hidden="true">'+(JOURNEY_GLYPHS[o.glyph] || '')+'</span>'+
+    '<span class="jr-opt-text"><span class="jr-opt-name">'+escapeHtml(o.label)+'</span>'+
+      (sub ? '<span class="jr-opt-sub">'+escapeHtml(sub)+'</span>' : '')+'</span>'+
+    (kind !== 'journey-achieve'
+      ? '<span class="jr-opt-mark" aria-hidden="true">'+(on ? ICONS.check : '')+'</span>'
+      : '<span class="jr-opt-mark is-radio" aria-hidden="true">'+(on ? ICONS.check : '')+'</span>')+
+  '</button>';
+}
+function renderJourneyWait(){
+  return '<div class="jr jr-wait"><div class="jr-crest jr-crest-arrive" aria-hidden="true"></div>'+
+    '<p class="jr-quiet" role="status">One moment.</p></div>';
+}
+function renderJourneyWelcome(){
+  return '<div class="jr jr-welcome">'+
+    '<div class="jr-photo" role="img" aria-label="A SACORO runner mid-race"></div>'+
+    '<div class="jr-welcome-body">'+
+      '<div class="jr-crest" aria-hidden="true"></div>'+
+      '<h1 class="jr-title">Your Journey Starts Here</h1>'+
+      '<p class="jr-lede">Personalised training. Built around you.</p>'+
+      '<button type="button" class="btn btn-primary btn-block jr-cta" data-action="journey-start">Build My Plan</button>'+
+      /* A member already signed in has nothing to sign in to. */
+      (cloudConfigured() && !cloudSignedIn()
+        ? '<button type="button" class="btn btn-ghost btn-block jr-gold" data-action="journey-member">Existing Member</button>'
+        : '')+
+    '</div>'+
+  '</div>';
+}
+function renderJourneyAchieve(){
+  var r = journeyRec();
+  var rows = JOURNEY_ACHIEVE.map(function(o){
+    var meta = BUILDER_PURPOSE_META[o.purpose] || {};
+    return journeyOptionRow(o, r.purpose === o.purpose, 'journey-achieve', meta.blurb);
+  }).join('');
+  return '<div class="jr jr-page">'+journeyHead(true, 22)+
+    '<h1 class="jr-title">What Would You Love to Achieve?</h1>'+
+    '<p class="jr-lede">You set the destination. Together, we build the climb.</p>'+
+    '<div class="jr-opts" role="radiogroup" aria-label="What you would love to achieve">'+rows+'</div>'+
+    '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-achieve-next"'+
+      (r.purpose ? '' : ' disabled')+'>Continue</button></div>'+
+  '</div>';
+}
+/* At least one is asked for, and none is allowed: "Skip for Now" is quiet
+   and honest about what it does. Founder's brief left the choice open
+   ("allow none selected? decide"); a coach that is told nothing coaches
+   exactly as it did before, so a skip costs the athlete nothing but the
+   personalisation, and it can be answered later in Settings. */
+function renderJourneyDrives(){
+  var r = journeyRec();
+  var picked = sanitiseDrives(r.drives);
+  var rows = ATHLETE_DRIVES.map(function(o){
+    return journeyOptionRow(o, picked.indexOf(o.key) !== -1, 'journey-drive');
+  }).join('');
+  return '<div class="jr jr-page">'+journeyHead(true, 33)+
+    '<h1 class="jr-title">What Drives You?</h1>'+
+    '<p class="jr-lede">Understanding what matters to you helps us become a better coach.</p>'+
+    '<div class="jr-kicker">Select all that apply</div>'+
+    '<div class="jr-opts" role="group" aria-label="What drives you">'+rows+'</div>'+
+    '<div class="jr-foot">'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="journey-drives-next"'+
+        (picked.length ? '' : ' disabled')+'>Continue</button>'+
+      '<button type="button" class="jr-text-btn" data-action="journey-drives-skip">Skip for Now</button>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- THE THREE SLIDES, FROM THE PLAN JUST BUILT ----------
+   Founder: "rendered from the athlete's REAL just-built plan, using the app's
+   real components where possible". Each is the app's own renderer, called on
+   this athlete's plan: the Full Plan hero and phase slide, the session hero
+   and its first execution phase, and the Ask Coach panel. Static: what is
+   shown is a picture of the product, so every control in it is made inert
+   (journeyStill) rather than left to fire into a screen that is not there. */
+function journeyStill(html){
+  return String(html || '')
+    .replace(/\sdata-action="[^"]*"/g, '')
+    /* Only the live Ask Coach ids: an SVG's own gradient ids must survive, or
+       the ring the slide is showing would be drawn with no stroke. */
+    .replace(/\sid="ask-[^"]*"/g, '')
+    .replace(/<input\b/g, '<input tabindex="-1" disabled')
+    .replace(/<button\b/g, '<button tabindex="-1" disabled');
+}
+/* The first session in the plan with a hard part to it, and its warm-up. */
+function journeyFirstQualityDay(){
+  var days = (state.days || []).filter(function(d){ return d && d.type !== 'rest' && d.type !== 'race'; })
+    .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  return days.filter(function(d){ return isQualityType(d.type); })[0] || days[0] || null;
+}
+function journeySlideTraining(){
+  var hero = '', phase = '';
+  try { hero = renderWeekHeroBlock(1, true); } catch(e){ hero = ''; }
+  try {
+    var groups = planRailStops().filter(function(g){ return !g.race; });
+    var g = groups[0];
+    if (g) phase = '<div class="pp-rail jr-pp"><div class="pp-track">'+renderPhaseRail(g)+'</div></div>';
+  } catch(e2){ phase = ''; }
+  return '<div class="view-plan">'+hero+phase+'</div>';
+}
+function journeySlideSession(){
+  var dd = journeyFirstQualityDay();
+  if (!dd) return '';
+  var hero = '', warm = '';
+  try { hero = renderDayHeroBlock(dd, getDayTargets(dd)); } catch(e){ hero = ''; }
+  try {
+    var s = executionStrategyForDisplay(dd);
+    if (s && !s.suppressed && s.phases && s.phases.length) warm = renderStrategyPhase(s.phases[0]);
+  } catch(e2){ warm = ''; }
+  /* Inside the same .view-today .day.is-today .day-top it sits in on Today,
+     because that is the context the hero and the rail card are drawn for. */
+  warm = warm.replace('class="how-mod strat-phase"', 'class="how-mod strat-phase is-active"');
+  return '<div class="view-today jr-session"><div class="day is-today open type-'+escapeHtml(dd.type || 'easy')+'">'+
+    '<div class="day-top"><div class="day-main">'+hero+'</div></div>'+
+    (warm ? '<div class="how-table jr-warm"><div class="fuel-body ws-rail exec-rail">'+warm+'</div></div>' : '')+
+  '</div></div>';
+}
+function journeySlideCoach(){
+  var keep = askState;
+  var html = '';
+  try {
+    askState = { status:'open', heard:'', answer:'', message:'' };
+    html = renderAskPanel(journeyFirstQualityDay());
+  } catch(e){ html = ''; }
+  finally { askState = keep; }
+  return html;
+}
+var JOURNEY_SLIDES = [
+  { title:'Training Built Around You', say:'A programme shaped around your goal.', body:journeySlideTraining },
+  { title:'Know Every Session', say:'Understand the purpose behind every workout.', body:journeySlideSession },
+  { title:'Your Coach, Always Within Reach', say:'Ask questions. Understand your training.', body:journeySlideCoach }
+];
+function renderJourneySlides(){
+  var r = journeyRec();
+  var at = Math.max(0, Math.min(JOURNEY_SLIDES.length - 1, r.slide || 0));
+  var slides = JOURNEY_SLIDES.map(function(s, i){
+    var shot = '';
+    try { shot = s.body(); } catch(e){ shot = ''; }
+    return '<section class="jr-slide" data-slide="'+i+'" aria-roledescription="slide" aria-label="'+(i + 1)+' of '+JOURNEY_SLIDES.length+'">'+
+      '<div class="jr-device" aria-hidden="true" inert><div class="jr-screen">'+journeyStill(shot)+'</div></div>'+
+      '<h2 class="jr-slide-title">'+escapeHtml(s.title)+'</h2>'+
+      '<p class="jr-lede">'+escapeHtml(s.say)+'</p>'+
+    '</section>';
+  }).join('');
+  var dots = JOURNEY_SLIDES.map(function(s, i){
+    return '<button type="button" class="jr-dotbtn'+(i === at ? ' is-on' : '')+'" data-action="journey-slide" data-slide="'+i+'" '+
+      'aria-label="'+escapeHtml(s.title)+'"'+(i === at ? ' aria-current="true"' : '')+'></button>';
+  }).join('');
+  return '<div class="jr jr-page jr-slides-page">'+journeyHead(true, null)+
+    '<div class="jr-slides" id="jr-slides" data-hswipe="1" data-at="'+at+'">'+slides+'</div>'+
+    '<div class="jr-dots">'+dots+'</div>'+
+    '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-slides-next">Continue</button></div>'+
+  '</div>';
+}
+function journeySlideTo(i){
+  var n = Math.max(0, Math.min(JOURNEY_SLIDES.length - 1, i));
+  journeySet({ slide: n });
+  var el = (typeof document !== 'undefined' && document.getElementById) ? document.getElementById('jr-slides') : null;
+  if (el && el.scrollTo && el.clientWidth){
+    try { el.scrollTo({ left: n * el.clientWidth, behavior: 'smooth' }); } catch(e){ el.scrollLeft = n * el.clientWidth; }
+    journeySyncDots(n);
+    return true;
+  }
+  renderApp();
+  return true;
+}
+function journeySyncDots(n){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  Array.prototype.forEach.call(document.querySelectorAll('.jr-dotbtn'), function(b, k){
+    b.classList.toggle('is-on', k === n);
+    if (k === n) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+  });
+}
+/* The swipe is the browser's own scroll-snap; this only keeps the dots and
+   the stored position in step with wherever the thumb left it. */
+function journeyWire(){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  var el = document.getElementById('jr-slides');
+  if (!el || el.getAttribute('data-wired') === '1') return;
+  el.setAttribute('data-wired', '1');
+  var at = parseInt(el.getAttribute('data-at'), 10) || 0;
+  if (at && el.clientWidth) el.scrollLeft = at * el.clientWidth;
+  var t = null;
+  el.addEventListener('scroll', function(){
+    if (t) clearTimeout(t);
+    t = setTimeout(function(){
+      var n = el.clientWidth ? Math.round(el.scrollLeft / el.clientWidth) : 0;
+      journeySyncDots(n);
+      var r = journeyRead();
+      if (r && r.slide !== n){ r.slide = n; journeyWrite(r); }
+    }, 90);
+  }, { passive: true });
+}
+
+/* ---------- THE PROGRAMME PREVIEW ----------
+   The screen /start called "Here is your programme", moved to where the
+   founder put it and drawn from the plan itself rather than from a second
+   server-side build: the same five parts in the same order (the lede, the
+   three figures, how it is structured, the first week, the sessions that
+   shape it) and, for the paces, the app's own Pace Reference card. */
+var JOURNEY_DIST_NAME = { '5k':'5K', '10k':'10K', 'half':'half marathon', 'full':'marathon', 'ultra':'ultra' };
+function journeyPreviewFacts(){
+  var su = state.setup || {};
+  var days = state.days || [];
+  var runs = days.filter(function(d){ return d && d.type !== 'rest'; });
+  var totalKm = runs.reduce(function(t, d){ return t + (typeof d.km === 'number' ? d.km : 0); }, 0);
+  var weeks = su.planWeeks || totalWeeksInPlan() || 0;
+  var perWeek = (su.schedule && su.schedule.activeDays) ? su.schedule.activeDays.length : null;
+  var purpose = isBlockPurpose(su.purpose) ? su.purpose : 'race';
+  var seen = {}, key = [];
+  days.slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(d){
+    var t = d && d.type;
+    if (!t || t === 'rest' || t === 'easy' || seen[t]) return;
+    seen[t] = true;
+    key.push({ title: d.title || ((TYPE_META[t] || {}).label) || t, week: d.week || null });
+  });
+  var phases = [];
+  try {
+    planRailStops().filter(function(g){ return !g.race; }).forEach(function(g){
+      phases.push({ phase: g.phase, weeks: g.weeks.length });
+    });
+  } catch(e){ phases = []; }
+  var firstWeek = days.filter(function(d){ return d && d.week === 1; })
+    .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  return { purpose: purpose, distanceKey: su.distanceKey, weeks: weeks, perWeek: perWeek,
+           sessions: runs.length, totalKm: Math.round(totalKm), phases: phases,
+           firstWeek: firstWeek, keySessions: key.slice(0, 6) };
+}
+function journeyPreviewLede(f){
+  if (f.purpose === 'race'){
+    return 'A ' + f.weeks + '-week build to your ' + (JOURNEY_DIST_NAME[f.distanceKey] || 'goal') +
+      (f.perWeek ? ', on ' + f.perWeek + ' days a week.' : '.');
+  }
+  return blockPurposeLabel(f.purpose) + ': ' + f.weeks + ' weeks' + (f.perWeek ? ', on ' + f.perWeek + ' days a week.' : '.');
+}
+function journeyRow(l, r){
+  return '<div class="jr-row"><span>'+escapeHtml(l)+'</span><span class="jr-row-r">'+escapeHtml(r)+'</span></div>';
+}
+function renderJourneyPreview(){
+  var f = journeyPreviewFacts();
+  var figs = [[f.weeks, 'Weeks'], [f.sessions, 'Sessions'], [kmToDisplay(f.totalKm) + ' ' + displayUnit(), 'Total']]
+    .map(function(p){ return '<div class="jr-fig"><b class="font-mono">'+escapeHtml(String(p[0]))+'</b><span>'+p[1]+'</span></div>'; }).join('');
+  var phases = f.phases.length > 1 ? '<div class="jr-card"><h3 class="jr-card-k">How It Is Structured</h3>'+
+    f.phases.map(function(p){ return journeyRow(p.phase, p.weeks + (p.weeks === 1 ? ' week' : ' weeks')); }).join('')+'</div>' : '';
+  var week = '<div class="jr-card"><h3 class="jr-card-k">Your First Week</h3>'+
+    f.firstWeek.map(function(d){
+      var name = d.type === 'rest' ? 'Rest' : (d.title || ((TYPE_META[d.type] || {}).label) || 'Session');
+      return journeyRow(dow(d.date) + ': ' + name, d.type === 'rest' ? '' : (d.km ? fmtDist(d.km) : ''));
+    }).join('')+'</div>';
+  var key = f.keySessions.length ? '<div class="jr-card"><h3 class="jr-card-k">Sessions That Shape the Block</h3>'+
+    f.keySessions.map(function(s){ return journeyRow(s.title, s.week ? 'Week ' + s.week : ''); }).join('')+'</div>' : '';
+  var paces = '';
+  try { paces = renderCompactPaceReference(); } catch(e){ paces = ''; }
+  return '<div class="jr jr-page jr-preview">'+journeyHead(true, null)+
+    '<h1 class="jr-title">Here Is Your Programme</h1>'+
+    '<p class="jr-lede">'+escapeHtml(journeyPreviewLede(f))+'</p>'+
+    '<div class="jr-figs">'+figs+'</div>'+
+    phases+week+key+
+    (paces ? '<div class="jr-paces">'+paces+'</div>' : '')+
+    '<p class="jr-say">SACORO coaches this programme day by day: telling you what today is for, reading how it actually went, and adapting only when a real pattern appears.</p>'+
+    '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-preview-next">Continue</button></div>'+
+  '</div>';
+}
+
+/* ---------- MAKE IT YOURS ----------
+   Founder, 18 November 2026: "build all three, with Apple and Google HIDDEN
+   until configured." Email is the magic link the product already sends
+   (cloudSendMagicLink, /api/beta-signin). Apple and Google are Supabase OAuth,
+   started by the same route so the redirect target is still one the server
+   validated, and shown only when the server names them as switched on
+   (VVV_AUTH_PROVIDERS; see AUTH-AND-EMAIL.md for the owner's setup). Every
+   way in lands on the same insert into auth.users, so the beta allowlist
+   trigger refuses an uninvited Google account exactly as it refuses an
+   uninvited email address: nothing here opens signup. */
+var journeyProviders = { apple:false, google:false };
+var journeyProvidersAsked = false;
+function journeyAskProviders(){
+  if (journeyProvidersAsked) return;
+  journeyProvidersAsked = true;
+  try {
+    fetch('/api/beta-signin', { headers:{ 'accept':'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        var p = (d && d.providers) || {};
+        var next = { apple: p.apple === true, google: p.google === true };
+        if (next.apple !== journeyProviders.apple || next.google !== journeyProviders.google){
+          journeyProviders = next;
+          if (journeyActive() && journeyStep() === 'account') renderApp();
+        }
+      }).catch(function(){});
+  } catch(e){}
+}
+var journeyEmailOpen = false;
+var journeySentTo = '';
+function renderJourneyAccount(){
+  journeyAskProviders();
+  var legal = 'By continuing, you agree to our '+
+    '<a href="'+LEGAL_URLS.terms+'" data-action="open-external" data-href="'+LEGAL_URLS.terms+'">'+escapeHtml(legalTermsLabel())+'</a>'+
+    ' and acknowledge our '+
+    '<a href="'+LEGAL_URLS.privacy+'" data-action="open-external" data-href="'+LEGAL_URLS.privacy+'">Privacy Policy</a>.';
+  var body;
+  if (journeySentTo){
+    body = '<div class="jr-sent" role="status">'+
+        '<div class="jr-sent-k">Check Your Email</div>'+
+        '<p class="jr-say">We have sent a link to <b>'+escapeHtml(journeySentTo)+'</b>. Open it on this device and you will come straight back here, signed in, with your plan exactly as you left it.</p>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="journey-email-again">Use a Different Address</button>'+
+      '</div>';
+  } else {
+    body = '<div class="jr-ways">'+
+      (journeyProviders.apple
+        ? '<button type="button" class="btn btn-block jr-way jr-apple" data-action="journey-oauth" data-provider="apple">'+JOURNEY_BRAND_MARKS.apple+'Continue with Apple</button>' : '')+
+      (journeyProviders.google
+        ? '<button type="button" class="btn btn-block jr-way jr-google" data-action="journey-oauth" data-provider="google">'+JOURNEY_BRAND_MARKS.google+'Continue with Google</button>' : '')+
+      (journeyEmailOpen
+        ? '<div class="jr-email">'+
+            '<div class="field"><label for="jr-first">First Name</label>'+
+              '<input type="text" id="jr-first" autocomplete="given-name" maxlength="80" placeholder="First name" value="'+escapeHtml(athleteFirstName() || '')+'"></div>'+
+            '<div class="field"><label for="jr-email">Email</label>'+
+              '<input type="email" id="jr-email" autocomplete="email" inputmode="email" placeholder="you@example.com"></div>'+
+            '<button type="button" class="btn btn-primary btn-block" data-action="journey-email-send">Email Me a Link</button>'+
+            '<p class="jr-fine">No password. We email you a link; opening it on this device signs you in.</p>'+
+          '</div>'
+        : '<button type="button" class="btn btn-block jr-way jr-mailway" data-action="journey-email">'+JOURNEY_GLYPHS.mail+'Continue with Email</button>')+
+    '</div>';
+  }
+  return '<div class="jr jr-page jr-account">'+journeyHead(true, null)+
+    '<h1 class="jr-title jr-title-lg">Make It Yours.</h1>'+
+    '<p class="jr-lede">Create your account to save your personalised training plan.</p>'+
+    body+
+    '<p class="jr-member">Already a member? <button type="button" class="jr-inline" data-action="journey-member">Sign In</button></p>'+
+    '<p class="jr-fine jr-legal">'+legal+'</p>'+
+    '<p class="jr-lockline">'+JOURNEY_GLYPHS.lock+'<span>Your plan is ready. Your trial has not started.</span></p>'+
+  '</div>';
+}
+function handleJourneyEmailSend(){
+  var first = document.getElementById('jr-first');
+  var mail = document.getElementById('jr-email');
+  var name = first ? first.value : '';
+  var email = mail ? String(mail.value || '').trim() : '';
+  if (!sanitiseFirstName(name)){ showToast('Tell us what to call you'); if (first) first.focus(); return; }
+  if (!email || email.indexOf('@') < 1){ showToast('That does not look like an email address'); if (mail) mail.focus(); return; }
+  /* Banked before the link goes, for the reason /start banks it: the page is
+     left and loaded again through the link, and a name held only in an
+     input would not survive the round trip. */
+  setAthleteFirstName(name);
+  scheduleSave();
+  var btn = document.querySelector('[data-action="journey-email-send"]');
+  if (btn) btn.disabled = true;
+  cloudSendMagicLink(email).then(function(){
+    journeySentTo = email;
+    renderApp();
+  }).catch(function(err){
+    if (btn) btn.disabled = false;
+    showToast(signInErrorCopy((err && err.code) || 'default'));
+  });
+}
+/* Apple or Google: the server builds the GoTrue authorize address with a
+   redirect it has validated itself, and the browser goes there. The tokens
+   come back in the fragment on the web, and through the app's own scheme in
+   the installed app, exactly as a magic link's do, so the arrival is the
+   one cloudConsumeAuthHash() already handles. */
+function handleJourneyOAuth(provider){
+  if (provider !== 'apple' && provider !== 'google') return;
+  if (!journeyProviders[provider]){ showToast('That sign-in is not available yet. Continue with email'); return; }
+  fetch('/api/beta-signin', {
+    method:'POST', headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ provider: provider, redirect: authRedirectTarget() })
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){ return { ok:r.ok, b:b }; });
+  }).then(function(x){
+    if (x.ok && x.b && x.b.url){ journeyNavigate(x.b.url); return; }
+    showToast('That sign-in is not available just now. Continue with email');
+  }).catch(function(){ showToast(signInErrorCopy('offline')); });
+}
+
+/* ---------- THE SEVEN-DAY TRIAL ----------
+   THE NUMBERS HAVE ONE SOURCE. Every price, the trial length and the "save"
+   figure are read from GET /api/checkout, which is api/_products.js, the
+   catalogue checkout charges from and test/checkoutPricingPinned.test.js
+   pins. Nothing on this screen is typed: the annual saving and the monthly
+   equivalent are arithmetic on those two prices, done here, so a price
+   change moves every figure with it.
+
+   THE TWO TICKS ARE THE EXISTING EVIDENCE, NOT A NEW RECORD. Each tick posts
+   the same {action:'agree', surface:'checkout'} that /start and /account
+   post, the server writes the version in force, and /api/checkout still
+   refuses to open a session without both rows. The founder's two short
+   sentences are the labels; the full immediate-start wording the server
+   records against the tick is shown under it, so what was agreed and what
+   was read are the same words.
+
+   THE PAYMENT SEAM. One provider per platform (journeyPaymentProvider()):
+   the website is the web rail, the hosted checkout behind /api/checkout; an
+   installed app is the store rail, which does not exist yet. Under
+   STORE-COMMERCIAL-BOUNDARY.md the app sells nothing in-app and shows no web
+   price, so the store provider says so and the screen carries no prices,
+   no tickboxes and no checkout link. When a store rail is built it is this
+   provider's start() that changes, and nothing else on the screen. */
+var JOURNEY_PAYMENT = {
+  web: {
+    id: 'web', showsPrices: true, available: true,
+    start: function(period){
+      return cloudRefreshIfNeeded().then(function(fresh){
+        if (!fresh) return { ok:false, code:'not_signed_in' };
+        return fetch('/api/checkout', {
+          method:'POST',
+          headers:{ 'content-type':'application/json', 'Authorization':'Bearer '+cloudSession.access_token },
+          body: JSON.stringify({ period: period })
+        }).then(function(r){
+          return r.json().catch(function(){ return {}; }).then(function(b){
+            return (r.status === 200 && b && b.url) ? { ok:true, url:b.url } : { ok:false, code:(b && b.error) || 'failed' };
+          });
+        });
+      });
+    }
+  },
+  store: {
+    id: 'store', showsPrices: false, available: false,
+    start: function(){ return Promise.resolve({ ok:false, code:'store_unavailable' }); }
+  }
+};
+function journeyPaymentProvider(){
+  return isNativeApp() ? JOURNEY_PAYMENT.store : JOURNEY_PAYMENT.web;
+}
+var journeyOffer = null;          // GET /api/checkout, once
+var journeyOfferAsked = false;
+var journeyOfferFailed = false;
+var journeyAgreed = { terms:false, immediate_start:false };
+var journeyTrialNote = '';
+function journeyAskOffer(){
+  if (journeyOfferAsked) return;
+  journeyOfferAsked = true;
+  journeyOfferFailed = false;
+  try {
+    fetch('/api/checkout', { headers:{ 'accept':'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (d && d.catalogue && Array.isArray(d.catalogue.offers)){
+          journeyOffer = d;
+          if (d.agreements) legalUrlsFromView(d);
+        } else journeyOfferFailed = true;
+        if (journeyActive() && journeyStep() === 'trial') renderApp();
+      }).catch(function(){
+        journeyOfferFailed = true;
+        if (journeyActive() && journeyStep() === 'trial') renderApp();
+      });
+  } catch(e){ journeyOfferFailed = true; }
+}
+function journeyMoney(minor, currency){
+  var sym = currency === 'GBP' ? '£' : (currency ? currency + ' ' : '');
+  return sym + (minor / 100).toFixed(2);
+}
+/* Everything the screen says about money, worked out from the catalogue. */
+function journeyTrialFigures(cat){
+  if (!cat || !Array.isArray(cat.offers)) return null;
+  var m = cat.offers.filter(function(o){ return o.billingPeriod === 'monthly'; })[0];
+  var y = cat.offers.filter(function(o){ return o.billingPeriod === 'yearly'; })[0];
+  if (!m || !y) return null;
+  var days = cat.trialDays || m.trialDays || y.trialDays;
+  return {
+    trialDays: days,
+    chargeDay: days + 1,
+    monthly: { price: journeyMoney(m.priceMinor, m.currency), minor: m.priceMinor },
+    yearly: { price: journeyMoney(y.priceMinor, y.currency), minor: y.priceMinor,
+              perMonth: journeyMoney(Math.round(y.priceMinor / 12), y.currency),
+              savePct: Math.round((1 - y.priceMinor / (m.priceMinor * 12)) * 100) },
+    zero: journeyMoney(0, y.currency)
+  };
+}
+function renderJourneyTrial(){
+  var pay = journeyPaymentProvider();
+  var r = journeyRec();
+  var period = r.period === 'monthly' ? 'monthly' : 'yearly';
+  /* THE INSTALLED APP. No price, no tickbox, no way to a web checkout: the
+     store boundary forbids all three, and there is no store purchase yet. */
+  if (!pay.showsPrices){
+    return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+
+      '<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+      '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not available in the app yet. '+
+        'During the private beta SACORO is free to use, and nothing is charged.</p></div>'+
+      '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>'+
+    '</div>';
+  }
+  journeyAskOffer();
+  if (!journeyOffer){
+    return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+
+      '<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+      (journeyOfferFailed
+        ? '<p class="jr-say" role="alert">We could not load the plans just now. Nothing has been charged.</p>'+
+          '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-offer-retry">Try Again</button></div>'
+        : '<p class="jr-quiet" role="status">One moment.</p>')+
+    '</div>';
+  }
+  var f = journeyTrialFigures(journeyOffer.catalogue);
+  if (!f) return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+'<p class="jr-say">We could not load the plans just now.</p></div>';
+  var selling = journeyOffer.commerce_enabled === true;
+  var defs = journeyOffer.agreements || null;
+  var canAgree = selling && defs && defs.commercialLegalPublished !== false && defs.terms && defs.terms.url;
+  var planRow = function(p, name, price, per, extra, badge){
+    var on = period === p;
+    return '<button type="button" class="jr-plan'+(on ? ' is-on' : '')+'" data-action="journey-period" data-period="'+p+'" role="radio" aria-checked="'+(on ? 'true' : 'false')+'">'+
+      '<span class="jr-radio" aria-hidden="true"></span>'+
+      '<span class="jr-plan-text"><span class="jr-plan-name">'+name+'</span>'+
+        '<span class="jr-plan-price"><b class="font-mono">'+price+'</b> / '+per+'</span>'+
+        (extra ? '<span class="jr-plan-extra">'+extra+'</span>' : '')+'</span>'+
+      (badge ? '<span class="jr-badge">'+badge+'</span>' : '')+
+    '</button>';
+  };
+  var chosen = period === 'monthly' ? f.monthly : f.yearly;
+  var then = period === 'monthly' ? 'then monthly' : 'then annually';
+  var boxes = '';
+  if (canAgree){
+    boxes = '<div class="jr-agree">'+
+      '<label class="jr-check"><input type="checkbox" data-action="journey-agree" data-kind="terms"'+(journeyAgreed.terms ? ' checked' : '')+'>'+
+        '<span>I accept the <a href="'+defs.terms.url+'" data-action="open-external" data-href="'+defs.terms.url+'">Terms of Service</a> and acknowledge the '+
+        '<a href="'+defs.privacy.url+'" data-action="open-external" data-href="'+defs.privacy.url+'">Privacy Policy</a>.</span></label>'+
+      '<label class="jr-check"><input type="checkbox" data-action="journey-agree" data-kind="immediate_start"'+(journeyAgreed.immediate_start ? ' checked' : '')+'>'+
+        '<span>I agree to start access immediately.</span></label>'+
+      (defs.immediateStart && defs.immediateStart.text
+        ? '<p class="jr-fine jr-agree-say">'+escapeHtml(defs.immediateStart.text)+'</p>' : '')+
+    '</div>';
+  }
+  var ready = canAgree && journeyAgreed.terms && journeyAgreed.immediate_start;
+  return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+
+    '<h1 class="jr-title">Start Your '+f.trialDays+'-Day Free Trial</h1>'+
+    '<p class="jr-lede">Your training plan is ready.</p>'+
+    '<div class="jr-plans" role="radiogroup" aria-label="Choose a plan">'+
+      planRow('yearly', 'Annual', f.yearly.price, 'year', 'Equivalent to '+f.yearly.perMonth+' per month', 'Save '+f.yearly.savePct+'%')+
+      planRow('monthly', 'Monthly', f.monthly.price, 'month', '', '')+
+    '</div>'+
+    '<ol class="jr-timeline">'+
+      '<li><span class="jr-tl-dot is-now" aria-hidden="true"></span><span><b>Today:</b> <span class="font-mono">'+f.zero+'</span></span></li>'+
+      '<li><span class="jr-tl-dot" aria-hidden="true"></span><span><b>Day '+f.chargeDay+':</b> <span class="font-mono">'+chosen.price+'</span>, '+then+'</span></li>'+
+    '</ol>'+
+    '<p class="jr-say">Cancel before your trial ends to avoid being charged.</p>'+
+    (selling
+      ? boxes+
+        '<div class="jr-foot">'+
+          '<button type="button" class="btn btn-primary btn-block" data-action="journey-trial-start"'+(ready ? '' : ' disabled')+'>Start My Free Trial</button>'+
+          '<p class="jr-fine jr-centre">Continue to secure payment setup</p>'+
+        '</div>'
+      /* COMMERCE IS OFF: the prices are what it will cost, not an offer. No
+         tick is recorded, because there is nothing to agree to buy, and the
+         athlete goes on into the private beta. */
+      : '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not open yet. During the private beta SACORO is free to use, and nothing is charged.</p></div>'+
+        '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>')+
+    (journeyTrialNote ? '<p class="jr-error" role="alert">'+escapeHtml(journeyTrialNote)+'</p>' : '')+
+  '</div>';
+}
+/* Recorded on the tick, as /start and /account record it: the server writes
+   the version in force and the token's own athlete, so a tampered box buys
+   nothing. A tick that could not be recorded is unticked again. */
+function handleJourneyAgree(el){
+  var kind = el && el.getAttribute('data-kind');
+  if (kind !== 'terms' && kind !== 'immediate_start') return;
+  if (!el.checked){ journeyAgreed[kind] = false; renderApp(); return; }
+  el.disabled = true;
+  cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) throw { code:'not_signed_in' };
+    return fetch('/api/subscription', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'Authorization':'Bearer '+cloudSession.access_token },
+      body: JSON.stringify({ action:'agree', agreement:kind, decision:'accepted', surface:'checkout',
+                             decided_at: new Date().toISOString() })
+    });
+  }).then(function(r){
+    journeyAgreed[kind] = !!(r && r.status === 200);
+    journeyTrialNote = journeyAgreed[kind] ? '' : 'We could not record that just now. Nothing has changed. Please try again.';
+    renderApp();
+  }).catch(function(){
+    journeyAgreed[kind] = false;
+    journeyTrialNote = 'We could not reach SACORO. Check your connection and try again.';
+    renderApp();
+  });
+}
+var JOURNEY_CHECKOUT_COPY = {
+  commerce_disabled: 'Subscriptions are not open yet. Nothing has been charged.',
+  provider_not_configured: 'Subscriptions are not open yet. Nothing has been charged.',
+  live_key_without_commercial_flag: 'Subscriptions are not open yet. Nothing has been charged.',
+  already_subscribed_here: 'You already have a subscription on this account.',
+  already_subscribed_elsewhere: 'You already have a subscription on this account.',
+  terms_not_accepted: 'Please tick both boxes above before continuing.',
+  immediate_start_not_acknowledged: 'Please tick both boxes above before continuing.',
+  commercial_terms_not_published: 'Subscriptions are not open yet. Nothing has been charged.',
+  country_not_supported: 'A SACORO subscription is available in the United Kingdom only. Nothing has been charged.',
+  country_unavailable: 'We could not confirm where you are just now. Nothing has been charged.',
+  not_signed_in: 'Your session has ended. Sign in again to continue.',
+  store_unavailable: 'Subscriptions are not available in the app yet. Nothing has been charged.'
+};
+function handleJourneyTrialStart(){
+  var r = journeyRec();
+  var period = r.period === 'monthly' ? 'monthly' : 'yearly';
+  var btn = document.querySelector('[data-action="journey-trial-start"]');
+  if (btn) btn.disabled = true;
+  journeyTrialNote = '';
+  journeyPaymentProvider().start(period).then(function(res){
+    if (res && res.ok && res.url){ journeyNavigate(res.url); return; }
+    var code = (res && res.code) || '';
+    journeyTrialNote = JOURNEY_CHECKOUT_COPY[code] || 'We could not open the payment page. Nothing has been charged.';
+    /* Already subscribed: there is nothing to buy, and the journey goes on. */
+    if (code === 'already_subscribed_here' || code === 'already_subscribed_elsewhere'){
+      showToast(journeyTrialNote); journeyTrialNote = ''; journeyGo('arrive'); return;
+    }
+    renderApp();
+  }).catch(function(){
+    journeyTrialNote = 'We could not open the payment page. Nothing has been charged.';
+    renderApp();
+  });
+}
+
+/* ---------- WELCOME TO SACORO ---------- */
+function renderJourneyArrive(){
+  return '<div class="jr jr-arrive">'+
+    '<div class="jr-arrive-mid">'+
+      '<div class="jr-crest jr-crest-arrive" aria-hidden="true"></div>'+
+      '<div class="bm-name jr-lockup jr-lockup-lg" aria-hidden="true"><span class="bm-dot"></span><span class="bm-word">SACORO</span><span class="bm-dot"></span></div>'+
+      '<h1 class="jr-title">Welcome to SACORO</h1>'+
+      '<p class="jr-lines"><span>Your goal is set.</span><span>Your programme is ready.</span><span>Now the work begins.</span></p>'+
+      '<div class="jr-claim">Earn Your Place</div>'+
+    '</div>'+
+    '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-finish">Let’s Go</button></div>'+
+  '</div>';
+}
+/* THE LAST TWO STEPS DIFFER BY PLATFORM, AND ONLY THESE. On the website the
+   athlete is handed to /get, the existing Download the App / Continue in the
+   Browser page, which then opens Today. In the installed app they already
+   have the app, so they go straight to Today. */
+function journeyFinish(){
+  journeySet({ step:'done', finishedAt: new Date().toISOString() });
+  state.view = 'today';
+  try { persistState(); } catch(e){}
+  if (!isNativeApp() && journeyNavigate('/get?from=journey')) return;
+  renderApp();
+}
+
+function renderJourney(){
+  var step = journeyStep();
+  journeyLastStep = step;
+  if (step === 'wait') return renderJourneyWait();
+  if (step === 'achieve') return renderJourneyAchieve();
+  if (step === 'drives') return renderJourneyDrives();
+  if (step === 'slides') return renderJourneySlides();
+  if (step === 'preview') return renderJourneyPreview();
+  if (step === 'account') return renderJourneyAccount();
+  if (step === 'trial') return renderJourneyTrial();
+  if (step === 'arrive') return renderJourneyArrive();
+  return renderJourneyWelcome();
+}
+/* The journey's screen depends on two answers that arrive on their own: the
+   account saying whether it has a plan, and the server saying whether a
+   subscription stands. Both end in patchCloudCard(), which asks this. */
+var journeyLastStep = null;
+function journeyMaybeRefresh(){
+  try {
+    if (journeyLastStep && journeyActive() && journeyStep() !== journeyLastStep) renderApp();
+  } catch(e){}
+}
+
+/* ---------- THE ACTIONS ---------- */
+function handleJourneyAction(action, target){
+  var key = target && target.getAttribute ? target.getAttribute('data-key') : null;
+  switch(action){
+    case 'journey-start': return journeyGo('achieve');
+    case 'journey-member': return openSigninSheet();
+    case 'journey-back': return journeyBack();
+    case 'journey-achieve': {
+      var o = JOURNEY_ACHIEVE.filter(function(x){ return x.key === key; })[0];
+      if (o){ journeySet({ purpose: o.purpose }); renderApp(); }
+      return;
+    }
+    case 'journey-achieve-next':
+      if (journeyRec().purpose) journeyGo('drives');
+      return;
+    case 'journey-drive': {
+      var r = journeyRec();
+      var d = sanitiseDrives(r.drives);
+      if (ATHLETE_DRIVE_KEYS.indexOf(key) === -1) return;
+      d = d.indexOf(key) === -1 ? d.concat([key]) : d.filter(function(k){ return k !== key; });
+      journeySet({ drives: sanitiseDrives(d) });
+      renderApp();
+      return;
+    }
+    case 'journey-drives-skip':
+      journeySet({ drives: [] });
+      return journeyOpenBuilder();
+    case 'journey-drives-next':
+      journeySet({ step: 'drives' });
+      return journeyOpenBuilder();
+    case 'journey-slide':
+      return journeySlideTo(parseInt(target.getAttribute('data-slide'), 10) || 0);
+    case 'journey-slides-next': {
+      var at = journeyRec().slide || 0;
+      if (at < JOURNEY_SLIDES.length - 1) return journeySlideTo(at + 1);
+      return journeyGo('preview');
+    }
+    case 'journey-preview-next': return journeyGo(cloudSignedIn() ? 'trial' : 'account');
+    case 'journey-email': journeyEmailOpen = true; renderApp(); return;
+    case 'journey-email-again': journeySentTo = ''; journeyEmailOpen = true; renderApp(); return;
+    case 'journey-email-send': return handleJourneyEmailSend();
+    case 'journey-oauth': return handleJourneyOAuth(target.getAttribute('data-provider'));
+    case 'journey-period': {
+      var p = target.getAttribute('data-period');
+      if (p === 'monthly' || p === 'yearly'){ journeySet({ period: p }); renderApp(); }
+      return;
+    }
+    case 'journey-agree': return handleJourneyAgree(target);
+    case 'journey-offer-retry': journeyOfferAsked = false; journeyOffer = null; renderApp(); return;
+    case 'journey-trial-start': return handleJourneyTrialStart();
+    case 'journey-trial-continue': return journeyGo('arrive');
+    case 'journey-finish': return journeyFinish();
+  }
+}
+
+/* ---------- WHAT DRIVES YOU, IN SETTINGS ----------
+   A row beside Your Name, because it is about the athlete rather than the
+   plan, and a sheet with the same six rows the journey asked. Only drawn
+   with a plan: the answer is kept on that plan's setup and travels with it,
+   in backups and to the account, like every other setup field. */
+function renderDrivesRow(){
+  if (!state.setup) return '';
+  return stgRow({ id:'drives-row', title:'What Drives You',
+    sub: drivesSummary(athleteDrives()),
+    attrs:'data-action="open-stg-sheet" data-sheet="drives"' });
+}
+var drivesDraft = null;
+function drivesSheetBody(){
+  if (!drivesDraft) drivesDraft = athleteDrives();
+  return '<div class="stg-sheet-say">What matters to you shapes how your coach talks to you. It never changes your plan.</div>'+
+    '<div class="jr-opts jr-opts-sheet" role="group" aria-label="What drives you">'+
+      ATHLETE_DRIVES.map(function(o){ return journeyOptionRow(o, drivesDraft.indexOf(o.key) !== -1, 'drives-toggle'); }).join('')+
+    '</div>'+
+    '<div class="stg-sheet-acts"><button type="button" class="btn btn-primary btn-block" data-action="drives-save">Save</button></div>';
+}
+function handleDrivesToggle(key){
+  if (ATHLETE_DRIVE_KEYS.indexOf(key) === -1) return;
+  if (!drivesDraft) drivesDraft = athleteDrives();
+  drivesDraft = drivesDraft.indexOf(key) === -1 ? drivesDraft.concat([key]) : drivesDraft.filter(function(k){ return k !== key; });
+  drivesDraft = sanitiseDrives(drivesDraft);
+  openStgSheet('drives');
+}
+function handleDrivesSave(){
+  if (!state.setup){ closeStgSheet(); return; }
+  state.setup.drives = sanitiseDrives(drivesDraft || athleteDrives());
+  drivesDraft = null;
+  scheduleSave();
+  closeStgSheet();
+  renderApp();
+  showToast('Saved. Your coach will keep this in mind');
+}
+
 function renderMainContent(){
+  /* THE FIRST-TIME JOURNEY COMES FIRST (founder, 18 November 2026). It is
+     shown only to a device with no plan and an athlete with no history, or
+     to one part way through it; see journeyActive(). */
+  if (journeyActive()) return renderJourney();
   var appState = resolveAppState();
   if (shouldRenderLanding(appState)) return renderSignedOutLanding(appState);
   if (shouldShowProgrammeEntry(appState)) return renderProgrammeEntry();
@@ -86175,7 +87468,7 @@ function renderApp(){
      where a transition has genuinely just become true -- see
      contextInsightDue() and its suppression rules. Wrapped because an
      explanation failing must never take the app down with it. */
-  try { maybeOpenContextInsight(); } catch(e){}
+  try { if (!journeyActive()) maybeOpenContextInsight(); } catch(e){}
   /* The arrival is a full screen, so the bottom nav is withheld while it is
      up -- the same thing the signed-out landing's states already do via
      APP_STATES.nav. Tapping a tab behind a greeting would be navigating out
@@ -86185,7 +87478,11 @@ function renderApp(){
      charcoal bar with a hard edge across it -- a band of a different colour
      above an image that is supposed to be the first thing seen. It is one
      surface now, top to bottom. */
+  /* THE JOURNEY IS A WHOLE SCREEN TOO: its own header, no tabs, and none of
+     Today's sheets rising over a screen that is not Today. */
+  var inJourney = journeyActive();
   var arriving = shouldShowProgrammeEntry(resolveAppState());
+  if (inJourney) arriving = true;
   var navAllowed = appStateAllowsNav() && !arriving;
   /* The charcoal ground belongs to the Today design. Toggled per view so the
      rest of the product keeps --bg exactly as it is -- this pass is Today
@@ -86207,6 +87504,7 @@ function renderApp(){
   try { fitDialValues(); fitTabLabels(); fitZoneBars(); } catch(e){}
   wireCoachingRails();
   wireWeekDayPager();
+  try { journeyWire(); } catch(e){}
   try { maybeRaiseCheckinSheet(arriving); } catch(e){}
   try { maybeRaiseWeeklyReview(arriving); } catch(e){}
   try { maybeRaiseRecoveryCheck(arriving); } catch(e){}
@@ -88039,11 +89337,15 @@ document.addEventListener('click', function(e){
   if (!target) return;
   if (clickOwnedByDisclosure(e.target, target)) return;
   var action = target.getAttribute('data-action');
+  /* Every step of the first-time journey answers to one handler. */
+  if (action.indexOf('journey-') === 0){ handleJourneyAction(action, target); return; }
   switch(action){
     case 'landing-continue': handleLandingContinue(); break;
     case 'programme-entry-continue': handleProgrammeEntryContinue(); break;
     case 'programme-entry-name': handleProgrammeEntryName(); break;
     case 'set-athlete-name': handleSetAthleteName(); break;
+    case 'drives-toggle': handleDrivesToggle(target.getAttribute('data-key')); break;
+    case 'drives-save': handleDrivesSave(); break;
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'toggle-phase': handleTogglePhase(target.getAttribute('data-phase')); break;
     case 'phase-pick': handlePhasePick(target.getAttribute('data-phase')); break;

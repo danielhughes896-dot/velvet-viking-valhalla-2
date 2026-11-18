@@ -105,6 +105,12 @@ test('5. opening and closing a modal never touches the active tab', () => {
   assert.equal(a.state.view, 'week', 'and closing it returns to the same parent screen');
 });
 
+/* UPDATED (founder, 18 November 2026): onboarding for a brand-new athlete is
+   now the first-time journey, which opens on its Welcome ("Build My Plan" is
+   data-action="journey-start" and leads through Achieve and Drives to the
+   same builder). The rule this test exists for is unchanged: a no-plan
+   athlete gets onboarding whatever tab was saved. test 8 below still pins the
+   builder door for a no-plan athlete who is not new. */
 test('6. a no-plan athlete still gets onboarding, whatever tab was last saved', () => {
   const a = app(); // no buildPlan() -- no setup, no days
   a.showToast = () => {};
@@ -113,7 +119,7 @@ test('6. a no-plan athlete still gets onboarding, whatever tab was last saved', 
   const b = reopen(a);
   assert.ok(!b.state.setup, 'still no plan');
   const html = b.renderMainContent();
-  assert.match(html, /data-action="open-setup"/,
+  assert.match(html, /data-action="journey-start"/,
     'renderMainContent() must route on !state.setup, independent of the view value');
 });
 

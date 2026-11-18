@@ -46,6 +46,7 @@ absence is a deliberate off state, not a misconfiguration.
 | `VVV_COMMERCE_ENABLED` | no | **SWITCH.** Unset = checkout refuses with `commerce_disabled`. | **OFF** | you |
 | `VVV_COMMERCIAL_REQUIRED` | no | **SWITCH.** Unset = an ended subscription does not lock anybody out. Turning it on makes commerce load-bearing. | **OFF** | you |
 | `VVV_ACCOUNT_REQUIRED` | no | **SWITCH.** Whether an account is needed to reach the runtime. | as configured | you |
+| `VVV_AUTH_PROVIDERS` | no | **SWITCH.** Which OAuth sign-ins the first-time journey offers beside email: `apple`, `google` or `apple,google`. Unset = email only, and the Apple and Google buttons are not drawn. Set it only after the provider is configured; see AUTH-AND-EMAIL.md. | **OFF** | you |
 | `VVV_CHECKOUT_URL` | no | Legacy external checkout link, superseded by the Stripe path. | not needed | — |
 | `VVV_BILLING_WEBHOOK_SECRET` | **YES** | The provider-neutral webhook's HMAC secret, used by the non-Stripe path. Unset = 503. | optional | you |
 | `VVV_PRICE_APPLE_*`, `VVV_PRICE_GOOGLE_*` | no | Reserved. No adapter exists, so these do nothing today. | not needed | — |
