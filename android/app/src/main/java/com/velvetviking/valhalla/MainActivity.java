@@ -26,6 +26,10 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(VvvSpeechPlugin.class);
         registerPlugin(SacoroWidgetPlugin.class);   // the Today widget's link to the app
+        /* Google Play Billing. Registered in every build, used only by a Play
+           Store build: the web layer asks for it only when the build carries
+           the SACORO-Store-Build marker (see SacoroBillingPlugin). */
+        registerPlugin(SacoroBillingPlugin.class);
         super.onCreate(savedInstanceState);
         lockPhonesToPortrait();
         /* A tap on the 4x2 widget names the day to open; the web app asks

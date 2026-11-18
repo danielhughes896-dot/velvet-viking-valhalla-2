@@ -483,7 +483,9 @@ because they are properties of the core rather than of the adapter:
 | `api/_checkout.js` | checkout session creation, behind `VVV_COMMERCE_ENABLED`. The **only** purchase door |
 | `api/_subscription.js` | the athlete's own state, and what they may do to it: reconcile, cancel, reactivate |
 | `api/_billing-apply.js` | what a set of verified provider facts does to the core. ONE implementation, shared by the pushed route (webhook) and the pulled one (reconcile) |
-| `api/billing-webhook.js` | one door: verified Stripe event → core. Everything else refused |
+| `api/_google.js` | the Google Play adapter: service-account sign-in, subscriptionsv2 read, acknowledgement, state translation, Pub/Sub token verification (see `GOOGLE-PLAY-BILLING.md`) |
+| `api/_google-purchase.js` | a Play purchase from "may I buy" to the core: shared by the app's verify call and Google's notifications, ending in `_billing-apply.js` |
+| `api/billing-webhook.js` | one door: verified Stripe event → core; verified Google Play notification (`?rail=google`) → core. Everything else refused |
 | `supabase-commercial-core.sql` | schema, RLS, triggers, beta backfill, production hardening |
 | `test/commercialCore.test.js` | the core's own behaviour |
 | `test/commercialAuthority.test.js` | the convergence invariants: one ledger, one authority, provider-only grace, one trial counter |

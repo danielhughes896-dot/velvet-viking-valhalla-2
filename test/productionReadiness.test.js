@@ -43,12 +43,24 @@ test('live charging is not a credential being present', () => {
 });
 
 test('no store purchase flow exists for a rail that has not been approved', () => {
+  /* GOOGLE PLAY IS APPROVED (founder, 18 November 2026: implement Play Billing
+     so a Play build can sell the subscription). Its code lives in the Google
+     rail's own files and nowhere else -- the adapter, the admission path, the
+     athlete's verify action and the webhook branch. Apple is still not
+     approved, so StoreKit and App Store Server code appears nowhere at all. */
+  const GOOGLE_RAIL = ['_google.js', '_google-purchase.js', '_subscription.js', 'billing-webhook.js'];
   const api = fs.readdirSync(path.join(ROOT, 'api')).filter(f => f.endsWith('.js'));
   for (const f of api){
     const c = code(path.join('api', f));
-    assert.equal(/StoreKit|in_app_purchase|BillingClient|purchaseToken|appstoreconnect|androidpublisher/i.test(c),
-      false, 'api/' + f + ' contains store purchase code');
+    assert.equal(/StoreKit|in_app_purchase|appstoreconnect/i.test(c),
+      false, 'api/' + f + ' contains App Store purchase code, and that rail is not approved');
+    if (GOOGLE_RAIL.indexOf(f) === -1){
+      assert.equal(/BillingClient|purchaseToken|androidpublisher/i.test(c),
+        false, 'api/' + f + ' contains Google Play purchase code outside the Google rail');
+    }
   }
+  assert.match(code(path.join('api', '_google.js')), /const PROVIDER = 'google';/,
+    'the Play adapter writes the google rail, and only that');
   /* WHAT ACTUALLY STOPS AN APPLE PURCHASE, stated correctly rather than
      conveniently. The entitlement model does NOT refuse one: 'apple' is a
      legitimate rail and mayStartStandardPurchase() would allow it, which is the
@@ -367,12 +379,16 @@ test('the Android release document matches the manifest and the gradle build', (
      it for alarm-clock apps -- and a removal is not a request. */
   const perms = (manifest.match(/uses-permission android:name="([^"]+)"(?! tools:node="remove")/g) || [])
     .map(x => x.replace(/.*name="|"$/g, '')).sort();
+  /* Google Play Billing joined it (founder, 18 November 2026): the BILLING
+     permission the Play Billing Library also merges, stated in the manifest so
+     it is checkable in the source. */
   assert.deepEqual(perms, ['android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS',
-    'android.permission.RECEIVE_BOOT_COMPLETED', 'android.permission.RECORD_AUDIO', 'android.permission.WAKE_LOCK'],
+    'android.permission.RECEIVE_BOOT_COMPLETED', 'android.permission.RECORD_AUDIO', 'android.permission.WAKE_LOCK',
+    'com.android.vending.BILLING'],
     'the manifest permissions changed -- update ANDROID-RELEASE.md and this list together');
   assert.match(manifest, /<uses-permission android:name="android\.permission\.SCHEDULE_EXACT_ALARM" tools:node="remove" \/>/,
     'the exact-alarm permission Play restricts is no longer removed');
-  assert.match(doc, /`INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED` and `WAKE_LOCK`/,
+  assert.match(doc, /`INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK` and `com\.android\.vending\.BILLING`/,
     'the document no longer states the permissions the manifest asks for');
   assert.match(doc, /requested \*\*at runtime\*\*/, 'the document must say the microphone is runtime-requested');
   assert.match(doc, /on-device/, 'the document must state which recogniser is used');

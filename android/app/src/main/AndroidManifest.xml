@@ -209,4 +209,14 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+
+    <!--
+      GOOGLE PLAY BILLING, for the subscription sold in the Play Store build
+      (SacoroBillingPlugin). The Play Billing Library merges this permission
+      into the final manifest by itself; it is stated here as well so the
+      permission Play Console looks for before it will offer "Create
+      subscription" is checkable in the source rather than only in a build.
+      It is not a runtime permission and asks the athlete nothing.
+    -->
+    <uses-permission android:name="com.android.vending.BILLING" />
 </manifest>

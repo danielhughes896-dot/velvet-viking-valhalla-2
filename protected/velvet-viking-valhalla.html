@@ -33377,6 +33377,23 @@ function storeDistributedApp(){
 function websiteDistributedApp(){
   return isNativeApp() && !storeDistributedApp();
 }
+/* GOOGLE PLAY PURCHASES: THE PLAY STORE BUILD ON ANDROID, AND NOTHING ELSE.
+   Three things must all be true: a store build (the marker), Android (an
+   iOS shell is a store build too, and stays without in-app purchase), and
+   the SacoroBilling plugin present in the installed APK (a store build made
+   before the plugin existed has none). Anything less keeps today's
+   behaviour exactly: the website and the website-distributed APK use the web
+   checkout, every other store build says nothing is sold in
+   the app. NOT A SECURITY BOUNDARY either: what Play sells is verified by the
+   server from Google's own record (POST /api/subscription
+   {action:'google_verify'}). See GOOGLE-PLAY-BILLING.md. */
+function playStorePlugin(){ return nativePlugin('SacoroBilling'); }
+function playPurchasesAvailable(){
+  if (!storeDistributedApp()) return false;
+  if (nativePlatform() !== 'android') return false;
+  var p = playStorePlugin();
+  return !!(p && p.purchase && p.getProducts);
+}
 
 /* ---------- WHAT THE INSTALLED SHELL ACTUALLY IS ----------
    Asked once, at startup, and cached. App.getInfo() is a promise and the
@@ -35197,6 +35214,7 @@ function renderSubscriptionActions(info){
      gets the same buttons as the website, and both open in the phone's
      browser and come back into the app. */
   if (storeDistributedApp()){
+    if (playPurchasesAvailable()) return renderPlaySubscriptionActions(info);
     return '<div class="field-hint" style="margin-top:12px;">'+
       'Manage or cancel your subscription where you bought it. Your app store '+
       'account, or velvetviking.co.uk if you subscribed on the web.</div>';
@@ -87845,11 +87863,315 @@ var JOURNEY_PAYMENT = {
     id: 'app', showsPrices: true, available: true, returnsToApp: true,
     start: function(period){ return journeyWebCheckout(period, 'app'); }
   },
+  /* A STORE BUILD. On Android with the SacoroBilling plugin (the Play Store
+     build) this is Google Play's own purchase: Play's own prices, Play's purchase
+     sheet, and the server verifying the purchase with Google before anything
+     is unlocked. Everywhere else (iOS, or a store build without the plugin)
+     it is what it always was: nothing is sold in the app. */
   store: {
-    id: 'store', showsPrices: false, available: false,
-    start: function(){ return Promise.resolve({ ok:false, code:'store_unavailable' }); }
+    id: 'store',
+    get showsPrices(){ return playPurchasesAvailable(); },
+    get available(){ return playPurchasesAvailable(); },
+    start: function(period){
+      if (!playPurchasesAvailable()) return Promise.resolve({ ok:false, code:'store_unavailable' });
+      return playStart(period);
+    }
   }
 };
+
+/* ---------- GOOGLE PLAY PURCHASES (the Play Store build) ----------
+   WHAT THE SERVER DECIDES, AND WHAT PLAY DOES. Before anything is shown the
+   server is asked (POST /api/subscription {action:'google_prepare'}) which
+   Play product and base plans it sells, whether this athlete may buy, whether
+   they may have the free trial under SACORO's own one-trial-per-athlete rule,
+   and the opaque id the purchase must carry. Play is asked for the prices,
+   localised, and they are shown exactly as Play returns them: nothing here
+   is typed. The trial offer is passed to Play ONLY when the server says this
+   athlete is eligible and Play offers one; otherwise the base plan itself.
+   NOTHING IS UNLOCKED ON THE PHONE'S WORD. When Play reports a purchase, its
+   token goes to the server with the athlete's own access token
+   ({action:'google_verify'}); the server reads it back from Google, ties it
+   to this athlete, records it and acknowledges it. Then the gate is asked
+   again (establishDeliverySession), and the journey moves on when it sees
+   the trial or the subscription, as it does on the web rail.
+   A purchase the server has not yet confirmed (the app closed mid-purchase,
+   no signal) is found again on every start and resume and sent once more:
+   Google refunds a purchase nobody acknowledges within three days. */
+var playPrep, playProduct, playPrepAsked, playLoadFailed;
+var playPending, playListening, playBusy, playNote, playPeriod;
+var playRecoverAt, playRecovering;
+function playAuthedPost(body){
+  return cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) return { status: 401, body: { error: 'not_signed_in' } };
+    return fetch('/api/subscription', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'Authorization':'Bearer '+cloudSession.access_token },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(b){ return { status: r.status, body: b || {} }; });
+    });
+  });
+}
+function playFetchPrepare(){
+  return playAuthedPost({ action:'google_prepare' }).then(function(x){
+    return x.status === 200 && x.body && typeof x.body === 'object' ? x.body : null;
+  }).catch(function(){ return null; });
+}
+function playFetchProduct(productId){
+  var P = playStorePlugin();
+  if (!P || !productId) return Promise.resolve(null);
+  return Promise.resolve(P.getProducts({ productId: productId })).then(function(r){
+    return (r && r.found && Array.isArray(r.basePlans)) ? r : null;
+  }).catch(function(){ return null; });
+}
+/* What the screens draw from: asked once, redrawn when it arrives. */
+function playEnsureLoaded(){
+  if (playPrepAsked) return;
+  playPrepAsked = true;
+  playLoadFailed = false;
+  playFetchPrepare().then(function(prep){
+    playPrep = prep;
+    if (!prep){ playLoadFailed = true; return null; }
+    if (!prep.provider_configured || !prep.product_id) return null;
+    return playFetchProduct(prep.product_id).then(function(p){ playProduct = p; });
+  }).catch(function(){ playLoadFailed = true; }).then(function(){ try{ renderApp(); }catch(e){} });
+}
+function playReset(){ playPrep = null; playProduct = null; playPrepAsked = false; playLoadFailed = false; }
+function playPlanFor(product, basePlanId){
+  var plans = (product && product.basePlans) || [];
+  for (var i = 0; i < plans.length; i++) if (plans[i] && plans[i].basePlanId === basePlanId) return plans[i];
+  return null;
+}
+/* THE OFFER PASSED TO PLAY. The free trial only when SACORO's rule allows
+   it (the server's trial_eligible) AND Play offers one (Play leaves out a
+   trial this Google account has already had); otherwise the base plan's own
+   offer, which has no trial. */
+function playChooseOffer(plan, trialEligible){
+  var offers = (plan && plan.offers) || [];
+  var trial = null, base = null;
+  offers.forEach(function(o){
+    if (!o || !o.offerToken) return;
+    if (!o.offerId){ if (!base) base = o; }
+    else if (o.freeTrial && !trial) trial = o;
+  });
+  return (trialEligible && trial) ? trial : base;
+}
+function playMoney(micros, currency){
+  try { return new Intl.NumberFormat(undefined, { style:'currency', currency: currency }).format(micros / 1e6); }
+  catch(e){ return null; }
+}
+/* Monthly and Annual as Play prices them, or null when Play does not sell
+   both (products not created yet, or not available to this account). */
+function playFigures(prep, product){
+  if (!prep || !product || !prep.base_plans) return null;
+  var out = {};
+  var ok = ['monthly', 'yearly'].every(function(period){
+    var plan = playPlanFor(product, prep.base_plans[period]);
+    var base = playChooseOffer(plan, false);
+    if (!base || !base.formattedPrice) return false;
+    var chosen = playChooseOffer(plan, !!prep.trial_eligible);
+    out[period] = { price: base.formattedPrice, micros: Number(base.priceMicros) || 0, currency: base.currency,
+                    trial: !!(chosen && chosen.offerId && chosen.freeTrial) };
+    return true;
+  });
+  if (!ok) return null;
+  var m = out.monthly, y = out.yearly;
+  if (m.currency && m.currency === y.currency && m.micros > 0 && y.micros > 0){
+    y.perMonth = playMoney(y.micros / 12, y.currency);
+    y.savePct = Math.round((1 - y.micros / (m.micros * 12)) * 100);
+  }
+  out.zero = playMoney(0, y.currency) || '0';
+  out.trialDays = prep.trial_days || TRIAL_DAYS_SHOWN;
+  return out;
+}
+/* The server's answer about a Play purchase token. */
+function playVerify(purchase){
+  var p = purchase || {};
+  return playAuthedPost({ action:'google_verify', purchaseToken: p.purchaseToken,
+                          productId: (p.productIds && p.productIds[0]) || null })
+    .then(function(x){
+      if (x.status === 200) return { ok:true };
+      return { ok:false, code: (x.body && x.body.error) || (x.status >= 500 ? 'play_verify_later' : 'play_error') };
+    }).catch(function(){ return { ok:false, code:'play_verify_later' }; });
+}
+/* Verified: the gate is asked again, which is what moves the journey on and
+   redraws Settings. */
+function playAfterVerify(res){
+  if (!res || !res.ok) return Promise.resolve(res);
+  lastEntitlementAt = 0;
+  return establishDeliverySession().then(function(body){
+    var trial = !!(body && /^subscription_trial$/.test(String(body.reason || '')));
+    return { ok:true, verified:true, trial: trial };
+  }, function(){ return { ok:true, verified:true, trial:false }; });
+}
+function playOnPurchaseUpdated(ev){
+  var waiting = playPending;
+  playPending = null;
+  var e = ev || {};
+  var done;
+  if (e.status === 'purchased' && e.purchase && e.purchase.purchaseToken){
+    done = playVerify(e.purchase).then(playAfterVerify);
+  } else {
+    var code = e.status === 'cancelled' ? 'play_cancelled'
+             : e.status === 'pending' ? 'play_pending'
+             : e.status === 'already_owned' ? 'play_already_owned' : 'play_error';
+    done = Promise.resolve({ ok:false, code: code });
+  }
+  return done.then(function(res){
+    if (waiting) return waiting(res);
+    /* A purchase that finished while nothing was waiting (the app reloaded
+       under Play's sheet): say so, and redraw. */
+    if (res && res.verified) showToast(res.trial ? 'Your free trial has started' : 'Your subscription has started');
+    try{ renderApp(); }catch(err){}
+  });
+}
+function playListen(){
+  if (playListening) return;
+  var P = playStorePlugin();
+  if (!P || !P.addListener) return;
+  playListening = true;
+  try { P.addListener('purchaseUpdated', playOnPurchaseUpdated); } catch(e){ playListening = false; }
+}
+/* ONE PURCHASE, START TO FINISH: a fresh answer from the server, Play's
+   sheet, then the server's verification. Resolves { ok, verified, trial } or
+   { ok:false, code }. */
+function playStart(period){
+  var P = playStorePlugin();
+  if (!P) return Promise.resolve({ ok:false, code:'store_unavailable' });
+  if (period !== 'monthly' && period !== 'yearly') period = 'yearly';
+  return playFetchPrepare().then(function(prep){
+    if (!prep) return { ok:false, code:'play_unreachable' };
+    playPrep = prep;
+    if (!prep.purchase_allowed) return { ok:false, code: prep.reason || 'store_unavailable' };
+    return playFetchProduct(prep.product_id).then(function(product){
+      if (product) playProduct = product;
+      var offer = playChooseOffer(playPlanFor(product, prep.base_plans && prep.base_plans[period]), !!prep.trial_eligible);
+      if (!offer || !prep.obfuscated_account_id) return { ok:false, code:'store_unavailable' };
+      playListen();
+      return new Promise(function(resolve){
+        playPending = resolve;
+        Promise.resolve(P.purchase({ productId: prep.product_id, basePlanId: offer.basePlanId,
+                                     offerToken: offer.offerToken, obfuscatedAccountId: prep.obfuscated_account_id }))
+          .catch(function(err){
+            if (playPending !== resolve) return;
+            playPending = null;
+            resolve({ ok:false, code: (err && err.code === 'user_cancelled') ? 'play_cancelled' : 'play_error' });
+          });
+      });
+    });
+  });
+}
+/* RECOVERY. Any purchase Play holds that the server has not acknowledged is
+   sent to the server again: on start, and on every return to the front (at
+   most once a minute). Already-acknowledged purchases are the server's
+   already and are left alone. */
+function playRecoverPurchases(force){
+  if (!playPurchasesAvailable() || !cloudSignedIn() || playRecovering) return Promise.resolve(0);
+  if (!force && playRecoverAt && Date.now() - playRecoverAt < 60000) return Promise.resolve(0);
+  var P = playStorePlugin();
+  if (!P || !P.queryActivePurchases) return Promise.resolve(0);
+  playRecovering = true;
+  playRecoverAt = Date.now();
+  var verified = 0;
+  return Promise.resolve(P.queryActivePurchases()).then(function(r){
+    var list = ((r && r.purchases) || []).filter(function(p){
+      return p && p.purchaseToken && p.purchaseState === 'purchased' && !p.isAcknowledged;
+    });
+    return list.reduce(function(chain, p){
+      return chain.then(function(){ return playVerify(p).then(function(x){ if (x && x.ok) verified++; }); });
+    }, Promise.resolve());
+  }).catch(function(){}).then(function(){
+    playRecovering = false;
+    if (!verified) return 0;
+    return playAfterVerify({ ok:true }).then(function(){ try{ renderApp(); }catch(e){} return verified; });
+  });
+}
+/* What a refused or interrupted Play purchase says. Short, plain, and
+   always whether anything was charged where that is known. */
+var PLAY_COPY = {
+  play_cancelled: 'Purchase cancelled. Nothing has been charged.',
+  play_pending: 'Your payment is pending with Google Play. SACORO opens as soon as it is confirmed.',
+  play_error: 'Google Play could not complete the purchase. Nothing has been charged.',
+  play_unreachable: 'We could not reach SACORO. Check your connection and try again.',
+  play_verify_later: 'Your purchase is being confirmed. SACORO finishes this the next time it opens.',
+  play_already_owned: 'This Google account already has a SACORO subscription.',
+  trial_already_used: 'This account has already had its free trial. Nothing has been charged.',
+  not_your_purchase: 'That Google Play purchase belongs to a different SACORO account.'
+};
+function playCopy(code){
+  return PLAY_COPY[code] || JOURNEY_CHECKOUT_COPY[code] || PLAY_COPY.play_error;
+}
+
+/* SETTINGS, IN THE PLAY STORE BUILD. Managed in Google Play when the
+   subscription is a Play one; elsewhere, where it was bought; and when there
+   is nothing yet, the two plans at Play's prices. */
+function renderPlaySubscriptionActions(info){
+  if (info.management_provider === 'google'){
+    return '<button type="button" class="btn btn-ghost btn-block" style="margin-top:8px;" '+
+      'data-action="play-manage">'+ICONS.settings+' Manage in Google Play</button>';
+  }
+  if (info.management_provider){
+    return '<div class="field-hint" style="margin-top:12px;">'+
+      'Manage or cancel your subscription where you bought it. Your app store '+
+      'account, or velvetviking.co.uk if you subscribed on the web.</div>';
+  }
+  if (!subscriptionNeedsPurchase(info)) return '';
+  playEnsureLoaded();
+  if (!playPrep && !playLoadFailed) return '<div class="field-hint" style="margin-top:12px;" role="status">One moment.</div>';
+  var f = playFigures(playPrep, playProduct);
+  if (!playPrep || !playPrep.commerce_enabled || !f){
+    return '<div class="field-hint" style="margin-top:12px;">Subscriptions are not available in the app yet.</div>';
+  }
+  var period = playPeriod === 'monthly' ? 'monthly' : 'yearly';
+  var row = function(p, name, price, per){
+    var on = period === p;
+    return '<button type="button" class="jr-plan'+(on ? ' is-on' : '')+'" data-action="play-period" data-period="'+p+'" role="radio" aria-checked="'+(on ? 'true' : 'false')+'">'+
+      '<span class="jr-radio" aria-hidden="true"></span>'+
+      '<span class="jr-plan-text"><span class="jr-plan-name">'+name+'</span>'+
+        '<span class="jr-plan-price"><b class="font-mono">'+escapeHtml(price)+'</b> / '+per+'</span></span>'+
+    '</button>';
+  };
+  var trial = f[period].trial;
+  var defs = playPrep.agreements || null;
+  var boxes = journeyAgreeBoxes(defs);
+  var ready = !boxes || (journeyAgreed.terms && journeyAgreed.immediate_start);
+  return '<div class="jr-plans" role="radiogroup" aria-label="Choose a plan" style="margin-top:12px;">'+
+      row('yearly', 'Annual', f.yearly.price, 'year')+row('monthly', 'Monthly', f.monthly.price, 'month')+
+    '</div>'+
+    boxes+
+    '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="play-start"'+
+      ((ready && !playBusy) ? '' : ' disabled')+'>'+(trial ? 'Start My Free Trial' : 'Subscribe')+'</button>'+
+    '<div class="field-hint" style="margin-top:8px;">Payment is handled by Google Play.</div>'+
+    (playNote ? '<div class="field-hint" role="alert" style="margin-top:8px;">'+escapeHtml(playNote)+'</div>' : '');
+}
+function handlePlayStart(){
+  if (playBusy) return;
+  playBusy = true;
+  playNote = '';
+  try{ renderApp(); }catch(e){}
+  playStart(playPeriod === 'monthly' ? 'monthly' : 'yearly').then(function(res){
+    playBusy = false;
+    if (res && res.verified){
+      showToast(res.trial ? 'Your free trial has started' : 'Your subscription has started');
+    } else {
+      var code = (res && res.code) || 'play_error';
+      if (code === 'play_already_owned') playRecoverPurchases(true);
+      playNote = playCopy(code);
+    }
+    try{ renderApp(); }catch(e){}
+  }, function(){
+    playBusy = false;
+    playNote = playCopy('play_error');
+    try{ renderApp(); }catch(e){}
+  });
+}
+function handlePlayManage(){
+  var P = playStorePlugin();
+  if (!P || !P.openManageSubscription){ showToast('Open Google Play to manage your subscription'); return; }
+  var productId = (playPrep && playPrep.product_id) || undefined;
+  Promise.resolve(P.openManageSubscription(productId ? { productId: productId } : {}))
+    .catch(function(){ showToast('Open Google Play to manage your subscription'); });
+}
 function journeyPaymentProvider(){
   if (!isNativeApp()) return JOURNEY_PAYMENT.web;
   return storeDistributedApp() ? JOURNEY_PAYMENT.store : JOURNEY_PAYMENT.app;
@@ -87915,23 +88237,114 @@ function journeyRefusedNote(sentence){
   return '<div class="jr-card jr-note-card"><p class="jr-say">'+sentence+' Nothing has been charged.</p></div>'+
     '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-account-page">See Your Account</button></div>';
 }
+/* NOTHING SOLD IN THE APP. No price, no tickbox, no way to a web checkout:
+   the store boundary forbids all three where there is no store purchase. */
+function renderJourneyTrialUnavailable(refused){
+  return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+
+    '<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+    (refused
+      ? journeyRefusedNote('Subscriptions are not available in the app yet.')
+      : '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not available in the app yet. '+
+          journeyFreeSentence()+'</p></div>'+
+        '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>')+
+  '</div>';
+}
+/* THE TWO EXISTING AGREEMENT TICKS, shared by the web rail's trial screen
+   and the Play Store build's (journey and Settings). The same labels, the same
+   {action:'agree', surface:'checkout'} record on the tick, and the server's
+   own wording shown under the second. Empty when there is nothing published to
+   agree to. */
+function journeyAgreeBoxes(defs){
+  if (!(defs && defs.commercialLegalPublished !== false && defs.terms && defs.terms.url)) return '';
+  return '<div class="jr-agree">'+
+    '<label class="jr-check"><input type="checkbox" data-action="journey-agree" data-kind="terms"'+(journeyAgreed.terms ? ' checked' : '')+'>'+
+      '<span>I accept the <a href="'+defs.terms.url+'" data-action="open-external" data-href="'+defs.terms.url+'">Terms of Service</a> and acknowledge the '+
+      '<a href="'+defs.privacy.url+'" data-action="open-external" data-href="'+defs.privacy.url+'">Privacy Policy</a>.</span></label>'+
+    '<label class="jr-check"><input type="checkbox" data-action="journey-agree" data-kind="immediate_start"'+(journeyAgreed.immediate_start ? ' checked' : '')+'>'+
+      '<span>I agree to start access immediately.</span></label>'+
+    (defs.immediateStart && defs.immediateStart.text
+      ? '<p class="jr-fine jr-agree-say">'+escapeHtml(defs.immediateStart.text)+'</p>' : '')+
+  '</div>';
+}
+/* THE PLAY STORE BUILD'S TRIAL SCREEN. The web screen's shape (two plans, the
+   timeline, the two ticks, one button), with Play's own localised prices and
+   the trial shown only when the server says this athlete may have one and
+   Play offers it. */
+function renderJourneyTrialPlay(period, refused){
+  playEnsureLoaded();
+  var open = '<div class="jr jr-page jr-trial">'+journeyHead(true, null);
+  if (!playPrep && !playLoadFailed){
+    return open+'<h1 class="jr-title">Your Training Plan Is Ready</h1><p class="jr-quiet" role="status">One moment.</p></div>';
+  }
+  if (!playPrep){
+    return open+'<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+      '<p class="jr-say" role="alert">We could not load the plans just now. Nothing has been charged.</p>'+
+      '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-offer-retry">Try Again</button></div></div>';
+  }
+  var prep = playPrep;
+  if (!prep.commerce_enabled){
+    return open+'<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+      (refused
+        ? journeyRefusedNote('Subscriptions are not open yet.')
+        : '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not open yet. '+journeyFreeSentence()+'</p></div>'+
+          '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>')+'</div>';
+  }
+  if (prep.reason === 'already_subscribed_here' || prep.reason === 'already_subscribed_elsewhere'){
+    return open+'<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+      '<div class="jr-card jr-note-card"><p class="jr-say">'+JOURNEY_CHECKOUT_COPY.already_subscribed_here+'</p></div>'+
+      '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div></div>';
+  }
+  var f = playFigures(prep, playProduct);
+  if (!prep.provider_configured || !f) return renderJourneyTrialUnavailable(refused);
+  var chosen = period === 'monthly' ? f.monthly : f.yearly;
+  var trial = chosen.trial;
+  var then = period === 'monthly' ? 'then monthly' : 'then annually';
+  var planRow = function(p, name, price, per, extra, badge){
+    var on = period === p;
+    return '<button type="button" class="jr-plan'+(on ? ' is-on' : '')+'" data-action="journey-period" data-period="'+p+'" role="radio" aria-checked="'+(on ? 'true' : 'false')+'">'+
+      '<span class="jr-radio" aria-hidden="true"></span>'+
+      '<span class="jr-plan-text"><span class="jr-plan-name">'+name+'</span>'+
+        '<span class="jr-plan-price"><b class="font-mono">'+escapeHtml(price)+'</b> / '+per+'</span>'+
+        (extra ? '<span class="jr-plan-extra">'+escapeHtml(extra)+'</span>' : '')+'</span>'+
+      (badge ? '<span class="jr-badge">'+badge+'</span>' : '')+
+    '</button>';
+  };
+  var boxes = journeyAgreeBoxes(prep.agreements || null);
+  var ready = !!boxes && journeyAgreed.terms && journeyAgreed.immediate_start;
+  return open+
+    '<h1 class="jr-title">'+(trial ? 'Start Your '+f.trialDays+'-Day Free Trial' : 'Your Training Plan Is Ready')+'</h1>'+
+    (trial ? '<p class="jr-lede">Your training plan is ready.</p>' : '')+
+    '<div class="jr-plans" role="radiogroup" aria-label="Choose a plan">'+
+      planRow('yearly', 'Annual', f.yearly.price, 'year', f.yearly.perMonth ? 'Equivalent to '+f.yearly.perMonth+' per month' : '',
+              f.yearly.savePct > 0 ? 'Save '+f.yearly.savePct+'%' : '')+
+      planRow('monthly', 'Monthly', f.monthly.price, 'month', '', '')+
+    '</div>'+
+    '<ol class="jr-timeline">'+
+      (trial
+        ? '<li><span class="jr-tl-dot is-now" aria-hidden="true"></span><span><b>Today:</b> <span class="font-mono">'+escapeHtml(f.zero)+'</span></span></li>'+
+          '<li><span class="jr-tl-dot" aria-hidden="true"></span><span><b>Day '+(f.trialDays + 1)+':</b> <span class="font-mono">'+escapeHtml(chosen.price)+'</span>, '+then+'</span></li>'
+        : '<li><span class="jr-tl-dot is-now" aria-hidden="true"></span><span><b>Today:</b> <span class="font-mono">'+escapeHtml(chosen.price)+'</span>, '+then+'</span></li>')+
+    '</ol>'+
+    (trial ? '<p class="jr-say">Cancel before your trial ends to avoid being charged.</p>' : '')+
+    boxes+
+    '<div class="jr-foot">'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="journey-trial-start"'+(ready ? '' : ' disabled')+'>'+
+        (trial ? 'Start My Free Trial' : 'Subscribe')+'</button>'+
+      '<p class="jr-fine jr-centre">Payment is handled by Google Play.</p>'+
+    '</div>'+
+    (journeyTrialNote ? '<p class="jr-error" role="alert">'+escapeHtml(journeyTrialNote)+'</p>' : '')+
+  '</div>';
+}
 function renderJourneyTrial(){
   var pay = journeyPaymentProvider();
   var r = journeyRec();
   var period = r.period === 'monthly' ? 'monthly' : 'yearly';
   var refused = JOURNEY_ONLY_MODE && journeyOnlyRefused;
-  /* THE INSTALLED APP. No price, no tickbox, no way to a web checkout: the
-     store boundary forbids all three, and there is no store purchase yet. */
-  if (!pay.showsPrices){
-    return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+
-      '<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
-      (refused
-        ? journeyRefusedNote('Subscriptions are not available in the app yet.')
-        : '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not available in the app yet. '+
-            journeyFreeSentence()+'</p></div>'+
-          '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>')+
-    '</div>';
-  }
+  /* THE PLAY STORE BUILD: Google Play purchases (see playStart). */
+  if (pay.id === 'store' && pay.showsPrices) return renderJourneyTrialPlay(period, refused);
+  /* THE INSTALLED STORE APP WITHOUT A STORE PURCHASE (iOS, or a store build
+     without the billing plugin). */
+  if (!pay.showsPrices) return renderJourneyTrialUnavailable(refused);
   journeyAskOffer();
   if (!journeyOffer){
     return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+
@@ -87959,18 +88372,7 @@ function renderJourneyTrial(){
   };
   var chosen = period === 'monthly' ? f.monthly : f.yearly;
   var then = period === 'monthly' ? 'then monthly' : 'then annually';
-  var boxes = '';
-  if (canAgree){
-    boxes = '<div class="jr-agree">'+
-      '<label class="jr-check"><input type="checkbox" data-action="journey-agree" data-kind="terms"'+(journeyAgreed.terms ? ' checked' : '')+'>'+
-        '<span>I accept the <a href="'+defs.terms.url+'" data-action="open-external" data-href="'+defs.terms.url+'">Terms of Service</a> and acknowledge the '+
-        '<a href="'+defs.privacy.url+'" data-action="open-external" data-href="'+defs.privacy.url+'">Privacy Policy</a>.</span></label>'+
-      '<label class="jr-check"><input type="checkbox" data-action="journey-agree" data-kind="immediate_start"'+(journeyAgreed.immediate_start ? ' checked' : '')+'>'+
-        '<span>I agree to start access immediately.</span></label>'+
-      (defs.immediateStart && defs.immediateStart.text
-        ? '<p class="jr-fine jr-agree-say">'+escapeHtml(defs.immediateStart.text)+'</p>' : '')+
-    '</div>';
-  }
+  var boxes = canAgree ? journeyAgreeBoxes(defs) : '';
   var ready = canAgree && journeyAgreed.terms && journeyAgreed.immediate_start;
   return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+
     '<h1 class="jr-title">Start Your '+f.trialDays+'-Day Free Trial</h1>'+
@@ -88061,6 +88463,14 @@ function handleJourneyTrialStart(){
   journeyTrialNote = '';
   var pay = journeyPaymentProvider();
   pay.start(period).then(function(res){
+    /* THE PLAY STORE BUILD: Play's sheet has closed and the server has
+       verified the purchase and been asked again, so the journey moves on
+       by itself (journeySubscribed). */
+    if (res && res.ok && res.verified){
+      showToast(res.trial ? 'Your free trial has started' : 'Your subscription has started');
+      renderApp();
+      return;
+    }
     if (res && res.ok && res.url){
       /* In the app the page itself stays: the shell opens the payment page in the
          browser, so the screen says where the athlete went and the button is
@@ -88070,7 +88480,9 @@ function handleJourneyTrialStart(){
       return;
     }
     var code = (res && res.code) || '';
-    journeyTrialNote = JOURNEY_CHECKOUT_COPY[code] || 'We could not open the payment page. Nothing has been charged.';
+    journeyTrialNote = JOURNEY_CHECKOUT_COPY[code] ||
+      (pay.id === 'store' ? playCopy(code) : 'We could not open the payment page. Nothing has been charged.');
+    if (code === 'play_already_owned') playRecoverPurchases(true);
     /* Already subscribed: there is nothing to buy, and the journey goes on. */
     if (code === 'already_subscribed_here' || code === 'already_subscribed_elsewhere'){
       showToast(journeyTrialNote); journeyTrialNote = ''; journeyGo('arrive'); return;
@@ -88226,7 +88638,7 @@ function handleJourneyAction(action, target){
       return;
     }
     case 'journey-agree': return handleJourneyAgree(target);
-    case 'journey-offer-retry': journeyOfferAsked = false; journeyOffer = null; renderApp(); return;
+    case 'journey-offer-retry': journeyOfferAsked = false; journeyOffer = null; playReset(); renderApp(); return;
     case 'journey-trial-start': return handleJourneyTrialStart();
     case 'journey-trial-continue': return journeyGo('arrive');
     case 'journey-account-page': return journeyNavigate('/account?why=locked');
@@ -90366,6 +90778,14 @@ document.addEventListener('click', function(e){
     case 'restriction-end': handleRestrictionEnd(); break;
     case 'subscription-resubscribe': handleSubscribeStart(target.getAttribute('data-period')); break;
     case 'subscription-manage': handleManageSubscription(); break;
+    /* The Play Store build's Settings controls (renderPlaySubscriptionActions). */
+    case 'play-period': {
+      var pp = target.getAttribute('data-period');
+      if (pp === 'monthly' || pp === 'yearly'){ playPeriod = pp; renderApp(); }
+      break;
+    }
+    case 'play-start': handlePlayStart(); break;
+    case 'play-manage': handlePlayManage(); break;
     case 'start-block': handleStartBlock(target.getAttribute('data-purpose')); break;
     /* The surplus-runway offer. Both answers are the athlete's; neither is a
        default the app takes on their behalf. */
@@ -90974,6 +91394,9 @@ document.addEventListener('visibilitychange', function(){
      rather than at the moment they opened the app. Rate-limited internally, so
      a glance at the notification shade costs nothing. */
   try{ revalidateDeliverySession(); }catch(e){}
+  /* The Play Store build: a purchase the server has not yet confirmed is sent
+     again (at most once a minute). Nothing happens anywhere else. */
+  try{ playRecoverPurchases(false); }catch(e){}
 });
 window.addEventListener('pagehide', flushSave);
 function handleToggleNotifyNative(){
@@ -91173,6 +91596,9 @@ function init(){
       /* The circle: is it here yet, am I in one, has anyone said nice work.
          One read on opening; it draws only once the answer is in. */
       try { circleRefresh(); } catch(e){}
+      /* The Play Store build: any Play purchase the server has not confirmed
+         yet (the app closed under Play's sheet) is sent to it now. */
+      try { playRecoverPurchases(true); } catch(e){}
     });
   }catch(e){}
 }

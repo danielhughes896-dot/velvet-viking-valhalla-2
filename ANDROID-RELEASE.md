@@ -16,14 +16,14 @@ release is small: there is almost no native surface.
 | Package | `com.velvetviking.valhalla` |
 | Namespace | `com.velvetviking.valhalla` |
 | minSdk / target / compile | 24 / 36 / 36 |
-| versionCode | `1` — **increment on every upload, and never reuse one** |
-| versionName | `1.0` |
+| versionCode | `11` — **increment on every upload, and never reuse one** |
+| versionName | `1.10` |
 | Server URL | `https://app.velvetviking.co.uk` in **both** capacitor configs |
 | Signing | the stable release keystore, with **no fallback** — a release build with any of the four `VVV_KEYSTORE_*` secrets missing fails outright rather than shipping debug-signed |
 | Backup | `allowBackup=false` |
 | Cleartext | `usesCleartextTraffic=false` (also the platform default at target 36) |
 | Debuggable | not set; the release build type leaves it false |
-| Permissions | `INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED` and `WAKE_LOCK`: the Ask Coach microphone, and the daily 08:00 reminder (runtime-requested when the athlete turns it on; `SCHEDULE_EXACT_ALARM` is removed) — nothing else |
+| Permissions | `INTERNET`, `RECORD_AUDIO`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK` and `com.android.vending.BILLING`: the Ask Coach microphone, the daily 08:00 reminder (runtime-requested when the athlete turns it on; `SCHEDULE_EXACT_ALARM` is removed), and Google Play Billing for the subscription in the Play Store build (not a runtime permission; the Billing Library also merges it) — nothing else |
 
 ### The microphone permission, and what to declare for it
 
@@ -72,7 +72,16 @@ works on a debug build before App Links ever verify.
 
 ## Payments — the posture, and why it is compliant
 
-**Nothing is sold inside the app.** Google Play's Payments policy requires Play
+**THE PLAY STORE BUILD SELLS THROUGH GOOGLE PLAY BILLING (18 November 2026).**
+A build made with the CI input `play_store_build` carries the
+`SACORO-Store-Build` marker, and on Android that build sells the subscription
+with Play Billing (the `SacoroBilling` plugin, verified and acknowledged by the
+server). It never shows the web checkout. The setup, identifiers and order of
+operations are in `GOOGLE-PLAY-BILLING.md`. What follows describes the other
+store builds (iOS) and the reasoning that still governs them.
+
+**Nothing is sold inside the app** (other than through Play Billing in the Play
+Store build). Google Play's Payments policy requires Play
 Billing for digital content purchased *in* the app; it does not require it for a
 subscription bought on the open web and then used by signing in.
 
@@ -89,9 +98,9 @@ Hiding only the button would leave the prices on screen, which is still the
 steering the rule forbids: the rule is about *presenting* the external purchase,
 not about the tap that completes it.
 
-If Play Billing is ever wanted, the `google` provider rail already exists in the
-canonical model — see `STORE-COMMERCIAL-BOUNDARY.md`. It is an adapter, not a
-migration.
+Play Billing is now that adapter: the `google` rail of the canonical model —
+see `STORE-COMMERCIAL-BOUNDARY.md` and `GOOGLE-PLAY-BILLING.md`. It was an
+adapter, not a migration.
 
 ## Data Safety — the answers
 
@@ -139,7 +148,7 @@ deleted and what is retained. `LEGAL-FACTS.md` §6 has the exact facts.
 | Privacy policy | `https://velvetviking.co.uk/privacy` |
 | Terms | `https://velvetviking.co.uk/terms` |
 | Ads | none |
-| In-app purchases | **no** (nothing is sold in the app) |
+| In-app purchases | **yes** for the Play Store build (the SACORO Standard subscription, through Google Play Billing) |
 | Content rating | complete the IARC questionnaire: no violence, no sexual content, no gambling, no user-to-user communication, no location sharing → expect PEGI 3 / Everyone |
 
 **The listing must not claim** Garmin support, an available pause, or a

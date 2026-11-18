@@ -3,6 +3,11 @@
 //   POST /api/billing-webhook
 //     stripe-signature: <Stripe's own scheme, verified by _stripe.js>
 //
+//   POST /api/billing-webhook?rail=google
+//     Authorization: Bearer <Pub/Sub push OIDC token, verified by _google.js>
+//     Google Play's Real-time developer notifications, pushed by the Pub/Sub
+//     subscription on projects/sacoro-billing/topics/sacoro-play-billing.
+//
 // ONE DOOR, AND IT LEADS TO THE CORE. Stripe is an ADAPTER: it verifies its own
 // signature, translates its vocabulary into a provider-neutral event, and hands
 // that to the commercial core. It is not entitlement authority and it never
@@ -44,6 +49,8 @@ const S = require('./_strava.js');     // canonical Supabase access layer
 const P = require('./_stripe.js');
 const Store = require('./_commercial-store.js');
 const Apply = require('./_billing-apply.js');
+const G = require('./_google.js');
+const GP = require('./_google-purchase.js');
 
 const STRIPE_SIG_HEADER = 'stripe-signature';
 
@@ -192,12 +199,158 @@ async function handleStripe(req, res, cfg){
   return S.json(res, 200, { ok: true, applied: true, condition: ev.condition });
 }
 
+/* ---------- the Google Play boundary ----------
+ *
+ * CHOSEN BY THE REQUEST, never by the body: the push subscription's endpoint
+ * URL carries ?rail=google, set by whoever configured Pub/Sub, and a body
+ * cannot change which verifier it is held to.
+ *
+ * Order, and why:
+ *   1. configuration, or a 503 that names what is missing (names, not values)
+ *   2. the Pub/Sub OIDC token, before the body is read for anything
+ *   3. the DeveloperNotification: a test publish is answered 200 and applies
+ *      nothing; anything that is not about one of our subscriptions likewise
+ *   4. the purchase RE-READ FROM GOOGLE -- the notification is a prompt to
+ *      look, never a statement of state
+ *   5. CLAIM the Pub/Sub message id in the one ledger, so a redelivery stops
+ *   6. admit it through _google-purchase.js, the same path the app's verify
+ *      call takes, ending in _billing-apply.js like every other rail
+ *   7. record what it did
+ *
+ * Pub/Sub treats any 2xx as an acknowledgement and anything else as "deliver
+ * again", so a duplicate, an irrelevant message and a purchase we refuse are
+ * all 200, and only a failure that a retry could cure is a 503. */
+function railOf(req){
+  const q = req && req.query && req.query.rail;
+  if (q) return String(q);
+  const m = /[?&]rail=([^&#]+)/.exec(String((req && req.url) || ''));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function bodyOf(req){
+  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
+  try{ return JSON.parse(rawBodyOf(req)); }catch(e){ return null; }
+}
+
+async function handleGoogle(req, res, cfg, opts){
+  const gcfg = G.config();
+  if (!gcfg.hasRtdn){
+    log('GOOGLE_RTDN_NOT_CONFIGURED missing=' + gcfg.rtdnMissing.join(','));
+    return S.json(res, 503, { error: 'unavailable', code: 'GOOGLE_RTDN_NOT_CONFIGURED', missing: gcfg.rtdnMissing });
+  }
+  if (!gcfg.ok){
+    log('GOOGLE_NOT_CONFIGURED missing=' + gcfg.missing.join(','));
+    return S.json(res, 503, { error: 'unavailable', code: 'GOOGLE_NOT_CONFIGURED', missing: gcfg.missing });
+  }
+  if (!cfg.serviceKey){
+    log('SUPABASE_KEY_UNUSABLE source=' + cfg.serviceKeySource);
+    return S.json(res, 503, { error: 'unavailable', code: 'SUPABASE_KEY_UNUSABLE' });
+  }
+
+  const auth = String((req.headers && (req.headers.authorization || req.headers.Authorization)) || '');
+  const m = /^Bearer\s+(\S+)$/.exec(auth);
+  const check = m ? await G.verifyPushToken(m[1], {
+    audience: gcfg.rtdnAudience, email: gcfg.rtdnServiceAccount
+  }, opts) : { ok: false, reason: 'unsigned' };
+  if (!check.ok){
+    log('GOOGLE_REJECTED reason=' + check.reason);
+    return S.json(res, 401, { error: 'not_authenticated', code: 'BAD_PUSH_TOKEN' });
+  }
+
+  const push = G.decodePush(bodyOf(req));
+  if (!push) return S.json(res, 400, { error: 'bad_request', code: 'NO_NOTIFICATION' });
+  const n = push.notification;
+  if (n.packageName && n.packageName !== gcfg.packageName){
+    log('GOOGLE_IGNORED reason=other_package');
+    return S.json(res, 200, { ok: true, applied: false, reason: 'other_package' });
+  }
+  const target = G.notificationTarget(n);
+  if (target.kind === 'test'){
+    log('GOOGLE_TEST_NOTIFICATION');
+    return S.json(res, 200, { ok: true, applied: false, reason: 'test_notification' });
+  }
+  if (target.kind !== 'subscription'){
+    log('GOOGLE_IGNORED reason=not_a_subscription');
+    return S.json(res, 200, { ok: true, applied: false, reason: 'not_entitlement_relevant' });
+  }
+  if (!G.tokenLooksValid(target.purchaseToken)){
+    return S.json(res, 200, { ok: true, applied: false, reason: 'bad_purchase_token' });
+  }
+
+  /* 4. THE TRUTH, from Google, before anything is claimed: a transient failure
+        here is a 503 with nothing claimed, so Pub/Sub's redelivery genuinely
+        retries it. A token Google no longer knows is final. */
+  const got = await G.fetchSubscription(gcfg, target.purchaseToken, opts);
+  if (!got.ok){
+    if (got.code === 'purchase_not_found'){
+      log('GOOGLE_UNKNOWN_PURCHASE purchase=' + G.ref(target.purchaseToken));
+      return S.json(res, 200, { ok: true, applied: false, reason: 'purchase_not_found' });
+    }
+    log('GOOGLE_READ_FAILED code=' + got.code);
+    return S.json(res, 503, { error: 'unavailable', code: 'GOOGLE_UNREACHABLE' });
+  }
+  const environment = (got.subscription && got.subscription.testPurchase) ? 'sandbox' : 'production';
+
+  /* 5. CLAIM. The Pub/Sub message id is the delivery's identity: a lost ack
+        redelivers the same id, and it stops here. */
+  const claim = await Store.claimBillingEvent(S, cfg, {
+    provider: G.PROVIDER, provider_event_id: push.messageId,
+    event_type: target.type, environment: environment
+  });
+  if (!claim.ok && !claim.duplicate){
+    log('GOOGLE_CLAIM_FAILED reason=' + claim.reason);
+    return S.json(res, 503, { error: 'unavailable', code: 'LEDGER_UNAVAILABLE' });
+  }
+  if (claim.duplicate){
+    log('GOOGLE_DUPLICATE id=' + G.ref(push.messageId));
+    return S.json(res, 200, { ok: true, applied: false, reason: 'already_applied' });
+  }
+
+  /* 6. The same admission the app's verify call goes through. */
+  const r = await GP.admit(S, cfg, {
+    gcfg: gcfg, purchaseToken: target.purchaseToken, subscription: got.subscription,
+    eventId: push.messageId, type: target.type, revoked: target.revoked,
+    occurredAt: n.eventTimeMillis ? new Date(Number(n.eventTimeMillis)).toISOString() : null,
+    opts: opts
+  });
+
+  if (!r.ok && r.status >= 500){
+    await Store.markBillingEventProcessed(S, cfg, {
+      provider: G.PROVIDER, provider_event_id: push.messageId, result: 'failed_' + r.code
+    });
+    log('GOOGLE_APPLY_FAILED code=' + r.code);
+    return S.json(res, 503, { error: 'unavailable', code: 'SUBSCRIPTION_UNWRITABLE' });
+  }
+  if (!r.ok){
+    /* Not ours to apply: unattributable (the app's own verify will bring it in),
+       somebody else's, a second live subscription, a second trial. Recorded and
+       answered 200 -- redelivering it cannot change the answer, and the
+       purchase is never acknowledged, so Google refunds it. */
+    await Store.markBillingEventProcessed(S, cfg, {
+      provider: G.PROVIDER, provider_event_id: push.messageId, result: r.code
+    });
+    log('GOOGLE_NOT_APPLIED code=' + r.code);
+    return S.json(res, 200, { ok: true, applied: false, reason: r.code });
+  }
+
+  await Store.markBillingEventProcessed(S, cfg, {
+    provider: G.PROVIDER, provider_event_id: push.messageId,
+    account_id: r.accountId, subscription_id: r.subscriptionId,
+    result: r.entitlementSynced ? 'processed' : 'processed_entitlement_stale'
+  });
+  log('GOOGLE_APPLIED condition=' + r.condition + ' account=' + ref(r.accountId));
+  return S.json(res, 200, { ok: true, applied: true, condition: r.condition });
+}
+
 module.exports = async function handler(req, res){
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
     return S.json(res, 405, { error: 'method_not_allowed' });
   }
   const cfg = S.config();
+
+  /* GOOGLE PLAY NOTIFICATIONS TAKE THE GOOGLE PATH, chosen by the endpoint URL
+     the Pub/Sub push subscription was given (?rail=google), never by the body. */
+  if (railOf(req) === 'google') return handleGoogle(req, res, cfg);
 
   /* STRIPE DELIVERIES TAKE THE STRIPE PATH. Chosen on the header, not on the
      body: letting a payload's own shape select its verifier would let a forged
@@ -235,3 +388,5 @@ module.exports = async function handler(req, res){
 };
 
 module.exports.rawBodyOf = rawBodyOf;
+module.exports.railOf = railOf;
+module.exports.handleGoogle = handleGoogle;
