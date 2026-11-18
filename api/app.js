@@ -187,8 +187,9 @@ function serveRuntime(req, res){
    money: every API that reads or writes an account, or calls a model,
    resolves the caller from a bearer token server-side and refuses an
    anonymous one, exactly as before. Nothing the anonymous visitor builds
-   leaves the device until they create an account, and sign-up is still
-   invite-only while the beta allowlist stands.
+   leaves the device until they create an account, and who may create one is
+   the database's public sign-up switch (supabase-public-signup.sql): anyone
+   while it is on, the beta allowlist while it is off.
 
    WHAT DOES NOT CHANGE. A visitor who HAS a cookie is decided exactly as
    before: a stale lease goes to sign-in, a denied athlete to the locked

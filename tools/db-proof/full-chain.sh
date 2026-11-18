@@ -4,6 +4,8 @@
 # proved on its own by coach-memory-proof.sql). The two operator placeholders get throwaway
 # test values in a temporary copy only; the repository files are not touched.
 #   tools/db-proof/full-chain.sh
+# A different proof can be run on top of the same chain instead:
+#   tools/db-proof/full-chain.sh tools/db-proof/public-signup-proof.sql
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"; root="$(cd "$here/../.." && pwd)"
 out="$here/.combined.sql"; trap 'rm -f "$out"' EXIT
@@ -18,8 +20,9 @@ owner=f0000000-0000-0000-0000-00000000000f
            supabase-trial-via-provider.sql supabase-operational-view-provider-trial.sql \
            supabase-security-posture.sql supabase-health-consent.sql \
            supabase-account-agreements.sql supabase-circles.sql \
-           supabase-coach-memory.sql supabase-security-posture.sql; do
+           supabase-coach-memory.sql supabase-security-posture.sql \
+           supabase-public-signup.sql supabase-security-posture.sql; do
     cat "$root/$f"; echo
   done
 } > "$out"
-"$here/run.sh" tools/db-proof/.combined.sql tools/db-proof/circles-proof.sql
+"$here/run.sh" tools/db-proof/.combined.sql "${1:-tools/db-proof/circles-proof.sql}"

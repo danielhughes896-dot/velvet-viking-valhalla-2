@@ -281,7 +281,17 @@ test('what an anonymous journey may reach on the server is public by design, and
      plan engine on the answers given and reads no account. */
   const restore = setEnv({ VVV_AUTH_PROVIDERS: undefined });
   const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => { throw new Error('a public route reached the network'); };
+  /* ONE READ IS ALLOWED, and it is not about anybody: GET /api/beta-signin
+     reads the public sign-up switch (founder, 18 November 2026;
+     supabase-public-signup.sql) so the journey knows whether to speak of a
+     private beta. Anything else reaching the network fails the test. */
+  const reached = [];
+  globalThis.fetch = async (url, opts) => {
+    reached.push(String(url) + ' ' + ((opts && opts.method) || 'GET'));
+    if (/\/rest\/v1\/signup_settings\?select=public_signup&id=eq\.1&limit=1$/.test(String(url)) && !(opts && opts.method))
+      return { ok: true, status: 200, json: async () => ([{ public_signup: true }]) };
+    throw new Error('a public route reached the network');
+  };
   try {
     const cases = [[account, { resource: 'checkout' }], [voice, { route: 'voice-enabled' }],
       [strava, { route: 'strava-enabled' }], [garmin, { route: 'garmin-status' }]];
@@ -295,5 +305,7 @@ test('what an anonymous journey may reach on the server is public by design, and
     const res = mockRes();
     await signin({ method: 'GET', headers: {} }, res);
     assert.equal(res.statusCode, 200);
+    assert.doesNotMatch(String(res.body), /"email":"|user_id|uid/);
+    reached.forEach(r => assert.match(r, /signup_settings[^ ]* GET$/, 'a public route reached the network: ' + r));
   } finally { globalThis.fetch = realFetch; restore(); }
 });

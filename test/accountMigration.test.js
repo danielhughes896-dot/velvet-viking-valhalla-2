@@ -312,8 +312,14 @@ test('the account shell is public, small, and carries no coaching engine', () =>
      both buttons stay pressable and the price charged is still resolved by
      /api/checkout from the offer code. Under 1.5KB, and most of it is the
      comment explaining why a query parameter is allowed nowhere near a
-     purchase decision. Still all door. */
-  assert.ok(shell.length < 36000, 'the shell must stay a shell (' + shell.length + ' bytes)');
+     purchase decision. Still all door.
+
+     RAISED TO 37KB FOR PUBLIC SIGN-UP (founder, 18 November 2026: "make it
+     as if it's ready to go"). Under 1.3KB: the sign-in line drops "private
+     beta" while the database's sign-up switch is on (one GET, words only),
+     and a brand-new account with nothing held is not told its access has
+     "ended". No price, no decision, no engine. */
+  assert.ok(shell.length < 37000, 'the shell must stay a shell (' + shell.length + ' bytes)');
   ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
     .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
 });

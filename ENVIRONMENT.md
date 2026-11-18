@@ -147,6 +147,33 @@ A release build with any of the four missing **fails loudly** rather than
 falling back to debug signing — because a debug-signed release breaks App Link
 verification and cannot install over an existing app.
 
+## Public sign-up — a database switch, not an environment variable
+
+Founder, 18 November 2026: "It's on Vercel so only I can send it to people. So
+make it as if it's ready to go." Whether a new address may create an account
+is **one row in the database**, `public.signup_settings.public_signup`,
+installed by `supabase-public-signup.sql`. There is deliberately **no Vercel
+variable** for it: the thing that refuses an account is the `auth.users`
+trigger, a trigger cannot read Vercel, and a second switch the gate ignores is
+how the two would come to disagree. `/api/beta-signin` reads the row with the
+service key for its wording only (`public_signup` on `GET`).
+
+| State | Who may create an account | What the app says |
+|---|---|---|
+| `public_signup = true` | anyone who reaches the app | no "private beta" anywhere on the journey, sign-in or account pages |
+| `public_signup = false` | only addresses on `beta_allowlist` | today's wording, including the private-beta sentence on refusal |
+| table not yet created | as the gate trigger decides today | today's wording |
+
+**Turn it on** (SQL editor, after applying `supabase-public-signup.sql`):
+`update public.signup_settings set public_signup = true, changed_at = now(), note = 'opened' where id = 1;`
+**Turn it off:** the same with `false`. No redeploy either way. Full steps,
+verification and roll back: `AUTH-AND-EMAIL.md` → "Public sign-up".
+
+It grants no product access. With `VVV_COMMERCE_ENABLED` and
+`VVV_COMMERCIAL_REQUIRED` unset, a new account is admitted to the app after the
+journey (`pre_commercial`); with both on, it is held at the seven-day trial
+until checkout creates the subscription.
+
 ## SMTP — not environment variables
 
 The branded magic-link sender is configured in the **Supabase dashboard**
@@ -205,9 +232,13 @@ the result panels, speech, Strava, admin, the session bridge and the billing
 webhook), each of which refuses an anonymous caller itself.
 `test/m8-journeyGate.test.js` proves both halves.
 
-**Sign-up is still invite-only.** Creating the account is the magic link (or
-Apple or Google when switched on), and the beta allowlist trigger refuses any
-address not on it, with the same "private beta" sentence. Once the account
-exists the app exchanges the session for the gate cookie and reloads through
-the gate into the full app, where the journey continues at the trial with the
-plan it built.
+**Who may sign up is the public sign-up switch** (section above). Creating the
+account is the magic link (or Apple or Google when switched on); with the
+switch off the beta allowlist trigger refuses any address not on it, with the
+same "private beta" sentence, and with it on any address becomes an account.
+Once the account exists the app exchanges the session for the gate cookie and
+reloads through the gate into the full app, where the journey continues at the
+trial with the plan it built. If the gate refuses the new account (commerce
+on, no subscription yet), the journey stays in journey-only mode on the trial
+screen, whose checkout is the way in; any other refused account goes to the
+locked shell, as before.

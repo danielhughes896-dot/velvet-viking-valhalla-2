@@ -12886,10 +12886,45 @@ function commercialLive(){
   return !!(typeof entitlementInfo !== 'undefined' && entitlementInfo &&
             entitlementInfo.commercial_required);
 }
-function legalTermsLabel(){ return commercialLive() ? 'Terms of Service' : 'Private Beta Terms'; }
+/* PUBLIC SIGN-UP (founder, 18 November 2026: "It's on Vercel so only I can
+   send it to people. So make it as if it's ready to go.").
+   Whether anyone may create an account is ONE switch in the database
+   (public.signup_settings, supabase-public-signup.sql), read by the trigger
+   that refuses an account; GET /api/beta-signin reports it as public_signup.
+   Here it decides WORDS and nothing else: while it is on, nothing the
+   athlete reads on the journey, sign-in or account surfaces calls SACORO a
+   private beta.
+     true   the server said the switch is on
+     false  the server said it is off
+     null   not asked yet, or the server could not say
+   Only true changes a word. Until the server has said so, the wording is
+   exactly what it was before the switch existed. Remembered on this device so
+   a reload does not flash the old wording while the question is asked again;
+   the server's answer always replaces it. */
+var SIGNUP_PUBLIC_KEY = 'vvv_signup_public';
+var signupPublic = (function(){
+  try {
+    var v = window.localStorage.getItem(SIGNUP_PUBLIC_KEY);
+    return v === '1' ? true : v === '0' ? false : null;
+  } catch(e){ return null; }
+})();
+function signupIsPublic(){ return signupPublic === true; }
+/* Record the server's answer. Returns whether anything a screen says changed. */
+function noteSignupPublic(v){
+  if (v !== true && v !== false) return false;
+  var changed = v !== signupPublic;
+  signupPublic = v;
+  try { window.localStorage.setItem(SIGNUP_PUBLIC_KEY, v ? '1' : '0'); } catch(e){}
+  return changed;
+}
+function legalTermsLabel(){
+  if (commercialLive()) return 'Terms of Service';
+  return signupIsPublic() ? 'Terms' : 'Private Beta Terms';
+}
 function legalCoverSentence(){
-  return commercialLive()
-    ? 'Your subscription is covered by these documents.'
+  if (commercialLive()) return 'Your subscription is covered by these documents.';
+  return signupIsPublic()
+    ? 'Your use of SACORO is covered by these two documents.'
     : 'Your use of the private beta is covered by these two documents.';
 }
 
@@ -33604,16 +33639,18 @@ function authRedirectTarget(){
 
 /* ---------- auth: email magic link, so there is no password to store or leak ----------
 
-   PRIVATE BETA. The request goes to our own /api/beta-signin rather than
-   straight to GoTrue, so an address that is not on the beta list gets one clear
-   sentence instead of a database error. The server checks the list with a key
-   this page does not have, and the list itself never reaches the browser.
+   The request goes to our own /api/beta-signin rather than straight to
+   GoTrue, so a refused address gets one clear sentence instead of a database
+   error. The server reads no list: while the database's public sign-up switch
+   is off, it repeats the database's own refusal as not_in_beta.
 
    That endpoint is NOT the gate. The publishable key is public by design, so
    anyone can post at /auth/v1/otp directly; what actually refuses is the
-   BEFORE INSERT trigger on auth.users, and what refuses a revoked tester is the
-   is_beta_approved() predicate on the row-level policies. Both live in the
-   database (supabase-beta-gate.sql). This call is for the message.
+   BEFORE INSERT trigger on auth.users, which reads the public sign-up switch
+   (supabase-public-signup.sql: anyone while it is on, the allowlist while it
+   is off), and the is_beta_approved() predicate on the row-level policies,
+   which reads the same switch. Both live in the database. This call is for
+   the message.
 
    The redirect target is still computed here and still sent as a parameter --
    GoTrue takes it from ?redirect_to=, not from the body, which is the detail
@@ -33730,8 +33767,13 @@ var CLOUD_AUTH_ERROR_REASON = {
 function cloudAuthErrorCopy(code, description){
   /* AN APPLE OR GOOGLE ACCOUNT THE BETA DOES NOT KNOW. The allowlist trigger
      refuses the auth.users insert, and GoTrue reports that as a database
-     error saving a new user: said here as what it means. */
-  if (/saving new user/i.test(String(description || ''))) return signInErrorCopy('not_in_beta');
+     error saving a new user: said here as what it means. With public
+     sign-up on, the trigger admits every address, so the same words mean the
+     account could not be made for some other reason, and say that instead. */
+  if (/saving new user/i.test(String(description || ''))){
+    return signupIsPublic() ? 'Your account couldn\u2019t be created just then. Please try again in a moment'
+                            : signInErrorCopy('not_in_beta');
+  }
   return (CLOUD_AUTH_ERROR_REASON[code] || CLOUD_AUTH_ERROR_REASON.default) +
          '. ' + authRetryDestination();
 }
@@ -34145,7 +34187,11 @@ function scheduleCloudPush(){
       // tester is told what happened without being nagged about it.
       if (err && err.code === 'not_in_beta' && !window.__vvvBetaRevokedTold){
         window.__vvvBetaRevokedTold = true;
-        showToast('Your private-beta access has ended. Your plan stays on this device');
+        /* With public sign-up on there is no beta to have left: the row was
+           refused for some other reason, and that is all that is said. */
+        showToast(signupIsPublic()
+          ? 'Your plan couldn\u2019t be saved to your account. It stays on this device'
+          : 'Your private-beta access has ended. Your plan stays on this device');
       }
     });
   }, 1500);
@@ -69149,7 +69195,7 @@ function openSetupModal(){
         ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Your new block starts at week 1 on your next running day. Your completed training is kept as history and everything SACORO has learned carries over.</div>'
         : state.setup
         ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history. Only untouched future days are replaced.</div>'
-        : '<div class="field-hint bld-legal" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
+        : '<div class="field-hint bld-legal" style="margin-top:12px; text-align:center;">'+(signupIsPublic() ? 'Using SACORO is covered by our ' : 'Using the private beta is covered by our ')+
           '<a href="'+LEGAL_URLS.privacy+'" data-action="open-external" data-href="'+LEGAL_URLS.privacy+'">Privacy Policy</a> and '+
           '<a href="'+LEGAL_URLS.terms+'" data-action="open-external" data-href="'+LEGAL_URLS.terms+'">'+escapeHtml(legalTermsLabel())+'</a>. '+
           'Both are always in Settings.</div>')+
@@ -86637,7 +86683,25 @@ function journeyReload(){
 /* Called when the gate's cookie has been asked for. Granted: reload through
    the gate into the full app. Refused (an account that exists but may not
    use SACORO): the locked shell, rather than back into a journey that could
-   only refuse it again. */
+   only refuse it again -- EXCEPT the one refusal the journey itself expects.
+
+   A NEW ATHLETE WHOSE NEXT STEP IS THE TRIAL (public sign-up, founder,
+   18 November 2026). With commerce on, a brand-new account holds nothing
+   until its seven-day trial starts, so the gate refuses it, correctly. Sent
+   to the locked shell it read "Your access has ended" to somebody who never
+   had any. So a refused session whose journey built its plan and stands at
+   Make It Yours or the trial stays here, on the trial screen, still in
+   journey-only mode: the trial's checkout authenticates with the athlete's
+   own token, and the payment page returns them through /account, which exchanges the
+   new subscription for the gate's cookie as it always has. NOTHING IS
+   UNLOCKED BY THIS. The gate still refuses every delivery of the full app,
+   the dispatcher still refuses every action that is not the journey's, and
+   checkout is the only way on. */
+var journeyOnlyRefused = false;
+function journeyAwaitsTrial(){
+  var r = journeyRead();
+  return !!(r && r.built && (r.step === 'account' || r.step === 'trial') && planHasContent());
+}
 /* ONE RELOAD A MINUTE, AT MOST. If the browser refuses the gate's cookie
    (blocked cookies, a strict privacy mode) the gate would hand back this same
    journey copy, the session would be found again, and the page would reload
@@ -86646,7 +86710,14 @@ var JOURNEY_LIFT_KEY = 'vvv_journey_lift';
 var journeyLiftStuck = false;
 function journeyOnlyLift(granted){
   if (!JOURNEY_ONLY_MODE) return false;
-  if (!granted) return journeyNavigate('/account?why=locked');
+  if (!granted){
+    if (journeyAwaitsTrial()){
+      journeyOnlyRefused = true;
+      try { renderApp(); } catch(e0){}
+      return false;
+    }
+    return journeyNavigate('/account?why=locked');
+  }
   var last = 0;
   try { last = Number(window.sessionStorage.getItem(JOURNEY_LIFT_KEY)) || 0; } catch(e){ last = 0; }
   if (last && Date.now() - last < 60000){ journeyLiftStuck = true; try { renderApp(); } catch(e2){} return false; }
@@ -86662,6 +86733,8 @@ function renderJourneyOnly(){
           'Allow cookies for this site, then try again.</p>'+
         '<button type="button" class="btn btn-primary" data-action="journey-reload">Try Again</button></div>';
     }
+    /* Refused, and the trial is the journey's next step: the trial screen. */
+    if (journeyOnlyRefused && journeyAwaitsTrial()) return renderJourney();
     return renderJourneyWait(true);
   }
   if (journeyRead()) return renderJourney();
@@ -86745,6 +86818,8 @@ function journeyStep(){
      not where the journey is. */
   if (JOURNEY_ONLY_MODE && !cloudSignedIn() &&
       (step === 'trial' || step === 'arrive' || step === 'done')) return 'account';
+  /* Refused by the gate: the trial is as far as this visitor may be. */
+  if (JOURNEY_ONLY_MODE && journeyOnlyRefused && (step === 'arrive' || step === 'done')) return 'trial';
   return step;
 }
 /* The server says a real subscription stands behind this account: a trial or
@@ -86853,6 +86928,9 @@ function renderJourneyWait(canRetry){
   '</div>';
 }
 function renderJourneyWelcome(memberOnly){
+  /* Asked on the first screen, so the switch's answer is in long before the
+     builder's legal line, Make It Yours or the trial need its words. */
+  journeyAskProviders();
   return '<div class="jr jr-welcome">'+
     '<div class="jr-photo" role="img" aria-label="A SACORO runner mid-race"></div>'+
     '<div class="jr-welcome-body">'+
@@ -87120,9 +87198,12 @@ function renderJourneyPreview(){
    started by the same route so the redirect target is still one the server
    validated, and shown only when the server names them as switched on
    (VVV_AUTH_PROVIDERS; see AUTH-AND-EMAIL.md for the owner's setup). Every
-   way in lands on the same insert into auth.users, so the beta allowlist
-   trigger refuses an uninvited Google account exactly as it refuses an
-   uninvited email address: nothing here opens signup. */
+   way in lands on the same insert into auth.users, so the database's trigger
+   answers an uninvited Google account exactly as it answers an uninvited
+   email address: with public sign-up on (the database switch, see
+   signupIsPublic()) it admits both, and with it off it refuses both.
+   Nothing here opens or closes signup. The same answer carries the switch,
+   so the screens know whether to speak of a private beta. */
 var journeyProviders = { apple:false, google:false };
 var journeyProvidersAsked = false;
 function journeyAskProviders(){
@@ -87134,9 +87215,14 @@ function journeyAskProviders(){
       .then(function(d){
         var p = (d && d.providers) || {};
         var next = { apple: p.apple === true, google: p.google === true };
+        var changed = noteSignupPublic(d && d.public_signup);
         if (next.apple !== journeyProviders.apple || next.google !== journeyProviders.google){
           journeyProviders = next;
-          if (journeyActive() && journeyStep() === 'account') renderApp();
+          changed = true;
+        }
+        if (changed && journeyScreen()){
+          var at = journeyStep();
+          if (at === 'welcome' || at === 'account' || at === 'trial') renderApp();
         }
       }).catch(function(){});
   } catch(e){}
@@ -87318,18 +87404,39 @@ function journeyTrialFigures(cat){
     zero: journeyMoney(0, y.currency)
   };
 }
+/* WHILE NOTHING IS SOLD, SACORO IS FREE: said as the private beta while
+   sign-up is invitation only, and without the words "private beta" once the
+   database's public sign-up switch is on. */
+function journeyFreeSentence(){
+  return signupIsPublic()
+    ? 'For now SACORO is free to use, and nothing is charged.'
+    : 'During the private beta SACORO is free to use, and nothing is charged.';
+}
+/* REFUSED, WITH NOTHING TO BUY HERE. Only in journey-only mode, for a
+   signed-in athlete the gate refused (journeyOnlyRefused): "Continue" would
+   lead into an app the gate will not hand over, so the screen says the
+   true thing and offers the account page, where the athlete's state, export
+   and deletion always are. */
+function journeyRefusedNote(sentence){
+  return '<div class="jr-card jr-note-card"><p class="jr-say">'+sentence+' Nothing has been charged.</p></div>'+
+    '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-account-page">See Your Account</button></div>';
+}
 function renderJourneyTrial(){
   var pay = journeyPaymentProvider();
   var r = journeyRec();
   var period = r.period === 'monthly' ? 'monthly' : 'yearly';
+  var refused = JOURNEY_ONLY_MODE && journeyOnlyRefused;
+  journeyAskProviders();
   /* THE INSTALLED APP. No price, no tickbox, no way to a web checkout: the
      store boundary forbids all three, and there is no store purchase yet. */
   if (!pay.showsPrices){
     return '<div class="jr jr-page jr-trial">'+journeyHead(true, null)+
       '<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
-      '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not available in the app yet. '+
-        'During the private beta SACORO is free to use, and nothing is charged.</p></div>'+
-      '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>'+
+      (refused
+        ? journeyRefusedNote('Subscriptions are not available in the app yet.')
+        : '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not available in the app yet. '+
+            journeyFreeSentence()+'</p></div>'+
+          '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>')+
     '</div>';
   }
   journeyAskOffer();
@@ -87392,9 +87499,13 @@ function renderJourneyTrial(){
         '</div>'
       /* COMMERCE IS OFF: the prices are what it will cost, not an offer. No
          tick is recorded, because there is nothing to agree to buy, and the
-         athlete goes on into the private beta. */
-      : '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not open yet. During the private beta SACORO is free to use, and nothing is charged.</p></div>'+
-        '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>')+
+         athlete goes on into the app, free. A refused athlete (journey-only
+         mode, the gate said no) cannot go on into an app the gate will not
+         hand over, so is told so instead. */
+      : refused
+        ? journeyRefusedNote('Subscriptions are not open yet.')
+        : '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not open yet. '+journeyFreeSentence()+'</p></div>'+
+          '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>')+
     (journeyTrialNote ? '<p class="jr-error" role="alert">'+escapeHtml(journeyTrialNote)+'</p>' : '')+
   '</div>';
 }
@@ -87592,6 +87703,7 @@ function handleJourneyAction(action, target){
     case 'journey-offer-retry': journeyOfferAsked = false; journeyOffer = null; renderApp(); return;
     case 'journey-trial-start': return handleJourneyTrialStart();
     case 'journey-trial-continue': return journeyGo('arrive');
+    case 'journey-account-page': return journeyNavigate('/account?why=locked');
     case 'journey-finish': return journeyFinish();
     case 'journey-reload':
       try { window.sessionStorage.removeItem(JOURNEY_LIFT_KEY); } catch(e){}

@@ -26,6 +26,7 @@ dependency shows up.
 | 11 | `supabase-health-consent.sql` | `health_data_consent` — the append-only explicit-consent record for health and readiness information |
 | 12 | `supabase-circles.sql` | Circles: `circles`, `circle_members`, `circle_invites`, `circle_days`, `circle_cheers`, `circle_sharing_log` — a private group of 2 to 8 that sees whether each member did their own plan; consent recorded on joining, everything else through checked functions |
 | 13 | `supabase-coach-memory.sql` | `coach_memory` — Coach Memory's one-line notes (a decision, a conversation or a flag; at most 200 characters; never Strava). Owner reads only; written and cleared only by the server; newest 100 kept |
+| 14 | `supabase-public-signup.sql` | The public sign-up switch: `signup_settings` (one row, service-read-only), `public_signup_open()`, and `enforce_beta_allowlist()` / `is_beta_approved()` redefined to consult it; the `beta_allowlist_gate` trigger kept. Seeds the switch to what the database already does, so applying it opens nothing |
 
 Applied in this order against an empty database plus the Supabase substrate
 (`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles, and the default
@@ -95,6 +96,17 @@ applied; nothing is kept until it is. Proved by acting as people:
 `tools/db-proof/run.sh supabase-coach-memory.sql tools/db-proof/coach-memory-proof.sql`,
 and it is in `full-chain.sh`, after which file 10 re-runs cleanly.
 
+File 14 is the public sign-up switch (founder, 18 November 2026: "make it as
+if it's ready to go"). It goes after 10, like 11 to 13, and file 10 re-runs
+cleanly after it. It does not edit any file above: it redefines the gate
+function and the row predicate in place, keeps the trigger, and refuses unless
+file 2 is installed. Applying it changes nobody's ability to sign up; the
+separate `update public.signup_settings set public_signup = true` does, and
+`false` turns it back. Proved by acting as people:
+`tools/db-proof/full-chain.sh tools/db-proof/public-signup-proof.sql` (switch
+off, on, off again, and over a database the cutover had already opened).
+Steps: `AUTH-AND-EMAIL.md` → "Public sign-up".
+
 ## Deployment parameters
 
 Three values are substituted by the operator, not by the files:
@@ -157,6 +169,8 @@ every thing the rules forbid, and deletes the cluster.
   proves Coach Memory on its own: the owner reads only their own lines, no
   browser write gets through even with the grants put back, the line checks
   refuse, only the newest 100 are kept, and the lines go with the account.
+- `tools/db-proof/full-chain.sh tools/db-proof/public-signup-proof.sql` proves
+  the public sign-up switch on top of the whole chain.
 - `tools/db-proof/full-chain.sh` rebuilds the whole order above (the two
   operator placeholders get throwaway test values in a temporary copy, never
   in these files), applies circles, re-runs file 10 after it, and proves
