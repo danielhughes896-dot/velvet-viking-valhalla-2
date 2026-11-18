@@ -57,7 +57,14 @@ function recoverAfter(distanceKey, volume, opts){
            longest: a.round1(Math.max.apply(null, days.map(d => d.km || 0))) };
 }
 
-const AFTER = [['5k', 40], ['10k', 45], ['half', 55], ['full', 60]];
+/* 5K 40 -> 36 and 10K 45 -> 40 (founder, 18 November 2026, option C): a 5K or
+   10K week now keeps every easy run at 70% of the long run, so at 40km on
+   five days the logged weeks came in a few kilometres under the week the
+   recovery block is sized from and the share read 61% on rounding. The
+   fixtures are moved to weeks the 5K and 10K shape carries whole, so the
+   recovery rule is measured against what the athlete actually ran; the 60%
+   line itself is unchanged. */
+const AFTER = [['5k', 36], ['10k', 40], ['half', 55], ['full', 60]];
 
 test('a recovery block is prescribed well below what the athlete has demonstrated', () => {
   AFTER.forEach(([dk, vol]) => {

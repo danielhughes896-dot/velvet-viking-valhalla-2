@@ -124,7 +124,10 @@ test('2. title/distance edited only, still genuinely Easy: Easy guidance remains
   const dd = findEasyDay(a);
   const unchangedDesc = a.resolveDesc(dd.desc);
   mockEditModalDom(a, dd, {
-    'ef-title': { value: 'My easy run' }, 'ef-km': { value: '7' },
+    /* A distance the day does not already have: since option C (founder, 18
+       November 2026) the fixture's first easy run is written at 7km itself,
+       so '7' no longer registered as an edit. */
+    'ef-title': { value: 'My easy run' }, 'ef-km': { value: String(dd.km === 7 ? 8 : 7) },
     'ef-desc': { value: unchangedDesc },
   });
   a.handleSaveEdit(dd.id);

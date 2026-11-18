@@ -95,7 +95,12 @@ function independentBreaks(r, o){
         const m = Math.max(...prior);
         let lim = Math.max(m * 1.1, m + 1);
         if (d.type === 'long' && hm && d.week !== firstWeek) lim = Math.max(m * 1.15, m + 1.5);
-        const exempt = o.dist === 'full' && (o.purpose || 'race') === 'race' && d.type === 'long' && d.km === longMax;
+        /* The Marathon's culminating long run: exempt only up to 6km over the
+           longest long run of the four weeks before it (founder, 18 November
+           2026). */
+        const before4 = Math.max(0, ...ds.filter(x => x.type === 'long' && x.week < d.week && x.week >= d.week - 4).map(x => x.km));
+        const exempt = o.dist === 'full' && (o.purpose || 'race') === 'race' && d.type === 'long' && d.km === longMax &&
+          d.km <= before4 + 6 + 1e-9;
         if (!exempt && d.km > lim + 1e-9) out.push(d.week + ' ' + d.type + ' ' + d.km + 'km over ' + Math.round(lim * 10) / 10 + ' (from ' + m + ')');
       }
     }
@@ -264,14 +269,28 @@ test('5. Half and Marathon: no catch-up weeks, every ordinary step at most 8%', 
 });
 
 test('6. 5K and 10K open on the runner\'s current week and long run, and settle the long run into the range', () => {
-  [['5k', 'experienced', 69, 16, 5, 12], ['10k', 'novice', 45, 18, 4, 12]].forEach(([dist, exp, weekly, long, days, top]) => {
+  /* Option C (founder, 18 November 2026): a week bigger than the shape keeps
+     a long run of about a quarter of it (the 69km runner: 17km, all season),
+     and every easy run stays at 70% of the long run, so week one is the
+     declared week only as far as the shape and the days carry it; a week
+     that fits the shape (the 45km 10K runner) settles into the range. */
+  [['5k', 'experienced', 69, 16, 5, 12, 17], ['10k', 'novice', 45, 18, 4, 12, 12]].forEach(([dist, exp, weekly, long, days, top0, season]) => {
     const o = { dist, weekly, days, avail: days, long, exp, weeks: 12 };
     const r = build(o);
     const W = byWeek(r.days), wks = r.blockResult.weeks;
-    assert.ok(Math.abs(totOf(W[1]) - weekly) <= 1, dist + ': week one is ' + totOf(W[1]) + 'km against ' + weekly);
+    const top = Math.max(top0, r.blockResult.shortRaceHighVolumeLongKm || 0);
+    assert.equal(top, season, dist + ': the season\'s long run');
+    assert.ok(totOf(W[1]) <= weekly + 1 && totOf(W[1]) >= weekly * 0.85, dist + ': week one is ' + totOf(W[1]) + 'km against ' + weekly);
+    wks.forEach(wk => {
+      const list = W[wk.week] || [];
+      const L = Math.max(0, ...runsOf(list).filter(d => d.type === 'long').map(d => d.km));
+      if (!L || wk.settlingCeilingRelaxed || list.some(d => d.type === 'race')) return;
+      runsOf(list).filter(d => d.type === 'easy' && !/Shakeout/.test(d.title || '')).forEach(d =>
+        assert.ok(d.km <= r.a.shortRaceEasyCeilingKm(L) + 1e-9, dist + ' week ' + wk.week + ': easy ' + d.km + ' beside a ' + L + 'km long run'));
+    });
     const longOf = w => Math.max(0, ...runsOf(W[w] || []).filter(d => d.type === 'long').map(d => d.km));
-    assert.equal(longOf(1), long, dist + ': week one\'s long run is the athlete\'s own');
-    assert.equal(wks[0].longRunSettling, true, dist + ': the settling week is flagged');
+    assert.ok(longOf(1) >= long && longOf(1) <= Math.max(long * 1.1, long + 1), dist + ': week one\'s long run is the athlete\'s own, or the season\'s within the run limit: ' + longOf(1));
+    assert.equal(!!wks[0].longRunSettling, long > top, dist + ': a settling week is flagged only where the long run opens above the season\'s');
     let prev = longOf(1), settled = false;
     wks.forEach(wk => {
       if (wk.isTaper || wk.isRace || !W[wk.week]) return;
@@ -339,9 +358,15 @@ test('9. the validator names a run over the line, with the reason, and leaves ex
   assert.equal(a.planRunLimitViolations(step, { weeks, blockResult: { purpose: 'race', distKey: 'half' } }).length, 0);
   assert.equal(a.planRunLimitViolations(step, { weeks, blockResult: blk }).length, 1);
   a.pendingEntryEvidence = { weeklyKm: 30, runDaysPerWeek: 4, longestRunKm: 12, longestRunDate: '2026-11-10', recordedAt: TODAY + 'T09:00:00Z' };
-  /* The Marathon's culminating long run is exempt. */
-  const full = [{ date: '2026-11-22', week: 1, type: 'long', km: 13 }, { date: '2026-11-29', week: 2, type: 'long', km: 20 }];
+  /* The Marathon's culminating long run is exempt, up to 6km over the
+     longest long run of the four weeks before it (founder, 18 November 2026,
+     the accepted 22 to 28); 13 to 20 is now over the line. */
+  const full = [{ date: '2026-11-22', week: 1, type: 'long', km: 13 }, { date: '2026-11-29', week: 2, type: 'long', km: 19 }];
   assert.equal(a.planRunLimitViolations(full, { weeks, blockResult: { purpose: 'race', distKey: 'full' } }).length, 0);
+  full[1].km = 20;
+  const over = a.planRunLimitViolations(full, { weeks, blockResult: { purpose: 'race', distKey: 'full' } });
+  assert.equal(over.length, 1);
+  assert.equal(over[0].limitKm, 19);
   /* And a run of 5km never counts. */
   a.pendingEntryEvidence = { weeklyKm: 4, runDaysPerWeek: 2, longestRunKm: 2, longestRunDate: '2026-11-10', recordedAt: TODAY + 'T09:00:00Z' };
   assert.equal(a.planRunLimitViolations([{ date: '2026-11-17', week: 1, type: 'easy', km: 5 }], { weeks, blockResult: blk }).length, 0);
@@ -362,4 +387,74 @@ test('10. a stated longest run older than the window still bounds week 1', () =>
     const top = Math.max(...r.days.filter(d => d.week === w1 && d.type !== 'race').map(d => d.km));
     assert.ok(top <= Math.max(long * 1.1, long + 1) + 1e-9, dist + ' ' + purpose + ': week 1 has a ' + top + 'km run against a stated ' + long + 'km');
   }
+});
+
+/* ---- ROUND 2 (founder decisions, 18 November 2026) ---- */
+test('11. option C: a 5K or 10K week bigger than the shape keeps a longer long run, and easy runs stay at 70% all season', () => {
+  [['5k', 'experienced', 71, 20, 5, 12], ['10k', 'novice', 60, 12, 5, 12]].forEach(([dist, exp, weekly, long, days, top]) => {
+    const o = { dist, weekly, days, avail: days, long, exp, weeks: 12 };
+    const r = build(o);
+    const hv = r.blockResult.shortRaceHighVolumeLongKm;
+    assert.equal(hv, Math.round(weekly * 0.25), dist + ': the season\'s long run is about a quarter of the week');
+    const W = byWeek(r.days);
+    r.blockResult.weeks.forEach(wk => {
+      const list = W[wk.week] || [];
+      if (!list.length || list.some(d => d.type === 'race')) return;
+      const L = Math.max(0, ...runsOf(list).filter(d => d.type === 'long').map(d => d.km));
+      if (!L) return;
+      if (!wk.isCutback && !wk.isTaper && wk.week >= 4) assert.ok(L > top, dist + ' week ' + wk.week + ': the long run fell back to ' + L);
+      assert.ok(L <= Math.max(hv, long) + 1e-9, dist + ' week ' + wk.week + ': ' + L + 'km');
+      if (wk.settlingCeilingRelaxed) return;
+      runsOf(list).filter(d => d.type === 'easy' && !/Shakeout/.test(d.title || '')).forEach(d =>
+        assert.ok(d.km <= r.a.shortRaceEasyCeilingKm(L) + 1e-9, dist + ' week ' + wk.week + ': easy ' + d.km + ' beside a ' + L + 'km long run'));
+    });
+    assert.equal(independentBreaks(r, o).length, 0, dist + ': ' + independentBreaks(r, o)[0]);
+    (r.a.planVolumeAccounting || []).forEach(acc => assert.ok(acc.reconciled, dist + ' week ' + acc.week + ' does not reconcile'));
+  });
+  /* A week that fits the shape keeps the range. */
+  const fit = build({ dist: '10k', weekly: 30, days: 4, avail: 4, long: 10, exp: 'experienced', weeks: 12 });
+  assert.ok(!(fit.blockResult.shortRaceHighVolumeLongKm > 0), 'a 30km 10K week fits the shape');
+  fit.days.filter(d => d.type === 'long').forEach(d => assert.ok(d.km <= 15, 'a ' + d.km + 'km long run in a 30km 10K week'));
+});
+
+test('12. the Marathon culminating long run is exempt only up to 6km over the four weeks before it', () => {
+  [['novice', 1, 4, 15], ['experienced', 3, 20, 16], ['novice', 30, 14, 16]].forEach(([exp, weekly, long, weeks]) => {
+    const o = { dist: 'full', weekly, days: 5, avail: 5, long, exp, weeks };
+    const r = build(o);
+    const W = byWeek(r.days), wks = r.blockResult.weeks;
+    const longOf = w => Math.max(0, ...runsOf(W[w] || []).filter(d => d.type === 'long').map(d => d.km));
+    const dev = wks.filter(wk => !wk.isTaper && !wk.isRace && W[wk.week]);
+    const peak = Math.max(...dev.map(wk => longOf(wk.week)));
+    const cw = dev.find(wk => longOf(wk.week) === peak).week;
+    const before4 = Math.max(0, ...dev.filter(wk => wk.week < cw && wk.week >= cw - 4).map(wk => longOf(wk.week)));
+    assert.ok(peak <= before4 + 6 + 1e-9, exp + ' ' + weekly + 'km: the culminating long run jumps ' + before4 + ' -> ' + peak);
+    assert.equal(independentBreaks(r, o).length, 0, exp + ': ' + independentBreaks(r, o)[0]);
+    /* Where the runway cannot climb to within 6km of the target, the build is
+       short of the level's peak long run: the Preparation offer. */
+    const pw = r.a.raceGoalPathway('full', r.blockResult.experience || exp);
+    const short = r.a.steadyClimbShortfall(r.days, wks, r.blockResult);
+    if (peak < pw.peakLongKm) assert.ok(short && short.dimensions.find(d => d.key === 'durability').met === false,
+      exp + ': a ' + peak + 'km peak long run against ' + pw.peakLongKm + ' is not routed to the Preparation offer');
+  });
+});
+
+test('13. Aerobic Base climbs steadily too: every ordinary step at most 8%, one 5km run where a run joins', () => {
+  [['10k', 'experienced', 30, 12, 4, 12], ['half', 'novice', 20, 10, 5, 16], ['full', 'advanced', 55, 20, 6, 14]].forEach(([dist, exp, weekly, long, days, weeks]) => {
+    const r = build({ purpose: 'base', dist, weekly, days, avail: days, long, exp, weeks });
+    const W = byWeek(r.days), wks = r.blockResult.weeks;
+    let lastFull = null, prev = null;
+    wks.forEach(wk => {
+      const list = W[wk.week] || [];
+      if (!list.length){ prev = null; return; }
+      if (wk.isCutback){ prev = { lighter: true }; return; }
+      const ref = prev && prev.lighter ? lastFull : prev;
+      const km = totOf(list), n = runsOf(list).length;
+      if (ref && list.length === 7){
+        const cap = Math.max(ref.km * 1.08, n > ref.runs ? ref.km + 5 : 0);
+        assert.ok(km <= cap + 1e-9, 'base ' + dist + ' week ' + wk.week + ': ' + km + 'km after ' + ref.km);
+      }
+      prev = lastFull = { km: list.length === 7 ? km : Math.max(km, wk.volume), runs: n };
+    });
+    (r.a.planVolumeAccounting || []).forEach(acc => assert.ok(acc.reconciled, 'base ' + dist + ' week ' + acc.week + ' does not reconcile'));
+  });
 });

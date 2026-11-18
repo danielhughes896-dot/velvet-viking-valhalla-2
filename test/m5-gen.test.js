@@ -130,8 +130,12 @@ test('3. a 5K or 10K long run stays inside the level\'s range, whatever longest 
     const settling = {};
     blockResult.weeks.forEach(w => { if (w.longRunSettling) settling[w.week] = true; });
     assert.ok(Object.keys(settling).length <= 4, dk + ' ' + exp + ': settling took ' + Object.keys(settling).length + ' weeks');
+    /* AND A WEEK BIGGER THAN THE SHAPE KEEPS A LONGER LONG RUN (option C,
+       founder 18 November 2026): about a quarter of the declared week, all
+       season, so the easy runs can stay at 70% of it. */
+    const seasonTop = Math.max(top, blockResult.shortRaceHighVolumeLongKm || 0);
     a.state.days.filter(d => d.type === 'long' && !settling[d.week]).forEach(d =>
-      assert.ok(d.km <= top + 1e-9, dk + ' ' + exp + ' week ' + d.week + ': a ' + d.km + 'km long run, range top ' + top));
+      assert.ok(d.km <= seasonTop + 1e-9, dk + ' ' + exp + ' week ' + d.week + ': a ' + d.km + 'km long run, season top ' + seasonTop));
   });
 });
 

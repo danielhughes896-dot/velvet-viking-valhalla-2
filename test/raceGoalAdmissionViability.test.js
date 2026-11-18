@@ -210,9 +210,16 @@ test('TWELVE WEEKS — the floor is the driver where the safe route can reach it
   /* 54 -> 47 (Audit IV R4, the week after a lighter week returns to the week
      before it, + 8% at most, for the Marathon): the same refusal, further
      short. */
-  assert.equal(adm.preparation.reachWeekKm, 47,
+  /* 47 -> 45.5 (founder, 18 November 2026): every ordinary step held to 8%,
+     rounded down, and a culminating long run beyond 6km over the four weeks
+     before it held rather than shared onto the peak week. The same refusal. */
+  assert.equal(adm.preparation.reachWeekKm, 45.5,
     'the week the block actually delivers from a 21km entry in twelve weeks, short of the locked 60km peak');
-  assert.equal(adm.preparation.reachLongKm, 26,
+  /* 26 -> 24.5 (founder, 18 November 2026): the culminating long run is
+     exempt only up to 6km over the longest long run of the four weeks before
+     it (18.5km here), so it is held at 24.5; still short of the 28km floor,
+     which is the Preparation offer this refusal already is. */
+  assert.equal(adm.preparation.reachLongKm, 24.5,
     'the long run reaches the Nielsen safety rate\'s own ceiling from a 10km entry, still short of the 28km floor');
   /* JUDGED AGAINST THE LOCKED PEAK, both dimensions are short. */
   assert.equal(adm.preparation.requiredWeekKm, 60, 'the locked Developing peak week');
@@ -415,7 +422,9 @@ test('EVIDENCE OVER LABEL — the evidence governs the route, and the locked des
   /* 64 -> 60.5 (founder, 18 November 2026: no catch-up weeks, every
      ordinary step at most 8%, holdSteadyClimb()): still more than 10% short
      of the locked 80, so still refused on workload. */
-  assert.equal(adm.preparation.reachWeekKm, 60.5, 'the week this twelve-week runway actually delivers from a 36km entry');
+  /* 60.5 -> 60 (founder, 18 November 2026: the 8% line rounded down, and the
+     culminating long run's 6km bound): still refused on workload. */
+  assert.equal(adm.preparation.reachWeekKm, 60, 'the week this twelve-week runway actually delivers from a 36km entry');
   assert.equal(adm.preparation.reachLongKm, 30, 'the Experienced marathon Peak floor, reached exactly');
 });
 

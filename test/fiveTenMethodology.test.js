@@ -87,9 +87,14 @@ test('1. an athlete who already runs longer is held to the level\'s range top, n
 test('1. no 5K or 10K long run passes the level\'s own range top, in any week', () => {
   [['5k', 'novice', 10], ['5k', 'experienced', 12], ['10k', 'novice', 12], ['10k', 'experienced', 15]].forEach(([dk, exp, top]) => {
     [30, 50].forEach(vol => {
-      const { days } = direct(dk, vol, 12, exp, [0, 2, 4, 6]);
+      const { blk, days } = direct(dk, vol, 12, exp, [0, 2, 4, 6]);
+      /* EXCEPT A WEEK BIGGER THAN THE SHAPE (option C, founder 18 November
+         2026): it keeps a long run of about a quarter of the week, and never
+         more, so its easy runs can stay at 70% of it. */
+      const seasonTop = blk.shortRaceHighVolumeLongKm > top ? blk.shortRaceHighVolumeLongKm : top;
+      if (seasonTop > top) assert.ok(seasonTop <= Math.round(vol * 0.25), dk + ' ' + exp + ': ' + seasonTop + 'km for a ' + vol + 'km week');
       days.filter(d => d.type === 'long').forEach(d =>
-        assert.ok(d.km <= top, dk + ' ' + exp + ' ' + vol + 'km week ' + d.week + ': long ' + d.km + ' > ' + top));
+        assert.ok(d.km <= seasonTop, dk + ' ' + exp + ' ' + vol + 'km week ' + d.week + ': long ' + d.km + ' > ' + seasonTop));
     });
   });
 });
