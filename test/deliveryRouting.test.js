@@ -143,7 +143,10 @@ test('the stamp reveals posture, never identity', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'api', 'app.js'), 'utf8');
   const values = (src.match(/stamp\(res, '([^']+)'\)/g) || []).map(s => s.split("'")[1]);
   assert.deepEqual([...new Set(values)].sort(),
-    ['denied', 'granted', 'no-lease', 'no-session', 'off', 'unavailable']);
+    /* 'journey' REPLACED 'no-session' (founder, 18 November 2026: "Open steps
+       1-6 to everyone"): the no-session branch now serves the journey-only
+       runtime, and the header names that posture. */
+    ['denied', 'granted', 'journey', 'no-lease', 'off', 'unavailable']);
   values.forEach(v => assert.ok(!/uid|user|email|lease-|token/i.test(v),
     'a diagnostic header must not carry an identity: ' + v));
 });

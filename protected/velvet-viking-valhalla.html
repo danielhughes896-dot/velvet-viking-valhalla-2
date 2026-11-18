@@ -34671,12 +34671,15 @@ function establishDeliverySession(){
         lastEntitlementAt = Date.now();
         legalUrlsFromView(body);
         patchCloudCard();
+        /* Journey-only mode: the cookie now exists, so the gate will hand
+           over the full app. */
+        journeyOnlyLift(true);
         return body;
       }
       /* 403 means authenticated but not entitled. Recorded so the account card
          can say so honestly; the actual lock is the server refusing the next
          delivery, not anything decided here. */
-      if (r.status === 403 && body){ entitlementInfo = body; legalUrlsFromView(body); patchCloudCard(); }
+      if (r.status === 403 && body){ entitlementInfo = body; legalUrlsFromView(body); patchCloudCard(); journeyOnlyLift(false); }
       return null;
     });
   }).catch(function(){ return null; });   // offline: the existing lease stands
@@ -85877,6 +85880,8 @@ function renderBottomNavStack(){
   return '<div class="bn-stack">'+renderBottomNav()+'</div>';
 }
 function handleSetView(view, tapped){
+  /* Journey-only mode has no tabs to go to (founder, 18 November 2026). */
+  if (JOURNEY_ONLY_MODE) return;
   historyReturn = null;
   /* BEFORE THE EARLY RETURN BELOW, and that position is the fix rather than an
      accident. Asking is latched and idempotent, so it costs nothing to do it
@@ -86483,6 +86488,87 @@ var JOURNEY_BRAND_MARKS = {
   google: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h5.9c-.3 1.4-1 2.5-2.2 3.3v2.7h3.6c2.1-1.9 3.3-4.8 3.3-8.1z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.1v2.8C3.9 20.6 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.8 14.2c-.2-.7-.4-1.4-.4-2.2s.1-1.5.4-2.2V7H2.1C1.4 8.5 1 10.2 1 12s.4 3.5 1.1 5l3.7-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2C17.5 2.1 15 1 12 1 7.7 1 3.9 3.4 2.1 7l3.7 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>'
 };
 
+/* ---------- JOURNEY-ONLY MODE ----------
+   Founder, 18 November 2026: "Open steps 1-6 to everyone." With the account
+   gate on, a visitor with no session is now served this runtime marked
+   data-vvv-access="journey" on <html> (api/app.js, serveJourneyOnly) instead
+   of being sent to sign in. In that mode the app is the journey and nothing
+   else: Welcome to Make It Yours, the builder inside it, sign-in for a member,
+   and the legal links. Today, the plan, Coach, Settings, Share, Circles and
+   Ask Coach are never drawn, the tabs cannot be reached, and the dispatcher
+   refuses any action that is not the journey's, the builder's or sign-in's.
+   THIS IS THE PAGE, NOT THE GUARD. Every API that reads or writes an account
+   or costs money refuses an anonymous caller itself; that is the boundary,
+   and test/m8-journeyGate.test.js proves it route by route. What this mode
+   adds is that the screens never pretend otherwise.
+   NOTHING LEAVES THE DEVICE before the account exists: there is no session,
+   so nothing syncs. Once the magic link (or Apple or Google) returns, the
+   session is exchanged for the gate's cookie as it always is, and the page
+   reloads through the gate into the full app, where the journey carries on
+   at the trial with the plan it built, the same way /start's banked plan
+   crossed the round trip. */
+var JOURNEY_ONLY_MODE = (function(){
+  try {
+    return !!(typeof document !== 'undefined' && document.documentElement &&
+      document.documentElement.getAttribute &&
+      document.documentElement.getAttribute('data-vvv-access') === 'journey');
+  } catch(e){ return false; }
+})();
+/* What may be pressed in journey-only mode. A trailing dash is a family:
+   journey-*, the builder's bld-*, its calendar, its decision sheets and its
+   time wheel. Everything else is refused before it is dispatched. */
+var JOURNEY_ONLY_ACTIONS = ['journey-', 'bld-', 'set-event-mode', 'set-experience', 'suggest-goals',
+  'generate-plan', 'bench-none', 'cal-', 'close-modal', 'open-external', 'open-legal',
+  'open-signin-sheet', 'cloud-sign-in', 'ask-yes', 'ask-no', 'prep-', 'runway-', 'race-entry-',
+  'time-wheel-', 'health-consent', 'toggle-health-consent', 'noop'];
+function journeyOnlyAllows(action){
+  var a = String(action || '');
+  return JOURNEY_ONLY_ACTIONS.some(function(k){
+    return k.charAt(k.length - 1) === '-' ? a.indexOf(k) === 0 : a === k;
+  });
+}
+/* The journey owns the whole screen: in journey-only mode, or while it runs. */
+function journeyScreen(){ return JOURNEY_ONLY_MODE || journeyActive(); }
+function journeyReload(){
+  try { window.location.reload(); return true; } catch(e){ return false; }
+}
+/* Called when the gate's cookie has been asked for. Granted: reload through
+   the gate into the full app. Refused (an account that exists but may not
+   use SACORO): the locked shell, rather than back into a journey that could
+   only refuse it again. */
+/* ONE RELOAD A MINUTE, AT MOST. If the browser refuses the gate's cookie
+   (blocked cookies, a strict privacy mode) the gate would hand back this same
+   journey copy, the session would be found again, and the page would reload
+   for ever. The second attempt inside a minute stops and says why. */
+var JOURNEY_LIFT_KEY = 'vvv_journey_lift';
+var journeyLiftStuck = false;
+function journeyOnlyLift(granted){
+  if (!JOURNEY_ONLY_MODE) return false;
+  if (!granted) return journeyNavigate('/account?why=locked');
+  var last = 0;
+  try { last = Number(window.sessionStorage.getItem(JOURNEY_LIFT_KEY)) || 0; } catch(e){ last = 0; }
+  if (last && Date.now() - last < 60000){ journeyLiftStuck = true; try { renderApp(); } catch(e2){} return false; }
+  try { window.sessionStorage.setItem(JOURNEY_LIFT_KEY, String(Date.now())); } catch(e3){}
+  return journeyReload();
+}
+function renderJourneyOnly(){
+  /* A session on the device is on its way through the gate. */
+  if (cloudSignedIn() || storedCloudSessionPresent()){
+    if (journeyLiftStuck){
+      return '<div class="jr jr-wait"><div class="jr-crest jr-crest-arrive" aria-hidden="true"></div>'+
+        '<p class="jr-say jr-centre" role="alert">You are signed in, but this browser did not keep SACORO\u2019s sign-in. '+
+          'Allow cookies for this site, then try again.</p>'+
+        '<button type="button" class="btn btn-primary" data-action="journey-reload">Try Again</button></div>';
+    }
+    return renderJourneyWait(true);
+  }
+  if (journeyRead()) return renderJourney();
+  /* A plan on this device from before, signed out: the Welcome, whose way in
+     is Existing Member. Never the plan itself. */
+  if (planHasContent() || !athleteIsNew()){ journeyLastStep = 'welcome'; return renderJourneyWelcome(true); }
+  return renderJourney();
+}
+
 /* ---------- THE RECORD ---------- */
 function journeyRead(){
   var r = null;
@@ -86551,6 +86637,12 @@ function journeyStep(){
   if (step === 'account' && cloudSignedIn()) step = 'trial';
   if (step === 'trial' && journeySubscribed()) step = 'arrive';
   if (r && step !== r.step){ r.step = step; journeyWrite(r); }
+  /* JOURNEY-ONLY: the trial and everything after it need an account, so a
+     visitor without one is held at Make It Yours. Applied after the record
+     is written and never written itself: it is where this visitor may be,
+     not where the journey is. */
+  if (JOURNEY_ONLY_MODE && !cloudSignedIn() &&
+      (step === 'trial' || step === 'arrive' || step === 'done')) return 'account';
   return step;
 }
 /* The server says a real subscription stands behind this account: a trial or
@@ -86650,18 +86742,22 @@ function journeyOptionRow(o, on, kind, sub){
       : '<span class="jr-opt-mark is-radio" aria-hidden="true">'+(on ? ICONS.check : '')+'</span>')+
   '</button>';
 }
-function renderJourneyWait(){
+function renderJourneyWait(canRetry){
   return '<div class="jr jr-wait"><div class="jr-crest jr-crest-arrive" aria-hidden="true"></div>'+
-    '<p class="jr-quiet" role="status">One moment.</p></div>';
+    '<p class="jr-quiet" role="status">One moment.</p>'+
+    /* Journey-only: if the account cannot be reached the wait would never
+       end, so a way to ask again is always there. */
+    (canRetry ? '<button type="button" class="jr-text-btn" data-action="journey-reload">Try Again</button>' : '')+
+  '</div>';
 }
-function renderJourneyWelcome(){
+function renderJourneyWelcome(memberOnly){
   return '<div class="jr jr-welcome">'+
     '<div class="jr-photo" role="img" aria-label="A SACORO runner mid-race"></div>'+
     '<div class="jr-welcome-body">'+
       '<div class="jr-crest" aria-hidden="true"></div>'+
       '<h1 class="jr-title">Your Journey Starts Here</h1>'+
       '<p class="jr-lede">Personalised training. Built around you.</p>'+
-      '<button type="button" class="btn btn-primary btn-block jr-cta" data-action="journey-start">Build My Plan</button>'+
+      (memberOnly ? '' : '<button type="button" class="btn btn-primary btn-block jr-cta" data-action="journey-start">Build My Plan</button>')+
       /* A member already signed in has nothing to sign in to. */
       (cloudConfigured() && !cloudSignedIn()
         ? '<button type="button" class="btn btn-ghost btn-block jr-gold" data-action="journey-member">Existing Member</button>'
@@ -87395,6 +87491,9 @@ function handleJourneyAction(action, target){
     case 'journey-trial-start': return handleJourneyTrialStart();
     case 'journey-trial-continue': return journeyGo('arrive');
     case 'journey-finish': return journeyFinish();
+    case 'journey-reload':
+      try { window.sessionStorage.removeItem(JOURNEY_LIFT_KEY); } catch(e){}
+      return journeyReload();
   }
 }
 
@@ -87439,6 +87538,7 @@ function renderMainContent(){
   /* THE FIRST-TIME JOURNEY COMES FIRST (founder, 18 November 2026). It is
      shown only to a device with no plan and an athlete with no history, or
      to one part way through it; see journeyActive(). */
+  if (JOURNEY_ONLY_MODE) return renderJourneyOnly();
   if (journeyActive()) return renderJourney();
   var appState = resolveAppState();
   if (shouldRenderLanding(appState)) return renderSignedOutLanding(appState);
@@ -87530,7 +87630,7 @@ function renderApp(){
      where a transition has genuinely just become true -- see
      contextInsightDue() and its suppression rules. Wrapped because an
      explanation failing must never take the app down with it. */
-  try { if (!journeyActive()) maybeOpenContextInsight(); } catch(e){}
+  try { if (!journeyScreen()) maybeOpenContextInsight(); } catch(e){}
   /* The arrival is a full screen, so the bottom nav is withheld while it is
      up -- the same thing the signed-out landing's states already do via
      APP_STATES.nav. Tapping a tab behind a greeting would be navigating out
@@ -87542,7 +87642,7 @@ function renderApp(){
      surface now, top to bottom. */
   /* THE JOURNEY IS A WHOLE SCREEN TOO: its own header, no tabs, and none of
      Today's sheets rising over a screen that is not Today. */
-  var inJourney = journeyActive();
+  var inJourney = journeyScreen();
   var arriving = shouldShowProgrammeEntry(resolveAppState());
   if (inJourney) arriving = true;
   var navAllowed = appStateAllowsNav() && !arriving;
@@ -89399,6 +89499,10 @@ document.addEventListener('click', function(e){
   if (!target) return;
   if (clickOwnedByDisclosure(e.target, target)) return;
   var action = target.getAttribute('data-action');
+  /* JOURNEY-ONLY MODE: nothing outside the journey, the builder and sign-in
+     is dispatched (founder, 18 November 2026: steps 1-6 open to everyone,
+     everything else needs an account). */
+  if (JOURNEY_ONLY_MODE && !journeyOnlyAllows(action)){ e.preventDefault(); return; }
   /* Every step of the first-time journey answers to one handler. */
   if (action.indexOf('journey-') === 0){ handleJourneyAction(action, target); return; }
   switch(action){

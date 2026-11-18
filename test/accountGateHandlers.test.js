@@ -65,7 +65,14 @@ test('gate off: the runtime is served unconditionally, cookie or not', async () 
   });
 });
 
-test('gate on, no cookie at all: refused, not served -- a missing cookie is never success', async () => {
+/* UPDATED (founder, 18 November 2026: "Open steps 1-6 to everyone"). A
+   visitor with no cookie at all is now served the runtime in JOURNEY-ONLY
+   mode, marked on <html>, instead of being sent to sign in: the first-time
+   journey's Welcome, questions, builder, slides and preview need no account.
+   What a missing cookie still never resolves to is the FULL app: the copy is
+   marked, uncached, carries no entitlement stamp, and every account and
+   model API refuses the caller itself (test/m8-journeyGate.test.js). */
+test('gate on, no cookie at all: the journey-only runtime, never the full app', async () => {
   await withPatched(A, {
     accountRequired: () => true,
     readGateCookie: () => null,
@@ -73,10 +80,10 @@ test('gate on, no cookie at all: refused, not served -- a missing cookie is neve
     await withPatched(S, { config: () => FAKE_CFG }, async () => {
       const res = mockRes();
       await appHandler(mockReq(), res);
-      assert.notEqual(res.statusCode, 200, 'no cookie must never resolve to the runtime');
-      const { why } = locationWhy(res);
-      assert.equal(res.statusCode, 302);
-      assert.equal(why, 'signin');
+      assert.equal(res.statusCode, 200);
+      assert.match(String(res.body), /<html data-vvv-access="journey"/, 'no cookie resolved to the unmarked app');
+      assert.equal(res.headers['x-vvv-entitled-at'], undefined, 'no cookie earned an entitlement stamp');
+      assert.match(res.headers['cache-control'], /no-store/);
     });
   });
 });
@@ -158,13 +165,18 @@ test('gate on, the real decision allows: owner, beta and ordinary authenticated 
   }
 });
 
-test('a new athlete cannot reach Build My Plan (or anything else) without a passing decision -- there is no second path to the runtime', async () => {
-  // The plan builder lives inside the runtime HTML. If the gate denies, the
-  // handler never sends that file at all, so there is nothing to "reach" --
-  // this is the guarantee, proven at the one place it can be broken.
+/* UPDATED (founder, 18 November 2026: "Open steps 1-6 to everyone"). Build My
+   Plan is now reachable without an account, on purpose: the journey-only
+   runtime. What still cannot be reached without a passing decision is
+   everything past it. A DENIED athlete (signed in, refused) is still never
+   handed a byte of the runtime, journey copy included. */
+test('a denied athlete is handed no runtime at all, journey copy included -- there is no second path to the app', async () => {
   await withPatched(A, {
     accountRequired: () => true,
-    readGateCookie: () => null,
+    readGateCookie: () => 'lease-1',
+    resolveLease: async () => ({ user_id: 'u1' }),
+    readEntitlement: async () => ({ ok: true, row: null }),
+    resolveAccess: () => ({ allow: false, reason: 'no_entitlement' }),
   }, async () => {
     await withPatched(S, { config: () => FAKE_CFG }, async () => {
       const res = mockRes();

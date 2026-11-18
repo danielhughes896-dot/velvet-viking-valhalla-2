@@ -5,7 +5,9 @@
 //
 // The rule it enforces is narrow and worth stating exactly, because overstating
 // it would be worse than not having it: an unauthenticated party cannot obtain
-// the VVV runtime from this deployment, and an athlete without access is sent
+// the FULL VVV runtime from this deployment (since 18 November 2026 a visitor
+// with no session at all gets it in journey-only mode -- see
+// serveJourneyOnly), and an athlete without access is sent
 // to the account shell instead of being served a paywall painted over a fully
 // delivered application. It does NOT make the delivered code secret. Nothing
 // can: a payload legitimately received can be saved and re-run, and the Phase
@@ -170,6 +172,49 @@ function serveRuntime(req, res){
   res.status(200).send(runtime());
 }
 
+/* ---------- THE FIRST-TIME JOURNEY, OPEN TO EVERYONE ----------
+   Founder, 18 November 2026: "Open steps 1-6 to everyone." With the account
+   gate on, a visitor with NO SESSION AT ALL used to be sent to the sign-in
+   shell before they had seen anything, so the journey's Welcome, its
+   questions, the builder, the slides and the preview were unreachable to the
+   very people they exist for. They now get the runtime in JOURNEY-ONLY mode:
+   the same bytes with one marker on the <html> element, which the app reads
+   to draw nothing but the journey's screens up to Make It Yours.
+
+   WHAT THIS GIVES AWAY, AND WHAT IT DOES NOT. The runtime's code, which was
+   never secret (see the header of this file: a payload legitimately received
+   can be saved and re-run). NOT any athlete's data, and nothing that costs
+   money: every API that reads or writes an account, or calls a model,
+   resolves the caller from a bearer token server-side and refuses an
+   anonymous one, exactly as before. Nothing the anonymous visitor builds
+   leaves the device until they create an account, and sign-up is still
+   invite-only while the beta allowlist stands.
+
+   WHAT DOES NOT CHANGE. A visitor who HAS a cookie is decided exactly as
+   before: a stale lease goes to sign-in, a denied athlete to the locked
+   shell, a broken key to "unavailable". With the gate off this function is
+   never reached.
+
+   NOT CACHED, NOT STAMPED. no-store and no x-vvv-entitled-at, so the service
+   worker neither keeps this copy nor treats it as a granted delivery: the
+   offline window is still earned only by a real grant. */
+const JOURNEY_MARKER = 'data-vvv-access="journey"';
+let cachedJourneyRuntime = null;
+function journeyRuntime(){
+  if (cachedJourneyRuntime == null){
+    const html = runtime().toString('utf8');
+    cachedJourneyRuntime = Buffer.from(html.replace(/<html\b/i, '<html ' + JOURNEY_MARKER), 'utf8');
+  }
+  return cachedJourneyRuntime;
+}
+function serveJourneyOnly(res){
+  res.setHeader('content-type', 'text/html; charset=utf-8');
+  res.setHeader('cache-control', 'private, no-store');
+  res.setHeader('vary', 'Cookie');
+  res.setHeader('x-content-type-options', 'nosniff');
+  res.status(200).send(journeyRuntime());
+}
+
 /* Sent to the account shell rather than shown an error. 302 rather than 303 or
    a rewrite so the address bar reflects where the athlete actually is, and the
    back button behaves. */
@@ -207,7 +252,10 @@ module.exports = async function handler(req, res){
   }
 
   const leaseId = A.readGateCookie(req);
-  if (!leaseId){ stamp(res, 'no-session'); return toShell(res, 'signin'); }
+  /* No session at all: the first-time journey, and nothing past it (see
+     serveJourneyOnly). A cookie that no longer names a live lease is not
+     this case and still goes to sign-in, below. */
+  if (!leaseId){ stamp(res, 'journey'); return serveJourneyOnly(res); }
 
   let lease = null;
   try{ lease = await A.resolveLease(S, cfg, leaseId); }
@@ -248,3 +296,5 @@ module.exports = async function handler(req, res){
 module.exports.RUNTIME_FILE = RUNTIME_FILE;
 module.exports.runtimeEtag = runtimeEtag;
 module.exports.etagMatches = etagMatches;
+module.exports.JOURNEY_MARKER = JOURNEY_MARKER;
+module.exports.journeyRuntime = journeyRuntime;
