@@ -74,6 +74,9 @@ const account = require('../api/account.js');
 test('every consolidated resource resolves, and nothing else does', () => {
   // Phase 3 added preview and trial. Both mount here rather than as new
   // functions -- the plan allows twelve and the router is what it is for.
+  // (Trial went first; preview was removed on 18 November 2026, founder
+  // decision: nothing had called POST /api/preview since the web builder was
+  // retired on 16 November.)
   //
   // COMMERCIAL LAUNCH ADDS `portal`, and it mounts here for exactly the same
   // reason: a subscription with no self-service cancellation is not a finished
@@ -84,7 +87,7 @@ test('every consolidated resource resolves, and nothing else does', () => {
   // coach's one-line notes), for the same reason again: it is a verified
   // athlete acting on their own account, and a route entry costs no function.
   assert.deepEqual(account.ROUTES.slice().sort(),
-    ['account-data', 'account-delete', 'checkout', 'coach-memory', 'portal', 'preview', 'subscription']);
+    ['account-data', 'account-delete', 'checkout', 'coach-memory', 'portal', 'subscription']);
   account.ROUTES.forEach(r => {
     assert.equal(account.resolveResource({ query: { resource: r } }), r);
     assert.equal(account.resolveResource({ url: '/api/account?resource=' + r }), r);

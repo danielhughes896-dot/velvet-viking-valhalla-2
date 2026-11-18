@@ -245,7 +245,9 @@ test('no absolute password claim survives anywhere athlete-facing', () => {
   // A password credential exists on the Supabase owner account, and password auth
   // is a project-level setting the app does not control, so "we do not store
   // passwords" is not provable. Describing what the ATHLETE does is.
-  for (const file of ['account.html', 'privacy.html', 'terms.html']) {
+  /* privacy.html was deleted (founder, 18 November 2026): /privacy now
+     redirects to the website's policy. */
+  for (const file of ['account.html', 'terms.html']) {
     const src = read(file).replace(/<!--[\s\S]*?-->/g, ' ');
     for (const overclaim of [
       /there is no password\b(?!\s+for you)/i,
@@ -263,7 +265,8 @@ test('no absolute password claim survives anywhere athlete-facing', () => {
 // THE APP'S OWN LEGAL PAGES NO LONGER CONTRADICT THE PUBLISHED ONES
 // ---------------------------------------------------------------------------
 test('no visible placeholder token remains on any app legal page', () => {
-  for (const file of ['privacy.html', 'terms.html', 'account.html', 'get.html']) {
+  /* privacy.html was deleted (founder, 18 November 2026): /privacy redirects. */
+  for (const file of ['terms.html', 'account.html', 'get.html']) {
     const visible = read(file).replace(/<!--[\s\S]*?-->/g, ' ');
     const found = visible.match(/\[[A-Z][A-Z /]{3,}\]/g) || [];
     assert.deepEqual(found, [], file + ' shows placeholder tokens to a real reader');
@@ -271,21 +274,26 @@ test('no visible placeholder token remains on any app legal page', () => {
 });
 
 test('the app legal pages state the company correctly and point at canonical', () => {
-  const privacy = read('privacy.html');
   const terms = read('terms.html');
-  // The stale claim that no company existed is gone.
-  assert.ok(
-    !/no company has been incorporated/.test(privacy),
-    'Velvet Viking Ltd is incorporated; that statement was out of date'
-  );
   for (const [name, src, canon] of [
-    ['privacy.html', privacy, CANON_PRIVACY],
     ['terms.html', terms, CANON_TERMS],
   ]) {
     assert.ok(src.indexOf(canon) !== -1, name + ' must point at the canonical document');
     assert.match(src, /company number 17404255/, name);
     assert.match(src, /registered in England and Wales/i, name);
   }
+  /* RETIRED for privacy (founder, 18 November 2026): privacy.html still said
+     "invitation-only private beta" and is deleted. Its assertions here (no
+     "no company has been incorporated", the company number, a pointer to the
+     canonical policy) are replaced by the strongest form of "point at
+     canonical": the app domain's /privacy IS the website's policy, by a
+     permanent redirect. */
+  assert.ok(!fs.existsSync(path.join(ROOT, 'privacy.html')), 'the out-of-date local copy is back');
+  const routes = JSON.parse(read('vercel.json')).routes || [];
+  const hit = routes.filter(r => r.src && new RegExp('^' + r.src + '$').test('/privacy'))[0];
+  assert.ok(hit, '/privacy is not routed at all');
+  assert.equal(hit.status, 308);
+  assert.equal(hit.headers.Location, CANON_PRIVACY);
 });
 
 // ---------------------------------------------------------------------------

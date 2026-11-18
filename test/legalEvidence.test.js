@@ -554,10 +554,11 @@ test('a beta acceptance still buys nothing, now that the commercial Terms are li
 });
 
 test('every app surface links to the canonical documents, never to a local copy', () => {
-  /* The app's own /terms and /privacy are superseded working copies. A surface
+  /* The app's own /terms is a superseded working copy, and /privacy is now a
+     redirect to the website's policy (founder, 18 November 2026). A surface
      that asks for a commercial decision while linking to one of them is the
      original defect. Checked across every file an athlete can reach. */
-  for (const f of ['account.html', 'start.html', 'get.html',
+  for (const f of ['account.html', 'start.html', 'get.html', 'terms.html',
                    'protected/velvet-viking-valhalla.html']){
     const src = read(f);
     assert.ok(!/href="\/terms"/.test(src), f + ' still links to the local Terms copy');
@@ -598,7 +599,9 @@ test('privacy is still a notice, and the payload says so out loud', () => {
 test('the app legal pages show no unresolved placeholder', () => {
   /* A document that shows a reader an unfilled bracket next to an answer it
      has already given is worse than one that gives the answer once. */
-  for (const f of ['terms.html', 'privacy.html']){
+  /* privacy.html was deleted (founder, 18 November 2026): /privacy now
+     redirects to the website's policy. */
+  for (const f of ['terms.html']){
     const src = read(f);
     assert.ok(!/to be confirmed by the owner|\[GOVERNING LAW|\bTBC\b/i.test(src),
       f + ' still shows an unresolved placeholder');

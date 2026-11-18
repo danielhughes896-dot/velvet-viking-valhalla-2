@@ -31,8 +31,8 @@ const { RUNTIME_RELATIVE } = require('./harness.js');
 const ROOT = path.join(__dirname, '..');
 const APP = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 
-/* Every page in the product that has a <head> of its own. */
-const PAGES = ['start.html', 'account.html', 'privacy.html', 'terms.html',
+/* Every page in the product that has a <head> of its own. (privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy.) */
+const PAGES = ['start.html', 'account.html', 'terms.html',
                'get.html', RUNTIME_RELATIVE];
 
 const FAVICON = '/assets/favicon.png';

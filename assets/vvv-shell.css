@@ -2,8 +2,9 @@
    VELVET VIKING — SHARED SYSTEM SHELL
    =========================================================
    ONE stylesheet for every surface that is not the training app itself:
-   the account/sign-in shell, the install page, Privacy, Terms and the
-   internal admin console.
+   the account/sign-in shell, the install page, Terms and the internal
+   admin console. (Privacy left this list on 18 November 2026: /privacy is a
+   redirect to the website's policy now.)
 
    Before this, each of those pages carried its own copy of the palette,
    pasted from the app and annotated "lifted verbatim ... so the two read as
@@ -30,8 +31,8 @@
 
 :root{
   /* TWO RULES, AND ONLY TWO -- one face for every word, one for every
-     standalone figure. Declared here as well as in the app because /get,
-     /privacy and /terms carry no :root of their own and reach the product's
+     standalone figure. Declared here as well as in the app because /get
+     and /terms carry no :root of their own and reach the product's
      tokens only through this file. See the full note in the app's :root. */
   --text-face:'Oswald',sans-serif;
   --num-face:'JetBrains Mono',monospace;
@@ -51,7 +52,7 @@
      The palette here predates the move that made cherry the interaction
      colour -- "Gold = brand/destination/milestone. Cherry = active/training/
      interaction." The app and /start both got it, because both declare their
-     own :root. /get, /privacy, /terms and the account shell reach the
+     own :root. /get, /terms and the account shell reach the
      product's tokens ONLY through this file, exactly as the note at the top
      of this block says, so cherry never arrived and their buttons kept
      falling back to the bronze gradient. A reader tapping DOWNLOAD THE APP on

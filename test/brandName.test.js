@@ -273,9 +273,9 @@ test('the four identities the outside world holds are untouched', () => {
  * comes back one string at a time, in a toast somebody wrote in a hurry.
  * ======================================================================== */
 
-/* Every surface an athlete reads outside the app. */
+/* Every surface an athlete reads outside the app. (privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy.) */
 const PUBLIC_PAGES = ['get.html', 'start.html', 'account.html',
-                      'privacy.html', 'terms.html', 'www/index.html'];
+                      'terms.html', 'www/index.html'];
 
 /* THE ONLY PLACES THE COMPANY MAY SPEAK, and what each one is for. Anything
    else carrying the company name is the product being called by the wrong
@@ -284,9 +284,9 @@ const COMPANY_SPEAKS = [
   'By Velvet Viking',              /* the byline under the mark */
   'Velvet Viking Ltd',             /* the registered company, in the legal pages */
   'Velvet Viking crest',           /* what the artwork actually is */
-  'data Velvet Viking holds',      /* privacy: the controller, not the app */
-  'not to Velvet Viking,',         /* privacy: whose backup it is not */
-  'Velvet Viking is responsible',  /* privacy: the controller's duty */
+  /* Three privacy-only allowances ('data Velvet Viking holds', 'not to Velvet
+     Viking,', 'Velvet Viking is responsible') went with privacy.html, deleted
+     on 18 November 2026: /privacy redirects to the website's policy. */
   /* AND ONE THAT IS NOT THE COMPANY SPEAKING AT ALL. It names the entry an
      athlete will see on Strava's own settings screen, which carries whatever
      the Strava application was registered as. It is pinned present by a law
@@ -353,7 +353,6 @@ test('every title and launcher label says SACORO', () => {
                   ['start.html', /<title>([^<]*)<\/title>/],
                   ['account.html', /<title>([^<]*)<\/title>/],
                   ['get.html', /<title>([^<]*)<\/title>/],
-                  ['privacy.html', /<title>([^<]*)<\/title>/],
                   ['terms.html', /<title>([^<]*)<\/title>/],
                   ['www/index.html', /<title>([^<]*)<\/title>/]];
   titled.forEach(([f, re]) => {

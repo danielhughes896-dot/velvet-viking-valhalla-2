@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const BUILDER_SPEC = require('../assets/builder-spec.js');
-const Preview = require('../api/_preview.js');
 
 // C2 -- A LOCKED PURPOSE'S DISTANCE IS AN AUTHORITY, NOT A DOM READ.
 //
@@ -19,11 +18,12 @@ const Preview = require('../api/_preview.js');
 // the exact "multiple consumers, no reconciliation contract" failure this
 // whole remediation pass exists to close.
 //
-// The fix mirrors the server's own rule: api/_preview.js's
-// PURPOSE_SHAPE[purpose].forceDistance overrides whatever distanceKey the
-// request carries for a locked purpose. These tests prove the client now
-// carries the identical override at both consumers, and that unlocked
-// purposes are left alone.
+// The fix mirrored the server's own rule: api/_preview.js's
+// PURPOSE_SHAPE[purpose].forceDistance overrode whatever distanceKey the
+// request carried for a locked purpose. These tests prove the client carries
+// the same override at both consumers, and that unlocked purposes are left
+// alone. (The server side, and its two tests, went with POST /api/preview,
+// removed on 18 November 2026.)
 
 const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, 'protected/velvet-viking-valhalla.html'), 'utf8');
@@ -36,21 +36,10 @@ test('assets/builder-spec.js: exactly one purpose is distance-locked, and it is 
   ['race', 'maintain', 'base'].forEach((k) => assert.equal(meta[k].lockDistance, null));
 });
 
-test('server preview enforces the same lock regardless of the distanceKey the request sends', () => {
-  const v = Preview.validate({ distanceKey: 'full', purpose: 'speed', volume: 40,
-    activeDays: [1, 2, 3, 5, 6], longRunDay: 6, weeks: 8, benchmarkSeconds: 2700 });
-  assert.equal(v.ok, true, JSON.stringify(v));
-  assert.equal(v.input.buildDistance, '5k', 'a manipulated distanceKey must not survive a locked purpose server-side');
-  assert.equal(v.input.distanceKey, 'full', 'the submitted distance is still recorded, just not built');
-});
-
-test('server preview leaves an unlocked purpose\'s requested distance alone', () => {
-  const v = Preview.validate({ distanceKey: 'half', purpose: 'race', volume: 40,
-    activeDays: [1, 2, 3, 5, 6], longRunDay: 6, hasEvent: true, raceDate: '2099-01-01',
-    benchmarkSeconds: 2700 });
-  assert.equal(v.ok, true, JSON.stringify(v));
-  assert.equal(v.input.buildDistance, 'half');
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   'server preview enforces the same lock regardless of the distanceKey the
+   request sends' and 'server preview leaves an unlocked purpose's requested
+   distance alone' drove api/_preview.js's validate(), gone with the endpoint. */
 
 test('handleGeneratePlan() overrides distanceKey from the purpose lock, not the raw field value', () => {
   const fn = SRC.slice(SRC.indexOf('async function handleGeneratePlan()'), SRC.indexOf('async function handleGeneratePlan()') + 2000);

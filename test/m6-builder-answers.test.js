@@ -18,8 +18,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
-const { buildPlan } = require('./fixtures.js');
-const Preview = require('../api/_preview.js');
+const { buildPlan, bankedBuild } = require('./fixtures.js');
 const BUILDER_SPEC = require('../assets/builder-spec.js');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
@@ -319,12 +318,10 @@ test('the review page shows the longest run row even when it is 0 or unanswered'
 
 test('a /start build carrying answers that cannot all be true is not adopted', () => {
   const PIN = '2026-08-20T09:00:00Z';
-  const previewApp = loadApp({ pinnedDate: PIN });
-  const v = Preview.validate({ purpose: 'race', distanceKey: 'half', weeks: 12, volume: 45,
-    activeDays: [0, 1, 2, 4, 5], longRunDay: 5, benchmarkSeconds: 2700 });
-  assert.equal(v.ok, true);
-  const g = Preview.generate(previewApp, v.input);
-  const build = Preview.buildEcho(v.input, g.startDate, g.raceDate, g.weeks);
+  /* The banked record used to come from api/_preview.js; that endpoint was
+     removed (founder, 18 November 2026), and bankedBuild() assembles the same
+     record from the app's own clock. */
+  const build = bankedBuild(loadApp({ pinnedDate: PIN }));
   const bank = (ev) => {
     const a = loadApp({ pinnedDate: PIN });
     a.window.localStorage.setItem('vvv_pending_build', JSON.stringify({

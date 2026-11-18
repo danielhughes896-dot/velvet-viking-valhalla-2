@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { loadApp } = require('./harness.js');
-const Preview = require('../api/_preview.js');
 const BUILDER_SPEC = require('../assets/builder-spec.js');
 
 // THE CANONICAL BUILDER SPECIFICATION -- ONE SOURCE, ZERO DRIFT.
@@ -16,6 +15,10 @@ const BUILDER_SPEC = require('../assets/builder-spec.js');
 // validation all read the SAME object -- this file proves they still do, so
 // a hand-edit to any one surface's copy of a rule fails here instead of
 // drifting silently out of step with the other two.
+//
+// UPDATED (founder, 18 November 2026: remove the unused POST /api/preview).
+// api/_preview.js is gone, so its side of each comparison is retired; the
+// app's side, and the spec itself, are still held here.
 //
 // These tests are the ones the reconciliation task asked for explicitly:
 // both surfaces expose exactly nine stages, in the same order, with the same
@@ -98,10 +101,9 @@ test('the distance order the picker offers matches the engine\'s own, and carrie
   });
 });
 
-test('the goal-ambition mapping is identical across the app, the spec and the server', () => {
+test('the goal-ambition mapping is identical across the app and the spec', () => {
   const app = loadApp({ pinnedDate: TODAY });
   assert.equal(JSON.stringify(BUILDER_SPEC.goals.ambitionMult), JSON.stringify({ A: 1.06, B: 1.00, C: 0.94 }));
-  assert.equal(JSON.stringify(Preview.GOAL_AMBITION_MULT), JSON.stringify(BUILDER_SPEC.goals.ambitionMult));
   // The app reads the SAME object for its own goal-suggestion arithmetic --
   // consumption, not a third hand-copied literal.
   const sg = APP_SRC.slice(APP_SRC.indexOf('function handleSuggestGoals'));
@@ -122,12 +124,8 @@ test('validation thresholds are the same numbers, read from the same object, eve
   assert.deepEqual(BUILDER_SPEC.validation.daysRange, [1, 7]);
   assert.equal(BUILDER_SPEC.validation.volumeMustExceed, 0);
 
-  // The server -- fixed here to match, closing the drift the investigation
-  // found: LIMITS.days used to be [2, 7], looser than the app's real 3-6, so
-  // an anonymous preview could accept a build the app itself would refuse.
-  assert.deepEqual(Preview.LIMITS.weeks, BUILDER_SPEC.validation.weeksRange);
-  assert.deepEqual(Preview.LIMITS.days, BUILDER_SPEC.validation.daysRange);
-  assert.equal(Preview.LIMITS.volume[0], BUILDER_SPEC.validation.volumeMustExceed);
+  /* The server's copy (api/_preview.js's LIMITS) went with POST /api/preview
+     (founder, 18 November 2026). */
 
   // The app's own bldValidateStage()/handleGeneratePlan() read the spec's
   // numbers rather than a hand-typed 4/24/3/6 -- source-level, so a literal
@@ -147,43 +145,12 @@ test('validation thresholds are the same numbers, read from the same object, eve
   /* /start's copy of the validator is retired with the web builder (item 9). */
 });
 
-test('the server accepts exactly the day counts the app builder accepts', () => {
-  // The concrete regression: LIMITS.days=[2,7] once let a 7-day build preview
-  // fine and then fail silently at adoption (adoptPendingBuildIfAny() reads
-  // the same range). Both sides read one source, so when A5 (founder, 15
-  // November 2026) opened the range to 1-7, the server moved with it: seven
-  // days and one day are accepted, and no days at all is still refused.
-  const seven = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 40,
-    activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 0, benchmarkSeconds: 2700 });
-  assert.equal(seven.ok, true, 'seven running days are accepted');
-  const one = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 10,
-    activeDays: [6], longRunDay: 6, benchmarkSeconds: 2700 });
-  assert.equal(one.ok, true, 'one running day is accepted');
-  const none = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 10,
-    activeDays: [], longRunDay: 6, benchmarkSeconds: 2700 });
-  assert.equal(none.ok, false);
-});
-
-test('a preview request with ZERO weekly volume is accepted, because zero is an answer', () => {
-  /* ---- RE-POINTED ---- HQ RULING: "0 is valid evidence and MUST remain
-     different from null/unknown."
-     This contract asserted the opposite, and the endpoint's own comment had
-     already noticed the tension -- "zero is a real answer an athlete could
-     submit, not a missing one" -- immediately above a line that refused it. An
-     athlete who is not running yet is exactly the athlete the question exists
-     for, and refusing their answer meant /start could not build them anything.
-     WHAT IT GUARDS IS UNCHANGED: a figure we cannot believe is still refused.
-     Only the boundary moved, from "must exceed zero" to "must be answered". */
-  const ok = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 0,
-    activeDays: [0, 1, 2, 4, 5], longRunDay: 5, benchmarkSeconds: 2700 });
-  assert.equal(ok.ok, true, 'a stated zero is an answer and must be accepted');
-  [-1, NaN, 'x', undefined, 201].forEach(bad => {
-    const v = Preview.validate({ distanceKey: '10k', weeks: 12, volume: bad,
-      activeDays: [0, 1, 2, 4, 5], longRunDay: 5, benchmarkSeconds: 2700 });
-    assert.equal(v.ok, false, String(bad) + ' is not an answer and must be refused');
-    assert.equal(v.code, 'volume_out_of_range');
-  });
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   'the server accepts exactly the day counts the app builder accepts' and 'a
+   preview request with ZERO weekly volume is accepted' drove api/_preview.js's
+   validate(), which is gone with the endpoint. The app's own builder reads
+   the same daysRange and volumeMustExceed, asserted above, and accepts a
+   stated zero (test/m6-builder-answers.test.js). */
 
 // ---------------------------------------------------------------------------
 // 4. THE REVIEW STAGE IS IDENTICAL IN MEANING AND DATA
@@ -206,13 +173,8 @@ test('the review stage covers every answer the builder asked', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. THE SERVER'S REQUEST CONTRACT IS THE SAME AUTHORITY, NOT A FOURTH COPY
+// 5. THE SERVER'S REQUEST CONTRACT
 // ---------------------------------------------------------------------------
-test('api/_preview.js reads its taxonomy from the canonical spec rather than its own literals', () => {
-  const src = read('api/_preview.js');
-  assert.match(src, /const BUILDER_SPEC = require\('\.\.\/assets\/builder-spec\.js'\);/);
-  assert.match(src, /const DISTANCES = BUILDER_SPEC\.distances\.order;/);
-  assert.match(src, /const PURPOSES = BUILDER_SPEC\.purposes\.order;/);
-  assert.match(src, /const GOAL_AMBITIONS = BUILDER_SPEC\.goals\.keys;/);
-  assert.match(src, /const GOAL_AMBITION_MULT = BUILDER_SPEC\.goals\.ambitionMult;/);
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   'api/_preview.js reads its taxonomy from the canonical spec rather than its
+   own literals' read a file that no longer exists. */

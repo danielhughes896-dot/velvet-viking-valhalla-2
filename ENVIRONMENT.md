@@ -222,10 +222,11 @@ all** used to be redirected to `/account?why=signin`. It is now answered by
 love to achieve, What drives you, the builder, the three slides, the preview
 and Make It Yours; Existing Member sign-in; the legal pages. Everything they
 build stays on their device. On the server, only the public routes: the
-catalogue and agreement wording (`GET /api/checkout`), the plan preview
-(`POST /api/preview`), the ways in (`GET /api/beta-signin`, and sending a
-magic link), and the configuration probes (`/api/voice-enabled`,
-`/api/strava-enabled`, `/api/garmin-status`).
+catalogue and agreement wording (`GET /api/checkout`), the ways in
+(`GET /api/beta-signin`, and sending a magic link), and the configuration
+probes (`/api/voice-enabled`, `/api/strava-enabled`, `/api/garmin-status`).
+(`POST /api/preview` was removed on 18 November 2026: nothing had called it
+since the web builder was retired on 16 November.)
 
 **What they cannot reach:** Today, This Week, Full Plan, Coach, Settings,
 Share, Circles, Ask Coach, the trial and everything after it (the app holds

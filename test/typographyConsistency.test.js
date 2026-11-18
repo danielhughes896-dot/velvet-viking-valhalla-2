@@ -104,8 +104,9 @@ test('no surface names a font family directly -- every one goes through a token'
      literal 'Inter' or 'Oswald' in a rule somewhere is how four roles grew
      out of one in the first place, and it is invisible until somebody
      counts. Cinzel is the single exception and is pinned separately. */
+  /* privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy. */
   ['protected/velvet-viking-valhalla.html', 'assets/vvv-shell.css',
-   'start.html', 'get.html', 'privacy.html', 'terms.html'].forEach(rel => {
+   'start.html', 'get.html', 'terms.html'].forEach(rel => {
     const decls = extractFontFamilyDeclarations(path.join(ROOT, rel));
     const literal = decls.filter(d => !/^(inherit|var\(--|'Cinzel')/.test(d.value));
     assert.deepEqual(literal.map(d => d.line + ': ' + d.value), [],
@@ -420,7 +421,8 @@ test('the shared customer-journey shell (vvv-shell.css) declares only the canoni
   assertOnlyCanonicalFamilies(path.join(ROOT, 'assets', 'vvv-shell.css'));
 });
 
-['start.html', 'get.html', 'privacy.html', 'terms.html'].forEach(page => {
+/* privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy. */
+['start.html', 'get.html', 'terms.html'].forEach(page => {
   test('the ' + page + ' entry surface declares only the canonical roles', () => {
     assertOnlyCanonicalFamilies(path.join(ROOT, page));
   });
@@ -498,7 +500,8 @@ test('no font-family declaration anywhere resolves to a name outside the two can
   // this asserts against the VALUES actually parsed out of font-family
   // declarations (the same extraction the canonical-role tests above use),
   // not the file text.
-  ['protected/velvet-viking-valhalla.html', 'assets/vvv-shell.css', 'start.html', 'get.html', 'privacy.html', 'terms.html']
+  /* privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy. */
+  ['protected/velvet-viking-valhalla.html', 'assets/vvv-shell.css', 'start.html', 'get.html', 'terms.html']
     .forEach(rel => {
       const decls = extractFontFamilyDeclarations(path.join(ROOT, rel));
       const rogue = decls.filter(d => !CANONICAL.some(re => re.test(d.value)));

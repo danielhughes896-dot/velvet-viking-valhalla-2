@@ -212,4 +212,26 @@ function logAsPrescribed(app, dd, opts) {
   return dd;
 }
 
-module.exports = { buildPlan, logAsPrescribed, logSections };
+/* A BANKED BUILD, as adoptPendingBuildIfAny() reads it from 'vvv_pending_build'.
+   This used to be produced by api/_preview.js's validate()/generate()/
+   buildEcho() for the tests that exercise adoption. That endpoint was removed
+   (founder, 18 November 2026: nothing had called POST /api/preview since the
+   web builder was retired on 16 November), but the app still adopts a banked
+   build, so the record is assembled here from the app's own clock functions:
+   the start is the athlete's first running day on or after today, exactly as
+   a first block's anchor is, and a no-event block's goal day is the last day
+   of its final week. Every field is the shape the app re-validates. */
+function bankedBuild(app, over) {
+  const b = Object.assign({
+    purpose: 'race', distanceKey: 'half', volume: 45, weeks: 12,
+    activeDays: [0, 1, 2, 4, 5], longRunDay: 5,
+    benchmarkSeconds: 2700, benchmarkDistanceKey: '10k',
+    experience: 'experienced', goalAmbition: 'B', hasEvent: false
+  }, over || {});
+  b.activeDays = Array.from(new Set(b.activeDays)).sort();
+  if (!b.startDate) b.startDate = app.firstActiveDayOnOrAfter(app.todayStr(), b.activeDays);
+  if (!b.raceDate) b.raceDate = app.addDays(app.addDays(b.startDate, -app.isoWeekday(b.startDate)), b.weeks * 7 - 1);
+  return b;
+}
+
+module.exports = { buildPlan, logAsPrescribed, logSections, bankedBuild };

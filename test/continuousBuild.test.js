@@ -2,20 +2,28 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
-const Preview = require('../api/_preview.js');
+const { bankedBuild } = require('./fixtures.js');
+const BUILDER_SPEC = require('../assets/builder-spec.js');
 
 // THE CONTINUOUS BUILD.
 //
-// The approved journey is Builder -> Personalised Preview -> Save My Plan ->
+// The approved journey was Builder -> Personalised Preview -> Save My Plan ->
 // Authenticate -> Trial/Purchase -> App, and the plan an athlete wakes up
-// with inside the app must be the exact one the preview showed them -- not a
-// second, independent build from the same raw answers, and never a plan
+// with inside the app must be the exact one the banked build describes -- not
+// a second, independent build from the same raw answers, and never a plan
 // built from someone else's abandoned attempt on a shared device.
 //
 // These tests drive protected/velvet-viking-valhalla.html's real
-// adoptPendingBuildIfAny() through the harness, and cross-check its output
-// against api/_preview.js's real generate()/summarise() -- the same two
-// engine functions, called with the same arguments, must agree.
+// adoptPendingBuildIfAny() through the harness.
+//
+// UPDATED (founder, 18 November 2026: remove the unused POST /api/preview).
+// The banked build used to come from api/_preview.js's validate()/generate()/
+// buildEcho(), and the adopted plan was cross-checked against its summary.
+// The endpoint is gone; the app still adopts a banked build, so the record now
+// comes from test/fixtures.js's bankedBuild() (the same fields, byte for
+// byte), and the adopted plan is cross-checked against the engine's own two
+// calls made directly with the same arguments. Retired with the endpoint: the
+// server's refusal of an unknown goalAmbition, and the preview's own paces.
 
 const PINNED = '2026-08-20T09:00:00Z';
 const PINNED_MS = new Date(PINNED).getTime();
@@ -25,23 +33,24 @@ function fakeJwt(sub){
   return b64({ alg: 'HS256' }) + '.' + b64({ sub }) + '.sig';
 }
 
-/* Runs the real server-side preview for a raw mini-builder input and returns
-   both the athlete-facing preview and the exact buildEcho() the endpoint
-   would bank to localStorage -- i.e. what /start actually produces today. */
-function realPreview(input){
-  const previewApp = loadApp({ pinnedDate: PINNED });
-  const v = Preview.validate(input);
-  assert.equal(v.ok, true, 'fixture input failed validation: ' + JSON.stringify(v.errors || v));
-  const g = Preview.generate(previewApp, v.input);
-  const preview = Preview.summarise(g.app, g.days, g.blockResult, v.input);
-  const build = Preview.buildEcho(v.input, g.startDate, g.raceDate, g.weeks);
-  return { preview, build };
+/* A banked build for the given answers, as adoptPendingBuildIfAny() reads it. */
+function realBuild(over){
+  return { build: bankedBuild(loadApp({ pinnedDate: PINNED }), over) };
 }
 
-const RAW_INPUT = {
-  purpose: 'race', distanceKey: 'half', weeks: 12, volume: 45,
-  activeDays: [0, 1, 2, 4, 5], longRunDay: 5, benchmarkSeconds: 2700 // 45:00 10K
-};
+/* The engine's own two calls, made directly with the build's arguments: what
+   adoption must reproduce rather than re-derive. */
+function engineRun(build){
+  const a = loadApp({ pinnedDate: PINNED });
+  const block = a.buildBlockWeeks(build.distanceKey, build.volume, build.weeks, { purpose: build.purpose });
+  const days = a.buildDaysFromWeeks(block, build.raceDate,
+    { activeDays: build.activeDays, longRunDay: build.longRunDay }, build.startDate, !!build.hasEvent);
+  return { block, days };
+}
+
+/* The answers every case below banks unless it says otherwise: a half
+   marathon, twelve weeks, 45km a week, five days with a Saturday long run,
+   a 45:00 10K (bankedBuild()'s defaults). */
 
 function bankPending(app, build, extra){
   // savedAt is measured against PINNED_MS, not the real wall clock -- the
@@ -56,8 +65,9 @@ function bankPending(app, build, extra){
 // ---------------------------------------------------------------------------
 // 4 & 5. THE ROUND TRIP CARRIES THE SAME ANSWERS INTO THE SAME REAL PLAN
 // ---------------------------------------------------------------------------
-test('adopting a banked build produces the exact plan the preview showed', () => {
-  const { preview, build } = realPreview(RAW_INPUT);
+test('adopting a banked build produces the exact plan the engine builds from it', () => {
+  const { build } = realBuild();
+  const expected = engineRun(build);
 
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
@@ -77,21 +87,25 @@ test('adopting a banked build produces the exact plan the preview showed', () =>
   // treat that as a different realm even when every value matches.
   assert.equal(JSON.stringify(app.state.setup.schedule),
     JSON.stringify({ activeDays: build.activeDays, longRunDay: build.longRunDay }));
-  assert.equal(app.state.setup.planWeeks, preview.programme.weeks,
-    'the adopted plan runs a different number of weeks than the preview promised');
+  assert.equal(app.state.setup.planWeeks, expected.block.planWeeks,
+    'the adopted plan runs a different number of weeks than the build describes');
 
   // Same shape: same total sessions, same total km, same first week.
-  const totalSessions = app.state.days.filter(d => (d.type || 'rest') !== 'rest').length;
-  const totalKm = Math.round(app.state.days.reduce((a, d) => a + (typeof d.km === 'number' ? d.km : 0), 0));
-  assert.equal(totalSessions, preview.programme.totalSessions);
-  assert.equal(totalKm, preview.programme.totalKm);
+  const sessions = (days) => days.filter(d => (d.type || 'rest') !== 'rest').length;
+  const km = (days) => Math.round(days.reduce((a, d) => a + (typeof d.km === 'number' ? d.km : 0), 0));
+  assert.ok(sessions(expected.days) > 0, 'the fixture built nothing to compare against');
+  assert.equal(sessions(app.state.days), sessions(expected.days));
+  assert.equal(km(app.state.days), km(expected.days));
 
-  const week1 = app.state.days.filter(d => d.week === 1).sort((a, b) => a.date < b.date ? -1 : 1);
-  assert.equal(week1.length, preview.firstWeek.length, 'the first week has a different number of days');
+  const byDate = (a, b) => a.date < b.date ? -1 : 1;
+  const week1 = app.state.days.filter(d => d.week === 1).sort(byDate);
+  const want1 = expected.days.filter(d => d.week === 1).sort(byDate);
+  assert.equal(week1.length, want1.length, 'the first week has a different number of days');
   week1.forEach((d, i) => {
-    const p = preview.firstWeek[i];
-    assert.equal(d.type || 'rest', p.type, 'day ' + i + ' type disagrees with the preview');
-    assert.equal(Math.round((d.km || 0) * 10) / 10, p.km, 'day ' + i + ' distance disagrees with the preview');
+    const p = want1[i];
+    assert.equal(d.type || 'rest', p.type || 'rest', 'day ' + i + ' type disagrees with the engine');
+    assert.equal(Math.round((d.km || 0) * 10) / 10, Math.round((p.km || 0) * 10) / 10,
+      'day ' + i + ' distance disagrees with the engine');
   });
 
   // No duplicate/second plan machinery: exactly one block was opened.
@@ -99,8 +113,8 @@ test('adopting a banked build produces the exact plan the preview showed', () =>
   assert.equal(app.state.setup.blockId, app.athlete().blocks[0].id);
 });
 
-test('the adopted plan trains at the SAME paces the preview showed, not a different goal', () => {
-  const { preview, build } = realPreview(RAW_INPUT);
+test('the adopted plan trains at the benchmark\'s own paces, not a different goal', () => {
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
   app.adoptPendingBuildIfAny();
@@ -110,12 +124,11 @@ test('the adopted plan trains at the SAME paces the preview showed, not a differ
     app.DISTANCE_PROFILES[app.state.setup.distanceKey].raceKm * 1000, activeGoalTime);
   const vdotFromBenchmark = app.vdotFromPerformance(10000, build.benchmarkSeconds);
   // Goal B is exactly the benchmark-equivalent pace -- see adoptPendingBuildIfAny()'s
-  // own comment. If this ever drifts, the athlete sees different training
-  // paces the moment they enter the app than the preview just showed them.
+  // own comment. If this ever drifts, the athlete trains at different paces
+  // from the ones their own benchmark demonstrates.
   assert.ok(Math.abs(vdotFromGoal - vdotFromBenchmark) < 0.05,
-    'the active goal does not correspond to the benchmark VDOT the preview used: ' +
+    'the active goal does not correspond to the benchmark VDOT: ' +
     vdotFromGoal + ' vs ' + vdotFromBenchmark);
-  assert.ok(preview.paces && preview.paces.length > 0, 'fixture produced no comparable preview paces');
 });
 
 // ---------------------------------------------------------------------------
@@ -129,9 +142,7 @@ test('the adopted plan trains at the SAME paces the preview showed, not a differ
 // ---------------------------------------------------------------------------
 ['A', 'B', 'C'].forEach(ambition => {
   test('goalAmbition=' + ambition + ' is honoured end to end, not overridden', () => {
-    const input = Object.assign({}, RAW_INPUT, { goalAmbition: ambition });
-    const { preview, build } = realPreview(input);
-    assert.equal(build.goalAmbition, ambition, 'buildEcho() dropped the chosen ambition');
+    const { build } = realBuild({ goalAmbition: ambition });
 
     const app = loadApp({ pinnedDate: PINNED });
     bankPending(app, build);
@@ -140,49 +151,49 @@ test('the adopted plan trains at the SAME paces the preview showed, not a differ
     assert.equal(app.state.setup.activeGoal, ambition,
       'the adopted plan is not training toward the ambition the athlete chose');
 
-    // And the paces the athlete is actually training at still match what
-    // the preview showed for THIS ambition (not silently pinned to B).
+    // And the paces the athlete is actually training at are the ones THIS
+    // ambition implies (not silently pinned to B).
     const activeGoalTime = app.state.setup.goals[app.state.setup.activeGoal].timeSec;
     const vdotFromGoal = app.vdotFromPerformance(
       app.DISTANCE_PROFILES[app.state.setup.distanceKey].raceKm * 1000, activeGoalTime);
-    const mult = Preview.GOAL_AMBITION_MULT[ambition];
-    const vdotFromPreview = app.vdotFromPerformance(10000, build.benchmarkSeconds) * mult;
-    assert.ok(Math.abs(vdotFromGoal - vdotFromPreview) < 0.05,
-      ambition + ': adopted-plan VDOT ' + vdotFromGoal + ' vs preview VDOT ' + vdotFromPreview);
-    assert.ok(preview.paces && preview.paces.length > 0);
+    const mult = BUILDER_SPEC.goals.ambitionMult[ambition];
+    const vdotWanted = app.vdotFromPerformance(10000, build.benchmarkSeconds) * mult;
+    assert.ok(Math.abs(vdotFromGoal - vdotWanted) < 0.05,
+      ambition + ': adopted-plan VDOT ' + vdotFromGoal + ' vs wanted VDOT ' + vdotWanted);
   });
 });
 
-test('the three ambitions genuinely produce different training paces, proving the choice is wired', () => {
-  const easy = ['A', 'B', 'C'].map(ambition => {
-    const { preview } = realPreview(Object.assign({}, RAW_INPUT, { goalAmbition: ambition }));
-    return preview.paces.find(p => p.zone === 'Easy').range;
+test('the three ambitions genuinely produce different training targets, proving the choice is wired', () => {
+  const goal = ['A', 'B', 'C'].map(ambition => {
+    const { build } = realBuild({ goalAmbition: ambition });
+    const app = loadApp({ pinnedDate: PINNED });
+    bankPending(app, build);
+    app.adoptPendingBuildIfAny();
+    return app.state.setup.goals[app.state.setup.activeGoal].timeSec;
   });
-  assert.notEqual(easy[0], easy[1], 'Dream and Solid produced identical easy paces');
-  assert.notEqual(easy[1], easy[2], 'Solid and Safety Net produced identical easy paces');
+  assert.notEqual(goal[0], goal[1], 'Dream and Solid produced identical targets');
+  assert.notEqual(goal[1], goal[2], 'Solid and Safety Net produced identical targets');
 });
 
-test('an older client that omits goalAmbition still gets exactly the old behaviour (B)', () => {
-  const { preview, build } = realPreview(RAW_INPUT); // RAW_INPUT sets no goalAmbition
-  assert.equal(build.goalAmbition, 'B');
+test('an older build that omits goalAmbition still gets exactly the old behaviour (B)', () => {
+  const { build } = realBuild();
+  delete build.goalAmbition;
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
   app.adoptPendingBuildIfAny();
   assert.equal(app.state.setup.activeGoal, 'B');
 });
 
-test('an invalid goalAmbition is refused by the server, not silently coerced', () => {
-  const v = Preview.validate(Object.assign({}, RAW_INPUT, { goalAmbition: 'Z' }));
-  assert.equal(v.ok, false);
-  assert.equal(v.code, 'unknown_goal_ambition');
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   'an invalid goalAmbition is refused by the server, not silently coerced'
+   drove api/_preview.js's validate(), which is gone with the endpoint. */
 
 /* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
 /* So start.html asks no ambition question; the app's own builder and the server's
    validation of goalAmbition are held above. */
 
 test('6 -- the builder gate never fires once a plan has been adopted', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
   app.adoptPendingBuildIfAny();
@@ -198,7 +209,7 @@ test('6 -- the builder gate never fires once a plan has been adopted', () => {
 // 9. AN EXISTING PLAN CAN NEVER BE OVERWRITTEN
 // ---------------------------------------------------------------------------
 test('9 -- a returning athlete\'s existing plan is never touched, even with a build banked', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   const existing = { distanceKey: 'full', currentVolume: 60, raceDate: '2026-12-01',
     startDate: '2026-08-01', planWeeks: 16, schedule: { activeDays: [0,1,2,3,4], longRunDay: 4 },
@@ -220,7 +231,7 @@ test('9 -- a returning athlete\'s existing plan is never touched, even with a bu
 // 10. ABANDONED / CORRUPT / FOREIGN STATE IS SAFELY HANDLED
 // ---------------------------------------------------------------------------
 test('10a -- a stale banked build (older than 48h) is not adopted, and is cleared', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build, { savedAt: PINNED_MS - 49 * 60 * 60 * 1000 });
 
@@ -250,7 +261,7 @@ test('10c -- a build missing required fields is not adopted, and is cleared', ()
 
 test('10d -- a build that fails the real builder\'s own validation rules is refused', () => {
   const app = loadApp({ pinnedDate: PINNED });
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   // No active days at all -- outside BUILDER_SPEC.validation.daysRange (1-7
   // since A5, 15 November 2026). /start refuses it client-side too, but the
   // app must refuse it independently regardless of what reaches localStorage.
@@ -267,7 +278,7 @@ test('10e -- no pending build at all is a safe no-op', () => {
 });
 
 test('10f -- a build banked for a DIFFERENT account is refused, not silently inherited', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   app.cloudSession = { access_token: fakeJwt('athlete-b') };
   bankPending(app, build, { uid: 'athlete-a' });
@@ -278,7 +289,7 @@ test('10f -- a build banked for a DIFFERENT account is refused, not silently inh
 });
 
 test('a build already tagged for the SIGNED-IN account is adopted normally', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   app.cloudSession = { access_token: fakeJwt('athlete-a') };
   bankPending(app, build, { uid: 'athlete-a' });
@@ -286,7 +297,7 @@ test('a build already tagged for the SIGNED-IN account is adopted normally', () 
 });
 
 test('a build never claimed by anyone (no uid stamp) is still adopted normally', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   app.cloudSession = { access_token: fakeJwt('athlete-a') };
   bankPending(app, build); // no uid field at all
@@ -298,7 +309,7 @@ test('a build never claimed by anyone (no uid stamp) is still adopted normally',
 // double-adopt, whichever one runs first.
 // ---------------------------------------------------------------------------
 test('adoption never fires twice, even if called again after succeeding', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
   assert.equal(app.adoptPendingBuildIfAny(), true);
@@ -313,7 +324,7 @@ test('adoption never fires twice, even if called again after succeeding', () => 
 // unauthenticated build, and the athlete's existing consent card still fires.
 // ---------------------------------------------------------------------------
 test('an adopted plan never carries LTHR/MaxHR, and consent is left for the app to ask', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
   app.adoptPendingBuildIfAny();
@@ -342,8 +353,7 @@ test('start.html picks no weekdays, and the spec still orders them Mon=0..Sun=6'
 test('a Saturday long run picked on /start lands on a Saturday in the adopted plan', () => {
   // ISO 5 = Saturday. This is the exact regression the investigation found:
   // getDay() numbering shifted every chosen day by one.
-  const input = Object.assign({}, RAW_INPUT, { activeDays: [0,1,2,4,5], longRunDay: 5 });
-  const { build } = realPreview(input);
+  const { build } = realBuild({ activeDays: [0,1,2,4,5], longRunDay: 5 });
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
   app.adoptPendingBuildIfAny();
@@ -365,7 +375,7 @@ test('a Saturday long run picked on /start lands on a Saturday in the adopted pl
 // nothing but bad luck on the network would be stuck at the builder gate.
 // ---------------------------------------------------------------------------
 test('a signed-in athlete whose cloud is unreachable still gets their banked plan', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
 
@@ -383,7 +393,7 @@ test('a signed-in athlete whose cloud is unreachable still gets their banked pla
 });
 
 test('cloudInit()\'s unreachable branch does not adopt when a plan already exists', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   const existing = { distanceKey: 'full', currentVolume: 60, raceDate: '2026-12-01',
     startDate: '2026-08-01', planWeeks: 16, schedule: { activeDays: [0,1,2,3,4], longRunDay: 4 },
@@ -412,7 +422,7 @@ test('cloudInit()\'s unreachable branch does not adopt when a plan already exist
 // there in state, but the screen never moved off the builder gate.
 // ---------------------------------------------------------------------------
 test('cloudInit()\'s unreachable-cloud adoption actually repaints the app', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
   app.cloudSession = { access_token: 'stale', refresh_token: 'r', user_id: 'athlete-a' };
@@ -428,7 +438,7 @@ test('cloudInit()\'s unreachable-cloud adoption actually repaints the app', () =
 });
 
 test('cloudReconcile()\'s primary adoption hook also repaints the app', () => {
-  const { build } = realPreview(RAW_INPUT);
+  const { build } = realBuild();
   const app = loadApp({ pinnedDate: PINNED });
   bankPending(app, build);
   app.cloudSession = { access_token: 'stale', refresh_token: 'r', user_id: 'athlete-a' };

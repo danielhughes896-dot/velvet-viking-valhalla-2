@@ -293,6 +293,11 @@ resolving the delivery cookie against the entitlement row, server-side.
 
 ### The value-first journey, as the server supports it
 
+*Removed (founder, 18 November 2026).* `POST /api/preview` and
+`api/_preview.js` no longer exist: nothing had called the endpoint since the
+web builder on `/start` was retired on 16 November. The plan is built in the
+app. The description below is kept as the record of what it did.
+
 ```
 WEBSITE → BUILD MY PLAN → PLAN BUILDER → POST /api/preview   (no account needed
                                                               beyond sign-in;

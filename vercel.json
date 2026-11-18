@@ -5,8 +5,7 @@
   "outputDirectory": ".",
 
   "functions": {
-    "api/app.js": { "includeFiles": "protected/**" },
-    "api/account.js": { "includeFiles": "protected/**" }
+    "api/app.js": { "includeFiles": "protected/**" }
   },
 
   "routes": [
@@ -20,7 +19,6 @@
     { "src": "/api/subscription", "dest": "/api/account?resource=subscription" },
     { "src": "/api/checkout", "dest": "/api/account?resource=checkout" },
     { "src": "/api/portal", "dest": "/api/account?resource=portal" },
-    { "src": "/api/preview", "dest": "/api/account?resource=preview" },
     { "src": "/api/account-data", "dest": "/api/account?resource=account-data" },
     { "src": "/api/account-delete", "dest": "/api/account?resource=account-delete" },
     { "src": "/api/coach-memory", "dest": "/api/account?resource=coach-memory" },
@@ -44,7 +42,7 @@
     { "src": "/account", "dest": "/account.html" },
     { "src": "/get", "dest": "/get.html" },
     { "src": "/admin", "dest": "/admin.html" },
-    { "src": "/privacy", "dest": "/privacy.html" },
+    { "src": "/privacy(?:\\.html)?", "status": 308, "headers": { "Location": "https://velvetviking.co.uk/privacy" } },
     { "src": "/terms", "dest": "/terms.html" },
     { "src": "/\\.well-known/assetlinks\\.json", "dest": "/assetlinks.json" },
 
