@@ -107,7 +107,8 @@ test('80 IS A MINIMUM, AND ABOVE IT ONLY WHEN THE ATHLETE IS ALREADY THERE', () 
     '90km/week Established was held to ' + above.reachWeekKm + ', down at the 80 it is already above');
 });
 
-test('A REACHABLE LOCKED STANDARD IS NEVER DELIVERED SHORT', () => {
+const STEADY_CLIMB_SILENT_SHORT = 0.10;
+test('A REACHABLE LOCKED STANDARD IS NEVER DELIVERED MORE THAN 10% SHORT', () => {
   /* The D2 condition, asserted as the guard it is. byDestination still budgets
      quality at the supporting run's size while the block prescribes a
      structure-derived session, so a residual can in principle be stranded --
@@ -121,7 +122,13 @@ test('A REACHABLE LOCKED STANDARD IS NEVER DELIVERED SHORT', () => {
       [3, 4, L.d].forEach(f => {
         const o = outlook(exp, cap, f);
         if (o.verdict === 'INSUFFICIENT') return;          // not reachable; nothing to close
-        assert.ok(o.reachWeekKm + 1e-9 >= L.v,
+        /* WITHIN 10%, THE PEAK IS SIMPLY LOWER (founder, 18 November 2026):
+           the Marathon now climbs in steady steps of at most 8% and, where
+           that reaches within 10% of the locked week, it peaks lower and
+           nothing is asked; further short is INSUFFICIENT and the
+           Preparation offer. So an admitted block delivers at least 90% of
+           the locked week (it was the locked week itself before). */
+        assert.ok(o.reachWeekKm + 1e-9 >= L.v * (1 - STEADY_CLIMB_SILENT_SHORT),
           exp + ' @' + cap + 'km demF' + f + ': READY but delivers ' +
           o.reachWeekKm + ' against a locked ' + L.v);
       });

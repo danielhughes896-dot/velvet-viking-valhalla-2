@@ -141,14 +141,18 @@ test('A4: below the entry, the builder asks the pathway question instead of refu
    shakeouts: "these offer a different stimulation to normal runs so they are
    completely fine" under 5km. */
 function a0(){ return loadApp({ pinnedDate: '2026-11-16T09:00:00Z' }); }
-test('0-3km: the low start reads as three runs, and the long run starts at 6km', () => {
+/* 5 + 5 + 5, NOT 5 + 6 + 6 (founder, 18 November 2026, the run limit): a run
+   may be no more than 1km over the longest of the last 30 days, and one of
+   5km or less never counts, so a low starter opens on three 5km runs. The
+   15km and 5km below were 17km and 6km until that decision. */
+test('0-3km: the low start reads as three runs, and the long run starts at 5km', () => {
   const a = a0();
   a.pendingEntryEvidence = { weeklyKm: 2, runDaysPerWeek: 3, longestRunKm: 2,
     longestRunDate: '2026-11-10', recordedAt: '2026-11-16T09:00:00Z' };
   const st = a.statedEntryEvidence();
   assert.equal(st.lowStart, true);
-  assert.equal(st.weeklyKm, 17);
-  assert.equal(st.longKm, 6);
+  assert.equal(st.weeklyKm, 15);
+  assert.equal(st.longKm, 5);
   a.pendingEntryEvidence = { weeklyKm: 20, runDaysPerWeek: 3, longestRunKm: 8,
     longestRunDate: '2026-11-10', recordedAt: '2026-11-16T09:00:00Z' };
   assert.equal(a.statedEntryEvidence().lowStart, false, 'only 0 to 4km a week is a low start');
@@ -180,10 +184,11 @@ test('0-3km: zero is an answer in the builder, and the plan opens on three runs'
   assert.match(src, /0 if you are not running yet/);
   assert.doesNotMatch(src, /\(!volume \|\| volume <= BUILDER_SPEC\.validation\.volumeMustExceed\)/, 'zero is still refused');
   /* Founder, 15 November 2026: "1 run a week isn't enough stimuli". Week one
-     is a 5km, a 6km and a 6km long run, the hard session short and sharp. */
+     is three runs, the hard session short and sharp: 5 + 5 + 5 since the run
+     limit (founder, 18 November 2026; it was 5 + 6 + 6, 17km). */
   assert.match(src, /if \(runWalkStart\) volume = LOW_START_WEEK_KM;/);
-  assert.equal(a0().LOW_START_WEEK_KM, 17);
-  assert.equal(a0().LOW_START_LONG_KM, 6);
+  assert.equal(a0().LOW_START_WEEK_KM, 15);
+  assert.equal(a0().LOW_START_LONG_KM, 5);
   assert.match(src, /runWalkStart: runWalkStart,/);
   const a = loadApp({ pinnedDate: '2026-11-16T09:00:00Z' });
   assert.equal(a.baseWeeklyVolumeEvidence(0).source, 'declared');
@@ -197,8 +202,11 @@ test('0-3km: below the entry the offer is the Developing programme, never a refu
   /* The sheet describes the week the plan builds (Audit III UX3-04, founder
      16 November 2026: "So change the pathway sheet?"): the low start's three
      runs, not one 5km run. */
-  assert.match(c.say, /Developing 10K programme with three runs in your first week, 16km in all with a 6km long run, run\/walk if you need it/);
-  assert.match(a.entryPathwayCopy('half', 2).say, /17km in all/);
+  /* 15km with a 5km long run in every programme since the run limit
+     (founder, 18 November 2026: 5 + 5 + 5; it was 16 or 17km with a 6km
+     long run). */
+  assert.match(c.say, /Developing 10K programme with three runs in your first week, 15km in all with a 5km long run, run\/walk if you need it/);
+  assert.match(a.entryPathwayCopy('half', 2).say, /15km in all/);
   assert.equal(c.yes, 'Switch to Developing');
   assert.equal(c.no, 'Keep Established');
 });
@@ -229,13 +237,15 @@ function lowStart(dist, exp){
   return a;
 }
 ['half', 'full'].forEach(dist => ['novice', 'experienced'].forEach(exp => {
-  test('0-3km ' + dist + ' (' + exp + '): week one is 6 + 5 + 6, three runs through the first recovery week', () => {
+  /* 5 + 5 + 5 since the run limit (founder, 18 November 2026); it was
+     6 + 5 + 6, 17km with a 6km long run. */
+  test('0-3km ' + dist + ' (' + exp + '): week one is 5 + 5 + 5, three runs through the first recovery week', () => {
     const a = lowStart(dist, exp);
     const wk1 = runs(a, 1);
     assert.equal(wk1.length, 3, 'week one is not three runs');
-    assert.equal(Math.round(wk1.reduce((t, d) => t + d.km, 0) * 10) / 10, 17, 'week one is not 17km');
-    assert.equal(wk1.find(d => d.type === 'long').km, 6);
-    assert.ok(wk1.some(d => d.type === 'easy' && d.km === 6), 'no 6km run in week one');
+    assert.equal(Math.round(wk1.reduce((t, d) => t + d.km, 0) * 10) / 10, 15, 'week one is not 15km');
+    assert.equal(wk1.find(d => d.type === 'long').km, 5);
+    wk1.forEach(d => assert.equal(d.km, 5, 'a ' + d.km + 'km ' + d.type + ' run in week one'));
     for (let w = 1; w <= 4; w++){
       const r = runs(a, w);
       assert.ok(r.length >= 3, 'week ' + w + ' has ' + r.length + ' runs');

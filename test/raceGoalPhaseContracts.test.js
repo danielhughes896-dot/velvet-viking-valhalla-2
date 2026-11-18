@@ -145,8 +145,16 @@ SETS.forEach(({ label, cases }) => {
          @10w, DECLARED), so Peak carrying the gap is what the athlete was told
          before they chose to continue. */
       const belowFloor = c.dist === 'full' && c.weeks < 12;
+      /* THE RUN LIMIT ROUNDS EVERY STEP DOWN (founder, 18 November 2026): a
+         Marathon long run may be at most 15% or 1.5km over the longest run
+         of the last 30 days, written down to the half kilometre, so from a
+         10km opening long run (with week two's 52-minute test on a 5km easy
+         floor) the steepest permitted climb hands Peak 18.5km of 28 (0.66).
+         The Marathon's share is 0.65 for that reason; every other programme
+         keeps 0.7. */
+      const share = c.dist === 'full' ? 0.65 : 0.7;
       if (peakLong > 0 && !belowFloor)
-        assert.ok(exit.longKm >= peakLong * 0.7 - 0.05,
+        assert.ok(exit.longKm >= peakLong * share - 0.05,
           c.key + ': Build exits at ' + exit.longKm + 'km against a Peak long run of ' +
           peakLong + ' — Peak is being asked to do Build\'s work');
     });

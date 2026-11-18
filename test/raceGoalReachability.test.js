@@ -48,7 +48,12 @@ R.CANON.forEach(c => {
        above its 50km Build figure, short of the 60km peak, and admission
        says so (raceGoalAdmissionViability.test.js). Its long run, the
        second exposure and everything below are still asserted in full. */
-    const weekNeed = c.key === 'New Marathon' ? (c.needBuildKm || needKm) : needKm;
+    /* AND WITHIN 10% THE PEAK IS SIMPLY LOWER (founder, 18 November 2026):
+       Half and Marathon climb in steady steps of at most 8%, and a
+       destination that way reaches within 10% of is peaked lower, nothing
+       asked (further short is the Preparation offer). So the week is held to
+       90% of its requirement; the long run below is still held in full. */
+    const weekNeed = (c.key === 'New Marathon' ? (c.needBuildKm || needKm) : needKm) * 0.9;
     assert.ok(p.peakKm >= weekNeed - 0.05,
       c.key + ' established ' + r1(p.peakKm) + 'km/week against a requirement of ' + weekNeed);
     assert.ok(p.peakLong >= needLong - 0.05,

@@ -122,8 +122,15 @@ test('3. a 5K or 10K long run stays inside the level\'s range, whatever longest 
     a.pendingEntryEvidence = { weeklyKm: 50, runDaysPerWeek: 5, longestRunKm: 18, longestRunDate: '2026-11-10',
                                recordedAt: '2026-11-16T09:00:00Z' };
     assert.equal(a.raceGoalLongCapKm(dk, 'race', exp), top, dk + ' ' + exp + ': the cap is the range top');
-    buildPlan(a, { distanceKey: dk, volume: 50, weeks: 12, experience: exp, startDate: '2026-11-16' });
-    a.state.days.filter(d => d.type === 'long').forEach(d =>
+    const { blockResult } = buildPlan(a, { distanceKey: dk, volume: 50, weeks: 12, experience: exp, startDate: '2026-11-16' });
+    /* EXCEPT WHILE IT SETTLES (founder, 18 November 2026): a 5K or 10K opens
+       on the runner's own long run and brings one above the range down about
+       15% a week; those weeks are flagged (longRunSettling) and every week
+       after them is inside the range. */
+    const settling = {};
+    blockResult.weeks.forEach(w => { if (w.longRunSettling) settling[w.week] = true; });
+    assert.ok(Object.keys(settling).length <= 4, dk + ' ' + exp + ': settling took ' + Object.keys(settling).length + ' weeks');
+    a.state.days.filter(d => d.type === 'long' && !settling[d.week]).forEach(d =>
       assert.ok(d.km <= top + 1e-9, dk + ' ' + exp + ' week ' + d.week + ': a ' + d.km + 'km long run, range top ' + top));
   });
 });

@@ -1548,11 +1548,18 @@ test('S6-A: the named case — a quality prescription the week cannot contain', 
   const last = c.weeks.filter(w => w.isTaper).slice(-1)[0];
   assert.ok(last.actualVolume < last.targetVolume * 1.1,
     'the final taper week is ' + last.actualVolume + ' against a target of ' + last.targetVolume);
+  /* A 5K TAPER KEEPS ITS EDGE (Audit IV A14, founder 18 November 2026: a
+     taper cuts volume but keeps intensity, Bosquet et al. 2007). The planned
+     structures still yield when the week cannot pay for their floors, which
+     is what this case pins; one short sharpening session (goal-pace 400s,
+     keepShortRaceTaperSharp()) then takes an easy run's place inside its
+     own distance, so the week holds exactly one structured session and is
+     still inside its target (above). Until that decision it held none. */
   const structured = last.sessions.filter(s => s.km > 0 &&
     s.type !== 'easy' && s.type !== 'long' && s.type !== 'rest');
-  assert.equal(structured.length, 0,
-    'a week that cannot afford a structure still carries ' +
-    structured.map(s => s.type + ':' + s.km).join(' '));
+  assert.equal(structured.length, 1,
+    'the taper week carries ' + structured.map(s => s.type + ':' + s.km).join(' '));
+  assert.match(structured[0].title, /^Goal Pace: \d+x400m$/, 'the one session is the short sharpener');
   /* SUBSTITUTED, NOT SIMPLY DELETED: the day carries the strides the generator
      already prescribes wherever a structure cannot be built. */
   assert.ok(last.sessions.some(s => /Strides/.test(s.title || '')),

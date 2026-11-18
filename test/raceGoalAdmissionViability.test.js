@@ -49,7 +49,10 @@ test('PROJECTION — the long run it projects is the long run the block builds',
   [].concat(R.CANON, R.CANON_10).forEach(c => {
     const { res, o } = outlook(c);
     const d = delivered(res);
-    assert.ok(Math.abs(o.reachLongKm - d.lr) < 0.05,
+    /* THE RUN LIMIT ROUNDS DOWN (founder, 18 November 2026): a long run over
+       the line is written down to the half kilometre, so the block may build
+       up to that half below the curve's figure, never above it. */
+    assert.ok(d.lr <= o.reachLongKm + 0.05 && d.lr >= o.reachLongKm - 0.5 - 0.05,
       c.key + ': projected long run ' + o.reachLongKm + 'km, block builds ' + d.lr + 'km');
   });
 });
@@ -409,7 +412,10 @@ test('EVIDENCE OVER LABEL — the evidence governs the route, and the locked des
      deload"): the week after each lighter week comes back to no more than
      the last full week + 8% and the climb carries on from there, so this
      runway delivers less. Still refused on workload, as before. */
-  assert.equal(adm.preparation.reachWeekKm, 64, 'the week this twelve-week runway actually delivers from a 36km entry');
+  /* 64 -> 60.5 (founder, 18 November 2026: no catch-up weeks, every
+     ordinary step at most 8%, holdSteadyClimb()): still more than 10% short
+     of the locked 80, so still refused on workload. */
+  assert.equal(adm.preparation.reachWeekKm, 60.5, 'the week this twelve-week runway actually delivers from a 36km entry');
   assert.equal(adm.preparation.reachLongKm, 30, 'the Experienced marathon Peak floor, reached exactly');
 });
 
@@ -435,7 +441,15 @@ test('NO EVIDENCE — the pathway supplies the entry, and that does not guarante
               { availableDays:4, easyPaceSecPerKm:res.pace });
   assert.equal(o.entrySource, 'pathway');
   assert.equal(o.entryKm, 52, 'the Experienced marathon pathway opens at 52km');
-  assert.equal(o.verdict, 'INSUFFICIENT');
+  /* WITHIN 10% THE PEAK IS SIMPLY LOWER (founder, 18 November 2026): 73km
+     against the locked 80 is 9% short, so the block is admitted and peaks
+     lower, nothing asked; it was INSUFFICIENT on workload until that
+     decision. The shortfall is still measured and carried on the projection
+     (fraction 0.91, 7km), and further short is still refused. */
+  assert.equal(o.verdict, 'READY');
+  const wl = o.dimensions.find(d => d.key === 'workload');
+  assert.equal(wl.shortfallKm, 7);
+  assert.ok(wl.reachedKm >= 80 * 0.9, 'within 10% of the locked week');
   assert.equal(o.requiredWeekKm, 80, 'the locked Established peak week');
   assert.equal(o.requiredLongKm, 30, 'the locked Established peak long run');
   /* 74 -> 73 (16 November 2026, founder: "Take turns, add tempo"): the hard
@@ -444,7 +458,7 @@ test('NO EVIDENCE — the pathway supplies the entry, and that does not guarante
      destinations are unchanged. */
   assert.equal(o.reachWeekKm, 73, 'what ten weeks from the pathway entry actually delivers');
   assert.equal(o.reachLongKm, 30, 'the long run reaches its locked destination exactly');
-  assert.deepEqual(o.shortfall, ['workload']);
+  assert.equal(o.shortfall.length, 0);
 });
 
 // ---------------------------------------------------------------------------
