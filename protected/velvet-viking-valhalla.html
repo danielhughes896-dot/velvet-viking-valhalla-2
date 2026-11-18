@@ -12678,8 +12678,10 @@
           box was left wider than the phone. The text boxes drawn under 16px
           are 16px there; the number wheels (.tw-field) open no keyboard and
           keep their size.
-       2. The three intro slides stood about 35px taller than an iPhone 15,
-          so reaching Continue scrolled them; the picture now gives way.
+       2. (Withdrawn the same evening: shrinking the slides' picture to fit
+          cut its photo card off in Chrome on iPhone, whose bars leave less
+          room. The slides keep their picture; the strip in 3 is what keeps
+          the page clear of the notch when it scrolls.)
        3. A journey screen scrolled under the camera notch, because the
           iPhone draws the page beneath a see-through status bar. A strip of
           the page's own colour now sits under the notch, as Android's does. */
@@ -12687,8 +12689,6 @@
     html .field input:not([type="range"]):not(.tw-field), html .field select, html .field textarea,
     html .goal-input-row input:not(.tw-field), html .actual-field input:not(.tw-field), html .actual-field textarea,
     html .split-row input:not(.tw-field), html .pzr-input:not(.tw-field){font-size:1rem !important;}
-    .jr-slides-page .jr-device{height:max(260px, min(55vh, 470px,
-      calc(100svh - 420px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))));}
   }
   body:has(.jr-page)::before{content:''; position:fixed; z-index:60; left:0; right:0; top:0;
     height:env(safe-area-inset-top, 0px); background:var(--bg); pointer-events:none;}

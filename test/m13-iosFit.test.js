@@ -32,7 +32,9 @@ test('the iPhone rules are fenced to the iPhone: Android is untouched', () => {
      rule is the notch strip, whose height is the safe-area inset: 0 wherever
      the status bar is solid. */
   assert.match(CSS, /body:has\(\.jr-page\)::before\{[^}]*height:env\(safe-area-inset-top, 0px\);[^}]*background:var\(--bg\);/);
-  assert.match(ios, /\.jr-slides-page \.jr-device\{height:max\(260px, min\(55vh, 470px,/);
+  /* The slides' picture is not shrunk on iPhone: in Chrome on iPhone it cut
+     the photo card off (founder's screenshot, 18 November 2026, 22:30). */
+  assert.doesNotMatch(ios, /\.jr-device\{/);
 });
 
 test('the journey option rows carry no symbol, only the tick or the round mark', () => {
