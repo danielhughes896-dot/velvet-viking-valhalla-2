@@ -113,7 +113,7 @@ test('the builder is eleven stages, and the rail and numeral agree', () => {
     'the panels are not a contiguous 0..' + (SPEC_STAGES.length - 1) + ' run');
 
   // one rail segment per stage -- the rail is built from the same array
-  const rail = html.match(/<div class="bld-step[^"]*"><\/div>/g) || [];
+  const rail = html.match(/<button type="button" class="bld-step[^"]*"[^>]*><\/button>/g) || [];
   assert.equal(rail.length, SPEC_STAGES.length,
     'the rail drew ' + rail.length + ' segments for ' + SPEC_STAGES.length + ' stages');
   /* The numeral is the athlete's only sense of how long this is, so it is

@@ -5203,7 +5203,13 @@
 
   /* Progress. Numerals on mobile, so five labels cannot crowd a 360px header. */
   .bld-progress{display:flex; align-items:center; gap:6px;}
-  .bld-step{flex:1 1 0; height:3px; border-radius:99px; background:var(--line); transition:background .2s;}
+  .bld-step{flex:1 1 0; height:3px; border-radius:99px; background:var(--line); transition:background .2s;
+    position:relative; border:0; padding:0; margin:0; min-height:0; -webkit-appearance:none; appearance:none; cursor:pointer;}
+  /* The bar stays 3px; the tap reaches 44px, mostly below it, over the
+     counter, so it never covers the close control above. */
+  .bld-step::after{content:''; position:absolute; left:-3px; right:-3px; top:-12px; bottom:-29px;}
+  .bld-step[aria-disabled="true"]{cursor:default;}
+  .bld-step:focus-visible{outline:2px solid var(--cherry-text); outline-offset:4px;}
   /* PROGRESS. Cherry Lacquer marks how far through the build you are: the
      segment you are on, the ground already covered behind it at lower weight,
      and the stage numeral that names it -- which takes --cherry-text rather
@@ -34763,6 +34769,16 @@ function handleCloudKeepLocal(){
     cloudStatus='synced'; patchCloudCard();
     showToast('This device’s plan is now the one in your account');
   }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
+  cloudChoiceSettledInJourney();
+}
+/* In journey-only mode the choice is not the end: the account may have been
+   granted access while the athlete was mid-journey, so the gate is asked
+   again. Granted, the page reloads into the full app; refused, the journey
+   carries on at the trial as before. */
+function cloudChoiceSettledInJourney(){
+  if (typeof JOURNEY_ONLY_MODE === 'undefined' || !JOURNEY_ONLY_MODE) return;
+  try { renderApp(); } catch(e){}
+  try { establishDeliverySession(); } catch(e2){}
 }
 function handleCloudKeepRemote(){
   var remote = window.__cloudPendingRemote;
@@ -34778,6 +34794,7 @@ function handleCloudKeepRemote(){
   }
   cloudStatus='synced'; patchCloudCard();
   showToast('Switched to your account’s plan. The other is backed up on this device');
+  cloudChoiceSettledInJourney();
 }
 
 /* ---------- the delivery session ----------
@@ -68735,8 +68752,12 @@ function openSetupModal(){
      by an option grid, so the choice became visible without the data path
      moving an inch. */
   var stageMeta = BUILDER_SPEC.stages.map(function(s){ return [s.name, s.heading, s.lede]; });
-  var railHtml = stageMeta.map(function(_, i){
-    return '<div class="bld-step'+(i===0?' now':'')+'"></div>';
+  /* EACH SEGMENT IS A WAY BACK (founder, 18 November 2026: "if you could
+     click on the bars at the top to go back to that page"). A segment opens
+     its page: any page already reached, never one not yet reached. */
+  var railHtml = stageMeta.map(function(m, i){
+    return '<button type="button" class="bld-step'+(i===0?' now':'')+'" data-action="bld-rail" data-stage="'+i+'"'+
+      ' aria-label="Step '+(i+1)+': '+escapeHtml(String(m[0] || ''))+'"'+(i===0?' aria-current="step"':' aria-disabled="true"')+'></button>';
   }).join('');
   function stageHead(i){
     /* The Goal stage (index 1, after the Overview orientation screen at 0)
@@ -69373,6 +69394,9 @@ function openSetupModal(){
 
   bldSyncLongDay();
   bldReviewReturn = false;
+  /* A plan being edited has every answer already: every page is reachable
+     from the rail. A new build reaches each page by Continue first. */
+  bldFurthestStage = (typeof planHasContent === 'function' && planHasContent()) ? BLD_STAGE_NAMES.length - 1 : 0;
   /* EDIT PLAN SETTINGS OPENS ON ITS FIRST PAGE (founder, 15 November 2026),
      every answer already filled in from the plan; the summary is still the
      last page, reached by Continue. */
@@ -70173,8 +70197,12 @@ function bldStage(n){
     p.hidden = (parseInt(p.getAttribute('data-stage'), 10) !== bldCurrentStage);
   });
   var rail = document.getElementById('bld-rail');
+  if (bldCurrentStage > bldFurthestStage) bldFurthestStage = bldCurrentStage;
   if (rail) Array.prototype.forEach.call(rail.children, function(seg, i){
     seg.className = 'bld-step' + (i < bldCurrentStage ? ' done' : i === bldCurrentStage ? ' now' : '');
+    if (i === bldCurrentStage) seg.setAttribute('aria-current', 'step'); else seg.removeAttribute('aria-current');
+    if (bldRailSkips(i) || i > bldFurthestStage) seg.setAttribute('aria-disabled', 'true');
+    else seg.removeAttribute('aria-disabled');
   });
   var no = document.getElementById('bld-no');
   /* Zero-padded to 2 digits regardless of stage count -- a plain '0'+n
@@ -70223,6 +70251,31 @@ function bldPreselectWeekFromAnswers(){
   var q = document.getElementById('su-quality');
   var small = (ev.weeklyKm != null && ev.weeklyKm < 20) || ev.runDaysPerWeek <= 3;
   if (q && small){ q.value = '1'; try { bldSyncQuality(); } catch(e4){} }
+}
+/* THE RAIL. Back is free, as Back is. Forward goes no further than the
+   furthest page already reached, and every page on the way is checked as
+   Continue checks it, so a skipped-over answer can never reach the plan
+   unchecked: the first page that fails is opened with its message. */
+var bldFurthestStage = 0;
+function bldRailSkips(i){
+  return (i === BLD_STAGE.GOAL && journeySkipsGoal()) || (i === BLD_STAGE.TARGETS && bldSkipsTargets());
+}
+function handleBldRail(el){
+  var to = parseInt(el && el.getAttribute('data-stage'), 10);
+  if (!(to >= 0) || to === bldCurrentStage || to > bldFurthestStage || bldRailSkips(to)) return;
+  if (to < bldCurrentStage){
+    bldReviewReturn = false;
+    bldClearErrors(); bldStage(to);
+    return;
+  }
+  for (var i = bldCurrentStage; i < to; i++){
+    if (bldRailSkips(i)) continue;
+    if (i !== bldCurrentStage) bldStage(i);
+    if (!bldValidateStage(i)) return;
+  }
+  bldReviewReturn = false;
+  if (to === BLD_STAGE.WEEK) bldPreselectWeekFromAnswers();
+  bldStage(to);
 }
 function handleBldBack(){
   if (bldReviewReturn){ handleBldNext(); return; }
@@ -86668,7 +86721,13 @@ var JOURNEY_ONLY_MODE = (function(){
 var JOURNEY_ONLY_ACTIONS = ['journey-', 'bld-', 'set-event-mode', 'set-experience', 'suggest-goals',
   'generate-plan', 'bench-none', 'cal-', 'close-modal', 'open-external', 'open-legal',
   'open-signin-sheet', 'cloud-sign-in', 'ask-yes', 'ask-no', 'prep-', 'runway-', 'race-entry-',
-  'time-wheel-', 'health-consent', 'toggle-health-consent', 'noop'];
+  'time-wheel-', 'health-consent', 'toggle-health-consent', 'noop',
+  /* TWO PLANS FOUND (founder, 18 November 2026: "Cannot get past this screen
+     buttons dont work"). Signing in during the journey on a device whose
+     journey built a plan, with a different plan already in the account,
+     raises the two-plans sheet. It has no close control by design, and its
+     two buttons were refused here, so the athlete could do nothing at all. */
+  'cloud-keep-'];
 function journeyOnlyAllows(action){
   var a = String(action || '');
   return JOURNEY_ONLY_ACTIONS.some(function(k){
@@ -90000,6 +90059,7 @@ document.addEventListener('click', function(e){
     case 'circle-leave-ask': openCircleSheet({ kind:'leave' }, circleLeaveSheetHtml()); break;
     case 'circle-leave': handleCircleLeave(); break;
     case 'bld-jump': handleBldJump(target); break;
+    case 'bld-rail': handleBldRail(target); break;
     case 'bld-skip-hr': handleBldSkipHR(); break;
     case 'suggest-goals': handleSuggestGoals(); break;
     case 'generate-plan': handleGeneratePlan(); break;
