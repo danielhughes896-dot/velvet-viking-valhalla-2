@@ -197,8 +197,14 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
      string this build has never served are all equally worthless -- which is
      what makes a future revision cost no evidence and no migration. */
   assert.equal(await Agree.hasAccepted(CFG,
-    sbReturning([row({ agreement_version: 'commercial_terms_v1' })]), UID, 'terms'), true);
-  for (const v of ['terms_v1', 'commercial_terms_v0', 'commercial_terms_v2', 'anything']){
+    sbReturning([row({ agreement_version: 'commercial_terms_v2' })]), UID, 'terms'), true);
+  /* commercial_terms_v1 JOINED THIS LIST ON 18 NOVEMBER 2026. It was the
+     version in force from 24 August until the website superseded it with v2
+     on 12 November, so it is now exactly what this list is for: wording an
+     athlete really did accept, which stops counting the moment it is
+     superseded. v3 takes the place v2 used to hold here — a version this
+     build has never served. */
+  for (const v of ['terms_v1', 'commercial_terms_v0', 'commercial_terms_v1', 'commercial_terms_v3', 'anything']){
     assert.equal(await Agree.hasAccepted(CFG,
       sbReturning([row({ agreement_version: v })]), UID, 'terms'), false,
       'only the version in force may count, not: ' + v);
@@ -420,8 +426,8 @@ test('the commercial Terms do not inherit the private-beta Terms identifier', ()
      own -- two vocabularies for one contract is the ambiguity the identifier
      exists to prevent. */
   assert.equal(Agree.TERMS_BETA_VERSION, 'terms_v1');
-  assert.equal(Agree.TERMS_COMMERCIAL_VERSION, 'commercial_terms_v1');
-  assert.equal(Agree.PRIVACY_COMMERCIAL_VERSION, 'commercial_privacy_v1');
+  assert.equal(Agree.TERMS_COMMERCIAL_VERSION, 'commercial_terms_v2');
+  assert.equal(Agree.PRIVACY_COMMERCIAL_VERSION, 'commercial_privacy_v2');
   /* The website's name for the superseded notice, adopted rather than
      invented -- CANONICAL_LEGAL calls it beta_privacy_v1, and two systems
      naming one document differently is the second vocabulary the
@@ -437,9 +443,9 @@ test('the commercial documents are published, and these are the ones in force', 
      naming these two versions at these two URLs, effective 24 August 2026, and
      /terms rendering the contract rather than the placeholder. */
   assert.equal(Agree.COMMERCIAL_LEGAL_PUBLISHED, true);
-  assert.equal(Agree.versionFor('terms'), 'commercial_terms_v1');
-  assert.equal(Agree.TERMS_VERSION, 'commercial_terms_v1');
-  assert.equal(Agree.PRIVACY_VERSION, 'commercial_privacy_v1');
+  assert.equal(Agree.versionFor('terms'), 'commercial_terms_v2');
+  assert.equal(Agree.TERMS_VERSION, 'commercial_terms_v2');
+  assert.equal(Agree.PRIVACY_VERSION, 'commercial_privacy_v2');
 
   const defs = Agree.currentAgreements();
   assert.equal(defs.commercialLegalPublished, true);
@@ -485,7 +491,7 @@ test('a withdrawn document refuses the purchase, through the real gate', async (
   assert.equal(d.agreements.commercialLegalPublished, false);
 });
 
-test('accepting the Terms records commercial_terms_v1, with the privacy notice as context', async () => {
+test('accepting the Terms records commercial_terms_v2, with the privacy notice as context', async () => {
   /* THE ROW A PAYING CUSTOMER LEAVES BEHIND. The Terms identifier is the
      commercial one, never the beta one; the privacy version rides along as
      CONTEXT on that row -- what they were shown -- and is not a decision. */
@@ -496,9 +502,9 @@ test('accepting the Terms records commercial_terms_v1, with the privacy notice a
   });
   assert.equal(r.ok, true);
   assert.equal(body.agreement_type, 'terms');
-  assert.equal(body.agreement_version, 'commercial_terms_v1');
+  assert.equal(body.agreement_version, 'commercial_terms_v2');
   assert.notEqual(body.agreement_version, Agree.TERMS_BETA_VERSION);
-  assert.equal(body.privacy_version, 'commercial_privacy_v1',
+  assert.equal(body.privacy_version, 'commercial_privacy_v2',
     'the notice presented alongside, recorded as context');
   assert.equal(body.user_id, UID);
   assert.equal(body.surface, 'checkout');
@@ -619,8 +625,8 @@ test('the app legal pages show no unresolved placeholder', () => {
 // ===========================================================================
 test('with the documents published, the website\'s own identifiers are what count', () => {
   const on = Agree.inForce(true);
-  assert.equal(on.terms, 'commercial_terms_v1');
-  assert.equal(on.privacy, 'commercial_privacy_v1');
+  assert.equal(on.terms, 'commercial_terms_v2');
+  assert.equal(on.privacy, 'commercial_privacy_v2');
   assert.equal(on.termsUrl, Agree.CANONICAL_TERMS_URL);
   assert.equal(on.termsUrl, 'https://velvetviking.co.uk/terms');
 });
@@ -654,12 +660,16 @@ test('a beta acceptance can never satisfy the commercial Terms', async () => {
   assert.equal(await Agree.hasAccepted(CFG, sbReturning([betaRow]), UID, 'terms'), false);
 });
 
-test('a superseded commercial version stops counting when v2 lands', async () => {
-  /* Not hypothetical: it is the same comparison that protects the beta rows,
-     and the reason a solicitor's revision costs no evidence and no migration. */
-  const v1 = Agree.inForce(true).terms;
-  for (const stored of ['commercial_terms_v0', 'commercial_terms_v2', 'terms_v1']){
-    assert.notEqual(stored, v1, stored + ' must not read as the version in force');
+test('a superseded commercial version stops counting when v3 lands', async () => {
+  /* NO LONGER HYPOTHETICAL, WHICH IS THE POINT. This test was written against
+     a v2 that did not exist yet; v2 landed on 12 November with the Valhalla ->
+     Sacoro rename, so the names have moved up one and commercial_terms_v1 is
+     now a real superseded version rather than an invented one. The comparison
+     it guards is unchanged: exactly one identifier counts, which is why a
+     revision costs no evidence and no migration. */
+  const inForceVersion = Agree.inForce(true).terms;
+  for (const stored of ['commercial_terms_v0', 'commercial_terms_v1', 'commercial_terms_v3', 'terms_v1']){
+    assert.notEqual(stored, inForceVersion, stored + ' must not read as the version in force');
   }
 });
 

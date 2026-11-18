@@ -1382,10 +1382,10 @@ test('accepting the Terms through the router records the commercial identifier',
     assert.equal(r.status, 200);
     const rows = f.db.account_agreements.filter(x => x.agreement_type === 'terms');
     assert.equal(rows.length, 1);
-    assert.equal(rows[0].agreement_version, 'commercial_terms_v1');
+    assert.equal(rows[0].agreement_version, 'commercial_terms_v2');
     assert.notEqual(rows[0].agreement_version, 'terms_v1',
       'the caller must not be able to name the version it is agreeing to');
-    assert.equal(rows[0].privacy_version, 'commercial_privacy_v1',
+    assert.equal(rows[0].privacy_version, 'commercial_privacy_v2',
       'the notice presented alongside, as context rather than consent');
   });
 });
@@ -1426,8 +1426,8 @@ test('the pre-checkout screen carries every fact a purchase decision needs', asy
     const a = v.agreements;
     assert.equal(a.terms.url, 'https://velvetviking.co.uk/terms');
     assert.equal(a.privacy.url, 'https://velvetviking.co.uk/privacy');
-    assert.equal(a.terms.version, 'commercial_terms_v1');
-    assert.equal(a.privacy.version, 'commercial_privacy_v1');
+    assert.equal(a.terms.version, 'commercial_terms_v2');
+    assert.equal(a.privacy.version, 'commercial_privacy_v2');
 
     /* PRIVACY IS STILL A NOTICE. */
     assert.equal(a.privacy.isConsent, false);
