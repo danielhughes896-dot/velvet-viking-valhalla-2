@@ -260,6 +260,15 @@ test('no validation rule was added, removed or loosened', () => {
   assert.match(body, /BUILDER_SPEC\.validation\.daysRange/);
   assert.match(body, /Choose a long run day\./);
   assert.match(body, /Enter at least one goal time/);
+  /* ONE RULE ADDED, BY DECISION (founder, 18 November 2026): the longest run
+     is a required answer, and weekly distance, running days and the longest
+     run must be able to all be true ("97km a week with a longest run of
+     2km... that's mathematically impossible"). It sits inside the existing
+     YOU branch, so the stage count below is unchanged; its wording and
+     arithmetic are pinned in test/m6-builder-answers.test.js. */
+  const you = body.slice(body.indexOf('if (i === BLD_STAGE.YOU)'), body.indexOf('if (i === BLD_STAGE.WEEK)'));
+  assert.match(you, /entryEvidenceProblem\(readBuilderEntryEvidence\(\)\)/,
+    'the recent running screen no longer checks the longest run and the three answers together');
   // exactly four guarded stages, so a fifth rule cannot appear unnoticed
   const guarded = body.match(/if \(i === BLD_STAGE\.[A-Z]+\)/g) || [];
   assert.equal(guarded.length, 4, 'bldValidateStage now guards ' + guarded.length + ' stages, not four');

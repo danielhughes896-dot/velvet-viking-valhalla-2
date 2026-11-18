@@ -255,7 +255,13 @@ var BUILDER_SPEC = {
            athlete from telling us about a run just outside it. */
         label: 'Longest recent run', unit: true, zeroAllowed: true,
         range: [0, 100],
-        hint: 'The furthest you have run in one go. Enter 0 if you have not done a longer run.'
+        /* REQUIRED (founder, 18 November 2026: the longest run "becomes a
+           required answer" so the plan always has a figure to measure its
+           long-run step from). The hint says what it is for and what a
+           runner who does not run yet answers; the old "if you have not done
+           a longer run" left "longer than what?" unanswered. */
+        required: true,
+        hint: 'The furthest you have run in one go. Your long runs build from it. Enter 0 if you are not running yet.'
       },
       longestRunDate: {
         label: 'When did you run it?', control: 'date',

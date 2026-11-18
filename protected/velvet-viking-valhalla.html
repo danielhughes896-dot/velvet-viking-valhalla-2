@@ -13033,6 +13033,77 @@ function sanitiseEntryEvidence(raw){
            recordedAt: (typeof raw.recordedAt === 'string' ? raw.recordedAt
                                                            : new Date().toISOString()) };
 }
+/* ---- ANSWERS THAT CANNOT ALL BE TRUE ARE STOPPED BEFORE THE BUILD ----
+   Founder, 18 November 2026: "97km a week with a longest run of 2km...
+   that's mathematically impossible". No run in a week can be longer than the
+   longest run, so the average run cannot be either: with a weekly distance
+   above zero over some running days, the longest run is at least the weekly
+   distance divided by the days, and a weekly distance above zero needs at
+   least one running day. Each answer is believable alone, which is why the
+   range check above cannot catch it; only the three together can.
+
+   READ IN THE ATHLETE'S OWN UNIT, because the message quotes their own
+   numbers back. A mile answer has been through parseDistInput()'s rounding
+   to the tenth of a kilometre, so the comparison allows half a tenth of the
+   unit: 60mi over 5 days with a 12mi long run is not refused for 0.01mi of
+   conversion. The minimum is shown to one decimal, and any answer at or
+   above the figure shown passes.
+
+   AN UNANSWERED FIELD IS NOT CHECKED HERE. Whether an answer is required is
+   the caller's question (entryEvidenceProblem()); this one only asks whether
+   the answers given can all be true. Null when they can. */
+var ENTRY_EVIDENCE_ROUNDING = 0.05;
+function entryEvidenceConflict(ev){
+  if (!ev) return null;
+  var num = function(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; };
+  var km = num(ev.weeklyKm), days = num(ev.runDaysPerWeek), longKm = num(ev.longestRunKm);
+  if (!(km > 0) || days == null) return null;
+  var mi = !!(typeof state !== 'undefined' && state && state.units === 'mi');
+  var toUnit = function(k){ return mi ? k * 0.621371 : k; };
+  var shown = function(k){ return round1(toUnit(k)) + (mi ? 'mi' : 'km'); };
+  if (days < 1){
+    return { kind: 'days', field: 'f-entry-days',
+      message: shown(km) + ' a week needs at least 1 running day. Check your weekly distance or running days.' };
+  }
+  if (longKm == null) return null;
+  var minLong = toUnit(km) / days;
+  if (toUnit(longKm) >= minLong - ENTRY_EVIDENCE_ROUNDING) return null;
+  return { kind: 'long', field: 'f-entry-long', minLongKm: km / days,
+    message: shown(km) + ' over ' + days + ' day' + (days === 1 ? '' : 's') +
+      ' means at least one run of ' + round1(minLong) + (mi ? 'mi' : 'km') +
+      '. Check your weekly distance, running days or longest run.' };
+}
+/* ---- THE LONGEST RUN IS A REQUIRED ANSWER ----
+   Founder, 18 November 2026: "Longest run in the last 30 days" becomes a
+   required answer, everywhere the plan's starting evidence is asked, "so the
+   plan always has a figure to measure the new run limit from" (the long-run
+   step, applyLongRunStepCap(), seeded by longRunStepHistoryKm()). A runner who
+   does not run yet answers 0, which is the 0 to 3km low start; blank is
+   refused, exactly as the weekly distance already was.
+
+   A RUN ABOVE ZERO NEEDS ITS DATE FOR THE SAME REASON. statedEntryEvidence()
+   does not read a distance it cannot place in time, so an undated answer
+   would satisfy the field and still leave the plan with no figure. "Roughly
+   is fine" stays the hint: the date is asked for, not interrogated.
+
+   One reader for the builder's Continue and for the Build, so the stage and
+   the generator cannot disagree about what blocks a plan. `asks` names the
+   questions the surface actually shows (the rule follows the question, as
+   bldValidateStage() says of the weekly distance): a caller with no long-run
+   field on screen is not refused for an answer it never asked. */
+function entryEvidenceProblem(ev, asks){
+  var a = asks || {};
+  var e = ev || {};
+  /* `required` is declared once, in BUILDER_SPEC, beside the question. */
+  var asked = a.longestRun !== false && !!BUILDER_SPEC.entryEvidence.fields.longestRunKm.required;
+  if (asked && e.longestRunKm == null)
+    return { kind: 'required', field: 'f-entry-long',
+      message: 'Enter your longest recent run, or 0 if you are not running yet.' };
+  if (asked && e.longestRunKm > 0 && !e.longestRunDate)
+    return { kind: 'date', field: 'f-entry-long-date',
+      message: 'Pick roughly when you ran it.' };
+  return entryEvidenceConflict(e);
+}
 function readBuilderEntryEvidence(){
   var numOrNull = function(id){
     var el = document.getElementById(id);
@@ -34075,6 +34146,13 @@ function adoptPendingBuildIfAny(){
   if (!(b.weeks >= pendWeeks[0] && b.weeks <= pendWeeks[1])) return false;
   if (!(b.benchmarkSeconds > 0)) return false;
   if (!b.startDate || !b.raceDate) return false;
+  /* ANSWERS THAT CANNOT ALL BE TRUE ARE NOT ADOPTED EITHER (founder, 18
+     November 2026). There is no athlete on this path to tell, so the record
+     is refused like any other the real builder could not have produced, and
+     the athlete builds in the app's builder, which asks again and says why.
+     Only the agreement check: /start does not ask the longest run, so its
+     absence here is not a refusal. */
+  if (bEntryEvidence && entryEvidenceConflict(bEntryEvidence)) return false;
 
   try{
     var schedule = { activeDays: b.activeDays, longRunDay: b.longRunDay };
@@ -67040,6 +67118,18 @@ function bldDecideTakeOver(){
   bldDecideClear();
   return true;
 }
+/* THE BUILD STOPS WHERE THE ATHLETE IS (founder, 18 November 2026: answers
+   that cannot all be true "are stopped before the plan is built"). On the
+   review page the message is drawn above the Build button, anywhere else it
+   is the glass sheet; either way its one way on opens the recent running
+   answers and returns to the summary, as the week-fit sheet's Change My
+   Answers does. */
+function bldEntryEvidenceStop(problem){
+  bldDecide({ title: 'Check Your Answers', say: problem.message,
+    yes: 'Change My Answers', no: 'Not Now',
+    /* The field that needs changing is marked when the screen opens. */
+    onYes: function(){ try { bldReviewReturn = true; bldStage(BLD_STAGE.YOU); bldValidateStage(BLD_STAGE.YOU); } catch(e){} } });
+}
 function openWeekFitSheet(fit, distanceKey, sig){
   var copy = weekFitSheetCopy(fit);
   var startAt = function(){
@@ -69149,6 +69239,12 @@ function bldValidateStage(i){
        (5, 6 and a 6km long run), run/walk if needed. Blank is still refused. */
     if (volume == null || !(volume >= BUILDER_SPEC.validation.volumeMustExceed)){
       bldFail('f-volume', 'Enter your current weekly running, or 0 if you are not running yet.'); return false; }
+    /* THE LONGEST RUN IS REQUIRED, AND THE THREE ANSWERS MUST AGREE (founder,
+       18 November 2026). Said on this screen, on the field the athlete
+       answers next, before Continue: the same entryEvidenceProblem() the
+       Build reads, so an answer refused here is refused there too. */
+    var evProblem = entryEvidenceProblem(readBuilderEntryEvidence());
+    if (evProblem){ bldFail(evProblem.field, evProblem.message); return false; }
     return true;
   }
   if (i === BLD_STAGE.WEEK){
@@ -69240,8 +69336,11 @@ function bldRenderReview(){
     var evR = readBuilderEntryEvidence();
     if (evR && evR.runDaysPerWeek != null)
       rows += row('Runs a week now', String(evR.runDaysPerWeek), 'su-entry-days');
-    if (evR && evR.longestRunKm != null && evR.longestRunKm > 0){
-      var ageR = evR.longestRunDate ? daysBetween(evR.longestRunDate, todayStr()) : null;
+    /* ALWAYS A ROW NOW, 0 AND UNANSWERED INCLUDED. The longest run is a
+       required answer (founder, 18 November 2026), so a plan stored before
+       it was required shows the gap here, and the row is the way to it. */
+    if (evR){
+      var ageR = (evR.longestRunKm > 0 && evR.longestRunDate) ? daysBetween(evR.longestRunDate, todayStr()) : null;
       rows += row('Longest recent run', fmtDist(evR.longestRunKm) +
         ((ageR != null && ageR > CALIBRATION_EVIDENCE_DAYS) ? ', too long ago to use' : ''), 'su-entry-long');
     }
@@ -70185,6 +70284,14 @@ async function handleGeneratePlan(){
   if (activeDays.length<genDaysRange[0] || activeDays.length>genDaysRange[1]){
     showToast('Pick between '+genDaysRange[0]+' and '+genDaysRange[1]+' running days'); return; }
   if (isNaN(longRunDay)){ showToast('Choose a long run day'); return; }
+  /* NOTHING IS BUILT FROM ANSWERS THAT CANNOT ALL BE TRUE, OR WITHOUT THE
+     LONGEST RUN (founder, 18 November 2026). Continue already refuses them on
+     the recent running screen; this is the same rule at the Build, for the
+     doors that open on the summary instead (Edit Plan Settings, Update Plan,
+     a new race block), where the answers are the ones stored last time. */
+  var buildEvProblem = entryEvidenceProblem(readBuilderEntryEvidence(),
+    { longestRun: !!document.getElementById('su-entry-long') });
+  if (buildEvProblem){ bldEntryEvidenceStop(buildEvProblem); return; }
 
   /* WHICH BLOCK IS THIS? Decided before anything is dated, because the answer
      chooses the anchor every date below is measured from.
@@ -85964,7 +86071,9 @@ var TIME_WHEEL_FIELDS = [
   { sel:'#ef-km', mode:'dist1', title:'Distance', max:120 },
   { sel:'#ef-mp-km', mode:'dist1', title:'Goal-Pace Distance', max:60, optional:true },
   { sel:'#su-volume', mode:'dist1', title:'Weekly Distance', max:250 },
-  { sel:'#su-entry-long', mode:'dist1', title:'Longest Recent Run', max:80, optional:true },
+  /* No Clear on the longest run: it is a required answer now (founder, 18
+     November 2026), and 0 is on the wheel for a runner who does not run yet. */
+  { sel:'#su-entry-long', mode:'dist1', title:'Longest Recent Run', max:80 },
   { sel:'[data-action="actual-field"][data-field="km"], [data-action="slog-field"][data-field="km"]', mode:'dist2', title:'Distance', max:120, optional:true },
   { sel:'[data-action="split-field"][data-field="km"]', mode:'dist2', title:'Lap Distance', max:60, optional:true },
   { sel:'[data-action="actual-field"][data-field="hr"], [data-action="slog-field"][data-field="hr"], [data-action="split-field"][data-field="hr"]', mode:'bpm', title:'Average Heart Rate', optional:true },
