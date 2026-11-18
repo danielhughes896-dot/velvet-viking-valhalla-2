@@ -478,16 +478,17 @@ test('.stat .l and .readiness-label are styled as labels in markup (font-head), 
   assert.match(src, /class="readiness-label font-head"/);
 });
 
-test('start.html\'s plan-preview big figures use the numeric role (JetBrains Mono), not the brand-display serif', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  const body = ruleBody(src.match(/<style[^>]*>([\s\S]*?)<\/style>/g).join('\n'), '.big b');
-  assert.ok(body);
-  /* Through the token now, not by name: the claim is that this is the
-     NUMERIC role rather than the brand serif, and --num-face is what that
-     role is called. The test above pins what the token resolves to. */
-  assert.match(body, /font-family:var\(--num-face\)/,
+/* UPDATED (founder, 18 November 2026: "Remove the old start."). /start's
+   plan preview is gone; the programme preview is the journey's, in the app,
+   and its big figures are held to the same numeric role there. */
+test('the programme preview\'s big figures use the numeric role (JetBrains Mono), not the brand-display serif', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.match(src, /'<div class="jr-fig"><b class="font-mono">'\+escapeHtml\(String\(p\[0\]\)\)\+'<\/b>/,
     'the plan-preview figures left the numeric role');
-  assert.doesNotMatch(body, /Cinzel/, 'the big figures took the brand serif back');
+  const body = ruleBody(appCss(), '.jr-fig b');
+  assert.ok(body);
+  assert.doesNotMatch(body, /Cinzel|font-family/, 'the big figures took another face back');
+  assert.doesNotMatch(fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8'), /class="big"/, '/start draws a preview again');
 });
 
 test('no font-family declaration anywhere resolves to a name outside the two canonical roles', () => {

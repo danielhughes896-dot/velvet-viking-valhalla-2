@@ -371,12 +371,14 @@ test('the server lists no provider until VVV_AUTH_PROVIDERS names it', async () 
   } finally { restore(); }
 });
 
-test('an Apple or Google account the beta does not know is told so, not shown a database error', () => {
-  /* While the public sign-up switch is off, or not yet known (founder, 18
-     November 2026: sign-up became a database switch). With it on the
-     trigger admits every address; test/m9-publicSignup.test.js holds that. */
+/* UPDATED (founder, 18 November 2026: "Get rid of the private beta stuff").
+   The refusal used to be called a private beta while the sign-up switch was
+   off; sign-up is open, so it is said as what the athlete can do. */
+test('an Apple or Google account that could not be made is told so, not shown a database error', () => {
   const a = fresh();
-  assert.match(a.cloudAuthErrorCopy('unexpected_failure', 'Database error saving new user'), /private beta/i);
+  const said = a.cloudAuthErrorCopy('unexpected_failure', 'Database error saving new user');
+  assert.match(said, /Your account couldn\u2019t be created just then\. Please try again in a moment/);
+  assert.doesNotMatch(said, /beta|database/i);
   assert.match(a.cloudAuthErrorCopy('otp_expired'), /expired/);
 });
 
@@ -425,15 +427,15 @@ test('both agreements are required, and they are the existing checkout records',
     'the tick is not the same record /start and /account write');
 });
 
-test('with commerce off the prices are information, nothing is recorded and the beta goes on', () => {
-  /* The private-beta sentence is the switch-OFF wording (founder, 18 November
-     2026: public sign-up as a database switch); with it on the same screen
-     says SACORO is free for now, test/m9-publicSignup.test.js. */
+test('with commerce off the prices are information, nothing is recorded and the athlete goes on free', () => {
+  /* UPDATED (founder, 18 November 2026: "Get rid of the private beta
+     stuff"): one sentence now, whichever way the sign-up switch stands. */
   const a = journeyWithPlan('trial');
   a.journeyOfferAsked = true;
   a.journeyOffer = catalogueOffer(false);
   const html = a.renderJourneyTrial();
-  assert.match(html, /Subscriptions are not open yet\. During the private beta SACORO is free to use, and nothing is charged\./);
+  assert.match(html, /Subscriptions are not open yet\. For now SACORO is free to use, and nothing is charged\./);
+  assert.doesNotMatch(html, /beta/i);
   assert.doesNotMatch(html, /journey-agree|journey-trial-start/);
   assert.match(html, /data-action="journey-trial-continue"/);
 });
@@ -450,11 +452,21 @@ test('a subscription the server already reports moves the journey past the trial
 // ---------------------------------------------------------------------------
 // THE WEBSITE AND THE INSTALLED APP
 // ---------------------------------------------------------------------------
-test('the payment seam: the web rail on the website, the store rail in the app', async () => {
+/* UPDATED (founder, 18 November 2026: the installed Android app must take
+   payment too). The website-distributed APK is the web rail now, returning
+   into the app (test/m10-androidPayment.test.js holds the whole path); the
+   store rail is for a genuine store build, which carries the explicit build
+   marker. The store guarantee itself is unchanged and asserted here. */
+test('the payment seam: the web rail on the website and in the website\'s APK, the store rail in a store build', async () => {
   const web = journeyWithPlan('trial');
   assert.equal(web.journeyPaymentProvider().id, 'web');
+  const apk = journeyWithPlan('trial');
+  apk.isNativeApp = () => true;
+  assert.equal(apk.journeyPaymentProvider().id, 'app');
+  assert.equal(apk.journeyPaymentProvider().showsPrices, true);
   const app = journeyWithPlan('trial');
   app.isNativeApp = () => true;
+  app.navigator.userAgent = 'Mozilla/5.0 (Linux; Android 14) SACORO-Store-Build';
   const store = app.journeyPaymentProvider();
   assert.equal(store.id, 'store');
   assert.equal(store.available, false);
@@ -481,12 +493,13 @@ test('the download page is the website\'s step only; the app goes straight to To
   assert.equal(app.state.view, 'today');
 });
 
+/* UPDATED (founder, 18 November 2026: "Remove the old start."): /start leads
+   everybody to the root, not only a visitor with no session. */
 test('/start and /get lead a new visitor into the journey', () => {
   const start = read('start.html');
-  const route = /function route\(\)\{[^]*?\n  \}/.exec(start)[0];
-  const noTok = /if \(!tok\)\{[^]*?\n    \}/.exec(route)[0];
-  assert.match(noTok, /location\.replace\('\/'\)/, 'a new visitor to /start does not reach the journey');
-  assert.doesNotMatch(start, /location\.replace\('\/get'\)/, '/start still skips the journey to the install page');
+  assert.match(start, /var dest = '\/' \+ \(location\.search \|\| ''\) \+ \(location\.hash \|\| ''\);\s*try\{ location\.replace\(dest\); \}/,
+    'a new visitor to /start does not reach the journey');
+  assert.doesNotMatch(start, /\/get/, '/start still skips the journey to the install page');
   const get = read('get.html');
   assert.match(get, /from=journey/);
   assert.match(get, /Continue in the Browser/);

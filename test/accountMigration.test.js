@@ -318,8 +318,19 @@ test('the account shell is public, small, and carries no coaching engine', () =>
      as if it's ready to go"). Under 1.3KB: the sign-in line drops "private
      beta" while the database's sign-up switch is on (one GET, words only),
      and a brand-new account with nothing held is not told its access has
-     "ended". No price, no decision, no engine. */
-  assert.ok(shell.length < 37000, 'the shell must stay a shell (' + shell.length + ' bytes)');
+     "ended". No price, no decision, no engine.
+
+     RAISED TO 43KB FOR THE INSTALLED APP'S PAYMENT (founder, 18 November
+     2026: the website-distributed Android app takes payment through this
+     same checkout). What was added is the hand-back to the app: in the
+     phone's browser, a "Back to the App" pane that forwards Stripe's return
+     to com.velvetviking.valhalla://auth/checkout and decides nothing; inside
+     the app, a listener that reconciles that return with the app's own token
+     and asks the gate again; and the store-build check that keeps prices out
+     of a genuine store build. The public sign-up wording went the other way
+     ("Get rid of the private beta stuff"). Still all door: no price, no
+     decision, no engine. */
+  assert.ok(shell.length < 43000, 'the shell must stay a shell (' + shell.length + ' bytes)');
   ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
     .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
 });

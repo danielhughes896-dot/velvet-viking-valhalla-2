@@ -13,15 +13,17 @@
 // A Vercel variable could not be read by that trigger, so it would be a
 // second authority able to disagree with the real one.
 //
-// WHAT THE SERVER USES IT FOR: WORDS. Whether the app says "private beta" or
-// not, and whether a refusal from GoTrue is the closed gate talking. Nothing
-// here admits or refuses anybody, and nothing here grants access to the
-// product: that is resolveAccess() in _access.js, for every account alike.
+// WHAT THE SERVER USES IT FOR: whether a refusal from GoTrue is the closed
+// gate talking, and GET /api/beta-signin's report of it. It used to choose
+// whether the app said "private beta"; that wording is gone (founder,
+// 18 November 2026: "Get rid of the private beta stuff"; sign-up is open).
+// Nothing here admits or refuses anybody, and nothing here grants access to
+// the product: that is resolveAccess() in _access.js, for every account alike.
 //
 // Three answers, deliberately: true (open), false (closed), null (could not be
 // read: no service key, the migration not applied yet, the database slow or
-// down). Every caller treats null as "say what was said before", which is the
-// private-beta wording, so a failure here can only ever produce today's copy.
+// down). A refusal is called the closed gate only when the switch is not
+// known to be open, so a failed read can only ever produce the older answer.
 
 'use strict';
 

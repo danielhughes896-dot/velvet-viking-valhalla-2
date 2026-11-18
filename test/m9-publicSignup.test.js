@@ -13,8 +13,12 @@
 //     address gets a link, and Apple and Google start the same way;
 //   * access: a brand-new account gets into the app after the journey while
 //     commerce is off, and is held at the seven-day trial while it is on;
-//   * the words: no "private beta" on the journey, sign-in or account surfaces
-//     while the switch is on, and today's wording while it is off.
+//   * the words: no "private beta" on the journey, sign-in or account surfaces.
+//     UPDATED (founder, 18 November 2026: "Get rid of the private beta
+//     stuff"): that used to hold only while the switch was on, with the
+//     beta wording kept while it was off. Sign-up is open, so the beta
+//     variant is gone and the words no longer depend on the switch at all;
+//     the switch still decides, in the database, who may make an account.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -248,7 +252,7 @@ test('GET /api/beta-signin says which way the switch stands, and nothing about a
   }
 });
 
-test('switch OFF: an uninvited address is refused by the database and told it is a private beta', async () => {
+test('switch OFF: an uninvited address is refused by the database and told so, without "private beta"', async () => {
   for (const sw of [false, undefined, 503]){   // off, the row missing, the read failing
     const { res, calls } = await signin({ method: 'POST', body: { email: 'new@runner.test', redirect: 'https://app.velvetviking.co.uk/' } }, sw, DB_REFUSAL);
     assert.equal(res.statusCode, 403, 'switch ' + sw + ': ' + res.body);
@@ -256,9 +260,10 @@ test('switch OFF: an uninvited address is refused by the database and told it is
     assert.doesNotMatch(res.body, /Database error|saving new user/, 'the provider\'s words reached the browser');
     calls.forEach(c => assert.doesNotMatch(c.url, /beta_allowlist|beta_email_approved/, 'the route read the allowlist'));
   }
-  /* and the app says the sentence it always said */
+  /* and the app says what is true, with no beta in it (founder,
+     18 November 2026: "Get rid of the private beta stuff") */
   const a = loadApp({ pinnedDate: PINNED });
-  assert.match(a.signInErrorCopy('not_in_beta'), /SACORO is in private beta\. This email address is not on the tester list yet/);
+  assert.equal(a.signInErrorCopy('not_in_beta'), 'SACORO can\u2019t create an account for this email address yet. Please get in touch');
 });
 
 test('switch ON: an uninvited address is sent a link, and the route asks no list', async () => {
@@ -452,7 +457,7 @@ test('a refused athlete with no journey to finish still goes to the locked shell
   assert.deepEqual(went2, ['/account?why=locked']);
 });
 
-test('refused, with nothing to buy here (the app, or commerce off), the trial screen does not pretend there is a way on', () => {
+test('refused, with nothing to buy here (a store build, or commerce off), the trial screen does not pretend there is a way on', () => {
   const a = journeyApp('trial');
   a.JOURNEY_ONLY_MODE = true; a.journeyOnlyRefused = true;
   signedIn(a);
@@ -460,7 +465,11 @@ test('refused, with nothing to buy here (the app, or commerce off), the trial sc
   let html = a.renderJourneyTrial();
   assert.doesNotMatch(html, /journey-trial-continue/);
   assert.match(html, /data-action="journey-account-page"/);
+  /* UPDATED (founder, 18 November 2026): the website-distributed APK sells
+     through the website's checkout now, so "nothing to buy here" is a store
+     build, which carries the explicit marker. */
   a.isNativeApp = () => true;
+  a.navigator.userAgent = 'Mozilla/5.0 (Linux; Android 14) SACORO-Store-Build';
   html = a.renderJourneyTrial();
   assert.doesNotMatch(html, /journey-trial-continue|£/);
   assert.match(html, /Subscriptions are not available in the app yet\. Nothing has been charged\./);
@@ -482,77 +491,68 @@ function everyJourneyScreen(a){
   a.journeyOfferAsked = true; a.journeyOffer = catalogueOffer(false);
   const web = a.renderJourneyTrial();
   a.isNativeApp = () => true;
+  const apk = a.renderJourneyTrial();
+  const ua = a.navigator.userAgent;
+  a.navigator.userAgent = ua + ' SACORO-Store-Build';
   const store = a.renderJourneyTrial();
+  a.navigator.userAgent = ua;
   a.isNativeApp = () => false;
-  return [a.renderJourneyWelcome(), a.renderJourneyWelcome(true), a.renderJourneyAccount(), web, store, builder,
-    a.cloudAuthErrorCopy('unexpected_failure', 'Database error saving new user'), a.legalTermsLabel(), a.legalCoverSentence()].join('\n');
+  return [a.renderJourneyWelcome(), a.renderJourneyWelcome(true), a.renderJourneyAccount(), web, apk, store, builder,
+    a.cloudAuthErrorCopy('unexpected_failure', 'Database error saving new user'), a.signInErrorCopy('not_in_beta'),
+    a.legalTermsLabel(), a.legalCoverSentence()].join('\n');
 }
 
-test('switch ON: nothing on the journey, the builder or the sign-in errors says private beta', () => {
-  const a = journeyApp('account');
-  a.signupPublic = true;
-  const all = everyJourneyScreen(a);
-  assert.doesNotMatch(all, /private[ -]beta|tester list|beta terms/i);
-  assert.match(all, /For now SACORO is free to use, and nothing is charged\./);
-  assert.match(all, /Using SACORO is covered by our/);
-  assert.equal(a.legalTermsLabel(), 'Terms');
-  /* the cloud push refusal, the one toast that named the beta */
-  const toasts = []; a.showToast = t => toasts.push(t);
-  a.cloudSession = { access_token: 't', user_id: 'u', expires_at: new a.Date().getTime() + 3600e3 };
-  const src = RUNTIME.slice(RUNTIME.indexOf("if (err && err.code === 'not_in_beta' && !window.__vvvBetaRevokedTold)"));
-  assert.match(src.slice(0, 600), /signupIsPublic\(\)\s*\?\s*'Your plan couldn\\u2019t be saved to your account/);
-});
-
-test('switch OFF, or not yet known: today\'s wording, word for word', () => {
-  for (const sw of [false, null]){
-    const a = journeyApp('account');
-    a.signupPublic = sw;
+/* UPDATED (founder, 18 November 2026: "Get rid of the private beta stuff").
+   These were "switch ON: no private beta" and "switch OFF, or not yet known:
+   today's wording, word for word". Sign-up is open and the beta wording is
+   gone, so the same screens say the same words whichever way the switch
+   stands, or whether it is known at all. */
+test('whichever way the switch stands, nothing on the journey, the builder or the sign-in errors says private beta', () => {
+  for (const remembered of [undefined, '0', '1']){
+    const a = journeyApp('account', remembered === undefined ? {} : { storage: { vvv_signup_public: remembered } });
     const all = everyJourneyScreen(a);
-    assert.match(all, /During the private beta SACORO is free to use, and nothing is charged\./);
-    assert.match(all, /Using the private beta is covered by our/);
-    assert.match(all, /SACORO is in private beta\. This email address is not on the tester list yet/);
-    assert.equal(a.legalTermsLabel(), 'Private Beta Terms');
+    assert.doesNotMatch(all, /private[ -]beta|tester list|beta terms|\bbeta\b/i, 'remembered ' + remembered);
+    assert.match(all, /For now SACORO is free to use, and nothing is charged\./);
+    assert.match(all, /Using SACORO is covered by our/);
+    assert.equal(a.legalTermsLabel(), 'Terms');
+    assert.equal(a.legalCoverSentence(), 'Your use of SACORO is covered by these two documents.');
   }
+  /* the cloud push refusal, the one toast that named the beta */
+  const src = RUNTIME.slice(RUNTIME.indexOf("if (err && err.code === 'not_in_beta' && !window.__vvvBetaRevokedTold)"));
+  assert.match(src.slice(0, 600), /showToast\('Your plan couldn\\u2019t be saved to your account\. It stays on this device'\);/);
+  assert.doesNotMatch(src.slice(0, 600), /private-beta access/);
 });
 
-test('the server\'s answer is what the app believes, and it is remembered for the next load', async () => {
-  const answers = { public_signup: true, providers: { email: true, apple: false, google: false } };
+test('the app no longer keeps or reads the switch for its words; the server still reports it', async () => {
+  ['signupPublic', 'signupIsPublic', 'noteSignupPublic', 'SIGNUP_PUBLIC_KEY'].forEach(name =>
+    assert.doesNotMatch(RUNTIME, new RegExp('\\b' + name + '\\b'), name + ' is still in the runtime'));
+  const answers = { public_signup: false, providers: { email: true, apple: true, google: false } };
   const a = loadApp({ pinnedDate: PINNED, fetch: async () => ({ ok: true, json: async () => answers }) });
   a.showToast = () => {};
   a.journeyProvidersAsked = false;
   a.journeyAskProviders();
   await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
-  assert.equal(a.signupIsPublic(), true);
-  assert.equal(a.localStorage.getItem('vvv_signup_public'), '1');
-  const b = loadApp({ pinnedDate: PINNED, storage: { vvv_signup_public: '1' } });
-  assert.equal(b.signupIsPublic(), true, 'a reload forgot the answer and would flash the old wording');
-  /* an answer that is not true or false changes nothing */
-  assert.equal(b.noteSignupPublic(null), false);
-  assert.equal(b.noteSignupPublic(undefined), false);
-  assert.equal(b.signupIsPublic(), true);
-  assert.equal(b.noteSignupPublic(false), true);
-  assert.equal(b.legalTermsLabel(), 'Private Beta Terms');
-  /* the Welcome asks, so the answer is in before the builder or Make It Yours */
+  assert.equal(a.journeyProviders.apple, true, 'the Welcome no longer learns which ways in exist');
+  assert.equal(a.localStorage.getItem('vvv_signup_public'), null, 'the switch is still remembered on the device');
+  assert.equal(a.legalTermsLabel(), 'Terms', 'a closed switch brought the beta wording back');
+  /* the Welcome asks, so Apple and Google are known before Make It Yours */
   assert.match(/function renderJourneyWelcome\(memberOnly\)\{[^]*?journeyAskProviders\(\);/.exec(RUNTIME)[0], /journeyAskProviders/);
 });
 
-test('account.html: the sign-in line loses "private beta" only on an explicit yes, and a new account is not told its access ended', () => {
+test('account.html: no "private beta" on the sign-in line, and a new account is not told its access ended', () => {
   const html = read('account.html');
-  assert.match(html, /<p class="vvv-quiet" id="legal-note">Using the private beta is covered by our/, 'today\'s line is not the default');
-  const fn = /function applySignupWording\(\)\{[^]*?\n  \}/.exec(html)[0];
-  assert.match(fn, /signupOpen \? 'Using SACORO is covered by our [^']*' : legalBefore;/,
-    'the new line is not conditional on the switch, or a no would keep it');
-  assert.doesNotMatch(fn, /private beta/i);
-  assert.match(html, /if \(typeof d\.public_signup !== 'boolean'\) return;/, 'an unknown answer changes the page');
-  assert.match(html, /signupOpen = d\.public_signup; applySignupWording\(\);/);
-  assert.match(html, /if \(v\.override === 'beta'\)\s+return signupOpen \? '' : 'Private beta access\.';/);
+  assert.match(html, /<p class="vvv-quiet" id="legal-note">Using SACORO is covered by our\s+<a href="https:\/\/velvetviking\.co\.uk\/privacy">Privacy Policy<\/a> and\s+<a href="https:\/\/velvetviking\.co\.uk\/terms">Terms<\/a>\.<\/p>/);
+  assert.doesNotMatch(html, /signupOpen|applySignupWording|vvv_signup_public/, 'the page still reads the switch for its words');
+  assert.match(html, /if \(v\.override === 'beta'\)\s+return '';/);
   assert.match(html, /var never = !hasAccess && !grace && !\(v && \(v\.state \|\| v\.access_until\)\);/);
   assert.match(html, /: never \? 'Your SACORO account'/);
+  const visible = html.replace(/<!--[^]*?-->/g, '').replace(/\/\*[^]*?\*\//g, '');
+  (visible.match(/'[^'\n]*'|>[^<]+</g) || []).filter(t => /private beta|tester|beta terms/i.test(t))
+    .forEach(t => assert.fail('account.html says: ' + t));
   /* start.html and get.html carry no private-beta words a public visitor can reach */
   const start = read('start.html').replace(/<!--[^]*?-->/g, '').replace(/\/\*[^]*?\*\//g, '');
-  (start.match(/'[^'\n]*'/g) || []).filter(s => /private beta|tester/i.test(s))
-    .forEach(s => assert.fail('start.html says: ' + s));
-  assert.doesNotMatch(read('get.html').replace(/<!--[^]*?-->/g, ''), /private beta/i);
+  assert.doesNotMatch(start, /beta|tester/i);
+  assert.doesNotMatch(read('get.html').replace(/<!--[^]*?-->/g, ''), /private beta|beta-terms/i);
 });
 
 // ===========================================================================

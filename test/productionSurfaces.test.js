@@ -125,14 +125,22 @@ test('the prices shown are the prices the billing catalogue charges', () => {
     'the app promises a trial length the products file does not define');
 });
 
-test('NATIVE STORE RULES: no web payment steering inside the app shell', () => {
+test('NATIVE STORE RULES: no web payment steering inside a store build', () => {
   /* Apple and Google both forbid steering a customer to an external web
-     payment for the same digital subscription. The Capacitor build must not
-     carry a subscribe or manage link; it says where the subscription lives
-     instead. */
+     payment for the same digital subscription. A STORE build must not carry
+     a subscribe or manage link; it says where the subscription lives instead.
+     UPDATED (founder, 18 November 2026: the installed Android app must take
+     payment too). The rule is now asked of a genuine store build, which
+     carries the explicit marker (or is iOS); the website-distributed APK is
+     not one, and sells through the website's checkout (below). */
   const a = signedIn(ENT({ state: 'expired' }));
   a.window.Capacitor = { isNativePlatform: () => true };
+  const ua = a.navigator.userAgent;
+  a.navigator.userAgent = ua + ' SACORO-Store-Build';
   const native = a.renderSubscriptionCard();
+  a.navigator.userAgent = ua;
+  a.window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios' };
+  assert.equal(a.renderSubscriptionCard(), native, 'an iOS shell is not held to the store rule');
 
   /* THE RULE IS ABOUT CONTROLS, NOT PROSE. What the stores forbid is a link
      or a button that takes the customer to an external purchase; telling them
@@ -152,6 +160,10 @@ test('NATIVE STORE RULES: no web payment steering inside the app shell', () => {
   assert.match(web, /data-action="subscription-resubscribe"/,
     'the web build must still be able to sell');
   assert.match(text(web), /Subscribe again/);
+
+  /* The website-distributed Android APK: the website's own card. */
+  a.window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android' };
+  assert.equal(a.renderSubscriptionCard(), web, 'the website-distributed app is not offered the web checkout');
 });
 
 // ===========================================================================
@@ -245,9 +257,12 @@ test('a paying customer is not told they are a beta tester', () => {
   assert.equal(a.legalTermsLabel(), 'Terms of Service');
   assert.match(a.legalCoverSentence(), /subscription/i);
 
-  const beta = signedIn(ENT({ commercial_required: false }));
-  assert.equal(beta.legalTermsLabel(), 'Private Beta Terms',
-    'while nobody is charged, the beta wording is the true one');
+  /* UPDATED (founder, 18 November 2026: "Get rid of the private beta
+     stuff"): while nobody is charged the label is plain "Terms" now, never
+     "Private Beta Terms". */
+  const free = signedIn(ENT({ commercial_required: false }));
+  assert.equal(free.legalTermsLabel(), 'Terms', 'while nobody is charged, the Terms are not called a beta document');
+  assert.doesNotMatch(free.legalCoverSentence(), /beta/i);
 });
 
 test('Settings carries the whole legal and support surface', () => {
@@ -406,40 +421,35 @@ test('the signing pipeline is configured for a real release key', () => {
 // ===========================================================================
 const START = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
 
-test('/start routes every commercial state, and explains every failure', () => {
-  /* access -> the product; expired -> the locked shell; signed in without a
-     subscription -> a banked preview, else the app's builder at /get (the web
-     builder is retired: founder, 16 November 2026, item 9); anything else ->
-     sign in. */
-  assert.match(START, /if \(b\.access === true\)\{ enter\(\); return; \}/,
-    'an athlete with access must not be shown acquisition screens again');
-  assert.match(START, /reason === 'expired'[^]*?show\('pane-locked'\)/,
-    'an expired athlete needs the locked shell, not the builder');
-  assert.doesNotMatch(START, /show\('pane-build'\)/);
-  /* UPDATED (founder, 18 November 2026): the builder is the first-time
-     journey's, in the app, so the way to build is '/', not the install page. */
-  assert.match(START, /location\.replace\('\/'\)/, 'a signed-in athlete with no plan has nowhere to build one');
-
-  /* Four failures, four explanations. A blank form with no reason is the
-     defect these each exist to prevent. */
-  assert.match(START, /r\.status >= 500/,
-    'a server error is indistinguishable from "not signed in" without this');
-  assert.match(START, /having a moment/, 'a 5xx must say what happened');
-  assert.match(START, /could not reach SACORO/, 'a timeout must say what happened');
-  assert.match(START, /otp_expired: 'That sign-in link has expired/);
-  assert.match(START, /access_denied: 'That sign-in link has already been used/);
-  assert.match(START, /within\(10000,/, 'a hung request must be raced against a deadline');
+/* UPDATED (founder, 18 November 2026: "Remove the old start."). /start's
+   routing and its four failure explanations are gone with its screens; it
+   forwards everybody to the root. The states it routed are routed by the gate
+   (api/app.js), and the explanations now live where those states land: the
+   journey's sign-in (cloudAuthErrorCopy) and /account. */
+test('the gate routes every commercial state, and every failure is explained where it lands', () => {
+  const gate = fs.readFileSync(path.join(ROOT, 'api', 'app.js'), 'utf8');
+  assert.match(gate, /if \(!leaseId\)\{ stamp\(res, 'journey'\); return serveJourneyOnly\(res\); \}/);
+  assert.match(gate, /return toShell\(res, decision\.reason === 'no_account' \? 'signin' : 'locked'\);/,
+    'an expired athlete needs the locked shell');
+  assert.match(gate, /return toShell\(res, 'unavailable'\);/, 'a server failure must have somewhere to say so');
+  assert.match(START, /location\.replace\(dest\)/);
+  const app = RUNTIME;
+  assert.match(app, /otp_expired: 'That sign-in link has expired'/);
+  const account = fs.readFileSync(path.join(ROOT, 'account.html'), 'utf8');
+  assert.match(account, /We could not check your account/, 'a gate that cannot answer must say so');
+  assert.match(account, /Your access has ended/);
 });
 
 test('/start starts no trial by accident', () => {
-  /* Nothing on the entry page may spend the allowance. The only commercial
-     act is the one the athlete presses, and it goes through checkout. */
+  /* Nothing on the entry page may spend the allowance. /start has no
+     commercial act left at all; the only one is the journey's Start My Free
+     Trial, a deliberate press that goes through checkout. */
   const scripts = START.slice(START.indexOf('<script>'));
-  assert.equal(/\/api\/trial/.test(scripts), false,
-    'the standalone trial endpoint is gone; nothing may call it');
+  assert.equal(/\/api\/(trial|checkout)/.test(scripts), false, '/start calls a commercial route');
   const auto = /addEventListener\('load'|window\.onload|setTimeout\([^)]*checkout/i;
   assert.equal(auto.test(scripts), false, 'a checkout is being opened without a press');
-  assert.match(scripts, /\$\('trial'\)\.addEventListener\('click'/,
+  const app = RUNTIME;
+  assert.match(app, /case 'journey-trial-start': return handleJourneyTrialStart\(\);/,
     'the commercial act must be a deliberate press');
 });
 

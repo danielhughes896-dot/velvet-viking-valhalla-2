@@ -272,15 +272,22 @@ test('the webhook resolves the account from the connection, never from the calle
 // ---------------------------------------------------------------------------
 // P — NO FOUNDER-ONLY COPY SURVIVES WHERE AN ATHLETE CAN READ IT
 // ---------------------------------------------------------------------------
-test('the athlete is told the beta is full, in plain words', () => {
+/* UPDATED (founder, 18 November 2026: "Get rid of the private beta stuff").
+   The limit is real and still said, truthfully and without the beta: Strava
+   caps how many athletes one application may connect. */
+const CAPACITY_COPY = 'Strava limits how many athletes can connect to SACORO for now';
+test('the athlete is told Strava is full, in plain words', () => {
   const runtime = read(path.join('protected', 'velvet-viking-valhalla.html'));
-  assert.match(runtime, /Strava access is currently full for the private beta/,
-    'there is no athlete-facing copy for a full beta');
+  assert.match(runtime, /strava_beta_full: +'Strava limits how many athletes can connect to SACORO for now'/,
+    'there is no athlete-facing copy for a full roster');
+  assert.match(runtime, /full: +'Strava limits how many athletes can connect to SACORO for now'/);
+  assert.doesNotMatch(runtime, /Strava access is currently full for the private beta/);
 });
 
 test('capacity copy carries no jargon, no policy and no variable names', () => {
   const runtime = read(path.join('protected', 'velvet-viking-valhalla.html'));
-  const i = runtime.indexOf('Strava access is currently full for the private beta');
+  const i = runtime.indexOf(CAPACITY_COPY);
+  assert.ok(i !== -1);
   const copy = runtime.slice(i, i + 120);
   [/VVV_/, /OAuth/i, /API/, /allowlist/i, /policy/i, /rate.?limit/i].forEach(bad =>
     assert.ok(!bad.test(copy), 'athlete-facing copy leaks internals: ' + bad));

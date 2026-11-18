@@ -86,10 +86,15 @@ test('no deployment host is hardcoded as a browser callback anywhere', () => {
   });
 });
 
-test('/start asks to come back to its own origin, not a fixed host', () => {
+/* UPDATED (founder, 18 November 2026: "Remove the old start."). /start no
+   longer requests a link of its own; it forwards to the root of the origin
+   it was reached on, and the app asks to come back to that same origin. */
+test('/start forwards to its own origin, and the app asks to come back to its own', () => {
   const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  assert.match(src, /redirect:\s*location\.origin \+ '\/start'/,
-    '/start no longer requests its own origin');
+  assert.match(src, /var dest = '\/' \+/, '/start forwards somewhere other than its own root');
+  const app = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.match(app, /: \(window\.location\.origin \+ window\.location\.pathname\);/,
+    'the app no longer requests its own origin');
 });
 
 // ===========================================================================
@@ -144,32 +149,48 @@ test('both the canonical origin and the request origin are accepted', () => {
 });
 
 // ===========================================================================
-// CALLBACK HANDLING IN /start
+// CALLBACK HANDLING, NOW AT THE ROOT
+// UPDATED (founder, 18 November 2026: "Remove the old start."). /start used
+// to consume the link itself. It now forwards the fragment and the query to
+// the root, where the app (and, for a stale cookie, /account) does the same
+// work; these assert it there.
 // ===========================================================================
-test('a successful callback establishes a session and routes from /start', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  assert.match(src, /function consumeAuthHash\(\)/);
-  assert.match(src, /\/api\/session/, '/start does not establish a server session');
-  assert.match(src, /function route\(\)/);
+const RUNTIME_SRC = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+const runtimeFn = name => {
+  const at = RUNTIME_SRC.indexOf('function ' + name + '(');
+  assert.ok(at !== -1, name + '() is missing');
+  let depth = 0, i = RUNTIME_SRC.indexOf('{', at);
+  for (; i < RUNTIME_SRC.length; i++){
+    if (RUNTIME_SRC[i] === '{') depth++;
+    else if (RUNTIME_SRC[i] === '}' && --depth === 0) break;
+  }
+  return RUNTIME_SRC.slice(at, i + 1);
+};
+test('a link that lands on /start reaches the root with its tokens, and the root establishes the session', () => {
+  const start = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
+  assert.match(start, /\(location\.search \|\| ''\) \+ \(location\.hash \|\| ''\)/,
+    'the forward drops the fragment the tokens are in');
+  assert.match(runtimeFn('cloudConsumeAuthHash'), /cloudSetSession\(\{/, 'the root does not take the tokens');
+  assert.match(runtimeFn('establishDeliverySession'), /fetch\(ENTITLEMENT_ENDPOINT/);
+  assert.match(RUNTIME_SRC, /var ENTITLEMENT_ENDPOINT = '\/api\/session';/, 'the root does not establish a server session');
 });
 
 test('CALLBACK CLEANUP: tokens are stripped from the visible URL', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  const fn = /function consumeAuthHash\(\)\{[^]*?\n  \}/.exec(src)[0];
-  assert.match(fn, /history\.replaceState/, 'the token is left in the address bar');
-  assert.match(fn, /location\.hash = ''/, 'no fallback when replaceState is unavailable');
+  assert.match(runtimeFn('cloudConsumeAuthHash'), /window\.history\.replaceState\(null, '', path \+ search\)/,
+    'the token is left in the address bar');
+  const account = fs.readFileSync(path.join(ROOT, 'account.html'), 'utf8');
+  const strip = /function stripHash\(\)\{[^]*?\n  \}/.exec(account)[0];
+  assert.match(strip, /history\.replaceState/);
+  assert.match(strip, /location\.hash = ''/, 'no fallback when replaceState is unavailable');
 });
 
 test('a refused link says why instead of showing a blank form', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  assert.match(src, /function consumeAuthError\(\)/,
-    '/start still ignores GoTrue error parameters');
-  assert.match(src, /otp_expired/, 'an expired link has no specific message');
-  const fn = /function consumeAuthError\(\)\{[^]*?\n  \}/.exec(src)[0];
-  assert.match(fn, /history\.replaceState/,
-    'the error parameters are left in the address bar');
-  assert.doesNotMatch(fn, /error_description[^]*textContent/,
-    'the provider’s own error text is being shown to the athlete');
+  const fn = runtimeFn('cloudConsumeAuthHash');
+  assert.match(fn, /showToast\(cloudAuthErrorCopy\(p\.error_code, p\.error_description\)\)/,
+    'the root ignores GoTrue error parameters');
+  assert.match(RUNTIME_SRC, /otp_expired: 'That sign-in link has expired'/, 'an expired link has no specific message');
+  assert.doesNotMatch(runtimeFn('cloudAuthErrorCopy'), /return [^;]*description[^;]*;/,
+    'the provider\u2019s own error text is being shown to the athlete');
 });
 
 // ===========================================================================
@@ -266,66 +287,41 @@ test('the builder itself is untouched by this gateway change', () => {
 
 // ===========================================================================
 // ROUTING — ONE OWNER
+// UPDATED (founder, 18 November 2026: "Remove the old start."). The owner is
+// the gate (api/app.js) and the journey it serves, no longer /start.
 // ===========================================================================
-test('/start owns every commercial-entry state', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  /* pane-build left with the web builder (founder, 16 November 2026, item 9). */
+const GATE = fs.readFileSync(path.join(ROOT, 'api', 'app.js'), 'utf8');
+test('/start owns no commercial-entry state; the gate and the journey own them all', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8').replace(/<!--[^]*?-->/g, '');
   ['pane-auth', 'pane-sent', 'pane-preview', 'pane-locked'].forEach(p =>
-    assert.ok(src.indexOf(p) !== -1, '/start has no ' + p));
-  assert.match(src, /b\.access === true/, '/start does not admit an entitled athlete');
-  assert.match(src, /pane-locked/, '/start has nowhere to put an expired athlete');
+    assert.equal(src.indexOf(p), -1, '/start still has ' + p));
+  assert.match(GATE, /if \(!leaseId\)\{ stamp\(res, 'journey'\); return serveJourneyOnly\(res\); \}/,
+    'a visitor with no session is not given the journey');
+  assert.match(GATE, /return toShell\(res, decision\.reason === 'no_account' \? 'signin' : 'locked'\);/,
+    'an athlete without access has nowhere to go');
+  assert.match(GATE, /stamp\(res, 'granted'\);\s*serveRuntime\(req, res\);/, 'an entitled athlete is not admitted');
 });
 
 test('an athlete with access is not shown acquisition screens again', () => {
-  /* Was a whole-function textual-order check: 'access === true' had to occur
-     before "show('pane-build')" anywhere in route(). That assumption held
-     only under the old account-first order, where the ONLY way to reach
-     pane-build was through the post-auth access check. Under the approved
-     journey (builder -> preview -> "Save My Plan" -> trial -> app) an
-     anonymous visitor legitimately reaches pane-build first, through a
-     branch that never touches access at all -- so the same textual check
-     now fires on a branch ordering that was never the one it meant to
-     guard. The real invariant survives narrowed to where it actually lives:
-     inside the post-authentication branch, access === true must lead
-     straight into the app and never into any acquisition pane. */
-  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  const fn = /function route\(\)\{[^]*?\n  \}/.exec(src)[0];
-  const seg = /if \(b\.access === true\)\{[^]*?\}/.exec(fn);
-  assert.ok(seg, 'the access check no longer exists in route()');
-  assert.match(seg[0], /enter\(\)/, 'access does not lead straight into the app');
-  assert.doesNotMatch(seg[0], /show\(/, 'the access branch still shows an acquisition pane');
+  /* The journey reads a subscription the server reports as the end of the
+     trial step, so an entitled athlete goes on to Welcome to SACORO. */
+  assert.match(runtimeFn('journeyStep'), /if \(step === 'trial' && journeySubscribed\(\)\) step = 'arrive';/);
+  assert.match(runtimeFn('journeySubscribed'), /subscription_\(trial\|active\|grace\)/);
 });
 
-// ===========================================================================
-// SACORO FIRST-TIME ONBOARDING ORDER
-// builder -> personalised preview -> "Save My Plan" / authenticate -> trial
-// or purchase -> app. See test/onboardingOrder.test.js for the full matrix;
-// these two stay here because they are about the SAME route() this suite
-// already reads apart.
-// ===========================================================================
-/* UPDATED (founder, 18 November 2026: the first-time journey). The no-session
-   branch now hands over to the journey's Welcome in the app ('/'); the
-   install page (/get) is the journey's download step after Welcome to SACORO. */
 test('an anonymous visitor is sent into the journey, not to sign-in', () => {
   const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  const fn = /function route\(\)\{[^]*?\n  \}/.exec(src)[0];
-  const noTok = /if \(!tok\)\{[^]*?\n    \}/.exec(fn);
-  assert.ok(noTok, 'the no-session branch was not found in route()');
-  /* The plan is built in the app now (founder: "take them to the app"), so
-     the no-session branch hands over to /get rather than the web builder. */
-  assert.match(noTok[0], /location\.replace\('\/'\)/,
-    'a visitor with no session is not sent into the journey');
-  assert.doesNotMatch(noTok[0], /show\('pane-auth'\)/,
-    'a visitor with no session is still sent to sign-in before the builder');
+  assert.match(src, /location\.replace\(dest\)/, 'a visitor to /start is not sent on');
+  assert.doesNotMatch(src.replace(/<!--[^]*?-->/g, ''), /type="email"/, '/start still asks a visitor to sign in');
+  assert.match(GATE, /return serveJourneyOnly\(res\)/);
 });
 
-/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get).
-   Its "Trained with SACORO before? Sign in" link went with it. The sign-in
-   door itself stays, for a returning link and an expired session. */
 test('sign-in is still here for a returning athlete', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
-  assert.match(src, /setAuthContext\('signin'\);\s*show\('pane-auth'\)/, 'nothing opens sign-in any more');
-  assert.match(markup(src), /Sign in/, 'the door is not worded as a sign-in');
+  /* On the journey's first screen, Existing Member; and on /account. */
+  assert.match(RUNTIME_SRC, /data-action="journey-member">Existing Member</);
+  assert.match(RUNTIME_SRC, /case 'journey-member': return openSigninSheet\(\);/);
+  const account = fs.readFileSync(path.join(ROOT, 'account.html'), 'utf8');
+  assert.match(account, /<h1 id="headline">Sign in to SACORO<\/h1>/);
 });
 
 test('the entry path is stated once and routed once', () => {

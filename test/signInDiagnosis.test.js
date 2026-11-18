@@ -77,12 +77,16 @@ test('the server being unable to reach Supabase says so, in plain words', async 
     'it is not the athlete’s address that is wrong');
 });
 
-test('a refused address still gets the truth about the beta', async () => {
+/* UPDATED (founder, 18 November 2026: "Get rid of the private beta stuff").
+   The truth is still told, without the beta: this address cannot make an
+   account yet, and who to ask. */
+test('a refused address still gets the truth, without "private beta"', async () => {
   const a = app();
   const toasts = withServer(a, httpFail(403, { error: 'not_in_beta' }));
   a.handleCloudSignIn();
   await settle();
-  assert.match(toasts.join(' '), /private beta/i);
+  assert.match(toasts.join(' '), /can\u2019t create an account for this email address yet\. Please get in touch/);
+  assert.doesNotMatch(toasts.join(' '), /beta|tester/i);
 });
 
 test('a malformed address is distinguished from everything else', async () => {

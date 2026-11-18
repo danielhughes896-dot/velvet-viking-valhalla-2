@@ -20,7 +20,8 @@ which is itself a common account-takeover surface.
    account; off, only an address on the beta allowlist may. The route reads no
    list. While the switch is off, GoTrue reports the trigger's refusal as
    "Database error saving new user", and the route answers `403 not_in_beta`
-   so the athlete reads the private-beta sentence.
+   so the athlete reads "SACORO can't create an account for this email
+   address yet. Please get in touch".
 3. The server calls Supabase GoTrue's `/auth/v1/otp` with a `redirect_to` it has
    **validated itself**. The target never comes from the request body
    unmodified: an attacker-supplied redirect would hand them the tokens carried
@@ -53,7 +54,7 @@ the switch is **one row**, `public.signup_settings.public_signup`, installed by
 |---|---|
 | `enforce_beta_allowlist()` (the trigger) | On: admits any address. Off: the allowlist, exactly as before, same refusal. |
 | `is_beta_approved()` (the row-level predicate) | On: an athlete who signed up can read and write **their own** plan even while the five `plans`/`strava_activities` policies still carry the beta clause. Ownership is untouched. |
-| `GET /api/beta-signin` (`api/_signup.js`) | Reports it as `public_signup: true / false / null`, so the app knows whether to say "private beta". Wording only. |
+| `GET /api/beta-signin` (`api/_signup.js`) | Reports it as `public_signup: true / false / null`. Since 18 November 2026 no screen chooses its words by it. |
 | `POST /api/beta-signin` | Off (or unreadable): GoTrue's "saving new user" refusal becomes `403 not_in_beta`. On: the same words are classified as a provider failure. |
 
 The browser cannot read it, call it or change it; the server's key can only
@@ -81,12 +82,16 @@ Postgres by `tools/db-proof/public-signup-proof.sql`. Then:
   `trialing` subscription for the cookie, and the journey carries on to
   Welcome. Nothing is granted without that checkout.
 
-**The words.** While the switch is on, the journey, the builder's legal line,
-Make It Yours, the trial screen, the sign-in errors, the cloud-sync notice and
-`/account` do not say "private beta". While it is off (or before the server has
-answered) every one of them says exactly what it said before. The Terms link
-still points at the website's current Terms page; the page's own title is the
-website's to change.
+**The words.** Founder, 18 November 2026: "Get rid of the private beta
+stuff." The journey, the builder's legal line, Make It Yours, the trial
+screen, the sign-in errors, the cloud-sync notice, Settings' Strava messages
+and `/account` never say "private beta" now, whichever way the switch stands;
+the beta variant they used to show while it was off is gone. The shipped Terms
+link is the commercial Terms (`https://velvetviking.co.uk/terms`, the document
+`api/_agreements.js` names as in force), and the server still replaces it on
+every view. Two things outside this repository may still say "beta" and are the
+owner's to change: the Supabase magic-link email template (Authentication →
+Email Templates) and the website's own pages (including `/beta-terms`).
 
 ### Applying it (owner, once, after the founder's yes)
 
@@ -204,7 +209,7 @@ somebody with no account is the same `INSERT` into `auth.users` as a magic link
 for a new address, so the `beta_allowlist_gate` trigger answers it in the same
 way: with public sign-up on it admits them; with it off it refuses anyone not
 on the allowlist, GoTrue reports that as `error_description=Database error
-saving new user`, and the app shows the private-beta sentence. Nothing in the
+saving new user`, and the app says the account could not be created. Nothing in the
 Apple or Google code opens or closes signup.
 
 ### Exact owner-only steps

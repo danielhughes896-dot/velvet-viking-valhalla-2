@@ -247,8 +247,12 @@ test('prices, trial and server-side resolution are unchanged', () => {
 // ---------------------------------------------------------------------------
 
 test('there is exactly one sign-in route, and every caller uses it', () => {
-  /* A second route would be a second place for a gate to hide. */
-  const callers = ['account.html', 'start.html', 'protected/velvet-viking-valhalla.html'];
+  /* A second route would be a second place for a gate to hide.
+     UPDATED (founder, 18 November 2026: "Remove the old start."): /start
+     signs nobody in any more, it forwards to the app, so its callers are the
+     app and /account; and /start must not grow a sign-in of its own. */
+  const callers = ['account.html', 'protected/velvet-viking-valhalla.html'];
+  assert.doesNotMatch(read('start.html'), /\/api\/beta-signin|\/auth\/v1\//, '/start signs people in again');
   callers.forEach((f) => assert.match(read(f), /\/api\/beta-signin/,
     f + ' no longer uses the shared sign-in route'));
   /* Underscore-prefixed files are shared modules, not routes -- _strava-auth.js

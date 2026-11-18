@@ -94,7 +94,9 @@ test('3. accepting the Terms is not health consent', () => {
   buildPlan(a, { weeks: 8, healthConsent: false });
   assert.equal(a.healthConsentGranted(), false);
   const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  const footer = /Using the private beta is covered by our[\s\S]{0,400}?Settings\./.exec(src);
+  /* The footer's words changed (founder, 18 November 2026: "Get rid of the
+     private beta stuff"); it is the same footer. */
+  const footer = /Using SACORO is covered by our[\s\S]{0,400}?Settings\./.exec(src);
   assert.ok(footer, 'the builder still carries its Terms/Privacy footer');
   assert.doesNotMatch(footer[0], /health|readiness|heart rate/i,
     'and that footer does not bundle health consent into accepting the Terms');

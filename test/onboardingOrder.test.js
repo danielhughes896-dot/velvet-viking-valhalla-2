@@ -4,160 +4,175 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const Preview = require('../api/_preview.js');
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
 
 // SACORO FIRST-TIME ONBOARDING ORDER
 //
 // The approved acquisition journey: Builder -> Personalised Preview ->
-// "Save My Plan" / Authenticate -> Trial or Purchase -> App. Before this, the
-// order was account-first: an anonymous visitor was sent to pane-auth and
-// could not see the builder, let alone a personalised preview, without
-// signing in first.
+// account ("Save My Plan", now Make It Yours) -> Trial or Purchase -> App,
+// with the plan seen BEFORE any identity is asked for.
 //
-// This is a reorder of existing capability, not a rebuild of it: the builder
-// answers, the preview endpoint, the magic-link auth, and the checkout call
-// are all untouched. What changed is which one a visitor with no session
-// meets first, and where the athlete's answers live while they cross the
-// auth round trip. These tests read the actual /start source and the actual
-// preview engine, the same way the rest of this suite does -- there is no
-// second, paraphrased description of the journey to drift out of sync.
+// UPDATED (founder, 18 November 2026: "Remove the old start."). This file used
+// to read /start's own screens: a banked preview, Save My Plan, a sign-in
+// form and a trial card. Those screens are gone, and /start now leads
+// everybody to the app root, where the in-app first-time journey holds the
+// same order: Welcome, the builder, the slides and the programme preview, then
+// Make It Yours, then the seven-day trial. So the ORDER is asserted on the
+// journey now, and /start is asserted to be the plain door it has become.
+// What these tests guarded that still matters is kept, on the journey:
+//   * the plan before identity, and identity before the trial;
+//   * checkout only with a real session;
+//   * the account moment is "save your plan", not "Create Account";
+//   * the preview endpoint's engine is the real one, with no auth gate.
+// Retired with the screens: the banked-preview storage helpers
+// (savePending / loadPending / clearPending) and route(), which no longer
+// exist anywhere in start.html.
 
 const ROOT = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const SRC = read('start.html');
-const routeFn = () => /function route\(\)\{[^]*?\n  \}/.exec(SRC)[0];
-const fnBody = (name) => {
-  const re = new RegExp('function ' + name + '\\([^)]*\\)\\{[^]*?\\n  \\}');
-  const m = re.exec(SRC);
-  return m ? m[0] : null;
-};
+const RUNTIME = read(RUNTIME_RELATIVE);
+const PINNED = '2026-11-18T09:00:00Z';
+
+function journeyOnly(){
+  const a = loadApp({ pinnedDate: PINNED });
+  a.showToast = () => {};
+  a.JOURNEY_ONLY_MODE = true;
+  return a;
+}
+function fnSrc(name){
+  const at = RUNTIME.indexOf('function ' + name + '(');
+  assert.ok(at !== -1, name + '() is missing');
+  const open = RUNTIME.indexOf('{', at);
+  let depth = 0, i = open;
+  for (; i < RUNTIME.length; i++){
+    if (RUNTIME[i] === '{') depth++;
+    else if (RUNTIME[i] === '}' && --depth === 0) break;
+  }
+  return RUNTIME.slice(at, i + 1);
+}
 
 // ---------------------------------------------------------------------------
-// 1 & 2. A NEW VISITOR REACHES THE BUILDER AND THE PREVIEW BEFORE IDENTITY
+// 1. /start IS A DOOR TO THE JOURNEY, FOR EVERYBODY
 // ---------------------------------------------------------------------------
-/* RETIRED (founder, 16 November 2026, item 9: "Can it be removed? Yeh"): the web builder on /start is removed; the plan is built in the app (/get). */
-/* So the builder that was step one now lives in the app; a banked preview is
-   still step two here, and saving it still step three. */
-test('the preview is step two and saving the plan is step three, with no builder on the page', () => {
-  assert.doesNotMatch(SRC, /id="pane-build"/, 'the web builder is back on /start');
-  assert.doesNotMatch(SRC, /function submitBuild\(|function bldGoToStage\(|id="signin-instead"/);
-  assert.match(SRC, /id="pane-preview"[^]*?Step two of three/, 'the preview is no longer step two');
-  assert.match(SRC, /id="auth-step">Step three of three/, 'saving the plan is no longer step three');
+test('/start leads everybody to the app root, keeping the query and the fragment', () => {
+  const script = /<script>([^]*?)<\/script>/.exec(SRC);
+  assert.ok(script, '/start has no forward');
+  assert.match(script[1], /var dest = '\/' \+ \(location\.search \|\| ''\) \+ \(location\.hash \|\| ''\);/,
+    'the forward drops the sign-in tokens or GoTrue\'s error');
+  assert.match(script[1], /location\.replace\(dest\)/, 'the forward leaves /start in the back history');
+  /* For everybody: no session, no entitlement and no stored build is read. */
+  assert.doesNotMatch(script[1], /localStorage|fetch\(|access_token|vvv_pending_build/,
+    '/start decides something on its own again');
+  assert.equal((SRC.match(/<script\b/g) || []).length, 1, '/start carries more than the forward');
+  /* And a visitor without scripts still has the way in. */
+  assert.match(SRC, /<a class="vvv-btn" id="open-app" href="\/">Open SACORO<\/a>/);
 });
 
-/* UPDATED (founder, 18 November 2026: the first-time journey, "the SAME
-   screens, in this order, for the website and the installed app"). Building
-   happens in the journey's builder, inside the app, so the banked plan is let
-   go and the athlete goes to the app ('/') rather than to the install page,
-   which is now the journey's second-to-last step. */
-test('"Change something" lets the banked plan go and sends the athlete to build in the app', () => {
-  assert.match(SRC, /id="rebuild"[^>]*>Change Something</);
-  const h = /\$\('rebuild'\)\.addEventListener\('click', function\(\)\{([^}]*)\}\);/.exec(SRC);
-  assert.ok(h, 'the Change something handler has gone');
-  assert.match(h[1], /clearPending\(\);\s*location\.replace\('\/'\);/,
-    'Change something no longer clears the banked plan and goes to the journey');
-  assert.doesNotMatch(h[1], /pane-build/);
+test('the forward, run, lands on the root with the tokens and the errors intact', () => {
+  const script = /<script>([^]*?)<\/script>/.exec(SRC)[1];
+  const cases = [['', ''], ['', '#access_token=a.b.c&refresh_token=r&expires_in=3600'],
+                 ['?error=access_denied&error_code=otp_expired', ''], ['?period=yearly', '#x']];
+  cases.forEach(([search, hash]) => {
+    const went = [];
+    const location = { search, hash, replace(u){ went.push(u); } };
+    new Function('location', script)(location);
+    assert.deepEqual(went, ['/' + search + hash]);
+  });
 });
 
-/* UPDATED (founder, 18 November 2026): a new visitor goes into the first-time
-   journey, whose Welcome is the app's own first screen ('/'), not to the
-   install page, which the journey now reaches after Welcome to SACORO. */
-test('a visitor with no session goes into the journey, not to sign-in', () => {
-  const fn = routeFn();
-  const noTok = /if \(!tok\)\{[^]*?\n    \}/.exec(fn)[0];
-  assert.match(noTok, /location\.replace\('\/'\)/, 'no-session no longer resolves to the journey');
-  assert.doesNotMatch(noTok, /show\('pane-auth'\)/, 'no-session still resolves to sign-in first');
+test('none of the old /start screens is left', () => {
+  const markup = SRC.replace(/<!--[^]*?-->/g, '');
+  ['pane-preview', 'pane-auth', 'pane-sent', 'pane-locked', 'pane-resolving', 'save-plan', 'trial-card',
+   'checkout-agreements', 'plan-choice', 'id="trial"'].forEach(id =>
+    assert.equal(markup.indexOf(id), -1, id + ' is still on /start'));
+  assert.doesNotMatch(markup, /Save My Plan|Send My Link|Start My 7-Day Trial|Your access has ended|Restore Access/);
+  assert.doesNotMatch(markup, /api\/checkout|api\/subscription|api\/beta-signin|api\/session/,
+    '/start still talks to a server route');
+  assert.doesNotMatch(markup, /£\d/, '/start still quotes a price');
 });
 
-/* "The build call no longer requires a session": retired with submitBuild() (item 9). */
+/* The /start route still names this page, so links already in inboxes, the
+   website's buttons and the Android App Link (pathPrefix="/start") reach the
+   forward rather than a 404. */
+test('/start is still a route, and the Android App Link still claims it', () => {
+  const vercel = JSON.parse(read('vercel.json'));
+  assert.ok(vercel.routes.some(r => r.src === '/start' && r.dest === '/start.html'));
+  assert.match(read('android/app/src/main/AndroidManifest.xml'), /android:pathPrefix="\/start"/);
+});
+
+// ---------------------------------------------------------------------------
+// 2. THE PLAN BEFORE IDENTITY, NOW ON THE JOURNEY
+// ---------------------------------------------------------------------------
+test('the journey shows the plan before it asks who you are, and asks before the trial', () => {
+  const order = RUNTIME.match(/var JOURNEY_STEPS = \[([^\]]*)\]/)[1].replace(/'/g, '').split(/,\s*/);
+  ['slides', 'preview', 'account', 'trial'].reduce((prev, s) => {
+    const at = order.indexOf(s);
+    assert.ok(at > prev, s + ' is out of order in ' + order.join(' > '));
+    return at;
+  }, -1);
+  /* The programme preview is the screen /start used to call "Here is your
+     programme", and it asks for nothing. */
+  const a = journeyOnly();
+  buildPlan(a, { distanceKey: 'half', weeks: 12, volume: 35 });
+  a.journeyWrite({ v: 1, step: 'preview', built: true, drives: [], slide: 0 });
+  const preview = a.renderJourneyPreview();
+  assert.match(preview, /Here Is Your Programme/);
+  assert.doesNotMatch(preview, /type="email"|journey-trial-start|api\/checkout/, 'the preview asks for identity or money');
+});
+
+test('a visitor with no account is held at Make It Yours: the trial needs a session', () => {
+  const a = journeyOnly();
+  buildPlan(a, { distanceKey: 'half', weeks: 12, volume: 35 });
+  ['trial', 'arrive', 'done'].forEach(step => {
+    a.journeyWrite({ v: 1, step: step, built: true, drives: [], slide: 0 });
+    assert.equal(a.journeyStep(), 'account', step + ' is reachable without an account');
+  });
+});
+
+test('checkout still requires a real session, and sends only a period', () => {
+  const web = fnSrc('journeyWebCheckout');
+  assert.match(web, /cloudRefreshIfNeeded\(\)\.then\(function\(fresh\)\{\s*if \(!fresh\) return \{ ok:false, code:'not_signed_in' \};/,
+    'checkout no longer requires a signed-in athlete');
+  assert.match(web, /'Authorization':'Bearer '\+cloudSession\.access_token/);
+  assert.match(web, /var body = \{ period: period \};/, 'checkout sends more than a period');
+});
+
+test('the account moment is saving your plan, not "Create Account"', () => {
+  const a = journeyOnly();
+  buildPlan(a, { distanceKey: 'half', weeks: 12, volume: 35 });
+  a.journeyWrite({ v: 1, step: 'account', built: true, drives: [], slide: 0 });
+  const html = a.renderJourneyAccount();
+  assert.match(html, /Make It Yours\./);
+  assert.match(html, /Create your account to save your personalised training plan\./);
+  assert.match(html, /Your plan is ready\. Your trial has not started\./);
+  const labels = (html.match(/<button[^>]*>[^]*?<\/button>/g) || []).map(b => b.replace(/<[^>]*>/g, '').trim());
+  assert.ok(labels.length > 0);
+  labels.forEach(l => assert.doesNotMatch(l, /Create Account/i, 'a button says Create Account'));
+});
+
+// ---------------------------------------------------------------------------
+// 3. THE PREVIEW ENGINE IS THE REAL ONE
+// ---------------------------------------------------------------------------
 test('the preview endpoint itself has no auth gate left to trip', () => {
   const src = read('api/_preview.js');
   assert.equal(/if \(!uid\) return S\.json\(res, 401/.test(src), false,
     'the preview still hard-gates on a signed-in caller');
 });
 
-// ---------------------------------------------------------------------------
-// 3. BUILDER STATE AND THE PREVIEW SURVIVE THE AUTH ROUND TRIP
-// ---------------------------------------------------------------------------
-/* "A successful build banks the answers" and "the banked build carries every field": retired with
-   submitBuild() (item 9). The app's own adoption of a banked build is unchanged. */
-test('every route() branch that would otherwise show the builder checks for a banked preview first', () => {
-  const fn = routeFn();
-  const resumeChecks = (fn.match(/pending && pending\.preview/g) || []).length;
-  // no-session, signed-in-without-access, and the network-failure fallback --
-  // every one of them can be reached by an athlete who already has a preview.
-  assert.ok(resumeChecks >= 3, 'a refresh or a slow network can lose a banked preview: only found ' +
-    resumeChecks + ' resume check(s) in route()');
-});
-
-test('resuming a banked preview never re-asks the engine for one', () => {
-  const showPreview = fnBody('showPreview');
-  assert.ok(showPreview, 'showPreview() was not found');
-  assert.doesNotMatch(showPreview, /apiCall\(|authed\(|fetch\(/,
-    'showing a banked preview makes a network call -- it should only render what is already saved');
-});
-
-// ---------------------------------------------------------------------------
-// 4. THE PLAN THE ATHLETE SAVES IS THE ONE THEY BUILT
-// ---------------------------------------------------------------------------
-test('the real engine produces the same preview shape /start renders, from the same inputs', () => {
-  // start.html's mini-builder and /api/_preview.js speak the same input
-  // contract; this proves the preview an athlete banks is generated by the
-  // real training engine, not a second, decorative one.
+test('the real engine produces the preview shape from the builder\'s input contract', () => {
+  // The builder and /api/_preview.js speak the same input contract; this
+  // proves a preview is generated by the real training engine, not a second,
+  // decorative one.
   const app = require('./harness.js').loadApp({ pinnedDate: '2026-08-20T09:00:00Z' });
   const input = { purpose: 'race', distanceKey: 'half', weeks: 12, volume: 45,
                    activeDays: [1, 2, 3, 5, 6], longRunDay: 6, benchmarkSeconds: 2700 };
   const v = Preview.validate(input);
-  assert.equal(v.ok, true, 'the exact shape /start sends failed validation: ' + JSON.stringify(v.errors));
+  assert.equal(v.ok, true, 'the builder\'s input shape failed validation: ' + JSON.stringify(v.errors));
   const g = Preview.generate(app, v.input);
   const s = Preview.summarise(app, g.days, g.block, v.input);
   assert.equal(s.goal.distance, 'half');
   assert.ok(s.programme.weeks > 0 && s.programme.totalSessions > 0);
-  assert.ok(s.paces && s.paces.length > 0, 'the banked preview would have no paces to show');
-});
-
-// ---------------------------------------------------------------------------
-// 5. NOTHING SERVER-SIDE IS CREATED BY BUILDING, PREVIEWING, OR BANKING
-// ---------------------------------------------------------------------------
-test('banking a preview is purely local -- no request is made to bank or resume one', () => {
-  ['savePending', 'loadPending', 'clearPending'].forEach(name => {
-    const body = fnBody(name);
-    assert.ok(body, name + '() was not found');
-    assert.doesNotMatch(body, /fetch\(/, name + '() reaches the network');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 6. AN ABANDONED ANONYMOUS BUILD IS INERT
-// ---------------------------------------------------------------------------
-test('loading a banked preview cannot throw on missing or corrupt storage', () => {
-  const body = fnBody('loadPending');
-  assert.match(body, /catch/, 'a corrupt or missing localStorage entry is not handled');
-});
-
-// ---------------------------------------------------------------------------
-// 7. RETURNING ATHLETES STILL SIGN IN DIRECTLY
-// ---------------------------------------------------------------------------
-/* "Sign In is one tap away from the builder": retired with the builder (item 9). */
-test('a signed-in athlete with access is still sent straight into the app', () => {
-  const fn = routeFn();
-  const seg = /if \(b\.access === true\)\{[^]*?\}/.exec(fn);
-  assert.ok(seg, 'the access check no longer exists');
-  assert.match(seg[0], /enter\(\)/, 'access no longer leads straight into the app');
-});
-
-// ---------------------------------------------------------------------------
-// 9. THE TRIAL / PURCHASE HANDOFF IS UNCHANGED AND STILL GATED ON A SESSION
-// ---------------------------------------------------------------------------
-test('checkout still requires a real session and the trial step is hidden until one exists', () => {
-  const trial = /\$\('trial'\)\.addEventListener\('click'[^]*?\n  \}\);/.exec(SRC)[0];
-  assert.match(trial, /authed\('\/api\/checkout'/, 'checkout no longer uses the auth-required helper');
-  const gate = fnBody('updatePreviewGate');
-  assert.ok(gate, 'updatePreviewGate() was not found');
-  assert.match(gate, /trial-card[^]*?authenticated/, 'the trial step is not gated on being signed in');
-});
-
-test('"Save My Plan" is the authentication moment, not "Create Account"', () => {
-  const markup = String(SRC).replace(/<!--[^]*?-->/g, '');
-  assert.match(markup, /Save My Plan/);
-  assert.doesNotMatch(markup, /Create Account/i);
+  assert.ok(s.paces && s.paces.length > 0, 'the preview would have no paces to show');
 });

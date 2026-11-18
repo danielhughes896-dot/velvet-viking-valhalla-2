@@ -282,12 +282,18 @@ test('the locked shell exposes no part of the product', () => {
 
 test('a signed-out athlete still gets the sign-in form, not the locked shell', () => {
   assert.match(ACCOUNT, /show\('signin'\)/);
-  assert.match(ACCOUNT, /\['signin','working','locked'\]/,
-    'three panes, one of which is showing');
+  /* UPDATED (founder, 18 November 2026: the installed Android app takes
+     payment through this checkout): a fourth pane, "Back to the App", shown
+     only in the phone's browser when Stripe returns a checkout the app
+     started. */
+  assert.match(ACCOUNT, /\['signin','working','locked','return'\]/,
+    'four panes, one of which is showing');
 });
 
 test('resubscribe is hidden rather than greyed out when payments are not open', () => {
-  assert.match(ACCOUNT, /\$\('resubscribe'\)\.classList\.toggle\('vvv-hidden', hasAccess \|\| !v\.checkout_configured\)/,
+  /* UPDATED (founder, 18 November 2026): and hidden in a genuine store
+     build, which may not show the web checkout (STORE-COMMERCIAL-BOUNDARY.md). */
+  assert.match(ACCOUNT, /\$\('resubscribe'\)\.classList\.toggle\('vvv-hidden', hasAccess \|\| !v\.checkout_configured \|\| storeBuild\(\)\)/,
     'a disabled button invites a message asking when it will work');
 });
 

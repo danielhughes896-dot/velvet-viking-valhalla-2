@@ -195,10 +195,11 @@ test('start.html never draws a Strava control', () => {
   assert.ok(!/data-action="strava-connect"/.test(start));
   assert.ok(!/strava-connect-btn/.test(start));
 
-  /* And the sequence that makes it so is still the sequence: a banked preview,
-     then authenticate. The builder step left /start for the app (founder,
-     16 November 2026, item 9), where Strava is offered once there is an account. */
-  assert.doesNotMatch(start, /pane-build/);
-  assert.match(start, /pane-preview/);
-  assert.match(start, /pane-auth/);
+  /* And the sequence that makes it so is still the sequence. The builder step
+     left /start for the app (founder, 16 November 2026, item 9), and then the
+     rest of /start's screens went too (founder, 18 November 2026: "Remove the
+     old start."): it forwards to the journey, where Strava is offered once
+     there is an account. */
+  assert.doesNotMatch(start, /pane-build|pane-preview|pane-auth|strava/i);
+  assert.match(start, /location\.replace\(dest\)/, '/start no longer leads to the journey');
 });

@@ -156,13 +156,17 @@ installed by `supabase-public-signup.sql`. There is deliberately **no Vercel
 variable** for it: the thing that refuses an account is the `auth.users`
 trigger, a trigger cannot read Vercel, and a second switch the gate ignores is
 how the two would come to disagree. `/api/beta-signin` reads the row with the
-service key for its wording only (`public_signup` on `GET`).
+service key to report it (`public_signup` on `GET`) and to classify GoTrue's
+refusal.
 
 | State | Who may create an account | What the app says |
 |---|---|---|
-| `public_signup = true` | anyone who reaches the app | no "private beta" anywhere on the journey, sign-in or account pages |
-| `public_signup = false` | only addresses on `beta_allowlist` | today's wording, including the private-beta sentence on refusal |
-| table not yet created | as the gate trigger decides today | today's wording |
+| `public_signup = true` | anyone who reaches the app | no "private beta" anywhere |
+| `public_signup = false` | only addresses on `beta_allowlist` | no "private beta" anywhere; a refused address reads "SACORO can't create an account for this email address yet. Please get in touch" |
+| table not yet created | as the gate trigger decides today | the same |
+
+The words no longer depend on the switch (founder, 18 November 2026: "Get rid
+of the private beta stuff"; sign-up is open).
 
 **Turn it on** (SQL editor, after applying `supabase-public-signup.sql`):
 `update public.signup_settings set public_signup = true, changed_at = now(), note = 'opened' where id = 1;`
@@ -234,11 +238,16 @@ webhook), each of which refuses an anonymous caller itself.
 
 **Who may sign up is the public sign-up switch** (section above). Creating the
 account is the magic link (or Apple or Google when switched on); with the
-switch off the beta allowlist trigger refuses any address not on it, with the
-same "private beta" sentence, and with it on any address becomes an account.
+switch off the beta allowlist trigger refuses any address not on it (the
+athlete reads that this address cannot make an account yet), and with it on
+any address becomes an account.
 Once the account exists the app exchanges the session for the gate cookie and
 reloads through the gate into the full app, where the journey continues at the
 trial with the plan it built. If the gate refuses the new account (commerce
 on, no subscription yet), the journey stays in journey-only mode on the trial
 screen, whose checkout is the way in; any other refused account goes to the
-locked shell, as before.
+locked shell, as before. In the website-distributed Android app that checkout
+opens in the phone's browser and returns into the app
+(`STORE-COMMERCIAL-BOUNDARY.md`, "How the website-distributed app takes
+payment"). `/start` leads everybody to `/` (founder, 18 November 2026:
+"Remove the old start.").

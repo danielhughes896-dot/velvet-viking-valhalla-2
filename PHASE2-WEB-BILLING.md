@@ -333,7 +333,11 @@ A surface may show *"start your 7-day trial"* whenever `available` is true. On
 blocked it** — "you have already used your free trial" and "you already have a
 subscription" are different sentences to different people.
 
-`start.html` does not yet read this field. Through the canonical nine-stage
+*Superseded (founder, 18 November 2026: "Remove the old start.").* `/start`
+now leads everybody to the app root, and the trial is the in-app first-time
+journey's trial screen, which reads its offer from `GET /api/checkout`; no
+surface calls `POST /api/preview` any more. What follows describes the old
+`start.html`. Through the canonical nine-stage
 builder its trial card is gated on authentication alone — `save-card` while
 signed out, `trial-card` once signed in — so a signed-in athlete who has
 already used their trial, or who already subscribes, is shown *"Start my

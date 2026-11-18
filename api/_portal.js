@@ -34,9 +34,16 @@ function log(what){ try{ console.log('portal: ' + what); }catch(e){} }
 /* Where Stripe sends the athlete back to. The app's own origin, from the same
    variable checkout already uses -- never anything the browser sent, because a
    return_url the caller chooses is an open redirect with a Stripe logo on it. */
-function returnUrl(stripe){
+/* THE WEBSITE-DISTRIBUTED ANDROID APP (founder, 18 November 2026: the
+   installed app takes payment through the website's Stripe rail). The portal
+   opens in the phone's browser, which holds none of the app's sign-in, so the
+   app asks for return=app and /account, in that browser, hands the athlete
+   back into the app. The one word only picks between these two fixed
+   addresses; nothing else from the request reaches Stripe. */
+function returnUrl(stripe, returnTo){
   const origin = stripe.appOrigin || '';
-  return origin ? origin + '/account?portal=returned' : null;
+  if (!origin) return null;
+  return origin + '/account?portal=returned' + (returnTo === 'app' ? '&return=app' : '');
 }
 
 /* The athlete's own subscription that a portal could act on: one this
@@ -66,7 +73,8 @@ async function handle(req, res){
   if (!stripe.hasSecret)    return S.json(res, 503, { error: 'unavailable', code: 'provider_not_configured' });
   if (!cfg.serviceKey)      return S.json(res, 503, { error: 'unavailable', code: 'SUPABASE_KEY_UNUSABLE' });
 
-  const back = returnUrl(stripe);
+  const body = await S.readBody(req);
+  const back = returnUrl(stripe, (body && body.return === 'app') ? 'app' : 'web');
   if (!back) return S.json(res, 503, { error: 'unavailable', code: 'origin_not_configured' });
 
   const uid = await S.userIdFromRequest(req, cfg);

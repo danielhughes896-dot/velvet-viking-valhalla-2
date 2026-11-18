@@ -271,10 +271,20 @@ async function handle(req, res){
     return S.json(res, 502, { error: 'provider_error', code: cust.code });
   }
 
+  /* WHERE THE PAYMENT PAGE RETURNS. Only the one word 'app' is read, and it
+     only chooses between the two return addresses _stripe.js owns
+     (returnUrls()); nothing else from the body reaches Stripe. The
+     website-distributed Android app asks for it (founder, 18 November 2026:
+     the installed app takes payment through this same checkout). It is part
+     of the idempotency key because Stripe refuses a reused key with different
+     parameters, and an athlete who starts in the app and then on the website
+     inside one minute must get a session, not an error. */
+  const returnTo = (body && body.return === 'app') ? 'app' : 'web';
   const session = await P.createCheckoutSession(stripe, {
     uid: uid, accountId: uid, customerId: cust.customerId,
-    offerCode: decision.offerCode, env: process.env
-  }, { idempotencyKey: 'co:' + uid + ':' + decision.offerCode + ':' + Math.floor(Date.now() / 60000) });
+    offerCode: decision.offerCode, env: process.env, returnTo: returnTo
+  }, { idempotencyKey: 'co:' + uid + ':' + decision.offerCode + ':' + Math.floor(Date.now() / 60000) +
+                       (returnTo === 'app' ? ':app' : '') });
 
   if (!session.ok){
     log('SESSION_FAILED code=' + session.code);
