@@ -660,8 +660,10 @@
     });
   }
 
-  var hash = appReturn ? null : readAuthHash();
-  if (hash){
+  /* Signing in with the tokens a sign-in link carried: in a browser they
+     arrive in this page's own address; in the installed app they arrive
+     through the app's scheme (below). One path for both. */
+  function signInWith(hash){
     show('working');
     /* Persist the session where the app already looks for it, so the runtime
        finds itself signed in on arrival. The cookie is what grants delivery;
@@ -675,7 +677,7 @@
     }catch(e){ /* private mode -- the cookie still works for this session */ }
 
     stripHash();
-    reconcileCheckout().then(function(){
+    return reconcileCheckout().then(function(){
     return establish(hash.access_token).then(function(r){
       if (r.status === 200) return enter();
       if (r.status === 403){
@@ -691,6 +693,59 @@
       show('signin');
       say('msg', 'We signed you in but could not reach SACORO. Check your connection and try again.', 'err');
     });
+  }
+
+  /* THE SIGN-IN LINK, IN THE INSTALLED APP (founder, 18 November 2026: "The
+     sign in link just takes me back to the same page", on iPhone). Asked from
+     the app, the link returns through com.velvetviking.valhalla://auth with
+     the tokens in its fragment. The phone opens the app on that address, but
+     the page in front is this one, and it only listened for the payment
+     page's return, and on iPhone not even that. So the athlete came back to
+     the form they had just used. Now the link is read here as well, warm
+     (appUrlOpen) and cold (getLaunchUrl), on every platform, and the tokens
+     take the same path as a browser sign-in. */
+  function authFromAppLink(url){
+    var u = String(url || '');
+    if (u.indexOf(NATIVE_REDIRECT) !== 0 || u.indexOf(NATIVE_REDIRECT + '/checkout') === 0) return null;
+    var i = u.indexOf('#');
+    var q = i === -1 ? '' : u.slice(i + 1);
+    if (!q) return null;
+    var p = {};
+    q.split('&').forEach(function(kv){
+      var j = kv.indexOf('=');
+      if (j > 0){ try { p[decodeURIComponent(kv.slice(0, j))] = decodeURIComponent(kv.slice(j + 1)); } catch(e){} }
+    });
+    if (p.access_token) return p;
+    if (p.error || p.error_description) return { error: p.error_description || p.error };
+    return null;
+  }
+  var appLinkSeen = '';
+  function onAppLink(url){
+    var a = authFromAppLink(url);
+    if (!a || url === appLinkSeen) return;
+    appLinkSeen = url;
+    if (a.error){
+      show('signin');
+      say('msg', 'That sign-in link has expired or was already used. Ask for a new one.', 'err');
+      return;
+    }
+    signInWith(a);
+  }
+  if (isNativeApp()){
+    try{
+      var AppPlugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+      if (AppPlugin && AppPlugin.addListener){
+        AppPlugin.addListener('appUrlOpen', function(data){ onAppLink(data && data.url); });
+      }
+      if (AppPlugin && AppPlugin.getLaunchUrl){
+        AppPlugin.getLaunchUrl().then(function(res){ if (res && res.url) onAppLink(res.url); }, function(){});
+      }
+    }catch(e){}
+  }
+
+  var hash = appReturn ? null : readAuthHash();
+  if (hash){
+    signInWith(hash);
   } else {
     /* Already holding a Supabase session from a previous visit? Try to trade it
        for a cookie before asking the athlete to do anything. This is what makes

@@ -329,8 +329,14 @@ test('the account shell is public, small, and carries no coaching engine', () =>
      and asks the gate again; and the store-build check that keeps prices out
      of a genuine store build. The public sign-up wording went the other way
      ("Get rid of the private beta stuff"). Still all door: no price, no
-     decision, no engine. */
-  assert.ok(shell.length < 43000, 'the shell must stay a shell (' + shell.length + ' bytes)');
+     decision, no engine.
+
+     RAISED TO 45KB FOR THE SIGN-IN LINK IN THE APP (founder, 18 November
+     2026, on iPhone: "The sign in link just takes me back to the same page").
+     What was added is the listener that reads the sign-in link when it
+     returns through the app's scheme and hands its tokens to the same path a
+     browser sign-in takes. Still all door. */
+  assert.ok(shell.length < 45000, 'the shell must stay a shell (' + shell.length + ' bytes)');
   ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
     .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
 });
