@@ -604,8 +604,12 @@ test('Overview is stage zero, has no field and no validation rule, and Continue 
   // no <input>/<select>/<button data-v> on this screen -- it asks nothing
   assert.doesNotMatch(overview, /<input\b|<select\b|data-v="/,
     'Overview contains a real field -- it is meant to be orientation only, not a tenth question');
-  // Back is suppressed on stage 0, same rule as the old first stage always had
-  assert.doesNotMatch(overview, /data-action="bld-back"/,
+  // Back is suppressed on stage 0 outside the first-time journey, where it
+  // has nothing behind it. Inside the journey it leads to What Drives You?
+  // (founder, 18 November 2026), which test/m15-journeyBack.test.js holds.
+  const outside = buildJourney(x => { x.journeyActive = () => false; }).html;
+  const overviewOutside = panels(outside).find(p => p.stage === STAGE('OVERVIEW')).body;
+  assert.doesNotMatch(overviewOutside, /data-action="bld-back"/,
     'Overview shows a Back button with nothing behind it');
 
   assert.equal(a.bldValidateStage(0), true, 'bldValidateStage(0) blocks Continue on Overview');

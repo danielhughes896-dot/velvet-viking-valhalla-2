@@ -12610,6 +12610,10 @@
 
   /* ---------- 1. WELCOME: THE ONE SCREEN WITH A PHOTOGRAPH ---------- */
   .jr-welcome{display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; background:#0B0B0D;}
+  /* Back to the website, over the photograph: the journey's own gold arrow,
+     lifted off the picture by a shadow. */
+  .jr-welcome-back{position:absolute; z-index:2; top:calc(10px + env(safe-area-inset-top,0px)); left:12px; margin:0;
+    filter:drop-shadow(0 1px 6px rgba(0,0,0,.8));}
   .jr-photo{position:absolute; inset:0; background:#0B0B0D url('/assets/onboarding/welcome-runner.webp') center top / cover no-repeat;}
   /* The words need a dark floor to stand on, so the lower half falls away
      to black; the face stays in the light. */
@@ -68971,7 +68975,10 @@ function openSetupModal(){
     return head+'<p class="bld-lede"'+ledeId+'>'+stageMeta[i][2]+'</p>';
   }
   function navBtns(i){
-    var back = i>0 ? '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">Back</button>' : '';
+    /* In the first-time journey the builder's first page has a Back too: it
+       leads to What Drives You? (founder, 18 November 2026: "I can only go
+       back to build a plan not all way to website"). */
+    var back = (i>0 || bldInJourney()) ? '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">Back</button>' : '';
     return '<div class="bld-actions">'+back+
       '<button type="button" class="btn btn-primary" data-action="bld-next">Continue</button></div>';
   }
@@ -70465,11 +70472,21 @@ function handleBldRail(el){
   if (to === BLD_STAGE.WEEK) bldPreselectWeekFromAnswers();
   bldStage(to);
 }
+function bldInJourney(){
+  try { return !!(JOURNEY_ONLY_MODE || journeyActive()); } catch(e){ return false; }
+}
 function handleBldBack(){
   if (bldReviewReturn){ handleBldNext(); return; }
   var to = bldCurrentStage - 1;
   if (to === BLD_STAGE.TARGETS && bldSkipsTargets()) to--;
   if (to === BLD_STAGE.GOAL && journeySkipsGoal()) to--;
+  /* Back from the builder's first page, in the journey: the screen before it. */
+  if (to < 0){
+    if (!bldInJourney()) return;
+    try { closeModal(); } catch(e){}
+    journeyGo('drives');
+    return;
+  }
   bldClearErrors(); bldStage(to);
 }
 /* A line on the summary was tapped: open the screen that asks it, with both
@@ -87266,9 +87283,16 @@ function journeyNavigate(url){
 }
 
 /* ---------- WHERE EACH BACK ARROW GOES ---------- */
+/* The website the journey was reached from. In a browser the Welcome has a
+   back arrow to it; the installed app has no website behind it. */
+var JOURNEY_WEBSITE_URL = 'https://velvetviking.co.uk';
+function journeyWelcomeHasBack(){
+  try { return !isNativeApp(); } catch(e){ return true; }
+}
 function journeyBack(){
   var step = journeyStep();
   var r = journeyRec();
+  if (step === 'welcome') return journeyWelcomeHasBack() ? journeyNavigate(JOURNEY_WEBSITE_URL) : false;
   if (step === 'achieve') return journeyGo('welcome');
   if (step === 'drives') return journeyGo('achieve');
   if (step === 'slides'){
@@ -87381,6 +87405,9 @@ function renderJourneyWelcome(memberOnly){
   journeyAskProviders();
   return '<div class="jr jr-welcome">'+
     '<div class="jr-photo" role="img" aria-label="A SACORO runner mid-race"></div>'+
+    (journeyWelcomeHasBack()
+      ? '<button type="button" class="jr-back jr-welcome-back" data-action="journey-back" aria-label="Back to velvetviking.co.uk">'+JOURNEY_GLYPHS.back+'</button>'
+      : '')+
     '<div class="jr-welcome-body">'+
       '<div class="jr-crest" aria-hidden="true"></div>'+
       '<h1 class="jr-title">Your Journey Starts Here</h1>'+
