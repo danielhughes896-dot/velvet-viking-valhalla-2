@@ -91,13 +91,18 @@ const resolve = (f, atMs) => E.resolveStandardEntitlement({
 // ===========================================================================
 test('website → /start → trial → paid → cancel → soft-lock → return', async () => {
   await journey(async (f, post) => {
-    // /start names a PERIOD. It never names a price, an amount or a price id.
-    const start = read('start.html');
-    assert.match(start, /data-period="monthly"/);
-    assert.match(start, /data-period="yearly"/);
-    assert.match(start, /JSON\.stringify\(\{ period: period \}\)/);
-    assert.equal(/price_[A-Za-z0-9]{6,}|unit_amount|sk_(test|live)_/.test(start), false,
+    // The trial screen names a PERIOD. It never names a price, an amount or a
+    // price id. UPDATED (founder, 18 November 2026: "Remove the old start."):
+    // the screen is the in-app journey's trial step, which replaced /start's.
+    const runtime = read('protected/velvet-viking-valhalla.html');
+    const screen = runtime.slice(runtime.indexOf('function journeyWebCheckout('), runtime.indexOf('function journeyPaymentProvider('));
+    assert.match(runtime, /data-action="journey-period" data-period="'\+p\+'"/);
+    assert.match(runtime, /planRow\('yearly', 'Annual'/);
+    assert.match(runtime, /planRow\('monthly', 'Monthly'/);
+    assert.match(screen, /var body = \{ period: period \};/);
+    assert.equal(/price_[A-Za-z0-9]{6,}|unit_amount|sk_(test|live)_/.test(screen), false,
       'the browser must never carry a price identifier or a key');
+    assert.equal(/price_[A-Za-z0-9]{6,}|unit_amount|sk_(test|live)_/.test(read('start.html')), false);
 
     // The trial begins, and it begins because a provider said so.
     assert.equal((await post(evt('e1', 'customer.subscription.created', stripeSub()))).json.applied, true);
@@ -290,32 +295,30 @@ test('a grant cannot be reached without a record that proves it', () => {
 });
 
 // ===========================================================================
-// THE NATIVE SHELL SELLS NOTHING
+// THE NATIVE SHELL: A STORE BUILD SELLS NOTHING; THE WEBSITE'S APK SELLS
+// THROUGH THE WEBSITE
+// UPDATED (founder, 18 November 2026). Two decisions moved these. "Remove
+// the old start.": /start has no prices to suppress any more, it forwards to
+// the root. And the installed Android app must take payment too: it is
+// distributed from the website, not Google Play, so it uses the website's
+// Stripe checkout. The store rule these tests guarded still holds, for a
+// genuine store build, decided by an explicit marker (see
+// STORE-COMMERCIAL-BOUNDARY.md and test/m10-androidPayment.test.js).
 // ===========================================================================
-test('the page with the prices on it suppresses them inside the shell', () => {
-  // Apple and Google both prohibit steering to an external web payment for the
-  // same subscription, and the Android manifest routes /start into the app.
-  const start = read('start.html');
-  assert.match(start, /function isNativeApp\(\)/);
-  assert.match(start, /window\.Capacitor && window\.Capacitor\.isNativePlatform/);
-  const guard = start.slice(start.indexOf('if (isNativeApp()){'),
-                            start.indexOf("$('trial').addEventListener"));
-  assert.match(guard, /plan-choice/, 'the interval choice must go');
-  assert.match(guard, /card\.innerHTML =/, 'and the prices with it');
-  assert.match(guard, /Subscriptions are set up on the web/);
-  // Hiding the button alone would leave the prices on screen.
-  assert.match(guard, /t\.classList\.add\('vvv-hidden'\)/);
+test('the page the App Link opens carries no prices at all now', () => {
+  const start = read('start.html').replace(/<!--[^]*?-->/g, '');
+  assert.doesNotMatch(start, /£\d|data-period|api\/checkout/, '/start shows a price or a way to buy');
 });
 
-test('the app runtime already refused, and still does', () => {
+test('the app runtime refuses in a store build, and still returns before any subscribe control', () => {
   const runtime = read('protected/velvet-viking-valhalla.html');
   const fn = runtime.slice(runtime.indexOf('function renderSubscriptionActions'),
-                           runtime.indexOf('function renderSubscriptionActions') + 1200);
-  assert.match(fn, /if \(isNativeApp\(\)\)\{/);
+                           runtime.indexOf('function renderSubscriptionActions') + 1600);
+  assert.match(fn, /if \(storeDistributedApp\(\)\)\{/);
   assert.match(fn, /Manage or cancel your subscription where you bought it/);
-  const after = fn.slice(fn.indexOf('if (isNativeApp()){'));
+  const after = fn.slice(fn.indexOf('if (storeDistributedApp()){'));
   assert.ok(after.indexOf('return') < after.indexOf('subscription-resubscribe'),
-    'the native branch must return before any subscribe control is built');
+    'the store branch must return before any subscribe control is built');
 });
 
 test('the Android manifest is the reason /start needed guarding', () => {

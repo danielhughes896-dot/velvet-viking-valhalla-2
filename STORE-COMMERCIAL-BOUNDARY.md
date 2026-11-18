@@ -62,18 +62,107 @@ built, tested and waiting on live credentials.
 
 ### Android
 
-Google Play's Payments policy requires Google Play Billing for **digital content
-consumed within the app**. It does **not** require it for a subscription an
-athlete buys on the open web and then signs in to use, and — since the 2021
-policy updates and subsequent regulatory settlements — it permits an app to
-inform users of alternative purchase options in most jurisdictions.
+There are two kinds of Android build, and they are told apart by an explicit
+marker, never by guessing.
 
-**The Android decision, stated plainly:** Sacoro ships on Android with the web
-subscription only. The app does not sell anything in-app, so Play Billing is not
-engaged. The `google` provider value exists so that adding Play Billing later is
-an adapter, not a migration of every subscription row.
+**Website-distributed (today's APK).** The APK is downloaded from the website,
+not from Google Play. It is a Capacitor shell whose `server.url` is the live
+site, so it runs exactly the page the website runs. Google Play's Payments
+policy governs apps distributed through Google Play; it does not govern an
+APK the athlete downloads from our own website. **Founder, 18 November 2026:**
+the installed Android app must take payment too: new sign-ups get the 7-day
+free trial and "it takes the money at that point" (card at the trial step,
+first charge on day 8). So this build sells through the **web rail**, the same
+Stripe Checkout as the website. Nothing about the `subscriptions` row differs:
+the provider is `web`, because that is the channel it was bought on.
 
-If Play Billing is later required or wanted, `_google.js` is the only new file.
+**Store builds (Google Play, or the App Store).** A build distributed through a
+store must not present the web checkout. Such a build carries the marker
+**`"appendUserAgent": "SACORO-Store-Build"`** in its Capacitor config (set in
+that build's `capacitor.config.json` before `npx cap sync`; Capacitor appends
+it to the WebView's user agent, which is how a page loaded from the live site
+can read a build-time fact). The marker is set **only** in store builds.
+`capacitor.config.json` in this repository does not carry it, and
+`test/m10-androidPayment.test.js` fails if it ever does, because that file
+builds today's website-distributed APK.
+
+| Question | Asked by | Answer |
+|---|---|---|
+| Is this an installed app at all? | `isNativeApp()` | Capacitor says it is native |
+| Is it a store build? | `storeDistributedApp()` (runtime), `storeBuild()` (`account.html`) | native **and** (the user agent carries `SACORO-Store-Build` **or** the platform is iOS) |
+| Is it the website-distributed app? | `websiteDistributedApp()` | native and not a store build |
+
+iOS counts as a store build with or without the marker: there is no
+website-distributed iPhone app (an iOS binary only reaches people through the
+App Store or TestFlight), and iPhone athletes use the website or its Home
+Screen web app, which is not native and already gets the web checkout.
+
+The marker is not a security boundary and does not need to be: it decides only
+whether in-app screens offer the web checkout. Every purchase is still decided
+by `/api/checkout` from the athlete's own token, and
+`mayStartStandardPurchase()` still refuses a second live subscription on any
+rail.
+
+If Play Billing is later required or wanted for a Play build, `_google.js` is
+the only new server file and the journey's `store` provider is the only
+runtime change.
+
+### How the website-distributed app takes payment, step by step
+
+1. **The trial screen** is the website's: Annual and Monthly from
+   `GET /api/checkout` (the catalogue in `_products.js`), the timeline (today
+   £0, day 8 the first charge), the two agreement ticks, each recorded at the
+   tick as `{action:'agree', surface:'checkout'}`, and **Start My Free Trial**.
+   Under the button it says *"Secure payment setup opens in your browser, then
+   brings you back here."*
+2. **Start My Free Trial** posts `{period, return:'app'}` to `/api/checkout`
+   with the athlete's own token. The server decides everything it decides for
+   the website (commerce on, legal evidence, country, one subscription per
+   athlete, one trial per athlete) and creates the Checkout Session with
+   `trial_period_days: 7` and `payment_method_collection: 'always'`. The only
+   difference `return:'app'` makes is which of two fixed return addresses
+   (`returnUrls()` in `_stripe.js`) Stripe is given:
+   - success: `/account?checkout=complete&session_id={CHECKOUT_SESSION_ID}&return=app`
+   - cancel: `/account?checkout=cancelled&return=app`
+3. **Stripe Checkout opens in the phone's browser.** It is off-origin, and the
+   Capacitor bridge (`Bridge.launchIntent`) hands any address whose host is not
+   `app.velvetviking.co.uk` to the system as an `ACTION_VIEW` intent. The app
+   stays on the trial screen, which now reads *"Finish setting up payment in
+   your browser. SACORO brings you back here when it is done."*
+4. **The athlete enters a card and confirms.** £0 is taken; Stripe creates a
+   `trialing` subscription and sends the webhook (`/api/billing-webhook`),
+   which writes it to `subscriptions` and spends the trial allowance.
+5. **Stripe returns to `/account?...&return=app` in the browser.** The browser
+   holds none of the app's sign-in, so the page does not try to sign anybody in.
+   It shows **Back to the App** (*"Open the SACORO app to finish. It confirms
+   your free trial and takes you straight in."*) with **Open the SACORO App**,
+   and tries the hand-off once by itself:
+   `com.velvetviking.valhalla://auth/checkout?status=complete&session_id=cs_…`.
+   The manifest's existing custom-scheme filter (host `auth`, any path)
+   delivers that to the app, so **no new APK is needed**. A phone that wants a
+   tap before leaving the browser gets the button.
+6. **The app reconciles and lets the athlete in.** `handleCheckoutDeepLink()`
+   (runtime; `account.html` has the same listener for a checkout started from
+   the account page) hands the session id to
+   `POST /api/subscription {action:'reconcile'}` with the app's own token (the
+   server fetches the session from Stripe and refuses one that is not this
+   athlete's), then asks `/api/session` again. Granted, journey-only mode
+   reloads into the full app, the journey sees `subscription_trial`, and the
+   athlete reads the toast *"Your free trial has started"* and **Welcome to
+   SACORO**, then **Let's Go** into Today.
+7. **If the hand-off never happens** (the athlete switches back by hand), the
+   app asks `/api/session` again whenever it comes to the front
+   (`revalidateDeliverySession()` on `visibilitychange`), so once the webhook
+   has landed the same reload happens.
+8. **Cancelled**: the browser shows **Checkout Cancelled** (*"Nothing has been
+   charged. Open the SACORO app to carry on from where you were."*); the app
+   says *"Checkout cancelled. Nothing has been charged"* and stays on the
+   trial screen.
+
+Managing the subscription later (Settings, **Manage or cancel subscription**)
+works the same way: `/api/portal` is asked with `return:'app'`, the Stripe
+portal opens in the browser and returns to `/account?portal=returned&return=app`,
+which hands back to `com.velvetviking.valhalla://auth/checkout?status=portal`.
 
 ### iOS — the one that is genuinely uncertain
 
@@ -123,9 +212,10 @@ today is:
 
 | Where | Provider | What the athlete sees | What happens |
 |---|---|---|---|
-| Website, commerce on | `web` | Annual and Monthly from `GET /api/checkout` (the catalogue in `_products.js`), the two existing agreement ticks, Start My Free Trial | `POST /api/checkout {period}` opens Stripe Checkout; Stripe returns to `/account?checkout=complete`, which reconciles and enters the app; the journey sees `subscription_trial` and moves to Welcome to SACORO |
-| Website, commerce off (today) | `web` | the same prices as information, "Subscriptions are not open yet", Continue | nothing is charged and no agreement is recorded; access is the open beta gate (`pre_commercial`) |
-| Installed app (Android APK today, iOS later) | `store` | no price, no tickbox, no link to the web checkout; "Subscriptions are not available in the app yet", Continue | `store.start()` answers `store_unavailable`; nothing is sold, which is the rule above |
+| Website (and the iPhone Home Screen web app), commerce on | `web` | Annual and Monthly from `GET /api/checkout` (the catalogue in `_products.js`), the two existing agreement ticks, Start My Free Trial | `POST /api/checkout {period}` opens Stripe Checkout; Stripe returns to `/account?checkout=complete`, which reconciles and enters the app; the journey sees `subscription_trial` and moves to Welcome to SACORO |
+| Website-distributed Android app (today's APK), commerce on | `app` | exactly the website's screen, plus "Secure payment setup opens in your browser, then brings you back here" | `POST /api/checkout {period, return:'app'}`; Stripe opens in the phone's browser and returns into the app through `com.velvetviking.valhalla://auth/checkout` (the steps above) |
+| Website or website-distributed app, commerce off | `web` / `app` | the same prices as information, "Subscriptions are not open yet", Continue | nothing is charged and no agreement is recorded; access is the open gate (`pre_commercial`) |
+| Store build (the `SACORO-Store-Build` marker, or iOS) | `store` | no price, no tickbox, no link to the web checkout; "Subscriptions are not available in the app yet", Continue | `store.start()` answers `store_unavailable`; nothing is sold, which is the rule above |
 
 When Play Billing or StoreKit is approved, the `store` provider's `start()`
 is the one thing in the runtime that changes, beside the `_google.js` /

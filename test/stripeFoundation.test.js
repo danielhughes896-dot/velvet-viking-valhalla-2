@@ -138,8 +138,15 @@ test('the request body may name a period and nothing else', () => {
     .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1 ');
   const reads = src.match(/body\s*&&\s*body\.[A-Za-z_]+|body\.[A-Za-z_]+/g) || [];
   const fields = Array.from(new Set(reads.map((m) => m.split('.').pop())));
-  assert.deepEqual(fields.sort(), ['period'],
-    'the body may name a period and nothing else, got: ' + fields.join(','));
+  /* UPDATED (founder, 18 November 2026: the website-distributed Android app
+     takes payment through this checkout). The body may also say 'return',
+     and only the one word 'app' is read from it: it chooses between the two
+     fixed return addresses returnUrls() owns, so nothing it says reaches
+     Stripe as a URL. */
+  assert.deepEqual(fields.sort(), ['period', 'return'],
+    'the body may name a period and where to come back to, nothing else, got: ' + fields.join(','));
+  assert.match(src, /const returnTo = \(body && body\.return === 'app'\) \? 'app' : 'web';/,
+    'the return word is read as more than a yes or no');
 });
 
 // ---------------------------------------------------------------------------

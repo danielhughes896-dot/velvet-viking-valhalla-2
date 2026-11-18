@@ -193,6 +193,38 @@ async function ensureCustomer(cfg, uid, email, existingCustomerId, opts){
   return { ok: true, customerId: r.data.id, created: true };
 }
 
+/* ---------- where Stripe sends the athlete afterwards ----------
+   Two fixed answers, chosen by the server. A client may ask for the app
+   return and nothing else: no URL, host or path from a request ever reaches
+   Stripe, so this cannot become an open redirect.
+
+   THE WEBSITE. Success returns the athlete to THIS deployment, which serves
+   /account and can therefore resolve their new entitlement. The session id
+   lets that page ask our server what happened rather than believing a query
+   string. Cancelling returns them to the marketing site's pricing page, which
+   is a different project on a different host.
+
+   THE WEBSITE-DISTRIBUTED ANDROID APP (founder, 18 November 2026: the
+   installed app must take payment too). The shell opens Stripe in the
+   phone's browser, which holds none of the app's sign-in, so both outcomes
+   come back to /account with return=app, and that page hands the athlete
+   into the app through com.velvetviking.valhalla://auth/checkout, where the
+   app reconciles the session with its own token. A cancelled checkout comes
+   back the same way rather than to the marketing site, so the athlete is one
+   tap from the trial screen they left. */
+function returnUrls(cfg, returnTo){
+  if (returnTo === 'app'){
+    return {
+      success: cfg.appOrigin + '/account?checkout=complete&session_id={CHECKOUT_SESSION_ID}&return=app',
+      cancel: cfg.appOrigin + '/account?checkout=cancelled&return=app'
+    };
+  }
+  return {
+    success: cfg.appOrigin + '/account?checkout=complete&session_id={CHECKOUT_SESSION_ID}',
+    cancel: cfg.marketingOrigin + '/pricing?checkout=cancelled'
+  };
+}
+
 /* ---------- checkout ----------
    The browser names a PERIOD. This resolves the period to a price id from the
    environment and hands Stripe that. No amount, no currency and no price id
@@ -202,16 +234,12 @@ async function createCheckoutSession(cfg, input, opts){
   if (!price.ok) return { ok: false, code: price.code };
 
   if (!cfg.appOrigin) return { ok: false, code: 'app_origin_not_configured' };
+  const urls = returnUrls(cfg, input.returnTo);
   const params = {
     mode: 'subscription',
     customer: input.customerId,
-    /* Success returns the athlete to THIS deployment, which serves /account and
-       can therefore resolve their new entitlement. The session id lets that
-       page ask our server what happened rather than believing a query string. */
-    success_url: cfg.appOrigin + '/account?checkout=complete&session_id={CHECKOUT_SESSION_ID}',
-    /* Cancelling returns them to the marketing site's pricing page, which is a
-       different project on a different host. */
-    cancel_url: cfg.marketingOrigin + '/pricing?checkout=cancelled',
+    success_url: urls.success,
+    cancel_url: urls.cancel,
     client_reference_id: input.uid,
     'line_items[0][price]': price.priceId,
     'line_items[0][quantity]': 1,
@@ -700,7 +728,7 @@ function normaliseEvent(stripeEvent){
 
 module.exports = {
   API, PROVIDER, MAX_SKEW_SEC,
-  config, encode, call, ensureCustomer, createCheckoutSession, priceFor, PROVIDER, CONDITION_OF,
+  config, encode, call, ensureCustomer, createCheckoutSession, returnUrls, priceFor, PROVIDER, CONDITION_OF,
   pauseCollection, resumeCollection, createPortalSession,
   fetchCheckoutSession, fetchSubscription, cancelAtPeriodEnd, clearCancelAtPeriodEnd,
   parseSigHeader, verifySignature, normaliseEvent, subscriptionFacts, paidThroughOf,

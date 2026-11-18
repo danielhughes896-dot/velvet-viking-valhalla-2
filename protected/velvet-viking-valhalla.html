@@ -12853,8 +12853,10 @@ var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.velvetvi
    stays as an alias so nothing that still reads it breaks.
 
    WHICH DOCUMENT SETTINGS OPENS IS THE SERVER'S ANSWER, NOT THIS FILE'S.
-   The shipped value is the beta Terms, because that is what governs everyone
-   using the product today; legalUrlsFromView() replaces it with whatever
+   The shipped value is the commercial Terms, the document api/_agreements.js
+   names as in force (COMMERCIAL_LEGAL_PUBLISHED); it used to be the beta
+   Terms, which went with the rest of the private beta (founder, 18 November
+   2026: "Get rid of the private beta stuff"). legalUrlsFromView() replaces it with whatever
    /api/subscription says is in force the moment a view arrives. The server
    hands out that URL alongside the Terms VERSION it records at checkout, so
    Settings, the checkout consent and the stored evidence cannot end up naming
@@ -12867,7 +12869,7 @@ var PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.velvetvi
    when the reality does rather than when somebody remembers. */
 var LEGAL_URLS = {
   privacy:   'https://velvetviking.co.uk/privacy',
-  terms:     'https://velvetviking.co.uk/beta-terms',
+  terms:     'https://velvetviking.co.uk/terms',
   support:   'support@velvetviking.co.uk'
 };
 /* THE SERVER'S CANONICAL DOCUMENTS, applied on every view. Defensive about
@@ -12880,52 +12882,25 @@ function legalUrlsFromView(v){
   if (a.privacy && a.privacy.url) LEGAL_URLS.privacy = a.privacy.url;
 }
 /* entitlementInfo is display-only and may be absent; absent means we do not
-   know yet, and the beta wording is the safe reading while the product is
-   still a private beta. */
+   know yet, and the plain "Terms" is the safe reading until the server says
+   a subscription is being sold. */
 function commercialLive(){
   return !!(typeof entitlementInfo !== 'undefined' && entitlementInfo &&
             entitlementInfo.commercial_required);
 }
-/* PUBLIC SIGN-UP (founder, 18 November 2026: "It's on Vercel so only I can
-   send it to people. So make it as if it's ready to go.").
-   Whether anyone may create an account is ONE switch in the database
-   (public.signup_settings, supabase-public-signup.sql), read by the trigger
-   that refuses an account; GET /api/beta-signin reports it as public_signup.
-   Here it decides WORDS and nothing else: while it is on, nothing the
-   athlete reads on the journey, sign-in or account surfaces calls SACORO a
-   private beta.
-     true   the server said the switch is on
-     false  the server said it is off
-     null   not asked yet, or the server could not say
-   Only true changes a word. Until the server has said so, the wording is
-   exactly what it was before the switch existed. Remembered on this device so
-   a reload does not flash the old wording while the question is asked again;
-   the server's answer always replaces it. */
-var SIGNUP_PUBLIC_KEY = 'vvv_signup_public';
-var signupPublic = (function(){
-  try {
-    var v = window.localStorage.getItem(SIGNUP_PUBLIC_KEY);
-    return v === '1' ? true : v === '0' ? false : null;
-  } catch(e){ return null; }
-})();
-function signupIsPublic(){ return signupPublic === true; }
-/* Record the server's answer. Returns whether anything a screen says changed. */
-function noteSignupPublic(v){
-  if (v !== true && v !== false) return false;
-  var changed = v !== signupPublic;
-  signupPublic = v;
-  try { window.localStorage.setItem(SIGNUP_PUBLIC_KEY, v ? '1' : '0'); } catch(e){}
-  return changed;
-}
+/* NO PRIVATE-BETA WORDING, WHICHEVER WAY THE SIGN-UP SWITCH STANDS (founder,
+   18 November 2026: "Get rid of the private beta stuff"). These two used to
+   say "Private Beta Terms" and "the private beta" until the database's public
+   sign-up switch (supabase-public-signup.sql, reported by GET
+   /api/beta-signin as public_signup) was known to be on. Sign-up is open, so
+   the beta variant is gone and the switch no longer chooses any words; it
+   still decides, in the database, who may create an account. */
 function legalTermsLabel(){
-  if (commercialLive()) return 'Terms of Service';
-  return signupIsPublic() ? 'Terms' : 'Private Beta Terms';
+  return commercialLive() ? 'Terms of Service' : 'Terms';
 }
 function legalCoverSentence(){
   if (commercialLive()) return 'Your subscription is covered by these documents.';
-  return signupIsPublic()
-    ? 'Your use of SACORO is covered by these two documents.'
-    : 'Your use of the private beta is covered by these two documents.';
+  return 'Your use of SACORO is covered by these two documents.';
 }
 
 /* =========================================================
@@ -33313,6 +33288,43 @@ function nativePlugin(name){
 }
 function nativeAppPlugin(){ return nativePlugin('App'); }
 
+/* ---------- WHICH KIND OF INSTALLED APP THIS IS ----------
+   Founder, 18 November 2026: the installed Android app must take payment too.
+   New sign-ups get the seven-day free trial and "it takes the money at that
+   point": a card at the trial step, charged on day 8. The APK is a Capacitor
+   shell that loads this live site and is distributed from the website, NOT
+   from Google Play, so Play's billing rules do not apply to it and it uses the
+   same hosted checkout as the website (the web rail).
+   A GENUINE STORE BUILD STILL MUST NOT. A build distributed through Google
+   Play or the App Store says so with an explicit marker, set only in that
+   build's Capacitor config: "appendUserAgent": "SACORO-Store-Build" (Capacitor
+   appends it to the WebView's user agent, which is how this page, loaded
+   from the live site, can read a build-time fact). See
+   STORE-COMMERCIAL-BOUNDARY.md. Today's APK carries no marker, so it is
+   website-distributed; test/m10-androidPayment.test.js pins that
+   capacitor.config.json does not carry it.
+   iOS IS ALWAYS A STORE BUILD. There is no website-distributed iPhone app: an
+   iOS binary only reaches people through the App Store or TestFlight, and
+   iPhone athletes use the website or its Home Screen web app, which is not
+   native and gets the web checkout anyway. So a native iOS shell takes the
+   store seam with or without the marker, rather than relying on somebody
+   remembering to set it.
+   NOT A SECURITY BOUNDARY, and it does not need to be one: it only decides
+   whether the in-app screens offer the web checkout. Every purchase is still
+   decided by /api/checkout, from the athlete's own token. */
+var STORE_BUILD_MARKER = 'SACORO-Store-Build';
+function storeDistributedApp(){
+  if (!isNativeApp()) return false;
+  if (nativePlatform() === 'ios') return true;
+  try{ return String((navigator && navigator.userAgent) || '').indexOf(STORE_BUILD_MARKER) !== -1; }
+  catch(e){ return true; }
+}
+/* The installed app that sells through the website's checkout: native, and
+   not a store build. Today's Android APK. */
+function websiteDistributedApp(){
+  return isNativeApp() && !storeDistributedApp();
+}
+
 /* ---------- WHAT THE INSTALLED SHELL ACTUALLY IS ----------
    Asked once, at startup, and cached. App.getInfo() is a promise and the
    Settings screen renders synchronously, so there is nothing to await at
@@ -33674,7 +33686,10 @@ function authRedirectTarget(){
    The codes below are the server's own, never a raw error, and carry nothing
    about the athlete, the allowlist or any credential. */
 var SIGNIN_ERROR_COPY = {
-  not_in_beta:  'SACORO is in private beta. This email address is not on the tester list yet',
+  /* The database refused to make an account for this address (the public
+     sign-up switch is off and the address is not on the allowlist). Said
+     without "private beta" (founder, 18 November 2026). */
+  not_in_beta:  'SACORO can’t create an account for this email address yet. Please get in touch',
   bad_email:    'That doesn’t look like an email address. Check it and try again',
   unavailable:  'SACORO can’t reach its sign-in service right now. Please try again shortly',
   send_failed:  'The sign-in email couldn’t be sent just now. Please try again in a moment',
@@ -33765,14 +33780,12 @@ var CLOUD_AUTH_ERROR_REASON = {
   default: 'That sign-in link didn’t work'
 };
 function cloudAuthErrorCopy(code, description){
-  /* AN APPLE OR GOOGLE ACCOUNT THE BETA DOES NOT KNOW. The allowlist trigger
-     refuses the auth.users insert, and GoTrue reports that as a database
-     error saving a new user: said here as what it means. With public
-     sign-up on, the trigger admits every address, so the same words mean the
-     account could not be made for some other reason, and say that instead. */
+  /* AN ACCOUNT THAT COULD NOT BE MADE. GoTrue reports a refused auth.users
+     insert as a database error saving a new user. Sign-up is open (founder,
+     18 November 2026), so this is said as what the athlete can do about it,
+     and the private-beta variant is gone. */
   if (/saving new user/i.test(String(description || ''))){
-    return signupIsPublic() ? 'Your account couldn\u2019t be created just then. Please try again in a moment'
-                            : signInErrorCopy('not_in_beta');
+    return 'Your account couldn\u2019t be created just then. Please try again in a moment';
   }
   return (CLOUD_AUTH_ERROR_REASON[code] || CLOUD_AUTH_ERROR_REASON.default) +
          '. ' + authRetryDestination();
@@ -33914,13 +33927,87 @@ function cloudInitDeepLinks(){
   if (window.__vvvDeepLinkBound) return;
   window.__vvvDeepLinkBound = true;
   // Warm start: the app is already running and Android hands us the new URL.
-  try{ App.addListener('appUrlOpen', function(data){ handleAuthDeepLink(data && data.url); }); }catch(e){}
+  try{ App.addListener('appUrlOpen', function(data){ handleAppDeepLink(data && data.url); }); }catch(e){}
   // Cold start: the launching URL never fires the event, it has to be asked for.
   if (App.getLaunchUrl){
     try{
-      App.getLaunchUrl().then(function(res){ if (res && res.url) handleAuthDeepLink(res.url); }, function(){});
+      App.getLaunchUrl().then(function(res){ if (res && res.url) handleAppDeepLink(res.url); }, function(){});
     }catch(e){}
   }
+}
+/* Every link the app's own scheme can carry: the payment page coming back,
+   or a sign-in. */
+function handleAppDeepLink(url){
+  if (handleCheckoutDeepLink(url)) return true;
+  return handleAuthDeepLink(url);
+}
+
+/* ---------- COMING BACK FROM THE PAYMENT PAGE, IN THE INSTALLED APP ----------
+   Founder, 18 November 2026: the website-distributed Android app takes
+   payment through the website's hosted checkout. The payment page is
+   off-origin, so the
+   shell opens it in the phone's browser (Capacitor hands any address that is
+   not app.velvetviking.co.uk to the system), and the browser holds none of
+   the app's sign-in. So /api/checkout, asked with return:'app', sends the payment page
+   back to /account?checkout=complete&session_id=...&return=app (or
+   checkout=cancelled), and that page, in the browser, hands the athlete into
+   the app through the scheme the sign-in link already uses:
+     com.velvetviking.valhalla://auth/checkout?status=complete&session_id=cs_...
+   The manifest's custom-scheme filter (host "auth", any path) already
+   delivers that to MainActivity, so no new APK is needed.
+   WHAT THIS DOES WITH IT. Nothing is believed from the link: the session id
+   is handed to the server, which fetches the checkout session from the provider and
+   re-derives the entitlement (POST /api/subscription {action:'reconcile'},
+   the same call /account makes on the website), with the app's own token.
+   Then the gate's cookie is asked for again (establishDeliverySession), and
+   in journey-only mode a granted answer reloads into the full app, where the
+   journey sees the trial and moves to Welcome to SACORO. If the webhook got
+   there first the reconcile changes nothing and the answer is the same.
+   A cancelled checkout says so and leaves the athlete on the trial screen. */
+var CHECKOUT_RETURN_PREFIX = NATIVE_AUTH_REDIRECT + '/checkout';
+function parseCheckoutDeepLink(url){
+  var u = String(url || '');
+  if (u.indexOf(CHECKOUT_RETURN_PREFIX) !== 0) return null;
+  var p = parseAuthParams(u);
+  var status = (p.status === 'complete' || p.status === 'cancelled' || p.status === 'portal') ? p.status : null;
+  if (!status) return null;
+  var id = /^cs_[A-Za-z0-9_]+$/.test(String(p.session_id || '')) ? p.session_id : null;
+  return { status: status, sessionId: id };
+}
+function handleCheckoutDeepLink(url){
+  var ret = parseCheckoutDeepLink(url);
+  if (!ret) return false;
+  journeyCheckoutAway = false;
+  if (ret.status === 'cancelled'){
+    showToast('Checkout cancelled. Nothing has been charged');
+    try{ renderApp(); }catch(e){}
+    return true;
+  }
+  /* Back from managing the subscription: whatever changed there, the gate
+     and the Settings card are asked again. */
+  if (ret.status === 'portal'){
+    lastEntitlementAt = 0;
+    establishDeliverySession().then(function(){ try{ renderApp(); }catch(e){} }, function(){});
+    return true;
+  }
+  if (!cloudSession) cloudSession = readStored(CLOUD_SESSION_KEY);
+  showToast('Checking your free trial\u2026');
+  cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh || !ret.sessionId) return null;
+    return fetch('/api/subscription', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'Authorization':'Bearer '+cloudSession.access_token },
+      body: JSON.stringify({ action:'reconcile', session_id: ret.sessionId })
+    }).catch(function(){ return null; });
+  }).then(function(){
+    return establishDeliverySession();
+  }).then(function(body){
+    if (body && /^subscription_(trial|active|grace)$/.test(String(body.reason || ''))){
+      showToast('Your free trial has started');
+    }
+    try{ renderApp(); }catch(e){}
+  }).catch(function(){ try{ renderApp(); }catch(e){} });
+  return true;
 }
 function cloudSetSession(sess){
   cloudSession = sess;
@@ -34187,11 +34274,10 @@ function scheduleCloudPush(){
       // tester is told what happened without being nagged about it.
       if (err && err.code === 'not_in_beta' && !window.__vvvBetaRevokedTold){
         window.__vvvBetaRevokedTold = true;
-        /* With public sign-up on there is no beta to have left: the row was
-           refused for some other reason, and that is all that is said. */
-        showToast(signupIsPublic()
-          ? 'Your plan couldn\u2019t be saved to your account. It stays on this device'
-          : 'Your private-beta access has ended. Your plan stays on this device');
+        /* There is no beta to have left (founder, 18 November 2026: "Get
+           rid of the private beta stuff"): the row was refused, and that is
+           all that is said. */
+        showToast('Your plan couldn\u2019t be saved to your account. It stays on this device');
       }
     });
   }, 1500);
@@ -35039,10 +35125,14 @@ function renderPlanPricing(info){
    A control that opens nothing is worse than a sentence, so each of these
    appears only when the server has said the corresponding route exists. */
 function renderSubscriptionActions(info){
-  /* isNativeApp() already exists and is the one answer to "are we inside the
-     Capacitor shell" -- a second copy of that question is a second thing to
-     get wrong. */
-  if (isNativeApp()){
+  /* A STORE BUILD sends the athlete to the store, and is the only installed
+     app that does. storeDistributedApp() is the one answer to "may this shell
+     show the web checkout" (the explicit build marker, or iOS). The
+     website-distributed Android APK is not a store build (founder,
+     18 November 2026: it takes payment through the website's checkout), so it
+     gets the same buttons as the website, and both open in the phone's
+     browser and come back into the app. */
+  if (storeDistributedApp()){
     return '<div class="field-hint" style="margin-top:12px;">'+
       'Manage or cancel your subscription where you bought it. Your app store '+
       'account, or velvetviking.co.uk if you subscribed on the web.</div>';
@@ -65395,14 +65485,20 @@ function subscriptionPreferredPeriod(){
 function handleManageSubscription(){
   if (!cloudConfigured() || !cloudSignedIn()){ showToast('Sign in first'); return; }
   showToast('One moment\u2026');
+  /* In the website-distributed app the portal opens in the phone's browser
+     (a new window goes nowhere in the shell; an off-origin navigation is
+     handed to the system), and is asked to come back into the app. */
+  var inApp = websiteDistributedApp();
   fetch('/api/portal', {
     method:'POST',
     headers:{ 'content-type':'application/json',
-              'Authorization':'Bearer '+cloudSession.access_token }
+              'Authorization':'Bearer '+cloudSession.access_token },
+    body: JSON.stringify(inApp ? { 'return': 'app' } : {})
   }).then(function(r){
     return r.json().catch(function(){ return {}; }).then(function(b){ return { r:r, b:b }; });
   }).then(function(x){
     if (x.r.status === 200 && x.b.url){
+      if (inApp){ window.location.href = x.b.url; return; }
       try{ window.open(x.b.url, '_blank', 'noopener'); }
       catch(e){ window.location.href = x.b.url; }
       return;
@@ -69195,7 +69291,7 @@ function openSetupModal(){
         ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Your new block starts at week 1 on your next running day. Your completed training is kept as history and everything SACORO has learned carries over.</div>'
         : state.setup
         ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history. Only untouched future days are replaced.</div>'
-        : '<div class="field-hint bld-legal" style="margin-top:12px; text-align:center;">'+(signupIsPublic() ? 'Using SACORO is covered by our ' : 'Using the private beta is covered by our ')+
+        : '<div class="field-hint bld-legal" style="margin-top:12px; text-align:center;">'+'Using SACORO is covered by our '+
           '<a href="'+LEGAL_URLS.privacy+'" data-action="open-external" data-href="'+LEGAL_URLS.privacy+'">Privacy Policy</a> and '+
           '<a href="'+LEGAL_URLS.terms+'" data-action="open-external" data-href="'+LEGAL_URLS.terms+'">'+escapeHtml(legalTermsLabel())+'</a>. '+
           'Both are always in Settings.</div>')+
@@ -77942,12 +78038,15 @@ function stravaPost(endpoint, body){
 }
 function stravaErr(code){ var e = new Error(code); e.code = code; return e; }
 var STRAVA_ERROR_COPY = {
-  strava_disabled:        'Strava sync is switched off during the private beta',
+  /* No "private beta" (founder, 18 November 2026). Both stay true: the
+     server's Strava switch is off, or Strava's own limit on how many athletes
+     this application may connect is reached. */
+  strava_disabled:        'Strava sync is switched off for now',
   signin:                 'Sign in to VVV first. Your Strava connection is saved to your account',
   not_connected:          'Connect Strava first',
   authorization_revoked:  'Strava access has expired. Connect again',
   strava_unavailable:     'Strava is not responding. Try again shortly',
-  strava_beta_full:       'Strava access is currently full for the private beta'
+  strava_beta_full:       'Strava limits how many athletes can connect to SACORO for now'
 };
 function stravaMessage(err){
   return STRAVA_ERROR_COPY[err && err.code] || 'Could not reach Strava. Try again';
@@ -78018,12 +78117,14 @@ var STRAVA_RETURN_COPY = {
   connected:    'Strava connected. Importing your recent runs…',
   denied:       'Strava connection cancelled',
   scope:        'VVV needs permission to read your activities. Connect again and allow it',
-  unavailable:  'Strava sync is switched off during the private beta',
+  unavailable:  'Strava sync is switched off for now',
   /* THE ONE CONDITION WORTH ITS OWN SENTENCE. "Full" is not a failure the
      athlete can fix by trying again, and telling them to try again would be a
-     lie. No API jargon, no policy commentary, no mention of a limit belonging
-     to anybody in particular -- just the true, useful fact. */
-  full:         'Strava access is currently full for the private beta',
+     lie. No API jargon -- just the true, useful fact. It used to end "for the
+     private beta"; with the beta gone (founder, 18 November 2026) the real
+     reason is the one left to say: Strava caps how many athletes one
+     application may connect (VVV_STRAVA_MAX_ATHLETES mirrors that cap). */
+  full:         'Strava limits how many athletes can connect to SACORO for now',
   unconfigured: 'Strava is not set up on this server yet',
   failed:       'Strava connection failed. Try again'
 };
@@ -86708,8 +86809,13 @@ function journeyAwaitsTrial(){
    for ever. The second attempt inside a minute stops and says why. */
 var JOURNEY_LIFT_KEY = 'vvv_journey_lift';
 var journeyLiftStuck = false;
+/* A reload already under way. Coming back from the payment page can ask the
+   gate twice at once (the return link and the app coming to the front), and
+   the second granted answer must not read as a cookie the browser refused. */
+var journeyLifting = false;
 function journeyOnlyLift(granted){
   if (!JOURNEY_ONLY_MODE) return false;
+  if (granted && journeyLifting) return true;
   if (!granted){
     if (journeyAwaitsTrial()){
       journeyOnlyRefused = true;
@@ -86722,6 +86828,7 @@ function journeyOnlyLift(granted){
   try { last = Number(window.sessionStorage.getItem(JOURNEY_LIFT_KEY)) || 0; } catch(e){ last = 0; }
   if (last && Date.now() - last < 60000){ journeyLiftStuck = true; try { renderApp(); } catch(e2){} return false; }
   try { window.sessionStorage.setItem(JOURNEY_LIFT_KEY, String(Date.now())); } catch(e3){}
+  journeyLifting = true;
   return journeyReload();
 }
 function renderJourneyOnly(){
@@ -86955,8 +87062,8 @@ function journeyStartFresh(){
   return journeyGo('achieve');
 }
 function renderJourneyWelcome(memberOnly){
-  /* Asked on the first screen, so the switch's answer is in long before the
-     builder's legal line, Make It Yours or the trial need its words. */
+  /* Asked on the first screen, so which ways in exist (Apple, Google) is
+     known long before Make It Yours draws its buttons. */
   journeyAskProviders();
   return '<div class="jr jr-welcome">'+
     '<div class="jr-photo" role="img" aria-label="A SACORO runner mid-race"></div>'+
@@ -87227,10 +87334,11 @@ function renderJourneyPreview(){
    (VVV_AUTH_PROVIDERS; see AUTH-AND-EMAIL.md for the owner's setup). Every
    way in lands on the same insert into auth.users, so the database's trigger
    answers an uninvited Google account exactly as it answers an uninvited
-   email address: with public sign-up on (the database switch, see
-   signupIsPublic()) it admits both, and with it off it refuses both.
-   Nothing here opens or closes signup. The same answer carries the switch,
-   so the screens know whether to speak of a private beta. */
+   email address: with public sign-up on (the database switch,
+   supabase-public-signup.sql) it admits both, and with it off it refuses
+   both. Nothing here opens or closes signup, and the switch chooses no words
+   here any more (founder, 18 November 2026: "Get rid of the private beta
+   stuff"). */
 var journeyProviders = { apple:false, google:false };
 var journeyProvidersAsked = false;
 function journeyAskProviders(){
@@ -87242,14 +87350,14 @@ function journeyAskProviders(){
       .then(function(d){
         var p = (d && d.providers) || {};
         var next = { apple: p.apple === true, google: p.google === true };
-        var changed = noteSignupPublic(d && d.public_signup);
+        var changed = false;
         if (next.apple !== journeyProviders.apple || next.google !== journeyProviders.google){
           journeyProviders = next;
           changed = true;
         }
         if (changed && journeyScreen()){
           var at = journeyStep();
-          if (at === 'welcome' || at === 'account' || at === 'trial') renderApp();
+          if (at === 'welcome' || at === 'account') renderApp();
         }
       }).catch(function(){});
   } catch(e){}
@@ -87354,29 +87462,47 @@ function handleJourneyOAuth(provider){
    was read are the same words.
 
    THE PAYMENT SEAM. One provider per platform (journeyPaymentProvider()):
-   the website is the web rail, the hosted checkout behind /api/checkout; an
-   installed app is the store rail, which does not exist yet. Under
-   STORE-COMMERCIAL-BOUNDARY.md the app sells nothing in-app and shows no web
-   price, so the store provider says so and the screen carries no prices,
-   no tickboxes and no checkout link. When a store rail is built it is this
+   the website is the web rail, the hosted checkout behind /api/checkout.
+   THE WEBSITE-DISTRIBUTED ANDROID APP IS THE WEB RAIL TOO (founder,
+   18 November 2026: the installed app must take payment; new sign-ups get
+   the seven-day trial and "it takes the money at that point"). It is not a
+   Play Store build, so the store's billing rules do not apply, and it shows the same
+   prices, the same two ticks and the same Start My Free Trial. The one thing
+   it adds is where the payment page returns: the hosted checkout is off-origin,
+   so the shell opens it in the phone's browser, and the server sends the
+   athlete back to /account?...&return=app, which hands them into the app
+   through com.velvetviking.valhalla://auth/checkout (handleCheckoutDeepLink).
+   A GENUINE STORE BUILD (storeDistributedApp(): the explicit build marker,
+   or iOS) is the store rail, which does not exist yet: under
+   STORE-COMMERCIAL-BOUNDARY.md it sells nothing in-app and shows no web
+   price, so the store provider says so and the screen carries no prices, no
+   tickboxes and no checkout link. When a store rail is built it is this
    provider's start() that changes, and nothing else on the screen. */
+function journeyWebCheckout(period, returnTo){
+  return cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) return { ok:false, code:'not_signed_in' };
+    var body = { period: period };
+    if (returnTo === 'app') body['return'] = 'app';
+    return fetch('/api/checkout', {
+      method:'POST',
+      headers:{ 'content-type':'application/json', 'Authorization':'Bearer '+cloudSession.access_token },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(b){
+        return (r.status === 200 && b && b.url) ? { ok:true, url:b.url } : { ok:false, code:(b && b.error) || 'failed' };
+      });
+    });
+  });
+}
 var JOURNEY_PAYMENT = {
   web: {
     id: 'web', showsPrices: true, available: true,
-    start: function(period){
-      return cloudRefreshIfNeeded().then(function(fresh){
-        if (!fresh) return { ok:false, code:'not_signed_in' };
-        return fetch('/api/checkout', {
-          method:'POST',
-          headers:{ 'content-type':'application/json', 'Authorization':'Bearer '+cloudSession.access_token },
-          body: JSON.stringify({ period: period })
-        }).then(function(r){
-          return r.json().catch(function(){ return {}; }).then(function(b){
-            return (r.status === 200 && b && b.url) ? { ok:true, url:b.url } : { ok:false, code:(b && b.error) || 'failed' };
-          });
-        });
-      });
-    }
+    start: function(period){ return journeyWebCheckout(period, null); }
+  },
+  /* The website-distributed app: the web rail, returning into the app. */
+  app: {
+    id: 'app', showsPrices: true, available: true, returnsToApp: true,
+    start: function(period){ return journeyWebCheckout(period, 'app'); }
   },
   store: {
     id: 'store', showsPrices: false, available: false,
@@ -87384,7 +87510,8 @@ var JOURNEY_PAYMENT = {
   }
 };
 function journeyPaymentProvider(){
-  return isNativeApp() ? JOURNEY_PAYMENT.store : JOURNEY_PAYMENT.web;
+  if (!isNativeApp()) return JOURNEY_PAYMENT.web;
+  return storeDistributedApp() ? JOURNEY_PAYMENT.store : JOURNEY_PAYMENT.app;
 }
 var journeyOffer = null;          // GET /api/checkout, once
 var journeyOfferAsked = false;
@@ -87431,13 +87558,12 @@ function journeyTrialFigures(cat){
     zero: journeyMoney(0, y.currency)
   };
 }
-/* WHILE NOTHING IS SOLD, SACORO IS FREE: said as the private beta while
-   sign-up is invitation only, and without the words "private beta" once the
-   database's public sign-up switch is on. */
+/* WHILE NOTHING IS SOLD, SACORO IS FREE. One sentence: the private-beta
+   variant is gone (founder, 18 November 2026: "Get rid of the private beta
+   stuff"; sign-up is open), so the public sign-up switch no longer chooses
+   any words. */
 function journeyFreeSentence(){
-  return signupIsPublic()
-    ? 'For now SACORO is free to use, and nothing is charged.'
-    : 'During the private beta SACORO is free to use, and nothing is charged.';
+  return 'For now SACORO is free to use, and nothing is charged.';
 }
 /* REFUSED, WITH NOTHING TO BUY HERE. Only in journey-only mode, for a
    signed-in athlete the gate refused (journeyOnlyRefused): "Continue" would
@@ -87453,7 +87579,6 @@ function renderJourneyTrial(){
   var r = journeyRec();
   var period = r.period === 'monthly' ? 'monthly' : 'yearly';
   var refused = JOURNEY_ONLY_MODE && journeyOnlyRefused;
-  journeyAskProviders();
   /* THE INSTALLED APP. No price, no tickbox, no way to a web checkout: the
      store boundary forbids all three, and there is no store purchase yet. */
   if (!pay.showsPrices){
@@ -87522,7 +87647,15 @@ function renderJourneyTrial(){
       ? boxes+
         '<div class="jr-foot">'+
           '<button type="button" class="btn btn-primary btn-block" data-action="journey-trial-start"'+(ready ? '' : ' disabled')+'>Start My Free Trial</button>'+
-          '<p class="jr-fine jr-centre">Continue to secure payment setup</p>'+
+          /* In the website-distributed app the payment page opens in the
+             phone's browser (an off-origin address the shell hands to the
+             system), so the athlete is told where they are going and that
+             they will be brought back. */
+          (pay.returnsToApp
+            ? '<p class="jr-fine jr-centre">'+(journeyCheckoutAway
+                ? 'Finish setting up payment in your browser. SACORO brings you back here when it is done.'
+                : 'Secure payment setup opens in your browser, then brings you back here.')+'</p>'
+            : '<p class="jr-fine jr-centre">Continue to secure payment setup</p>')+
         '</div>'
       /* COMMERCE IS OFF: the prices are what it will cost, not an offer. No
          tick is recorded, because there is nothing to agree to buy, and the
@@ -87576,19 +87709,42 @@ var JOURNEY_CHECKOUT_COPY = {
   not_signed_in: 'Your session has ended. Sign in again to continue.',
   store_unavailable: 'Subscriptions are not available in the app yet. Nothing has been charged.'
 };
+/* The website-distributed app has handed the payment page to the browser
+   and is waiting for the athlete to come back (see handleCheckoutDeepLink). */
+var journeyCheckoutAway = false;
 function handleJourneyTrialStart(){
   var r = journeyRec();
   var period = r.period === 'monthly' ? 'monthly' : 'yearly';
   var btn = document.querySelector('[data-action="journey-trial-start"]');
   if (btn) btn.disabled = true;
   journeyTrialNote = '';
-  journeyPaymentProvider().start(period).then(function(res){
-    if (res && res.ok && res.url){ journeyNavigate(res.url); return; }
+  var pay = journeyPaymentProvider();
+  pay.start(period).then(function(res){
+    if (res && res.ok && res.url){
+      /* In the app the page itself stays: the shell opens the payment page in the
+         browser, so the screen says where the athlete went and the button is
+         pressable again should they come back without finishing. */
+      if (pay.returnsToApp){ journeyCheckoutAway = true; renderApp(); }
+      journeyNavigate(res.url);
+      return;
+    }
     var code = (res && res.code) || '';
     journeyTrialNote = JOURNEY_CHECKOUT_COPY[code] || 'We could not open the payment page. Nothing has been charged.';
     /* Already subscribed: there is nothing to buy, and the journey goes on. */
     if (code === 'already_subscribed_here' || code === 'already_subscribed_elsewhere'){
       showToast(journeyTrialNote); journeyTrialNote = ''; journeyGo('arrive'); return;
+    }
+    /* THE EVIDENCE IS MISSING: A WAY TO RESOLVE IT, NOT A DEAD END. The
+       server has no record of a tick this screen believed was recorded, so
+       that box is drawn unticked again for the athlete to tick, and a Terms
+       document that stopped being published re-reads the agreements. This
+       is the guarantee /start's checkout carried until the founder removed
+       it (18 November 2026: "Remove the old start."). */
+    if (code === 'terms_not_accepted') journeyAgreed.terms = false;
+    if (code === 'immediate_start_not_acknowledged') journeyAgreed.immediate_start = false;
+    if (code === 'commercial_terms_not_published'){
+      journeyAgreed = { terms:false, immediate_start:false };
+      journeyOffer = null; journeyOfferAsked = false;
     }
     renderApp();
   }).catch(function(){

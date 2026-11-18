@@ -62,12 +62,30 @@
     <input type="email" id="email" placeholder="Your email address" autocomplete="email" inputmode="email">
     <button type="button" id="send" class="vvv-btn">Email Me a Sign-In Link</button>
     <div class="vvv-msg" id="msg"></div>
-    <!-- PRIVATE BETA: named here because this is the first page a tester sees.
-         A sentence, not a gate -- no checkbox, nothing pre-ticked. The documents
-         live on the website and this links to them rather than restating them. -->
-    <p class="vvv-quiet" id="legal-note">Using the private beta is covered by our
+    <!-- THE DOCUMENTS, named because this can be the first page somebody sees.
+         A sentence, not a gate -- no checkbox, nothing pre-ticked. They live on
+         the website and this links to them rather than restating them. No
+         "private beta" (founder, 18 November 2026: "Get rid of the private
+         beta stuff"; sign-up is open), and the Terms are the commercial
+         document api/_agreements.js says is in force. -->
+    <p class="vvv-quiet" id="legal-note">Using SACORO is covered by our
       <a href="https://velvetviking.co.uk/privacy">Privacy Policy</a> and
-      <a href="https://velvetviking.co.uk/beta-terms">Private Beta Terms</a>.</p>
+      <a href="https://velvetviking.co.uk/terms">Terms</a>.</p>
+  </div>
+
+  <!--
+    BACK TO THE APP (founder, 18 November 2026: the installed Android app takes
+    payment through this same checkout). The app opens Stripe in the phone's
+    browser, and Stripe returns HERE, in that browser, with return=app. The
+    browser holds none of the app's sign-in, so this page does not try to sign
+    anybody in or decide anything: it hands the athlete back into the app,
+    which confirms the trial with its own token. Shown only outside the app.
+  -->
+  <div id="pane-return" class="vvv-hidden">
+    <h1 id="return-title">Back to the App</h1>
+    <p id="return-lede">Open the SACORO app to finish. It confirms your free trial and takes you straight in.</p>
+    <a class="vvv-btn" id="return-open" href="com.velvetviking.valhalla://auth/checkout">Open the SACORO App</a>
+    <p class="vvv-quiet" id="return-note">If the app does not open, switch back to it yourself. It checks your trial as soon as it is in front.</p>
   </div>
 
   <div id="pane-working" class="vvv-hidden">
@@ -122,7 +140,7 @@
          checkout consent above cannot point at two different contracts. The
          Terms href is replaced by whatever the server says is in force. -->
     <a href="https://velvetviking.co.uk/privacy">Privacy</a> &nbsp;&nbsp;
-    <a href="https://velvetviking.co.uk/beta-terms" id="foot-terms">Terms</a>
+    <a href="https://velvetviking.co.uk/terms" id="foot-terms">Terms</a>
   </div>
 </div>
 
@@ -137,7 +155,7 @@
            (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   }
   function show(pane){
-    ['signin','working','locked'].forEach(function(p){
+    ['signin','working','locked','return'].forEach(function(p){
       $('pane-' + p).classList.toggle('vvv-hidden', pane !== p);
     });
   }
@@ -146,20 +164,21 @@
     n.className = 'vvv-msg' + (kind ? ' ' + kind : '');
   }
 
-  /* PUBLIC SIGN-UP (founder, 18 November 2026): GET /api/beta-signin reports
-     the database switch. Only true drops "private beta" from this page. */
-  var signupOpen = false;
-  try{ signupOpen = localStorage.getItem('vvv_signup_public') === '1'; }catch(e){}
-  var legalNote = $('legal-note'), legalBefore = legalNote.innerHTML;
-  function applySignupWording(){
-    legalNote.innerHTML = signupOpen ? 'Using SACORO is covered by our <a href="https://velvetviking.co.uk/privacy">Privacy Policy</a> and <a href="https://velvetviking.co.uk/beta-terms">Terms</a>.' : legalBefore;
+  /* THE STORE SEAM, asked the way the app asks it (storeDistributedApp() in
+     the runtime): a Play Store or App Store build carries "SACORO-Store-Build"
+     in its user agent (capacitor.config.json appendUserAgent, set only in
+     those builds), and a native iOS shell is always a store build. Such a
+     build is shown no web price and no way to the web checkout
+     (STORE-COMMERCIAL-BOUNDARY.md). Today's website-distributed Android APK
+     carries no marker, so it is offered the same checkout as the website,
+     returning into the app (founder, 18 November 2026). */
+  function storeBuild(){
+    if (!isNativeApp()) return false;
+    try{
+      if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') return true;
+    }catch(e){ return true; }
+    return (navigator.userAgent || '').indexOf('SACORO-Store-Build') !== -1;
   }
-  applySignupWording();
-  fetch('/api/beta-signin').then(function(r){ return r.json(); }).then(function(d){
-    if (typeof d.public_signup !== 'boolean') return;
-    try{ localStorage.setItem('vvv_signup_public', d.public_signup ? '1' : '0'); }catch(e){}
-    signupOpen = d.public_signup; applySignupWording();
-  }).catch(function(){});
 
   /* Why the athlete is looking at this page. /api/app appends it so the shell
      can be specific instead of showing the same sentence to someone who has
@@ -268,8 +287,9 @@
   function stateSentence(v){
     var until = whenText(v.access_until);
     if (v.override === 'owner') return 'Owner access.';
-    /* A legacy beta row grants nothing now; with sign-up public, unnamed. */
-    if (v.override === 'beta')  return signupOpen ? '' : 'Private beta access.';
+    /* A legacy beta row grants nothing now, and is not named (founder,
+       18 November 2026: "Get rid of the private beta stuff"). */
+    if (v.override === 'beta')  return '';
     if (v.state === 'grace')
       return 'A payment did not go through' + (until ? ', so access continues until ' + until : '') +
              ' while it is sorted out.';
@@ -307,7 +327,7 @@
     /* The resubscribe button is hidden rather than disabled when payments are
        not open: a greyed-out button invites a support message asking when it
        will work, and we would rather say nothing than say "soon". */
-    $('resubscribe').classList.toggle('vvv-hidden', hasAccess || !v.checkout_configured);
+    $('resubscribe').classList.toggle('vvv-hidden', hasAccess || !v.checkout_configured || storeBuild());
     renderOffers(v);
     renderAgreements(v);
     renderLegalFooter(v);
@@ -323,7 +343,7 @@
     box.innerHTML = '';
     var cat = (v && v.catalogue) || null;
     var offers = (cat && cat.offers || []).filter(function(o){ return o.available; });
-    if (!offers.length){ box.classList.add('vvv-hidden'); return; }
+    if (!offers.length || storeBuild()){ box.classList.add('vvv-hidden'); return; }
 
     offers.forEach(function(o){
       var b = document.createElement('button');
@@ -481,14 +501,25 @@
   function startCheckout(period, button){
     if (button) button.disabled = true;
     say('msg3', 'One moment…');
+    /* Inside the website-distributed app the payment page opens in the
+       phone's browser, so it is asked to come back into the app. */
+    var body = { period: period };
+    if (isNativeApp() && !storeBuild()) body['return'] = 'app';
     authed('/api/checkout', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ period: period })
+      body: JSON.stringify(body)
     }).then(function(r){
       return r.json().catch(function(){ return {}; }).then(function(b){
         if (button) button.disabled = false;
-        if (r.status === 200 && b.url){ location.href = b.url; return; }
+        if (r.status === 200 && b.url){
+          if (body['return'] === 'app'){
+            checkoutAway = true;
+            say('msg3', 'Finish setting up payment in your browser. SACORO brings you back here when it is done.', 'ok');
+          }
+          location.href = b.url;
+          return;
+        }
         /* Named refusals get named sentences. "You already subscribe through
            the App Store" is a different problem from "payments are not open",
            and one sentence for both is how a support queue fills up. */
@@ -552,7 +583,84 @@
     }).catch(function(){ return null; });
   }
 
-  var hash = readAuthHash();
+  /* ---------- the payment page coming back for the app ----------
+     return=app is set by the server, on the two addresses it gave Stripe for
+     a checkout the installed app started. In the phone's browser this page
+     hands over to the app, passing the session id on for the app to
+     reconcile with its own token; it trusts nothing in the address and tries
+     no sign-in of its own. */
+  function returnTarget(){
+    try{
+      var q = new URLSearchParams(location.search);
+      if (q.get('return') !== 'app') return null;
+      if (q.get('portal') === 'returned') return 'com.velvetviking.valhalla://auth/checkout?status=portal';
+      var c = q.get('checkout');
+      if (c === 'cancelled') return 'com.velvetviking.valhalla://auth/checkout?status=cancelled';
+      if (c !== 'complete') return null;
+      var id = checkoutSessionId();
+      return 'com.velvetviking.valhalla://auth/checkout?status=complete' + (id ? '&session_id=' + id : '');
+    }catch(e){ return null; }
+  }
+  var appReturn = isNativeApp() ? null : returnTarget();
+  if (appReturn){
+    if (/status=cancelled/.test(appReturn)){
+      $('return-title').textContent = 'Checkout Cancelled';
+      $('return-lede').textContent = 'Nothing has been charged. Open the SACORO app to carry on from where you were.';
+      $('return-note').textContent = 'If the app does not open, switch back to it yourself.';
+    } else if (/status=portal/.test(appReturn)){
+      $('return-lede').textContent = 'Open the SACORO app to carry on. It shows your subscription as it now stands.';
+      $('return-note').textContent = 'If the app does not open, switch back to it yourself.';
+    }
+    $('return-open').setAttribute('href', appReturn);
+    show('return');
+    /* One automatic attempt. A phone may want a tap before it leaves the
+       browser for an app, which is what the button is for. */
+    try{ location.replace(appReturn); }catch(e){}
+  }
+
+  /* ---------- inside the app, while the payment page is in the browser ----------
+     The app's own scheme brings the athlete back (the runtime's
+     handleCheckoutDeepLink does the same for the journey); here, on the
+     account page, the session is reconciled and the gate asked again. And
+     coming back to the front without the link (the athlete switched back by
+     hand) asks the gate again too, because the webhook may already have
+     landed. */
+  var checkoutAway = false;
+  function afterAppCheckout(sessionId){
+    var t = storedToken();
+    if (!t) return;
+    var rec = sessionId
+      ? authed('/api/subscription', { method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'reconcile', session_id: sessionId }) }).catch(function(){ return null; })
+      : Promise.resolve(null);
+    rec.then(function(){ return establish(t); }).then(function(r){
+      if (r && r.status === 200) return enter();
+      return refreshAndRender();
+    }).catch(function(){});
+  }
+  if (isNativeApp() && !storeBuild()){
+    try{
+      var CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+      if (CapApp && CapApp.addListener){
+        CapApp.addListener('appUrlOpen', function(data){
+          var u = String((data && data.url) || '');
+          if (u.indexOf('com.velvetviking.valhalla://auth/checkout') !== 0) return;
+          checkoutAway = false;
+          if (/[?&]status=cancelled\b/.test(u)){
+            say('msg3', 'Checkout cancelled. Nothing has been charged.', 'err');
+            return;
+          }
+          var m = /[?&]session_id=(cs_[A-Za-z0-9_]+)/.exec(u);
+          afterAppCheckout(m ? m[1] : null);
+        });
+      }
+    }catch(e){}
+    document.addEventListener('visibilitychange', function(){
+      if (document.visibilityState === 'visible' && checkoutAway) afterAppCheckout(null);
+    });
+  }
+
+  var hash = appReturn ? null : readAuthHash();
   if (hash){
     show('working');
     /* Persist the session where the app already looks for it, so the runtime
@@ -589,7 +697,7 @@
        the gate invisible to someone who is simply already signed in. */
     var stored = null;
     try{ stored = JSON.parse(localStorage.getItem('vvv_cloud_session') || 'null'); }catch(e){}
-    if (stored && stored.access_token){
+    if (stored && stored.access_token && !appReturn){
       show('working');
       reconcileCheckout().then(function(){
       return establish(stored.access_token).then(function(r){

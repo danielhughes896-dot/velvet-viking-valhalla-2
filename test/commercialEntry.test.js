@@ -168,82 +168,124 @@ test('the standalone trial endpoint is gone, not merely unrouted', () => {
   assert.equal(account.indexOf('_trial.js'), -1);
 });
 
+/* UPDATED (founder, 18 November 2026: "Remove the old start."). The entry
+   surface these tests read was /start's own trial card, sign-in and routing.
+   /start now leads everybody to the app root, and the entry surface is the
+   in-app first-time journey's seven-day trial screen, on the website and in
+   the website-distributed Android app. The same properties, held there. */
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
+const Agree = require('../api/_agreements.js');
+const RUNTIME = read(RUNTIME_RELATIVE);
+function jsFn(name){
+  const at = RUNTIME.indexOf('function ' + name + '(');
+  assert.ok(at !== -1, name + '() is missing');
+  let depth = 0, i = RUNTIME.indexOf('{', at);
+  for (; i < RUNTIME.length; i++){
+    if (RUNTIME[i] === '{') depth++;
+    else if (RUNTIME[i] === '}' && --depth === 0) break;
+  }
+  return RUNTIME.slice(at, i + 1);
+}
+function trialApp(commerce){
+  const a = loadApp({ pinnedDate: '2026-11-18T09:00:00Z' });
+  a.showToast = () => {};
+  buildPlan(a, { distanceKey: 'half', weeks: 12, volume: 35 });
+  a.journeyWrite({ v: 1, step: 'trial', built: true, drives: [], slide: 0, period: 'yearly' });
+  const env = commerce ? { VVV_PRICE_WEB_STANDARD_MONTHLY: 'price_m', VVV_PRICE_WEB_STANDARD_YEARLY: 'price_y' } : {};
+  a.journeyOfferAsked = true;
+  a.journeyOffer = { catalogue: P.catalogue('web', env, new Date('2026-11-18T09:00:00Z')),
+    agreements: Agree.currentAgreements(), commerce_enabled: !!commerce, provider_configured: !!commerce };
+  return a;
+}
+
 test('the entry surface makes the athlete choose an interval first', () => {
-  const html = read('start.html');
-  assert.match(html, /data-period="monthly"/);
-  assert.match(html, /data-period="yearly"/);
+  const a = trialApp(true);
+  let html = a.renderJourneyTrial();
+  assert.match(html, /data-action="journey-period" data-period="monthly"/);
+  assert.match(html, /data-action="journey-period" data-period="yearly"/);
   assert.match(html, /£11\.99/);
   assert.match(html, /£79\.99/);
   // And says what happens at the end of the seven days, for both.
-  assert.match(html, /After 7 days this becomes £11\.99 a month, unless you cancel/);
-  assert.match(html, /After 7 days this becomes £79\.99 a year, unless you cancel/);
-  assert.match(html, /A payment method is required to begin/);
+  assert.match(html, /Day 8:<\/b> <span class="font-mono">£79\.99<\/span>, then annually/);
+  a.journeySet({ period: 'monthly' });
+  html = a.renderJourneyTrial();
+  assert.match(html, /Day 8:<\/b> <span class="font-mono">£11\.99<\/span>, then monthly/);
+  assert.match(html, /Cancel before your trial ends to avoid being charged\./);
+  assert.match(html, /Continue to secure payment setup/, 'it is not said that a payment method comes next');
 });
 
 test('the entry surface starts a trial through Checkout, naming only a period', () => {
-  const html = read('start.html');
-  assert.match(html, /authed\('\/api\/checkout', \{ method:'POST', body: JSON\.stringify\(\{ period: period \}\) \}\)/);
-  assert.equal(html.indexOf('/api/trial'), -1, 'the card-free endpoint must not linger');
+  const web = jsFn('journeyWebCheckout');
+  assert.match(web, /fetch\('\/api\/checkout', \{\s*method:'POST',/);
+  assert.match(web, /var body = \{ period: period \};\s*if \(returnTo === 'app'\) body\['return'\] = 'app';/,
+    'the browser sends more than a period (and, from the app, where to come back to)');
+  assert.equal(RUNTIME.indexOf('/api/trial'), -1, 'the card-free endpoint must not linger');
   // No price, amount or Stripe identifier is ever sent from the browser.
-  assert.equal(/price_[A-Za-z0-9]|amount|priceMinor/.test(html), false);
+  assert.equal(/price_[A-Za-z0-9]|amount|priceMinor/.test(web), false);
 });
 
 test('a refused checkout says so truthfully and charges nothing', () => {
-  const html = read('start.html');
-  assert.match(html, /Subscriptions are not open yet\. Nothing has been charged\./);
-  assert.match(html, /You already have a subscription on this account\./);
+  const copy = /var JOURNEY_CHECKOUT_COPY = \{([^]*?)\n\};/.exec(RUNTIME)[1];
+  assert.match(copy, /commerce_disabled: 'Subscriptions are not open yet\. Nothing has been charged\.'/);
+  assert.match(copy, /already_subscribed_here: 'You already have a subscription on this account\.'/);
+  assert.match(jsFn('handleJourneyTrialStart'), /We could not open the payment page\. Nothing has been charged\./);
 });
 
 // ---------------------------------------------------------------------------
 // ROUTING
 // ---------------------------------------------------------------------------
 test('an athlete with access never sees an acquisition screen', () => {
-  const html = read('start.html');
-  assert.match(html, /if \(b\.access === true\)\{ enter\(\); return; \}/,
-    'access short-circuits straight into the product');
-  // And "enter" means the server-gated route, not a client-side unlock --
-  // it also clears any banked builder answers now, since the approved
-  // journey (builder -> preview -> "Save My Plan" -> trial -> app) can leave
-  // a pending build sitting in localStorage right up until this point, and
-  // it is stale the moment the athlete is actually inside the app.
-  assert.match(html, /var enter = function\(\)\{ clearPending\(\); location\.replace\('\/'\); \}/);
+  /* A subscription the server reports moves the journey past the trial, and
+     the gate (api/app.js) hands an entitled athlete the full app. */
+  const a = trialApp(true);
+  a.cloudSession = { access_token: 't', user_id: 'u', expires_at: Date.now() + 3600e3 };
+  a.entitlementInfo = { signed_in: true, access: true, reason: 'subscription_trial', state: 'trial' };
+  assert.equal(a.journeyStep(), 'arrive');
+  /* And /start, the old front door, decides nothing: it forwards to '/'. */
+  assert.match(read('start.html'), /location\.replace\(dest\)/);
 });
 
 test('an expired athlete lands on the locked shell, not a dead end', () => {
-  const html = read('start.html');
-  assert.match(html, /show\('pane-locked'\)/);
-  assert.match(html, /Everything you have done is still here/);
-  assert.match(html, /href="\/account"/, 'there must be a route back');
-  assert.match(html, /Nothing has been deleted/);
+  /* The gate sends a refused athlete to /account?why=locked, the one locked
+     shell, which /start used to duplicate. */
+  const app = read('api/app.js');
+  assert.match(app, /return toShell\(res, decision\.reason === 'no_account' \? 'signin' : 'locked'\);/);
+  const account = read('account.html');
+  assert.match(account, /Your training plan and history are safe and still stored\./);
+  assert.match(account, /id="export"[^>]*>Export My Training</, 'there must be a way to take everything');
+  assert.match(account, /id="resubscribe"[^>]*>Set Up My Subscription</, 'there must be a route back');
 });
 
 test('a hung server does not strand the athlete on a spinner', () => {
-  // A request that never answers is not an error, so .catch() never fires for
-  // it. Without a deadline the resolving pane is a dead end.
-  const html = read('start.html');
-  assert.match(html, /function within\(ms, p\)/, 'route resolution must be time-bounded');
-  assert.match(html, /within\(10000, establish\(tok\)\)/);
-  assert.match(html, /We could not reach SACORO just then/,
-    'and it must say something actionable rather than nothing');
-  // Falling back to sign-in grants nothing: the server still decides access.
-  assert.match(html, /show\('pane-auth'\);\s*\n\s*fail\('auth-err'/);
+  /* /start no longer waits on anything: the forward runs before the page
+     draws. The trial screen's own wait for the catalogue ends in an offer to
+     try again rather than a spinner. */
+  const start = read('start.html');
+  assert.doesNotMatch(start, /fetch\(/);
+  const a = trialApp(true);
+  a.journeyOffer = null; a.journeyOfferFailed = true;
+  const html = a.renderJourneyTrial();
+  assert.match(html, /We could not load the plans just now\. Nothing has been charged\./);
+  assert.match(html, /data-action="journey-offer-retry">Try Again</);
 });
 
 test('the front door claims no authority of its own', () => {
   const html = read('start.html');
-  // It may ask, render and route. It may not decide.
-  for (const forbidden of ['localStorage.setItem(\'vvv_entitle', 'access = true', 'grantAccess',
-                           'entitlement_grants', 'service_role']) {
+  // It may forward. It may not decide.
+  for (const forbidden of ['localStorage', 'access = true', 'grantAccess',
+                           'entitlement_grants', 'service_role', 'fetch(']) {
     assert.equal(html.indexOf(forbidden), -1, 'start.html contains ' + forbidden);
   }
-  assert.match(html, /re-resolves that server-side/, 'and says so');
 });
 
-test('the magic link returns to /start and carries no token in the address bar', () => {
+test('a sign-in link that lands on /start keeps its tokens on the way to the root, out of the address bar', () => {
   const html = read('start.html');
-  assert.match(html, /redirect: location\.origin \+ '\/start'/);
-  assert.match(html, /history\.replaceState\(null, '', location\.pathname \+ location\.search\)/,
-    'the fragment must be stripped — a token in history is a token');
+  assert.match(html, /var dest = '\/' \+ \(location\.search \|\| ''\) \+ \(location\.hash \|\| ''\);/);
+  assert.match(html, /location\.replace\(dest\)/, '/start, and the token with it, stays in the back history');
+  /* And the root strips them once taken (cloudConsumeAuthHash). */
+  assert.match(jsFn('cloudConsumeAuthHash'), /window\.history\.replaceState\(null, '', path \+ search\)/,
+    'the fragment must be stripped: a token in history is a token');
 });
 
 // ---------------------------------------------------------------------------
@@ -275,10 +317,10 @@ test('Android deep-link auth is untouched', () => {
 // BILLING STAYS INERT
 // ---------------------------------------------------------------------------
 test('the entry journey fabricates no paid state', () => {
-  // 'card' alone is not the test: this page has a .card layout class, and
-  // matching it proves nothing about billing. What must be absent is a payment
-  // ACTION while Stripe is inert.
-  const html = read('start.html').replace(/<!--[\s\S]*?-->/g, ' ');
+  /* UPDATED (founder, 18 November 2026: "Remove the old start."): the
+     journey's trial screen, which replaced /start's, is the page read. */
+  const html = jsFn('renderJourneyTrial') + jsFn('handleJourneyTrialStart') + jsFn('journeyWebCheckout') +
+    /var JOURNEY_CHECKOUT_COPY = \{[^]*?\n\};/.exec(RUNTIME)[0];
   /* The trial now REQUIRES a payment method, so a payment path is correct and
      expected here. What must still be true is that nothing is fabricated: the
      page cannot name a price id, an amount or a Stripe object, and the server

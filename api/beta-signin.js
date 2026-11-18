@@ -16,10 +16,12 @@
 // allowlist, for the reason below: the trigger is the only place an account
 // is created, so it is the only place the rule can live without a second copy
 // that disagrees. The route reads the switch (_signup.js) for two things only:
-// GET tells the app whether to speak of a private beta, and, while the switch
-// is OFF, a refusal GoTrue reports as "Database error saving new user" is the
-// closed gate itself and is answered 403 not_in_beta, so the athlete reads the
-// private-beta sentence rather than "the email service isn't responding".
+// GET reports it (public_signup), and, while the switch is OFF, a refusal
+// GoTrue reports as "Database error saving new user" is the closed gate itself
+// and is answered 403 not_in_beta, so the athlete reads that this address
+// cannot make an account yet rather than "the email service isn't
+// responding". The app no longer speaks of a private beta either way
+// (founder, 18 November 2026: "Get rid of the private beta stuff").
 // While it is ON that refusal cannot be the gate, and is classified like any
 // other provider failure.
 //
@@ -88,11 +90,13 @@ function authorizeUrl(supabaseUrl, provider, redirect){
 
 function log(what){ try{ console.log('beta-signin: ' + what); }catch(e){} }
 
-/* Where a browser sign-in comes back to. NOT '/', which vercel.json routes to
-   /api/app -- the protected runtime behind the account gate. A magic link that
-   lands there has arrived at the wrong end of the product: the commercial
-   entry journey lives at /start, and /start is what knows how to consume the
-   fragment, establish the session and route by entitlement. */
+/* Where a refused sign-in redirect falls back to. /start now leads straight
+   to the app root, keeping the query and the fragment (founder, 18 November
+   2026: "Remove the old start."; start.html), and the root completes the
+   sign-in: the first-time journey for a visitor with no cookie
+   (cloudConsumeAuthHash), /account for a stale one (readAuthHash). It stays
+   /start rather than '/' because that is the address already in the
+   Supabase redirect allow-list and the Android App Link filter. */
 const ENTRY_PATH = '/start';
 
 /* EVERY ORIGIN THIS DEPLOYMENT LEGITIMATELY ANSWERS ON.
@@ -158,8 +162,8 @@ module.exports = async function handler(req, res){
     const on = enabledProviders();
     /* public_signup is the database's switch, as it stands now: true, false,
        or null when it cannot be read (no service key, the migration not yet
-       applied). The app treats null exactly as false -- today's wording -- so
-       a failed read can only ever produce what was said before. */
+       applied). Reported for whoever is checking the deployment; since
+       18 November 2026 no screen chooses its words by it. */
     const open = await Signup.readPublicSignup(S, cfg);
     return S.json(res, 200, { providers: { email: true,
       apple: on.indexOf('apple') !== -1, google: on.indexOf('google') !== -1 },

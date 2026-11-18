@@ -23,7 +23,13 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const RUNTIME = read(RUNTIME_RELATIVE);
 
 const CANON_PRIVACY = 'https://velvetviking.co.uk/privacy';
-const CANON_BETA_TERMS = 'https://velvetviking.co.uk/beta-terms';
+/* UPDATED (founder, 18 November 2026: "Get rid of the private beta stuff").
+   The shipped Terms link was the private-beta Terms; it is now the commercial
+   Terms, the document api/_agreements.js names as in force
+   (COMMERCIAL_LEGAL_PUBLISHED). The server still replaces it with whatever it
+   says is in force on every view. */
+const CANON_TERMS = 'https://velvetviking.co.uk/terms';
+const OLD_BETA_TERMS = 'https://velvetviking.co.uk/beta-terms';
 const SUPPORT = 'support@velvetviking.co.uk';
 
 const TODAY = '2026-08-17';
@@ -43,7 +49,7 @@ test('the canonical URLs are declared once and used everywhere', () => {
      subscription is not "the beta terms", and the alias that briefly held
      both names was a second place to change one URL -- which is exactly what
      the test below forbids. One key, one URL. */
-  assert.equal(a.LEGAL_URLS.terms, CANON_BETA_TERMS);
+  assert.equal(a.LEGAL_URLS.terms, CANON_TERMS);
   assert.equal(a.LEGAL_URLS.betaTerms, undefined,
     'the old key must be gone rather than kept alongside the new one');
   assert.equal(a.LEGAL_URLS.support, SUPPORT);
@@ -57,7 +63,7 @@ test('the canonical URLs are declared once and used everywhere', () => {
 
 test('no legal URL is hardcoded anywhere else in the runtime', () => {
   const code = RUNTIME.replace(/\/\*[\s\S]*?\*\//g, ' ');
-  for (const url of [CANON_PRIVACY, CANON_BETA_TERMS]) {
+  for (const url of [CANON_PRIVACY, CANON_TERMS]) {
     const hits = (code.match(new RegExp(url.replace(/[/.]/g, '\\$&'), 'g')) || []).length;
     assert.equal(hits, 1, url + ' must appear once, inside LEGAL_URLS');
   }
@@ -124,7 +130,7 @@ test('every link out of the app goes through one door, and lands on the canonica
   a.isNativeApp = () => false;
   a.openExternal(a.LEGAL_URLS.privacy);
   a.openExternal(a.LEGAL_URLS.terms);
-  assert.deepEqual(went, [['open', CANON_PRIVACY, '_blank', undefined], ['open', CANON_BETA_TERMS, '_blank', undefined]]);
+  assert.deepEqual(went, [['open', CANON_PRIVACY, '_blank', undefined], ['open', CANON_TERMS, '_blank', undefined]]);
   assert.ok(wins.every(w => w.opener === null), 'the new tab can still reach back into the app');
   assert.equal(loc.href, '', 'the app tab left the app');
   /* Only a pop-up genuinely blocked (no window at all) falls back to this tab. */
@@ -178,16 +184,20 @@ test('one way to start again: New Block stays, Reset Plan leaves the list', () =
   assert.match(a.settingsPanelTraining(), /data-action="open-setup"/, 'Edit Plan Settings left Training & Zones');
 });
 
-test('a first-time athlete is told which documents govern the beta', () => {
+/* UPDATED (founder, 18 November 2026: "Get rid of the private beta stuff"):
+   the same sentence, naming SACORO and the Terms rather than the beta. */
+test('a first-time athlete is told which documents govern SACORO', () => {
   const a = app();
   a.openModal = (html) => { a.__modal = html; };
   a.state.setup = null;
   a.openSetupModal();
   const html = a.__modal || '';
-  assert.ok(html.indexOf('Private Beta Terms') !== -1, 'named before substantive use begins');
+  assert.match(html, new RegExp('<a href="' + CANON_TERMS.replace(/[/.]/g, '\\$&') + '"[^>]*>Terms</a>'),
+    'named before substantive use begins');
   assert.ok(html.indexOf(CANON_PRIVACY) !== -1);
-  assert.ok(html.indexOf(CANON_BETA_TERMS) !== -1);
-  assert.match(html, /Using the private beta is covered by/);
+  assert.match(html, /Using SACORO is covered by/);
+  assert.doesNotMatch(html, /private beta|Private Beta Terms/i);
+  assert.equal(html.indexOf(OLD_BETA_TERMS), -1, 'the beta Terms are still linked');
 });
 
 test('it is a sentence, not a consent gate', () => {
@@ -200,7 +210,7 @@ test('it is a sentence, not a consent gate', () => {
   // consent, and nothing pretends to — the health-data consent question is
   // explicitly parked, so inventing a mechanism for it would be worse than
   // leaving it alone.
-  const legalRegion = html.slice(html.indexOf('Using the private beta is covered by'));
+  const legalRegion = html.slice(html.indexOf('Using SACORO is covered by'));
   assert.ok(!/type="checkbox"/.test(legalRegion), 'no consent checkbox');
   assert.ok(!/\bchecked\b/.test(legalRegion), 'nothing pre-ticked');
   assert.ok(!/I agree|I accept|You must accept/i.test(html), 'not a wall');
@@ -215,7 +225,7 @@ test('a returning athlete regenerating a plan is not shown it again', () => {
   a.openSetupModal();
   const html = a.__modal || '';
   assert.ok(
-    html.indexOf('Using the private beta is covered by') === -1,
+    html.indexOf('Using SACORO is covered by') === -1,
     'shown once before substantive use, not on every regeneration — that is nagging'
   );
   assert.ok(html.indexOf('Regenerating rebuilds the schedule') !== -1, 'the regenerate note still shows');
@@ -224,7 +234,7 @@ test('a returning athlete regenerating a plan is not shown it again', () => {
 test('the sign-in page names both documents', () => {
   const account = read('account.html');
   assert.ok(account.indexOf(CANON_PRIVACY) !== -1);
-  assert.ok(account.indexOf(CANON_BETA_TERMS) !== -1);
+  assert.ok(account.indexOf(CANON_TERMS) !== -1);
   assert.ok(!/type="checkbox"/.test(account), 'no consent checkbox on the sign-in page either');
 });
 
@@ -270,7 +280,7 @@ test('the app legal pages state the company correctly and point at canonical', (
   );
   for (const [name, src, canon] of [
     ['privacy.html', privacy, CANON_PRIVACY],
-    ['terms.html', terms, CANON_BETA_TERMS],
+    ['terms.html', terms, CANON_TERMS],
   ]) {
     assert.ok(src.indexOf(canon) !== -1, name + ' must point at the canonical document');
     assert.match(src, /company number 17404255/, name);

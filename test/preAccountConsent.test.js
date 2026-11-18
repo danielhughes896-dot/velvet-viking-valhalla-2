@@ -49,16 +49,18 @@ test('/start asks for no heart-rate figure and sends no build of its own', () =>
   assert.doesNotMatch(START, /function submitBuild\(|\/api\/preview/);
 });
 
-test('the banked pending build carries no covered field', () => {
-  /* vvv_pending_build survives the magic-link round trip in localStorage. It
-     holds the nine builder answers and the preview -- and must never become a
-     place an unconsented heart rate waits for an account to arrive. */
-  assert.match(START, /var PENDING_KEY = 'vvv_pending_build'/);
-  const saves = START.match(/savePending\([\s\S]{0,400}?\)/g) || [];
-  assert.ok(saves.length > 0, 'nothing banks a pending build any more');
-  saves.forEach(s => ['lthr', 'maxhr', 'maxHR', 'readiness', 'hr']
-    .forEach(k => assert.ok(!new RegExp('\\b' + k + '\\b', 'i').test(s),
-      'a covered field is banked into the pending build: ' + k)));
+/* UPDATED (founder, 18 November 2026: "Remove the old start."). /start used
+   to bank a pending build (vvv_pending_build) across the magic-link round
+   trip, and this asserted no covered field went into it. /start now banks
+   nothing at all: it forwards to the root before it reads or writes a byte of
+   storage, which is the strongest form of the same law. The app's adoption of
+   a build banked before today is unchanged and still nulls the covered
+   fields (next test). */
+test('/start banks no pending build, so no covered field can wait in one', () => {
+  const code = START.replace(/<!--[\s\S]*?-->/g, '');
+  assert.doesNotMatch(code, /localStorage|vvv_pending_build|savePending/, '/start writes to storage again');
+  ['lthr', 'maxhr', 'maxHR', 'readiness'].forEach(k =>
+    assert.ok(!new RegExp('\\b' + k + '\\b', 'i').test(code), '/start handles a covered field: ' + k));
 });
 
 test('adopting a pre-account build always leaves the heart-rate fields empty', () => {
@@ -74,14 +76,12 @@ test('adopting a pre-account build always leaves the heart-rate fields empty', (
 // ===========================================================================
 // THE DEVICE IS SHARED; THE DECISION IS NOT
 // ===========================================================================
+/* UPDATED (founder, 18 November 2026: "Remove the old start."). The tag
+   (which account first authenticated while a build was banked) and the
+   48-hour expiry were written by /start's banking code, which is gone with
+   the screens. A build banked before today can still be on a device, so the
+   app's adoption keeps both refusals, and that is where they are held now. */
 test('a pending build cannot be inherited by a different account', () => {
-  /* A build banked before one athlete claimed their magic link must not be
-     silently adopted by a different real person who signs in on the same
-     device afterwards -- a phone handed over, a shared family laptop. The
-     record is tagged with whichever account first authenticated while it
-     existed, and adoption refuses a mismatch. */
-  assert.match(START, /function subFromToken/,
-    'the tag has to come from the token, not from anything the page chose');
   const adopt = APP.slice(APP.indexOf('function adoptPendingBuildIfAny'));
   assert.match(adopt.slice(0, 2000),
     /if \(pending\.uid && sub && pending\.uid !== sub\) return false;/,
@@ -89,11 +89,9 @@ test('a pending build cannot be inherited by a different account', () => {
 });
 
 test('an abandoned pending build expires rather than waiting forever', () => {
-  assert.match(START, /PENDING_MAX_AGE_MS = 48 \* 60 \* 60 \* 1000/);
-  const load = START.slice(START.indexOf('function loadPending'));
-  assert.match(load.slice(0, 400), /Date\.now\(\) - p\.savedAt\) > PENDING_MAX_AGE_MS/);
-  assert.match(load.slice(0, 400), /clearPending\(\)/,
-    'an expired record must be removed, not merely ignored');
+  const adopt = APP.slice(APP.indexOf('function adoptPendingBuildIfAny'));
+  assert.match(adopt.slice(0, 1200), /if \(!pending\.savedAt \|\| \(Date\.now\(\) - pending\.savedAt\) > PENDING_BUILD_MAX_AGE_MS\) return false;/);
+  assert.match(APP, /var PENDING_BUILD_MAX_AGE_MS = 48 \* 60 \* 60 \* 1000;/);
 });
 
 // ===========================================================================
