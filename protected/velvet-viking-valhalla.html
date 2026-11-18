@@ -55893,13 +55893,17 @@ function weekResultReading(N){
   if (nx && (nx.longHold || nx.qualityHold) && t.tone === 'positive') t = RESULT_WEEK_TONE.hold;
   var head = '';
   try { head = nx ? (weeklyReviewCopy(nx) || {}).head || '' : ''; } catch(e){ head = ''; }
-  var said = ev.done >= ev.due && !ev.overEffort && ev.timeStops > 0
+  /* An easy run running hot is a run harder than set (A4,
+     weeklyEasyRunHot): never "none harder than it was meant to be". */
+  var harderNow = weeklyHarder(ev);
+  var said = ev.done >= ev.due && !harderNow && ev.timeStops > 0
     ? 'Every session done, ' + (ev.timeStops === 1 ? 'one of them' : ev.timeStops + ' of them') + ' cut short.'
-    : ev.done >= ev.due && !ev.overEffort
+    : ev.done >= ev.due && !harderNow
     ? 'Every session done, and none harder than it was meant to be.'
     : ev.missed > 0 ? ev.missed + (ev.missed === 1 ? ' session' : ' sessions') + ' missed this week.'
     : ev.unknown > 0 ? ev.unknown + (ev.unknown === 1 ? ' session is' : ' sessions are') + ' not logged yet.'
-    : ev.overEffort > 0 ? ev.overEffort + (ev.overEffort === 1 ? ' run felt' : ' runs felt') + ' harder than intended.' : '';
+    : ev.overEffort > 0 ? ev.overEffort + (ev.overEffort === 1 ? ' run felt' : ' runs felt') + ' harder than intended.'
+    : ev.hotOnly > 0 ? (ev.hotOnly === 1 ? 'One easy run' : ev.hotOnly + ' easy runs') + ' ran above the easy heart-rate zone.' : '';
   var phase = null;
   try { phase = trainingPhase(N); } catch(e){ phase = null; }
   return { ev: ev, next: nx, tone: t, line: [said, head].filter(Boolean).join(' '), said: said, head: head, phase: phase,
@@ -56975,6 +56979,39 @@ function weeklyStopForTime(d){
   try { cut = sessionCutShortFor(d); } catch(e2){ cut = null; }
   return cut === 'unsaid';
 }
+/* AN EASY RUN RUNNING HOT IS A HARDER-THAN-SET SIGNAL (founder, Audit IV
+   amber A4, approved for fixing 18 November 2026: "the weekly review
+   ignores easy runs running hot"). In the learning simulation 96% of the
+   reviews after a week of easy runs whose heart rate sat clearly above the
+   easy zone still progressed: the review read effort and never heart rate.
+   THE TEST is the Recovery Check's own ("Running Hotter Than Usual",
+   recoveryCheckHrFlag): an easy run whose average heart rate is over the
+   ceiling of the zone it prescribes (executionHRTarget), here by the margin
+   the session assessment already calls exceeded (ASSESS_CAL.hrHighMarginPct,
+   assessEasyIntensity), so a reading at the top of the zone is not strain.
+   EXCUSED where SACORO already excuses it: inside the illness return or on
+   a morning they said they were unwell (illnessHrExcused, ILLNESS_HR_NOTE),
+   in heat, humidity, hills or wind (effortIsReadable), and with the watch
+   data marked off or a note that doubts the monitor. Nothing without
+   health consent: executionHRTarget() is null.
+   THE REVIEW READS IT AS IT READS EFFORT ABOVE THE BAND (ev.harder):
+   one such run makes the step the cautious 5%, two or more on easy runs
+   hold the week, as two easy runs logged harder than their band do. */
+function weeklyEasyRunHot(d){
+  if (!d || d.type !== 'easy' || !d.actual || d.actual.hr == null) return false;
+  var hr = Number(d.actual.hr);
+  if (!isFinite(hr) || d.actual.watchDataOff) return false;
+  /* A note that doubts the monitor ("HR strap was playing up") is read the
+     way the heart-rate baseline reads it (hrIsReadable). */
+  var env = null;
+  try { env = coachEnvironment(d.actual.notes, d.actual); } catch(e){ env = null; }
+  if (env && env.hrDoubt) return false;
+  if (illnessHrExcused(d)) return false;
+  if (!effortIsReadable(d)) return false;
+  var z = executionHRTarget(d);
+  if (!z || z.hi == null) return false;
+  return hr > z.hi * (1 + ASSESS_CAL.hrHighMarginPct / 100);
+}
 /* Was the main set of a quality session done? From the reps the athlete
    counted where there are any; otherwise from the distance, the main set
    being done when what was not run fits inside the cooldown. Null when it
@@ -57017,7 +57054,8 @@ function weeklyEvidence(week){
              overEffort: 0, qualityOverEffort: 0, easyOverEffort: 0, qualityDone: 0, qualityShort: 0,
              pain: 0, niggle: 0, scores: [], qualityScores: [],
              qualityFaded: 0, qualityRepsShort: 0, qualityNotes: [], timeStops: 0, timeShortKm: 0, allClear: 0,
-             unsaidStops: 0, creditKm: 0, qualityFullCredit: 0, qualityTimeHeld: 0, longCuts: [], paceLogged: 0 };
+             unsaidStops: 0, creditKm: 0, qualityFullCredit: 0, qualityTimeHeld: 0, longCuts: [], paceLogged: 0,
+             easyHot: 0, hotOnly: 0, hotNotes: [] };
   due.forEach(function(d){
     ev.dueKm += d.km;
     if (sessionRan(d)){
@@ -57028,6 +57066,16 @@ function weeklyEvidence(week){
       var rpe = d.actual && d.actual.rpe != null ? Number(d.actual.rpe) : null;
       var over = (band && rpe != null && rpe > band[1]);
       if (over){ ev.overEffort++; if (weeklyIsQuality(d)) ev.qualityOverEffort++; else ev.easyOverEffort++; }
+      /* AN EASY RUN RUNNING HOT (Audit IV A4, see weeklyEasyRunHot). Counted
+         once per run: a run already over its effort band is not counted
+         again for its heart rate. */
+      var hot = false;
+      try { hot = weeklyEasyRunHot(d); } catch(eHot){ hot = false; }
+      if (hot){
+        ev.easyHot++;
+        ev.hotNotes.push({ date: d.date, hr: Number(d.actual.hr) });
+        if (!over) ev.hotOnly++;
+      }
       /* CUT SHORT FOR TIME, REST OR ANOTHER REASON THAT SAYS NOTHING ABOUT
          FITNESS (Audit III T12), or with no reason given (Audit IV).
          Counted, and the distance not run is not held against the week; the
@@ -57098,6 +57146,12 @@ function weeklyEvidence(week){
     if (cut === 'fatigue') ev.fatigueStops++;
   });
   ev.dueKm = round1(ev.dueKm); ev.doneKm = round1(ev.doneKm);
+  /* Runs harder than set: effort above the band, or an easy run's heart
+     rate clearly above its zone (A4), each run once. The decision reads
+     these; ev.overEffort stays the effort the athlete reported, for the
+     words that say "felt harder". */
+  ev.harder = ev.overEffort + ev.hotOnly;
+  ev.easyHarder = ev.easyOverEffort + ev.hotOnly;
   ev.logged = ev.done + ev.missed;
   ev.loggedShare = ev.due ? ev.logged / ev.due : 0;
   ev.timeShortKm = round1(ev.timeShortKm);
@@ -57218,11 +57272,16 @@ function weeklyRestrictionReturn(N){
    distances only (no effort, pace or heart rate) earns the cautious step, not
    the standard one (founder, 17 November 2026): the distance says the runs
    happened, not how they went. */
+/* Runs harder than set, heart rate included (A4). Read through here so an
+   evidence object built without the new counts reads as it always did. */
+function weeklyHarder(ev){ return ev.harder != null ? ev.harder : ev.overEffort; }
+function weeklyEasyHarder(ev){ return ev.easyHarder != null ? ev.easyHarder : ev.easyOverEffort; }
 function weeklyEvidenceStep(ev, sig){
+  var harder = weeklyHarder(ev);
   var strong = sig.adaptation === 'ADAPTING' && (sig.recovery === 'fresh' || sig.recovery == null) &&
-               ev.overEffort === 0 && ev.completion >= 0.95 && !ev.distanceOnly &&
+               harder === 0 && ev.completion >= 0.95 && !ev.distanceOnly &&
                (ev.execution == null || ev.execution >= PLAYBOOK_GOOD_EXECUTION);
-  var cautious = sig.recovery === 'watch' || ev.overEffort === 1 || ev.completion < 0.85 || !!ev.distanceOnly;
+  var cautious = sig.recovery === 'watch' || harder === 1 || ev.completion < 0.85 || !!ev.distanceOnly;
   return { strong: strong, cautious: cautious,
            step: strong ? WEEKLY_STEP_STRONG : cautious ? WEEKLY_STEP_CAUTIOUS : WEEKLY_STEP_STANDARD };
 }
@@ -57273,7 +57332,87 @@ function weeklyApplySessionHolds(rv, result, kind){
   }
   return result;
 }
+/* DECLINING A HOLD DOES NOT JUMP (founder, Audit IV amber A5, approved for
+   fixing 18 November 2026). Declining a hold, a reload, a protected week or
+   the recovery sheet's hold used to keep the plan's own week, and after a few
+   held weeks the plan had moved on: 29.6% of declined holds gave a week more
+   than 25% above last week (12.5km run, 25.5km offered). Declining now
+   takes the standard step from the week actually run, never more, and never
+   less than the answer it declines.
+   THE WEEK ACTUALLY RUN is last week as it was finally prescribed, the week
+   the athlete has just had (rv.lastKm, the figure every step is taken
+   from); where stops for time took a tenth or more off it, the week run, by
+   the founder's cut-short rule (17 November 2026: "never from the week
+   planned", weeklyCutShortReading). Missed sessions and stops for fatigue
+   do not lower it further: they are why the sheet holds, and they already
+   keep the hold at last week. Read from what was run instead, declining
+   after them came to the hold itself, and the recovery sheet lost its third
+   choice on most fatigue weeks (measured, Audit IV A7). */
+function weeklyDeclineKm(lastKm, thisKm, ev, cutRead, acceptKm){
+  var ranKm = (cutRead && cutRead.weekRule) ? ev.runKm : lastKm;
+  var fromKm = round1(Math.min(lastKm, ranKm));
+  var capKm = round1(fromKm * (1 + WEEKLY_STEP_STANDARD));
+  return { km: round1(Math.min(thisKm, Math.max(acceptKm, capKm))), fromKm: fromKm };
+}
+/* THE WEEK AFTER AN ACCEPTED LIGHTER WEEK RETURNS TO THE WEEK BEFORE IT
+   (founder, Audit IV amber A6, approved for fixing 18 November 2026, on the
+   rule already written into the plan, returnAfterLighterWeek(): "Return to
+   the same as the week before deload ... it could have the 8% as a safety
+   net"). The plan's own lighter weeks keep that rule; a week the athlete
+   made lighter on the weekly sheet did not: the week after it snapped back
+   to the plan (9% of them more than 25% up, p90 1.24, 23.5km offered after a
+   6km week). After a hold, reload, protected week or recovery choice the
+   athlete took, week N goes no higher than the week before the lighter one
+   (or the lighter week, where that is bigger) + 8%
+   (POST_LIGHTER_SAFETY_NET), whatever the answer to week N's sheet. Null
+   when last week was not made lighter on the sheet. */
+function weeklyLighterReturn(N, prior, lastKm){
+  if (!prior || !(N >= 3)) return null;
+  var took = prior.kind === 'recovery' ? (prior.choice === 'hold' || prior.choice === 'reload')
+    : prior.decision === 'accepted' && ['hold', 'reload', 'protect'].indexOf(prior.kind) !== -1;
+  if (!took) return null;
+  var beforeKm = weekPlannedKm(N - 2);
+  return { beforeKm: beforeKm, capKm: round1(Math.max(lastKm, beforeKm) * POST_LIGHTER_SAFETY_NET) };
+}
 function weeklyCoachingReview(week){
+  var out = weeklyCoachingDecision(week);
+  if (out && out.kind) weeklyReviewBounds(out);
+  return out;
+}
+/* THE BOUNDS EVERY ANSWER KEEPS (A5, A6), set on the decision once it is
+   made, so each route keeps its own reasoning and none of them can step
+   past them. */
+function weeklyReviewBounds(out){
+  var N = out.week, ev = out.ev;
+  if (out.kind === 'none' || out.kind === 'planned_reduction' || !ev) return out;
+  /* Back from a break keeps its own rule: no bigger than the last full week
+     before it (weeklyRestrictionReturn). */
+  var lb = out.backFrom ? null : weeklyLighterReturn(N, out.prior, out.lastKm);
+  var ceiling = Infinity;
+  if (lb && out.plannedKm > lb.capKm + 0.5){
+    ceiling = lb.capKm;
+    out.lighterReturn = lb;
+    out.weekCeilingKm = lb.capKm;
+    out.reasons.push('lighter_return');
+    if (out.recommendedKm > ceiling) out.recommendedKm = ceiling;
+    if (out.options) Object.keys(out.options).forEach(function(k){ if (out.options[k] > ceiling) out.options[k] = ceiling; });
+    out.material = true;
+  }
+  var cut = null;
+  try { cut = weeklyCutShortReading(N, ev, out.signals || {}); } catch(e){ cut = null; }
+  var topKm = Math.min(out.plannedKm, ceiling);
+  if (out.kind === 'recovery' && out.options){
+    var dr = weeklyDeclineKm(out.lastKm, topKm, ev, cut, out.options.hold);
+    out.options.progress = dr.km; out.declineFromKm = dr.fromKm;
+    out.declineCapped = dr.km < out.plannedKm - 0.5;
+  } else if (['hold', 'reload', 'protect'].indexOf(out.kind) !== -1){
+    var dk = weeklyDeclineKm(out.lastKm, topKm, ev, cut, out.recommendedKm);
+    out.declineKm = dk.km; out.declineFromKm = dk.fromKm;
+    out.declineCapped = dk.km < out.plannedKm - 0.5;
+  }
+  return out;
+}
+function weeklyCoachingDecision(week){
   if (!state.setup || !state.days || !state.days.length) return null;
   var N = week != null ? week : currentWeekNum();
   if (!(N >= 2)) return null;
@@ -57423,7 +57562,11 @@ function weeklyCoachingReview(week){
   }
   /* 4. HOLD: the week was not absorbed. */
   var missedMuch = ev.missed >= 2 || (ev.completion < 0.7);
-  var effortHigh = ev.easyOverEffort >= 2 || (sig.recovery === 'watch' && ev.overEffort >= 2) ||
+  /* Effort above the band and easy runs running hot are read alike (A4,
+     weeklyEasyRunHot): two on easy runs hold the week. A reload still needs
+     the effort the athlete reported with execution dropping; heart rate
+     alone reaches it through the Recovery reading, as it always did. */
+  var effortHigh = weeklyEasyHarder(ev) >= 2 || (sig.recovery === 'watch' && weeklyHarder(ev) >= 2) ||
                    sig.executionPattern === 'persistent';
   /* A8 (founder, 15 November 2026): a persistent miss pattern across the
      recent sessions proposes a hold too, as a choice in the glass sheet. It
@@ -57465,15 +57608,16 @@ function weeklyCoachingReview(week){
       qualityStruggle = true; qualityCarried = ev2;
     }
   }
-  var holdOnlyFromQuality = !missedMuch && !missPersistent && ev.easyOverEffort < 2 &&
+  var holdOnlyFromQuality = !missedMuch && !missPersistent && weeklyEasyHarder(ev) < 2 &&
     (ev.qualityRepsShort + ev.qualityFaded + ev.qualityTimeHeld) > 0;
   if ((missedMuch || effortHigh || missPersistent) && !(qualityStruggle && qualityLeft && holdOnlyFromQuality)){
     out.kind = 'hold';
     out.recommendedKm = lastKm;
     if (missPersistent) out.reasons.push('miss_pattern');
     if (missedMuch) out.reasons.push(ev.missed >= 2 ? 'missed_sessions' : 'short_of_target');
-    if (ev.easyOverEffort >= 2) out.reasons.push('easy_effort_high');
-    if (sig.recovery === 'watch' && ev.overEffort >= 2) out.reasons.push('recovery_watch');
+    if (weeklyEasyHarder(ev) >= 2 && ev.easyOverEffort > 0) out.reasons.push('easy_effort_high');
+    if (weeklyEasyHarder(ev) >= 2 && ev.hotOnly > 0) out.reasons.push('easy_hr_high');
+    if (sig.recovery === 'watch' && weeklyHarder(ev) >= 2) out.reasons.push('recovery_watch');
     if (sig.executionPattern === 'persistent') out.reasons.push('execution_pattern');
     out.material = thisKm > lastKm + 0.5;
     /* Never above the week run, stepped, when stops for time took a tenth
@@ -57539,7 +57683,7 @@ function weeklyCoachingReview(week){
       /* THE NEW RUN DOES NOT BRING A BIGGER STEP WITH IT (Audit III LA5).
          The week still rises by the step the evidence allows; the extra run
          spreads it, it does not add to it. */
-      var nrCautious = sig.recovery === 'watch' || ev.overEffort === 1 || ev.completion < 0.85 || !!ev.distanceOnly;
+      var nrCautious = sig.recovery === 'watch' || weeklyHarder(ev) === 1 || ev.completion < 0.85 || !!ev.distanceOnly;
       var nrCap = round1(baseKm * (1 + (nrCautious ? WEEKLY_STEP_CAUTIOUS : WEEKLY_STEP_STANDARD)));
       if (thisKm > nrCap + 0.5){ out.recommendedKm = nrCap; out.reasons.push('smaller_than_planned'); }
       out.reasons.push('new_run');
@@ -57596,7 +57740,7 @@ function weeklyCoachingReview(week){
      only where the plan wanted a longer long run than the 10% step allowed
      (applyLongRunStepCap() kept that figure on the day). */
   var longEarnedBy = strong ? 'adapting' : null;
-  if (!longEarnedBy && !cautious && (sig.recovery === 'fresh' || sig.recovery == null) && ev.overEffort === 0 &&
+  if (!longEarnedBy && !cautious && (sig.recovery === 'fresh' || sig.recovery == null) && weeklyHarder(ev) === 0 &&
       longRunsEarnedStep(N)) longEarnedBy = 'long_runs';
   /* A long run held after one cut short is not also stepped up. */
   if (longEarnedBy && !cutRead.longHold){
@@ -57710,6 +57854,52 @@ function applyWeekTarget(week, targetKm, kind, opts){
       var easyMax = Math.max.apply(null, [0].concat(weekRunDays(week).filter(function(d){ return d.type === 'easy'; }).map(function(d){ return d.km; })));
       if (longD.km < easyMax) weeklySetKm(longD, easyMax, kind);
     }
+    /* AND AS CLOSE TO THE TARGET AS THE RUNS ALLOW (founder, Audit IV amber
+       A8, approved for fixing 18 November 2026: "the figure on the sheet
+       must be computed from exactly what will be applied"). The 5km minimum
+       and the rounding of each run push the scaled runs up, so a smaller
+       week could land 1 to 5km over the figure the evidence allowed. The
+       rest comes back off the runs that can give it, the longest easy run
+       first (half a kilometre at a time, never under 5km, or under what the
+       plan wrote where that is shorter), then the long run (a kilometre at a time, never under the
+       week's longest easy run nor under half of what the plan wrote, the
+       scaling's own floor), and only while each cut brings the week closer
+       to the target. Quality sessions keep their structure. */
+    var spent = {};
+    for (var gt = 0; gt < 200; gt++){
+      var over = round1(weekPlannedKm(week) - targetKm);
+      if (!(over > 0.25)) break;
+      var easyTop = Math.max.apply(null, [0].concat(weekRunDays(week).filter(function(d){ return d.type === 'easy'; }).map(function(d){ return d.km; })));
+      var cand = movable.filter(function(d){
+        if (spent[d.id] || dropped.indexOf(d) !== -1 || !(d.km > 0)) return false;
+        if (d.type === 'easy'){
+          var floorKm = Math.min(WEEK_FIT_MIN_EASY_KM, (d.weeklyAdjust && d.weeklyAdjust.from) ? d.weeklyAdjust.from.km : d.km);
+          return over > EASY_QUANTUM_KM / 2 && d.km - EASY_QUANTUM_KM >= floorKm - 1e-9;
+        }
+        var wrote = (d.weeklyAdjust && d.weeklyAdjust.from) ? d.weeklyAdjust.from.km : d.km;
+        return over > 0.5 && d.km - 1 >= Math.max(easyTop, WEEK_FIT_MIN_EASY_KM, roundWorkoutKm('long', wrote * 0.5)) - 1e-9;
+      }).sort(function(a, b){ return (a.type === 'long') - (b.type === 'long') || b.km - a.km; })[0];
+      if (!cand) break;
+      if (!weeklySetKm(cand, cand.km - (cand.type === 'long' ? 1 : EASY_QUANTUM_KM), kind)){ spent[cand.id] = true; continue; }
+      if (changed.indexOf(cand) === -1) changed.push(cand);
+    }
+    /* And the other way, where the rounding left the week short of a target
+       below the plan: back towards what the plan wrote, never past it nor
+       past the long run, the shortest easy run first, the long run last. */
+    var spentUp = {};
+    for (var gu = 0; gu < 200; gu++){
+      var under = round1(targetKm - weekPlannedKm(week));
+      if (!(under > 0.25)) break;
+      var up = movable.filter(function(d){
+        if (spentUp[d.id] || dropped.indexOf(d) !== -1 || !(d.km > 0)) return false;
+        var wrote = (d.weeklyAdjust && d.weeklyAdjust.from) ? d.weeklyAdjust.from.km : d.km;
+        return d.type === 'long' ? under > 0.5 && d.km + 1 <= wrote + 1e-9
+                                 : d.km + EASY_QUANTUM_KM <= wrote + 1e-9 && (!longD || d.km + EASY_QUANTUM_KM <= longD.km + 1e-9);
+      }).sort(function(a, b){ return (a.type === 'long') - (b.type === 'long') || a.km - b.km; })[0];
+      if (!up) break;
+      if (!weeklySetKm(up, up.km + (up.type === 'long' ? 1 : EASY_QUANTUM_KM), kind)){ spentUp[up.id] = true; continue; }
+      if (changed.indexOf(up) === -1) changed.push(up);
+    }
   }
   return { changed: changed };
 }
@@ -57740,6 +57930,19 @@ function restoreWeeklyAdjust(week){
   return n;
 }
 
+/* THE WEEK AFTER A LIGHTER WEEK, whichever answer (A6, weeklyLighterReturn). */
+function weeklyApplyWeekCeiling(rv, result){
+  if (!rv || rv.weekCeilingKm == null || !(weekPlannedKm(rv.week) > rv.weekCeilingKm + 0.5)) return result;
+  var r = applyWeekTarget(rv.week, rv.weekCeilingKm, 'progress');
+  (r.changed || []).forEach(function(d){ if (result.changed.indexOf(d) === -1) result.changed.push(d); });
+  return result;
+}
+/* What an answer aims at. Once the sheet has measured what each answer
+   delivers (weeklyReviewSettle), rv.recommendedKm and rv.options are those
+   delivered figures and the targets they came from are kept beside them, so
+   applying the answer aims where it always aimed. */
+function weeklyReviewAim(rv){ return rv.aimKm != null ? rv.aimKm : rv.recommendedKm; }
+function weeklyReviewAimOptions(rv){ return rv.aimOptions || rv.options; }
 /* The athlete's answer. `accept` is the recommended change; otherwise the
    alternative the sheet offered (for a progression, staying at the current
    weekly mileage; for everything else, keeping the week as planned). */
@@ -57747,15 +57950,23 @@ function answerWeeklyReview(rv, accept){
   if (!rv || !rv.kind) return null;
   var key = weeklyReviewKey(rv.week);
   var result = { changed: [] };
+  var aim = weeklyReviewAim(rv);
+  var merge = function(r){ (r && r.changed || []).forEach(function(d){ if (result.changed.indexOf(d) === -1) result.changed.push(d); }); };
   /* THE THREE-CHOICE PROPOSAL (R4). `accept` is the athlete's choice:
      'progress', 'hold' or 'reload'; true means the recommendation, false
      means continuing as planned. */
   if (rv.kind === 'recovery'){
     var choice = accept === true ? rv.choice : accept === false ? 'progress' : String(accept);
-    if (choice === 'hold' && rv.options.hold < rv.plannedKm - 0.5)
-      result = applyWeekTarget(rv.week, rv.options.hold, 'hold');
+    var opt = weeklyReviewAimOptions(rv);
+    if (choice === 'hold' && opt.hold < rv.plannedKm - 0.5)
+      result = applyWeekTarget(rv.week, opt.hold, 'hold');
     else if (choice === 'reload')
-      result = applyWeekTarget(rv.week, rv.options.reload, 'reload', { quality: 'shrink' });
+      result = applyWeekTarget(rv.week, opt.reload, 'reload', { quality: 'shrink' });
+    /* Continuing takes the usual step, never the plan's jump (A5,
+       weeklyReviewBounds). */
+    else if (choice === 'progress' && opt.progress < weekPlannedKm(rv.week) - 0.5)
+      result = applyWeekTarget(rv.week, opt.progress, 'progress');
+    weeklyApplyWeekCeiling(rv, result);
     weeklyReviewStore()[key] = { kind: rv.kind, week: rv.week, choice: choice, recommended: rv.choice,
       decision: choice === rv.choice ? 'accepted' : 'declined',
       at: new Date().toISOString(), lastKm: rv.lastKm, plannedKm: rv.plannedKm, recommendedKm: rv.recommendedKm,
@@ -57764,7 +57975,7 @@ function answerWeeklyReview(rv, accept){
   }
   if (rv.kind === 'progress' || rv.kind === 'insufficient'){
     if (accept){
-      if (rv.kind === 'progress' && Math.abs(rv.recommendedKm - rv.plannedKm) > 0.5) result = applyWeekTarget(rv.week, rv.recommendedKm, 'progress');
+      if (rv.kind === 'progress' && Math.abs(aim - rv.plannedKm) > 0.5) result = applyWeekTarget(rv.week, aim, 'progress');
       if (rv.kind === 'progress' && rv.baseHillsId){
         var hd = weeklyAdjustable(rv.week).filter(function(d){ return d.id === rv.baseHillsId && d.baseHillCandidate; })[0];
         if (hd) result.changed.push(weeklyApplyBaseHills(hd));
@@ -57785,9 +57996,8 @@ function answerWeeklyReview(rv, accept){
         if (hdS) result.changed.push(weeklyApplyBaseHills(hdS));
       }
     }
-    weeklyApplySessionHolds(rv, result, 'session_hold');
   } else if (rv.kind === 'new_run'){
-    if (accept && rv.recommendedKm < rv.plannedKm - 0.5) result = applyWeekTarget(rv.week, rv.recommendedKm, 'progress');
+    if (accept && aim < rv.plannedKm - 0.5) result = applyWeekTarget(rv.week, aim, 'progress');
     if (!accept){
       var nr = weeklyAdjustable(rv.week).filter(function(d){ return d.id === rv.newRunId; })[0];
       if (nr){
@@ -57822,13 +58032,16 @@ function answerWeeklyReview(rv, accept){
         others.forEach(function(d){
           if (want[d.id] > d.km && weeklySetKm(d, want[d.id], 'keep_runs')) result.changed.push(d);
         });
+        /* KEEPING THE RUNS KEEPS THE STEP (Audit IV A7): the question is how
+           many runs, not how far, so the week the athlete keeps on fewer
+           runs rises no more than the week offered on more. */
+        if (weekPlannedKm(rv.week) > aim + 0.5) merge(applyWeekTarget(rv.week, aim, 'keep_runs'));
       }
     }
-    weeklyApplySessionHolds(rv, result, 'session_hold');
   } else if (accept){
-    if (rv.kind === 'hold') result = applyWeekTarget(rv.week, rv.recommendedKm, 'hold');
-    else if (rv.kind === 'reload') result = applyWeekTarget(rv.week, rv.recommendedKm, 'reload', { quality: 'shrink' });
-    else if (rv.kind === 'protect') result = applyWeekTarget(rv.week, rv.recommendedKm, 'protect', { quality: 'easy' });
+    if (rv.kind === 'hold') result = applyWeekTarget(rv.week, aim, 'hold');
+    else if (rv.kind === 'reload') result = applyWeekTarget(rv.week, aim, 'reload', { quality: 'shrink' });
+    else if (rv.kind === 'protect') result = applyWeekTarget(rv.week, aim, 'protect', { quality: 'easy' });
     else if (rv.kind === 'quality') result = weeklyRepeatQuality(rv.week, 'quality');
     else if (rv.kind === 'quality_back'){
       result = weeklyRepeatQuality(rv.week, 'quality_back');
@@ -57837,9 +58050,17 @@ function answerWeeklyReview(rv, accept){
       });
     }
   }
-  /* The held long run and hard session, whichever answer (see
-     weeklyApplySessionHolds). */
-  if (rv.kind === 'hold' || rv.kind === 'quality') weeklyApplySessionHolds(rv, result, 'session_hold');
+  /* DECLINING A HOLD, A RELOAD OR A PROTECTED WEEK TAKES THE USUAL STEP
+     FROM THE WEEK RUN, never the plan's jump (A5, weeklyReviewBounds). */
+  else if (rv.declineKm != null && rv.declineKm < weekPlannedKm(rv.week) - 0.5)
+    result = applyWeekTarget(rv.week, rv.declineKm, 'progress');
+  /* The founder's return after a lighter week, then the held long run and
+     hard session: both are the founder's rules, not the question the sheet
+     asks, so they apply whichever answer is given (weeklyApplyWeekCeiling,
+     weeklyApplySessionHolds). The ceiling comes first so nothing it scales
+     can lift a held session again. */
+  weeklyApplyWeekCeiling(rv, result);
+  weeklyApplySessionHolds(rv, result, 'session_hold');
   weeklyReviewStore()[key] = { kind: rv.kind, week: rv.week, decision: accept ? 'accepted' : 'declined',
     at: new Date().toISOString(), lastKm: rv.lastKm, plannedKm: rv.plannedKm, recommendedKm: rv.recommendedKm,
     finalKm: weekPlannedKm(rv.week), reasons: rv.reasons.slice(), changed: result.changed.length };
@@ -57875,26 +58096,68 @@ function weeklyDryRun(fn){
 function weeklyDeliveredFigures(rv){
   if (!rv || !rv.kind) return null;
   var got = {};
+  /* One dry run per answer: the week's total, the week day by day, and the
+     long run it leaves. */
   var run = function(answer){
-    return weeklyDryRun(function(){ answerWeeklyReview(rv, answer); return weekPlannedKm(rv.week); });
+    return weeklyDryRun(function(){
+      answerWeeklyReview(rv, answer);
+      var wk = (state.days || []).filter(function(d){ return d && d.week === rv.week; });
+      var lr = wk.filter(function(d){ return d.type === 'long' && d.km > 0; })[0];
+      return { km: weekPlannedKm(rv.week), longKm: lr ? lr.km : null,
+               sig: wk.map(function(d){ return d.date + d.type + round1(d.km || 0); }).join('|') };
+    });
   };
   if (rv.kind === 'recovery' && rv.options){
-    ['progress', 'hold', 'reload'].forEach(function(c){ var k = run(c); if (k != null) got[c] = k; });
+    var rs = {};
+    ['progress', 'hold', 'reload'].forEach(function(c){ var k = run(c); if (k){ got[c] = k.km; rs[c] = k.sig; } });
+    /* CONTINUING THAT IS HOLDING IS NOT A CHOICE (Audit IV A7): where the
+       plan does not rise past the week held, the sheet offers two answers,
+       not three. */
+    got.progressIsHold = got.progress != null && got.hold != null &&
+      (rs.progress === rs.hold || Math.abs(got.progress - got.hold) < 0.5);
   } else {
     var y = run(true), n2 = run(false);
-    if (y != null) got.yes = y;
-    if (n2 != null) got.no = n2;
+    if (y){ got.yes = y.km; got.yesLongKm = y.longKm; }
+    if (n2){ got.no = n2.km; got.noLongKm = n2.longKm; }
     /* AND WHETHER THE TWO ANSWERS GIVE THE SAME WEEK, day by day (founder,
-       16 November 2026: "one Continue button when they match"). */
-    var sig = function(answer){
-      return weeklyDryRun(function(){ answerWeeklyReview(rv, answer);
-        return (state.days || []).filter(function(d){ return d && d.week === rv.week; })
-          .map(function(d){ return d.date + d.type + round1(d.km || 0); }).join('|'); });
-    };
-    var sy = sig(true), sn = sig(false);
-    got.same = sy != null && sy === sn;
+       16 November 2026: "one Continue button when they match"), or within
+       half a kilometre of it (founder, Audit IV amber A7, approved for fixing
+       18 November 2026: "both answers on the sheet give the same week", 7.8%
+       of sheets). Two buttons half a kilometre apart pretend there is a
+       choice. A new run is the exception: there the answer is how many runs,
+       not how far, and the days say so. */
+    got.same = !!(y && n2) && (y.sig === n2.sig ||
+      (rv.kind !== 'new_run' && Math.abs(y.km - n2.km) < 0.5));
   }
   return got;
+}
+/* THE FIGURES THE SHEET SHOWS ARE THE WEEKS THE ANSWERS WRITE (founder, Audit
+   IV amber A8, approved for fixing 18 November 2026: "the figure on the sheet
+   must be computed from exactly what will be applied, holds included"). The
+   week applied differed from the recommendation by more than 1km in 11.8% of
+   accepted answers, 42% of them the long run and hard session the cut-short
+   rule holds (weeklyApplySessionHolds), which apply after the week is sized
+   and so come off it. Once measured, rv.recommendedKm and rv.options are what
+   each answer delivers, holds included; the targets stay as rv.aimKm and
+   rv.aimOptions for applying (weeklyReviewAim), so the sheet, the toast, the
+   record and the plan quote one figure. */
+function weeklyReviewSettle(rv){
+  if (!rv || !rv.kind || rv.settled) return rv;
+  var dl = null;
+  try { dl = weeklyDeliveredFigures(rv); } catch(e){ dl = null; }
+  rv.delivered = dl;
+  if (!dl) return rv;
+  rv.settled = true;
+  if (rv.kind === 'recovery' && rv.options){
+    rv.aimOptions = Object.assign({}, rv.options);
+    ['progress', 'hold', 'reload'].forEach(function(c){ if (dl[c] != null) rv.options[c] = dl[c]; });
+    rv.aimKm = rv.recommendedKm;
+    rv.recommendedKm = rv.options[rv.choice];
+  } else if (dl.yes != null){
+    rv.aimKm = rv.recommendedKm;
+    rv.recommendedKm = dl.yes;
+  }
+  return rv;
 }
 /* WHY THE STEP IS SMALLER THAN THE PLAN'S, IN THE TRUE TERMS (founder,
    Audit III LA10: '"smaller step" appears on 12 of 101 flawless weeks; why?').
@@ -57913,7 +58176,7 @@ function weeklySmallerStepWhy(rv){
     return 'Even on your strongest weeks SACORO adds at most ' + pct + '%, so it steps up by that.';
   if (ev.distanceOnly)
     return 'With distances only, SACORO adds up to ' + pct + '% until it can see how your runs felt.';
-  if (r.indexOf('cautious') === -1 && ev.completion >= 0.95 && !(ev.overEffort > 0))
+  if (r.indexOf('cautious') === -1 && ev.completion >= 0.95 && !(weeklyHarder(ev) > 0))
     return 'Every session went to plan. SACORO adds up to ' + pct + '% a week until your fitness shows a clear gain, ' +
       'such as a faster pace at the same effort, and then up to ' + Math.round(WEEKLY_STEP_STRONG * 100) + '%.';
   return 'SACORO recommends a smaller step from what the evidence shows.';
@@ -57983,12 +58246,23 @@ function weeklyTimeStopLine(ev){
 /* WHAT IS HELD, IN PLAIN WORDS (founder, 17 November 2026: "name what is
    held"). The long run cut short keeps its target; a main set cut short
    repeats. */
+/* The long run the recommended answer writes, where the dry run measured it
+   (A8): a smaller week can leave it below the held figure, and the sheet
+   says the run it will be, not the one it is held to. */
+function weeklyHeldLongKm(rv){
+  var lh = rv && rv.longHold, dl = rv && rv.delivered;
+  if (!lh || !dl || dl.yesLongKm == null || !(dl.yesLongKm < lh.toKm - 0.25)) return null;
+  return dl.yesLongKm;
+}
 function weeklySessionHoldLines(rv){
   var out = [];
   var lh = rv && rv.longHold;
   if (lh){
+    var lower = weeklyHeldLongKm(rv);
     out.push('Your long run on ' + weeklyDayName(lh.cutDate) + ' was cut short: you ran ' + fmtDist(lh.ranKm) + ' of ' + fmtDist(lh.targetKm) + '.' +
-      (lh.bridged
+      (lower != null
+        ? ' The long run builds its adaptation over the whole distance, so it does not step up this week: in this smaller week it is ' + fmtDist(lower) + ' instead of ' + fmtDist(lh.fromKm) + '.'
+        : lh.bridged
         ? ' You ran most of it, so this week\u2019s long run goes only 1km further, to ' + fmtDist(lh.toKm) + ', instead of ' + fmtDist(lh.fromKm) + '.'
         : ' The long run builds its adaptation over the whole distance, so this week\u2019s long run stays at ' + fmtDist(lh.toKm) + ' instead of ' + fmtDist(lh.fromKm) + '.'));
   }
@@ -58005,8 +58279,36 @@ function weeklySessionHoldHead(rv){
 }
 function weeklySessionHoldNote(rv){
   if (!rv || !(rv.longHold || rv.qualityHold)) return '';
+  /* "Holds at" only where both answers write it there (A8); otherwise the
+     held figure is the most it can be. */
+  var dl = (rv && rv.delivered) || {};
+  var at = rv.longHold && [dl.yesLongKm, dl.noLongKm].every(function(k){ return k == null || Math.abs(k - rv.longHold.toKm) < 0.25; });
   return ' Either way, ' + (rv.longHold && rv.qualityHold ? 'your long run holds and your hard session repeats.'
-    : rv.longHold ? 'your long run holds at ' + fmtDist(rv.longHold.toKm) + '.' : 'your hard session repeats.');
+    : rv.longHold ? (at ? 'your long run holds at ' : 'your long run goes no further than ') + fmtDist(rv.longHold.toKm) + '.' : 'your hard session repeats.');
+}
+/* EASY RUNS RUNNING HOT, SAID BACK (A4): which runs, in the athlete's days. */
+function weeklyHotLine(ev){
+  var n = (ev && ev.hotNotes) || [];
+  if (!n.length) return '';
+  var days = n.map(function(x){ return weeklyDayName(x.date); });
+  return n.length === 1
+    ? 'Your heart rate averaged above the easy zone on ' + days[0] + '\u2019s easy run'
+    : 'Your heart rate averaged above the easy zone on your easy runs on ' + days.slice(0, -1).join(', ') + ' and ' + days[days.length - 1];
+}
+/* WHAT DECLINING GIVES, WHEN IT IS NOT THE PLAN'S WEEK (A5). */
+function weeklyDeclineNote(rv, lead, km){
+  if (!rv || !rv.declineCapped || km == null) return '';
+  var pct = Math.round(WEEKLY_STEP_STANDARD * 100);
+  var from = rv.declineFromKm != null && rv.declineFromKm < rv.lastKm - 0.5 ? 'the week you ran' : 'last week';
+  return ' ' + lead + ' takes the usual ' + pct + '% step on ' + from + ', to ' + fmtDist(km) +
+    ', not the ' + fmtDist(rv.plannedKm) + ' your plan had.';
+}
+/* THE WEEK BACK AFTER A LIGHTER WEEK (A6, weeklyLighterReturn). */
+function weeklyLighterReturnLine(rv){
+  var lb = rv && rv.lighterReturn;
+  if (!lb) return '';
+  return 'Last week was lighter, so this week returns to the week before it, ' + fmtDist(lb.beforeKm) +
+    ', with no more than ' + Math.round((POST_LIGHTER_SAFETY_NET - 1) * 100) + '% on top, not the ' + fmtDist(rv.plannedKm) + ' your plan had.';
 }
 /* ONE ANSWER WHEN BOTH GIVE THE SAME WEEK (founder, 16 November 2026: "one
    Continue button when they match"). The words say so too: one button, and
@@ -58015,7 +58317,11 @@ function weeklyReviewCopy(rv){
   var c = weeklyReviewCopyFor(rv);
   if (c && rv && rv.kind !== 'recovery' && rv.delivered && rv.delivered.same){
     c = Object.assign({}, c, { yes: 'Continue', no: null,
-      note: String(c.note || '').replace(/\s*(Part of this week is already run, so staying comes to|Staying keeps this week to) (?:[^.]|\.(?=\d))*\./, '').trim() });
+      note: String(c.note || '').replace(/\s*(Part of this week is already run, so staying comes to|Staying keeps this week to) (?:[^.]|\.(?=\d))*\./, '')
+        /* With one answer there is no "either way" (A7), and no other answer
+           to describe. */
+        .replace(/\s*(?:Progressing instead|Continuing instead|Training on instead) (?:[^.]|\.(?=\d))*\./, '')
+        .replace(/\bEither way,? (\w)/g, function(m, ch){ return ch.toUpperCase(); }).trim() });
   }
   return c;
 }
@@ -58057,6 +58363,8 @@ function weeklyReviewCopyFor(rv){
     if (ev.distanceOnly) why += noReadings
       ? ' You logged distances only, so there were no recovery readings to go on, and the step is a small one.'
       : ' You logged distances only, with no effort, pace or heart rate, so the step is a small one.';
+    /* An easy run running hot made the step the small one (A4). */
+    else if (ev.easyHot > 0 && rv.reasons.indexOf('cautious') !== -1) why += ' ' + weeklyHotLine(ev) + ', so the step is a small one.';
     else if (s.recovery === 'fresh' && noReadings) why += ' You logged distances only, so there were no recovery readings to go on.';
     else if (s.recovery === 'fresh') why += ' Your recovery readings are fresh.';
     else if (mflags.length && s.recoveryTraining === 'fresh')
@@ -58137,9 +58445,11 @@ function weeklyReviewCopyFor(rv){
     var heldNL = state.setup && state.setup.baseHeldNoLogs && state.setup.baseHeldNoLogs[rv.week];
     if (heldNL) logLine += ' So this week rises by the standard step only, to ' + dist(rv.plannedKm) + '.';
     var planWhy2 = weeklyPlanReason(rv);
+    var insKm = rv.lighterReturn ? yesKm(rv.recommendedKm) : rv.plannedKm;
     return { eyebrow: 'Coach’s Recommendation', head: 'Your plan steps up this week.',
-      why: logLine + (planWhy2 ? ' ' + planWhy2 : '') + ' The step is the one your plan set, within its safety limits.',
-      figures: [['Last week', dist(rv.lastKm)], ['This week', dist(rv.plannedKm) + ' (' + spct(rv.plannedKm, rv.lastKm) + ')']],
+      why: logLine + (rv.lighterReturn ? ' ' + weeklyLighterReturnLine(rv)
+        : (planWhy2 ? ' ' + planWhy2 : '') + ' The step is the one your plan set, within its safety limits.'),
+      figures: [['Last week', dist(rv.lastKm)], ['This week', dist(insKm) + ' (' + spct(insKm, rv.lastKm) + ')']],
       note: 'Log your runs this week and SACORO will read the next step from them.',
       yes: 'Accept Progression', no: 'Stay at Current Weekly Mileage' };
   }
@@ -58148,6 +58458,7 @@ function weeklyReviewCopyFor(rv){
     if (rv.reasons.indexOf('missed_sessions') !== -1) w.push(ev.missed + ' sessions were missed');
     if (rv.reasons.indexOf('short_of_target') !== -1) w.push('you completed ' + dist(ev.doneKm) + ' of ' + dist(ev.dueKm));
     if (rv.reasons.indexOf('easy_effort_high') !== -1) w.push('your easy runs felt harder than easy');
+    if (rv.reasons.indexOf('easy_hr_high') !== -1) w.push(weeklyHotLine(ev).replace(/^Your/, 'your'));
     if (rv.reasons.indexOf('recovery_watch') !== -1) w.push('your recovery readings are worth watching');
     if (rv.reasons.indexOf('execution_pattern') !== -1) w.push('recent sessions have repeatedly fallen short of their targets');
     var holdWhy = w.length ? 'Last week ' + w.join(', and ') + '. ' : '';
@@ -58169,6 +58480,10 @@ function weeklyReviewCopyFor(rv){
       holdWhy += weeklyTimeStopWhy(ev) + ', so you ran ' + dist(ev.runKm) + ' of the ' + dist(ev.dueKm) + ' planned. ' +
         'The distance not run is not made up, and this week builds from what you ran, ' + stepPct + '% more' +
         (ev.distanceOnly ? ' (the smaller step, as your runs were logged with distance only)' : '') + '. ';
+      /* AND WHERE THE WEEK CANNOT COME DOWN THAT FAR, THE SHEET SAYS SO (A8):
+         the figure below is the week the answer writes. */
+      if (rv.aimKm != null && yesKm(rv.recommendedKm) > rv.aimKm + 0.5)
+        holdWhy += 'Your hard sessions keep their structure and no easy run goes under 5km, so the week comes to ' + dist(yesKm(rv.recommendedKm)) + '. ';
     }
     if (hHolds.length) holdWhy += hHolds.join(' ') + ' ';
     return { eyebrow: 'Coach’s Recommendation',
@@ -58179,8 +58494,10 @@ function weeklyReviewCopyFor(rv){
       figures: timeWeek
         ? [['Last week you ran', dist(ev.runKm)], ['Planned this week', dist(rv.plannedKm)], ['Recommended', dist(yesKm(rv.recommendedKm))]]
         : [['Last week', dist(rv.lastKm)], ['Planned this week', dist(rv.plannedKm)], ['Recommended', dist(yesKm(rv.recommendedKm))]],
-      note: ('SACORO will look again next week with what you log.' + weeklySessionHoldNote(rv)).trim(),
-      yes: 'Hold at ' + dist(yesKm(rv.recommendedKm)), no: 'Progress as Planned' };
+      note: ('SACORO will look again next week with what you log.' + weeklySessionHoldNote(rv) +
+        weeklyDeclineNote(rv, 'Progressing instead', dl.no != null ? dl.no : rv.declineKm)).trim(),
+      yes: 'Hold at ' + dist(yesKm(rv.recommendedKm)),
+      no: rv.declineCapped ? 'Progress to ' + dist(dl.no != null ? dl.no : rv.declineKm) : 'Progress as Planned' };
   }
   if (rv.kind === 'reload'){
     var r = [];
@@ -58190,13 +58507,16 @@ function weeklyReviewCopyFor(rv){
     return { eyebrow: 'Coach’s Recommendation', head: 'Take a reload week.',
       why: 'Over the last week ' + r.join(', and ') + '. A lighter week now protects the progress you have made.',
       figures: [['Last week', dist(rv.lastKm)], ['Reload week', dist(yesKm(rv.recommendedKm))]],
-      note: 'Quality sessions stay in the week, a little shorter. Your plan continues from here afterwards.',
-      yes: 'Take the Reload Week', no: 'Continue as Planned' };
+      note: ('Quality sessions stay in the week, a little shorter. Your plan continues from here afterwards.' +
+        weeklyDeclineNote(rv, 'Continuing instead', dl.no != null ? dl.no : rv.declineKm)).trim(),
+      yes: 'Take the Reload Week',
+      no: rv.declineCapped ? 'Continue at ' + dist(dl.no != null ? dl.no : rv.declineKm) : 'Continue as Planned' };
   }
   if (rv.kind === 'quality_back'){
     return { eyebrow: 'Coach’s Recommendation', head: 'Keep the mileage. Step the session back.',
       why: (weeklyQualityEvidenceLine(ev) ? weeklyQualityEvidenceLine(ev) + ' ' : '') +
-        'Your quality session has fallen short two weeks running. This week it is a smaller version of last week’s session, so you can hit it well and build from there.',
+        'Your quality session has fallen short two weeks running. This week it is a smaller version of last week’s session, so you can hit it well and build from there.' +
+        (rv.lighterReturn ? ' ' + weeklyLighterReturnLine(rv) : ''),
       figures: [['This week', dist(yesKm(rv.plannedKm))]],
       note: 'Only the quality session changes. It steps up again once it goes well.',
       yes: 'Step the Session Back', no: 'Keep the Planned Session' };
@@ -58214,7 +58534,8 @@ function weeklyReviewCopyFor(rv){
           'The session is there for its time at intensity, so it repeats before it progresses. Stopping for time says nothing about your fitness, so the mileage stays.'
         : weeklyQualityEvidenceLine(qev)
         ? weeklyQualityEvidenceLine(qev) + (rv.qualityEv ? ' That was your last hard session.' : '') + ' Your easy running is going well, so the mileage stays and the session repeats before it progresses. That builds the same fitness with less risk.'
-        : 'Your easy running is going well, but last week’s quality session felt harder than it should and fell short of its targets. Repeating it before it progresses builds the same fitness with less risk.') + qLong,
+        : 'Your easy running is going well, but last week’s quality session felt harder than it should and fell short of its targets. Repeating it before it progresses builds the same fitness with less risk.') + qLong +
+        (rv.lighterReturn ? ' ' + weeklyLighterReturnLine(rv) : ''),
       figures: [['This week', dist(yesKm(rv.plannedKm))]],
       note: rv.longHold ? 'The quality session repeats, and your long run holds either way. Every other run stays as planned.'
         : 'Only the quality session changes. Every other run stays as planned.',
@@ -58236,12 +58557,17 @@ function weeklyReviewCopyFor(rv){
       why: reloadFirst
         ? 'Your recovery reports and your training readings both say fatigue is building. SACORO recommends a recovery week before the progression continues.'
         : 'Your recovery reports suggest fatigue may be building. SACORO recommends holding your current training load for another week before increasing it.',
+      /* Continuing is the usual step on the week run, never the plan's jump
+         (A5); and where it comes to the week held, it is not offered as a
+         third answer (A7): two answers, and the note says why. */
       choices: [
-        ['progress', 'Continue Progression', 'Follow the next planned increase, within the plan’s safety limits.', dl.progress != null ? dl.progress : rv.options.progress],
+        ['progress', 'Continue Progression', rv.declineCapped ? 'The usual step on last week, within the plan’s safety limits.'
+          : 'Follow the next planned increase, within the plan’s safety limits.', dl.progress != null ? dl.progress : rv.options.progress],
         ['hold', 'Hold Training Load', 'Keep your current weekly mileage while your recovery settles.', dl.hold != null ? dl.hold : rv.options.hold],
         ['reload', 'Recovery Week', 'A lighter week with easier running, then the plan continues.', dl.reload != null ? dl.reload : rv.options.reload]
-      ],
-      note: 'Nothing changes until you choose. SACORO will look again next week.',
+      ].filter(function(ch){ return !(ch[0] === 'progress' && dl.progressIsHold); }),
+      note: (dl.progressIsHold ? 'Your plan does not rise past your current load this week, so continuing and holding are the same week. ' : '') +
+        'Nothing changes until you choose. SACORO will look again next week.',
       yes: 'Confirm' };
   }
   if (rv.kind === 'protect'){
@@ -58253,8 +58579,10 @@ function weeklyReviewCopyFor(rv){
     return { eyebrow: 'Coach’s Recommendation', head: 'Protect this week.',
       why: 'Recently ' + p.join(', and ') + '. This week keeps you running easy and a little shorter. If it gets worse, tell SACORO through Injured or ill on Today.',
       figures: [['Last week', dist(rv.lastKm)], ['This week', dist(yesKm(rv.recommendedKm))]],
-      note: 'Quality sessions become easy runs this week only.',
-      yes: 'Ease This Week', no: 'Train as Planned' };
+      note: ('Quality sessions become easy runs this week only.' +
+        weeklyDeclineNote(rv, 'Training on instead', dl.no != null ? dl.no : rv.declineKm)).trim(),
+      yes: 'Ease This Week',
+      no: rv.declineCapped ? 'Train at ' + dist(dl.no != null ? dl.no : rv.declineKm) : 'Train as Planned' };
   }
   return null;
 }
@@ -58359,7 +58687,7 @@ var weeklyReviewOpen = null;
 function openWeeklyReviewSheet(rv){
   if (typeof document === 'undefined' || !document.createElement) return false;
   closeWeeklyReviewSheet();
-  if (rv && !rv.delivered){ try { rv.delivered = weeklyDeliveredFigures(rv); } catch(e){ rv.delivered = null; } }
+  if (rv && !rv.delivered) weeklyReviewSettle(rv);
   var html = weeklyReviewSheetHtml(rv);
   if (!html) return false;
   var layer = document.createElement('div');
@@ -58448,6 +58776,13 @@ function handleWeeklyAnswer(accept){
        line was computed from. */
     if (p.rv.kind === 'progress' && !accept)
       msg = (p.rv.backFrom ? 'Keeping your plan at ' : 'Staying at ') + fmtDist(rec.finalKm) + ' this week. SACORO will look again next week';
+    /* AND THE WEEK ANY OTHER ANSWER WROTE (founder, Audit IV amber A8: the
+       sheet, the toast and the plan quote one figure): finalKm, the figure
+       the sheet's dry run measured. */
+    else if (rec.changed && p.rv.kind === 'hold' && accept)
+      msg = 'Holding at ' + fmtDist(rec.finalKm) + ' this week. The original sessions are kept and can be restored';
+    else if (rec.changed && p.rv.kind !== 'quality' && p.rv.kind !== 'quality_back')
+      msg = 'This week is now ' + fmtDist(rec.finalKm) + '. The original sessions are kept and can be restored';
     showToast(msg);
     if (memCode) coachMemoryNoteDecline(memCode);
   }
@@ -58462,8 +58797,7 @@ function weeklyReviewDue(){
   var rv = weeklyCoachingReview(N);
   if (!rv || !rv.material || !weeklyReviewCopy(rv)) return null;
   if (!weeklyAdjustable(N).length) return null;
-  try { rv.delivered = weeklyDeliveredFigures(rv); } catch(e){ rv.delivered = null; }
-  return rv;
+  return weeklyReviewSettle(rv);
 }
 /* SHEETS THE APP RAISES ITSELF COME WITH THE APP OPENING, NOT AFTER
    ANYTHING (Audit III UX3-14: the check-in popped up straight after saving

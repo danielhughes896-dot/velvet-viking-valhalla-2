@@ -78,10 +78,16 @@ test('A8: a persistent miss pattern proposes a hold, and the athlete chooses', (
   assert.ok(rv.reasons.indexOf('miss_pattern') !== -1);
   const c = a.weeklyReviewCopy(rv);
   assert.match(c.why, /You have run \d+ of your last \d+ planned sessions/);
-  assert.match(c.no, /Progress as Planned/, 'the athlete can decline the hold');
+  /* Declining used to keep the plan's own week. Founder, Audit IV amber A5
+     (approved 18 November 2026): declining a hold "must not jump: at most the
+     standard step from the week actually run", so it keeps the plan's week
+     only where that is no more than 8% on last week, and says so. */
+  assert.match(c.no, /^(Progress as Planned|Progress to [\d.]+km)$/, 'the athlete can decline the hold');
   const planned = a.weekPlannedKm(3);
+  const stepped = Math.min(planned, Math.round(rv.lastKm * 1.08 * 10) / 10);
   a.answerWeeklyReview(rv, false);
-  assert.equal(a.weekPlannedKm(3), planned, 'declining keeps the plan');
+  assert.ok(Math.abs(a.weekPlannedKm(3) - stepped) <= 0.5, 'declining gave ' + a.weekPlannedKm(3) + ', not ' + stepped);
+  assert.ok(a.weekPlannedKm(3) > rv.recommendedKm, 'declining gave no more than holding');
 });
 
 /* ---------------------------------------------------------------- A3 */

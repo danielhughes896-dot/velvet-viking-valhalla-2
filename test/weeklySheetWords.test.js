@@ -16,7 +16,12 @@ const { buildPlan, logAsPrescribed } = require('./fixtures.js');
 const NOW = '2026-11-16';
 const ATHLETES = [
   { distanceKey: '5k', volume: 25, startDate: '2026-10-12', activeDays: [0, 1, 3, 4, 6] },  // stays at 32.5, last week 33
-  { distanceKey: '5k', volume: 35, startDate: '2026-10-19', activeDays: [1, 3, 6] },        // stays at 19, last week 18.5
+  /* This athlete used to stay at 19 after 18.5 on three runs. Since the week
+     lands as close to its target as the runs allow (founder, Audit IV amber
+     A8, 18 November 2026), staying there is last week exactly and no longer
+     the case this guards; the same athlete on five runs is (the 5km minimum
+     run keeps the week at 26 after 25). */
+  { distanceKey: '5k', volume: 35, startDate: '2026-10-19', activeDays: [0, 1, 3, 4, 6] },  // stays at 26, last week 25
 ];
 const km = s => { const m = /([\d.]+)\s*km/.exec(s || ''); return m ? +m[1] : null; };
 

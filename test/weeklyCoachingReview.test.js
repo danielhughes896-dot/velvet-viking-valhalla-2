@@ -80,7 +80,10 @@ test('performs poorly across repeated sessions: a reload week, with the evidence
   assert.ok(rv.reasons.length >= 1);
   const html = a.weeklyReviewSheetHtml(rv);
   assert.match(html, /Take the Reload Week/);
-  assert.match(html, /Continue as Planned/);
+  /* Founder, Audit IV amber A5 (18 November 2026): declining takes the usual
+     step on last week, not the plan's week, and the button names it when
+     that is not the plan's week. */
+  assert.match(html, /Continue as Planned|Continue at [\d.]+km/);
   assert.doesNotMatch(html, /progress\./i, 'a recovery recommendation was labelled a progression');
   a.answerWeeklyReview(rv, true);
   assert.ok(weekKm(a, 2) < weekKm(a, 1), 'the reload week is ' + weekKm(a, 2));
@@ -263,8 +266,12 @@ test('each choice does what it says, nothing changes before one is made, and it 
     assert.equal(a.weeklyReviewDue(), null, 'asked again after answering');
     return { a, rv, planned };
   };
+  /* Continuing is the plan's week where that is no more than the usual 8%
+     on last week, and the usual 8% where the plan asks for more (founder,
+     Audit IV amber A5, 18 November 2026: declining a hold "must not jump"). */
   const cont = pick('progress');
-  assert.equal(weekKm(cont.a, 2), cont.planned, 'continuing changed the week');
+  const stepped = Math.min(cont.planned, Math.round(cont.rv.lastKm * 1.08 * 10) / 10);
+  assert.ok(Math.abs(weekKm(cont.a, 2) - stepped) <= 0.5, 'continuing gave ' + weekKm(cont.a, 2) + ', not ' + stepped);
   const hold = pick('hold');
   assert.ok(weekKm(hold.a, 2) <= hold.rv.options.hold + 1, 'holding left the week at ' + weekKm(hold.a, 2));
   const rel = pick('reload');
