@@ -86665,9 +86665,12 @@ function renderJourneyOnly(){
     return renderJourneyWait(true);
   }
   if (journeyRead()) return renderJourney();
-  /* A plan on this device from before, signed out: the Welcome, whose way in
-     is Existing Member. Never the plan itself. */
-  if (planHasContent() || !athleteIsNew()){ journeyLastStep = 'welcome'; return renderJourneyWelcome(true); }
+  /* A plan on this device from before, signed out: the Welcome, never the
+     plan itself. Existing Member is the way back in, and Build My Plan is
+     still offered (founder, 18 November 2026: "I don't have an option to be
+     a new customer"): a new athlete on a phone that once held a plan must be
+     able to start. journey-start asks first, and puts the old plan aside. */
+  if (planHasContent() || !athleteIsNew()){ journeyLastStep = 'welcome'; return renderJourneyWelcome(); }
   return renderJourney();
 }
 
@@ -86851,6 +86854,30 @@ function renderJourneyWait(canRetry){
        end, so a way to ask again is always there. */
     (canRetry ? '<button type="button" class="jr-text-btn" data-action="journey-reload">Try Again</button>' : '')+
   '</div>';
+}
+/* A NEW ATHLETE ON A DEVICE THAT STILL HOLDS A PLAN (founder, 18 November
+   2026). Signed out with an old plan here, Build My Plan asks once: sign in
+   to carry on with it, or start a new plan. Starting new parks the old plan
+   in the device's plan archive under its owner (archivePlanFor, the same
+   quarantine an account switch uses), so it is put aside, never deleted, and
+   comes back when its own account signs in on this device. */
+function journeyAskStartFresh(){
+  askSacoro({
+    title: 'Start a New Plan?',
+    say: 'This device still has a plan saved from before. Sign in to carry on with it, or start a new plan for a new account.',
+    hint: 'Starting new puts the saved plan aside on this device. It is not deleted, and it comes back when its account signs in here.',
+    yes: 'Start a New Plan', no: 'Sign In Instead',
+    onYes: function(){ journeyStartFresh(); },
+    onNo: function(){ openSigninSheet(); }
+  });
+}
+function journeyStartFresh(){
+  if (planHasContent()) archivePlanFor(planOwnerUid() || ('local-' + todayStr()), state);
+  state = makeDefaultState();
+  try { writeStored(CLOUD_SYNC_KEY, null); } catch(e){}
+  initExpanded();
+  persistStateLocalOnly();
+  return journeyGo('achieve');
 }
 function renderJourneyWelcome(memberOnly){
   return '<div class="jr jr-welcome">'+
@@ -87545,7 +87572,9 @@ function journeyMaybeRefresh(){
 function handleJourneyAction(action, target){
   var key = target && target.getAttribute ? target.getAttribute('data-key') : null;
   switch(action){
-    case 'journey-start': return journeyGo('achieve');
+    case 'journey-start':
+      if (!cloudSignedIn() && planHasContent()) return journeyAskStartFresh();
+      return journeyGo('achieve');
     case 'journey-member': return openSigninSheet();
     case 'journey-back': return journeyBack();
     case 'journey-achieve': {

@@ -153,6 +153,32 @@ test('journey-only stops at Make It Yours: the trial and everything after need a
   assert.doesNotMatch(b.renderMainContent(), /day-top|view-today/);
 });
 
+/* "I don't have an option to be a new customer" (founder, 18 November 2026):
+   a signed-out device that still holds a plan offers Build My Plan too. It
+   asks first, and starting new parks the old plan in the device archive. */
+test('a device with an old plan, signed out, can still start a new plan, and the old one is put aside', () => {
+  const b = journeyOnly();
+  buildPlan(b, { distanceKey: '10k', weeks: 10 });
+  const html = b.renderMainContent();
+  assert.match(html, /data-action="journey-start">Build My Plan</);
+  assert.match(html, /data-action="journey-member">Existing Member</);
+  const asked = [];
+  b.askSacoro = o => asked.push(o);
+  b.handleJourneyAction('journey-start');
+  assert.equal(asked.length, 1, 'Build My Plan went straight past the saved plan without asking');
+  assert.equal(asked[0].title, 'Start a New Plan?');
+  assert.equal(asked[0].yes, 'Start a New Plan');
+  assert.equal(asked[0].no, 'Sign In Instead');
+  assert.ok(b.planHasContent(), 'asking alone cleared the plan');
+  const before = JSON.stringify(b.state.days.map(d => [d.date, d.type, d.km]));
+  asked[0].onYes();
+  assert.equal(b.planHasContent(), false, 'the old plan is still the working plan');
+  const arch = b.readPlanArchive();
+  const kept = Object.keys(arch).map(k => arch[k].state).find(st => JSON.stringify((st.days || []).map(d => [d.date, d.type, d.km])) === before);
+  assert.ok(kept, 'the old plan was not kept in the archive');
+  assert.equal(b.journeyStep(), 'achieve');
+});
+
 test('journey-only refuses every action that is not the journey\'s, the builder\'s or sign-in\'s', () => {
   const a = journeyOnly();
   ['journey-start', 'journey-achieve', 'bld-next', 'bld-back', 'generate-plan', 'set-event-mode', 'cal-open',
