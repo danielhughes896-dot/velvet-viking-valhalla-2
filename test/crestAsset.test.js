@@ -33,8 +33,8 @@ const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 const MASTER = path.join(ROOT, 'assets', 'velvet-viking-crest.png');
 
-/* Every document a browser can be handed. */
-const PAGES = ['get.html', 'start.html', 'account.html', 'privacy.html', 'terms.html',
+/* Every document a browser can be handed. (privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy.) */
+const PAGES = ['get.html', 'start.html', 'account.html', 'terms.html',
                'www/index.html', 'assets/vvv-shell.css', 'sw.js'];
 
 /* PNG header, read directly rather than trusted from a filename. */

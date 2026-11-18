@@ -53,9 +53,9 @@ const ROUTES = {
      consolidated routers exist precisely so a new commercial surface costs a
      route entry instead of one of them. */
   portal:           require('./_portal.js'),
-  /* Phase 3 commercial entry. Both mount here rather than as new functions --
-     the plan allows twelve and the router is what it is for. */
-  preview:          require('./_preview.js'),
+  /* `preview` (POST /api/preview) was removed on 18 November 2026 (founder
+     decision): nothing had called it since the web builder on /start was
+     retired on 16 November. The plan is built in the app. */
   /* COACH MEMORY. The athlete reading, keeping and clearing their own coach's
      notes: a verified athlete acting on their own account, which is what this
      router is for, and a route entry rather than one of the twelve functions.

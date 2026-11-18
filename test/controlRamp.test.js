@@ -114,10 +114,11 @@ test('the navigation is lit, not drawn', () => {
 // ---------------------------------------------------------------------------
 // ONE SHELL, NOT FIVE COPIES
 // ---------------------------------------------------------------------------
+/* privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy, so it is no longer one of the shell pages read below. */
 test('the shell defines the controls once and the pages stopped pasting them', () => {
   ['--ctl-bg', '--ctl-border', '--ctl-text', '--ctl-accent', '--danger-ink']
     .forEach(t => assert.ok(SHELL.includes(t + ':'), 'the shell owns ' + t));
-  ['account.html', 'get.html', 'privacy.html', 'terms.html'].forEach(f => {
+  ['account.html', 'get.html', 'terms.html'].forEach(f => {
     const s = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.match(s, /<link rel="stylesheet" href="\/assets\/vvv-shell\.css">/,
       f + ' must take its palette from the shell');
@@ -128,7 +129,7 @@ test('the shell defines the controls once and the pages stopped pasting them', (
 
 test('every token a shell page uses is one the shell defines', () => {
   const defined = new Set([...SHELL.matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
-  ['account.html', 'get.html', 'privacy.html', 'terms.html'].forEach(f => {
+  ['account.html', 'get.html', 'terms.html'].forEach(f => {
     const s = fs.readFileSync(path.join(ROOT, f), 'utf8');
     const local = new Set([...s.matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
     const missing = [...new Set([...s.matchAll(/var\((--[\w-]+)/g)].map(m => m[1]))]
@@ -164,7 +165,7 @@ test('the shell carries the mark, and the mark is the name between two dots', ()
   assert.match(SHELL, /\.vvv-wordmark\{[^}]*font-family:'Cinzel',serif; font-weight:600/,
     'the pages set the name in something other than the mark\u2019s own face and weight');
 
-  ['account.html', 'start.html', 'get.html', 'privacy.html', 'terms.html'].forEach(f => {
+  ['account.html', 'start.html', 'get.html', 'terms.html'].forEach(f => {
     const html = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.equal(html.indexOf('velvet-viking-crest'), -1, f + ' is serving the crest again');
     assert.match(html,

@@ -3,7 +3,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const Preview = require('../api/_preview.js');
 const E = require('../api/_entitlement.js');
 const A = require('../api/_access.js');
 const P = require('../api/_products.js');
@@ -18,140 +17,17 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const NOW = new Date('2026-08-20T12:00:00Z');
 
 // ---------------------------------------------------------------------------
-// THE ACCESS BOUNDARY
+// THE ACCESS BOUNDARY AND INPUT VALIDATION OF POST /api/preview
 // ---------------------------------------------------------------------------
-test('the preview never serves the protected runtime', () => {
-  const src = read('api/_preview.js');
-  // It loads the engine to RUN it, and returns a summary it assembles itself.
-  assert.equal(/serveRuntime|sendFile|res\.end\(html|readFileSync\(RUNTIME/.test(src), false,
-    'the preview must not ship the runtime file');
-  assert.match(src, /summarise\(/, 'what crosses the wire is assembled here');
-});
-
-test('the preview response is an allow-list, so the plan cannot escape', () => {
-  const src = read('api/_preview.js');
-  const fn = src.slice(src.indexOf('function summarise'), src.indexOf('async function handle'));
-  // Never a spread of the plan or the day. A spread is how the product leaks
-  // one release after somebody adds a field.
-  assert.equal(/\.\.\.d\b|Object\.assign\(\{\}, d\)|JSON\.parse\(JSON\.stringify\(days/.test(fn), false,
-    'days must be projected field by field');
-  assert.match(fn, /weekday: |type: |title: |km: /);
-});
-
-test('the preview shows real structure and the athlete\'s own paces', () => {
-  // Both were silently empty on first build: days carry no `phase` field, and
-  // paceZones() does not exist. An empty preview is a preview that argues
-  // nothing, so it is worth pinning what it actually renders.
-  const app = require('../test/harness.js').loadApp({ pinnedDate: '2026-08-20T09:00:00Z' });
-  const input = { distanceKey: 'half', weeks: 12, volume: 45,
-                  activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700,
-                  benchmarkDistanceKey: '10k', goalAmbition: 'B' };
-  const start = app.todayStr();
-  const race = app.addDays(app.addDays(start, -app.isoWeekday(start)), 12 * 7 - 1);
-  const block = app.buildBlockWeeks('half', 45, 12);
-  const days = app.buildDaysFromWeeks(block, race, { activeDays: input.activeDays, longRunDay: 6 }, start, false);
-  app.state = app.makeDefaultState(); app.state.setup = { raceDate: race };
-  const s = Preview.summarise(app, days, block, input);
-
-  assert.ok(s.phases.length >= 2, 'the block shape must be described');
-  assert.deepEqual(s.phases.map((x) => x.phase), ['Build', 'Taper']);
-  assert.ok(s.paces && s.paces.length >= 3, 'pace guidance is the evidence it is THEIR plan');
-  assert.match(s.paces[0].range, /\d+:\d\d\/km – \d+:\d\d\/km/);
-  assert.ok(s.programme.totalSessions > 0 && s.programme.totalKm > 0);
-  assert.ok(s.firstWeek.length > 0);
-});
-
-test('the preview withholds the coaching product', () => {
-  const src = read('api/_preview.js');
-  const fn = src.slice(src.indexOf('function summarise'), src.indexOf('async function handle'))
-    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1 ');
-  for (const withheld of ['executionReview', 'nextMove', 'adaptation', 'athleteState',
-                          'rationale', 'evolution', 'history', 'completed']) {
-    assert.equal(new RegExp('\\b' + withheld, 'i').test(fn), false,
-      'the preview exposes ' + withheld + ', which is the product rather than a summary');
-  }
-});
-
-test('the preview is reachable without authentication -- that is the point of it now', () => {
-  /* Was: 'an unauthenticated caller gets no preview', asserting a 401 gate.
-     That gate was correct for the acquisition order it was built under
-     (sign in, then build). The approved journey is now builder -> preview ->
-     "Save My Plan" -> trial, so an anonymous visitor must reach this endpoint
-     BEFORE they have ever authenticated. generate() was always a pure function
-     of the validated input -- see 'generating a preview writes nothing
-     commercial' below -- so nothing about removing the gate changes what the
-     preview can do; it only changes who may ask for it. */
-  const src = read('api/_preview.js');
-  assert.equal(/if \(!uid\) return S\.json\(res, 401/.test(src), false,
-    'the preview still hard-gates on a signed-in caller');
-  assert.match(src, /userIdFromRequest/, 'the caller is still identified when a token is present');
-});
-
-test('generating a preview writes nothing commercial', () => {
-  const src = read('api/_preview.js').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1 ');
-  for (const write of ['account_commercial', 'entitlement_grants', 'subscriptions',
-                       'start_standard_trial', 'trial_consumed']) {
-    assert.equal(src.indexOf(write), -1,
-      'the preview touches ' + write + ' — building a plan must not spend the trial');
-  }
-});
-
-// ---------------------------------------------------------------------------
-// INPUT VALIDATION — these values reach a generator
-// ---------------------------------------------------------------------------
-/* `ultra` MOVED SIDES, and it moved because it was on the wrong one.
-
-   This list used to assert that 'ultra' was refused as an unknown distance.
-   That was never a rule about safety -- DISTANCE_PROFILES has a complete ultra
-   profile and the entry copy promises "anything from a 5K to a 50K ultra" --
-   it was the allow-list having drifted from the engine's own list. The same
-   drift is what made every marathon preview fail: the list accepted
-   'marathon', which the engine has never had a key for, and refused 'full',
-   which is the key it does have.
-
-   So the guard now asserts the real rule -- only a distance the generator can
-   actually build -- and a genuinely unknown value takes ultra's place below,
-   so the refusal path is still exercised. */
-test('the builder refuses input that would abuse the engine', () => {
-  const ok = { distanceKey: '10k', weeks: 12, volume: 40, activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 };
-  assert.equal(Preview.validate(ok).ok, true);
-  const bad = [
-    [{ distanceKey: 'parkrun' }, 'unknown_distance'],
-    [{ distanceKey: '' }, 'unknown_distance'],
-    [{ purpose: 'recovery' }, 'unknown_purpose'],
-    [{ purpose: 'whatever' }, 'unknown_purpose'],
-    [{ weeks: 500 }, 'weeks_out_of_range'],
-    [{ weeks: 1 }, 'weeks_out_of_range'],
-    [{ volume: 9999 }, 'volume_out_of_range'],
-    /* A5 (founder, 15 November 2026): the builder accepts one to seven
-       running days, so the refusal is now no days at all. */
-    [{ activeDays: [] }, 'training_days_out_of_range'],
-    [{ activeDays: [6] }, null],
-    /* De-duplicated to seven distinct days -- once ABOVE the endpoint's own
-       (looser) days:[2,7], now above the canonical builder's own 3-6, which
-       assets/builder-spec.js's validation.daysRange makes this endpoint
-       enforce too. Accepting eight running days was the drift this file's
-       own header describes: a build the app itself could never generate. */
-    /* ...and seven distinct days (eight entries, one repeated) is now inside
-       the canonical range the endpoint reads, so it is accepted. */
-    [{ activeDays: [1,2,3,4,5,6,0,1] , longRunDay: 6 }, null],
-    [{ longRunDay: 4 }, 'long_run_day_not_a_training_day'],
-    [{ benchmarkSeconds: 5 }, 'benchmark_out_of_range']
-  ];
-  for (const [over, code] of bad) {
-    const r = Preview.validate(Object.assign({}, ok, over));
-    if (code === null) { assert.equal(r.ok, true, JSON.stringify(over) + ' should be accepted'); continue; }
-    assert.equal(r.ok, false, JSON.stringify(over));
-    assert.equal(r.code, code);
-  }
-});
-
-test('duplicate training days are de-duplicated, not counted twice', () => {
-  const r = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 40,
-    activeDays: [1,1,1,2,2,3], longRunDay: 2, benchmarkSeconds: 2700 });
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.input.activeDays, [1, 2, 3]);
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   Eight tests here read api/_preview.js: that it never served the runtime,
+   that its summary was an allow-list withholding the coaching product, that
+   it showed real structure and paces, that it needed no sign-in, that it
+   wrote nothing commercial, and that validate() refused abusive or duplicate
+   input. Nothing had called the endpoint since the web builder was retired
+   on 16 November, so the endpoint and every one of those properties went
+   with it. The app's own builder holds its validation in
+   test/builderSpecParity.test.js and test/m6-builder-answers.test.js. */
 
 // ---------------------------------------------------------------------------
 // THE COMMERCIAL DECISION
@@ -296,16 +172,18 @@ test('the new routes cost no serverless functions', () => {
   assert.ok(fns.length <= 12, 'function budget: ' + fns.length);
   const vercel = JSON.parse(read('vercel.json'));
   const srcs = vercel.routes.map((r) => r.src);
-  assert.ok(srcs.indexOf('/api/preview') !== -1);
+  /* POST /api/preview was removed (founder, 18 November 2026). */
+  assert.equal(srcs.indexOf('/api/preview'), -1, 'the removed preview endpoint is routed again');
+  assert.equal(fs.existsSync(path.join(ROOT, 'api/_preview.js')), false);
   assert.ok(srcs.indexOf('/api/checkout') !== -1);
   assert.ok(srcs.indexOf('/start') !== -1);
 });
 
-test('the account function can reach the runtime it needs to run', () => {
-  // The preview loads the engine, so protected/** must be bundled with it.
-  const vercel = JSON.parse(read('vercel.json'));
-  assert.equal(vercel.functions['api/account.js'].includeFiles, 'protected/**');
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   'the account function can reach the runtime it needs to run' pinned
+   includeFiles: protected/** on api/account.js only because the preview
+   loaded the engine. No account route reads the runtime now, so the bundle
+   setting went with the endpoint. */
 
 test('Android deep-link auth is untouched', () => {
   // beta-signin owns the native redirect; Phase 3 must not have moved it.

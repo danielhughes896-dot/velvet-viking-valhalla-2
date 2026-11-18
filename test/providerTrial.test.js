@@ -113,8 +113,8 @@ test('abandoning Checkout does not spend the trial', () => {
     'the apply path must go through the canonical consumer, not a second PATCH');
   // Neither door that opens a Checkout may touch it.
   assert.equal(read('api/_checkout.js').indexOf('trial_consumed_at'), -1);
-  assert.equal(read('api/_preview.js').indexOf('trial_consumed_at'), -1,
-    'seeing a preview is not using a trial');
+  /* api/_preview.js was checked here too; it went with POST /api/preview
+     (founder, 18 November 2026). */
 });
 
 test('a webhook replay cannot move the allowance forward', () => {

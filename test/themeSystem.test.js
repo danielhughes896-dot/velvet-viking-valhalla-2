@@ -29,8 +29,9 @@ const { buildPlan } = require('./fixtures.js');
 //      a colour.
 const ROOT = path.join(__dirname, '..');
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
+/* privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy. */
 const PAGES = ['protected/velvet-viking-valhalla.html', 'start.html', 'account.html',
-               'get.html', 'privacy.html', 'terms.html'];
+               'get.html', 'terms.html'];
 const RUNTIME = read('protected/velvet-viking-valhalla.html');
 
 /* Comments are allowed to discuss the things that are absent -- explaining why

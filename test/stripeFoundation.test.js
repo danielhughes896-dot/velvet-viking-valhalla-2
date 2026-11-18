@@ -298,7 +298,8 @@ test('the event is translated to facts, never to a verb', () => {
 // SECRETS
 // ---------------------------------------------------------------------------
 test('no Stripe secret can reach a browser', () => {
-  const clientFiles = ['account.html', 'get.html', 'admin.html', 'privacy.html', 'terms.html'];
+  /* privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy. */
+  const clientFiles = ['account.html', 'get.html', 'admin.html', 'terms.html'];
   for (const f of clientFiles) {
     const p = path.join(ROOT, f);
     if (!fs.existsSync(p)) continue;

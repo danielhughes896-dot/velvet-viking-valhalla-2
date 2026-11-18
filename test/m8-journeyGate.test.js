@@ -303,8 +303,8 @@ test('what an anonymous journey may reach on the server is public by design, and
   /* The catalogue and the agreement wording (the trial screen's prices), the
      ways in (Make It Yours), and whether the voice, Strava and Garmin exist
      at all (configuration probes that read no account and call nothing).
-     POST /api/preview is public too, by its own earlier design: it runs the
-     plan engine on the answers given and reads no account. */
+     (POST /api/preview, public by its own design, was removed on 18 November
+     2026.) */
   const restore = setEnv({ VVV_AUTH_PROVIDERS: undefined });
   const realFetch = globalThis.fetch;
   /* ONE READ IS ALLOWED, and it is not about anybody: GET /api/beta-signin

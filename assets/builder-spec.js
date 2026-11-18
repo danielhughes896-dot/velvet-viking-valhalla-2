@@ -12,9 +12,10 @@
 //      its own inline script, and reads window.BUILDER_SPEC.
 //   2. /start (start.html) loads the identical tag and reads the identical
 //      global -- the same request, the same bytes, the same object shape.
-//   3. api/_preview.js -- which validates a build request and runs the real
-//      engine on it before an athlete has ever authenticated -- requires()
-//      this file directly as a CommonJS module.
+//   3. (Removed 18 November 2026.) api/_preview.js, behind POST /api/preview,
+//      used to require() this file to validate a pre-account build request.
+//      Nothing had called it since the web builder was retired on 16
+//      November, so the endpoint and its module are gone.
 //   4. test/harness.js injects it into the sandboxed VM the regression suite
 //      runs the app in, so the app's own code and the tests that exercise it
 //      see the same object a real browser would.
@@ -213,8 +214,9 @@ var BUILDER_SPEC = {
 
   /* ---------- VALIDATION ----------
      THE SAME REQUIREMENTS bldValidateStage()/handleGeneratePlan() enforce in
-     the app, and api/_preview.js enforces server-side before an athlete has
-     an account. One set of numbers; both surfaces read them from here. */
+     the app (and adoptPendingBuildIfAny() re-checks). One set of numbers,
+     read from here. api/_preview.js read them too until it was removed on
+     18 November 2026. */
   /* ---------- STAGE 05's RECENT-RUNNING ANSWERS ----------
      ONE DEFINITION, SO EVERY ROAD ASKS THE SAME QUESTION. The protected app,
      /start and the preview endpoint all read this object, so the label, the
@@ -294,9 +296,9 @@ var BUILDER_SPEC = {
        existing unit handling and submits kilometres, exactly as the volume
        field already does.
 
-       Read by the app (raceGoalEntry()), by /start, and by api/_preview.js,
-       which routes a below-minimum race request to a base block server-side so
-       the pre-auth surface cannot produce a state the app would not build. */
+       Read by the app (raceGoalEntry()). api/_preview.js, which routed a
+       below-minimum race request to a base block server-side, was removed on
+       18 November 2026 with POST /api/preview. */
     raceGoalMinWeeklyKm: 6,
     daysRange: [1, 7],   // A5, founder 15 November 2026: open to 1-7; the week-fit check keeps every easy run 5km or more
     benchmarkSecondsRange: [300, 40000]

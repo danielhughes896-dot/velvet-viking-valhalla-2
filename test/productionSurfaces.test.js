@@ -296,7 +296,9 @@ test('no link in the runtime points at nothing', () => {
      href is a placeholder, and placeholders are what this pass removes. */
   const hrefs = (CODE.match(/href="([^"]*)"/g) || []).map(h => h.slice(6, -1));
   assert.ok(hrefs.length > 3, 'the scan found no links at all — it is not working');
-  const served = ['/privacy', '/terms', '/start', '/get', '/account'];
+  /* '/privacy' left this list on 18 November 2026 (founder): it is a redirect
+     to the website's policy now, so a link should name the website directly. */
+  const served = ['/terms', '/start', '/get', '/account'];
   hrefs.forEach(h => {
     if (h.indexOf("'+") !== -1 || h.indexOf('+LEGAL') !== -1) return;  // built at render time
     assert.notEqual(h, '', 'an empty href is a placeholder');

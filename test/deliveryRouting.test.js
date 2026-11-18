@@ -82,12 +82,31 @@ test('no route uses continue:true, which is what let a header rule sit in front 
 // THE GUARDS MUST NOT SWALLOW THE PUBLIC SURFACE
 // ---------------------------------------------------------------------------
 test('the public surface still resolves to its own static files', () => {
-  [['/account', '/account.html'], ['/privacy', '/privacy.html'],
+  [['/account', '/account.html'],
    ['/terms', '/terms.html'], ['/get', '/get.html']].forEach(([p, dest]) => {
     const hit = firstMatch(p);
     assert.ok(hit, p + ' matched nothing');
     assert.equal(hit.dest, dest, p + ' must stay publicly reachable without entitlement');
   });
+});
+
+test('/privacy is a permanent redirect to the website\'s policy, not a local copy', () => {
+  /* Founder, 18 November 2026: the app domain's privacy.html was out of date
+     (it still described an invitation-only private beta), and the website's
+     policy is the one that is maintained. So /privacy, and /privacy.html for
+     any old link, answer 308 to https://velvetviking.co.uk/privacy, and the
+     local copy is gone. Reached before the filesystem and without the gate. */
+  ['/privacy', '/privacy.html'].forEach(p => {
+    const hit = firstMatch(p);
+    assert.ok(hit, p + ' matched nothing');
+    assert.equal(hit.status, 308, p + ' must be a permanent redirect');
+    assert.equal(hit.headers && hit.headers.Location, 'https://velvetviking.co.uk/privacy', p);
+    assert.equal(hit.dest, undefined, p + ' must not be rewritten onto a local file');
+  });
+  assert.equal(firstMatch('/privacyx'), null, 'the redirect must match only the privacy paths');
+  assert.ok(!fs.existsSync(path.join(__dirname, '..', 'privacy.html')),
+    'the superseded local copy is back');
+  assert.ok(!ROUTES.some(r => r.dest === '/privacy.html'), 'a route still serves the local copy');
 });
 
 test('the account shell is never routed through the gate it redirects to', () => {

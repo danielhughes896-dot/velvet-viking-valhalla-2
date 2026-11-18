@@ -856,64 +856,11 @@ test('MAINTAIN: the 8-week review still arrives and still asks', () => {
     'the review must not transition on its own');
 });
 
-/* DRIVEN THROUGH THE PREVIEW'S OWN GENERATOR, not through a copy of it.
-
-   The first version of this test computed the steady flag itself and then
-   called buildBlockWeeks -- so it asserted that the ENGINE can build a steady
-   block, and said nothing about whether the preview asks it to. Removing the
-   option from _preview.js left it green. generate() is exported for exactly
-   this reason and is what the handler calls. */
-function previewFor(purpose, over){
-  const Preview = require(path.join(ROOT, 'api', '_preview.js'));
-  const v = Preview.validate(Object.assign({
-    purpose: purpose, distanceKey: 'half', weeks: Preview.defaultWeeksFor(purpose),
-    volume: 60, activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700
-  }, over || {}));
-  assert.equal(v.ok, true, 'the preview refused a legitimate ' + purpose + ' request: ' + v.code);
-  const built = Preview.generate(loadApp({ pinnedDate: TODAY }), v.input);
-  return { Preview, input: v.input, built, summary: Preview.summarise(
-    built.app, built.days, built.blockResult, v.input) };
-}
-
-test('MAINTAIN: the preview builds the same steady block the app does', () => {
-  const { built, summary } = previewFor('maintain');
-  assert.equal(built.blockResult.steady, true,
-    'THE PREVIEW ITSELF must ask for steady mode, not merely be able to');
-  assert.equal(built.blockResult.taperWeeks, 0);
-  assert.ok(!built.blockResult.weeks.some(w => w.isRace),
-    'the preview would have advertised a goal effort');
-  built.days.forEach(d => {
-    assert.notEqual(d.type, 'race', 'the previewed maintenance block contains a goal effort');
-    assert.doesNotMatch(String(d.title || ''), /race|goal effort/i,
-      'race language in a previewed maintenance session: ' + d.title);
-  });
-  assert.equal(summary.phases.length, 1, 'a steady block has one phase');
-  assert.equal(summary.phases[0].phase, 'Maintain');
-  assert.ok(!('raceDate' in summary.goal), 'maintenance must not be given a race date');
-});
-
-test('PREVIEW: every purpose comes back complete, and only race talks about racing', () => {
-  ['race', 'maintain', 'base', 'speed'].forEach(p => {
-    const { summary, built } = previewFor(p);
-    assert.ok(summary.programme.weeks > 0, p + ' has no length');
-    assert.ok(summary.programme.totalSessions > 0, p + ' has no sessions');
-    assert.ok(summary.programme.totalKm > 0, p + ' has no distance');
-    assert.ok(summary.phases.length > 0, p + ' has no structure');
-    assert.ok(summary.firstWeek.length > 0, p + ' has no first week');
-    assert.ok(summary.keySessions.length > 0, p + ' has no representative sessions');
-    assert.ok(summary.paces && summary.paces.length > 0, p + ' has no personal pace guidance');
-    assert.equal(summary.purpose.key, p);
-    if (p === 'race'){
-      assert.ok('raceDate' in summary.goal, 'a race block should carry its race date');
-    } else {
-      assert.ok('goalDay' in summary.goal, p + ' should have a goal day, not a race date');
-      assert.ok(!('raceDate' in summary.goal), p + ' was given a race date');
-      const said = JSON.stringify(summary) + JSON.stringify(built.days.map(d => d.title));
-      assert.doesNotMatch(said, /Race Day|Pre-Race|race kit/i,
-        p + ' leaked race language into the preview');
-    }
-  });
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   'MAINTAIN: the preview builds the same steady block the app does' and
+   'PREVIEW: every purpose comes back complete, and only race talks about
+   racing' drove api/_preview.js's generate()/summarise(), gone with the
+   endpoint. The app's own steady maintenance block is held above. */
 
 // ===========================================================================
 // 6c. THE OTHER PURPOSES ARE UNTOUCHED BY THE MAINTAIN CORRECTION
@@ -1139,65 +1086,13 @@ test('BUILDER: the offered length is the length the engine would have built', ()
   assert.equal(a.builderDefaultWeeks('race'), 14);
 });
 
-test('BUILDER: the server preview agrees with the app about every purpose', () => {
-  const Preview = require(path.join(ROOT, 'api', '_preview.js'));
-  const a = racingAthlete();
-  logPast(a);
-  Preview.PURPOSES.forEach(p => {
-    assert.equal(Preview.defaultWeeksFor(p), a.builderDefaultWeeks(p),
-      'preview and builder disagree about how long a ' + p + ' block is');
-  });
-  assert.equal(Preview.PURPOSES.indexOf('recovery'), -1,
-    'recovery must not be previewable — it is never chosen');
-  /* DRIVEN, NOT READ. Asserting PURPOSE_SHAPE.speed.forceDistance === '5k'
-     only says the constant is right; it says nothing about whether validate()
-     applies it. Mutation testing caught exactly that -- dropping forceDistance
-     from the resolution left every guard green while the server sent the
-     generator a distance the speed block does not train. */
-  const speed = Preview.validate({ purpose: 'speed', distanceKey: 'full', weeks: 6, volume: 50,
-    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
-  assert.equal(speed.ok, true);
-  assert.equal(speed.input.buildDistance, '5k',
-    'a speed block must be built from the 5K profile whatever distance was asked for');
-  const base = Preview.validate({ purpose: 'base', distanceKey: 'full', weeks: 10, volume: 50,
-    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
-  assert.equal(base.input.buildDistance, 'full',
-    'and a purpose with no forced distance must keep the athlete’s own');
-  assert.equal(base.input.buildVolume, 50, 'base starts at what is absorbed, not above it');
-  const maint = Preview.validate({ purpose: 'maintain', distanceKey: 'full', weeks: 8, volume: 50,
-    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
-  assert.ok(maint.input.buildVolume < 50, 'maintenance must sit below what is absorbed');
-  /* Race blocks are untouched by any of this. */
-  const race = Preview.validate({ purpose: 'race', distanceKey: 'full', weeks: 14, volume: 50,
-    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
-  assert.equal(race.input.buildDistance, 'full');
-  assert.equal(race.input.buildVolume, 50);
-  /* The one factor the preview restates rather than reads. If the engine's
-     maintenance factor moves, this is what notices. */
-  const spec = a.developmentBlockSpec('maintain', {});
-  const absorbed = a.absorbedWeeklyVolume();
-  assert.equal(Math.round(absorbed.km * Preview.PURPOSE_SHAPE.maintain.volumeFactor),
-    spec.volume, 'the preview and the engine shape maintenance differently');
-});
-
-test('BUILDER: every distance the entry copy promises can actually be built', () => {
-  const Preview = require(path.join(ROOT, 'api', '_preview.js'));
-  const a = racingAthlete();
-  /* The gateway promises "anything from a 5K to a 50K ultra". This is that
-     sentence, executed. */
-  a.DISTANCE_ORDER.forEach(k => {
-    assert.ok(Preview.DISTANCES.indexOf(k) !== -1,
-      k + ' can be built by the app but is refused by the preview');
-    assert.ok(a.DISTANCE_PROFILES[k], k + ' has no profile');
-  });
-  assert.equal(Preview.DISTANCE_ALIASES.marathon, 'full',
-    'the old client value must still resolve to a key the engine has');
-  const v = Preview.validate({ distanceKey: 'marathon', weeks: 12, volume: 40,
-    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
-  assert.equal(v.ok, true);
-  assert.equal(v.input.buildDistance, 'full',
-    'THE MARATHON PREVIEW BUG: this used to reach buildBlockWeeks as "marathon" and throw');
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   'BUILDER: the server preview agrees with the app about every purpose' and
+   'BUILDER: every distance the entry copy promises can actually be built'
+   drove api/_preview.js (its PURPOSES, PURPOSE_SHAPE, DISTANCES, the
+   'marathon' alias and validate()), gone with the endpoint. That every
+   distance the app orders has a profile, and that the order is the canonical
+   spec's, is held in test/builderSpecParity.test.js. */
 
 // ===========================================================================
 // 9. NOTHING NEW IN THE DATABASE

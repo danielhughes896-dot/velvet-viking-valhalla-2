@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 const BUILDER_SPEC = require('../assets/builder-spec.js');
-const preview = require('../api/_preview.js');
 
 /* THE MINIMUM RUNNING FOUNDATION FOR A RACE GOAL — SIX KILOMETRES A WEEK.
  * ===========================================================================
@@ -22,10 +21,10 @@ const preview = require('../api/_preview.js');
  * the athlete named stays on record.
  *
  * What these tests hold:
- *   1. ONE NUMBER, shared by the app, /start and the preview endpoint.
+ *   1. ONE NUMBER, read by the app from the canonical builder spec.
  *   2. 0-5 km/week ROUTES; 6 and above is permitted.
  *   3. The units an athlete reads do not move the authority.
- *   4. The pre-auth surface enforces it too, and routes rather than refusing.
+ *   4. (Retired: the pre-auth preview endpoint, removed 18 November 2026.)
  *   5. A race the athlete named survives being routed.
  *   6. Nothing switches them back silently.
  *   7. Valid inputs are untouched.
@@ -41,10 +40,6 @@ function app(){
   a.state = a.makeDefaultState();
   return a;
 }
-const RACE_REQUEST = {
-  distanceKey: 'full', purpose: 'race', hasEvent: true, raceDate: '2027-06-01',
-  activeDays: [1, 3, 4, 6], longRunDay: 6, benchmarkSeconds: 1800, benchmarkDistanceKey: '5k'
-};
 
 /* ---------- 1. ONE NUMBER ---------- */
 
@@ -53,8 +48,8 @@ test('the entry minimum is six kilometres and lives in the canonical builder spe
   const a = app();
   assert.equal(a.raceGoalMinWeeklyKm(), 6,
     'the app reads the spec rather than declaring the number a second time');
-  assert.equal(preview.BUILDER_SPEC.validation.raceGoalMinWeeklyKm, 6,
-    'and so does the endpoint /start builds through');
+  /* The endpoint /start built through (POST /api/preview) also read it; it was
+     removed on 18 November 2026 (founder decision). */
 });
 
 test('the app reads the number rather than hard-coding it', () => {
@@ -165,40 +160,11 @@ test('the builder shows the minimum in the athlete units without creating a seco
 
 /* ---------- 4. THE PRE-AUTH SURFACE ---------- */
 
-test('the preview endpoint routes a below-minimum race request instead of refusing it', () => {
-  [0.5, 1, 2, 3, 4, 5, 5.9].forEach(v => {
-    const r = preview.validate(Object.assign({}, RACE_REQUEST, { volume: v }));
-    assert.ok(r.ok, v + ' km/week must not be refused -- it must be routed');
-    assert.equal(r.input.purpose, 'base', v + ' km/week must preview an Aerobic Base block');
-    assert.equal(r.input.routedFrom, 'race');
-    assert.equal(r.input.routedReason, 'below_race_goal_entry_volume');
-    assert.equal(r.input.hasEvent, false, 'a development block has no event');
-    assert.equal(r.input.buildDistance, 'full', 'the distance they are building towards is kept');
-    assert.ok(r.input.weeks >= BUILDER_SPEC.validation.weeksRange[0],
-      'a routed request that arrived with an event still gets a real block length');
-  });
-});
-
-test('the preview endpoint leaves a valid race request exactly as it was', () => {
-  [6, 6.1, 20, 80].forEach(v => {
-    const r = preview.validate(Object.assign({}, RACE_REQUEST, { volume: v }));
-    assert.ok(r.ok);
-    assert.equal(r.input.purpose, 'race');
-    assert.equal(r.input.routedFrom, undefined,
-      'a request that was not routed carries no routing fields at all');
-    assert.equal(r.input.hasEvent, true);
-  });
-});
-
-test('the boundary is Race Goal entry, so the other purposes are untouched by it', () => {
-  ['base', 'speed', 'maintain'].forEach(p => {
-    const r = preview.validate(Object.assign({}, RACE_REQUEST,
-      { purpose: p, hasEvent: false, weeks: 8, volume: 2 }));
-    assert.ok(r.ok, p + ' must still build at 2km/week');
-    assert.equal(r.input.purpose, p);
-    assert.equal(r.input.routedFrom, undefined);
-  });
-});
+/* RETIRED (founder, 18 November 2026: remove the unused POST /api/preview).
+   Three tests drove api/_preview.js's validate(): a below-minimum race request
+   routed to Aerobic Base, a valid one left as it was, and the other purposes
+   untouched. The endpoint is gone, so the pre-auth surface they guarded no
+   longer exists; the app's own routing is held by the tests above and below. */
 
 /* ---------- 5. THE RACE SURVIVES THE ROUTING ---------- */
 

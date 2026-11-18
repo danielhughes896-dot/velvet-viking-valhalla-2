@@ -385,7 +385,13 @@ test('the shell still names no price and makes no claim', () => {
 test('legal routes stay reachable without any entitlement', () => {
   const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
   const dests = (cfg.routes || []).map(r => r.dest).filter(Boolean);
-  ['/privacy.html', '/terms.html', '/account.html'].forEach(d => {
+  ['/terms.html', '/account.html'].forEach(d => {
     assert.ok(dests.indexOf(d) !== -1, d + ' must not sit behind the gate');
   });
+  /* /privacy is not a local page any more (founder, 18 November 2026): it is a
+     308 to the website's policy, which no entitlement can stand in front of. */
+  const privacy = (cfg.routes || []).filter(r => r.src && new RegExp('^' + r.src + '$').test('/privacy'))[0];
+  assert.ok(privacy, '/privacy is not routed');
+  assert.equal(privacy.status, 308);
+  assert.equal(privacy.headers.Location, 'https://velvetviking.co.uk/privacy');
 });

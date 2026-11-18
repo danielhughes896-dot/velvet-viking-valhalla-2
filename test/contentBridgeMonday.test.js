@@ -364,7 +364,8 @@ test('18. monday credentials stay server-side', () => {
   for (const w of ['MONDAY_API_TOKEN', 'MONDAY_CONTENT_BOARD_ID', 'api.monday.com', '5102476403']) {
     assert.equal(RUNTIME.indexOf(w), -1, w + ' must never reach the client bundle');
   }
-  for (const f of ['account.html', 'get.html', 'admin.html', 'privacy.html', 'terms.html']) {
+  /* privacy.html was deleted (founder, 18 November 2026): /privacy now redirects to the website's policy. */
+  for (const f of ['account.html', 'get.html', 'admin.html', 'terms.html']) {
     const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.equal(src.indexOf('MONDAY'), -1, f + ' must not carry monday configuration');
   }
