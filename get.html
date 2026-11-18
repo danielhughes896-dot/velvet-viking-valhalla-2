@@ -195,15 +195,26 @@
 
   var show = isAndroid ? 'card-android' : (isIOS ? 'card-ios' : 'card-web');
   document.getElementById(show).hidden = false;
-  // On a computer "Launch the App" already opens it here: one button, not two.
-  if (show === 'card-web') document.getElementById('card-browser').hidden = true;
+  // On a computer "Launch the App" already opens it here: one button, not two
+  // IDENTICAL ones -- card-browser's "Just Open It in This Browser Instead"
+  // goes to the exact same href as card-web's own "Launch the App". That stays
+  // hidden. What a desktop visitor is missing is a genuinely DIFFERENT second
+  // option: the Android download, for anyone who wants to grab it here and
+  // sideload it onto a phone, or just prefers an install over a browser tab.
+  // Founder: "I want it as an option. So download app or carry on on web."
+  if (show === 'card-web') {
+    document.getElementById('card-browser').hidden = true;
+    document.getElementById('card-android').hidden = false;
+  }
 
   // Always offer the other platforms too -- people share this link onward, and
   // detection should steer rather than lock anyone out.
   var others = {
     'card-android':'On an iPhone instead? <a href="#" data-show="card-ios">Add it to your home screen</a>.',
     'card-ios':'On Android instead? <a href="#" data-show="card-android">Download the App</a>.',
-    'card-web':'On a phone? <a href="#" data-show="card-android">Android download</a> or <a href="#" data-show="card-ios">iPhone instructions</a>.'
+    // card-android is now shown alongside card-web on desktop, so the only
+    // platform still worth a link here is iPhone.
+    'card-web':'On an iPhone instead? <a href="#" data-show="card-ios">Add it to your home screen</a>.'
   };
   /* THE JOURNEY'S DOWNLOAD STEP (founder, 18 November 2026). After Welcome
      to SACORO the website hands the athlete here, with ?from=journey: the
