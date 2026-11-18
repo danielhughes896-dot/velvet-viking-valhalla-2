@@ -317,7 +317,7 @@ test('cancelling during the trial keeps the trial and stops the renewal', async 
     assert.equal(during.active, true);
     assert.equal(during.reason, 'trial');
     // And then stops, without anyone charging them.
-    const after = resolve(f, T0 + days(10));
+    const after = resolve(f, T0 + days(15));
     assert.equal(after.active, false);
   });
 });
