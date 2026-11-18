@@ -302,7 +302,7 @@ test('the three slides are drawn from the real plan by the app\'s own components
   const q = a.journeyFirstQualityDay();
   assert.ok(a.isQualityType(q.type), 'slide two is not a quality session');
   assert.ok(html.indexOf(a.escapeHtml(a.heroCardTitle(q))) !== -1, 'slide two is not the first quality session');
-  assert.match(html, /class="how-mod strat-phase is-active"/, 'slide two has no warm-up card');
+  assert.match(html, /class="how-mod is-active" data-mod="ws-0"[^]*?ws-warmup/, 'slide two is not the session\'s own warm-up card');
   assert.match(html, /Ask about your training/, 'slide three is not the Ask Coach panel');
   const devices = html.match(/<div class="jr-device"[^]*?<h2/g) || [];
   assert.equal(devices.length, 3);
@@ -512,4 +512,77 @@ test('the welcome photograph is an optimised asset, and only the Welcome uses it
   assert.ok(size > 40e3 && size < 320e3, 'the welcome photo is ' + size + ' bytes');
   assert.equal((RUNTIME.match(/welcome-runner\.webp/g) || []).length, 1, 'the photograph is on more than the Welcome');
   assert.ok(fs.existsSync(path.join(ROOT, 'assets/onboarding/sacoro-s.png')));
+});
+
+// ---------------------------------------------------------------------------
+// COORDINATOR FIXES BEFORE THE FOUNDER'S REVIEW (18 November 2026)
+// ---------------------------------------------------------------------------
+test('slide two shows the session\'s warm-up as Today draws it, label and distance', () => {
+  const a = journeyWithPlan('slides');
+  const html = a.journeySlideSession();
+  assert.match(html, /ws-warmup[^]*?<span class="ws-h-presc">Warm up<\/span><span class="ws-h-qty font-mono">[0-9.]+(km|mi)<\/span>/,
+    'the warm-up card does not name the warm-up and its distance');
+  assert.doesNotMatch(html, /strat-phase|from 0/, 'the execution phase "Settle / from 0km" is back on the slide');
+  /* the same card as the real session page, not a copy */
+  const dd = a.journeyFirstQualityDay();
+  assert.ok(a.renderDayCard(dd).indexOf(a.renderStructuredWorkout(dd)) !== -1,
+    'the session page does not draw this same Workout rail');
+  /* a quality session without a warm-up is passed over for the next with one */
+  const quality = a.state.days.filter(d => d.type !== 'rest' && d.type !== 'race' && a.isQualityType(d.type))
+    .sort((x, y) => x.date < y.date ? -1 : 1);
+  const at = quality.indexOf(dd);
+  assert.ok(at >= 0);
+  quality.slice(0, at).forEach(d => assert.equal(a.renderStructuredWorkout(d).indexOf('ws-warmup'), -1,
+    d.title + ' has a warm-up and was skipped'));
+  const real = a.renderStructuredWorkout;
+  a.renderStructuredWorkout = d => d === dd ? '<section class="ws-block"></section>' : real(d);
+  const next = a.journeyFirstQualityDay();
+  assert.notEqual(next, dd, 'a session with no warm-up card was still chosen');
+  assert.match(a.renderStructuredWorkout(next), /ws-warmup/);
+});
+
+test('a phase that starts at zero with no end shows no distance, and words are not set in mono', () => {
+  const a = fresh();
+  assert.equal(a.fmtStrategySpan({ from: 0 }), '', '"from 0km" is a distance again');
+  assert.equal(a.fmtStrategySpan({ from: 2 }), 'from 2km');
+  assert.equal(a.fmtStrategySpan({ from: 0, to: 2 }), '0km\u20132km');
+  const settle = a.renderStrategyPhase({ label: 'Settle', from: 0 });
+  assert.doesNotMatch(settle, /strat-phase-span/, 'an empty span is still drawn');
+  assert.match(a.renderStrategyPhase({ label: 'Absorb', to: 5 }), /<span class="strat-phase-span">to 5km<\/span>/,
+    'a span that opens with a word is set in the figure face');
+  assert.match(a.renderStrategyPhase({ label: 'Hold', from: 5, to: 10 }), /strat-phase-span font-mono">5km\u201310km/);
+});
+
+test('the Plan generated toast stands down while the journey is the confirmation', () => {
+  const gen = fnSrc('handleGeneratePlan');
+  assert.match(gen, /if \(!journeyActive\(\)\) showToast\('Plan generated: '/);
+});
+
+test('the first Today after the journey raises no sheet; the offer comes at the next opening', () => {
+  /* the installed app: the journey ends in this launch, which stays quiet */
+  const app = journeyWithPlan('arrive');
+  app.isNativeApp = () => true;
+  app.journeyNavigate = () => true;
+  app.autoSheetsUntil = Date.now() + 60e3;
+  app.handleJourneyAction('journey-finish');
+  assert.equal(app.autoSheetsOpen(), false, 'an offer sheet can rise over the first Today');
+  /* leaving and coming back is the next natural opportunity */
+  app.document.visibilityState = 'hidden';
+  (app.document._listeners.visibilitychange || []).forEach(fn => fn());
+  assert.equal(app.autoSheetsOpen(), true, 'the quiet outlived the first visit');
+
+  /* the website: the journey ends by going to /get, so the NEXT load is quiet, once */
+  const web = journeyWithPlan('arrive');
+  web.journeyNavigate = () => true;
+  web.handleJourneyAction('journey-finish');
+  const rec = web.localStorage.getItem('vvv_journey');
+  assert.match(rec, /"quietPending":true/);
+  const first = fresh({ storage: { vvv_journey: rec, 'velvet-viking-generator-v2': JSON.stringify(web.state) } });
+  assert.equal(first.autoSheetsOpen(), false, 'the first Today on the website raised a sheet');
+  const second = fresh({ storage: { vvv_journey: first.localStorage.getItem('vvv_journey'),
+    'velvet-viking-generator-v2': JSON.stringify(web.state) } });
+  assert.equal(second.autoSheetsOpen(), true, 'the offer was dropped rather than deferred');
+  /* and the offer keeps its own rules */
+  assert.match(fnSrc('maybeRaiseThresholdTestOffer'), /if \(thresholdTestNotToday\(\)\) return;/);
+  assert.match(fnSrc('maybeRaiseThresholdTestOffer'), /!autoSheetsOpen\(\)/);
 });

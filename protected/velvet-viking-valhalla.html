@@ -12654,8 +12654,9 @@
   .jr-screen .pp-rail.jr-pp{margin-top:16px; overflow:hidden;}
   .jr-screen .pp-rail.jr-pp .pp-track{transform:none;}
   .jr-screen .jr-warm{margin-top:18px;}
+  /* One card of the rail, the warm-up: no heading, no dots, nothing beside. */
+  .jr-screen .jr-warm .ws-head, .jr-screen .jr-warm .how-dots{display:none;}
   .jr-screen .jr-warm .ws-rail{overflow:hidden;}
-  .jr-screen .jr-warm .how-mod{flex:0 0 100%; width:100%;}
   .jr-slide-title{font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
     letter-spacing:var(--label-track); font-size:1.375rem; line-height:1.15; margin:26px 0 8px; color:#FFFFFF;}
   .jr-slides-page .jr-lede{margin:0 0 6px;}
@@ -42906,7 +42907,12 @@ function fmtStrategySpan(ph){
   if (ph.spanLabel) return ph.spanLabel;
   if (ph.from!=null && ph.to!=null) return fmtDist(ph.from)+'–'+fmtDist(ph.to);
   if (ph.to!=null) return 'to '+fmtDist(ph.to);
-  if (ph.from!=null) return 'from '+fmtDist(ph.from);
+  /* "FROM 0KM" IS NOT A DISTANCE. A rep session's opening phase starts at the
+     start and the engine does not know where it ends, so it carries from:0
+     and nothing else; printed, that was "Settle / from 0km" (found 18
+     November 2026, building the journey's session slide). Every phase
+     starts somewhere after zero, so a zero start with no end says nothing. */
+  if (ph.from!=null && ph.from > 0) return 'from '+fmtDist(ph.from);
   if (ph.sec!=null) return Math.round(ph.sec/60)+'min';
   if (ph.reps!=null) return '×'+ph.reps;
   return '';
@@ -43010,7 +43016,9 @@ function renderStrategyPhase(ph){
     .map(function(t){ return escapeHtml(resolveDesc(t)); }).join(' ');
   return '<div class="how-mod strat-phase"><div class="ws-card-body">'+
     '<div class="strat-phase-head"><span class="strat-phase-label">'+escapeHtml(ph.label)+'</span>'+
-      (span?'<span class="strat-phase-span font-mono">'+escapeHtml(span)+'</span>':'')+
+      /* The figure face for a figure ("0-5km", "17min"), the sentence face
+         where the span opens with a word ("to 5km"): no mono inside words. */
+      (span?'<span class="strat-phase-span'+(/^[0-9\u00d7]/.test(span) ? ' font-mono' : '')+'">'+escapeHtml(span)+'</span>':'')+
     '</div>'+
     (lines?'<div class="strat-phase-target font-mono">'+lines+'</div>':'')+
     (prose?'<div class="strat-phase-say">'+prose+'</div>':'')+
@@ -59052,7 +59060,12 @@ function weeklyReviewDue(){
 var AUTO_SHEET_WINDOW_MS = 20000;
 var autoSheetsUntil = Date.now() + AUTO_SHEET_WINDOW_MS;
 var autoSheetChain = 0;   /* until when the weekly sheet may follow the check-in */
-function autoSheetsOpen(){ return Date.now() <= autoSheetsUntil || Date.now() <= autoSheetChain; }
+function autoSheetsOpen(){
+  /* Not on the first Today after the first-time journey (founder's journey,
+     18 November 2026); see journeyFirstTodayQuiet(). */
+  if (journeyFirstTodayQuiet()) return false;
+  return Date.now() <= autoSheetsUntil || Date.now() <= autoSheetChain;
+}
 if (typeof document !== 'undefined' && document.addEventListener){
   try { document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible') autoSheetsUntil = Date.now() + AUTO_SHEET_WINDOW_MS; }); } catch(eV){}
@@ -71408,7 +71421,10 @@ async function handleGeneratePlan(){
         ? '. Your weeks hold at about ' + fmtDist(blockResult.peakCappedTo) + ', the week you already run, and the sessions do the progressing'
         : '. Your weeks top out at ' + fmtDist(blockResult.peakCappedTo) + ', all this race needs at your level, so the climb is gentler';
     var recordNote = volumeFromRecord > 0 ? '. Built from the running on your record, about ' + fmtDist(volumeFromRecord) + ' a week' : '';
-    showToast('Plan generated: '+planLengthLabel(daysBetween(startDate,raceDate)+1)+toward+', starting '+dShort(startDate)+
+    /* NOT DURING THE FIRST-TIME JOURNEY (founder's journey, 18 November
+       2026): the slides drawn from the plan are the confirmation, and a toast
+       laid over the first of them only hides it. */
+    if (!journeyActive()) showToast('Plan generated: '+planLengthLabel(daysBetween(startDate,raceDate)+1)+toward+', starting '+dShort(startDate)+
       recordNote+(weekFitNote ? '. '+weekFitNote : '')+peakNote+historyNote);
   }
 }
@@ -86707,11 +86723,21 @@ function journeyStill(html){
     .replace(/<input\b/g, '<input tabindex="-1" disabled')
     .replace(/<button\b/g, '<button tabindex="-1" disabled');
 }
-/* The first session in the plan with a hard part to it, and its warm-up. */
+/* The session the second slide shows: the first one in the plan with a hard
+   part to it AND a warm-up of its own on its Workout rail, because "know every
+   session" is shown through that warm-up card, as in the founder's mock-up.
+   A first quality session without one (a strides day, say) is passed over
+   for the next that has one; with none at all, the first quality session. */
 function journeyFirstQualityDay(){
   var days = (state.days || []).filter(function(d){ return d && d.type !== 'rest' && d.type !== 'race'; })
     .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
-  return days.filter(function(d){ return isQualityType(d.type); })[0] || days[0] || null;
+  var quality = days.filter(function(d){ return isQualityType(d.type); });
+  for (var i = 0; i < quality.length; i++){
+    var ws = '';
+    try { ws = renderStructuredWorkout(quality[i]); } catch(e){ ws = ''; }
+    if (ws.indexOf('ws-warmup') !== -1) return quality[i];
+  }
+  return quality[0] || days[0] || null;
 }
 function journeySlideTraining(){
   var hero = '', phase = '';
@@ -86728,16 +86754,18 @@ function journeySlideSession(){
   if (!dd) return '';
   var hero = '', warm = '';
   try { hero = renderDayHeroBlock(dd, getDayTargets(dd)); } catch(e){ hero = ''; }
-  try {
-    var s = executionStrategyForDisplay(dd);
-    if (s && !s.suppressed && s.phases && s.phases.length) warm = renderStrategyPhase(s.phases[0]);
-  } catch(e2){ warm = ''; }
+  /* THE SESSION'S OWN WORKOUT RAIL, the card Today draws under the ring:
+     "Warm up 2km" and the sentence that says how to run it. Not the
+     execution strategy's phases, which Today shows only on a race day and
+     whose first phase on a rep session is "Settle" with no distance it can
+     honestly state. The rail's first card is lit, as Today lights it. */
+  try { warm = renderStructuredWorkout(dd); } catch(e2){ warm = ''; }
+  warm = warm.replace('class="how-mod" data-mod="ws-0"', 'class="how-mod is-active" data-mod="ws-0"');
   /* Inside the same .view-today .day.is-today .day-top it sits in on Today,
      because that is the context the hero and the rail card are drawn for. */
-  warm = warm.replace('class="how-mod strat-phase"', 'class="how-mod strat-phase is-active"');
   return '<div class="view-today jr-session"><div class="day is-today open type-'+escapeHtml(dd.type || 'easy')+'">'+
     '<div class="day-top"><div class="day-main">'+hero+'</div></div>'+
-    (warm ? '<div class="how-table jr-warm"><div class="fuel-body ws-rail exec-rail">'+warm+'</div></div>' : '')+
+    (warm ? '<div class="jr-warm">'+warm+'</div>' : '')+
   '</div></div>';
 }
 function journeySlideCoach(){
@@ -87250,11 +87278,45 @@ function renderJourneyArrive(){
    athlete is handed to /get, the existing Download the App / Continue in the
    Browser page, which then opens Today. In the installed app they already
    have the app, so they go straight to Today. */
+/* ---------- THE FIRST TODAY IS QUIET ----------
+   The athlete has just finished onboarding, so the first Today after it is
+   the plan and nothing rising over it: no check-in, weekly review or offer
+   sheet (the Threshold Test offer was the one seen). Nothing is dropped:
+   every one of them is still due, under its own rules, and comes at the
+   next natural opportunity, which is the next time the app is opened or
+   brought back to the front. Held in autoSheetsOpen(), the one gate all six
+   auto sheets already pass, so one-sheet-at-a-time and the Threshold Test's
+   own thresholdTestNotToday() are untouched.
+   WHICH LAUNCH. In the installed app the journey ends in this launch, so it
+   is this one. On the website it ends by leaving for /get, so the record
+   carries quietPending and the next load (the athlete's first Today) spends
+   it. Declared without initial values on purpose: a var initialiser here
+   would run after any earlier read and reset the answer. */
+var journeyQuietAsked, journeyQuietLaunch;
+function journeyFirstTodayQuiet(){
+  if (!journeyQuietAsked){
+    journeyQuietAsked = true;
+    var r = journeyRead();
+    if (r && r.step === 'done' && r.quietPending){
+      journeyQuietLaunch = true;
+      r.quietPending = false;
+      journeyWrite(r);
+    }
+  }
+  return !!journeyQuietLaunch;
+}
+/* Leaving the app ends the quiet: coming back is the next opportunity. */
+if (typeof document !== 'undefined' && document.addEventListener){
+  try { document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'hidden') journeyQuietLaunch = false; }); } catch(eJQ){}
+}
 function journeyFinish(){
-  journeySet({ step:'done', finishedAt: new Date().toISOString() });
+  var native = isNativeApp();
+  journeySet({ step:'done', finishedAt: new Date().toISOString(), quietPending: !native });
+  if (native){ journeyQuietAsked = true; journeyQuietLaunch = true; }
   state.view = 'today';
   try { persistState(); } catch(e){}
-  if (!isNativeApp() && journeyNavigate('/get?from=journey')) return;
+  if (!native && journeyNavigate('/get?from=journey')) return;
   renderApp();
 }
 
