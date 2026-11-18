@@ -12625,8 +12625,10 @@
 
   /* ---------- 2 AND 3. THE OPTION ROWS ----------
      The builder's own option row (.bld-purpose button): the tile, its lift,
-     the cherry line and glow when chosen. A glyph in gold leads, as the
-     mock-ups draw it; the tick or the round mark trails. */
+     the cherry line and glow when chosen. The tick or the round mark trails.
+     NO SYMBOLS (founder, 18 November 2026: "There's symbols in place please
+     remove them"): the gold glyph that led each row, the envelope on
+     Continue with Email and the padlock on the trial line are gone. */
   .jr-opts{display:grid; gap:10px; margin-bottom:6px;}
   .jr-opt{position:relative; display:flex; align-items:center; gap:14px; width:100%; min-height:64px;
     text-align:left; padding:12px 14px; border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
@@ -12634,8 +12636,6 @@
     font-family:var(--text-face); transition:border-color .18s, box-shadow .18s;}
   .jr-opt.is-on{border-color:var(--cherry); box-shadow:0 0 16px var(--cherry-dim);}
   .jr-opt:active{transform:scale(.995);}
-  .jr-opt-glyph{flex:none; width:30px; display:inline-flex; justify-content:center; color:var(--gold);}
-  .jr-opt-glyph svg{width:26px; height:26px; stroke-width:1.6;}
   .jr-opt-text{flex:1 1 auto; min-width:0;}
   .jr-opt-name{display:block; font-size:1.0625rem; font-weight:500; line-height:1.25;}
   .jr-opt.is-on .jr-opt-name{color:var(--cherry-text);}
@@ -12668,6 +12668,30 @@
   /* One card of the rail, the warm-up: no heading, no dots, nothing beside. */
   .jr-screen .jr-warm .ws-head, .jr-screen .jr-warm .how-dots{display:none;}
   .jr-screen .jr-warm .ws-rail{overflow:hidden;}
+  /* THE IPHONE (founder, 18 November 2026, on an iPhone 15: "it did not wrap
+     to the iPhone ... My Google is spot on so I wouldn't want that
+     changing"). Three things only an iPhone does, so all three are fenced to
+     it: -webkit-touch-callout exists only in iOS's browser engine, and the
+     safe-area inset is 0 on Android, whose status bar is solid.
+       1. A text box under 16px makes the iPhone zoom the page in when it is
+          tapped, and it never zooms back out: every screen after the email
+          box was left wider than the phone. The text boxes drawn under 16px
+          are 16px there; the number wheels (.tw-field) open no keyboard and
+          keep their size.
+       2. The three intro slides stood about 35px taller than an iPhone 15,
+          so reaching Continue scrolled them; the picture now gives way.
+       3. A journey screen scrolled under the camera notch, because the
+          iPhone draws the page beneath a see-through status bar. A strip of
+          the page's own colour now sits under the notch, as Android's does. */
+  @supports (-webkit-touch-callout: none){
+    html .field input:not([type="range"]):not(.tw-field), html .field select, html .field textarea,
+    html .goal-input-row input:not(.tw-field), html .actual-field input:not(.tw-field), html .actual-field textarea,
+    html .split-row input:not(.tw-field), html .pzr-input:not(.tw-field){font-size:1rem !important;}
+    .jr-slides-page .jr-device{height:max(260px, min(55vh, 470px,
+      calc(100svh - 420px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))));}
+  }
+  body:has(.jr-page)::before{content:''; position:fixed; z-index:60; left:0; right:0; top:0;
+    height:env(safe-area-inset-top, 0px); background:var(--bg); pointer-events:none;}
   .jr-slide-title{font-family:var(--label-face); font-weight:var(--label-weight); text-transform:uppercase;
     letter-spacing:var(--label-track); font-size:1.375rem; line-height:1.15; margin:26px 0 8px; color:#FFFFFF;}
   .jr-slides-page .jr-lede{margin:0 0 6px;}
@@ -12711,7 +12735,6 @@
   .jr-legal{text-align:center; margin-top:14px;}
   .jr-lockline{display:flex; align-items:center; justify-content:center; gap:10px; margin:auto 0 0; padding-top:26px;
     font-size:var(--fs-support); color:var(--gold);}
-  .jr-lockline svg{flex:none; width:20px; height:20px;}
 
   /* ---------- 8. THE TRIAL ---------- */
   .jr-trial .jr-title{text-align:center; font-size:1.5rem;}
@@ -12762,7 +12785,6 @@
     .jr-title{font-size:1.4375rem;}
     .jr-welcome .jr-title, .jr-title-lg{font-size:1.75rem;}
     .jr-opt{gap:10px; padding:10px 12px;}
-    .jr-opt-glyph{width:24px;}
     .jr-device{height:min(50vh, 340px);}
     .jr-figs{gap:6px;}
     .jr-fig b{font-size:1.125rem;}
@@ -87314,7 +87336,6 @@ function journeyHead(withBack, progress){
 function journeyOptionRow(o, on, kind, sub){
   return '<button type="button" class="jr-opt'+(on ? ' is-on' : '')+'" data-action="'+kind+'" data-key="'+o.key+'" '+
       (kind !== 'journey-achieve' ? 'role="checkbox"' : 'role="radio"')+' aria-checked="'+(on ? 'true' : 'false')+'">'+
-    '<span class="jr-opt-glyph" aria-hidden="true">'+(JOURNEY_GLYPHS[o.glyph] || '')+'</span>'+
     '<span class="jr-opt-text"><span class="jr-opt-name">'+escapeHtml(o.label)+'</span>'+
       (sub ? '<span class="jr-opt-sub">'+escapeHtml(sub)+'</span>' : '')+'</span>'+
     (kind !== 'journey-achieve'
@@ -87685,7 +87706,7 @@ function renderJourneyAccount(){
             '<button type="button" class="btn btn-primary btn-block" data-action="journey-email-send">Email Me a Link</button>'+
             '<p class="jr-fine">No password. We email you a link; opening it on this device signs you in.</p>'+
           '</div>'
-        : '<button type="button" class="btn btn-block jr-way jr-mailway" data-action="journey-email">'+JOURNEY_GLYPHS.mail+'Continue with Email</button>')+
+        : '<button type="button" class="btn btn-block jr-way jr-mailway" data-action="journey-email">Continue with Email</button>')+
     '</div>';
   }
   return '<div class="jr jr-page jr-account">'+journeyHead(true, null)+
@@ -87694,7 +87715,7 @@ function renderJourneyAccount(){
     body+
     '<p class="jr-member">Already a member? <button type="button" class="jr-inline" data-action="journey-member">Sign In</button></p>'+
     '<p class="jr-fine jr-legal">'+legal+'</p>'+
-    '<p class="jr-lockline">'+JOURNEY_GLYPHS.lock+'<span>Your plan is ready. Your trial has not started.</span></p>'+
+    '<p class="jr-lockline"><span>Your plan is ready. Your trial has not started.</span></p>'+
   '</div>';
 }
 function handleJourneyEmailSend(){
