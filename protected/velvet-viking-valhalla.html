@@ -3858,6 +3858,29 @@
      gone before any of those can be built, and if it somehow were not, an
      error message must still be reachable over it. */
   #boot-splash{position:fixed; inset:0; z-index:90; overflow:hidden;}
+  /* THE SAME TRICK, FOR THE JOURNEY'S OWN FIRST SCREEN.
+     Founder, 19 November 2026: clicking Start Free Trial showed the brand
+     splash (Earn Your Place / Built Around The Climb) and only THEN, a beat
+     later, Your Journey Starts Here -- "it shouldn't have the splash -
+     straight to your journey starts here page... as quick as humanly as
+     possible." That brand splash is #boot-splash itself, unconditional for
+     every visitor; a true no-session visitor was shown it and then watched
+     JS replace it with a different screen a few hundred ms later, which
+     reads as a stall even though nothing after the first paint was slow.
+     The server already marks exactly that visitor data-vvv-access="journey"
+     on <html> (JOURNEY_MARKER, api/app.js) before a single byte of <body> is
+     parsed, so which cover belongs here is already decided by the time the
+     browser reaches it -- CSS alone can choose between them, with no JS and
+     no race. For that visitor the cover IS Your Journey Starts Here, pixel
+     for pixel (see .boot-jr below, kept identical to renderJourneyWelcome()
+     on purpose), so clearBootSplash() swapping it for the real markup is
+     invisible instead of a second screen replacing a first one. Every other
+     visitor -- a returning athlete, anyone with a cookie at all -- still
+     gets the brand splash exactly as before; nothing about that arrival
+     changes. */
+  html[data-vvv-access="journey"] #boot-splash .boot-pe{display:none;}
+  #boot-splash .boot-jr{display:none;}
+  html[data-vvv-access="journey"] #boot-splash .boot-jr{display:flex;}
   .pe{position:relative; min-height:100vh; display:grid;
     grid-template-rows:1fr 1fr 1fr; justify-items:center; text-align:center;
     padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 36px;}
@@ -12814,7 +12837,8 @@
      it carries the same words and a reader would otherwise read the arrival
      twice. Nothing here is interactive and nothing here is the only copy of
      anything. -->
-<div id="boot-splash" class="pe" aria-hidden="true">
+<div id="boot-splash" aria-hidden="true">
+<div class="boot-pe pe">
   <div class="pe-mountains" role="presentation" aria-hidden="true"></div>
   <div class="pe-brand">
     <div class="pe-lockup"><span class="pe-dot" aria-hidden="true"></span><div class="pe-name">SACORO</div><span class="pe-dot" aria-hidden="true"></span></div>
@@ -12826,6 +12850,24 @@
     <div class="pe-claim">Earn your place</div>
     <div class="pe-sub">Built around the climb</div>
   </div>
+</div>
+<!-- THE JOURNEY'S OWN COVER, SHOWN INSTEAD OF .boot-pe ABOVE WHEN
+     data-vvv-access="journey" IS ON <html> (see the CSS beside #boot-splash).
+     Verbatim renderJourneyWelcome()'s own markup, minus data-action: this
+     copy is never pressed, only looked at, for however briefly it stands
+     before clearBootSplash() removes it. Keeping it out of sync with that
+     function would reintroduce exactly the flash this exists to remove, so
+     if that function's copy or markup changes, this must change with it. -->
+<div class="boot-jr jr jr-welcome">
+  <div class="jr-photo" role="presentation" aria-hidden="true"></div>
+  <div class="jr-welcome-body">
+    <div class="jr-crest" aria-hidden="true"></div>
+    <h1 class="jr-title">Your Journey Starts Here</h1>
+    <p class="jr-lede">Personalised training. Built around you.</p>
+    <button type="button" class="btn btn-primary btn-block jr-cta" tabindex="-1">Build My Plan</button>
+    <button type="button" class="btn btn-ghost btn-block jr-gold" tabindex="-1">Existing Member</button>
+  </div>
+</div>
 </div>
 <div id="toast-mount"></div>
 <script>
