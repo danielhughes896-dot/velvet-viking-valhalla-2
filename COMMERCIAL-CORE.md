@@ -59,6 +59,25 @@ changed. `entitlement_grants` has the same constraint and its rows carry the
 old code; how grants are read is unchanged and open for a decision, because
 accepting the stored code there would change one account's access.
 
+**Where each name lives (audit, 19 November 2026).**
+
+| Place | Name | Notes |
+|---|---|---|
+| Live schema: `subscriptions`, `entitlement_grants` CHECKs | `VALHALLA_STANDARD` | No view, function or trigger reads the product code |
+| Schema files (`supabase-commercial-core.sql`, `-cutover.sql`, `-trial-grant-source.sql`) | `VALHALLA_STANDARD` | Match the live schema |
+| Every subscription write (web/Stripe, Google Play, App Store) | `VALHALLA_STANDARD` | Only through `normaliseSubscription`; no rail writes a code itself |
+| Subscription reads (`subscriptionAccess`) | either | Reported to clients as `SACORO_STANDARD` |
+| Grant reads (`grantAccess`) | `SACORO_STANDARD` only | Unchanged on purpose: the five live grants carry the old code and stay as they are; retired beta grants are refused before the code is read |
+| Grant writes (`grantEntitlement`) | `SACORO_STANDARD` | No caller in the server; would be refused by the live CHECK if one were added |
+| Catalogue (`/api/checkout`, `google_prepare`), docs | `SACORO_STANDARD` | Display only |
+| Android, iOS, the app's screens, `/account`, the website repo | none | Native code carries store product ids only (`sacoro_standard`, `sacoro.standard.*`), sent by the server |
+
+**A purchase never clears an override set by hand.** The access projection
+that runs after a subscription is written keeps an existing `owner` or `promo`
+override as it stands (with its own expiry), and never carries `beta` forward.
+Before 19 November that projection could not run in production, because no
+subscription could be written.
+
 **The trial is a commercial choice; the UK's statutory distance-contract
 cancellation right is a separate fourteen days, fixed by law.** They used to be
 the same number, which quietly made "the trial has ended" and "the athlete's

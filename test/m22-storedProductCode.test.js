@@ -88,3 +88,48 @@ test('grants are deliberately untouched by this change (a separate decision for 
                revoked_at: null, expires_at: null }], now: NOW });
   assert.equal(res.active, false);
 });
+
+// ---------------------------------------------------------------------------
+// OWNER AND COMPLIMENTARY ACCESS ARE LEFT AS THEY ARE; RETIRED BETA STAYS OFF
+// (founder, 19 November 2026: "Leave the complimentary grants and permanent
+// owner access untouched. Do not reactivate retired beta access.")
+// ---------------------------------------------------------------------------
+const Apply = require('../api/_billing-apply.js');
+function playFacts(account, token){
+  return { provider: 'google', account_id: account, subscription_ref: token, condition: 'active',
+           offer_code: 'STANDARD_MONTHLY', billing_period: 'monthly',
+           period_start: new Date(+NOW - DAY).toISOString(), period_end: new Date(+NOW + 29 * DAY).toISOString(),
+           occurred_at: NOW.toISOString(), cancel_at_period_end: false, environment: 'sandbox' };
+}
+
+test('a purchase recorded for an owner or promo account leaves its override exactly as it was', async () => {
+  for (const override of ['owner', 'promo']){
+    const f = createFakeSupabase({ account_commercial: [{ account_id: ACC }],
+      entitlements: [{ user_id: ACC, state: 'expired', override: override, override_expires_at: null,
+                       override_note: 'set by hand' }] });
+    const r = await Apply.applySubscriptionFacts(f.S, f.cfg, playFacts(ACC, 'tok-' + override), { environment: 'sandbox' });
+    assert.equal(r.ok, true, JSON.stringify(r));
+    const ent = f.rows('entitlements')[0];
+    assert.equal(ent.override, override, 'a recorded purchase cleared the ' + override + ' override');
+    assert.equal(ent.override_expires_at, null);
+    assert.equal(ent.override_note, 'set by hand');
+    assert.equal(ent.state, 'active', 'and the purchase itself is still recorded');
+  }
+});
+
+test('the projection keeps owner and promo with their own expiry, and never keeps retired beta', () => {
+  const sub = { source: 'google', commercial: true, active: true, reason: 'active', until: '2026-12-19T00:00:00.000Z', provider: 'google' };
+  const res = { active: true, reason: 'active', sources: [sub] };
+  assert.equal(E.projectToEntitlementRow(res, { override: 'owner' }).override, 'owner');
+  const promo = E.projectToEntitlementRow(res, { override: 'promo', override_expires_at: '2027-01-01T00:00:00.000Z' });
+  assert.equal(promo.override, 'promo');
+  assert.equal(promo.override_expires_at, '2027-01-01T00:00:00.000Z');
+  /* Retired beta is not carried forward, and a retired beta grant derives nothing. */
+  assert.equal(E.projectToEntitlementRow(res, { override: 'beta' }).override, null);
+  const retired = E.resolveStandardEntitlement({ account: { account_id: ACC }, subscriptions: [],
+    grants: [{ id: 'g', account_id: ACC, source: 'admin_beta', product_code: 'SACORO_STANDARD', revoked_at: null, expires_at: null },
+             { id: 'h', account_id: ACC, source: 'admin_beta', product_code: 'VALHALLA_STANDARD', revoked_at: null, expires_at: null }],
+    now: NOW });
+  assert.equal(retired.active, false, 'retired beta access was reactivated');
+  assert.equal(E.projectToEntitlementRow(retired, null).override, null);
+});
