@@ -30,7 +30,7 @@ test('outside the journey, the builder\'s first page still has no Back', () => {
   assert.doesNotMatch(first, /data-action="bld-back"/);
 });
 
-test('Back from the builder\'s first page, in the journey, closes it onto What Drives You?', () => {
+test('Back from the builder\'s first page, in the journey, closes it onto the last slide', () => {
   const a = app();
   const went = []; let closed = 0;
   a.journeyActive = () => true;
@@ -39,7 +39,7 @@ test('Back from the builder\'s first page, in the journey, closes it onto What D
   a.bldStage = () => { throw new Error('the builder moved instead of closing'); };
   a.bldCurrentStage = 0; a.bldReviewReturn = false;
   a.handleBldBack();
-  assert.deepEqual(went, ['drives']);
+  assert.deepEqual(went, ['slides'], 'the slides come before the builder now');
   assert.equal(closed, 1);
 });
 

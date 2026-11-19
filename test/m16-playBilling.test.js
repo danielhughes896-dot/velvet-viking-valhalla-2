@@ -36,6 +36,7 @@ const Prod = require('../api/_products.js');
 const Agree = require('../api/_agreements.js');
 const G = require('../api/_google.js');
 const GP = require('../api/_google-purchase.js');
+const Store = require('../api/_commercial-store.js');
 const account = require('../api/account.js');
 const webhook = require('../api/billing-webhook.js');
 
@@ -408,7 +409,13 @@ test('prepare: the athlete\'s own Play id, the trial verdict, and the same refus
     assert.equal(r.json.trial_eligible, true);
     assert.equal(r.json.trial_days, Prod.TRIAL_DAYS);
     assert.ok(r.json.agreements && r.json.agreements.terms, 'the ticks need the agreements in force');
-    assert.equal((await api.sub({ action: 'google_prepare' }, 'US')).json.reason, 'country_not_supported');
+    /* No location check on a store purchase: Play's own country availability
+       decides. Roaming, a VPN, or no country header at all is not refused. */
+    for (const c of ['US', 'FR', '']){
+      const away = (await api.sub({ action: 'google_prepare' }, c)).json;
+      assert.equal(away.purchase_allowed, true, 'request country ' + JSON.stringify(c));
+      assert.equal(away.reason, 'ok');
+    }
   });
   await withWorld({ env: { VVV_COMMERCE_ENABLED: '' } }, async ({ api }) => {
     const r = await api.sub({ action: 'google_prepare' });
@@ -517,6 +524,38 @@ test('verify: the one trial is spent once, and a second Play trial is refused', 
     /* a paid purchase (no trial) is still allowed */
     google.put(TOK2, playSub({}, { offerPhase: { basePrice: {} }, offerDetails: { basePlanId: 'annual', offerId: null } }));
     assert.equal((await api.sub({ action: 'google_verify', purchaseToken: TOK2 })).status, 200);
+  });
+});
+
+test('verify: the same purchase told twice at once is one subscription, never a refusal', async () => {
+  /* Deterministic: the second telling read "no owner yet" just before the
+     first one wrote the row and spent the trial. Without the re-read it
+     answered trial_already_used about the purchase that spent it. */
+  await withWorld({}, async ({ f, google, api }) => {
+    google.put(TOK, playSub());
+    assert.equal((await api.sub({ action: 'google_verify', purchaseToken: TOK })).status, 200);
+    google.state.subs[TOK].acknowledgementState = 'ACKNOWLEDGEMENT_STATE_PENDING';
+    const real = Store.ownerOfExisting;
+    let stale = 1;
+    Store.ownerOfExisting = async function(S2, cfg, provider, id){
+      if (id === TOK && stale > 0){ stale--; return { ok: true, accountId: null }; }
+      return real.apply(this, arguments);
+    };
+    try{
+      const again = await api.sub({ action: 'google_verify', purchaseToken: TOK });
+      assert.equal(again.status, 200, JSON.stringify(again.json));
+    } finally { Store.ownerOfExisting = real; }
+    assert.equal(googleRows(f).length, 1, 'a repeat telling made a second subscription');
+    assert.equal(google.state.subs[TOK].acknowledgementState, 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED');
+  });
+  /* and genuinely at once */
+  await withWorld({}, async ({ f, google, api }) => {
+    google.put(TOK, playSub());
+    const both = await Promise.all([api.sub({ action: 'google_verify', purchaseToken: TOK }),
+                                    api.sub({ action: 'google_verify', purchaseToken: TOK })]);
+    both.forEach(r => assert.equal(r.status, 200, JSON.stringify(r.json)));
+    assert.equal(googleRows(f).length, 1);
+    assert.ok(f.rows('account_commercial').filter(a => a.account_id === ATHLETE)[0].trial_consumed_at);
   });
 });
 
@@ -691,7 +730,7 @@ function playWorld(o){
                          Plugins: x.noPlugin ? {} : { SacoroBilling: plugin } };
   a.navigator.userAgent = 'Mozilla/5.0 (Linux; Android 14; wv)' + (x.marker === false ? '' : ' SACORO-Store-Build');
   a.cloudSession = { access_token: 'tok-athlete', user_id: 'u1', expires_at: Date.now() + 3600e3 };
-  return { a, sent, purchases, plugin };
+  return { a, sent, purchases, plugin, setVerify(v){ x.verify = v; } };
 }
 function atTrial(a, period){
   buildPlan(a, { distanceKey: 'half', weeks: 12, volume: 35 });
@@ -816,13 +855,98 @@ test('cancel and error: short plain messages, and the athlete stays where they w
     assert.equal(w.sent.filter(s => s.body.action === 'google_verify').length, 0, 'a purchase that did not complete was sent for verification');
     assert.doesNotMatch(says, /—/);
   }
-  /* the server refuses a second trial */
+  /* the server refuses a second trial AFTER Play took the purchase: never
+     "Nothing has been charged" (founder, 19 November 2026) */
   const w = playWorld({ verify: { status: 409, body: { error: 'trial_already_used' } } });
   const a = atTrial(w.a);
   await settle();
   a.handleJourneyTrialStart();
   await new Promise(r => setTimeout(r, 20)); await settle();
-  assert.equal(a.journeyTrialNote, 'This account has already had its free trial. Nothing has been charged.');
+  assert.equal(a.journeyTrialNote, '');
+  const screen = text(a.renderJourneyTrial());
+  assert.match(screen, /This account has already had its free trial\. Google Play cancels a purchase SACORO does not confirm and refunds anything charged\./);
+  assert.match(screen, /Reference: trial_already_used/);
+  assert.doesNotMatch(screen, /Nothing has been charged/);
+});
+
+test('after Play took the purchase, a server that cannot confirm it says so, shows why, and Check Again asks again', async () => {
+  const w = playWorld({ verify: { status: 502, body: { error: 'provider_error' } } });
+  const a = atTrial(w.a);
+  await settle();
+  a.journeyAgreed.terms = true; a.journeyAgreed.immediate_start = true;
+  a.handleJourneyTrialStart();
+  await new Promise(r => setTimeout(r, 20)); await settle();
+  const h = a.renderJourneyTrial();
+  assert.match(text(h), /Google Play has taken your purchase, but SACORO could not confirm it yet\./);
+  assert.match(text(h), /Reference: provider_error/);
+  assert.doesNotMatch(text(h), /Nothing has been charged/, 'the founder\'s test purchase said this after Google created the subscription');
+  assert.match(h, /data-action="journey-play-check"[^>]*>Check Again</);
+  assert.doesNotMatch(h, /data-action="journey-trial-start"/, 'a second purchase was offered for one Play already took');
+  /* Google's access arrives; Check Again sends the SAME purchase, not a new one */
+  const bought = w.purchases.length;
+  const sentBefore = w.sent.filter(s => s.body.action === 'google_verify').length;
+  w.setVerify(null);
+  a.handlePlayCheckAgain();
+  await settle(30);
+  const asked = w.sent.filter(s => s.body.action === 'google_verify');
+  assert.equal(asked.length, sentBefore + 1);
+  assert.equal(asked[asked.length - 1].body.purchaseToken, 'PT_1');
+  assert.equal(w.purchases.length, bought, 'Check Again opened Play\'s sheet');
+  assert.equal(a.playUnconfirmed, null);
+  assert.equal(a.journeyStep(), 'arrive');
+});
+
+test('one purchase is asked about once at a time, however many routes send it', async () => {
+  const w = playWorld();
+  w.a.renderApp = () => {};
+  const p = { purchaseToken: 'PT_SAME', productIds: ['sacoro_standard'] };
+  const both = await Promise.all([w.a.playVerify(p), w.a.playVerify(p)]);
+  both.forEach(r => assert.equal(r.ok, true));
+  assert.equal(w.sent.filter(s => s.body.action === 'google_verify').length, 1);
+  /* and once answered, a later ask is a new question */
+  await w.a.playVerify(p);
+  assert.equal(w.sent.filter(s => s.body.action === 'google_verify').length, 2);
+});
+
+test('Play says this account already owns it: the existing purchase is confirmed, never bought twice', async () => {
+  const w = playWorld({ outcome: { status: 'already_owned', responseCode: 7 },
+    active: [{ purchaseToken: 'PT_OPEN', productIds: ['sacoro_standard'], purchaseState: 'purchased', isAcknowledged: false }] });
+  const a = atTrial(w.a);
+  a.cloudSignedIn = () => true;
+  await settle();
+  a.handleJourneyTrialStart();
+  await new Promise(r => setTimeout(r, 20)); await settle(30);
+  /* (the start-up recovery may have sent it too; it is the same purchase) */
+  const asked = w.sent.filter(s => s.body.action === 'google_verify').map(s => s.body.purchaseToken);
+  assert.ok(asked.length >= 1 && asked.every(t => t === 'PT_OPEN'), JSON.stringify(asked));
+  assert.equal(w.purchases.length, 1, 'Play was asked to sell it again');
+  assert.ok(a.toasts.indexOf('Your subscription has started') !== -1);
+});
+
+test('the plans are asked for again every time the paywall opens', async () => {
+  const w = playWorld();
+  const a = w.a;
+  a.renderApp = () => {};
+  a.renderPlaySubscriptionActions({ signed_in: true, commercial_required: true, access: false, state: null });
+  await settle();
+  const asks = () => w.sent.filter(s => s.body.action === 'google_prepare').length;
+  assert.equal(asks(), 1);
+  a.renderPlaySubscriptionActions({ signed_in: true, commercial_required: true, access: false, state: null });
+  await settle();
+  assert.equal(asks(), 1, 'a redraw is not an opening');
+  /* opening Settings */
+  a.state.view = 'today';
+  a.handleSetView('settings');
+  a.renderPlaySubscriptionActions({ signed_in: true, commercial_required: true, access: false, state: null });
+  await settle();
+  assert.equal(asks(), 2, 'opening Settings did not ask Play and the server again');
+  /* arriving at the trial screen */
+  buildPlan(a, { distanceKey: 'half', weeks: 12, volume: 35 });
+  a.journeyWrite({ v: 1, step: 'account', built: true, drives: [], slide: 0, period: 'yearly' });
+  a.journeyGo('trial');
+  a.renderJourneyTrial();
+  await settle();
+  assert.equal(asks(), 3, 'arriving at the trial screen did not ask again');
 });
 
 test('recovery: an unacknowledged purchase is sent again on start and resume; acknowledged ones are left alone', async () => {
@@ -892,9 +1016,9 @@ test('the manifest names the BILLING permission, and the build carries the curre
   assert.ok(Number(v[1]) >= 8, 'Play requires Billing Library 8 or later for new uploads');
 });
 
-test('versionCode 12, versionName 1.11: Play requires a new version for every upload', () => {
+test('versionCode 13, versionName 1.12: Play requires a new version for every upload', () => {
   const gradle = read('android/app/build.gradle');
-  assert.match(gradle, /versionCode 12\s+versionName "1\.11"/);
+  assert.match(gradle, /versionCode 13\s+versionName "1\.12"/);
 });
 
 test('the plugin is registered, and it never acknowledges a purchase on the device', () => {

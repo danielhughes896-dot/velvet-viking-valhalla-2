@@ -16,7 +16,7 @@ release is small: there is almost no native surface.
 | Package | `com.velvetviking.valhalla` |
 | Namespace | `com.velvetviking.valhalla` |
 | minSdk / target / compile | 24 / 36 / 36 |
-| versionCode | `11` — **increment on every upload, and never reuse one** |
+| versionCode | `13` — **increment on every upload, and never reuse one** |
 | versionName | `1.10` |
 | Server URL | `https://app.velvetviking.co.uk` in **both** capacitor configs |
 | Signing | the stable release keystore, with **no fallback** — a release build with any of the four `VVV_KEYSTORE_*` secrets missing fails outright rather than shipping debug-signed |

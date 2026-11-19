@@ -23,7 +23,7 @@ Supabase, Google Cloud or Play Console.
 
 | Where | What |
 |---|---|
-| `android/app/build.gradle` | `com.android.billingclient:billing:9.1.0` (current stable, released 18 June 2026; Play requires 8 or later for new uploads). `versionCode 11`, `versionName "1.10"`. |
+| `android/app/build.gradle` | `com.android.billingclient:billing:9.1.0` (current stable, released 18 June 2026; Play requires 8 or later for new uploads). `versionCode 13`, `versionName "1.12"`. |
 | `android/app/src/main/AndroidManifest.xml` | `<uses-permission android:name="com.android.vending.BILLING" />`, stated explicitly (the library also merges it). |
 | `SacoroBillingPlugin.java` (registered in `MainActivity`) | Capacitor plugin `SacoroBilling`: `isReady`, `connect` (with retry), `getProducts({productId})`, `purchase({productId, basePlanId, offerToken, obfuscatedAccountId})`, the `purchaseUpdated` event, `queryActivePurchases`, `openManageSubscription`. **It never acknowledges a purchase.** |
 | `.github/workflows/build-apk.yml` | A `play_store_build` input (default off) that adds `"appendUserAgent": "SACORO-Store-Build"` to the runner's copy of `capacitor.config.json` and names the signed artifact `velvet-viking-valhalla-PLAY-STORE`. |
@@ -42,10 +42,13 @@ already accept `'google'` (`supabase-commercial-core.sql`).
 
 1. The app asks the server `google_prepare`. The server answers with the Play
    product and base plans it sells (from the environment), whether the
-   athlete may buy (commerce switched on, Google configured, United Kingdom,
-   the two agreements on record, no live subscription on any rail), whether
+   athlete may buy (commerce switched on, Google configured, the two
+   agreements on record, no live subscription on any rail), whether
    they may have the free trial **under SACORO's own one-trial-per-athlete
-   rule**, and the athlete's `obfuscatedAccountId`.
+   rule**, and the athlete's `obfuscatedAccountId`. There is **no location
+   check**: where SACORO is sold is set by the countries chosen in Play
+   Console, against the athlete's Play country, so someone roaming or on a VPN
+   is not refused. (The website's Stripe checkout keeps its own country check.)
 2. The app asks Play for the prices (localised, as Play returns them) and shows
    Annual and Monthly. It passes Play the **trial offer only if the server says
    the athlete is eligible and Play offers one**; otherwise the base plan's own

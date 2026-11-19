@@ -153,7 +153,7 @@ the app's screens, not the server path. Use Sandbox testers instead (section 4).
 
 1. The app reads `AppTransaction.appTransactionID` and asks the server
    `apple_prepare`. The server answers: may the athlete buy (commerce on, Apple
-   configured, United Kingdom, both agreements on record, no live subscription
+   configured, both agreements on record, no live subscription
    on any rail: the same questions in the same order as the web checkout and
    Play), the two product ids, the athlete's `app_account_token`, whether they
    may have the trial under SACORO's rule, and one signed eligibility JWS per
@@ -182,7 +182,7 @@ arrives.
 **A refusal after payment cannot be undone by the server.** Unlike Play
 (where an unacknowledged purchase is refunded after three days), Apple does not
 refund an unfinished transaction. `apple_prepare` refuses before the sheet opens
-in every case it can (a live subscription, no agreements, wrong country, a
+in every case it can (a live subscription, no agreements, a
 spent trial is signed away), so a refusal after payment needs a race or a
 second device. Then the app says so plainly and points to **Manage
 Subscriptions** to cancel; a refund is the customer's to request from Apple
@@ -258,7 +258,8 @@ check them before saving.
    For each: set the price in the **United Kingdom** storefront at the figure
    above (`api/_products.js`; Apple suggests other storefronts' prices; SACORO
    sells only in the United Kingdom, so set **Availability** to the United
-   Kingdom only, which matches the server's own country check); add a display
+   Kingdom only: that availability is the only country check, as the server
+   no longer checks where a request comes from); add a display
    name (English (U.K.)) **SACORO Standard** and a short description; add the
    **review screenshot** (the purchase screen) and **review notes**; leave
    **Family Sharing off**.

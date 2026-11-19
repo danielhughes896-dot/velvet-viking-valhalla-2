@@ -473,39 +473,24 @@ function meanDiff(a, b){
   return s / a.length;
 }
 
-test('the landscape launch screen is composed, not the portrait one stretched', () => {
-  /* THE FAILURE THE SIZE LAW CANNOT SEE. Stretching the portrait frame to
-     1280x720 produces a file of exactly the right dimensions and entirely the
-     wrong picture: the lockup squashed, the photograph distorted. It is the
-     obvious shortcut when regenerating, and it builds and installs cleanly.
-     Measured on this repo's own frames, on a 0-255 scale:
-         the real portrait against the real landscape      19.7
-         a stretched portrait against the portrait          0.6
-         the same picture at two densities                  1.7
-     So anything under 8 is the same picture wearing another size. */
-  const STRETCH_FLOOR = 8;
-  [['drawable-port-xhdpi', 'drawable-land-xhdpi'],
-   ['drawable-port-xxhdpi', 'drawable-land-xxhdpi']].forEach(([p, l]) => {
-    const d = meanDiff(thumb(path.join(RES, p, 'splash.png'), 32),
-                       thumb(path.join(RES, l, 'splash.png'), 32));
-    assert.ok(d >= STRETCH_FLOOR,
-      l + '/splash.png differs from ' + p + '/splash.png by only ' + d.toFixed(1) +
-      ' -- it is the portrait frame stretched, not a landscape composition. ' +
-      'Render it at a landscape viewport rather than resizing');
+test('the launch screen is the plain ground, so nobody new meets the splash', () => {
+  /* REPLACED (founder, 19 November 2026). The launch screen used to be the
+     arrival photograph, cut from #boot-splash. But the launch screen is drawn
+     on EVERY open, before the app can know who is opening it, and the founder
+     wants a new or non-paying athlete to go "straight to" the Welcome with "no
+     splash", and the splash only where the app opens into a plan. So the
+     native layer paints the app's own ground (#121316, capacitor.config.json's
+     backgroundColor) and the document decides what comes next (#boot-decide).
+     Every pixel of every density is that one colour. */
+  SPLASH.forEach(sz => {
+    const img = pngPixels(path.join(RES, sz.dir, 'splash.png'));
+    for (let i = 0; i < img.px.length; i += img.ch * 997){
+      assert.deepEqual([img.px[i], img.px[i + 1], img.px[i + 2]], [0x12, 0x13, 0x16],
+        sz.dir + '/splash.png is not the plain ground');
+    }
   });
-});
-
-test('the launch screen is a photograph, not the retired badge', () => {
-  /* The old one was the crest on near-black, and the crest artwork reads
-     VALHALLA AWAITS in pixels -- which is why the rename never touched it and
-     why no grep could have found it. A flat ground with one centred badge
-     compresses to a fraction of what a full-bleed photograph does, so the file
-     size is the cheap tell that the badge has come back: measured, the real
-     960x1600 frame is 775 KB and the same frame rebuilt as a badge on #151417
-     is 123 KB. */
-  const p = pngHead(path.join(RES, 'drawable-port-xxhdpi', 'splash.png'));
-  assert.ok(p.bytes > 300 * 1024,
-    'the 960x1600 launch screen is only ' + Math.round(p.bytes / 1024) + ' KB. ' +
-    'The arrival photograph does not compress that small; a flat ground with a ' +
-    'badge on it does, and the badge still says Valhalla');
+  const sb = fs.readFileSync(path.join(__dirname, '..', 'ios/App/App/Base.lproj/LaunchScreen.storyboard'), 'utf8');
+  assert.doesNotMatch(sb, /image="Splash"|<imageView/, 'the iOS launch screen still shows the splash photograph');
+  assert.match(sb, /<view key="view"[^]*?red="0\.070588235294117646" green="0\.074509803921568626" blue="0\.086274509803921567"/,
+    'the iOS launch screen is not the app\'s ground');
 });

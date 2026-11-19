@@ -493,7 +493,11 @@ test('prepare: the athlete\'s own token, two products, SACORO\'s trial verdict s
     assert.equal(claims.productId, ANNUAL);
     assert.equal(claims.transactionId, '704289572311837185');
     assert.ok(r.json.agreements && r.json.agreements.terms);
-    assert.equal((await api.sub({ action: 'apple_prepare', appTransactionId: '1' }, 'US')).json.reason, 'country_not_supported');
+    /* No location check on a store purchase: the App Store's availability decides. */
+    for (const c of ['US', 'FR', '']){
+      const away = (await api.sub({ action: 'apple_prepare', appTransactionId: '1' }, c)).json;
+      assert.equal(away.purchase_allowed, true, 'request country ' + JSON.stringify(c));
+    }
     /* without the customer's appTransactionID nothing can be signed, so nothing can be bought */
     assert.equal((await api.sub({ action: 'apple_prepare' })).json.intro_offer_signatures, null);
   });

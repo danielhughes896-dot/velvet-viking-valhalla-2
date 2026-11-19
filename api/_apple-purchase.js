@@ -41,7 +41,6 @@ const Prod = require('./_products.js');
 const Store = require('./_commercial-store.js');
 const Apply = require('./_billing-apply.js');
 const Agree = require('./_agreements.js');
-const Checkout = require('./_checkout.js');
 const GP = require('./_google-purchase.js');
 
 function log(what){ try{ console.log('apple-purchase: ' + what); }catch(e){} }
@@ -78,7 +77,8 @@ async function prepare(S, cfg, uid, req, body){
     commerceEnabled: A.commerceEnabled(),
     providerConfigured: acfg.ok,
     uid: uid,
-    country: Checkout.countryOf(req),
+    /* No location check: the App Store's own availability decides (founder,
+       19 November 2026; see decidePrepare in _google-purchase.js). */
     evidence: evidence,
     purchaseCheck: purchaseCheck
   });
