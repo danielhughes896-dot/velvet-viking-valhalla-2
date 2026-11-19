@@ -138,6 +138,119 @@ function priceFor(offerCode, env){
   return { ok: true, priceId: id, offer: Prod.offer(offerCode) };
 }
 
+/* ---------- the price Stripe holds must be the price we advertised ----------
+ *
+ * WHY THIS EXISTS, AND THE EXACT FAILURE IT CATCHES. priceFor() checks that a
+ * price id is configured and shaped like a price id. Neither tells us what
+ * Stripe will actually charge, because the id is an opaque pointer: it is set
+ * by hand in a dashboard, in an environment variable this repository cannot
+ * read, at a different time by a different person. A variable pointing at last
+ * month's price is indistinguishable from one pointing at this month's until
+ * the Price object is fetched and looked at.
+ *
+ * THIS IS NOT HYPOTHETICAL. The live account carried an active £89.99 annual
+ * price alongside the £79.99 one it was replaced by, both on the same product.
+ * If VVV_PRICE_WEB_STANDARD_YEARLY still named the old one, Stripe would have
+ * charged £89.99 while the site advertised £79.99 — and nothing anywhere would
+ * have noticed, because the id was configured and well formed, so every check
+ * that existed passed.
+ *
+ * WORSE THAN THE OVERCHARGE: THE RECORD. subscriptionFacts used to read the
+ * agreed price from the catalogue alone, so the ledger would have asserted the
+ * athlete agreed to the advertised amount while their card was debited the
+ * superseded one — a confident false
+ * record, and the one an operator would reach for in a dispute. See the
+ * agreed-price note further down, which now prefers what Stripe charged.
+ *
+ * FAIL CLOSED, AND SAY WHICH. Every check returns its own code rather than one
+ * shared "invalid": an operator reading price_interval_mismatch knows to look
+ * at a different thing than one reading price_amount_mismatch, and a silent
+ * refusal would just move the mystery.
+ *
+ * A STRIPE OUTAGE IS NOT A MISMATCH. call() already distinguishes transient
+ * failures, and that flag is carried through untouched — refusing checkout
+ * because Stripe is down is correct, but it must not be reported as "the price
+ * is wrong", which would send somebody to edit a dashboard that is fine. */
+const INTERVAL_OF = { monthly: 'month', yearly: 'year' };
+
+/* The Stripe product the web rail is allowed to sell, if an operator has named
+   one. OPTIONAL BY DESIGN: this is new configuration, and a hard requirement
+   would turn "nobody has set it yet" into "nobody can buy anything", which is
+   a worse failure than the one it guards. Set it and the product is enforced;
+   leave it unset and every other check still runs. */
+function expectedProductRef(env){
+  const source = env || process.env;
+  const v = source && source.VVV_STRIPE_PRODUCT_WEB;
+  const s = v == null ? '' : String(v).trim();
+  return s ? s : null;
+}
+
+async function verifyPrice(cfg, priceId, offer, env, opts){
+  const r = await call(cfg, 'GET', '/prices/' + encodeURIComponent(priceId), null, opts);
+  if (!r.ok) return { ok: false, code: r.code, transient: !!r.transient, status: r.status };
+
+  const p = r.data || {};
+  const no = function(code, detail){ return { ok: false, code: code, transient: false, detail: detail || null }; };
+
+  /* Stripe echoing a different id than the one asked for should be impossible.
+     Checked anyway, because every other assertion below is about this object
+     being the one we named. */
+  if (p.id !== priceId) return no('price_id_mismatch');
+
+  if (p.active !== true) return no('price_inactive');
+  if (p.type !== 'recurring' || !p.recurring) return no('price_not_recurring');
+
+  const wantInterval = INTERVAL_OF[offer.billingPeriod];
+  if (!wantInterval) return no('price_interval_unknown');
+  if (p.recurring.interval !== wantInterval) return no('price_interval_mismatch');
+  /* interval 'year' with interval_count 2 is a two-year subscription wearing a
+     yearly label. The count is as much a part of the period as the unit. */
+  if (Number(p.recurring.interval_count) !== 1) return no('price_interval_count_mismatch');
+
+  if (String(p.currency || '').toLowerCase() !== String(offer.currency || '').toLowerCase()) {
+    return no('price_currency_mismatch');
+  }
+
+  /* THE ONE THIS WAS BUILT FOR. Integer minor units on both sides, compared as
+     numbers, never as strings: a quoted amount and a bare one are the same
+     price and would fail a strict string comparison, while last year's amount
+     and this year's are the bug. */
+  if (p.unit_amount == null || Number(p.unit_amount) !== Number(offer.priceMinor)) {
+    return no('price_amount_mismatch');
+  }
+
+  const productRef = typeof p.product === 'string'
+    ? p.product
+    : (p.product && p.product.id) || null;
+  if (!productRef) return no('price_product_missing');
+  const expected = expectedProductRef(env);
+  if (expected && productRef !== expected) return no('price_product_mismatch');
+
+  return {
+    ok: true,
+    priceId: p.id,
+    unitAmountMinor: Number(p.unit_amount),
+    currency: String(p.currency).toUpperCase(),
+    interval: p.recurring.interval,
+    productRef: productRef,
+    productEnforced: !!expected
+  };
+}
+
+/* What Stripe says it is charging for this subscription, read off the
+   subscription's own price rather than the catalogue. Null when the payload
+   does not carry an item — a reconciliation pull may not expand them — so the
+   caller can fall back rather than record a zero. */
+function chargedAmountOf(sub){
+  const item = sub && sub.items && Array.isArray(sub.items.data) ? sub.items.data[0] : null;
+  const price = item && item.price;
+  if (!price || price.unit_amount == null) return null;
+  return {
+    unitAmountMinor: Number(price.unit_amount),
+    currency: price.currency ? String(price.currency).toUpperCase() : null
+  };
+}
+
 async function call(cfg, method, path, params, opts){
   if (!cfg.hasSecret) return { ok: false, code: 'stripe_not_configured' };
   const headers = {
@@ -233,7 +346,27 @@ async function createCheckoutSession(cfg, input, opts){
   const price = priceFor(input.offerCode, input.env);
   if (!price.ok) return { ok: false, code: price.code };
 
+  /* LOCAL CONFIGURATION IS CHECKED BEFORE THE NETWORK IS TOUCHED. This sat
+     below the price verification for one revision and it was wrong in a small
+     but real way: a deployment with no app origin would call Stripe, wait for
+     it, and then refuse for a reason that was knowable without leaving the
+     process. Cheap, certain failures come first. */
   if (!cfg.appOrigin) return { ok: false, code: 'app_origin_not_configured' };
+
+  /* BEFORE THE SESSION EXISTS, NOT AFTER. The Price is fetched and checked
+     against the catalogue here, while refusing still costs nothing: once a
+     Checkout Session is created the athlete has a payment page in front of
+     them, and discovering the amount is wrong at that point means voiding
+     something they are already looking at. See verifyPrice. */
+  const verified = await verifyPrice(cfg, price.priceId, price.offer, input.env, opts);
+  if (!verified.ok) {
+    /* Logged with the offer and the code but never the price id or the amount:
+       this file's logging rule is that a log line must not carry the thing an
+       operator would paste into a search. The code says what to look at. */
+    log('CHECKOUT_PRICE_REFUSED code=' + verified.code + ' offer=' + price.offer.code);
+    return { ok: false, code: verified.code, transient: !!verified.transient };
+  }
+
   const urls = returnUrls(cfg, input.returnTo);
   const params = {
     mode: 'subscription',
@@ -274,7 +407,13 @@ async function createCheckoutSession(cfg, input, opts){
     url: r.data.url,
     offerCode: price.offer.code,
     period: price.offer.billingPeriod,
-    trialDays: price.offer.trialDays
+    trialDays: price.offer.trialDays,
+    /* The amount Stripe confirmed it will charge, carried back so a caller
+       records what was verified rather than what was advertised. They are the
+       same number whenever verification passed — which is the point: it is
+       the same number because it was checked, not because it was assumed. */
+    verifiedAmountMinor: verified.unitAmountMinor,
+    verifiedCurrency: verified.currency
   };
 }
 
@@ -675,12 +814,31 @@ function subscriptionFacts(sub, meta){
     condition: finalCondition,
     offer_code: offerOf(obj),
     billing_period: periodOf(obj),
-    /* What this athlete agreed to, read from the catalogue that sold the offer
-       rather than from the Stripe payload -- Stripe reports what it will
-       charge, which is the same number today and not necessarily the same fact.
-       Recorded once, at the start of the relationship. */
-    agreed_price_minor: (function(){ const o = offerOf(obj); const x = o && Prod.offer(o); return x ? x.priceMinor : null; })(),
-    agreed_currency: (function(){ const o = offerOf(obj); const x = o && Prod.offer(o); return x ? x.currency : null; })(),
+    /* WHAT THEY WERE ACTUALLY CHARGED, PREFERRED OVER WHAT THEY WERE OFFERED.
+       This used to read the catalogue alone, on the reasoning that the price
+       sold is a different fact from the price Stripe currently holds, and that
+       reasoning is sound right up to the moment the two disagree — which is
+       exactly when this column matters. A configured price id pointing at a
+       superseded price would have produced a row asserting the athlete agreed
+       to the advertised amount while their card was debited the superseded
+       one, and the catalogue is the
+       side that would have been believed.
+       Checkout now verifies the two agree before a session exists (see
+       verifyPrice), so on the web rail they cannot diverge at purchase. This
+       is the second line: for rows arriving from a reconciliation pull, an
+       older subscription, or a rail that does not run that check, the number
+       recorded is the one Stripe says it charged. The catalogue remains the
+       fallback for payloads that carry no item to read. */
+    agreed_price_minor: (function(){
+      const charged = chargedAmountOf(obj);
+      if (charged) return charged.unitAmountMinor;
+      const o = offerOf(obj); const x = o && Prod.offer(o); return x ? x.priceMinor : null;
+    })(),
+    agreed_currency: (function(){
+      const charged = chargedAmountOf(obj);
+      if (charged && charged.currency) return charged.currency;
+      const o = offerOf(obj); const x = o && Prod.offer(o); return x ? x.currency : null;
+    })(),
     catalogue_version: Prod.CATALOGUE_VERSION,
     trial_start: secs(obj.trial_start),
     trial_end: secs(obj.trial_end),
@@ -729,6 +887,7 @@ function normaliseEvent(stripeEvent){
 module.exports = {
   API, PROVIDER, MAX_SKEW_SEC,
   config, encode, call, ensureCustomer, createCheckoutSession, returnUrls, priceFor, PROVIDER, CONDITION_OF,
+  verifyPrice, chargedAmountOf, expectedProductRef, INTERVAL_OF,
   pauseCollection, resumeCollection, createPortalSession,
   fetchCheckoutSession, fetchSubscription, cancelAtPeriodEnd, clearCancelAtPeriodEnd,
   parseSigHeader, verifySignature, normaliseEvent, subscriptionFacts, paidThroughOf,

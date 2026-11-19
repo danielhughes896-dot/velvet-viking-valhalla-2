@@ -222,8 +222,24 @@ test('the price is recorded but never billed from', () => {
      it was written to give. */
   const stripe = read('api/_stripe.js')
     .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1 ');
-  assert.equal(/unit_amount|price_data|amount:/.test(stripe), false,
-    'the adapter must never construct a price');
+  /* CONSTRUCTING AN AMOUNT AND READING ONE BACK ARE DIFFERENT THINGS, and this
+     assertion used to forbid both by forbidding the token. The rule it exists
+     to hold is that Stripe is handed a price ID and never a number we invented
+     — nothing about that stops us reading the number Stripe reports and
+     checking it against the one we advertised, which is exactly what
+     verifyPrice does and why a superseded £89.99 price can no longer reach a
+     card. So the test now asks the sharper question: is an amount ever SET
+     here? `unit_amount:` as a key is construction; `p.unit_amount` is a read. */
+  assert.equal(/price_data/.test(stripe), false,
+    'the adapter must never build an inline price');
+  assert.equal(/\bunit_amount\s*:/.test(stripe), false,
+    'the adapter must never SET an amount, only compare one');
+  assert.equal(/\bamount\s*:/.test(stripe), false,
+    'nor any other amount field on an outgoing request');
+  /* The positive half, so this cannot pass by the adapter sending nothing at
+     all: the price still reaches Stripe as a configured id. */
+  assert.match(stripe, /'line_items\[0\]\[price\]':\s*price\.priceId/,
+    'the price must still be sent as a configured id');
 });
 
 test('a catalogue version exists so a cohort need not be inferred from a date', () => {

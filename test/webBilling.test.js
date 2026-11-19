@@ -81,8 +81,16 @@ const PRICE_Y = 'price_yearly1';
 // body, the wrong path or the wrong method, which is most of what an adapter
 // can get wrong.
 // ===========================================================================
+const PRODUCT = 'prod_sacoro_standard';
+
 function fakeStripe(){
-  const state = { customers: {}, sessions: {}, subscriptions: {}, requests: [] };
+  /* `prices` and `priceHttp` are the handles the verification tests steer
+     with: an entry merges over the catalogue-derived Price (a superseded
+     amount, a wrong currency), null makes the id missing, and priceHttp forces
+     a transport failure. Empty by default, so every existing test gets a Price
+     that agrees with the catalogue and never notices this exists. */
+  const state = { customers: {}, sessions: {}, subscriptions: {}, requests: [],
+                  prices: {}, priceHttp: null };
   let n = 0;
 
   function sub(over){
@@ -114,6 +122,29 @@ function fakeStripe(){
       state.customers[id] = { id: id };
       return ok({ id: id });
     }
+    /* THE PRICE LOOKUP createCheckoutSession NOW MAKES before it creates
+       anything. The Price is built FROM the catalogue rather than from copied
+       literals, so this fake cannot drift from the real offer definitions — if
+       someone changes priceMinor, this serves the new number and the checkout
+       assertions keep passing for the right reason. */
+    const pr = /\/prices\/(price_[A-Za-z0-9_]+)$/.exec(u);
+    if (pr && method === 'GET'){
+      const id = pr[1];
+      if (state.priceHttp) return bad(state.priceHttp.status, state.priceHttp.code);
+      if (Object.prototype.hasOwnProperty.call(state.prices, id) && state.prices[id] === null)
+        return bad(404, 'resource_missing');
+      const offerCode = id === PRICE_Y ? 'STANDARD_YEARLY' : id === PRICE_M ? 'STANDARD_MONTHLY' : null;
+      if (!offerCode) return bad(404, 'resource_missing');
+      const o = Prod.offer(offerCode);
+      return ok(Object.assign({
+        id: id, object: 'price', active: true, type: 'recurring',
+        currency: String(o.currency).toLowerCase(),
+        unit_amount: o.priceMinor,
+        recurring: { interval: o.billingPeriod === 'yearly' ? 'year' : 'month', interval_count: 1 },
+        product: PRODUCT
+      }, state.prices[id] || {}));
+    }
+
     if (u.endsWith('/checkout/sessions') && method === 'POST'){
       const form = new URLSearchParams(body);
       const id = 'cs_' + (++n);
@@ -1382,10 +1413,10 @@ test('accepting the Terms through the router records the commercial identifier',
     assert.equal(r.status, 200);
     const rows = f.db.account_agreements.filter(x => x.agreement_type === 'terms');
     assert.equal(rows.length, 1);
-    assert.equal(rows[0].agreement_version, 'commercial_terms_v1');
+    assert.equal(rows[0].agreement_version, 'commercial_terms_v2');
     assert.notEqual(rows[0].agreement_version, 'terms_v1',
       'the caller must not be able to name the version it is agreeing to');
-    assert.equal(rows[0].privacy_version, 'commercial_privacy_v1',
+    assert.equal(rows[0].privacy_version, 'commercial_privacy_v2',
       'the notice presented alongside, as context rather than consent');
   });
 });
@@ -1426,8 +1457,8 @@ test('the pre-checkout screen carries every fact a purchase decision needs', asy
     const a = v.agreements;
     assert.equal(a.terms.url, 'https://velvetviking.co.uk/terms');
     assert.equal(a.privacy.url, 'https://velvetviking.co.uk/privacy');
-    assert.equal(a.terms.version, 'commercial_terms_v1');
-    assert.equal(a.privacy.version, 'commercial_privacy_v1');
+    assert.equal(a.terms.version, 'commercial_terms_v2');
+    assert.equal(a.privacy.version, 'commercial_privacy_v2');
 
     /* PRIVACY IS STILL A NOTICE. */
     assert.equal(a.privacy.isConsent, false);
