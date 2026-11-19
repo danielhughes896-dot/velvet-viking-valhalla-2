@@ -167,7 +167,20 @@ test('return:"app" chooses the app\'s two fixed return addresses, and nothing el
     let sent = null;
     const r = await P.createCheckoutSession(cfg, { uid: 'u1', accountId: 'u1', customerId: 'cus_1', offerCode: 'STANDARD_YEARLY',
       env: { VVV_PRICE_WEB_STANDARD_YEARLY: 'price_y' }, returnTo },
-      { fetch: async (u, i) => { sent = decodeURIComponent(String(i.body)); return { ok: true, text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.stripe.com/x' }) }; } });
+      { fetch: async (u, i) => {
+          /* Checkout verifies the Price before creating a session, so the
+             lookup is answered from the catalogue. `sent` is deliberately not
+             written here: it holds the session's form body, and a GET with no
+             body would blank the assertions below. */
+          if (/\/prices\//.test(String(u))) {
+            const o = Prod.offer('STANDARD_YEARLY');
+            return { ok: true, text: async () => JSON.stringify({
+              id: 'price_y', object: 'price', active: true, type: 'recurring',
+              currency: String(o.currency).toLowerCase(), unit_amount: o.priceMinor,
+              recurring: { interval: 'year', interval_count: 1 },
+              product: 'prod_sacoro_standard' }) };
+          }
+          sent = decodeURIComponent(String(i.body)); return { ok: true, text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.stripe.com/x' }) }; } });
     assert.equal(r.ok, true);
     const urls = P.returnUrls(cfg, returnTo);
     assert.ok(sent.indexOf('success_url=' + urls.success) !== -1, returnTo + ': success_url is not the fixed one');

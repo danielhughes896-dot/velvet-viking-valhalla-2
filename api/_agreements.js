@@ -61,7 +61,7 @@ const BETA_TERMS_URL        = 'https://velvetviking.co.uk/beta-terms';
 
 /* HAVE THE COMMERCIAL DOCUMENTS ACTUALLY BEEN PUBLISHED?
  *
- * *** TRUE, as of website commit e2b7e6a (24 August 2026). ***
+ * *** TRUE, as of website commit 3159ae2 (18 November 2026). ***
  *
  * VERIFIED, NOT ASSERTED. Checked against the website repository rather than
  * taken from a report, because the previous two passes each turned out to be
@@ -69,12 +69,23 @@ const BETA_TERMS_URL        = 'https://velvetviking.co.uk/beta-terms';
  *
  *   LEGAL_APPROVALS.terms .................... true
  *   LEGAL_APPROVALS.privacyCommercial ........ true
- *   CANONICAL_LEGAL.terms.version ............ commercial_terms_v1
- *   CANONICAL_LEGAL.privacy.version .......... commercial_privacy_v1
+ *   CANONICAL_LEGAL.terms.version ............ commercial_terms_v2
+ *   CANONICAL_LEGAL.privacy.version .......... commercial_privacy_v2
  *   effective date ........................... 24 August 2026
  *   /terms renders <LegalDocument doc={termsDraft}/>, not the placeholder
  *   both documents free of TBC / placeholder / private-beta wording
- *   trial.live ............................... false
+ *   trialRevision.live ....................... false
+ *
+ * RE-VERIFIED 18 NOVEMBER 2026, AND IT HAD MOVED. The block above previously
+ * recorded e2b7e6a and the v1 identifiers, which were correct when written.
+ * The website superseded both documents on 12 November on the Valhalla ->
+ * Sacoro rename: commercial_terms_v1 ran 24 August - 11 November, and v2 has
+ * been the published version since. This file was edited on 17 November for
+ * the seven-day trial and did not catch it, so for six days the app recorded
+ * acceptances against a version string the website was no longer serving.
+ * That is why this block names a commit and a date rather than saying
+ * "current" -- a verification record with no date cannot be spotted going
+ * stale. Re-check it against the website whenever either document moves.
  *
  * The cookie policy is NOT part of this gate and remains unpublished.
  *
@@ -124,7 +135,7 @@ const COMMERCIAL_LEGAL_PUBLISHED = true;
  * Bump it whenever the published Terms change materially. Every athlete is
  * then asked again, and the previous acceptances stay in the table as the
  * record of what was agreed before. */
-const TERMS_COMMERCIAL_VERSION = 'commercial_terms_v1';
+const TERMS_COMMERCIAL_VERSION = 'commercial_terms_v2';
 const TERMS_BETA_VERSION       = 'terms_v1';
 
 /* THE PRIVACY NOTICE CURRENTLY PUBLISHED. Recorded as context, never agreed
@@ -132,7 +143,7 @@ const TERMS_BETA_VERSION       = 'terms_v1';
    anything -- it changes what future rows say was presented. The commercial
    policy is a different document from the beta notice, so it has a different
    identifier for the same reason the Terms do. */
-const PRIVACY_COMMERCIAL_VERSION = 'commercial_privacy_v1';
+const PRIVACY_COMMERCIAL_VERSION = 'commercial_privacy_v2';
 /* THE WEBSITE'S NAME FOR THE SUPERSEDED NOTICE, adopted rather than invented.
    CANONICAL_LEGAL calls it beta_privacy_v1, and an app calling the same
    document privacy_v1 would be the second vocabulary the canonical-identifier

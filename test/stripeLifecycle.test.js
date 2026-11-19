@@ -194,8 +194,22 @@ test('an abandoned Checkout does not spend the trial', async () => {
     const created = await P.createCheckoutSession(cfg, {
       offerCode: 'STANDARD_MONTHLY', uid: ACC, accountId: ACC, customerId: 'cus_live_1',
       env: { VVV_PRICE_WEB_STANDARD_MONTHLY: 'price_abc123' }
-    }, { fetch: async () => ({ ok: true, status: 200,
-          text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.test/cs_1' }) }) });
+    }, { fetch: async (url) => {
+          /* Answers the verification lookup as well as the session create.
+             A single catch-all response used to serve both, which now fails
+             for the right reason: a Checkout Session is not a Price, and
+             verifyPrice says so rather than shrugging. */
+          if (/\/prices\//.test(String(url))) {
+            const o = Prod.offer('STANDARD_MONTHLY');
+            return { ok: true, status: 200, text: async () => JSON.stringify({
+              id: 'price_abc123', object: 'price', active: true, type: 'recurring',
+              currency: String(o.currency).toLowerCase(), unit_amount: o.priceMinor,
+              recurring: { interval: 'month', interval_count: 1 },
+              product: 'prod_sacoro_standard' }) };
+          }
+          return { ok: true, status: 200,
+                   text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.test/cs_1' }) };
+        } });
     assert.equal(created.ok, true);
     // The athlete now closes the tab. No webhook arrives, because no
     // subscription was ever created.
@@ -566,14 +580,32 @@ test('no signing secret means 503, never "accept everything"', async () => {
 // ===========================================================================
 // CHECKOUT
 // ===========================================================================
-function checkoutParams(offerCode, priceEnvName, priceId){
+/* `priceOver` merges over the Price this serves, so a test can hand checkout a
+   superseded amount, a wrong currency or an inactive price. Left out, the
+   Price is built FROM the catalogue and therefore agrees with it by
+   construction rather than by a literal somebody has to remember to update. */
+function checkoutParams(offerCode, priceEnvName, priceId, priceOver){
   const env = {}; env[priceEnvName] = priceId;
   const cfg = P.config(Object.assign({ STRIPE_SECRET_KEY: KEY,
     VVV_SITE_ORIGIN: 'https://app.test', VVV_MARKETING_ORIGIN: 'https://site.test' }, env));
   let sent = null;
+  const offer = Prod.offer(offerCode);
   return P.createCheckoutSession(cfg, {
     offerCode: offerCode, uid: ACC, accountId: ACC, customerId: 'cus_1', env: env
-  }, { fetch: async (url, init) => { sent = init.body;
+  }, { fetch: async (url, init) => {
+        /* THE VERIFICATION LOOKUP, answered before the session POST. `sent` is
+           deliberately not written here: it holds the session's form body, and
+           a GET with no body would blank it. */
+        if (/\/prices\//.test(String(url))) {
+          return { ok: true, status: 200, text: async () => JSON.stringify(Object.assign({
+            id: priceId, object: 'price', active: true, type: 'recurring',
+            currency: String(offer.currency).toLowerCase(),
+            unit_amount: offer.priceMinor,
+            recurring: { interval: offer.billingPeriod === 'yearly' ? 'year' : 'month', interval_count: 1 },
+            product: 'prod_sacoro_standard'
+          }, priceOver || {})) };
+        }
+        sent = init.body;
         return { ok: true, status: 200, text: async () => JSON.stringify({ id: 'cs_1', url: 'https://c.test' }) }; } })
    .then(function(r){ return { r: r, body: decodeURIComponent(String(sent).replace(/\+/g, ' ')) }; });
 }
