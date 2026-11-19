@@ -71,7 +71,42 @@ Console (Order management); the server does not do that by itself.
 
 Any purchase Play holds that the server has not acknowledged (the app closed
 under Play's sheet, no signal) is sent to the server again on every app start
-and on every return to the foreground.
+and on every return to the foreground. Each purchase is asked about **once at a
+time** (the sheet closing and the resume it causes used to send it twice), and
+the server re-reads a token's owner before refusing it, so two tellings of one
+purchase are one subscription, never a refusal. When Play says the account
+**already owns** the subscription, the app confirms the purchase it already
+holds instead of buying again.
+
+Prices and the trial verdict are asked for again **every time the plans open**
+(the trial screen, or Settings). A price changed in Play Console can still take
+Google a few hours to reach every phone.
+
+### When a purchase is not confirmed
+
+After Play has taken a purchase, the app never says "Nothing has been charged".
+It says one of two things, and under it a **Reference** line with the server's
+own code (and, when Google refused the server, why):
+
+- **Not confirmed yet** (Google or SACORO could not be reached, or the record
+  could not be written): "Google Play has taken your purchase, but SACORO could
+  not confirm it yet." The button becomes **Check Again**, which asks about the
+  same purchase; it never opens a second one. It is also retried on every open.
+- **Refused** (a trial already used, a subscription already held, another
+  account's purchase): the reason, and that Google Play cancels a purchase
+  SACORO does not confirm and refunds anything charged.
+
+| Reference | What it means | What to do |
+|---|---|---|
+| `provider_error (google_http_401)` or `(google_http_403)` | Google refused the server's read of the purchase | Play Console, Users and permissions: the service account needs **View financial data** and **Manage orders and subscriptions** on SACORO; new access can take up to a day. Check the Google Play Android Developer API is enabled in `sacoro-billing` |
+| `provider_error (google_auth_refused)` | Google would not issue the server a token | The JSON key in `VVV_GOOGLE_PLAY_SERVICE_ACCOUNT` is wrong, deleted or disabled |
+| `provider_error (google_key_unusable)` | The key in Vercel cannot be read | Paste the whole JSON key file again |
+| `provider_error (google_unreachable)` / `play_verify_later` | Network, nothing wrong | Check Again |
+| `purchase_not_found` | Google does not know this purchase for `com.velvetviking.valhalla` | A purchase from another app or account |
+| `not_your_purchase` | The purchase carries another SACORO account's id | Sign in to the account that bought it |
+| `trial_already_used` | This SACORO account has had its one trial | Buy without the trial |
+| `already_subscribed_here` / `already_subscribed_elsewhere` | A live subscription already exists | Nothing to buy |
+| `subscription_unwritable` | Supabase refused the write | Check Again; if it repeats, a server problem |
 
 ### The obfuscated account id
 
@@ -263,6 +298,18 @@ values).
   live responses (a fallback exists if it is absent), Play's handling of the
   `free-trial-7d` ids;
 - the Play Console "Create subscription" unlock itself.
+
+**The first live test, 19 November 2026.** The two agreements were recorded at
+15:33 GMT and Google created the test subscription at 15:36, but SACORO
+recorded nothing: no `subscriptions` row, and no `billing_events` row from the
+Real-time developer notification either. Both of those paths start by reading
+the purchase from Google, and a failed read writes nothing (the notification
+answers 503 and Pub/Sub retries it), so the most likely cause is that Google
+did not yet accept the service account's access. The screen then showed the
+generic Play error; it now shows the reference above, so the next test says
+which. When Google access starts working, the retried notification for that
+purchase is recorded in `billing_events` by itself, which is a check that
+needs no new purchase.
 
 ## 6. Decisions to confirm
 

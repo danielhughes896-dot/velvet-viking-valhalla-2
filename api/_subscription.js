@@ -256,7 +256,7 @@ async function googleVerify(req, res, cfg, uid, body){
   if (!r.ok){
     log('GOOGLE_VERIFY_REFUSED code=' + r.code + ' uid=' + ref(uid));
     return { code: r.code, status: r.status && r.status >= 400 ? r.status : 409,
-             provider: r.existingProvider || null };
+             provider: r.existingProvider || null, detail: r.detail || null };
   }
   log('GOOGLE_VERIFIED uid=' + ref(uid) + ' condition=' + r.condition);
   return { code: r.acknowledged ? 'google_verified' : 'google_verified_unacknowledged', status: 200 };
@@ -423,6 +423,8 @@ async function handle(req, res){
     if (outcome.status >= 400){
       const out = { error: outcome.code };
       if (outcome.provider) out.provider = outcome.provider;
+      /* Only our own short codes ever travel here (see admit()). */
+      if (outcome.detail && /^[a-z0-9_]{1,40}$/.test(String(outcome.detail))) out.detail = outcome.detail;
       return S.json(res, outcome.status, out);
     }
   }

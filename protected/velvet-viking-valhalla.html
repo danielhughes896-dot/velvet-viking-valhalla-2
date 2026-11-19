@@ -88175,7 +88175,8 @@ function playVerify(purchase){
                           productId: (p.productIds && p.productIds[0]) || null })
     .then(function(x){
       if (x.status === 200) return { ok:true };
-      return { ok:false, code: (x.body && x.body.error) || (x.status >= 500 ? 'play_verify_later' : 'play_error') };
+      return { ok:false, code: (x.body && x.body.error) || (x.status >= 500 ? 'play_verify_later' : 'play_error'),
+               detail: (x.body && typeof x.body.detail === 'string') ? x.body.detail : null };
     }).catch(function(){ return { ok:false, code:'play_verify_later' }; })
     .then(function(res){
       if (token) delete playVerifying[token];
@@ -88185,7 +88186,7 @@ function playVerify(purchase){
          a later confirmation (Check Again, or recovery on the next open)
          clears it. */
       if (res.ok){ if (playUnconfirmed && playUnconfirmed.token === token) playUnconfirmed = null; }
-      else if (token) playUnconfirmed = { token: token, purchase: p, code: res.code };
+      else if (token) playUnconfirmed = { token: token, purchase: p, code: res.code, detail: res.detail || null };
       return res;
     });
   if (token) playVerifying[token] = asked;
@@ -88346,11 +88347,17 @@ function playUnconfirmedCopy(code){
     'Tap Check Again, or SACORO tries again each time it opens. '+
     'If it is never confirmed, Google Play cancels it and refunds anything charged.';
 }
+/* The reference: the server's code, and why Google refused where it said
+   (provider_error (google_http_403), say), so one screenshot says it all. */
+function playUnconfirmedReference(u){
+  if (!u) return '';
+  return String(u.code || 'unknown') + (u.detail ? ' ('+u.detail+')' : '');
+}
 function playUnconfirmedNote(){
   var u = playUnconfirmed;
   if (!u) return '';
   return '<p class="jr-error" role="alert">'+escapeHtml(playUnconfirmedCopy(u.code))+'</p>'+
-    '<p class="jr-fine jr-centre">Reference: '+escapeHtml(String(u.code || 'unknown'))+'</p>';
+    '<p class="jr-fine jr-centre">Reference: '+escapeHtml(playUnconfirmedReference(u))+'</p>';
 }
 /* CHECK AGAIN: the same purchase, asked again. Never a second purchase. */
 var playChecking = false;
@@ -88411,7 +88418,7 @@ function renderPlaySubscriptionActions(info){
     '<div class="field-hint" style="margin-top:8px;">Payment is handled by Google Play.</div>'+
     (playUnconfirmed
       ? '<div class="field-hint" role="alert" style="margin-top:8px;">'+escapeHtml(playUnconfirmedCopy(playUnconfirmed.code))+'</div>'+
-        '<div class="field-hint" style="margin-top:4px;">Reference: '+escapeHtml(String(playUnconfirmed.code || 'unknown'))+'</div>'
+        '<div class="field-hint" style="margin-top:4px;">Reference: '+escapeHtml(playUnconfirmedReference(playUnconfirmed))+'</div>'
       : (playNote ? '<div class="field-hint" role="alert" style="margin-top:8px;">'+escapeHtml(playNote)+'</div>' : ''));
 }
 function handlePlayStart(){
