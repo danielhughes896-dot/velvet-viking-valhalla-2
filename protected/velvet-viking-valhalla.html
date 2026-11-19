@@ -86975,14 +86975,7 @@ function renderProgrammeEntry(){
      an alt attribute would read the screen twice to anyone using it. */
   return '<div class="pe">'+
     '<div class="pe-mountains" role="presentation" aria-hidden="true"></div>'+
-    '<div class="pe-brand">'+
-      '<div class="pe-lockup">'+
-        '<span class="pe-dot" aria-hidden="true"></span>'+
-        '<div class="pe-name">SACORO</div>'+
-        '<span class="pe-dot" aria-hidden="true"></span>'+
-      '</div>'+
-      '<div class="pe-by">By Velvet Viking</div>'+
-    '</div>'+
+    programmeEntryBrand()+
     /* THE MIDDLE THIRD IS ONE BLOCK. The greeting, the programme line, the
        bar and the figure were four siblings of .pe, which is a three-row
        grid now -- as siblings they would have taken rows of their own and
@@ -87008,11 +87001,7 @@ function renderProgrammeEntry(){
      THE RULE IS DECORATION AND STAYS. "No hairline" was about the top bar,
      where a 64% rule sat under the wordmark saying nothing; this one is in
      the founder's own mock-up and separates two blocks. */
-    '<div class="pe-foot">'+
-      '<div class="pe-rule" aria-hidden="true"></div>'+
-      '<div class="pe-claim">Earn your place</div>'+
-      '<div class="pe-sub">Built around the climb</div>'+
-    '</div>'+
+    programmeEntryFoot()+
     /* NO BUTTON. This screen is not a decision, it is the app's own front
        door -- shown while the plan loads and then stood down. A press was
        asking the athlete to acknowledge a loading screen. It holds itself
@@ -87468,6 +87457,26 @@ function journeyOptionRow(o, on, kind, sub){
       : '<span class="jr-opt-mark is-radio" aria-hidden="true">'+(on ? ICONS.check : '')+'</span>')+
   '</button>';
 }
+/* The splash's first and last thirds, written once for the arrival and the
+   wait (the document's own #boot-splash is the only other copy, and has to
+   be: it paints before any of this exists). */
+function programmeEntryBrand(){
+  return '<div class="pe-brand">'+
+      '<div class="pe-lockup">'+
+        '<span class="pe-dot" aria-hidden="true"></span>'+
+        '<div class="pe-name">SACORO</div>'+
+        '<span class="pe-dot" aria-hidden="true"></span>'+
+      '</div>'+
+      '<div class="pe-by">By Velvet Viking</div>'+
+    '</div>';
+}
+function programmeEntryFoot(){
+  return '<div class="pe-foot">'+
+      '<div class="pe-rule" aria-hidden="true"></div>'+
+      '<div class="pe-claim">Earn your place</div>'+
+      '<div class="pe-sub">Built around the climb</div>'+
+    '</div>';
+}
 /* THE WAIT IS THE SPLASH (founder, 19 November 2026). It is only drawn now
    where the app is about to open into a plan (a member's device), and there
    the founder wants the splash, not "One moment" under a crest. The same
@@ -87477,16 +87486,9 @@ function journeyOptionRow(o, on, kind, sub){
 function renderJourneyWait(canRetry){
   return '<div class="pe jr jr-wait-pe" role="status" aria-label="One moment">'+
     '<div class="pe-mountains" role="presentation" aria-hidden="true"></div>'+
-    '<div class="pe-brand" aria-hidden="true">'+
-      '<div class="pe-lockup"><span class="pe-dot"></span><div class="pe-name">SACORO</div><span class="pe-dot"></span></div>'+
-      '<div class="pe-by">By Velvet Viking</div>'+
-    '</div>'+
+    programmeEntryBrand()+
     '<div class="pe-athlete"></div>'+
-    '<div class="pe-foot" aria-hidden="true">'+
-      '<div class="pe-rule"></div>'+
-      '<div class="pe-claim">Earn your place</div>'+
-      '<div class="pe-sub">Built around the climb</div>'+
-    '</div>'+
+    programmeEntryFoot()+
     (canRetry ? '<button type="button" class="jr-text-btn jr-wait-retry" data-action="journey-reload">Try Again</button>' : '')+
   '</div>';
 }
