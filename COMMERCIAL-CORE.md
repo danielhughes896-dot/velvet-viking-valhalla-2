@@ -48,6 +48,17 @@ One product. Two ways to pay for it.
 | offer | `STANDARD_MONTHLY` | monthly | £11.99 | 7 days |
 | offer | `STANDARD_YEARLY` | yearly | £79.99 | 7 days |
 
+**Stored as `VALHALLA_STANDARD`.** The live schema's CHECK constraints
+(`supabase-commercial-core.sql`) still name the product by its pre-rename code,
+so `subscriptions.product_code` is written as `VALHALLA_STANDARD` and either
+name is read as the standard product (`storedProductCode` and
+`isStandardProduct` in `api/_products.js`). Until 19 November 2026 the code
+wrote `SACORO_STANDARD`, which Postgres refuses, so no subscription on any rail
+could be recorded; the founder's Google Play test found it. The schema was not
+changed. `entitlement_grants` has the same constraint and its rows carry the
+old code; how grants are read is unchanged and open for a decision, because
+accepting the stored code there would change one account's access.
+
 **The trial is a commercial choice; the UK's statutory distance-contract
 cancellation right is a separate fourteen days, fixed by law.** They used to be
 the same number, which quietly made "the trial has ended" and "the athlete's
