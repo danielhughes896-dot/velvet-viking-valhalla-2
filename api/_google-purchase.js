@@ -230,8 +230,14 @@ async function admit(S, cfg, o){
     const got = await G.fetchSubscription(gcfg, token, x.opts);
     if (!got.ok){
       log('READ_FAILED code=' + got.code + ' purchase=' + which);
+      /* WHY GOOGLE SAID NO, IN THE ANSWER AS WELL AS THE LOG. The founder's
+         first test purchase (19 November 2026) failed here, and the log was the
+         only place that said why. The detail is one of _google.js's own codes
+         (google_http_403, google_auth_refused, ...), never Google's text, so
+         the app can show it as the reference on its screen. */
       return { ok: false, code: got.code === 'purchase_not_found' ? 'purchase_not_found' : 'provider_error',
-               status: got.code === 'purchase_not_found' ? 404 : 502 };
+               status: got.code === 'purchase_not_found' ? 404 : 502,
+               detail: got.code || null };
     }
     sub = got.subscription;
   }

@@ -306,6 +306,7 @@ function fakeGoogle(){
     if (!/^Bearer ya29\.fake$/.test(String(init && init.headers && init.headers.Authorization))) return bad(401);
     const get = /\/applications\/com\.velvetviking\.valhalla\/purchases\/subscriptionsv2\/tokens\/([^/]+)$/.exec(u);
     if (get && method === 'GET'){
+      if (state.forbid) return bad(403);
       const s = state.subs[decodeURIComponent(get[1])];
       return s ? ok(s) : bad(404);
     }
@@ -556,6 +557,24 @@ test('verify: the same purchase told twice at once is one subscription, never a 
     both.forEach(r => assert.equal(r.status, 200, JSON.stringify(r.json)));
     assert.equal(googleRows(f).length, 1);
     assert.ok(f.rows('account_commercial').filter(a => a.account_id === ATHLETE)[0].trial_consumed_at);
+  });
+});
+
+test('verify: when Google refuses the server, the answer says how, so the screen can show it', async () => {
+  /* The founder's first test purchase (19 November 2026) failed at this read,
+     and only the server log said why. */
+  await withWorld({}, async ({ f, google, api }) => {
+    google.put(TOK, playSub());
+    google.state.forbid = true;
+    const r = await api.sub({ action: 'google_verify', purchaseToken: TOK, productId: 'sacoro_standard' });
+    assert.equal(r.status, 502);
+    assert.deepEqual(r.json, { error: 'provider_error', detail: 'google_http_403' });
+    assert.equal(googleRows(f).length, 0);
+    assert.deepEqual(google.state.acks, []);
+    /* access arrives: the same purchase is confirmed, once */
+    google.state.forbid = false;
+    assert.equal((await api.sub({ action: 'google_verify', purchaseToken: TOK })).status, 200);
+    assert.equal(googleRows(f).length, 1);
   });
 });
 
@@ -870,7 +889,7 @@ test('cancel and error: short plain messages, and the athlete stays where they w
 });
 
 test('after Play took the purchase, a server that cannot confirm it says so, shows why, and Check Again asks again', async () => {
-  const w = playWorld({ verify: { status: 502, body: { error: 'provider_error' } } });
+  const w = playWorld({ verify: { status: 502, body: { error: 'provider_error', detail: 'google_http_403' } } });
   const a = atTrial(w.a);
   await settle();
   a.journeyAgreed.terms = true; a.journeyAgreed.immediate_start = true;
@@ -878,7 +897,7 @@ test('after Play took the purchase, a server that cannot confirm it says so, sho
   await new Promise(r => setTimeout(r, 20)); await settle();
   const h = a.renderJourneyTrial();
   assert.match(text(h), /Google Play has taken your purchase, but SACORO could not confirm it yet\./);
-  assert.match(text(h), /Reference: provider_error/);
+  assert.match(text(h), /Reference: provider_error \(google_http_403\)/, 'the reference does not say why Google refused');
   assert.doesNotMatch(text(h), /Nothing has been charged/, 'the founder\'s test purchase said this after Google created the subscription');
   assert.match(h, /data-action="journey-play-check"[^>]*>Check Again</);
   assert.doesNotMatch(h, /data-action="journey-trial-start"/, 'a second purchase was offered for one Play already took');
@@ -1057,7 +1076,8 @@ test('the documents say what is now true', () => {
    'VVV_GOOGLE_PLAY_SERVICE_ACCOUNT', 'VVV_GOOGLE_ACCOUNT_ID_SECRET', 'VVV_GOOGLE_RTDN_AUDIENCE',
    'VVV_GOOGLE_RTDN_SERVICE_ACCOUNT', 'VVV_PRICE_GOOGLE_STANDARD_MONTHLY', 'VVV_PRICE_GOOGLE_STANDARD_YEARLY',
    'projects/sacoro-billing/topics/sacoro-play-billing', 'https://app.velvetviking.co.uk/api/billing-webhook?rail=google',
-   'play_store_build', 'internal testing'].forEach(s => assert.ok(doc.indexOf(s) !== -1, 'GOOGLE-PLAY-BILLING.md does not mention ' + s));
+   'play_store_build', 'internal testing', 'Check Again', 'Reference', 'google_http_403', 'no location\n   check']
+    .forEach(s => assert.ok(doc.indexOf(s) !== -1, 'GOOGLE-PLAY-BILLING.md does not mention ' + s));
   const boundary = read('STORE-COMMERCIAL-BOUNDARY.md');
   assert.doesNotMatch(boundary, /There is no Apple or Google purchase code in the repository at all/);
   assert.match(boundary, /_google\.js/);
