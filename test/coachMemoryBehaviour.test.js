@@ -33,6 +33,11 @@ const X = require('../api/_voice-explain.js');
 const NOTE = require('../api/_voice-note.js');
 
 const NOW = '2026-11-17';
+/* THE SERVER'S DAY. The store keeps a line against the athlete's date only
+   when it is within a day of the server's own clock, so a test that talks to
+   the store must use today's real date: a fixed date went stale on
+   19 November 2026 and the store, correctly, kept the line against today. */
+const SNOW = new Date().toISOString().slice(0, 10);
 const plain = x => JSON.parse(JSON.stringify(x));
 async function settle(){ for (let i = 0; i < 12; i++) await new Promise(r => setImmediate(r)); }
 
@@ -244,19 +249,19 @@ test('reasons: legs tired is health -- kept only with consent on both sides, oth
 test('reasons, through the store: the reasoned line takes the plain line\'s place, for that athlete and day only', async () => {
   serverOn();
   try {
-    const f = table({ rows: [{ user_id: 'u1', day: NOW, kind: 'decision', health: false, line: 'Declined the extra run, week 6.' },
+    const f = table({ rows: [{ user_id: 'u1', day: SNOW, kind: 'decision', health: false, line: 'Declined the extra run, week 6.' },
                              { user_id: 'u1', day: '2026-11-10', kind: 'decision', health: false, line: 'Declined the extra run, week 6.' },
-                             { user_id: 'u2', day: NOW, kind: 'decision', health: false, line: 'Declined the extra run, week 6.' }] });
+                             { user_id: 'u2', day: SNOW, kind: 'decision', health: false, line: 'Declined the extra run, week 6.' }] });
     const res = mkRes();
     await M.handle({ method: 'POST', headers: { authorization: 'Bearer t' }, body: { action: 'record',
-      consent: L.COACH_MEMORY_VERSION, day: NOW, kind: 'decision', code: 'extra_day_declined', week: 6, reason: 'short_on_time' } }, res, { S: f });
+      consent: L.COACH_MEMORY_VERSION, day: SNOW, kind: 'decision', code: 'extra_day_declined', week: 6, reason: 'short_on_time' } }, res, { S: f });
     assert.equal(res.json().stored, true);
     assert.deepEqual(f.db.rows.map(r => r.user_id + ' ' + r.day + ' ' + r.line).sort(), [
       'u1 2026-11-10 Declined the extra run, week 6.',
-      'u1 2026-11-17 Declined the extra run, week 6: short on time.',
-      'u2 2026-11-17 Declined the extra run, week 6.'].sort());
+      'u1 ' + SNOW + ' Declined the extra run, week 6: short on time.',
+      'u2 ' + SNOW + ' Declined the extra run, week 6.'].sort());
     const del = f.calls.find(c => c.method === 'DELETE');
-    assert.match(del.path, /^\/coach_memory\?user_id=eq\.u1&day=eq\.2026-11-17&line=eq\.Declined%20the%20extra%20run%2C%20week%206\.$/);
+    assert.match(del.path, new RegExp('^/coach_memory\\?user_id=eq\\.u1&day=eq\\.' + SNOW + '&line=eq\\.Declined%20the%20extra%20run%2C%20week%206\\.$'));
     assert.equal(res.json().packet[0].line, 'Declined the extra run, week 6: short on time.');
 
     /* An unknown reason keeps nothing and removes nothing. */
@@ -271,7 +276,7 @@ test('reasons, through the store: the reasoned line takes the plain line\'s plac
                                               [true, false, 'Kept a session as planned rather than make it easier.'],
                                               [true, true, 'Kept a session as planned rather than make it easier: legs tired.']]){
       const g = table({ healthGranted: server }), r = mkRes();
-      await M.handle({ method: 'POST', headers: {}, body: { action: 'record', consent: L.COACH_MEMORY_VERSION, day: NOW,
+      await M.handle({ method: 'POST', headers: {}, body: { action: 'record', consent: L.COACH_MEMORY_VERSION, day: SNOW,
         healthConsent: browser, kind: 'decision', code: 'session_kept', reason: 'legs_tired' } }, r, { S: g });
       assert.equal(r.json().stored, true);
       assert.deepEqual(g.db.rows.map(x => x.line), [expect], browser + '/' + server);
