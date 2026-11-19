@@ -40,6 +40,23 @@
 /* The one product code. Written once; imported everywhere. */
 const STANDARD = 'SACORO_STANDARD';
 
+/* THE DATABASE'S NAME FOR THE SAME PRODUCT, FROM BEFORE THE RENAME.
+   The rename to SACORO changed the code's name above but not the live schema:
+   supabase-commercial-core.sql's CHECK constraint on subscriptions.product_code
+   accepts only 'VALHALLA_STANDARD'. So every subscription the code tried to
+   write was refused by Postgres, on every rail, and nothing noticed until the
+   founder's Google Play test purchase (19 November 2026) answered
+   subscription_unwritable. The fake database in the tests does not enforce
+   CHECK constraints, which is how it passed.
+   A subscription row is WRITTEN with the stored name and READ under either
+   name (storedProductCode, isStandardProduct). The schema is not changed
+   (founder, 19 November 2026: "Do not change the database"). Renaming the
+   stored value is a migration for another day, and these two functions are
+   the only places that would change. */
+const STORED_STANDARD = 'VALHALLA_STANDARD';
+function storedProductCode(code){ return code === STANDARD ? STORED_STANDARD : code; }
+function isStandardProduct(code){ return code === STANDARD || code === STORED_STANDARD; }
+
 /* The providers this model is built to normalise. 'web' is whichever web
    billing provider Phase 2 chooses -- the code is deliberately the CHANNEL and
    not the vendor, because an athlete who pays on a website has bought the same
@@ -226,7 +243,8 @@ function catalogue(provider, env, now){
 }
 
 module.exports = {
-  STANDARD, PRODUCTS, OFFERS, PROVIDERS, ENVIRONMENTS, BILLING_PERIODS, TRIAL_DAYS,
+  STANDARD, STORED_STANDARD, storedProductCode, isStandardProduct,
+  PRODUCTS, OFFERS, PROVIDERS, ENVIRONMENTS, BILLING_PERIODS, TRIAL_DAYS,
   CATALOGUE_VERSION,
   isProduct, isOffer, isProvider, isEnvironment,
   product, offer, offersFor, offerForPeriod,

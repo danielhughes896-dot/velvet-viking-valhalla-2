@@ -462,7 +462,9 @@
     });
     var span = document.createElement('span');
     span.className = 'vvv-quiet';
-    if (isHtml) span.innerHTML = html; else span.textContent = html;
+    /* Plain wording keeps its paragraph breaks (the immediate-start text is
+       four paragraphs, separated by blank lines). */
+    if (isHtml) span.innerHTML = html; else { span.textContent = html; span.style.whiteSpace = 'pre-line'; }
     wrap.appendChild(cb); wrap.appendChild(span);
     return wrap;
   }

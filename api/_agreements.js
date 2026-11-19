@@ -205,32 +205,61 @@ const STATUTORY_WITHDRAWAL_DAYS = 14;
  *
  * v1 of this text was reviewed and approved, and said "you will not be
  * charged before the trial ends" -- true only because the trial and the
- * statutory withdrawal period were both fourteen days. Now that the trial is
- * seven, that sentence would let a card be charged while the athlete still
- * holds an unexpired statutory right to cancel for a full refund, which v1
- * never had to account for and never approved wording for.
+ * statutory withdrawal period were both fourteen days.
  *
- * v2 below is this file's attempt to stay compliant with a shorter trial: it
- * separates "free until" (seven days) from "refundable until" (fourteen days,
- * the statutory minimum), and promises the second regardless of the first.
- * THIS IS A HOLDING FIX, NOT LEGAL ADVICE, and the version bump means every
- * athlete is asked again at their next checkout -- which is also what forces
- * this sentence to stop being true the day a solicitor actually reviews v2:
- * get it checked before relying on it past that review.
+ * v2 separated "free until" (seven days) from "refundable until" (fourteen
+ * days, the statutory minimum). It was a holding fix, never reviewed, and it
+ * opened with "Your 7-day free trial starts now", which is untrue for anyone
+ * whose checkout carries no trial (an athlete who has already had theirs) and
+ * promised a refund from SACORO for purchases that Google Play and the App
+ * Store, not SACORO, refund.
+ *
+ * v3 (founder, 19 November 2026, supplied verbatim) covers all three rails:
+ * a trial only "if my checkout includes" one, payment starting immediately
+ * otherwise, the fourteen-day refund on any charge, and store purchases
+ * refunded through the store with SACORO support to help. IT IS NOT YET
+ * SOLICITOR-REVIEWED either: get it checked before relying on it. The version
+ * bump means every athlete is asked again at their next checkout.
+ *
+ * The four paragraphs are separated by blank lines ("\n\n"); every surface
+ * that shows the text keeps those breaks (white-space: pre-line).
  *
  * The text lives HERE and not in a screen, so that the wording an athlete saw
  * and the version recorded against their decision cannot come apart: a surface
  * renders what this module gives it. */
-const IMMEDIATE_START_VERSION = 'immediate_start_v2';
-const IMMEDIATE_START_TEXT =
-  'Your 7-day free trial starts now and you get the full product straight ' +
-  'away. That means you are asking us to begin the service during the ' +
-  STATUTORY_WITHDRAWAL_DAYS + '-day period in which you would otherwise ' +
-  'have the right to cancel a distance contract, and you accept that ' +
-  'starting immediately affects that right. You can cancel at any time ' +
-  'during your trial and you will not be charged. If you are charged when ' +
-  'your trial ends and you then cancel within ' + STATUTORY_WITHDRAWAL_DAYS +
-  ' days of today, we will refund that charge in full.';
+const IMMEDIATE_START_VERSION = 'immediate_start_v3';
+const IMMEDIATE_START_TEXT = [
+  'I request immediate access to SACORO. I am asking you to begin the ' +
+  'service during the ' + STATUTORY_WITHDRAWAL_DAYS + '-day period in which ' +
+  'you would otherwise have the right to cancel a distance contract, and I ' +
+  'understand that starting immediately affects that right.',
+  'If my checkout includes a 7-day free trial, I can cancel before it ends ' +
+  'and will not be charged. Otherwise, payment starts immediately.',
+  'If I am charged and cancel within ' + STATUTORY_WITHDRAWAL_DAYS + ' days ' +
+  'of entering the subscription contract, SACORO will refund that charge in ' +
+  'full.',
+  'For store purchases, I can request a refund through the store or contact ' +
+  'SACORO support for help. This does not limit my statutory rights.'
+].join('\n\n');
+
+/* THE WORDING EVERY EARLIER VERSION STOOD FOR, frozen. account_agreements is
+   append-only and stores only the version an athlete accepted, so the record
+   of what a "yes" meant has to be kept beside it: a v2 acceptance means
+   exactly the v2 text below, for as long as that row exists. Never edit an
+   entry; a new wording is a new version. v1's text (solicitor-approved, for a
+   fourteen-day trial) predates this file keeping wording history and is
+   described in LEGAL-FACTS.md. Nothing here counts as current: hasAccepted()
+   still accepts only IMMEDIATE_START_VERSION. */
+const IMMEDIATE_START_HISTORY = Object.freeze({
+  immediate_start_v2:
+    'Your 7-day free trial starts now and you get the full product straight ' +
+    'away. That means you are asking us to begin the service during the ' +
+    '14-day period in which you would otherwise have the right to cancel a ' +
+    'distance contract, and you accept that starting immediately affects ' +
+    'that right. You can cancel at any time during your trial and you will ' +
+    'not be charged. If you are charged when your trial ends and you then ' +
+    'cancel within 14 days of today, we will refund that charge in full.'
+});
 
 function versionFor(type, published){
   /* Null when there is no commercial Terms document published. Every caller
@@ -447,7 +476,7 @@ module.exports = {
   TERMS_VERSION, TERMS_COMMERCIAL_VERSION, TERMS_BETA_VERSION,
   PRIVACY_VERSION, PRIVACY_COMMERCIAL_VERSION, PRIVACY_BETA_VERSION,
   CANONICAL_TERMS_URL, CANONICAL_PRIVACY_URL, BETA_TERMS_URL, TERMS_URL,
-  STATUTORY_WITHDRAWAL_DAYS, IMMEDIATE_START_VERSION, IMMEDIATE_START_TEXT,
+  STATUTORY_WITHDRAWAL_DAYS, IMMEDIATE_START_VERSION, IMMEDIATE_START_TEXT, IMMEDIATE_START_HISTORY,
   inForce,
   versionFor, currentAgreements, hasAccepted, record, purchaseEvidence
 };

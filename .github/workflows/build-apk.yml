@@ -26,6 +26,19 @@ on:
         description: 'Exact commit SHA, tag or branch to build. Leave blank to build the current branch tip.'
         required: false
         default: ''
+      # THE PLAY STORE BUILD. Off by default, so a manual run builds exactly
+      # today's website-distributed APK. On, the runner's copy of
+      # capacitor.config.json gains "appendUserAgent": "SACORO-Store-Build"
+      # before the native project is synced, which is what makes the app use
+      # Google Play Billing instead of the website's checkout (see
+      # STORE-COMMERCIAL-BOUNDARY.md and GOOGLE-PLAY-BILLING.md). The
+      # repository's own capacitor.config.json never carries the marker, and
+      # test/m10-androidPayment.test.js fails if it ever does.
+      play_store_build:
+        description: 'Play Store build: add the SACORO-Store-Build marker (Google Play Billing). Leave off for the website APK.'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-apk:
@@ -95,6 +108,16 @@ jobs:
         with:
           packages: platform-tools
 
+      # AFTER the suite (which pins that the repository's config has no
+      # marker) and BEFORE the sync that copies the config into the native
+      # project. Only this runner's checkout changes; nothing is committed.
+      - name: Mark this as a Play Store build
+        if: ${{ github.event.inputs.play_store_build == 'true' }}
+        run: |
+          node -e "const fs=require('fs');const f='capacitor.config.json';const c=JSON.parse(fs.readFileSync(f,'utf8'));c.appendUserAgent='SACORO-Store-Build';fs.writeFileSync(f,JSON.stringify(c,null,2)+'\n');"
+          grep -q '"appendUserAgent": "SACORO-Store-Build"' capacitor.config.json || { echo "::error::the store marker was not written"; exit 1; }
+          echo "::notice::PLAY STORE BUILD -- capacitor.config.json carries the SACORO-Store-Build marker for this run only."
+
       - name: Sync Capacitor native project
         run: npx cap sync android
 
@@ -138,7 +161,7 @@ jobs:
       - name: Upload DEBUG TEST BUILD artifact
         uses: actions/upload-artifact@v4
         with:
-          name: velvet-viking-valhalla-DEBUG-TEST-apk
+          name: ${{ github.event.inputs.play_store_build == 'true' && 'velvet-viking-valhalla-PLAY-STORE-DEBUG-TEST-apk' || 'velvet-viking-valhalla-DEBUG-TEST-apk' }}
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -211,15 +234,18 @@ jobs:
             echo "| Source commit | \`${{ github.sha }}\` |"
             echo "| Built ref | \`${{ github.event.inputs.ref || github.ref_name }}\` |"
             echo "| Size | $(du -h "$AAB" | cut -f1) |"
+            echo "| Distribution | ${{ github.event.inputs.play_store_build == 'true' && 'Google Play (SACORO-Store-Build marker, Play Billing)' || 'website-distributed (no store marker, web checkout)' }} |"
             echo ""
             echo "Signed with the repository's stable upload key. **Not published to Google Play** — download the artifact and upload it by hand."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Named apart, so the bundle that goes to Play Console can never be
+      # mistaken for the website-distributed one, or the other way round.
       - name: Upload SIGNED RELEASE BUILD artifacts
         if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: velvet-viking-valhalla-SIGNED-RELEASE
+          name: ${{ github.event.inputs.play_store_build == 'true' && 'velvet-viking-valhalla-PLAY-STORE' || 'velvet-viking-valhalla-SIGNED-RELEASE' }}
           path: |
             android/app/build/outputs/bundle/release/*.aab
             android/app/build/outputs/apk/release/*.apk
@@ -228,10 +254,12 @@ jobs:
   # Only runs for a pushed tag or a manually-triggered run (workflow_dispatch)
   # -- ordinary branch pushes still just build the APK above and stop there,
   # so this never fires (or spams releases) on every commit.
+  # NOT FOR A PLAY STORE BUILD: its APK carries the store marker and sells
+  # through Google Play Billing, so it is not the APK the website hands out.
   create-release:
     needs: build-apk
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && github.event.inputs.play_store_build != 'true'
     permissions:
       contents: write
     steps:

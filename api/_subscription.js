@@ -9,6 +9,14 @@
 //                            -> stop the renewal, keep the paid period
 //   POST /api/subscription   { action: "reactivate" }
 //                            -> change your mind before it runs out
+//   POST /api/subscription   { action: "google_prepare" }
+//                            -> before the Play purchase sheet opens: may
+//                               this athlete buy, may it include the trial,
+//                               and the opaque id Play must carry
+//   POST /api/subscription   { action: "google_verify", purchaseToken, productId }
+//                            -> ask GOOGLE what was bought, then the core
+//                               write and the acknowledgement (the Play
+//                               store build's equivalent of reconcile)
 //
 // WHY THIS IS NOT /api/session. That endpoint mints the delivery lease, and it
 // answers 403 when access has ended -- which is correct, and which is exactly
@@ -58,6 +66,7 @@ const Apply = require('./_billing-apply.js');
 const Checkout = require('./_checkout.js');
 const Agree = require('./_agreements.js');
 const E = require('./_entitlement.js');
+const GP = require('./_google-purchase.js');
 
 function log(what){ try{ console.log('subscription: ' + what); }catch(e){} }
 function ref(v){ return v ? String(v).slice(0, 8) + '…' : '-'; }
@@ -217,6 +226,33 @@ async function reconcile(req, res, cfg, uid, body){
   return { code: 'reconciled', status: 200, applied: true };
 }
 
+/* ---------- the Google Play purchase, pulled ----------
+ *
+ * THE PHONE IS NOT ALLOWED TO SAY "I PAID" EITHER. The Play store build hands
+ * over a purchase token and nothing else it says is believed: the token is a
+ * LOOKUP KEY, the server reads the purchase from Google with its own service
+ * account, and it is attached to this athlete only when the opaque id Google
+ * echoes back is the one this server derived for them (see
+ * _google-purchase.js). The same function serves Google's own notifications,
+ * so the two routes cannot disagree.
+ *
+ * A refusal here is not a lost payment: an unacknowledged Play purchase is
+ * refunded by Google after three days, and only an admitted one is
+ * acknowledged. */
+async function googleVerify(req, res, cfg, uid, body){
+  const b = body || {};
+  const token = b.purchaseToken || b.purchase_token || null;
+  const productId = b.productId || b.product_id || null;
+  const r = await GP.admit(S, cfg, { purchaseToken: token, productId: productId, uid: uid });
+  if (!r.ok){
+    log('GOOGLE_VERIFY_REFUSED code=' + r.code + ' uid=' + ref(uid));
+    return { code: r.code, status: r.status && r.status >= 400 ? r.status : 409,
+             provider: r.existingProvider || null, detail: r.detail || null };
+  }
+  log('GOOGLE_VERIFIED uid=' + ref(uid) + ' condition=' + r.condition);
+  return { code: r.acknowledged ? 'google_verified' : 'google_verified_unacknowledged', status: 200 };
+}
+
 /* ---------- cancel and reactivate ----------
  *
  * CANCELLING IS STOPPING THE RENEWAL. It is not ending access, it is not
@@ -335,6 +371,12 @@ async function handle(req, res){
                   : rec.reason === 'commercial_terms_not_published' ? 409
                   : rec.reason === 'no_document_in_force' ? 409 : 400 };
     }
+    else if (action === 'google_prepare'){
+      /* Read-only, and its own shape: what the purchase sheet needs, not the
+         account view. */
+      return S.json(res, 200, await GP.prepare(S, cfg, who.uid, req));
+    }
+    else if (action === 'google_verify') outcome = await googleVerify(req, res, cfg, who.uid, body);
     else if (action === 'reconcile')   outcome = await reconcile(req, res, cfg, who.uid, body);
     else if (action === 'cancel')      outcome = await mutateSubscription(req, res, cfg, who.uid, 'cancel');
     else if (action === 'reactivate')  outcome = await mutateSubscription(req, res, cfg, who.uid, 'reactivate');
@@ -343,6 +385,8 @@ async function handle(req, res){
     if (outcome.status >= 400){
       const out = { error: outcome.code };
       if (outcome.provider) out.provider = outcome.provider;
+      /* Only our own short codes ever travel here (see admit()). */
+      if (outcome.detail && /^[a-z0-9_]{1,40}$/.test(String(outcome.detail))) out.detail = outcome.detail;
       return S.json(res, outcome.status, out);
     }
   }
@@ -381,4 +425,4 @@ async function handle(req, res){
 }
 
 module.exports = { handle, publicView, reconcile, mutateSubscription,
-                   refreshFromProvider, liveSubscriptionOf };
+                   refreshFromProvider, liveSubscriptionOf, googleVerify };

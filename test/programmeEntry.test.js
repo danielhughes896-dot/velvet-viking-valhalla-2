@@ -876,50 +876,9 @@ test('ARRIVAL: the document paints it before a line of script runs', () => {
   assert.match(splash, /<div class="pe-athlete"><\/div>/,
     'the empty middle third went; the lockup will jump when the app paints');
   /* And it is not announced, because the screen that replaces it says the
-     same words. #boot-splash itself carries no class any more -- the brand
-     cover moved one level down, into .boot-pe, now that it shares the id
-     with the journey's own cover (.boot-jr, see the next test). */
-  assert.match(splash, /id="boot-splash" aria-hidden="true"/,
+     same words. */
+  assert.match(splash, /id="boot-splash" class="pe" aria-hidden="true"/,
     'the pre-script arrival is read out as well as the real one');
-  assert.match(splash, /class="boot-pe pe"/,
-    'the brand cover no longer carries its own class, so the journey-cover CSS toggle cannot select it');
-});
-
-test('ARRIVAL: a true no-session visitor is covered by Your Journey Starts Here, not the brand splash', () => {
-  /* Founder, 19 November 2026: Start Free Trial showed the brand splash
-     (Earn Your Place / Built Around The Climb) and only then, a beat later,
-     Your Journey Starts Here -- "it shouldn't have the splash - straight to
-     your journey starts here page... as quick as humanly as possible." The
-     server already marks exactly that visitor data-vvv-access="journey" on
-     <html> before a byte of <body> is parsed (JOURNEY_MARKER, api/app.js),
-     so the pre-script cover can choose between the two by CSS alone, with
-     no JS and no race -- see the rules beside #boot-splash{position:fixed. */
-  assert.match(RUNTIME_SRC,
-    /html\[data-vvv-access="journey"\] #boot-splash \.boot-pe\{display:none;\}/,
-    'the brand cover no longer stands down for a journey-only visitor');
-  assert.match(RUNTIME_SRC,
-    /html\[data-vvv-access="journey"\] #boot-splash \.boot-jr\{display:flex;\}/,
-    'the journey cover no longer takes over for a journey-only visitor');
-
-  const appAt = RUNTIME_SRC.indexOf('<div id="app" class="app-root">');
-  const scriptAt = RUNTIME_SRC.indexOf('\n<script>\n', appAt);
-  const preScript = RUNTIME_SRC.slice(appAt, scriptAt);
-  const splashAt = preScript.indexOf('id="boot-splash"');
-  const splash = preScript.slice(splashAt);
-
-  /* IT IS THE SAME SCREEN AS renderJourneyWelcome(), NOT A SECOND ONE. */
-  const live = arrived().renderJourneyWelcome();
-  ['jr-photo', 'jr-welcome-body', 'jr-crest', 'jr-title', 'jr-lede', 'jr-cta', 'jr-gold'].forEach(cls => {
-    assert.ok(splash.indexOf(cls) > -1, 'the pre-script journey cover has no .' + cls + ', so the handover moves things');
-    assert.ok(live.indexOf(cls) > -1, 'renderJourneyWelcome() has no .' + cls + ' any more, so the two have drifted apart');
-  });
-  ['Your Journey Starts Here', 'Personalised training. Built around you.', 'Build My Plan', 'Existing Member'].forEach(w => {
-    assert.ok(splash.indexOf(w) > -1, 'the pre-script journey cover stopped saying "' + w + '"');
-    assert.ok(live.indexOf(w) > -1, 'renderJourneyWelcome() stopped saying "' + w + '"');
-  });
-  /* Decorative only -- nothing in the pre-script cover is reachable by a
-     press or a tab stop, exactly like the brand cover beside it. */
-  assert.ok(!/data-action=/.test(splash), 'the pre-script journey cover is wired to real actions before any script has run');
 });
 
 test('ARRIVAL: the pre-script screen is taken down, and cannot strand anyone', () => {

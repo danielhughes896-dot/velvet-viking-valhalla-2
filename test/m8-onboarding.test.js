@@ -103,24 +103,31 @@ test('the journey runs in the founder\'s order', () => {
    'Improve My Health and Wellbeing', 'Challenge My Limits', 'Rediscover My Love of Running']
     .forEach(l => assert.ok(drives.indexOf(l) !== -1, l + ' is not offered'));
   assert.match(drives, /Skip for Now/, 'none is allowed, quietly');
-  // Continue opens the builder (the stub document cannot draw it; the call is the fact)
+  /* THE SLIDES COME BEFORE THE BUILDER (founder, 19 November 2026), drawn on
+     a sample plan for the goal just chosen, because there is no plan yet. */
   let opened = 0; a.openSetupModal = () => { opened++; };
   a.handleJourneyAction('journey-drive', { getAttribute: k => k === 'data-key' ? 'limits' : null });
   a.handleJourneyAction('journey-drives-next');
-  assert.equal(opened, 1, 'Continue on drives does not open the builder');
+  assert.equal(opened, 0, 'the builder opened before the slides');
+  assert.equal(a.journeyStep(), 'slides');
+  const slides = a.renderMainContent();
+  assert.match(slides, /Training Built Around You[^]*Know Every Session[^]*Your Coach, Always Within Reach/);
+  assert.match(slides, /class="jr-screen">\s*<div class="view-plan">\s*<div/, 'the first slide drew no plan');
+  assert.equal(a.planHasContent(), false, 'the sample plan became the athlete\'s plan');
+  // the third Continue opens the builder (the stub document cannot draw it; the call is the fact)
+  a.handleJourneyAction('journey-slides-next');
+  a.handleJourneyAction('journey-slides-next');
+  assert.equal(opened, 0);
+  a.handleJourneyAction('journey-slides-next');
+  assert.equal(opened, 1, 'Continue on the last slide does not open the builder');
 });
 
-test('a plan built from the journey goes on to the slides, then the preview, account, trial and arrival', () => {
+test('a plan built from the journey goes on to the preview, account, trial and arrival', () => {
   const a = fresh();
-  a.journeySet({ step: 'drives', purpose: 'race', drives: ['personal_best'] });
+  a.journeySet({ step: 'slides', slide: 2, purpose: 'race', drives: ['personal_best'] });
   buildPlan(a, { distanceKey: 'half', weeks: 12, volume: 35 });
   a.journeyPlanBuilt();                                 // what handleGeneratePlan() calls
-  assert.equal(a.journeyStep(), 'slides');
-  assert.match(a.renderMainContent(), /Training Built Around You[^]*Know Every Session[^]*Your Coach, Always Within Reach/);
-  a.handleJourneyAction('journey-slides-next');
-  a.handleJourneyAction('journey-slides-next');
-  a.handleJourneyAction('journey-slides-next');
-  assert.equal(a.journeyStep(), 'preview');
+  assert.equal(a.journeyStep(), 'preview', 'the slides were before the builder; the programme is next');
   assert.match(a.renderMainContent(), /Here Is Your Programme/);
   a.handleJourneyAction('journey-preview-next');
   assert.equal(a.journeyStep(), 'account', 'signed out: the account comes next');
@@ -611,4 +618,59 @@ test('the first Today after the journey raises no sheet; the offer comes at the 
   /* and the offer keeps its own rules */
   assert.match(fnSrc('maybeRaiseThresholdTestOffer'), /if \(thresholdTestNotToday\(\)\) return;/);
   assert.match(fnSrc('maybeRaiseThresholdTestOffer'), /!autoSheetsOpen\(\)/);
+});
+
+// ---------------------------------------------------------------------------
+// THE FIRST PICTURE (founder, 19 November 2026: "when you first open the app
+// as a new user the splash screens comes up. It should go straight to This
+// page no splash. And the splash for the next time it's opened", and "they
+// come up if your not a paying customer. Were it should just be this")
+// ---------------------------------------------------------------------------
+function bootDecide(storage, attrs){
+  const vm = require('vm');
+  const src = /<script id="boot-decide">([\s\S]*?)<\/script>/.exec(RUNTIME);
+  assert.ok(src, 'the boot decision is missing');
+  const set = {};
+  const html = { getAttribute: k => (attrs || {})[k] || null, setAttribute: (k, v) => { set[k] = v; } };
+  const ls = { getItem: k => (k in (storage || {}) ? storage[k] : null) };
+  vm.runInNewContext(src[1], { document: { documentElement: html }, window: { localStorage: ls }, JSON });
+  return set;
+}
+test('the first picture: the Welcome for anyone the app will greet with it, the splash where a plan opens', () => {
+  const plan = JSON.stringify({ days: [{ date: '2026-11-19', type: 'easy' }] });
+  const sess = JSON.stringify({ access_token: 't' });
+  const JO = { 'data-vvv-access': 'journey' };
+  assert.equal(bootDecide({})['data-boot'], 'welcome', 'a first open was shown the splash');
+  assert.equal(bootDecide({}, JO)['data-boot'], 'welcome');
+  assert.equal(bootDecide({ vvv_cloud_session: sess }, JO)['data-boot'], 'welcome', 'an account with nothing here was shown the splash');
+  assert.equal(bootDecide({ 'velvet-viking-generator-v2': plan }, JO)['data-boot'], 'welcome', 'an old plan, signed out, is greeted at the Welcome');
+  assert.equal(bootDecide({ 'velvet-viking-generator-v2': plan, vvv_cloud_session: sess }, JO)['data-boot'], 'splash');
+  assert.equal(bootDecide({ 'velvet-viking-generator-v2': plan, vvv_cloud_session: sess })['data-boot'], 'splash');
+  assert.equal(bootDecide({ vvv_journey: JSON.stringify({ step: 'slides' }) })['data-boot'], 'plain', 'part way through the journey');
+  assert.equal(bootDecide({ vvv_journey: JSON.stringify({ step: 'done' }), 'velvet-viking-generator-v2': plan })['data-boot'], 'splash');
+  assert.ok('data-boot-signed' in bootDecide({ vvv_cloud_session: sess }, JO), 'a signed-in Welcome would offer Existing Member');
+  /* storage refused: as before, the splash */
+  const vm = require('vm');
+  const src = /<script id="boot-decide">([\s\S]*?)<\/script>/.exec(RUNTIME)[1];
+  const set = {};
+  vm.runInNewContext(src, { document: { documentElement: { getAttribute: () => null, setAttribute: (k, v) => { set[k] = v; } } },
+    window: { get localStorage(){ throw new Error('denied'); } }, JSON });
+  assert.equal(set['data-boot'], 'splash');
+});
+
+test('the painted Welcome is the journey\'s own, and goes with the first render', () => {
+  const at = RUNTIME.indexOf('<div id="boot-welcome"');
+  assert.ok(at > RUNTIME.indexOf('<script id="boot-decide">'), 'the Welcome is painted before the decision');
+  assert.ok(at < RUNTIME.indexOf('\n<script>\n', at), 'the painted Welcome is not above the application script');
+  const painted = RUNTIME.slice(at, RUNTIME.indexOf('\n', at));
+  assert.doesNotMatch(painted, /data-action=/, 'a picture of the Welcome has live controls');
+  const a = fresh(); a.journeyAskProviders = () => {};
+  const live = a.renderJourneyWelcome();
+  ['jr-photo', 'jr-welcome-back', 'jr-crest', 'Your Journey Starts Here', 'Personalised training. Built around you.',
+   'Build My Plan', 'Existing Member', 'jr-cta', 'jr-gold'].forEach(w => {
+    assert.ok(painted.indexOf(w) !== -1, 'the painted Welcome lost ' + w);
+    assert.ok(live.indexOf(w) !== -1, 'the real Welcome lost ' + w + '; the two have drifted');
+  });
+  assert.match(fnSrc('clearBootSplash'), /'boot-splash', 'boot-welcome'/, 'the painted Welcome is never taken down');
+  assert.match(RUNTIME, /html\[data-boot="welcome"\] #boot-splash, html\[data-boot="plain"\] #boot-splash\{display:none;\}/);
 });
