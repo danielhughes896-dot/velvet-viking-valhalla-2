@@ -280,7 +280,7 @@ async function appleVerify(req, res, cfg, uid, body){
   if (!r.ok){
     log('APPLE_VERIFY_REFUSED code=' + r.code + ' uid=' + ref(uid));
     return { code: r.code, status: r.status && r.status >= 400 ? r.status : 409,
-             provider: r.existingProvider || null };
+             provider: r.existingProvider || null, detail: r.detail || null };
   }
   log('APPLE_VERIFIED uid=' + ref(uid) + ' condition=' + r.condition);
   return { code: 'apple_verified', status: 200, finish: true, transactionId: r.transactionId };

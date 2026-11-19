@@ -237,8 +237,9 @@ async function admit(S, cfg, o){
     const got = await AP.fetchStatuses(acfg, String(claimed.transactionId), claimed.environment, x.opts);
     if (!got.ok){
       log('READ_FAILED code=' + got.code + ' subscription=' + which);
+      /* Why Apple refused, as a short code of our own, as on the Play rail. */
       return { ok: false, code: got.code === 'purchase_not_found' ? 'purchase_not_found' : 'provider_error',
-               status: got.code === 'purchase_not_found' ? 404 : 502 };
+               status: got.code === 'purchase_not_found' ? 404 : 502, detail: got.code || null };
     }
     statuses = got.statuses;
   }
