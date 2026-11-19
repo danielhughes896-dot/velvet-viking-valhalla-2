@@ -1432,7 +1432,7 @@ test('the immediate-start acknowledgement still stands on its own', async () => 
     assert.equal(r.status, 200);
     const rows = f.db.account_agreements.filter(x => x.agreement_type === 'immediate_start');
     assert.equal(rows.length, 1);
-    assert.equal(rows[0].agreement_version, 'immediate_start_v2');
+    assert.equal(rows[0].agreement_version, 'immediate_start_v3');
     assert.equal(rows[0].decision, 'accepted');
   });
 });
@@ -1465,7 +1465,7 @@ test('the pre-checkout screen carries every fact a purchase decision needs', asy
     assert.equal(a.privacy.note, 'notice, not consent');
 
     /* THE IMMEDIATE-START ACKNOWLEDGEMENT, separate and unticked. */
-    assert.equal(a.immediateStart.version, 'immediate_start_v2');
+    assert.equal(a.immediateStart.version, 'immediate_start_v3');
     assert.equal(a.immediateStart.preTicked, false);
     assert.equal(a.immediateStart.mustBeAffirmative, true);
     assert.match(a.immediateStart.text, /begin the service during the 14-day period/);
