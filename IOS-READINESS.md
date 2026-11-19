@@ -3,8 +3,20 @@
 **Status: the iOS app now exists as a project and builds in CI.** Founder,
 13 Nov 2026: "We need to build an iOS app bundle now." It was previously held
 as a post-Android track; that decision is superseded, and what follows records
-what was built, what Apple still needs, and the one commercial question that
-remains open.
+what was built and what Apple still needs.
+
+**The commercial question is settled: option B, StoreKit / In-App Purchase.**
+Founder, 18 Nov 2026, after Google Play Billing was built: "once this is done
+you need to do the same for iOS." It is built (locally, not deployed): the
+`SacoroAppStore` plugin in the App target, the `_apple.js` adapter and
+`_apple-purchase.js`, the `apple_prepare` / `apple_verify` actions, the
+`?rail=apple` branch of the billing webhook for App Store Server Notifications
+V2, and the iOS purchase screens. One seven-day trial per athlete across all
+rails is kept with Apple's server-signed introductory-offer eligibility, so
+there are only two App Store products. The app now requires **iOS 16.0**.
+Everything, including what the founder must set up in App Store Connect and
+what is still unverified, is in
+[APPLE-IN-APP-PURCHASE.md](APPLE-IN-APP-PURCHASE.md).
 
 **Apple Health and HealthKit are explicitly out of scope** and appear nowhere in
 this repository. Nothing below adds them.
@@ -29,8 +41,9 @@ So there are exactly two viable iOS shapes:
 | **A. Reader-style** | The iOS app sells nothing and links to nothing. An athlete subscribes on the web and signs in. Same posture as the Android build already ships. | Least work. Highest review risk on 3.1.3(b), because "multiplatform service" is judged, not asserted. |
 | **B. StoreKit / IAP** | Add an `apple` provider adapter, App Store Server Notifications V2, and StoreKit 2 purchase in-app. | Real work — an adapter, a notification endpoint, sandbox testing — **plus 15–30% of every iOS subscription, forever.** |
 
-**B is a commercial decision, not an engineering one**, and it is HQ's. System
-should not pick it by building it.
+**B is a commercial decision, not an engineering one**, and it is HQ's. HQ
+has now taken it: **B** (founder, 18 Nov 2026). See
+[APPLE-IN-APP-PURCHASE.md](APPLE-IN-APP-PURCHASE.md).
 
 The canonical model already carries an `apple` provider rail precisely so that
 choosing B later is an adapter and a webhook branch, not a migration of every
@@ -67,7 +80,7 @@ TestFlight.
 | **Bundle id** | `com.velvetviking.valhalla` — same as Android, and available to register |
 | **Auth callback** | The custom scheme `com.velvetviking.valhalla://auth` already works and is what the runtime selects inside a native shell. It needs a `CFBundleURLTypes` entry in `Info.plist` and nothing else. |
 | **Universal Links** | Optional. `apple-app-site-association` served from `https://app.velvetviking.co.uk/.well-known/`, mirroring what `assetlinks.json` already does for Android. Not required for sign-in, because the custom scheme carries it. |
-| **Payment boundary** | Already enforced. `renderSubscriptionActions()` and `/start` both suppress purchase surfaces inside any Capacitor shell — iOS included, with no further change. |
+| **Payment boundary** | The iOS build never shows the web checkout. With the `SacoroAppStore` plugin it sells through the App Store (StoreKit 2, verified by the server with Apple); an iOS build without the plugin sells nothing in the app, as before. |
 | **Account deletion** | Apple has required in-app account deletion since 2022. It exists: Settings → Delete my account, server-side, immediate. |
 | **Legal / support URLs** | `https://velvetviking.co.uk/privacy`, `/terms`, `support@velvetviking.co.uk` |
 
@@ -105,7 +118,10 @@ unless told. Review notes must say:
 > the sign-in link will be emailed to it; please use the account provided.
 > Subscriptions are purchased on our website and the app sells nothing.
 
-That last sentence is the 3.1.3(b) argument, and it needs to be true — it is.
+That was the 3.1.3(b) argument for option A. **It is no longer true** once the
+StoreKit build ships: the review notes for the In-App Purchase build, and the
+Guideline 3.1.2 disclosures the app shows, are in
+[APPLE-IN-APP-PURCHASE.md](APPLE-IN-APP-PURCHASE.md).
 
 ## Signing and distribution
 
@@ -132,8 +148,10 @@ testers after a lightweight review.
 
 ## The honest summary
 
-iOS is **not blocked by engineering**. It is blocked by a commercial decision
-(reader-style vs StoreKit), an Apple Developer account, and a Mac. All three are
-outside this repository. Shipping web and Android first is the rational route,
+iOS is **not blocked by engineering**. The commercial decision is taken
+(StoreKit) and built; the Mac is CI. What remains is the founder's: the Paid
+Apps Agreement, the two subscriptions and the In-App Purchase key in App Store
+Connect, the server's environment variables, and a Sandbox test through
+TestFlight (APPLE-IN-APP-PURCHASE.md, section 3). Shipping web and Android first is the rational route,
 and the architecture is already shaped so that adding iOS later costs an adapter
 rather than a rewrite.

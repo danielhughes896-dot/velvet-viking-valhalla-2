@@ -33394,6 +33394,21 @@ function playPurchasesAvailable(){
   var p = playStorePlugin();
   return !!(p && p.purchase && p.getProducts);
 }
+/* APP STORE PURCHASES: THE iOS BUILD, AND NOTHING ELSE (founder, 18 November
+   2026: "once this [Google Play] is done you need to do the same for iOS").
+   iOS is a store build by definition; the SacoroAppStore plugin must be in
+   the installed app (an iOS build made before it existed has none, and keeps
+   today's "nothing is sold in the app"). NOT A SECURITY BOUNDARY: what the
+   App Store sells is verified by the server from Apple's own record
+   (POST /api/subscription {action:'apple_verify'}). See
+   APPLE-IN-APP-PURCHASE.md. */
+function appleStorePlugin(){ return nativePlugin('SacoroAppStore'); }
+function applePurchasesAvailable(){
+  if (!storeDistributedApp()) return false;
+  if (nativePlatform() !== 'ios') return false;
+  var p = appleStorePlugin();
+  return !!(p && p.purchase && p.getProducts && p.finish);
+}
 
 /* ---------- WHAT THE INSTALLED SHELL ACTUALLY IS ----------
    Asked once, at startup, and cached. App.getInfo() is a promise and the
@@ -35215,6 +35230,7 @@ function renderSubscriptionActions(info){
      browser and come back into the app. */
   if (storeDistributedApp()){
     if (playPurchasesAvailable()) return renderPlaySubscriptionActions(info);
+    if (applePurchasesAvailable()) return renderAppleSubscriptionActions(info);
     return '<div class="field-hint" style="margin-top:12px;">'+
       'Manage or cancel your subscription where you bought it. Your app store '+
       'account, or velvetviking.co.uk if you subscribed on the web.</div>';
@@ -87832,11 +87848,11 @@ function handleJourneyOAuth(provider){
    athlete back to /account?...&return=app, which hands them into the app
    through com.velvetviking.valhalla://auth/checkout (handleCheckoutDeepLink).
    A GENUINE STORE BUILD (storeDistributedApp(): the explicit build marker,
-   or iOS) is the store rail, which does not exist yet: under
-   STORE-COMMERCIAL-BOUNDARY.md it sells nothing in-app and shows no web
-   price, so the store provider says so and the screen carries no prices, no
-   tickboxes and no checkout link. When a store rail is built it is this
-   provider's start() that changes, and nothing else on the screen. */
+   or iOS) is the store rail: Google Play in the Play Store build, the App
+   Store in the iOS build, each only when its billing plugin is in the
+   installed app. Without the plugin it sells nothing in-app and shows no web
+   price (STORE-COMMERCIAL-BOUNDARY.md), so the store provider says so and the
+   screen carries no prices, no tickboxes and no checkout link. */
 function journeyWebCheckout(period, returnTo){
   return cloudRefreshIfNeeded().then(function(fresh){
     if (!fresh) return { ok:false, code:'not_signed_in' };
@@ -87866,13 +87882,15 @@ var JOURNEY_PAYMENT = {
   /* A STORE BUILD. On Android with the SacoroBilling plugin (the Play Store
      build) this is Google Play's own purchase: Play's own prices, Play's purchase
      sheet, and the server verifying the purchase with Google before anything
-     is unlocked. Everywhere else (iOS, or a store build without the plugin)
-     it is what it always was: nothing is sold in the app. */
+     is unlocked. On iOS with the SacoroAppStore plugin it is the App Store's
+     own purchase, the same way (appleStart). Everywhere else (a store build
+     without its plugin) it is what it always was: nothing is sold in the app. */
   store: {
     id: 'store',
-    get showsPrices(){ return playPurchasesAvailable(); },
-    get available(){ return playPurchasesAvailable(); },
+    get showsPrices(){ return playPurchasesAvailable() || applePurchasesAvailable(); },
+    get available(){ return playPurchasesAvailable() || applePurchasesAvailable(); },
     start: function(period){
+      if (applePurchasesAvailable()) return appleStart(period);
       if (!playPurchasesAvailable()) return Promise.resolve({ ok:false, code:'store_unavailable' });
       return playStart(period);
     }
@@ -88172,6 +88190,399 @@ function handlePlayManage(){
   Promise.resolve(P.openManageSubscription(productId ? { productId: productId } : {}))
     .catch(function(){ showToast('Open Google Play to manage your subscription'); });
 }
+/* ---------- APP STORE PURCHASES (the iOS build) ----------
+   Founder, 18 November 2026: "once this [Google Play] is done you need to do
+   the same for iOS". The same shape as the Play block above, with Apple's
+   own mechanics where they differ:
+   WHAT THE SERVER DECIDES. Before anything is shown the server is asked
+   (POST /api/subscription {action:'apple_prepare', appTransactionId}) which
+   App Store products it sells, whether this athlete may buy, the
+   appAccountToken the purchase must carry, and SACORO's one-trial verdict,
+   SIGNED for Apple per product (introductory-offer eligibility). The App
+   Store applies the free trial only when that signature says so, so an
+   athlete who has had a trial on any rail is charged from day one by Apple
+   itself. Prices are Apple's own localised strings: nothing here is typed.
+   NOTHING IS UNLOCKED ON THE PHONE'S WORD. The App Store's signed transaction goes
+   to the server with the athlete's own access token ({action:'apple_verify'});
+   the server re-reads the subscription from the App Store Server API, ties
+   it to this athlete and records it. ONLY THEN is the transaction finished
+   (the server answers finish:true). Then the gate is asked again
+   (establishDeliverySession) and the journey moves on, as on the other rails.
+   An unfinished transaction (the app closed under the sheet, no signal) is
+   sent again on every start and resume, and the App Store's own update stream
+   (renewals, Ask to Buy approvals) is sent as it arrives.
+   Restore Purchases (Apple requires it for a subscription) asks the App Store
+   to sync, then sends what is current. See APPLE-IN-APP-PURCHASE.md. */
+var applePrep, appleProducts, applePrepAsked, appleLoadFailed, appleTxId;
+var appleBusy, appleNote, applePeriod, appleListening, appleRecoverAt, appleRecovering;
+function appleAppTransactionId(){
+  if (appleTxId) return Promise.resolve(appleTxId);
+  var P = appleStorePlugin();
+  if (!P || !P.appTransactionId) return Promise.resolve(null);
+  return Promise.resolve(P.appTransactionId()).then(function(r){
+    appleTxId = (r && r.appTransactionId) ? String(r.appTransactionId) : null;
+    return appleTxId;
+  }).catch(function(){ return null; });
+}
+function appleFetchPrepare(){
+  return appleAppTransactionId().then(function(id){
+    return playAuthedPost({ action:'apple_prepare', appTransactionId: id || null });
+  }).then(function(x){
+    return x.status === 200 && x.body && typeof x.body === 'object' ? x.body : null;
+  }).catch(function(){ return null; });
+}
+function appleFetchProducts(prep){
+  var P = appleStorePlugin();
+  var ids = [];
+  if (prep && prep.products) Object.keys(prep.products).forEach(function(k){ if (prep.products[k]) ids.push(prep.products[k]); });
+  if (!P || !ids.length) return Promise.resolve(null);
+  return Promise.resolve(P.getProducts({ productIds: ids })).then(function(r){
+    var map = {};
+    ((r && r.products) || []).forEach(function(p){ if (p && p.id) map[p.id] = p; });
+    return map;
+  }).catch(function(){ return null; });
+}
+function appleEnsureLoaded(){
+  if (applePrepAsked) return;
+  applePrepAsked = true;
+  appleLoadFailed = false;
+  appleFetchPrepare().then(function(prep){
+    applePrep = prep;
+    if (!prep){ appleLoadFailed = true; return null; }
+    if (!prep.provider_configured) return null;
+    return appleFetchProducts(prep).then(function(m){ appleProducts = m; });
+  }).catch(function(){ appleLoadFailed = true; }).then(function(){ try{ renderApp(); }catch(e){} });
+}
+function appleReset(){ applePrep = null; appleProducts = null; applePrepAsked = false; appleLoadFailed = false; }
+/* Monthly and Annual as the App Store prices them, or null when the App Store
+   does not sell both (products not created yet, or not in this storefront).
+   The trial is shown only when the SERVER says this athlete may have it and
+   the product carries the free-trial introductory offer. */
+function appleFigures(prep, products){
+  if (!prep || !products || !prep.products) return null;
+  var out = {};
+  var ok = ['monthly', 'yearly'].every(function(period){
+    var p = products[prep.products[period]];
+    if (!p || !p.displayPrice) return false;
+    var intro = p.introductoryOffer || null;
+    out[period] = { price: p.displayPrice, amount: Number(p.price) || 0, currency: p.currency,
+                    productId: p.id, title: p.displayName || 'SACORO Standard',
+                    trial: !!(prep.trial_eligible && intro && intro.freeTrial) };
+    return true;
+  });
+  if (!ok) return null;
+  var m = out.monthly, y = out.yearly;
+  if (m.currency && m.currency === y.currency && m.amount > 0 && y.amount > 0){
+    y.perMonth = playMoney(y.amount / 12 * 1e6, y.currency);
+    y.savePct = Math.round((1 - y.amount / (m.amount * 12)) * 100);
+  }
+  out.zero = playMoney(0, y.currency) || '0';
+  out.trialDays = prep.trial_days || TRIAL_DAYS_SHOWN;
+  return out;
+}
+/* The server's answer about one signed transaction, and the finish that
+   follows only an admitted one. */
+function appleVerify(tx){
+  var t = tx || {};
+  if (!t.jws) return Promise.resolve({ ok:false, code:'apple_error' });
+  return playAuthedPost({ action:'apple_verify', signedTransaction: t.jws }).then(function(x){
+    if (x.status === 200 && x.body && x.body.finish){
+      var P = appleStorePlugin();
+      var id = x.body.transaction_id || t.transactionId;
+      return Promise.resolve(P && P.finish ? P.finish({ transactionId: String(id) }) : null)
+        .catch(function(){}).then(function(){ return { ok:true }; });
+    }
+    /* After a purchase, money may have moved: no answer here may say
+       "nothing has been charged". A server that could not answer is tried
+       again later; a refusal it explained is said in its own words. */
+    if (x.status === 200 || x.status >= 500 || x.status === 401) return { ok:false, code:'apple_verify_later', afterPurchase:true };
+    var known = x.body && x.body.error;
+    return { ok:false, afterPurchase:true,
+             code: (known && (APPLE_COPY[known] || JOURNEY_CHECKOUT_COPY[known])) ? known : 'apple_verify_failed' };
+  }).catch(function(){ return { ok:false, code:'apple_verify_later', afterPurchase:true }; });
+}
+/* The App Store's update stream: renewals, Ask to Buy approvals, purchases made
+   outside the app. Sent to the server as they arrive; quiet unless it
+   changed what the athlete can do. */
+function appleOnTransactionUpdated(ev){
+  var t = ev || {};
+  if (!t.jws || t.isAutoRenewable === false) return Promise.resolve(null);
+  return appleVerify(t).then(function(res){
+    if (!res || !res.ok) return res;
+    return playAfterVerify(res).then(function(r){ try{ renderApp(); }catch(e){} return r; });
+  });
+}
+function appleListen(){
+  if (appleListening) return;
+  var P = appleStorePlugin();
+  if (!P || !P.addListener) return;
+  appleListening = true;
+  try { P.addListener('transactionUpdated', appleOnTransactionUpdated); } catch(e){ appleListening = false; }
+}
+/* ONE PURCHASE, START TO FINISH: a fresh answer from the server (and a fresh
+   signature, which Apple expires), the App Store's sheet, then the server's
+   verification and the finish. Resolves { ok, verified, trial } or
+   { ok:false, code }. */
+function appleStart(period){
+  var P = appleStorePlugin();
+  if (!P) return Promise.resolve({ ok:false, code:'store_unavailable' });
+  if (period !== 'monthly' && period !== 'yearly') period = 'yearly';
+  appleListen();
+  return appleFetchPrepare().then(function(prep){
+    if (!prep) return { ok:false, code:'apple_unreachable' };
+    applePrep = prep;
+    if (!prep.purchase_allowed) return { ok:false, code: prep.reason || 'store_unavailable' };
+    var productId = prep.products && prep.products[period];
+    var jws = productId && prep.intro_offer_signatures ? prep.intro_offer_signatures[productId] : null;
+    if (!productId || !jws || !prep.app_account_token) return { ok:false, code:'store_unavailable' };
+    return Promise.resolve(P.purchase({ productId: productId, appAccountToken: prep.app_account_token,
+                                        introOfferEligibilityJWS: jws }))
+      .then(function(r){
+        var status = r && r.status;
+        if (status === 'success' && r.transaction) return appleVerify(r.transaction).then(playAfterVerify);
+        if (status === 'userCancelled') return { ok:false, code:'apple_cancelled' };
+        if (status === 'pending') return { ok:false, code:'apple_pending' };
+        return { ok:false, code:'apple_error' };
+      }, function(err){
+        var c = err && err.code;
+        return { ok:false, code: c === 'invalid_offer_signature' || c === 'ineligible_for_offer' ? 'apple_offer_refused'
+                               : c === 'store_unreachable' ? 'apple_store_unreachable' : 'apple_error' };
+      });
+  });
+}
+/* RECOVERY: every unfinished App Store transaction is sent to the server
+   again, on start and on every return to the front (at most once a minute). */
+function appleRecoverPurchases(force){
+  if (!applePurchasesAvailable() || !cloudSignedIn() || appleRecovering) return Promise.resolve(0);
+  appleListen();
+  if (!force && appleRecoverAt && Date.now() - appleRecoverAt < 60000) return Promise.resolve(0);
+  var P = appleStorePlugin();
+  if (!P || !P.unfinishedTransactions) return Promise.resolve(0);
+  appleRecovering = true;
+  appleRecoverAt = Date.now();
+  var verified = 0;
+  return Promise.resolve(P.unfinishedTransactions()).then(function(r){
+    var list = ((r && r.transactions) || []).filter(function(t){ return t && t.jws && t.isAutoRenewable !== false; });
+    return list.reduce(function(chain, t){
+      return chain.then(function(){ return appleVerify(t).then(function(x){ if (x && x.ok) verified++; }); });
+    }, Promise.resolve());
+  }).catch(function(){}).then(function(){
+    appleRecovering = false;
+    if (!verified) return 0;
+    return playAfterVerify({ ok:true }).then(function(){ try{ renderApp(); }catch(e){} return verified; });
+  });
+}
+/* RESTORE PURCHASES, on the athlete's tap only. */
+function appleRestore(){
+  var P = appleStorePlugin();
+  if (!P || !P.restorePurchases) return Promise.resolve({ ok:false, code:'store_unavailable' });
+  appleListen();
+  return Promise.resolve(P.restorePurchases()).then(function(r){
+    if (r && r.status === 'userCancelled') return { ok:false, code:'apple_restore_cancelled' };
+    var list = ((r && r.transactions) || []).filter(function(t){ return t && t.jws && t.isAutoRenewable !== false; });
+    if (!list.length) return { ok:false, code:'apple_restore_none' };
+    var ok = 0, last = null;
+    return list.reduce(function(chain, t){
+      return chain.then(function(){ return appleVerify(t).then(function(x){ if (x && x.ok) ok++; else last = x && x.code; }); });
+    }, Promise.resolve()).then(function(){
+      if (!ok) return { ok:false, code: last || 'apple_restore_none' };
+      return playAfterVerify({ ok:true }).then(function(){ return { ok:true, restored:true }; });
+    });
+  }, function(){ return { ok:false, code:'apple_store_unreachable' }; });
+}
+/* What a refused or interrupted App Store purchase says. Short and plain.
+   A refusal AFTER Apple took payment cannot say "nothing has been charged":
+   it says where to cancel instead. */
+var APPLE_COPY = {
+  apple_cancelled: 'Purchase cancelled. Nothing has been charged.',
+  apple_pending: 'Your purchase is waiting for approval. SACORO opens as soon as it is confirmed.',
+  apple_error: 'The App Store could not complete the purchase. Nothing has been charged.',
+  apple_offer_refused: 'The App Store could not apply the offer. Nothing has been charged. Please try again.',
+  apple_store_unreachable: 'We could not reach the App Store. Check your connection and try again.',
+  apple_unreachable: 'We could not reach SACORO. Check your connection and try again.',
+  apple_verify_later: 'Your purchase is being confirmed. SACORO finishes this the next time it opens.',
+  apple_verify_failed: 'SACORO could not confirm this purchase yet. It stays with your Apple Account, and SACORO tries again the next time it opens.',
+  apple_restore_none: 'No SACORO subscription was found for this Apple Account.',
+  apple_restore_cancelled: 'Restore cancelled.',
+  trial_already_used: 'This account has already had its free trial, so this purchase was not added to SACORO. Use Manage Subscriptions to cancel it.',
+  already_subscribed_purchase: 'You already have a subscription on this account, so this purchase was not added to SACORO. Use Manage Subscriptions to cancel it.',
+  not_your_purchase: 'That App Store subscription belongs to a different SACORO account.'
+};
+function appleCopy(code, afterPurchase){
+  if (afterPurchase && (code === 'already_subscribed_here' || code === 'already_subscribed_elsewhere')) return APPLE_COPY.already_subscribed_purchase;
+  return APPLE_COPY[code] || JOURNEY_CHECKOUT_COPY[code] || APPLE_COPY.apple_error;
+}
+/* THE DISCLOSURES APP REVIEW GUIDELINE 3.1.2 ASKS FOR, on every screen that
+   sells: the subscription's title, its length, the price per period, that it
+   renews automatically (the account page's own sentence, "renews annually
+   until you cancel"), and links to the Terms and the Privacy Policy (the
+   links the agreements in force name; no new documents). */
+function appleDisclosure(f, period, defs){
+  var c = period === 'monthly' ? f.monthly : f.yearly;
+  var unit = period === 'monthly' ? 'month' : 'year';
+  var says = escapeHtml(c.title)+', 1 '+unit+' subscription at <span class="font-mono">'+escapeHtml(c.price)+'</span> per '+unit+'. '+
+    (c.trial ? 'Free for the first '+f.trialDays+' days, then it renews ' : 'It renews ')+
+    (period === 'monthly' ? 'monthly' : 'annually')+' until you cancel. Payment is handled by the App Store.';
+  var links = (defs && defs.terms && defs.terms.url && defs.privacy && defs.privacy.url)
+    ? '<p class="jr-fine jr-centre"><a href="'+defs.terms.url+'" data-action="open-external" data-href="'+defs.terms.url+'">Terms of Service</a> and '+
+      '<a href="'+defs.privacy.url+'" data-action="open-external" data-href="'+defs.privacy.url+'">Privacy Policy</a></p>'
+    : '';
+  return '<p class="jr-fine jr-centre">'+says+'</p>'+links;
+}
+/* THE iOS BUILD'S TRIAL SCREEN. The Play screen's shape, with Apple's prices,
+   the 3.1.2 disclosures and Restore Purchases. */
+function renderJourneyTrialApple(period, refused){
+  appleEnsureLoaded();
+  var open = '<div class="jr jr-page jr-trial">'+journeyHead(true, null);
+  if (!applePrep && !appleLoadFailed){
+    return open+'<h1 class="jr-title">Your Training Plan Is Ready</h1><p class="jr-quiet" role="status">One moment.</p></div>';
+  }
+  if (!applePrep){
+    return open+'<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+      '<p class="jr-say" role="alert">We could not load the plans just now. Nothing has been charged.</p>'+
+      '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-offer-retry">Try Again</button></div></div>';
+  }
+  var prep = applePrep;
+  if (!prep.commerce_enabled){
+    return open+'<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+      (refused
+        ? journeyRefusedNote('Subscriptions are not open yet.')
+        : '<div class="jr-card jr-note-card"><p class="jr-say">Subscriptions are not open yet. '+journeyFreeSentence()+'</p></div>'+
+          '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div>')+'</div>';
+  }
+  if (prep.reason === 'already_subscribed_here' || prep.reason === 'already_subscribed_elsewhere'){
+    return open+'<h1 class="jr-title">Your Training Plan Is Ready</h1>'+
+      '<div class="jr-card jr-note-card"><p class="jr-say">'+JOURNEY_CHECKOUT_COPY.already_subscribed_here+'</p></div>'+
+      '<div class="jr-foot"><button type="button" class="btn btn-primary btn-block" data-action="journey-trial-continue">Continue</button></div></div>';
+  }
+  var f = appleFigures(prep, appleProducts);
+  if (!prep.provider_configured || !f) return renderJourneyTrialUnavailable(refused);
+  var chosen = period === 'monthly' ? f.monthly : f.yearly;
+  var trial = chosen.trial;
+  var then = period === 'monthly' ? 'then monthly' : 'then annually';
+  var planRow = function(p, name, price, per, extra, badge){
+    var on = period === p;
+    return '<button type="button" class="jr-plan'+(on ? ' is-on' : '')+'" data-action="journey-period" data-period="'+p+'" role="radio" aria-checked="'+(on ? 'true' : 'false')+'">'+
+      '<span class="jr-radio" aria-hidden="true"></span>'+
+      '<span class="jr-plan-text"><span class="jr-plan-name">'+name+'</span>'+
+        '<span class="jr-plan-price"><b class="font-mono">'+escapeHtml(price)+'</b> / '+per+'</span>'+
+        (extra ? '<span class="jr-plan-extra">'+escapeHtml(extra)+'</span>' : '')+'</span>'+
+      (badge ? '<span class="jr-badge">'+badge+'</span>' : '')+
+    '</button>';
+  };
+  var defs = prep.agreements || null;
+  var boxes = journeyAgreeBoxes(defs);
+  var ready = !!boxes && journeyAgreed.terms && journeyAgreed.immediate_start;
+  return open+
+    '<h1 class="jr-title">'+(trial ? 'Start Your '+f.trialDays+'-Day Free Trial' : 'Your Training Plan Is Ready')+'</h1>'+
+    (trial ? '<p class="jr-lede">Your training plan is ready.</p>' : '')+
+    '<div class="jr-plans" role="radiogroup" aria-label="Choose a plan">'+
+      planRow('yearly', 'Annual', f.yearly.price, 'year', f.yearly.perMonth ? 'Equivalent to '+f.yearly.perMonth+' per month' : '',
+              f.yearly.savePct > 0 ? 'Save '+f.yearly.savePct+'%' : '')+
+      planRow('monthly', 'Monthly', f.monthly.price, 'month', '', '')+
+    '</div>'+
+    '<ol class="jr-timeline">'+
+      (trial
+        ? '<li><span class="jr-tl-dot is-now" aria-hidden="true"></span><span><b>Today:</b> <span class="font-mono">'+escapeHtml(f.zero)+'</span></span></li>'+
+          '<li><span class="jr-tl-dot" aria-hidden="true"></span><span><b>Day '+(f.trialDays + 1)+':</b> <span class="font-mono">'+escapeHtml(chosen.price)+'</span>, '+then+'</span></li>'
+        : '<li><span class="jr-tl-dot is-now" aria-hidden="true"></span><span><b>Today:</b> <span class="font-mono">'+escapeHtml(chosen.price)+'</span>, '+then+'</span></li>')+
+    '</ol>'+
+    (trial ? '<p class="jr-say">Cancel before your trial ends to avoid being charged.</p>' : '')+
+    boxes+
+    '<div class="jr-foot">'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="journey-trial-start"'+(ready ? '' : ' disabled')+'>'+
+        (trial ? 'Start My Free Trial' : 'Subscribe')+'</button>'+
+      appleDisclosure(f, period, defs)+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="journey-restore"'+(appleBusy ? ' disabled' : '')+'>Restore Purchases</button>'+
+    '</div>'+
+    (journeyTrialNote ? '<p class="jr-error" role="alert">'+escapeHtml(journeyTrialNote)+'</p>' : '')+
+  '</div>';
+}
+/* SETTINGS, IN THE iOS BUILD. Managed with Apple's own sheet when the
+   subscription is an App Store one; elsewhere, where it was bought; and when
+   there is nothing yet, the two plans at the App Store's prices. */
+function renderAppleSubscriptionActions(info){
+  if (info.management_provider === 'apple'){
+    return '<button type="button" class="btn btn-ghost btn-block" style="margin-top:8px;" '+
+      'data-action="apple-manage">'+ICONS.settings+' Manage Subscriptions</button>';
+  }
+  if (info.management_provider){
+    return '<div class="field-hint" style="margin-top:12px;">'+
+      'Manage or cancel your subscription where you bought it. Your app store '+
+      'account, or velvetviking.co.uk if you subscribed on the web.</div>';
+  }
+  if (!subscriptionNeedsPurchase(info)) return '';
+  appleEnsureLoaded();
+  if (!applePrep && !appleLoadFailed) return '<div class="field-hint" style="margin-top:12px;" role="status">One moment.</div>';
+  var f = appleFigures(applePrep, appleProducts);
+  if (!applePrep || !applePrep.commerce_enabled || !f){
+    return '<div class="field-hint" style="margin-top:12px;">Subscriptions are not available in the app yet.</div>';
+  }
+  var period = applePeriod === 'monthly' ? 'monthly' : 'yearly';
+  var row = function(p, name, price, per){
+    var on = period === p;
+    return '<button type="button" class="jr-plan'+(on ? ' is-on' : '')+'" data-action="apple-period" data-period="'+p+'" role="radio" aria-checked="'+(on ? 'true' : 'false')+'">'+
+      '<span class="jr-radio" aria-hidden="true"></span>'+
+      '<span class="jr-plan-text"><span class="jr-plan-name">'+name+'</span>'+
+        '<span class="jr-plan-price"><b class="font-mono">'+escapeHtml(price)+'</b> / '+per+'</span></span>'+
+    '</button>';
+  };
+  var trial = f[period].trial;
+  var defs = applePrep.agreements || null;
+  var boxes = journeyAgreeBoxes(defs);
+  var ready = !boxes || (journeyAgreed.terms && journeyAgreed.immediate_start);
+  return '<div class="jr-plans" role="radiogroup" aria-label="Choose a plan" style="margin-top:12px;">'+
+      row('yearly', 'Annual', f.yearly.price, 'year')+row('monthly', 'Monthly', f.monthly.price, 'month')+
+    '</div>'+
+    boxes+
+    '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="apple-start"'+
+      ((ready && !appleBusy) ? '' : ' disabled')+'>'+(trial ? 'Start My Free Trial' : 'Subscribe')+'</button>'+
+    appleDisclosure(f, period, defs)+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:8px;" data-action="apple-restore"'+(appleBusy ? ' disabled' : '')+'>Restore Purchases</button>'+
+    (appleNote ? '<div class="field-hint" role="alert" style="margin-top:8px;">'+escapeHtml(appleNote)+'</div>' : '');
+}
+function handleAppleStart(){
+  if (appleBusy) return;
+  appleBusy = true;
+  appleNote = '';
+  try{ renderApp(); }catch(e){}
+  appleStart(applePeriod === 'monthly' ? 'monthly' : 'yearly').then(function(res){
+    appleBusy = false;
+    if (res && res.verified) showToast(res.trial ? 'Your free trial has started' : 'Your subscription has started');
+    else appleNote = appleCopy((res && res.code) || 'apple_error', !!(res && res.afterPurchase));
+    try{ renderApp(); }catch(e){}
+  }, function(){
+    appleBusy = false;
+    appleNote = appleCopy('apple_error');
+    try{ renderApp(); }catch(e){}
+  });
+}
+/* Restore, from Settings or the trial screen. Where the athlete is told what
+   happened depends on where they tapped. */
+function handleAppleRestore(fromJourney){
+  if (appleBusy) return;
+  appleBusy = true;
+  if (fromJourney) journeyTrialNote = ''; else appleNote = '';
+  try{ renderApp(); }catch(e){}
+  appleRestore().then(function(res){
+    appleBusy = false;
+    if (res && res.ok) showToast('Your subscription has been restored');
+    else {
+      var say = appleCopy((res && res.code) || 'apple_restore_none');
+      if (fromJourney) journeyTrialNote = say; else appleNote = say;
+    }
+    try{ renderApp(); }catch(e){}
+  }, function(){
+    appleBusy = false;
+    try{ renderApp(); }catch(e){}
+  });
+}
+function handleAppleManage(){
+  var P = appleStorePlugin();
+  if (!P || !P.showManageSubscriptions){ showToast('Open Settings, then your Apple Account, then Subscriptions'); return; }
+  Promise.resolve(P.showManageSubscriptions())
+    .catch(function(){ showToast('Open Settings, then your Apple Account, then Subscriptions'); });
+}
 function journeyPaymentProvider(){
   if (!isNativeApp()) return JOURNEY_PAYMENT.web;
   return storeDistributedApp() ? JOURNEY_PAYMENT.store : JOURNEY_PAYMENT.app;
@@ -88340,8 +88751,11 @@ function renderJourneyTrial(){
   var r = journeyRec();
   var period = r.period === 'monthly' ? 'monthly' : 'yearly';
   var refused = JOURNEY_ONLY_MODE && journeyOnlyRefused;
-  /* THE PLAY STORE BUILD: Google Play purchases (see playStart). */
-  if (pay.id === 'store' && pay.showsPrices) return renderJourneyTrialPlay(period, refused);
+  /* THE STORE BUILDS: the App Store on iOS (see appleStart), Google Play on
+     Android (see playStart). */
+  if (pay.id === 'store' && pay.showsPrices){
+    return applePurchasesAvailable() ? renderJourneyTrialApple(period, refused) : renderJourneyTrialPlay(period, refused);
+  }
   /* THE INSTALLED STORE APP WITHOUT A STORE PURCHASE (iOS, or a store build
      without the billing plugin). */
   if (!pay.showsPrices) return renderJourneyTrialUnavailable(refused);
@@ -88480,8 +88894,12 @@ function handleJourneyTrialStart(){
       return;
     }
     var code = (res && res.code) || '';
-    journeyTrialNote = JOURNEY_CHECKOUT_COPY[code] ||
-      (pay.id === 'store' ? playCopy(code) : 'We could not open the payment page. Nothing has been charged.');
+    /* The App Store build says its own words first: a refusal there can come
+       AFTER Apple took payment, so the web wording ("nothing has been
+       charged") would not be true. Play and the web are as they were. */
+    journeyTrialNote = (pay.id === 'store' && applePurchasesAvailable()) ? appleCopy(code, !!(res && res.afterPurchase)) :
+      (JOURNEY_CHECKOUT_COPY[code] ||
+       (pay.id === 'store' ? playCopy(code) : 'We could not open the payment page. Nothing has been charged.'));
     if (code === 'play_already_owned') playRecoverPurchases(true);
     /* Already subscribed: there is nothing to buy, and the journey goes on. */
     if (code === 'already_subscribed_here' || code === 'already_subscribed_elsewhere'){
@@ -88638,7 +89056,8 @@ function handleJourneyAction(action, target){
       return;
     }
     case 'journey-agree': return handleJourneyAgree(target);
-    case 'journey-offer-retry': journeyOfferAsked = false; journeyOffer = null; playReset(); renderApp(); return;
+    case 'journey-offer-retry': journeyOfferAsked = false; journeyOffer = null; playReset(); appleReset(); renderApp(); return;
+    case 'journey-restore': return handleAppleRestore(true);
     case 'journey-trial-start': return handleJourneyTrialStart();
     case 'journey-trial-continue': return journeyGo('arrive');
     case 'journey-account-page': return journeyNavigate('/account?why=locked');
@@ -90786,6 +91205,15 @@ document.addEventListener('click', function(e){
     }
     case 'play-start': handlePlayStart(); break;
     case 'play-manage': handlePlayManage(); break;
+    /* The iOS build's Settings controls (renderAppleSubscriptionActions). */
+    case 'apple-period': {
+      var ap = target.getAttribute('data-period');
+      if (ap === 'monthly' || ap === 'yearly'){ applePeriod = ap; renderApp(); }
+      break;
+    }
+    case 'apple-start': handleAppleStart(); break;
+    case 'apple-restore': handleAppleRestore(false); break;
+    case 'apple-manage': handleAppleManage(); break;
     case 'start-block': handleStartBlock(target.getAttribute('data-purpose')); break;
     /* The surplus-runway offer. Both answers are the athlete's; neither is a
        default the app takes on their behalf. */
@@ -91397,6 +91825,9 @@ document.addEventListener('visibilitychange', function(){
   /* The Play Store build: a purchase the server has not yet confirmed is sent
      again (at most once a minute). Nothing happens anywhere else. */
   try{ playRecoverPurchases(false); }catch(e){}
+  /* The iOS build: an App Store transaction the server has not admitted yet
+     is sent again (at most once a minute). */
+  try{ appleRecoverPurchases(false); }catch(e){}
 });
 window.addEventListener('pagehide', flushSave);
 function handleToggleNotifyNative(){
@@ -91599,6 +92030,9 @@ function init(){
       /* The Play Store build: any Play purchase the server has not confirmed
          yet (the app closed under Play's sheet) is sent to it now. */
       try { playRecoverPurchases(true); } catch(e){}
+      /* The iOS build: the App Store's update stream is listened to, and any App
+         Store transaction the server has not admitted yet is sent to it now. */
+      try { appleRecoverPurchases(true); } catch(e){}
     });
   }catch(e){}
 }

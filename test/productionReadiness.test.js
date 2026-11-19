@@ -44,16 +44,20 @@ test('live charging is not a credential being present', () => {
 
 test('no store purchase flow exists for a rail that has not been approved', () => {
   /* GOOGLE PLAY IS APPROVED (founder, 18 November 2026: implement Play Billing
-     so a Play build can sell the subscription). Its code lives in the Google
-     rail's own files and nowhere else -- the adapter, the admission path, the
-     athlete's verify action and the webhook branch. Apple is still not
-     approved, so StoreKit and App Store Server code appears nowhere at all. */
+     so a Play build can sell the subscription), AND SO IS THE APP STORE
+     (founder, the same day: "once this is done you need to do the same for
+     iOS"). Each rail's code lives in that rail's own files and nowhere else --
+     the adapter, the admission path, the athlete's verify action and the
+     webhook branch. */
   const GOOGLE_RAIL = ['_google.js', '_google-purchase.js', '_subscription.js', 'billing-webhook.js'];
+  const APPLE_RAIL = ['_apple.js', '_apple-purchase.js', '_subscription.js', 'billing-webhook.js'];
   const api = fs.readdirSync(path.join(ROOT, 'api')).filter(f => f.endsWith('.js'));
   for (const f of api){
     const c = code(path.join('api', f));
-    assert.equal(/StoreKit|in_app_purchase|appstoreconnect/i.test(c),
-      false, 'api/' + f + ' contains App Store purchase code, and that rail is not approved');
+    if (APPLE_RAIL.indexOf(f) === -1){
+      assert.equal(/StoreKit|in_app_purchase|appstoreconnect|signedTransaction|appAccountToken/i.test(c),
+        false, 'api/' + f + ' contains App Store purchase code outside the Apple rail');
+    }
     if (GOOGLE_RAIL.indexOf(f) === -1){
       assert.equal(/BillingClient|purchaseToken|androidpublisher/i.test(c),
         false, 'api/' + f + ' contains Google Play purchase code outside the Google rail');
@@ -61,12 +65,15 @@ test('no store purchase flow exists for a rail that has not been approved', () =
   }
   assert.match(code(path.join('api', '_google.js')), /const PROVIDER = 'google';/,
     'the Play adapter writes the google rail, and only that');
+  assert.match(code(path.join('api', '_apple.js')), /const PROVIDER = 'apple';/,
+    'the App Store adapter writes the apple rail, and only that');
   /* WHAT ACTUALLY STOPS AN APPLE PURCHASE, stated correctly rather than
      conveniently. The entitlement model does NOT refuse one: 'apple' is a
      legitimate rail and mayStartStandardPurchase() would allow it, which is the
-     point of having the axis before having the adapter. What stops it is that
-     there is no code that can start one and no price identifier configured --
-     and an unset price must never resolve to "charge them something". */
+     point of having the axis before having the adapter. What stops one
+     before the founder configures it is that no price identifier is set, and
+     an unset price must never resolve to "charge them something": the Apple
+     adapter reports itself not configured and sells nothing. */
   assert.equal(P.isProvider('apple'), true, 'the axis exists so an adapter is not a migration');
   assert.equal(P.providerRef('apple', 'STANDARD_MONTHLY', {}), null);
   assert.equal(P.providerRef('google', 'STANDARD_YEARLY', {}), null);

@@ -25,7 +25,7 @@ Everything except one file per rail.
 | `_access.js` — leases and delivery | no |
 | the runtime (`protected/…html`) | no |
 | `_stripe.js` | **the web rail, and only that** |
-| *(future)* `_apple.js` | the Apple rail |
+| `_apple.js` (+ `_apple-purchase.js`) | **the App Store rail** (built 18 November 2026; see [APPLE-IN-APP-PURCHASE.md](APPLE-IN-APP-PURCHASE.md)) |
 | `_google.js` (+ `_google-purchase.js`) | **the Google Play rail** (built 18 November 2026; see [GOOGLE-PLAY-BILLING.md](GOOGLE-PLAY-BILLING.md)) |
 
 A subscription from any rail lands in the same `subscriptions` row shape, with
@@ -43,7 +43,10 @@ provider's enum becomes this application's model.
    the endpoint URL), never by sniffing the body — letting a payload's shape
    select its own verifier is how a forged body picks the verifier it can
    satisfy. The Google branch is chosen by `?rail=google` on the Pub/Sub push
-   subscription's endpoint URL and verified by the push's OIDC token.
+   subscription's endpoint URL and verified by the push's OIDC token; the
+   Apple branch by `?rail=apple` on the notification URL entered in App Store
+   Connect, verified by Apple's signature (the x5c chain to Apple Root CA -
+   G3).
 3. **Price identifiers in the environment**, under the existing mechanical
    convention: `VVV_PRICE_APPLE_STANDARD_MONTHLY`,
    `VVV_PRICE_GOOGLE_STANDARD_YEARLY`. No code change is needed to add one.
@@ -110,8 +113,9 @@ rail.
 by the app's verify call and Google's notifications, and in the runtime the
 journey's `store` provider (plus the Settings controls) uses the
 `SacoroBilling` plugin when, and only when, the build is a store build on
-Android and the installed APK carries the plugin. iOS store builds and store
-builds without the plugin are unchanged (`store_unavailable`). How it works,
+Android and the installed APK carries the plugin. iOS builds use the App
+Store instead (see "iOS" below), and store builds without their plugin are
+unchanged (`store_unavailable`). How it works,
 what Play Console and Google Cloud need, and what is still unverified:
 [GOOGLE-PLAY-BILLING.md](GOOGLE-PLAY-BILLING.md).
 
@@ -172,26 +176,41 @@ works the same way: `/api/portal` is asked with `return:'app'`, the Stripe
 portal opens in the browser and returns to `/account?portal=returned&return=app`,
 which hands back to `com.velvetviking.valhalla://auth/checkout?status=portal`.
 
-### iOS — the one that is genuinely uncertain
+### iOS — StoreKit, decided and built
 
 Apple's App Store Review Guideline 3.1.1 requires in-app purchase for digital
-content used within an app. Guideline 3.1.3(b) ("multiplatform services") allows
-an app to let users access content they bought elsewhere, and the 2024–2025
-US injunction changed what may be linked and said about external purchase — but
-what is permitted varies by jurisdiction and has changed more than once.
+content used within an app. The reader-style alternative (3.1.3(b)) was the
+other option. **The decision (founder, 18 November 2026): StoreKit / In-App
+Purchase**, "once this [Google Play] is done you need to do the same for iOS",
+on the condition that SACORO's one seven-day trial per person across Stripe,
+Google Play and Apple is kept, with the simplest compliant design.
 
-**The decision:** iOS is not on the launch path, and no work here is blocked on
-resolving it. When it is taken up, it is a `_apple.js` adapter plus App Store
-Server Notifications V2, plus a commercial judgement about the 15–30% fee that
-is HQ's to make, not System's.
+**What was built.** `_apple.js` is the adapter (Apple-signed data verified to
+Apple Root CA - G3, the App Store Server API, the state mapping, the signed
+introductory-offer eligibility); `_apple-purchase.js` the admission path shared
+by the app's `apple_verify` call and App Store Server Notifications V2
+(`/api/billing-webhook?rail=apple`); the `SacoroAppStore` plugin (StoreKit 2)
+in the iOS App target; and in the runtime the journey's `store` provider and
+the Settings controls use it when, and only when, the app is the iOS shell with
+the plugin. An iOS build without the plugin is unchanged (`store_unavailable`).
+
+**One trial across rails, on Apple.** Two products in one subscription group,
+each with the seven-day free-trial introductory offer. Before every purchase
+the server signs, per product, Apple's introductory-offer eligibility
+(`Product.PurchaseOption.introductoryOfferEligibility(compactJWS:)`) with
+SACORO's own verdict from the `account_commercial` allowance, and the App Store
+applies or removes the free week accordingly. The server also refuses a trial
+it did not allow (including Apple's own free week on a resubscribe made outside
+the app). Details, sources, App Store Connect steps and what is unverified:
+[APPLE-IN-APP-PURCHASE.md](APPLE-IN-APP-PURCHASE.md). Apple's commission (15%
+to 30%) applies to every App Store subscription.
 
 **What must not happen in the meantime:** no unapproved store purchase flow is
-enabled anywhere. There is no Apple purchase code in the repository at all.
-Google Play purchase code exists for the approved Google rail only (the Play
-Store build); `mayStartStandardPurchase()` still refuses an unknown provider
-before it looks at anything else, and the one-live-subscription and
-one-trial rules apply to Play purchases through the same functions as to the
-web.
+enabled anywhere. Google Play and App Store purchase code exists for the two
+approved store rails only, each in its own files; `mayStartStandardPurchase()`
+still refuses an unknown provider before it looks at anything else, and the
+one-live-subscription and one-trial rules apply to Play and App Store purchases
+through the same functions as to the web.
 
 ---
 
@@ -227,10 +246,9 @@ today is:
 | Website-distributed Android app (today's APK), commerce on | `app` | exactly the website's screen, plus "Secure payment setup opens in your browser, then brings you back here" | `POST /api/checkout {period, return:'app'}`; Stripe opens in the phone's browser and returns into the app through `com.velvetviking.valhalla://auth/checkout` (the steps above) |
 | Website or website-distributed app, commerce off | `web` / `app` | the same prices as information, "Subscriptions are not open yet", Continue | nothing is charged and no agreement is recorded; access is the open gate (`pre_commercial`) |
 | Play Store build (the `SACORO-Store-Build` marker, Android, `SacoroBilling` plugin present), commerce on | `store` | Annual and Monthly at **Play's own localised prices**, the timeline, the same two agreement ticks, Start My Free Trial (only when the server says the athlete may have a trial and Play offers one; otherwise Subscribe), "Payment is handled by Google Play." | `POST /api/subscription {action:'google_prepare'}`, then Play's purchase sheet with the server-derived `obfuscatedAccountId`, then `{action:'google_verify', purchaseToken}`; the server reads the purchase from Google, writes it through `_billing-apply.js`, acknowledges it; the app asks `/api/session` again and the journey sees `subscription_trial` |
-| Any other store build (iOS, or a store build without the plugin) | `store` | no price, no tickbox, no link to the web checkout; "Subscriptions are not available in the app yet", Continue | `store.start()` answers `store_unavailable`; nothing is sold, which is the rule above |
+| iOS build with the `SacoroAppStore` plugin, commerce on | `store` | Annual and Monthly at **the App Store's own localised prices**, the timeline, the same two agreement ticks, Start My Free Trial (only when the server says the athlete may have a trial; otherwise Subscribe), the Guideline 3.1.2 disclosures (title, length, price per period, auto-renewal, Terms of Service and Privacy Policy links), "Payment is handled by the App Store.", **Restore Purchases** | `POST /api/subscription {action:'apple_prepare', appTransactionId}`, then StoreKit's purchase with the server-derived `appAccountToken` and the server-signed trial eligibility, then `{action:'apple_verify', signedTransaction}`; the server re-reads the subscription from the App Store Server API and writes it through `_billing-apply.js`; only then does the app finish the transaction and ask `/api/session` again |
+| Any other store build (a store build without its billing plugin) | `store` | no price, no tickbox, no link to the web checkout; "Subscriptions are not available in the app yet", Continue | `store.start()` answers `store_unavailable`; nothing is sold, which is the rule above |
 
-Play Billing has now been built exactly that way: the `store` provider's
-`start()` (and the Settings controls beside it) is what changed in the
-runtime, beside the `_google.js` adapter. When StoreKit is approved, the same
-provider is where it goes, beside an `_apple.js` adapter. There is still no
-Apple purchase code in the repository.
+Play Billing and then StoreKit have been built exactly that way: the `store`
+provider's `start()` (and the Settings controls beside it) is what changed in
+the runtime, beside the `_google.js` and `_apple.js` adapters.

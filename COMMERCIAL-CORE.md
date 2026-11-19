@@ -485,7 +485,9 @@ because they are properties of the core rather than of the adapter:
 | `api/_billing-apply.js` | what a set of verified provider facts does to the core. ONE implementation, shared by the pushed route (webhook) and the pulled one (reconcile) |
 | `api/_google.js` | the Google Play adapter: service-account sign-in, subscriptionsv2 read, acknowledgement, state translation, Pub/Sub token verification (see `GOOGLE-PLAY-BILLING.md`) |
 | `api/_google-purchase.js` | a Play purchase from "may I buy" to the core: shared by the app's verify call and Google's notifications, ending in `_billing-apply.js` |
-| `api/billing-webhook.js` | one door: verified Stripe event → core; verified Google Play notification (`?rail=google`) → core. Everything else refused |
+| `api/_apple.js` | the App Store adapter: Apple-signed data (JWS, x5c chain to Apple Root CA - G3), App Store Server API read, signed introductory-offer eligibility, state translation (see `APPLE-IN-APP-PURCHASE.md`) |
+| `api/_apple-purchase.js` | an App Store purchase from "may I buy" to the core: shared by the app's verify call and Apple's notifications, ending in `_billing-apply.js` |
+| `api/billing-webhook.js` | one door: verified Stripe event → core; verified Google Play notification (`?rail=google`) → core; verified App Store Server Notification V2 (`?rail=apple`) → core. Everything else refused |
 | `supabase-commercial-core.sql` | schema, RLS, triggers, beta backfill, production hardening |
 | `test/commercialCore.test.js` | the core's own behaviour |
 | `test/commercialAuthority.test.js` | the convergence invariants: one ledger, one authority, provider-only grace, one trial counter |

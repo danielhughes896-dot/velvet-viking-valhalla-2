@@ -8,6 +8,10 @@
 //     Google Play's Real-time developer notifications, pushed by the Pub/Sub
 //     subscription on projects/sacoro-billing/topics/sacoro-play-billing.
 //
+//   POST /api/billing-webhook?rail=apple
+//     { "signedPayload": "<JWS signed by Apple, verified by _apple.js>" }
+//     App Store Server Notifications V2, production and sandbox.
+//
 // ONE DOOR, AND IT LEADS TO THE CORE. Stripe is an ADAPTER: it verifies its own
 // signature, translates its vocabulary into a provider-neutral event, and hands
 // that to the commercial core. It is not entitlement authority and it never
@@ -51,6 +55,8 @@ const Store = require('./_commercial-store.js');
 const Apply = require('./_billing-apply.js');
 const G = require('./_google.js');
 const GP = require('./_google-purchase.js');
+const AP = require('./_apple.js');
+const AXP = require('./_apple-purchase.js');
 
 const STRIPE_SIG_HEADER = 'stripe-signature';
 
@@ -341,6 +347,129 @@ async function handleGoogle(req, res, cfg, opts){
   return S.json(res, 200, { ok: true, applied: true, condition: r.condition });
 }
 
+/* ---------- the App Store boundary ----------
+ *
+ * CHOSEN BY THE REQUEST, never by the body: the notification URL entered in
+ * App Store Connect carries ?rail=apple.
+ *
+ * Order, and why:
+ *   1. configuration, or a 503 that names what is missing (names, not values)
+ *   2. Apple's signature on signedPayload (the x5c chain to Apple Root CA - G3,
+ *      the bundle id, the environment, the app's Apple ID in Production),
+ *      before anything in it is believed
+ *   3. a TEST notification is answered 200 and applies nothing; anything not
+ *      about one of our subscriptions likewise
+ *   4. the notification's own signed transaction, verified the same way, then
+ *      the subscription RE-READ FROM THE APP STORE SERVER API -- the
+ *      notification is a prompt to look, never a statement of state
+ *   5. CLAIM notificationUUID in the one ledger, so a redelivery stops
+ *   6. admit it through _apple-purchase.js, the same path the app's verify
+ *      call takes, ending in _billing-apply.js like every other rail
+ *   7. record what it did
+ *
+ * Apple retries anything that is not a 2xx, so a duplicate, an irrelevant
+ * notification and a purchase we refuse are all 200, and only a failure that
+ * a retry could cure is a 503. */
+async function handleApple(req, res, cfg, opts){
+  const acfg = AP.config();
+  if (!acfg.ok){
+    log('APPLE_NOT_CONFIGURED missing=' + acfg.missing.join(','));
+    return S.json(res, 503, { error: 'unavailable', code: 'APPLE_NOT_CONFIGURED', missing: acfg.missing });
+  }
+  if (!cfg.serviceKey){
+    log('SUPABASE_KEY_UNUSABLE source=' + cfg.serviceKeySource);
+    return S.json(res, 503, { error: 'unavailable', code: 'SUPABASE_KEY_UNUSABLE' });
+  }
+
+  const body = bodyOf(req);
+  const signed = body && typeof body.signedPayload === 'string' ? body.signedPayload : null;
+  if (!signed) return S.json(res, 400, { error: 'bad_request', code: 'NO_SIGNED_PAYLOAD' });
+  const check = AP.verifyNotification(signed, acfg, opts);
+  if (!check.ok){
+    log('APPLE_REJECTED reason=' + check.reason);
+    return S.json(res, 401, { error: 'not_authenticated', code: 'BAD_SIGNED_PAYLOAD' });
+  }
+  const n = check.notification;
+  const target = AP.notificationTarget(n);
+  if (target.kind === 'test'){
+    log('APPLE_TEST_NOTIFICATION');
+    return S.json(res, 200, { ok: true, applied: false, reason: 'test_notification' });
+  }
+  if (target.kind !== 'subscription'){
+    log('APPLE_IGNORED reason=not_a_subscription');
+    return S.json(res, 200, { ok: true, applied: false, reason: 'not_entitlement_relevant' });
+  }
+  const tx = AP.verifyTransaction(target.signedTransactionInfo, acfg, opts);
+  if (!tx.ok){
+    log('APPLE_TRANSACTION_REJECTED reason=' + tx.reason);
+    return S.json(res, 200, { ok: true, applied: false, reason: 'transaction_unverified' });
+  }
+  const t = tx.transaction;
+  if (t.type && t.type !== 'Auto-Renewable Subscription'){
+    return S.json(res, 200, { ok: true, applied: false, reason: 'not_entitlement_relevant' });
+  }
+  if (!n.notificationUUID) return S.json(res, 400, { error: 'bad_request', code: 'NO_NOTIFICATION_ID' });
+
+  /* 4. THE TRUTH, from Apple, before anything is claimed: a transient failure
+        is a 503 with nothing claimed, so Apple's retry genuinely retries. */
+  const got = await AP.fetchStatuses(acfg, String(t.transactionId), t.environment, opts);
+  if (!got.ok){
+    if (got.code === 'purchase_not_found'){
+      log('APPLE_UNKNOWN_SUBSCRIPTION subscription=' + AP.ref(String(t.originalTransactionId)));
+      return S.json(res, 200, { ok: true, applied: false, reason: 'purchase_not_found' });
+    }
+    log('APPLE_READ_FAILED code=' + got.code);
+    return S.json(res, 503, { error: 'unavailable', code: 'APPLE_UNREACHABLE' });
+  }
+  const environment = t.environment === 'Sandbox' ? 'sandbox' : 'production';
+
+  /* 5. CLAIM. notificationUUID is the delivery's identity; Apple's retries
+        carry the same one. */
+  const claim = await Store.claimBillingEvent(S, cfg, {
+    provider: AP.PROVIDER, provider_event_id: String(n.notificationUUID),
+    event_type: target.type, environment: environment
+  });
+  if (!claim.ok && !claim.duplicate){
+    log('APPLE_CLAIM_FAILED reason=' + claim.reason);
+    return S.json(res, 503, { error: 'unavailable', code: 'LEDGER_UNAVAILABLE' });
+  }
+  if (claim.duplicate){
+    log('APPLE_DUPLICATE id=' + AP.ref(String(n.notificationUUID)));
+    return S.json(res, 200, { ok: true, applied: false, reason: 'already_applied' });
+  }
+
+  /* 6. The same admission the app's verify call goes through. */
+  const r = await AXP.admit(S, cfg, {
+    acfg: acfg, transaction: t, statuses: got.statuses,
+    eventId: String(n.notificationUUID), type: target.type, revoked: target.revoked,
+    occurredAt: n.signedDate ? new Date(Number(n.signedDate)).toISOString() : null,
+    opts: opts
+  });
+
+  if (!r.ok && r.status >= 500){
+    await Store.markBillingEventProcessed(S, cfg, {
+      provider: AP.PROVIDER, provider_event_id: String(n.notificationUUID), result: 'failed_' + r.code
+    });
+    log('APPLE_APPLY_FAILED code=' + r.code);
+    return S.json(res, 503, { error: 'unavailable', code: 'SUBSCRIPTION_UNWRITABLE' });
+  }
+  if (!r.ok){
+    await Store.markBillingEventProcessed(S, cfg, {
+      provider: AP.PROVIDER, provider_event_id: String(n.notificationUUID), result: r.code
+    });
+    log('APPLE_NOT_APPLIED code=' + r.code);
+    return S.json(res, 200, { ok: true, applied: false, reason: r.code });
+  }
+
+  await Store.markBillingEventProcessed(S, cfg, {
+    provider: AP.PROVIDER, provider_event_id: String(n.notificationUUID),
+    account_id: r.accountId, subscription_id: r.subscriptionId,
+    result: r.entitlementSynced ? 'processed' : 'processed_entitlement_stale'
+  });
+  log('APPLE_APPLIED condition=' + r.condition + ' account=' + ref(r.accountId));
+  return S.json(res, 200, { ok: true, applied: true, condition: r.condition });
+}
+
 module.exports = async function handler(req, res){
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
@@ -351,6 +480,9 @@ module.exports = async function handler(req, res){
   /* GOOGLE PLAY NOTIFICATIONS TAKE THE GOOGLE PATH, chosen by the endpoint URL
      the Pub/Sub push subscription was given (?rail=google), never by the body. */
   if (railOf(req) === 'google') return handleGoogle(req, res, cfg);
+  /* APP STORE NOTIFICATIONS TAKE THE APPLE PATH, chosen by the notification URL
+     entered in App Store Connect (?rail=apple), never by the body. */
+  if (railOf(req) === 'apple') return handleApple(req, res, cfg);
 
   /* STRIPE DELIVERIES TAKE THE STRIPE PATH. Chosen on the header, not on the
      body: letting a payload's own shape select its verifier would let a forged
@@ -390,3 +522,4 @@ module.exports = async function handler(req, res){
 module.exports.rawBodyOf = rawBodyOf;
 module.exports.railOf = railOf;
 module.exports.handleGoogle = handleGoogle;
+module.exports.handleApple = handleApple;

@@ -112,10 +112,16 @@ jobs:
 
       # Copies the shell's web assets and config into the project and runs
       # pod install for the seven plugins (CocoaPods, because the Media plugin
-      # has no Swift Package yet).
+      # has no Swift Package yet). The app's own StoreKit plugin is not a pod:
+      # it is compiled with the App target.
       - name: Sync Capacitor native project
         run: npx cap sync ios
 
+      # This is also the compile check for the App target's own Swift: the
+      # SacoroAppStore plugin (StoreKit 2) and SacoroBridgeViewController are
+      # in the App target's Sources phase. Product.PurchaseOption
+      # .introductoryOfferEligibility needs the iOS 18.4 SDK or later (Xcode
+      # 16.3+), which "Select the newest Xcode" above provides.
       - name: Build for the iOS Simulator (no signing)
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace -scheme App \

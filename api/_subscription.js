@@ -17,6 +17,14 @@
 //                            -> ask GOOGLE what was bought, then the core
 //                               write and the acknowledgement (the Play
 //                               store build's equivalent of reconcile)
+//   POST /api/subscription   { action: "apple_prepare", appTransactionId }
+//                            -> before StoreKit's purchase sheet opens: may
+//                               this athlete buy, may it include the trial
+//                               (signed for Apple), and the appAccountToken
+//   POST /api/subscription   { action: "apple_verify", signedTransaction }
+//                            -> ask APPLE what was bought, then the core
+//                               write; the app finishes the transaction only
+//                               when this says so
 //
 // WHY THIS IS NOT /api/session. That endpoint mints the delivery lease, and it
 // answers 403 when access has ended -- which is correct, and which is exactly
@@ -67,6 +75,7 @@ const Checkout = require('./_checkout.js');
 const Agree = require('./_agreements.js');
 const E = require('./_entitlement.js');
 const GP = require('./_google-purchase.js');
+const AXP = require('./_apple-purchase.js');
 
 function log(what){ try{ console.log('subscription: ' + what); }catch(e){} }
 function ref(v){ return v ? String(v).slice(0, 8) + '…' : '-'; }
@@ -253,6 +262,30 @@ async function googleVerify(req, res, cfg, uid, body){
   return { code: r.acknowledged ? 'google_verified' : 'google_verified_unacknowledged', status: 200 };
 }
 
+/* ---------- the App Store purchase, pulled ----------
+ *
+ * THE iPHONE IS NOT ALLOWED TO SAY "I PAID" EITHER. The iOS build hands over
+ * the signed transaction StoreKit gave it, and only Apple's signature on it
+ * is believed -- and even then it is a LOOKUP KEY: the server re-reads the
+ * subscription from the App Store Server API with its own key, and attaches
+ * it to this athlete only when the appAccountToken Apple holds is the one
+ * this server derived for them (see _apple-purchase.js). The same function
+ * serves Apple's own notifications.
+ *
+ * `finish` in the answer is the app's ONLY signal to finish the transaction. */
+async function appleVerify(req, res, cfg, uid, body){
+  const b = body || {};
+  const jws = b.signedTransaction || b.signed_transaction || null;
+  const r = await AXP.admit(S, cfg, { signedTransaction: jws, uid: uid });
+  if (!r.ok){
+    log('APPLE_VERIFY_REFUSED code=' + r.code + ' uid=' + ref(uid));
+    return { code: r.code, status: r.status && r.status >= 400 ? r.status : 409,
+             provider: r.existingProvider || null };
+  }
+  log('APPLE_VERIFIED uid=' + ref(uid) + ' condition=' + r.condition);
+  return { code: 'apple_verified', status: 200, finish: true, transactionId: r.transactionId };
+}
+
 /* ---------- cancel and reactivate ----------
  *
  * CANCELLING IS STOPPING THE RENEWAL. It is not ending access, it is not
@@ -377,6 +410,11 @@ async function handle(req, res){
       return S.json(res, 200, await GP.prepare(S, cfg, who.uid, req));
     }
     else if (action === 'google_verify') outcome = await googleVerify(req, res, cfg, who.uid, body);
+    else if (action === 'apple_prepare'){
+      /* Read-only, and its own shape, as google_prepare. */
+      return S.json(res, 200, await AXP.prepare(S, cfg, who.uid, req, body));
+    }
+    else if (action === 'apple_verify') outcome = await appleVerify(req, res, cfg, who.uid, body);
     else if (action === 'reconcile')   outcome = await reconcile(req, res, cfg, who.uid, body);
     else if (action === 'cancel')      outcome = await mutateSubscription(req, res, cfg, who.uid, 'cancel');
     else if (action === 'reactivate')  outcome = await mutateSubscription(req, res, cfg, who.uid, 'reactivate');
@@ -415,6 +453,9 @@ async function handle(req, res){
     evidence: evidence
   });
   if (outcome) view.result = outcome.code;
+  /* The App Store rail's one extra word: which transaction the app may now
+     finish. Present only for an admitted purchase. */
+  if (outcome && outcome.finish){ view.finish = true; view.transaction_id = outcome.transactionId; }
 
   /* 200 either way. A lapsed athlete asking about their own lapse is not an
      error condition, and answering 403 here is what would leave the locked
@@ -423,4 +464,4 @@ async function handle(req, res){
 }
 
 module.exports = { handle, publicView, reconcile, mutateSubscription,
-                   refreshFromProvider, liveSubscriptionOf, googleVerify };
+                   refreshFromProvider, liveSubscriptionOf, googleVerify, appleVerify };

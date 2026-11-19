@@ -312,8 +312,10 @@ test('the page the App Link opens carries no prices at all now', () => {
 
 test('the app runtime refuses in a store build, and still returns before any subscribe control', () => {
   const runtime = read('protected/velvet-viking-valhalla.html');
+  /* 2400 characters: the store branch now names two store rails (Play, and
+     the App Store since 18 November 2026) before it returns. */
   const fn = runtime.slice(runtime.indexOf('function renderSubscriptionActions'),
-                           runtime.indexOf('function renderSubscriptionActions') + 1600);
+                           runtime.indexOf('function renderSubscriptionActions') + 2400);
   assert.match(fn, /if \(storeDistributedApp\(\)\)\{/);
   assert.match(fn, /Manage or cancel your subscription where you bought it/);
   const after = fn.slice(fn.indexOf('if (storeDistributedApp()){'));
