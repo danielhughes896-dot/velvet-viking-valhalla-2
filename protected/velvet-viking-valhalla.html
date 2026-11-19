@@ -3858,6 +3858,23 @@
      gone before any of those can be built, and if it somehow were not, an
      error message must still be reachable over it. */
   #boot-splash{position:fixed; inset:0; z-index:90; overflow:hidden;}
+  /* WHO SEES THE SPLASH (founder, 19 November 2026: "when you first open the
+     app as a new user the splash screens comes up. It should go straight to
+     This page no splash. And the splash for the next time it's opened", and
+     of the same screens: "they come up if your not a paying customer. Were it
+     should just be this"). The tiny script above #boot-splash decides before
+     anything is painted, from what this device already holds:
+       splash   a plan is here, so the app is about to open into it;
+       welcome  no plan (a first open, or an account with nothing yet): the
+                Welcome is painted instead, the same markup the journey draws,
+                so the handover is the same picture;
+       plain    part way through the journey: the dark ground, nothing else.
+     Without the script (or with storage refused) it stays the splash. */
+  #boot-welcome{display:none;}
+  html[data-boot="welcome"] #boot-welcome{display:block; position:fixed; inset:0; z-index:90; overflow:hidden;}
+  html[data-boot="welcome"] #boot-splash, html[data-boot="plain"] #boot-splash{display:none;}
+  html[data-boot-native] #boot-welcome .jr-welcome-back,
+  html[data-boot-signed] #boot-welcome .jr-gold{display:none;}
   .pe{position:relative; min-height:100vh; display:grid;
     grid-template-rows:1fr 1fr 1fr; justify-items:center; text-align:center;
     padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 36px;}
@@ -12782,6 +12799,11 @@
     text-transform:uppercase; color:var(--gold);}
   .jr-arrive .jr-foot{margin-top:0;}
   .jr-wait{display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  /* The wait a member sees while the gate answers is the splash itself, and
+     its way to ask again only appears if the answer is slow. */
+  .jr-wait-retry{position:absolute; left:50%; transform:translateX(-50%);
+    bottom:calc(20px + env(safe-area-inset-bottom,0px)); opacity:0;
+    animation:fadein .3s ease 8s forwards;}
 
   /* At 320 the titles and the device frame give up a little so nothing
      scrolls sideways and Continue stays on the first screen. */
@@ -12803,6 +12825,29 @@
 </head>
 <body>
 <div id="app" class="app-root"></div>
+<!-- WHICH FIRST PICTURE: the splash, the Welcome, or the plain ground. See
+     #boot-welcome in the stylesheet. Kept tiny and inline so it runs before
+     the first paint; anything it cannot read leaves the splash, as before. -->
+<script id="boot-decide">
+(function(){
+  var html = document.documentElement, mode = 'splash';
+  try {
+    var ls = window.localStorage;
+    var plan = /"days":\[\{/.test(ls.getItem('velvet-viking-generator-v2') || '');
+    var signed = !!ls.getItem('vvv_cloud_session');
+    var jr = null;
+    try { jr = JSON.parse(ls.getItem('vvv_journey') || 'null'); } catch(e){ jr = null; }
+    var mid = !!(jr && jr.step && jr.step !== 'welcome' && jr.step !== 'done');
+    var journeyOnly = html.getAttribute('data-vvv-access') === 'journey';
+    if (mid) mode = 'plain';
+    else if (!plan) mode = (journeyOnly || !signed) ? 'welcome' : 'splash';
+    else if (journeyOnly && !signed) mode = 'welcome';
+    if (signed) html.setAttribute('data-boot-signed', '');
+  } catch(e){ mode = 'splash'; }
+  try { if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) html.setAttribute('data-boot-native', ''); } catch(e){}
+  html.setAttribute('data-boot', mode);
+})();
+</script>
 <!-- THE ARRIVAL, BEFORE A LINE OF JAVASCRIPT RUNS.
      This is renderProgrammeEntry()'s own first and last thirds, verbatim, so
      the handover is invisible: the lockup and the claim are already in their
@@ -12827,6 +12872,11 @@
     <div class="pe-sub">Built around the climb</div>
   </div>
 </div>
+<!-- THE WELCOME, BEFORE A LINE OF JAVASCRIPT RUNS, for whoever the app will
+     greet with it (see #boot-welcome in the stylesheet). renderJourneyWelcome()'s
+     own markup with nothing to press: the real screen replaces it on the first
+     render, so a tap before then is a tap on a picture. -->
+<div id="boot-welcome" aria-hidden="true" inert><div class="jr jr-welcome"><div class="jr-photo" role="presentation"></div><span class="jr-back jr-welcome-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19.5" y1="12" x2="5" y2="12"/><polyline points="11,6 5,12 11,18"/></svg></span><div class="jr-welcome-body"><div class="jr-crest"></div><h1 class="jr-title">Your Journey Starts Here</h1><p class="jr-lede">Personalised training. Built around you.</p><span class="btn btn-primary btn-block jr-cta">Build My Plan</span><span class="btn btn-ghost btn-block jr-gold">Existing Member</span></div></div></div>
 <div id="toast-mount"></div>
 <script>
 'use strict';
@@ -70502,7 +70552,8 @@ function handleBldBack(){
   if (to < 0){
     if (!bldInJourney()) return;
     try { closeModal(); } catch(e){}
-    journeyGo('drives');
+    /* The slides come before the builder now: back onto their last one. */
+    journeyGo('slides', { slide: JOURNEY_SLIDES.length - 1 });
     return;
   }
   bldClearErrors(); bldStage(to);
@@ -86538,6 +86589,8 @@ function handleSetView(view, tapped){
     return;
   }
   state.view = view;
+  /* Settings holds the Play plans in the store build: fresh prices on the way in. */
+  if (view === 'settings'){ try { if (playPurchasesAvailable()) playRefreshOnOpen(); } catch(eP){} }
   /* Strava availability is learned lazily, when the athlete actually navigates
      to the screen that shows it. A signed-in athlete has normally learned it
      already from the status call at open; this covers the signed-out case,
@@ -86999,7 +87052,9 @@ var JOURNEY_KEY = 'vvv_journey';
 var JOURNEY_STEPS = ['welcome', 'achieve', 'drives', 'slides', 'preview', 'account', 'trial', 'arrive', 'done'];
 /* Steps that come before the builder has made a plan. A plan that appears
    while the journey is still on one of these did not come from it. */
-var JOURNEY_PRE_BUILD = ['welcome', 'achieve', 'drives'];
+/* The slides are before the builder now (founder, 19 November 2026), so
+   they are one of the screens drawn before there is a plan. */
+var JOURNEY_PRE_BUILD = ['welcome', 'achieve', 'drives', 'slides'];
 /* What the athlete would love to achieve, and the builder purpose it sets.
    The founder's four, in the founder's order. The line under each is the
    builder's own blurb for that purpose (BUILDER_PURPOSE_META), so the two
@@ -87167,7 +87222,9 @@ function journeyOnlyLift(granted){
   if (!JOURNEY_ONLY_MODE) return false;
   if (granted && journeyLifting) return true;
   if (!granted){
-    if (journeyAwaitsTrial()){
+    /* Refused with no plan here: stay on the journey (the Welcome) rather
+       than leave for the account page. */
+    if (journeyAwaitsTrial() || !planHasContent()){
       journeyOnlyRefused = true;
       try { renderApp(); } catch(e0){}
       return false;
@@ -87192,6 +87249,12 @@ function renderJourneyOnly(){
     }
     /* Refused, and the trial is the journey's next step: the trial screen. */
     if (journeyOnlyRefused && journeyAwaitsTrial()) return renderJourney();
+    /* NOTHING TO WAIT FOR WITHOUT A PLAN (founder, 19 November 2026: the
+       splash and "One moment" came up for an account that was not paying,
+       "Were it should just be this", the Welcome). An account with no plan on
+       this device is greeted at once; if the gate then lets it in, the page
+       reloads into the app as before. */
+    if (!planHasContent()) return renderJourney();
     return renderJourneyWait(true);
   }
   if (journeyRead()) return renderJourney();
@@ -87263,8 +87326,10 @@ function journeyActive(){
 function journeyStep(){
   var r = journeyRead();
   var step = r ? r.step : 'welcome';
-  if (JOURNEY_PRE_BUILD.indexOf(step) !== -1 && journeyAccountUnanswered()) return 'wait';
-  if (step === 'slides' || step === 'preview' || step === 'account' || step === 'trial' || step === 'arrive'){
+  /* Journey-only with no plan here: nothing to wait for (see renderJourneyOnly). */
+  if (JOURNEY_PRE_BUILD.indexOf(step) !== -1 && journeyAccountUnanswered() &&
+      !(JOURNEY_ONLY_MODE && !planHasContent())) return 'wait';
+  if (step === 'preview' || step === 'account' || step === 'trial' || step === 'arrive'){
     /* A screen about the plan with no plan under it (storage cleared, a
        sign-out on a shared phone) starts again rather than drawing nothing. */
     if (!planHasContent()) step = 'welcome';
@@ -87290,6 +87355,7 @@ function journeySubscribed(){
 }
 function journeyGo(step, extra){
   var patch = Object.assign({ step: step }, extra || {});
+  if (step === 'trial' && journeyRec().step !== 'trial'){ try { playRefreshOnOpen(); } catch(eP){} }
   journeySet(patch);
   renderApp();
   try { window.scrollTo(0, 0); } catch(e){}
@@ -87315,11 +87381,12 @@ function journeyBack(){
   if (step === 'drives') return journeyGo('achieve');
   if (step === 'slides'){
     if ((r.slide || 0) > 0) return journeySlideTo((r.slide || 0) - 1);
-    /* Before the first slide is the builder that made the plan, opened on
-       the answers it was built from. */
-    return journeyOpenBuilder();
+    /* Before the first slide is What Drives You? */
+    return journeyGo('drives');
   }
-  if (step === 'preview') return journeyGo('slides', { slide: 2 });
+  /* Before the programme is the builder that made it, opened on the answers
+     it was built from. */
+  if (step === 'preview') return journeyOpenBuilder();
   if (step === 'account') return journeyGo('preview');
   if (step === 'trial') return journeyGo(cloudSignedIn() ? 'preview' : 'account');
   return false;
@@ -87350,12 +87417,12 @@ function journeyOpenBuilder(){
   openSetupModal();
   return true;
 }
-/* Called by handleGeneratePlan() once a plan exists. The slides are next,
-   and they are drawn from this plan. */
+/* Called by handleGeneratePlan() once a plan exists. Here Is Your Programme
+   is next: the slides were before the builder (founder, 19 November 2026). */
 function journeyPlanBuilt(){
   var r = journeyRead();
   if (!r || r.step === 'done') return;
-  r.step = 'slides'; r.slide = 0; r.built = true;
+  r.step = 'preview'; r.built = true;
   journeyWrite(r);
 }
 
@@ -87385,12 +87452,26 @@ function journeyOptionRow(o, on, kind, sub){
       : '<span class="jr-opt-mark is-radio" aria-hidden="true">'+(on ? ICONS.check : '')+'</span>')+
   '</button>';
 }
+/* THE WAIT IS THE SPLASH (founder, 19 November 2026). It is only drawn now
+   where the app is about to open into a plan (a member's device), and there
+   the founder wants the splash, not "One moment" under a crest. The same
+   markup as #boot-splash, so the handover from the document's own paint does
+   not move anything. Journey-only: if the account cannot be reached the wait
+   would never end, so Try Again appears if the answer is slow. */
 function renderJourneyWait(canRetry){
-  return '<div class="jr jr-wait"><div class="jr-crest jr-crest-arrive" aria-hidden="true"></div>'+
-    '<p class="jr-quiet" role="status">One moment.</p>'+
-    /* Journey-only: if the account cannot be reached the wait would never
-       end, so a way to ask again is always there. */
-    (canRetry ? '<button type="button" class="jr-text-btn" data-action="journey-reload">Try Again</button>' : '')+
+  return '<div class="pe jr jr-wait-pe" role="status" aria-label="One moment">'+
+    '<div class="pe-mountains" role="presentation" aria-hidden="true"></div>'+
+    '<div class="pe-brand" aria-hidden="true">'+
+      '<div class="pe-lockup"><span class="pe-dot"></span><div class="pe-name">SACORO</div><span class="pe-dot"></span></div>'+
+      '<div class="pe-by">By Velvet Viking</div>'+
+    '</div>'+
+    '<div class="pe-athlete"></div>'+
+    '<div class="pe-foot" aria-hidden="true">'+
+      '<div class="pe-rule"></div>'+
+      '<div class="pe-claim">Earn your place</div>'+
+      '<div class="pe-sub">Built around the climb</div>'+
+    '</div>'+
+    (canRetry ? '<button type="button" class="jr-text-btn jr-wait-retry" data-action="journey-reload">Try Again</button>' : '')+
   '</div>';
 }
 /* A NEW ATHLETE ON A DEVICE THAT STILL HOLDS A PLAN (founder, 18 November
@@ -87547,6 +87628,70 @@ function journeySlideCoach(){
   finally { askState = keep; }
   return html;
 }
+/* ---------- THE SLIDES COME BEFORE THE BUILDER, ON A SAMPLE PLAN ----------
+   Founder, 19 November 2026: "We also have 2 full pages explaining the full
+   programme. I think the 3 slide rail thing should come earlier?", choosing
+   "Before the builder": Welcome, Achieve, Drives, the slides, the builder,
+   Here Is Your Programme. Before the builder there is no plan of the
+   athlete's own, so the slides are drawn by the same renderers on a SAMPLE
+   plan for the goal chosen on Achieve, built by the same generator
+   (buildBlockWeeks, buildDaysFromWeeks) from a fixed, ordinary setup. It is
+   built once per goal, held only in memory, never saved, never synced, and
+   `state` is the athlete's own again before anything else can run. The
+   generator's own notes are put back as they were, so the builder that
+   follows starts from what it would have started from. */
+var JOURNEY_SAMPLE_SETUPS = {
+  race:     { distanceKey:'half', weeks:12, volume:35, schedule:{ activeDays:[1, 3, 5, 6], longRunDay:6 } },
+  base:     { distanceKey:'half', weeks:10, volume:30, schedule:{ activeDays:[1, 3, 5, 6], longRunDay:6 } },
+  speed:    { distanceKey:'5k',   weeks:6,  volume:30, schedule:{ activeDays:[1, 3, 5, 6], longRunDay:6 } },
+  maintain: { distanceKey:'half', weeks:8,  volume:30, schedule:{ activeDays:[1, 3, 5, 6], longRunDay:6 } }
+};
+var journeySampleCache = {};
+function journeySampleState(purpose){
+  var p = JOURNEY_SAMPLE_SETUPS[purpose] ? purpose : 'race';
+  if (journeySampleCache[p]) return journeySampleCache[p];
+  var spec = JOURNEY_SAMPLE_SETUPS[p];
+  var keep = { state: state, notes: planBuildNotes, acct: planVolumeAccounting, fails: planInvariantFailures,
+               quality: builderQualityChoice, rebuilding: rebuildingBlockId };
+  var out = null;
+  try {
+    var start = todayStr();
+    var startMonday = addDays(start, -isoWeekday(start));
+    var endDate = addDays(startMonday, spec.weeks * 7 - 1);
+    var sample = makeDefaultState();
+    sample.experience = 'experienced';
+    state = sample;
+    builderQualityChoice = null;
+    rebuildingBlockId = null;
+    var blk = buildBlockWeeks(spec.distanceKey, spec.volume, spec.weeks,
+      { purpose: p, availableDays: spec.schedule.activeDays.length });
+    var days = buildDaysFromWeeks(blk, endDate, spec.schedule, start, false,
+      p === 'base' ? { horizonThroughWeek: blk.planWeeks } : {});
+    sample.setup = { purpose: p, distanceKey: spec.distanceKey, currentVolume: spec.volume, raceDate: endDate,
+                     hasEvent: false, startDate: start, planWeeks: blk.planWeeks, schedule: spec.schedule,
+                     experience: 'experienced', goals: {}, activeGoal: null, paceOverrides: {} };
+    sample.days = days;
+    out = sample;
+  } catch(e){ out = null; }
+  finally {
+    state = keep.state;
+    planBuildNotes = keep.notes; planVolumeAccounting = keep.acct; planInvariantFailures = keep.fails;
+    builderQualityChoice = keep.quality; rebuildingBlockId = keep.rebuilding;
+  }
+  journeySampleCache[p] = out;
+  return out;
+}
+/* Draw `fn` against the sample plan when the athlete has none of their own,
+   and give `state` back whatever happens. */
+function journeyOnSample(fn){
+  if (planHasContent()) return fn();
+  var sample = journeySampleState(journeyRec().purpose);
+  if (!sample) return '';
+  var own = state;
+  state = sample;
+  try { return fn(); }
+  finally { state = own; }
+}
 var JOURNEY_SLIDES = [
   { title:'Training Built Around You', say:'A programme shaped around your goal.', body:journeySlideTraining },
   { title:'Know Every Session', say:'Understand the purpose behind every workout.', body:journeySlideSession },
@@ -87557,7 +87702,7 @@ function renderJourneySlides(){
   var at = Math.max(0, Math.min(JOURNEY_SLIDES.length - 1, r.slide || 0));
   var slides = JOURNEY_SLIDES.map(function(s, i){
     var shot = '';
-    try { shot = s.body(); } catch(e){ shot = ''; }
+    try { shot = journeyOnSample(s.body); } catch(e){ shot = ''; }
     return '<section class="jr-slide" data-slide="'+i+'" aria-roledescription="slide" aria-label="'+(i + 1)+' of '+JOURNEY_SLIDES.length+'">'+
       '<div class="jr-device" aria-hidden="true" inert><div class="jr-screen">'+journeyStill(shot)+'</div></div>'+
       '<h2 class="jr-slide-title">'+escapeHtml(s.title)+'</h2>'+
@@ -87937,6 +88082,17 @@ function playEnsureLoaded(){
   }).catch(function(){ playLoadFailed = true; }).then(function(){ try{ renderApp(); }catch(e){} });
 }
 function playReset(){ playPrep = null; playProduct = null; playPrepAsked = false; playLoadFailed = false; }
+/* FRESH PRICES EVERY TIME THE PLANS ARE OPENED (founder, 19 November 2026:
+   "Refresh Google Play prices when opening the paywall. We've already
+   corrected the UK prices."). The answer used to be asked once per launch, so
+   a price changed in Play Console, or a trial verdict changed on the server,
+   waited for the app to be closed and opened again. Opening the trial screen
+   or Settings now asks both again; Play itself may still take a few hours to
+   carry a Console price change to every phone. Not while a purchase is open. */
+function playRefreshOnOpen(){
+  if (playBusy || playPending) return;
+  playReset();
+}
 function playPlanFor(product, basePlanId){
   var plans = (product && product.basePlans) || [];
   for (var i = 0; i < plans.length; i++) if (plans[i] && plans[i].basePlanId === basePlanId) return plans[i];
@@ -87984,16 +88140,38 @@ function playFigures(prep, product){
   out.trialDays = prep.trial_days || TRIAL_DAYS_SHOWN;
   return out;
 }
-/* The server's answer about a Play purchase token. */
+/* The server's answer about a Play purchase token.
+   ONE QUESTION PER PURCHASE AT A TIME. Play's sheet closing is also the app
+   coming back to the front, so the purchase listener and the resume recovery
+   used to send the same token together. The server copes (it re-reads the
+   owner before refusing), but there is no reason to ask twice: a second ask
+   for a token already being asked shares the first one's answer. */
+var playVerifying = {};
 function playVerify(purchase){
   var p = purchase || {};
-  return playAuthedPost({ action:'google_verify', purchaseToken: p.purchaseToken,
+  var token = p.purchaseToken;
+  if (token && playVerifying[token]) return playVerifying[token];
+  var asked = playAuthedPost({ action:'google_verify', purchaseToken: token,
                           productId: (p.productIds && p.productIds[0]) || null })
     .then(function(x){
       if (x.status === 200) return { ok:true };
       return { ok:false, code: (x.body && x.body.error) || (x.status >= 500 ? 'play_verify_later' : 'play_error') };
-    }).catch(function(){ return { ok:false, code:'play_verify_later' }; });
+    }).catch(function(){ return { ok:false, code:'play_verify_later' }; })
+    .then(function(res){
+      if (token) delete playVerifying[token];
+      /* AFTER PLAY HAS TAKEN THE PURCHASE, a refusal is not "nothing was
+         charged". The purchase is kept here, unconfirmed, so the screen can
+         say what is true and offer Check Again instead of a second purchase;
+         a later confirmation (Check Again, or recovery on the next open)
+         clears it. */
+      if (res.ok){ if (playUnconfirmed && playUnconfirmed.token === token) playUnconfirmed = null; }
+      else if (token) playUnconfirmed = { token: token, purchase: p, code: res.code };
+      return res;
+    });
+  if (token) playVerifying[token] = asked;
+  return asked;
 }
+var playUnconfirmed = null;
 /* Verified: the gate is asked again, which is what moves the journey on and
    redraws Settings. */
 function playAfterVerify(res){
@@ -88010,7 +88188,9 @@ function playOnPurchaseUpdated(ev){
   var e = ev || {};
   var done;
   if (e.status === 'purchased' && e.purchase && e.purchase.purchaseToken){
-    done = playVerify(e.purchase).then(playAfterVerify);
+    done = playVerify(e.purchase).then(playAfterVerify).then(function(res){
+      return (res && !res.ok) ? Object.assign({ afterPurchase: true }, res) : res;
+    });
   } else {
     var code = e.status === 'cancelled' ? 'play_cancelled'
              : e.status === 'pending' ? 'play_pending'
@@ -88074,9 +88254,13 @@ function playRecoverPurchases(force){
   playRecoverAt = Date.now();
   var verified = 0;
   return Promise.resolve(P.queryActivePurchases()).then(function(r){
-    var list = ((r && r.purchases) || []).filter(function(p){
+    var all = (r && r.purchases) || [];
+    var list = all.filter(function(p){
       return p && p.purchaseToken && p.purchaseState === 'purchased' && !p.isAcknowledged;
     });
+    /* A purchase Play no longer holds (cancelled and refunded) has nothing
+       left to confirm. */
+    if (playUnconfirmed && !all.some(function(p){ return p && p.purchaseToken === playUnconfirmed.token; })) playUnconfirmed = null;
     return list.reduce(function(chain, p){
       return chain.then(function(){ return playVerify(p).then(function(x){ if (x && x.ok) verified++; }); });
     }, Promise.resolve());
@@ -88084,6 +88268,16 @@ function playRecoverPurchases(force){
     playRecovering = false;
     if (!verified) return 0;
     return playAfterVerify({ ok:true }).then(function(){ try{ renderApp(); }catch(e){} return verified; });
+  });
+}
+/* PLAY SAYS THIS GOOGLE ACCOUNT ALREADY OWNS IT. Usually a purchase SACORO
+   has not confirmed yet (the app closed mid-purchase). It is confirmed now
+   rather than bought twice, and the screen moves on if that works. */
+function playRecoverOwned(){
+  return playRecoverPurchases(true).then(function(n){
+    if (n > 0){ showToast('Your subscription has started'); journeyTrialNote = ''; playNote = ''; }
+    try{ renderApp(); }catch(e){}
+    return n;
   });
 }
 /* What a refused or interrupted Play purchase says. Short, plain, and
@@ -88100,6 +88294,56 @@ var PLAY_COPY = {
 };
 function playCopy(code){
   return PLAY_COPY[code] || JOURNEY_CHECKOUT_COPY[code] || PLAY_COPY.play_error;
+}
+/* WHAT A PURCHASE PLAY HAS ALREADY TAKEN SAYS WHEN SACORO HAS NOT CONFIRMED IT.
+   Founder, 19 November 2026, after an internal test purchase: Google created
+   the subscription and the screen said "Nothing has been charged". That was
+   the generic Play error standing in for a server refusal. Two honest cases:
+     REFUSED   SACORO will not accept this purchase (a trial already used, a
+               subscription already held, another account's purchase). It is
+               never confirmed, and Google cancels and refunds a purchase that
+               is not confirmed.
+     NOT YET   SACORO could not confirm it just now (Google or SACORO could
+               not be reached, or the record could not be written). It is
+               tried again by Check Again and on every open.
+   The server's own code is shown as a reference, so a screenshot says why. */
+var PLAY_REFUSED_AFTER_PURCHASE = ['trial_already_used', 'already_subscribed_here', 'already_subscribed_elsewhere',
+  'not_your_purchase', 'account_mismatch', 'product_mismatch', 'unattributable'];
+var PLAY_REFUSED_WHY = {
+  trial_already_used: 'This account has already had its free trial.',
+  already_subscribed_here: 'This account already has a SACORO subscription.',
+  already_subscribed_elsewhere: 'This account already has a SACORO subscription.',
+  not_your_purchase: 'This Google Play purchase belongs to a different SACORO account.',
+  account_mismatch: 'This Google Play purchase belongs to a different SACORO account.'
+};
+function playUnconfirmedRefused(code){ return PLAY_REFUSED_AFTER_PURCHASE.indexOf(code) !== -1; }
+function playUnconfirmedCopy(code){
+  if (playUnconfirmedRefused(code)){
+    return (PLAY_REFUSED_WHY[code] || 'SACORO could not accept this Google Play purchase.')+
+      ' Google Play cancels a purchase SACORO does not confirm and refunds anything charged.';
+  }
+  return 'Google Play has taken your purchase, but SACORO could not confirm it yet. '+
+    'Tap Check Again, or SACORO tries again each time it opens. '+
+    'If it is never confirmed, Google Play cancels it and refunds anything charged.';
+}
+function playUnconfirmedNote(){
+  var u = playUnconfirmed;
+  if (!u) return '';
+  return '<p class="jr-error" role="alert">'+escapeHtml(playUnconfirmedCopy(u.code))+'</p>'+
+    '<p class="jr-fine jr-centre">Reference: '+escapeHtml(String(u.code || 'unknown'))+'</p>';
+}
+/* CHECK AGAIN: the same purchase, asked again. Never a second purchase. */
+var playChecking = false;
+function handlePlayCheckAgain(){
+  var u = playUnconfirmed;
+  if (!u || playChecking) return;
+  playChecking = true;
+  try{ renderApp(); }catch(e){}
+  playVerify(u.purchase).then(playAfterVerify).then(function(res){
+    playChecking = false;
+    if (res && res.verified) showToast(res.trial ? 'Your free trial has started' : 'Your subscription has started');
+    try{ renderApp(); }catch(e){}
+  }, function(){ playChecking = false; try{ renderApp(); }catch(e){} });
 }
 
 /* SETTINGS, IN THE PLAY STORE BUILD. Managed in Google Play when the
@@ -88139,10 +88383,16 @@ function renderPlaySubscriptionActions(info){
       row('yearly', 'Annual', f.yearly.price, 'year')+row('monthly', 'Monthly', f.monthly.price, 'month')+
     '</div>'+
     boxes+
-    '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="play-start"'+
-      ((ready && !playBusy) ? '' : ' disabled')+'>'+(trial ? 'Start My Free Trial' : 'Subscribe')+'</button>'+
+    (playUnconfirmed && !playUnconfirmedRefused(playUnconfirmed.code)
+      ? '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="journey-play-check"'+
+          (playChecking ? ' disabled' : '')+'>'+(playChecking ? 'Checking' : 'Check Again')+'</button>'
+      : '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="play-start"'+
+          ((ready && !playBusy) ? '' : ' disabled')+'>'+(trial ? 'Start My Free Trial' : 'Subscribe')+'</button>')+
     '<div class="field-hint" style="margin-top:8px;">Payment is handled by Google Play.</div>'+
-    (playNote ? '<div class="field-hint" role="alert" style="margin-top:8px;">'+escapeHtml(playNote)+'</div>' : '');
+    (playUnconfirmed
+      ? '<div class="field-hint" role="alert" style="margin-top:8px;">'+escapeHtml(playUnconfirmedCopy(playUnconfirmed.code))+'</div>'+
+        '<div class="field-hint" style="margin-top:4px;">Reference: '+escapeHtml(String(playUnconfirmed.code || 'unknown'))+'</div>'
+      : (playNote ? '<div class="field-hint" role="alert" style="margin-top:8px;">'+escapeHtml(playNote)+'</div>' : ''));
 }
 function handlePlayStart(){
   if (playBusy) return;
@@ -88155,8 +88405,9 @@ function handlePlayStart(){
       showToast(res.trial ? 'Your free trial has started' : 'Your subscription has started');
     } else {
       var code = (res && res.code) || 'play_error';
-      if (code === 'play_already_owned') playRecoverPurchases(true);
-      playNote = playCopy(code);
+      if (code === 'play_already_owned') playRecoverOwned();
+      /* After Play took the purchase, the unconfirmed note says what is true. */
+      playNote = (res && res.afterPurchase) ? '' : playCopy(code);
     }
     try{ renderApp(); }catch(e){}
   }, function(){
@@ -88328,11 +88579,15 @@ function renderJourneyTrialPlay(period, refused){
     (trial ? '<p class="jr-say">Cancel before your trial ends to avoid being charged.</p>' : '')+
     boxes+
     '<div class="jr-foot">'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="journey-trial-start"'+(ready ? '' : ' disabled')+'>'+
-        (trial ? 'Start My Free Trial' : 'Subscribe')+'</button>'+
+      (playUnconfirmed && !playUnconfirmedRefused(playUnconfirmed.code)
+        ? '<button type="button" class="btn btn-primary btn-block" data-action="journey-play-check"'+(playChecking ? ' disabled' : '')+'>'+
+            (playChecking ? 'Checking' : 'Check Again')+'</button>'
+        : '<button type="button" class="btn btn-primary btn-block" data-action="journey-trial-start"'+(ready ? '' : ' disabled')+'>'+
+            (trial ? 'Start My Free Trial' : 'Subscribe')+'</button>')+
       '<p class="jr-fine jr-centre">Payment is handled by Google Play.</p>'+
     '</div>'+
-    (journeyTrialNote ? '<p class="jr-error" role="alert">'+escapeHtml(journeyTrialNote)+'</p>' : '')+
+    (playUnconfirmed ? playUnconfirmedNote()
+      : (journeyTrialNote ? '<p class="jr-error" role="alert">'+escapeHtml(journeyTrialNote)+'</p>' : ''))+
   '</div>';
 }
 function renderJourneyTrial(){
@@ -88482,7 +88737,11 @@ function handleJourneyTrialStart(){
     var code = (res && res.code) || '';
     journeyTrialNote = JOURNEY_CHECKOUT_COPY[code] ||
       (pay.id === 'store' ? playCopy(code) : 'We could not open the payment page. Nothing has been charged.');
-    if (code === 'play_already_owned') playRecoverPurchases(true);
+    /* AFTER PLAY TOOK THE PURCHASE: the unconfirmed note, never "Nothing has
+       been charged", and never the already-subscribed shortcut below, which
+       is for a refusal BEFORE Play's sheet opened. */
+    if (res && res.afterPurchase){ journeyTrialNote = ''; renderApp(); return; }
+    if (code === 'play_already_owned') playRecoverOwned();
     /* Already subscribed: there is nothing to buy, and the journey goes on. */
     if (code === 'already_subscribed_here' || code === 'already_subscribed_elsewhere'){
       showToast(journeyTrialNote); journeyTrialNote = ''; journeyGo('arrive'); return;
@@ -88615,17 +88874,18 @@ function handleJourneyAction(action, target){
       return;
     }
     case 'journey-drives-skip':
-      journeySet({ drives: [] });
-      return journeyOpenBuilder();
+      return journeyGo('slides', { drives: [], slide: 0 });
     case 'journey-drives-next':
-      journeySet({ step: 'drives' });
-      return journeyOpenBuilder();
+      return journeyGo('slides', { slide: 0 });
     case 'journey-slide':
       return journeySlideTo(parseInt(target.getAttribute('data-slide'), 10) || 0);
     case 'journey-slides-next': {
       var at = journeyRec().slide || 0;
       if (at < JOURNEY_SLIDES.length - 1) return journeySlideTo(at + 1);
-      return journeyGo('preview');
+      /* Then the builder. A journey that built its plan under the old order
+         (slides after the builder) goes on to its programme instead. */
+      if (journeyRec().built && planHasContent()) return journeyGo('preview');
+      return journeyOpenBuilder();
     }
     case 'journey-preview-next': return journeyGo(cloudSignedIn() ? 'trial' : 'account');
     case 'journey-email': journeyEmailOpen = true; renderApp(); return;
@@ -88640,6 +88900,7 @@ function handleJourneyAction(action, target){
     case 'journey-agree': return handleJourneyAgree(target);
     case 'journey-offer-retry': journeyOfferAsked = false; journeyOffer = null; playReset(); renderApp(); return;
     case 'journey-trial-start': return handleJourneyTrialStart();
+    case 'journey-play-check': return handlePlayCheckAgain();
     case 'journey-trial-continue': return journeyGo('arrive');
     case 'journey-account-page': return journeyNavigate('/account?why=locked');
     case 'journey-finish': return journeyFinish();
@@ -88748,8 +89009,10 @@ function clearBootSplash(){
   if (bootSplashCleared) return;
   bootSplashCleared = true;
   try{
-    var el = document.getElementById('boot-splash');
-    if (el && el.parentNode) el.parentNode.removeChild(el);
+    ['boot-splash', 'boot-welcome'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
   }catch(e){}
 }
 function renderApp(){

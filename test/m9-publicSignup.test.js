@@ -442,13 +442,21 @@ test('commerce ON: Start My Free Trial opens the 7-day checkout with the athlete
   assert.equal(Prod.offer('STANDARD_YEARLY').trialDays, 7);
 });
 
-test('a refused athlete with no journey to finish still goes to the locked shell, as before', () => {
+test('a refused athlete with a plan and no journey to finish still goes to the locked shell, as before', () => {
   const a = loadApp({ pinnedDate: PINNED });
   a.showToast = () => {};
   a.JOURNEY_ONLY_MODE = true;
+  buildPlan(a, { distanceKey: 'half', weeks: 12 });
   const went = []; a.journeyNavigate = u => { went.push(u); return true; };
   a.journeyOnlyLift(false);
   assert.deepEqual(went, ['/account?why=locked']);
+  /* with NO plan here it stays on the Welcome (founder, 19 November 2026) */
+  const n = loadApp({ pinnedDate: PINNED });
+  n.showToast = () => {}; n.renderApp = () => {};
+  n.JOURNEY_ONLY_MODE = true;
+  const wentN = []; n.journeyNavigate = u => { wentN.push(u); return true; };
+  n.journeyOnlyLift(false);
+  assert.deepEqual(wentN, []);
   /* nor does the refusal hold an athlete whose journey is already done */
   const b = journeyApp('done');
   b.JOURNEY_ONLY_MODE = true;

@@ -36,7 +36,6 @@ const Prod = require('./_products.js');
 const Store = require('./_commercial-store.js');
 const Apply = require('./_billing-apply.js');
 const Agree = require('./_agreements.js');
-const Checkout = require('./_checkout.js');
 
 function log(what){ try{ console.log('google-purchase: ' + what); }catch(e){} }
 
@@ -51,15 +50,19 @@ const LIVE = ['trialing', 'active', 'cancelled', 'past_due'];
 
 /* THE DECISION, AS A PURE FUNCTION, in the order _checkout.js asks the same
    questions for the web rail, so the two rails refuse for the same reasons with
-   the same codes. */
+   the same codes.
+   NO LOCATION CHECK. The web rail asks where the request comes from, because
+   Stripe sells wherever a browser is. A store purchase does not: Google Play
+   offers SACORO only in the countries chosen for it in Play Console, against
+   the athlete's Play country, not the network they happen to be on today.
+   Founder, 19 November 2026: "Remove the IP-based country restriction for
+   Google Play and Apple purchases. Store availability should determine
+   eligibility." An athlete on holiday, on a VPN, or roaming is not refused. */
 function decidePrepare(o){
   const x = o || {};
   if (!x.commerceEnabled) return { allowed: false, reason: 'commerce_disabled' };
   if (!x.providerConfigured) return { allowed: false, reason: 'provider_not_configured' };
   if (!x.uid) return { allowed: false, reason: 'not_signed_in' };
-  const country = String(x.country == null ? '' : x.country).trim().toUpperCase();
-  if (!country) return { allowed: false, reason: 'country_unavailable' };
-  if (!Checkout.countrySupported(country)) return { allowed: false, reason: 'country_not_supported' };
   /* THE SAME LEGAL EVIDENCE THE WEB CHECKOUT DEMANDS, before Play is asked to
      take any money: acceptance of the Terms in force and the immediate-start
      acknowledgement, both recorded by the existing agreement mechanism. */
@@ -88,7 +91,6 @@ async function prepare(S, cfg, uid, req){
     commerceEnabled: A.commerceEnabled(),
     providerConfigured: gcfg.ok,
     uid: uid,
-    country: Checkout.countryOf(req),
     evidence: evidence,
     purchaseCheck: purchaseCheck
   });
@@ -257,9 +259,22 @@ async function admit(S, cfg, o){
   if (!owner.known){
     const ok = await admissible(S, cfg, facts, owner.accountId, token);
     if (!ok.ok){
-      log('REFUSED code=' + ok.code + ' purchase=' + which);
-      return { ok: false, code: ok.code, status: ok.code === 'unavailable' ? 503 : 409,
-               existingProvider: ok.existingProvider || null };
+      /* THE SAME PURCHASE, TOLD TWICE AT ONCE. The app verifies when Play's
+         sheet closes, and again on the resume that closing causes; a
+         notification can land alongside both. The first to write spends the
+         trial, and a second still in flight would then read "trial already
+         used" about the very purchase that spent it. So a refusal re-reads
+         the token's owner first: if this athlete's row for THIS purchase now
+         exists, the purchase was admitted a moment ago and this telling is
+         a repeat, recorded and acknowledged like any other known purchase.
+         Upsert on (provider, purchase token) means it is still one row. */
+      const again = await Store.ownerOfExisting(S, cfg, G.PROVIDER, token);
+      if (!(again.ok && again.accountId === owner.accountId)){
+        log('REFUSED code=' + ok.code + ' purchase=' + which);
+        return { ok: false, code: ok.code, status: ok.code === 'unavailable' ? 503 : 409,
+                 existingProvider: ok.existingProvider || null };
+      }
+      log('REPEAT purchase=' + which);
     }
   }
 

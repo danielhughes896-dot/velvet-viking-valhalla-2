@@ -201,12 +201,30 @@ test('journey-only refuses every action that is not the journey\'s, the builder\
 
 test('a session in journey-only mode goes back through the gate for the real app', () => {
   const a = journeyOnly({ storage: { vvv_cloud_session: JSON.stringify({ access_token: 't', expires_at: Date.now() + 3600e3 }) } });
-  assert.match(a.renderMainContent(), /One moment/, 'a signed-in visitor is shown the journey instead of being let through');
+  /* A device holding a plan (a member whose pass ran out): the splash while
+     the gate answers, never the plan itself. */
+  buildPlan(a, { distanceKey: 'half', weeks: 12 });
+  const wait = a.renderMainContent();
+  assert.match(wait, /class="pe jr jr-wait-pe" role="status" aria-label="One moment"/, 'the wait is not the splash');
+  assert.match(wait, /Earn your place/);
+  assert.match(wait, /data-action="journey-reload"[^>]*>Try Again</);
   const went = []; a.journeyNavigate = u => { went.push(u); return true; }; a.journeyReload = () => went.push('reload');
   a.journeyOnlyLift(true);
   assert.deepEqual(went, ['reload'], 'a granted session does not reload into the gated app');
   a.journeyOnlyLift(false);
   assert.deepEqual(went, ['reload', '/account?why=locked'], 'a refused session loops back into the journey');
+  /* NO PLAN HERE (founder, 19 November 2026: "they come up if your not a
+     paying customer. Were it should just be this"): the Welcome at once,
+     no splash and no "One moment", and a refusal keeps it there. */
+  const c = journeyOnly({ storage: { vvv_cloud_session: JSON.stringify({ access_token: 't', expires_at: Date.now() + 3600e3 }) } });
+  c.cloudStatus = 'syncing';
+  const first = c.renderMainContent();
+  assert.match(first, /Your Journey Starts Here/);
+  assert.doesNotMatch(first, /One moment|jr-wait/);
+  const went3 = []; c.journeyNavigate = u => { went3.push(u); return true; };
+  c.journeyOnlyLift(false);
+  assert.deepEqual(went3, [], 'a refused account with nothing here was sent away from the Welcome');
+  assert.match(c.renderMainContent(), /Your Journey Starts Here/);
   /* nothing is sent to the account before there is one */
   const b = journeyOnly();
   let pushed = 0; b.cloudPutPlan = () => { pushed++; return Promise.resolve(); };
