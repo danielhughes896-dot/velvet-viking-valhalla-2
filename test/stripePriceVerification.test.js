@@ -36,7 +36,15 @@ const ROOT = path.join(__dirname, '..');
 const P = require(path.join(ROOT, 'api', '_stripe.js'));
 const Prod = require(path.join(ROOT, 'api', '_products.js'));
 
-const KEY = 'sk_test_verification';
+/* DELIBERATELY SHORT, AND THE SHORTNESS IS THE POINT. releaseReadiness.test.js
+   scans the repository for anything shaped like a real Stripe secret key — the
+   live or test prefix followed by eight or more characters — so a credential
+   cannot be committed by accident. A descriptive fixture name is long enough
+   to trip it, correctly, because the scanner cannot tell a readable fake from
+   a real one. Every other suite uses this same short form for the same reason,
+   and this note avoids spelling out a matching example for the same reason
+   again: the first draft of this comment failed the scan. */
+const KEY = 'sk_test_1';
 const ACC = 'acc_1';
 const PRODUCT = 'prod_sacoro_standard';
 const PRICE_ID = { STANDARD_MONTHLY: 'price_m1', STANDARD_YEARLY: 'price_y1' };
