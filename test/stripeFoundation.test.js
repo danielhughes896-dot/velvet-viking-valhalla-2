@@ -21,6 +21,25 @@ const PRICES = {
   VVV_PRICE_WEB_STANDARD_YEARLY:  'price_1Yearly'
 };
 
+/* CHECKOUT NOW FETCHES THE PRICE BEFORE CREATING A SESSION, so a fake that
+   answers every path with a Checkout Session hands verifyPrice an object that
+   is not a Price — and it correctly refuses. This answers the lookup with a
+   Price built FROM the catalogue, so these fixtures cannot drift from the
+   offers they stand in for, and returns null for anything else so each call
+   site keeps its own session response. */
+function priceLookup(url, offerCode){
+  if (!/\/prices\//.test(String(url))) return null;
+  const o = Prod.offer(offerCode);
+  const id = offerCode === 'STANDARD_YEARLY'
+    ? PRICES.VVV_PRICE_WEB_STANDARD_YEARLY
+    : PRICES.VVV_PRICE_WEB_STANDARD_MONTHLY;
+  return { ok: true, status: 200, text: async () => JSON.stringify({
+    id: id, object: 'price', active: true, type: 'recurring',
+    currency: String(o.currency).toLowerCase(), unit_amount: o.priceMinor,
+    recurring: { interval: o.billingPeriod === 'yearly' ? 'year' : 'month', interval_count: 1 },
+    product: 'prod_sacoro_standard' }) };
+}
+
 // ---------------------------------------------------------------------------
 // PROVIDER VOCABULARY
 // ---------------------------------------------------------------------------
@@ -159,7 +178,8 @@ async function sessionBody(over) {
   let sent = null;
   const r = await P.createCheckoutSession(cfg, {
     uid: 'u1', accountId: 'acc-1', customerId: 'cus_1', offerCode: 'STANDARD_MONTHLY', env: PRICES
-  }, { fetch: async (u, i) => { sent = decodeURIComponent(String(i.body)); return { ok: true, text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.stripe.com/x' }) }; } });
+  }, { fetch: async (u, i) => { const p = priceLookup(u, 'STANDARD_MONTHLY'); if (p) return p;
+       sent = decodeURIComponent(String(i.body)); return { ok: true, text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.stripe.com/x' }) }; } });
   return { sent, r, cfg };
 }
 
@@ -168,7 +188,8 @@ test('the trial is set on the session, for both periods, never on the Price', as
     const cfg = P.config({ STRIPE_SECRET_KEY: 'sk_test_1', VVV_SITE_ORIGIN: 'https://app.test' });
     let sent = null;
     await P.createCheckoutSession(cfg, { uid: 'u1', accountId: 'a', customerId: 'c', offerCode, env: PRICES }, {
-      fetch: async (u, i) => { sent = decodeURIComponent(String(i.body)); return { ok: true, text: async () => JSON.stringify({ id: 'cs', url: 'u' }) }; }
+      fetch: async (u, i) => { const p = priceLookup(u, offerCode); if (p) return p;
+        sent = decodeURIComponent(String(i.body)); return { ok: true, text: async () => JSON.stringify({ id: 'cs', url: 'u' }) }; }
     });
     assert.ok(sent.indexOf('subscription_data[trial_period_days]=7') !== -1, offerCode + ': ' + sent);
   }
