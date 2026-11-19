@@ -127,12 +127,30 @@ The immediate-start wording was **solicitor-reviewed and approved** as
 `immediate_start_v1`, written for a fourteen-day trial. The trial shortened to
 seven days, which left v1's "you will not be charged before the trial ends"
 promise covering less than the athlete's full fourteen-day statutory window —
-so the wording changed to **`immediate_start_v2`**, which is **not yet
-solicitor-reviewed**. It stays versioned for the same reason consent is: when
-it is reviewed, either it is approved as it stands or a solicitor's revision
-becomes `immediate_start_v3`, and either way every athlete is asked again at
-their next checkout while the v2 evidence — including anyone who agreed to it
-before that review — stays exactly as it is.
+so the wording changed to **`immediate_start_v2`**, an unreviewed holding fix.
+
+**`immediate_start_v3` is in force from the release that carries it (founder,
+19 November 2026, wording supplied verbatim). ⚠ FOR SOLICITOR REVIEW: it is
+NOT YET SOLICITOR-REVIEWED.** It was written so one acknowledgement is true on
+every rail: the website (Stripe), Google Play and the App Store. It no longer
+says "your trial starts now" (untrue for a checkout with no trial, which is
+what an athlete who has already had their one trial gets), it says payment
+starts immediately where there is no trial, it promises a full refund of any
+charge within fourteen days of entering the subscription contract, and it says
+that store purchases are refunded through the store, with SACORO support to
+help, without limiting statutory rights. Points for the solicitor in
+particular: whether "within 14 days of entering the subscription contract"
+matches the statutory period for each rail; how SACORO's refund promise sits
+with Google's and Apple's refund processes, which SACORO does not control; and
+whether "7-day" should be stated or derived from the catalogue.
+
+Every athlete is asked again at their next checkout, because the version
+changed. **Historical consent records are preserved**: `account_agreements` is
+append-only and stores only the version accepted, so the v2 rows stay exactly
+as they are, and the exact v2 wording they stand for is kept, frozen, as
+`IMMEDIATE_START_HISTORY` in `api/_agreements.js` (a v2 "yes" no longer counts
+for a new checkout). The v1 wording predates that history and is described
+above.
 
 **Where consent is recorded.** `public.health_data_consent` — append-only, one
 row per decision (`user_id`, `decision`, `consent_version`, `decided_at`,

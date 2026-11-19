@@ -263,15 +263,13 @@ values).
 
 ## 6. Decisions to confirm
 
-- **Agreement wording.** The Play screens reuse the existing two ticks and the
-  existing `{action:'agree'}` record, and the server requires them before Play
-  is opened, exactly as the web checkout does. No new legal wording was
-  written. But the immediate-start text (`IMMEDIATE_START_TEXT` in
-  `api/_agreements.js`) says "Your 7-day free trial starts now" and promises a
-  refund within 14 days: for a Play purchase **without** a trial (an athlete
-  who already had theirs) the first sentence is not accurate, and a refund on a
-  Play purchase has to be issued through Play Console. This needs a decision
-  (and the solicitor's review already pending for that text).
+- **Agreement wording: decided 19 November 2026.** The Play screens reuse the
+  existing two ticks and the existing `{action:'agree'}` record, and the server
+  requires them before Play is opened, exactly as the web checkout does. The
+  immediate-start text is now `immediate_start_v3` (founder's wording), which
+  covers a checkout with or without a trial and says store purchases are
+  refunded through the store. It is **not yet solicitor-reviewed**; see
+  LEGAL-FACTS.md.
 - **The obfuscated account id scheme** above (HMAC of the account id under a
   dedicated server secret).
 - **Refusal by non-acknowledgement** rather than an immediate server-side

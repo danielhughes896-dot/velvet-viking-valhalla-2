@@ -80,21 +80,26 @@ test('privacy is a notice and can never become a consent', () => {
 test('the immediate-start acknowledgement is its own affirmative act', () => {
   const a = Agree.currentAgreements();
   assert.equal(a.immediateStart.type, 'immediate_start');
-  assert.equal(a.immediateStart.version, 'immediate_start_v2');
+  assert.equal(a.immediateStart.version, 'immediate_start_v3');
   assert.equal(a.immediateStart.mustBeAffirmative, true);
   assert.equal(a.immediateStart.preTicked, false);
 
-  /* The wording carries the five things the concept requires: the trial
-     starts now, the service begins immediately, that affects the statutory
-     cancellation right, they can cancel free during the trial, and -- because
-     the trial is shorter than that statutory right -- a refund is guaranteed
-     through the full fourteen days even after a charge has landed. */
+  /* The wording carries what the concept requires, for every rail: the
+     athlete asks for the service to begin immediately, inside the statutory
+     cancellation period; that affects the right; a trial only where the
+     checkout includes one, free if cancelled before it ends, and payment
+     straight away otherwise; a full refund of any charge within fourteen days
+     of the contract; and store purchases refunded through the store, without
+     limiting statutory rights. */
   const t = a.immediateStart.text;
-  assert.match(t, /7-day free trial starts now/);
+  assert.match(t, /I request immediate access to SACORO/);
   assert.match(t, /begin the service during the 14-day period/);
   assert.match(t, /affects that right/);
-  assert.match(t, /cancel at any time during your trial and you will not be charged/);
-  assert.match(t, /cancel within 14 days of today, we will refund that charge in full/);
+  assert.match(t, /If my checkout includes a 7-day free trial, I can cancel before it ends and will not be charged/);
+  assert.match(t, /Otherwise, payment starts immediately/);
+  assert.match(t, /cancel within 14 days of entering the subscription contract, SACORO will refund that charge in full/);
+  assert.match(t, /For store purchases, I can request a refund through the store or contact SACORO support/);
+  assert.match(t, /This does not limit my statutory rights\.$/);
 });
 
 test('nothing else can stand in for the acknowledgement', () => {
@@ -176,20 +181,23 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
      commercial documents are unpublished -- which is itself asserted below,
      and is a stronger form of the same rule rather than an exemption from it. */
   const iRow = over => Object.assign({
-    decision: 'accepted', agreement_version: 'immediate_start_v2',
+    decision: 'accepted', agreement_version: 'immediate_start_v3',
     decided_at: '2026-11-17T00:00:00Z'
   }, over || {});
 
   assert.equal(await Agree.hasAccepted(CFG, sbReturning([iRow()]), UID, 'immediate_start'), true);
 
-  for (const v of ['immediate_start_v0', 'immediate_start_v1']){
+  /* immediate_start_v2 JOINED THIS LIST ON 19 NOVEMBER 2026, when v3 replaced
+     it: a v2 "yes" is kept as the record of what was agreed, and stops
+     counting for a new checkout. */
+  for (const v of ['immediate_start_v0', 'immediate_start_v1', 'immediate_start_v2']){
     assert.equal(await Agree.hasAccepted(CFG,
       sbReturning([iRow({ agreement_version: v })]), UID, 'immediate_start'), false,
       'superseded wording must not count: ' + v);
   }
 
   assert.equal(await Agree.hasAccepted(CFG,
-    sbReturning([iRow({ agreement_version: 'immediate_start_v3' })]), UID, 'immediate_start'), false,
+    sbReturning([iRow({ agreement_version: 'immediate_start_v4' })]), UID, 'immediate_start'), false,
     'wording this build has never served must not count either');
 
   /* AND THE SAME RULE ON THE TERMS, now that they are published. Exactly one
@@ -197,8 +205,14 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
      string this build has never served are all equally worthless -- which is
      what makes a future revision cost no evidence and no migration. */
   assert.equal(await Agree.hasAccepted(CFG,
-    sbReturning([row({ agreement_version: 'commercial_terms_v1' })]), UID, 'terms'), true);
-  for (const v of ['terms_v1', 'commercial_terms_v0', 'commercial_terms_v2', 'anything']){
+    sbReturning([row({ agreement_version: 'commercial_terms_v2' })]), UID, 'terms'), true);
+  /* commercial_terms_v1 JOINED THIS LIST ON 18 NOVEMBER 2026. It was the
+     version in force from 24 August until the website superseded it with v2
+     on 12 November, so it is now exactly what this list is for: wording an
+     athlete really did accept, which stops counting the moment it is
+     superseded. v3 takes the place v2 used to hold here — a version this
+     build has never served. */
+  for (const v of ['terms_v1', 'commercial_terms_v0', 'commercial_terms_v1', 'commercial_terms_v3', 'anything']){
     assert.equal(await Agree.hasAccepted(CFG,
       sbReturning([row({ agreement_version: v })]), UID, 'terms'), false,
       'only the version in force may count, not: ' + v);
@@ -206,30 +220,45 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
 });
 
 test('the current wording is not yet solicitor-approved, and it says so', () => {
-  /* v1 was reviewed and approved for a fourteen-day trial. The trial
-     shortened to seven days, which left v1's "you will not be charged before
-     the trial ends" promise covering less than the athlete's full statutory
-     window -- so the wording changed, and changing it is exactly what costs
-     the approval, because nobody has reviewed these words yet. The
-     repository must say that plainly: a stale "approved" label on unreviewed
-     wording is worse than a stale "not approved" one, because it is the
-     direction that lets unreviewed wording reach a checkout screen unflagged.
-
-     Approval is a fact about a STRING. The version mechanism exists so that
-     when this one is reviewed -- approved as it stands, or revised into v3 --
-     it costs no evidence and no migration either. */
+  /* v1 was reviewed and approved for a fourteen-day trial. v2 was an
+     unreviewed holding fix for the seven-day trial. v3 (founder, 19 November
+     2026) covers checkouts with and without a trial and store purchases, and
+     it is not reviewed either. The repository must say that plainly: a stale
+     "approved" label on unreviewed wording is the direction that lets it reach
+     a checkout screen unflagged. Approval is a fact about a STRING. */
   const src = read('api/_agreements.js');
   assert.match(src, /NOT YET SOLICITOR-REVIEWED/);
   assert.ok(!/SOLICITOR-REVIEWED AND APPROVED/.test(src),
-    'v2 must not borrow v1\'s approval label for itself');
-  assert.match(src, /immediate_start_v2/);
+    'v3 must not borrow v1\'s approval label for itself');
+  assert.match(src, /immediate_start_v3/);
 
-  /* The unreviewed text, pinned anyway. If somebody edits the wording without
-     bumping the version, this fails -- which is exactly the failure that
-     would otherwise let an old "yes" stand for new words nobody agreed to,
-     reviewed or not. */
-  assert.equal(Agree.IMMEDIATE_START_VERSION, 'immediate_start_v2');
-  assert.equal(Agree.IMMEDIATE_START_TEXT,
+  /* The unreviewed text, pinned anyway, exactly as the founder supplied it.
+     If somebody edits the wording without bumping the version, this fails --
+     which is exactly the failure that would otherwise let an old "yes" stand
+     for new words nobody agreed to. */
+  assert.equal(Agree.IMMEDIATE_START_VERSION, 'immediate_start_v3');
+  assert.equal(Agree.IMMEDIATE_START_TEXT, [
+    'I request immediate access to SACORO. I am asking you to begin the ' +
+    'service during the 14-day period in which you would otherwise have the ' +
+    'right to cancel a distance contract, and I understand that starting ' +
+    'immediately affects that right.',
+    'If my checkout includes a 7-day free trial, I can cancel before it ends ' +
+    'and will not be charged. Otherwise, payment starts immediately.',
+    'If I am charged and cancel within 14 days of entering the subscription ' +
+    'contract, SACORO will refund that charge in full.',
+    'For store purchases, I can request a refund through the store or ' +
+    'contact SACORO support for help. This does not limit my statutory rights.'
+  ].join('\n\n'));
+  /* Words the founder's wording does not contain stay out of it. */
+  assert.doesNotMatch(Agree.IMMEDIATE_START_TEXT, /trial starts now|\u2014/);
+});
+
+test('every earlier immediate-start wording is kept, frozen, beside the evidence it explains', () => {
+  /* account_agreements stores only the version an athlete accepted. The text a
+     v2 "yes" stood for must therefore survive v3, unchanged, for as long as
+     those rows do. */
+  assert.ok(Object.isFrozen(Agree.IMMEDIATE_START_HISTORY), 'the history can be edited');
+  assert.equal(Agree.IMMEDIATE_START_HISTORY.immediate_start_v2,
     'Your 7-day free trial starts now and you get the full product straight ' +
     'away. That means you are asking us to begin the service during the ' +
     '14-day period in which you would otherwise have the right to cancel a ' +
@@ -237,6 +266,19 @@ test('the current wording is not yet solicitor-approved, and it says so', () => 
     'that right. You can cancel at any time during your trial and you will ' +
     'not be charged. If you are charged when your trial ends and you then ' +
     'cancel within 14 days of today, we will refund that charge in full.');
+  assert.ok(!(Agree.IMMEDIATE_START_VERSION in Agree.IMMEDIATE_START_HISTORY),
+    'the version in force is not history');
+  /* No migration and no rewrite: nothing in the repository updates or
+     deletes an agreement row. */
+  const sql = require('fs').readdirSync(require('path').join(__dirname, '..'))
+    .filter(f => /^supabase-.*\.sql$/.test(f))
+    .map(f => read(f)).join('\n');
+  assert.doesNotMatch(sql, /update\s+(public\.)?account_agreements|delete\s+from\s+(public\.)?account_agreements/i);
+});
+
+test('the four paragraphs reach the athlete as four paragraphs', () => {
+  assert.match(read('account.html'), /span\.textContent = html; span\.style\.whiteSpace = 'pre-line';/);
+  assert.match(read('protected/velvet-viking-valhalla.html'), /\.jr-agree-say\{margin:2px 0 0 34px; white-space:pre-line;\}/);
 });
 
 // ===========================================================================
@@ -420,8 +462,8 @@ test('the commercial Terms do not inherit the private-beta Terms identifier', ()
      own -- two vocabularies for one contract is the ambiguity the identifier
      exists to prevent. */
   assert.equal(Agree.TERMS_BETA_VERSION, 'terms_v1');
-  assert.equal(Agree.TERMS_COMMERCIAL_VERSION, 'commercial_terms_v1');
-  assert.equal(Agree.PRIVACY_COMMERCIAL_VERSION, 'commercial_privacy_v1');
+  assert.equal(Agree.TERMS_COMMERCIAL_VERSION, 'commercial_terms_v2');
+  assert.equal(Agree.PRIVACY_COMMERCIAL_VERSION, 'commercial_privacy_v2');
   /* The website's name for the superseded notice, adopted rather than
      invented -- CANONICAL_LEGAL calls it beta_privacy_v1, and two systems
      naming one document differently is the second vocabulary the
@@ -437,9 +479,9 @@ test('the commercial documents are published, and these are the ones in force', 
      naming these two versions at these two URLs, effective 24 August 2026, and
      /terms rendering the contract rather than the placeholder. */
   assert.equal(Agree.COMMERCIAL_LEGAL_PUBLISHED, true);
-  assert.equal(Agree.versionFor('terms'), 'commercial_terms_v1');
-  assert.equal(Agree.TERMS_VERSION, 'commercial_terms_v1');
-  assert.equal(Agree.PRIVACY_VERSION, 'commercial_privacy_v1');
+  assert.equal(Agree.versionFor('terms'), 'commercial_terms_v2');
+  assert.equal(Agree.TERMS_VERSION, 'commercial_terms_v2');
+  assert.equal(Agree.PRIVACY_VERSION, 'commercial_privacy_v2');
 
   const defs = Agree.currentAgreements();
   assert.equal(defs.commercialLegalPublished, true);
@@ -485,7 +527,7 @@ test('a withdrawn document refuses the purchase, through the real gate', async (
   assert.equal(d.agreements.commercialLegalPublished, false);
 });
 
-test('accepting the Terms records commercial_terms_v1, with the privacy notice as context', async () => {
+test('accepting the Terms records commercial_terms_v2, with the privacy notice as context', async () => {
   /* THE ROW A PAYING CUSTOMER LEAVES BEHIND. The Terms identifier is the
      commercial one, never the beta one; the privacy version rides along as
      CONTEXT on that row -- what they were shown -- and is not a decision. */
@@ -496,9 +538,9 @@ test('accepting the Terms records commercial_terms_v1, with the privacy notice a
   });
   assert.equal(r.ok, true);
   assert.equal(body.agreement_type, 'terms');
-  assert.equal(body.agreement_version, 'commercial_terms_v1');
+  assert.equal(body.agreement_version, 'commercial_terms_v2');
   assert.notEqual(body.agreement_version, Agree.TERMS_BETA_VERSION);
-  assert.equal(body.privacy_version, 'commercial_privacy_v1',
+  assert.equal(body.privacy_version, 'commercial_privacy_v2',
     'the notice presented alongside, recorded as context');
   assert.equal(body.user_id, UID);
   assert.equal(body.surface, 'checkout');
@@ -527,7 +569,7 @@ test('the immediate-start acknowledgement is unaffected and still recordable', a
     type: 'immediate_start', decision: 'accepted', surface: 'checkout'
   });
   assert.equal(r.ok, true);
-  assert.equal(body.agreement_version, 'immediate_start_v2');
+  assert.equal(body.agreement_version, 'immediate_start_v3');
 });
 
 test('a beta acceptance still buys nothing, now that the commercial Terms are live', async () => {
@@ -619,8 +661,8 @@ test('the app legal pages show no unresolved placeholder', () => {
 // ===========================================================================
 test('with the documents published, the website\'s own identifiers are what count', () => {
   const on = Agree.inForce(true);
-  assert.equal(on.terms, 'commercial_terms_v1');
-  assert.equal(on.privacy, 'commercial_privacy_v1');
+  assert.equal(on.terms, 'commercial_terms_v2');
+  assert.equal(on.privacy, 'commercial_privacy_v2');
   assert.equal(on.termsUrl, Agree.CANONICAL_TERMS_URL);
   assert.equal(on.termsUrl, 'https://velvetviking.co.uk/terms');
 });
@@ -654,12 +696,16 @@ test('a beta acceptance can never satisfy the commercial Terms', async () => {
   assert.equal(await Agree.hasAccepted(CFG, sbReturning([betaRow]), UID, 'terms'), false);
 });
 
-test('a superseded commercial version stops counting when v2 lands', async () => {
-  /* Not hypothetical: it is the same comparison that protects the beta rows,
-     and the reason a solicitor's revision costs no evidence and no migration. */
-  const v1 = Agree.inForce(true).terms;
-  for (const stored of ['commercial_terms_v0', 'commercial_terms_v2', 'terms_v1']){
-    assert.notEqual(stored, v1, stored + ' must not read as the version in force');
+test('a superseded commercial version stops counting when v3 lands', async () => {
+  /* NO LONGER HYPOTHETICAL, WHICH IS THE POINT. This test was written against
+     a v2 that did not exist yet; v2 landed on 12 November with the Valhalla ->
+     Sacoro rename, so the names have moved up one and commercial_terms_v1 is
+     now a real superseded version rather than an invented one. The comparison
+     it guards is unchanged: exactly one identifier counts, which is why a
+     revision costs no evidence and no migration. */
+  const inForceVersion = Agree.inForce(true).terms;
+  for (const stored of ['commercial_terms_v0', 'commercial_terms_v1', 'commercial_terms_v3', 'terms_v1']){
+    assert.notEqual(stored, inForceVersion, stored + ' must not read as the version in force');
   }
 });
 
