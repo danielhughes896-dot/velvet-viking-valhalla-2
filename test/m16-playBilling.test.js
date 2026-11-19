@@ -892,9 +892,9 @@ test('the manifest names the BILLING permission, and the build carries the curre
   assert.ok(Number(v[1]) >= 8, 'Play requires Billing Library 8 or later for new uploads');
 });
 
-test('versionCode 11, versionName 1.10: Play requires a new version for the upload', () => {
+test('versionCode 12, versionName 1.11: Play requires a new version for every upload', () => {
   const gradle = read('android/app/build.gradle');
-  assert.match(gradle, /versionCode 11\s+versionName "1\.10"/);
+  assert.match(gradle, /versionCode 12\s+versionName "1\.11"/);
 });
 
 test('the plugin is registered, and it never acknowledges a purchase on the device', () => {

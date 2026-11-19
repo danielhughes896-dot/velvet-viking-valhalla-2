@@ -192,7 +192,7 @@ test('stale or missing data: the widget asks to be opened rather than guessing',
   const lay = AND('res/layout/widget_today.xml');
   const colours = (lay.match(/textColor="#[0-9A-Fa-f]+"/g) || []).map(s => s.slice(11, -1).toUpperCase());
   assert.deepEqual([...new Set(colours)].sort(), ['#E3B15A', '#FFFFFF']);
-  assert.match(fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8'), /versionCode 11\s+versionName "1\.10"/);
+  assert.match(fs.readFileSync(path.join(ROOT, 'android/app/build.gradle'), 'utf8'), /versionCode 12\s+versionName "1\.11"/);
 });
 
 /* PHASE TWO. Founder: "8 - let's do small and large." Same data, same
