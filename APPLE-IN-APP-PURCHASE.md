@@ -450,14 +450,16 @@ on a preview deployment (a TestFlight build always loads
 
 ## 7. Decisions the founder must confirm
 
-- **Legal wording.** No new legal wording was written. The disclosures reuse
-  the account page's "renews ... until you cancel" sentence and the existing
-  links. But: (a) the immediate-start text (`IMMEDIATE_START_TEXT`, not yet
-  solicitor-reviewed) says "Your 7-day free trial starts now" and promises a
-  refund within 14 days: for an Apple purchase **without** a trial the first
-  sentence is untrue, and **refunds of Apple purchases are made by Apple, not
-  SACORO**; (b) the new in-app sentences ("Payment is handled by the App
-  Store.", "Use Manage Subscriptions to cancel it.") need the same review.
+- **Legal wording.** (a) **Decided 19 November 2026:** the immediate-start
+  acknowledgement is now `immediate_start_v3` (founder's wording, live on the
+  website and Google Play), which covers a checkout with or without a trial
+  and says store purchases are refunded through the store, with SACORO
+  support to help. The App Store screens show the same text from
+  `api/_agreements.js`. It is **not yet solicitor-reviewed**; see
+  LEGAL-FACTS.md. (b) Still open: the new in-app sentences ("Payment is
+  handled by the App Store.", "Use Manage Subscriptions to cancel it.") and the
+  disclosures reusing the account page's "renews ... until you cancel"
+  sentence need the same review.
 - **EULA.** Apple requires a Terms of Use (EULA) link. Either use Apple's
   **Standard EULA** (and link it,
   https://www.apple.com/legal/internet-services/itunes/dev/stdeula/, in the
