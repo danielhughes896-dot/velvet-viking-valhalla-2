@@ -150,7 +150,10 @@ const PRIVACY_COMMERCIAL_VERSION = 'commercial_privacy_v2';
    rule exists to prevent: two systems disagreeing about what one stored row
    means. Safe to align because no row has ever carried the old name --
    account_agreements held zero rows when this was checked, and every row
-   written from today names commercial_privacy_v1. */
+   written since has named the published commercial identifier, whichever it
+   was at the time: commercial_privacy_v1 until 11 November 2026, and v2
+   since. Stated by reference rather than by naming one, because the version
+   moves and a comment naming today's is a comment that will be wrong. */
 const PRIVACY_BETA_VERSION       = 'beta_privacy_v1';
 
 /* WHAT IS IN FORCE, GIVEN A PUBLICATION STATE.
