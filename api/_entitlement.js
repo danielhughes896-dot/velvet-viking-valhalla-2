@@ -209,13 +209,15 @@ function subscriptionAccess(sub, now){
     return { kind: 'subscription', commercial: true, active: active, reason: reason,
              until: iso(until), provider: s.provider || null,
              subscriptionId: s.id || null, condition: s.condition || null,
-             product: s.product_code || null, offer: s.offer_code || null };
+             product: P.isStandardProduct(s.product_code) ? P.STANDARD : (s.product_code || null),
+             offer: s.offer_code || null };
   };
 
   // Fail closed on anything we do not recognise, BEFORE looking at any date.
   if (!P.isProvider(s.provider)) return out(false, 'invalid', null);
   if (CONDITIONS.indexOf(s.condition) === -1) return out(false, 'invalid', null);
-  if (s.product_code !== P.STANDARD) return out(false, 'invalid', null);
+  /* Either name: rows are stored under the schema's own (see _products.js). */
+  if (!P.isStandardProduct(s.product_code)) return out(false, 'invalid', null);
 
   /* Revocation outranks every timestamp on the row. A refunded purchase whose
      period_end is next month must not keep granting access for a month. */

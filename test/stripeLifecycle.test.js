@@ -149,8 +149,13 @@ test('a trialing subscription writes a row, and the row is the one the resolver 
     assert.ok(row, 'no subscription row was written at all');
     assert.equal(row.account_id, ACC);
     assert.equal(row.provider, 'web', 'the provider is the rail, never the processor');
-    assert.equal(row.product_code, Prod.STANDARD,
-      'the store rejects anything else, so a literal here fails every write');
+    /* UPDATED (19 November 2026): stored under the name the live schema's
+       CHECK accepts (Prod.STORED_STANDARD, see _products.js and
+       test/m22-storedProductCode.test.js), and read back as the standard
+       product. Asserting the catalogue name here is what let a write the
+       real table refuses pass for months. */
+    assert.equal(row.product_code, Prod.STORED_STANDARD,
+      'the live table refuses anything else, so any other value fails every write');
     assert.equal(row.offer_code, 'STANDARD_MONTHLY');
     assert.equal(row.billing_period, 'monthly');
     assert.equal(row.condition, 'trialing');

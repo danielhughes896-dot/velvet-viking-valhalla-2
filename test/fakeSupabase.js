@@ -22,6 +22,31 @@
 // silently returning an empty result, because a fake that answers questions it
 // does not understand is how a test passes against nothing.
 
+const fs = require('fs');
+const path = require('path');
+
+/* THE LIVE SCHEMA'S CHECK ON subscriptions.product_code, read from the schema
+   file itself rather than copied here, so the two cannot drift. Until 19
+   November 2026 this fake enforced the unique keys but no CHECK constraint,
+   and the code wrote a product code (SACORO_STANDARD) that the real table
+   refuses: every test passed and every real subscription write failed. A row
+   this fake would store is now one Postgres would store too, on this column. */
+const SCHEMA = fs.readFileSync(path.join(__dirname, '..', 'supabase-commercial-core.sql'), 'utf8');
+function tableBlock(name){
+  const at = SCHEMA.indexOf('create table if not exists public.' + name + ' (');
+  if (at === -1) throw new Error('fakeSupabase: no definition of ' + name + ' in the schema file');
+  return SCHEMA.slice(at, SCHEMA.indexOf('\n);', at));
+}
+const SUBSCRIPTION_PRODUCT_CODE = (function(){
+  const m = /check \(product_code = '([A-Z_]+)'\)/.exec(tableBlock('subscriptions'));
+  if (!m) throw new Error('fakeSupabase: the subscriptions product_code CHECK is not where this fake expects it');
+  return m[1];
+})();
+const CHECKS = {
+  subscriptions: function(row){ return row.product_code === SUBSCRIPTION_PRODUCT_CODE; }
+};
+function violatesCheck(table, row){ return !!(CHECKS[table] && !CHECKS[table](row)); }
+
 let SEQ = 0;
 function uuid(){
   SEQ++;
@@ -43,7 +68,7 @@ const DEFAULTS = {
   account_commercial: { trial_consumed_at: null, trial_consumed_provider: null,
                         trial_consumed_subscription_id: null, trial_blocked_at: null,
                         trial_blocked_reason: null },
-  subscriptions: { product_code: 'SACORO_STANDARD', environment: 'production',
+  subscriptions: { product_code: SUBSCRIPTION_PRODUCT_CODE, environment: 'production',
                    auto_renew: true, cancel_at_period_end: false,
                    /* The columns supabase-trial-via-provider.sql added. Present
                       and null, exactly as they are in the database -- a fake
@@ -150,6 +175,8 @@ function createFakeSupabase(seed){
 
         if (clash !== -1){
           if (prefer.indexOf('resolution=merge-duplicates') !== -1){
+            if (violatesCheck(table, Object.assign({}, db[table][clash], raw)))
+              return res(400, { code: '23514', message: 'new row violates check constraint' });
             if (beforeWrite) await beforeWrite(table, 'merge', row);
             Object.keys(raw).forEach(function(k){ db[table][clash][k] = raw[k]; });
             written.push(Object.assign({}, db[table][clash]));
@@ -159,6 +186,8 @@ function createFakeSupabase(seed){
           // No resolution asked for: this is the unique violation.
           return res(409, { code: '23505', message: 'duplicate key value' });
         }
+        if (violatesCheck(table, row))
+          return res(400, { code: '23514', message: 'new row violates check constraint' });
         if (beforeWrite) await beforeWrite(table, 'insert', row);
         db[table].push(row);
         written.push(Object.assign({}, row));
@@ -172,6 +201,8 @@ function createFakeSupabase(seed){
       // Re-evaluated AFTER the hook on purpose: that is what makes a
       // conditional update genuinely conditional under interleaving.
       const hit = db[table].filter(function(r){ return matches(r, filters); });
+      if (hit.some(function(r){ return violatesCheck(table, Object.assign({}, r, patch)); }))
+        return res(400, { code: '23514', message: 'new row violates check constraint' });
       hit.forEach(function(r){ Object.assign(r, patch); });
       return res(200, wantRep ? hit.map(function(r){ return Object.assign({}, r); }) : null);
     }
@@ -196,4 +227,4 @@ function createFakeSupabase(seed){
   };
 }
 
-module.exports = { createFakeSupabase, uuid };
+module.exports = { createFakeSupabase, uuid, SUBSCRIPTION_PRODUCT_CODE };

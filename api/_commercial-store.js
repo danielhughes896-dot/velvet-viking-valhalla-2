@@ -204,7 +204,7 @@ function normaliseSubscription(input){
   if (!s.provider_subscription_id) return { ok: false, reason: 'no_provider_subscription_id' };
   if (!s.account_id) return { ok: false, reason: 'no_account_id' };
   if (E.CONDITIONS.indexOf(s.condition) === -1) return { ok: false, reason: 'unknown_condition' };
-  if (s.product_code !== P.STANDARD) return { ok: false, reason: 'unknown_product' };
+  if (!P.isStandardProduct(s.product_code)) return { ok: false, reason: 'unknown_product' };
   if (s.offer_code != null && !P.isOffer(s.offer_code)) return { ok: false, reason: 'unknown_offer' };
   if (s.billing_period != null && P.BILLING_PERIODS.indexOf(s.billing_period) === -1)
     return { ok: false, reason: 'unknown_billing_period' };
@@ -231,6 +231,8 @@ function normaliseSubscription(input){
   });
   row.auto_renew = !!s.auto_renew;
   row.cancel_at_period_end = !!s.cancel_at_period_end;
+  /* Written under the name the live schema accepts (see _products.js). */
+  row.product_code = P.storedProductCode(P.STANDARD);
   return { ok: true, row: row };
 }
 
@@ -282,7 +284,13 @@ async function upsertSubscription(S, cfg, input){
     body: JSON.stringify(n.row),
     prefer: 'resolution=merge-duplicates,' + RETURN_REP
   });
-  if (!r.ok) return { ok: false, reason: 'write_failed_' + r.status };
+  if (!r.ok){
+    /* The status only: the body can carry the row. A refused write used to
+       be silent here, which is why a CHECK violation took a live purchase
+       to find. */
+    log('SUBSCRIPTION_WRITE_FAILED status=' + r.status);
+    return { ok: false, reason: 'write_failed_' + r.status };
+  }
   const out = (await rows(r)) || [];
   return { ok: true, subscription: out[0] || null };
 }
