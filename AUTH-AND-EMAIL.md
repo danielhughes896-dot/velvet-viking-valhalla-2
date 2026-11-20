@@ -223,7 +223,9 @@ the one callback every provider needs is
 
 1. Authentication → URL Configuration → Redirect URLs: make sure these are
    listed, or GoTrue ignores the redirect and falls back to the Site URL:
-   `https://app.velvetviking.co.uk/**` (the app returns to its own page) and
+   `https://app.sacoro.app/**` and `https://app.velvetviking.co.uk/**` (the
+   app returns to its own page; it moved to `app.sacoro.app` on 20 November
+   2026, and the old address keeps answering) and
    `com.velvetviking.valhalla://auth` (the installed app; already needed by
    the magic link).
 
@@ -235,7 +237,8 @@ the one callback every provider needs is
    `profile` only. Publish it (a consent screen left in Testing only admits
    the test users listed on it).
 3. Credentials → Create credentials → OAuth client ID → **Web application**.
-   Authorised JavaScript origins: `https://app.velvetviking.co.uk`. Authorised
+   Authorised JavaScript origins: `https://app.sacoro.app` and
+   `https://app.velvetviking.co.uk`. Authorised
    redirect URIs: `https://eqiydxissphygnycpouu.supabase.co/auth/v1/callback`.
 4. Copy the client ID and client secret into Supabase → Authentication →
    Sign In / Providers → **Google** → enable, paste both, save.

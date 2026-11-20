@@ -3,7 +3,8 @@
   "appName": "SACORO",
   "webDir": "www",
   "server": {
-    "url": "https://app.velvetviking.co.uk"
+    "url": "https://app.sacoro.app",
+    "allowNavigation": ["app.velvetviking.co.uk"]
   },
   "android": {
     "zoomEnabled": true,

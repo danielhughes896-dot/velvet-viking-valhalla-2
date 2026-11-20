@@ -262,6 +262,19 @@ test('/move-out is served, and the service worker never answers it with the old 
   assert.equal(navigate('/'), true, 'the service worker stopped answering the app itself');
 });
 
+test('the shell loads the new address, and opens only the old app address inside the app', () => {
+  const cap = JSON.parse(read('capacitor.config.json'));
+  const here = /var HERE = '([^']+)'/.exec(MOVE_IN)[1];
+  const old = new URL(/var OLD = '([^']+)'/.exec(MOVE_IN)[1]).hostname;
+  assert.equal(cap.server.url, 'https://' + here, 'the shell loads an address the move does not run at');
+  /* Without this entry Capacitor hands /move-out to the system browser and
+     the move cannot happen; with anything more, other pages (the legal
+     documents, the website) would open trapped inside the app. */
+  assert.deepEqual(cap.server.allowNavigation, [old]);
+  assert.equal(/var NEW = '([^']+)'/.exec(MOVE_OUT)[1], cap.server.url, 'move-out returns somewhere the shell does not load');
+  assert.equal(/var OLD_HOST = '([^']+)'/.exec(MOVE_OUT)[1], old);
+});
+
 test('the move-out page leaves no way to send storage anywhere but the new address', () => {
   assert.match(MOVE_OUT_PAGE, /<meta name="robots" content="noindex">/);
   const targets = MOVE_OUT.match(/https:\/\/[a-z0-9.-]+/g);

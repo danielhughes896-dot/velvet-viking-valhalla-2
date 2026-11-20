@@ -120,8 +120,8 @@ trimmed.
 
 | What | Value |
 |---|---|
-| OAuth callback | `https://app.velvetviking.co.uk/api/garmin?resource=callback` |
-| Push/ping endpoint | `https://app.velvetviking.co.uk/api/garmin?resource=webhook` |
+| OAuth callback | `https://app.sacoro.app/api/garmin?resource=callback` |
+| Push/ping endpoint | `https://app.sacoro.app/api/garmin?resource=webhook` |
 | Deregistration endpoint | same host — Garmin requires one; the exact path is fixed at implementation |
 
 Garmin issues the exact contract only to approved members, so these paths are
@@ -147,8 +147,8 @@ identifier shapes.
 |---|---|
 | Application name | Velvet Viking Sacoro |
 | Company | *(the registered entity — user supplies)* |
-| Website | `https://velvetviking.co.uk` |
-| Application URL | `https://app.velvetviking.co.uk` |
+| Website | `https://sacoro.app` |
+| Application URL | `https://app.sacoro.app` |
 | Platforms | Web, Android (Google Play). iOS not at launch. |
 | Category | Health & Fitness / Running |
 | Distribution | Public, subscription |
