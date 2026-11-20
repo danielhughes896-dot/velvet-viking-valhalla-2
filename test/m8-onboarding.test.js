@@ -667,7 +667,7 @@ test('the painted Welcome is the journey\'s own, and goes with the first render'
   const a = fresh(); a.journeyAskProviders = () => {};
   const live = a.renderJourneyWelcome();
   ['jr-photo', 'jr-welcome-back', 'jr-crest', 'Your Journey Starts Here', 'Personalised training. Built around you.',
-   'Build My Plan', 'Existing Member', 'jr-cta', 'jr-gold'].forEach(w => {
+   'Build My Plan', 'Existing Member', 'jr-cta', 'jr-member'].forEach(w => {
     assert.ok(painted.indexOf(w) !== -1, 'the painted Welcome lost ' + w);
     assert.ok(live.indexOf(w) !== -1, 'the real Welcome lost ' + w + '; the two have drifted');
   });

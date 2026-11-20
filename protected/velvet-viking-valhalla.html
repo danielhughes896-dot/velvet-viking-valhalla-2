@@ -3874,7 +3874,7 @@
   html[data-boot="welcome"] #boot-welcome{display:block; position:fixed; inset:0; z-index:90; overflow:hidden;}
   html[data-boot="welcome"] #boot-splash, html[data-boot="plain"] #boot-splash{display:none;}
   html[data-boot-native] #boot-welcome .jr-welcome-back,
-  html[data-boot-signed] #boot-welcome .jr-gold{display:none;}
+  html[data-boot-signed] #boot-welcome .jr-member{display:none;}
   .pe{position:relative; min-height:100vh; display:grid;
     grid-template-rows:1fr 1fr 1fr; justify-items:center; text-align:center;
     padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 36px;}
@@ -12642,7 +12642,12 @@
   .jr-welcome .jr-lede{margin:0 0 24px; text-shadow:0 1px 10px rgba(0,0,0,.7);}
   .jr-welcome .btn{min-height:52px; font-size:var(--fs-data);}
   .jr-welcome .jr-cta{margin-bottom:12px;}
-  .jr-gold{border-color:color-mix(in srgb, var(--gold) 70%, transparent); color:#FFFFFF;}
+  /* EXISTING MEMBER IS AN ACTION, SO IT IS CHERRY. Founder, 20 November 2026
+     (site audit: "Gold = brand, cherry = anything you act on", and this was
+     the one gold-outlined button on the first screen): "change". A thin
+     cherry line without the glow, so Build My Plan stays the stronger of
+     the two. */
+  .jr-member{border-color:var(--cherry-line); color:#FFFFFF;}
 
   /* ---------- 2 AND 3. THE OPTION ROWS ----------
      The builder's own option row (.bld-purpose button): the tile, its lift,
@@ -12815,6 +12820,30 @@
     .jr-figs{gap:6px;}
     .jr-fig b{font-size:1.125rem;}
   }
+
+  /* ---------- THE JOURNEY'S TITLES ARE THE WEBSITE'S FACE ----------
+     Founder, 20 November 2026, agreeing with the site audit's first point,
+     "the brand changes at the door": the website sets its headings in Cinzel,
+     and one tap on Start Free Trial later the app greeted the same visitor in
+     Oswald capitals. So on the journey a visitor walks in from the website
+     (Welcome, the two questions, the three intro slides, the builder's title,
+     the programme, Make It Yours, the trial and Welcome to SACORO) the titles
+     are Cinzel, as the website's are. Everywhere else in the app the rule
+     above stands: words are Oswald and Cinzel is the mark's face. Cinzel is
+     wider than Oswald, so each title comes down a step to keep its lines. */
+  .jr-title, .jr-slide-title, .modal-card.bld-modal .modal-head h2{
+    font-family:'Cinzel',serif; font-weight:600; letter-spacing:.03em;
+  }
+  .jr-title{font-size:1.375rem;}
+  .jr-welcome .jr-title, .jr-title-lg{font-size:1.625rem;}
+  .jr-trial .jr-title{font-size:1.3125rem;}
+  .jr-arrive .jr-title{font-size:1.5rem;}
+  .jr-slide-title{font-size:1.1875rem;}
+  .modal-card.bld-modal .modal-head h2{font-size:clamp(20px, 6.2vw, 24px);}
+  @media (max-width:360px){
+    .jr-title{font-size:1.25rem;}
+    .jr-welcome .jr-title, .jr-title-lg{font-size:1.5rem;}
+  }
   .coach-why-btn,
   .v-hero-fig span,
   .gauge-num span,
@@ -12876,7 +12905,7 @@
      greet with it (see #boot-welcome in the stylesheet). renderJourneyWelcome()'s
      own markup with nothing to press: the real screen replaces it on the first
      render, so a tap before then is a tap on a picture. -->
-<div id="boot-welcome" aria-hidden="true" inert><div class="jr jr-welcome"><div class="jr-photo" role="presentation"></div><span class="jr-back jr-welcome-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19.5" y1="12" x2="5" y2="12"/><polyline points="11,6 5,12 11,18"/></svg></span><div class="jr-welcome-body"><div class="jr-crest"></div><h1 class="jr-title">Your Journey Starts Here</h1><p class="jr-lede">Personalised training. Built around you.</p><span class="btn btn-primary btn-block jr-cta">Build My Plan</span><span class="btn btn-ghost btn-block jr-gold">Existing Member</span></div></div></div>
+<div id="boot-welcome" aria-hidden="true" inert><div class="jr jr-welcome"><div class="jr-photo" role="presentation"></div><span class="jr-back jr-welcome-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19.5" y1="12" x2="5" y2="12"/><polyline points="11,6 5,12 11,18"/></svg></span><div class="jr-welcome-body"><div class="jr-crest"></div><h1 class="jr-title">Your Journey Starts Here</h1><p class="jr-lede">Personalised training. Built around you.</p><span class="btn btn-primary btn-block jr-cta">Build My Plan</span><span class="btn btn-ghost btn-block jr-member">Existing Member</span></div></div></div>
 <div id="toast-mount"></div>
 <script>
 'use strict';
@@ -87539,7 +87568,7 @@ function renderJourneyWelcome(memberOnly){
       (memberOnly ? '' : '<button type="button" class="btn btn-primary btn-block jr-cta" data-action="journey-start">Build My Plan</button>')+
       /* A member already signed in has nothing to sign in to. */
       (cloudConfigured() && !cloudSignedIn()
-        ? '<button type="button" class="btn btn-ghost btn-block jr-gold" data-action="journey-member">Existing Member</button>'
+        ? '<button type="button" class="btn btn-ghost btn-block jr-member" data-action="journey-member">Existing Member</button>'
         : '')+
     '</div>'+
   '</div>';
