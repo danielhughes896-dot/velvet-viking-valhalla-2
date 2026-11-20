@@ -2,6 +2,93 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
+<!-- THE ONE-TIME MOVE TO app.sacoro.app. Founder, 20 November 2026: the app
+     moves from app.velvetviking.co.uk to app.sacoro.app.
+
+     A WebView keeps localStorage per address. An installed app that simply
+     started loading the new address would find nothing there: the athlete
+     signed out, and everything this page keeps only on the device (the plan
+     archive, SACORO's own notes, the journey, settings) gone. So the first
+     time the app opens at the new address, it carries the old address's
+     storage across, before any other script can write a byte here:
+
+       1. In the installed app, at the new address, holding none of the app's
+          data: remember a random nonce, stop this page loading, and open
+          /move-out at the old address (allowNavigation in
+          capacitor.config.json keeps that inside the app).
+       2. move-out.html, at the old address, reads that address's
+          localStorage and comes straight back here with it, in the URL
+          FRAGMENT, which is never sent to any server, and the nonce.
+       3. Here again: the fragment is wiped from the address at once, and its
+          contents are accepted only if they carry the nonce this device made.
+          The keys are written and the page reloads into an app that is still
+          signed in, with everything where it was. /api/session then issues
+          this address's gate cookie, exactly as it does when one expires.
+
+     A fragment without this device's own nonce is dropped unread, so a
+     crafted link cannot write anything here. Only the installed app is moved:
+     a browser at this address is never bounced. Three attempts at most, then
+     the app starts fresh rather than looping. -->
+<script id="move-in">
+(function(){
+  var HERE = 'app.sacoro.app';
+  var OLD = 'https://app.velvetviking.co.uk';
+  var NONCE = 'vvv_move_nonce', DONE = 'vvv_moved', TRIES = 'vvv_move_tries';
+  function own(k){ return k === NONCE || k === DONE || k === TRIES; }
+  /* 'z' + base64url(deflate(JSON)), or 'j' + encodeURIComponent(JSON)
+     where the old address could not compress. */
+  function unpack(s){
+    if (s.charAt(0) === 'j') return Promise.resolve(JSON.parse(decodeURIComponent(s.slice(1))));
+    var b64 = s.slice(1).replace(/-/g, '+').replace(/_/g, '/');
+    var bin = atob(b64 + '==='.slice((b64.length + 3) % 4));
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+    return new Response(stream).text().then(JSON.parse);
+  }
+  try {
+    if (location.hostname !== HERE) return;
+    var ls = window.localStorage;
+    var back = /^#vvv-move=([^&]*)&n=([A-Za-z0-9_-]{16,64})$/.exec(location.hash || '');
+    if (back){
+      var mine = ls.getItem(NONCE);
+      ls.removeItem(NONCE);
+      history.replaceState(null, '', location.pathname + location.search);
+      if (!mine || mine !== back[2]) return;
+      ls.setItem(DONE, '1');
+      ls.removeItem(TRIES);
+      document.documentElement.style.background = '#121316';
+      window.stop();
+      unpack(back[1]).then(function(data){
+        for (var k in data){
+          if (Object.prototype.hasOwnProperty.call(data, k) && typeof data[k] === 'string' && !own(k)){
+            ls.setItem(k, data[k]);
+          }
+        }
+      }).catch(function(){}).then(function(){
+        location.replace(location.pathname + location.search);
+      });
+      return;
+    }
+    if (ls.getItem(DONE)) return;
+    if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
+    for (var i = 0; i < ls.length; i++){
+      var key = ls.key(i);
+      if (!own(key) && /^(vvv|velvet-viking|sacoro\.|vv-)/.test(key)){ ls.setItem(DONE, '1'); return; }
+    }
+    var tries = Number(ls.getItem(TRIES)) || 0;
+    if (tries >= 3){ ls.setItem(DONE, '1'); ls.removeItem(TRIES); return; }
+    ls.setItem(TRIES, String(tries + 1));
+    var b = new Uint8Array(18);
+    crypto.getRandomValues(b);
+    var n = btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    ls.setItem(NONCE, n);
+    document.documentElement.style.background = '#121316';
+    window.stop();
+    location.replace(OLD + '/move-out#n=' + n);
+  } catch (e) {}
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SACORO</title>
 <link rel="icon" href="/assets/favicon.png">
@@ -33924,7 +34011,7 @@ function parseAuthParams(src){
    front door, which always is. */
 function authRetryDestination(){
   return appStateAllowsNav() ? 'Request a new one from Settings'
-                             : 'Sign in again at app.velvetviking.co.uk/start';
+                             : 'Sign in again at ' + (location.host || 'app.sacoro.app') + '/start';
 }
 var CLOUD_AUTH_ERROR_REASON = {
   otp_expired: 'That sign-in link has expired',
@@ -35299,7 +35386,7 @@ function renderSubscriptionActions(info){
     if (playPurchasesAvailable()) return renderPlaySubscriptionActions(info);
     return '<div class="field-hint" style="margin-top:12px;">'+
       'Manage or cancel your subscription where you bought it. Your app store '+
-      'account, or velvetviking.co.uk if you subscribed on the web.</div>';
+      'account, or sacoro.app if you subscribed on the web.</div>';
   }
   var out = '';
   var canBuy = (subscriptionNeedsPurchase(info) || info.state === 'grace') &&
@@ -87413,7 +87500,7 @@ function journeyNavigate(url){
 /* ---------- WHERE EACH BACK ARROW GOES ---------- */
 /* The website the journey was reached from. In a browser the Welcome has a
    back arrow to it; the installed app has no website behind it. */
-var JOURNEY_WEBSITE_URL = 'https://velvetviking.co.uk';
+var JOURNEY_WEBSITE_URL = 'https://sacoro.app';
 function journeyWelcomeHasBack(){
   try { return !isNativeApp(); } catch(e){ return true; }
 }
@@ -87562,7 +87649,7 @@ function renderJourneyWelcome(memberOnly){
   return '<div class="jr jr-welcome">'+
     '<div class="jr-photo" role="img" aria-label="A SACORO runner mid-race"></div>'+
     (journeyWelcomeHasBack()
-      ? '<button type="button" class="jr-back jr-welcome-back" data-action="journey-back" aria-label="Back to velvetviking.co.uk">'+JOURNEY_GLYPHS.back+'</button>'
+      ? '<button type="button" class="jr-back jr-welcome-back" data-action="journey-back" aria-label="Back to sacoro.app">'+JOURNEY_GLYPHS.back+'</button>'
       : '')+
     '<div class="jr-welcome-body">'+
       '<div class="jr-crest" aria-hidden="true"></div>'+
@@ -88421,7 +88508,7 @@ function renderPlaySubscriptionActions(info){
   if (info.management_provider){
     return '<div class="field-hint" style="margin-top:12px;">'+
       'Manage or cancel your subscription where you bought it. Your app store '+
-      'account, or velvetviking.co.uk if you subscribed on the web.</div>';
+      'account, or sacoro.app if you subscribed on the web.</div>';
   }
   if (!subscriptionNeedsPurchase(info)) return '';
   playEnsureLoaded();

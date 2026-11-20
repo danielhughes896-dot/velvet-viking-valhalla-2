@@ -2,7 +2,8 @@
 // BACK, ALL THE WAY (founder, 18 November 2026: "I can only go back to build
 // a plan not all way to website"). In the first-time journey the builder's
 // first page has a Back to What Drives You?, and in a browser the Welcome has
-// a back arrow to velvetviking.co.uk. The installed app has no website behind
+// a back arrow to the website (sacoro.app since 20 November 2026, when SACORO's
+// site moved there from velvetviking.co.uk). The installed app has no website behind
 // it, so there the Welcome keeps no arrow and Back leaves the app as before.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -58,12 +59,12 @@ test('in a browser the Welcome has a back arrow to the website', () => {
   const a = app();
   a.isNativeApp = () => false;
   a.journeyAskProviders = () => {};
-  assert.match(a.renderJourneyWelcome(false), /class="jr-back jr-welcome-back" data-action="journey-back" aria-label="Back to velvetviking\.co\.uk"/);
+  assert.match(a.renderJourneyWelcome(false), /class="jr-back jr-welcome-back" data-action="journey-back" aria-label="Back to sacoro\.app"/);
   const to = [];
   a.journeyStep = () => 'welcome';
   a.journeyNavigate = (u) => { to.push(u); return true; };
   a.journeyBack();
-  assert.deepEqual(to, ['https://velvetviking.co.uk']);
+  assert.deepEqual(to, ['https://sacoro.app']);
 });
 
 test('in the installed app the Welcome has no arrow and Back does not leave for the website', () => {

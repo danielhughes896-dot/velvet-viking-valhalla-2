@@ -159,7 +159,8 @@ test('return:"app" chooses the app\'s two fixed return addresses, and nothing el
   });
   const webUrls = P.returnUrls(cfg, 'web');
   assert.equal(webUrls.success, 'https://app.velvetviking.co.uk/account?checkout=complete&session_id={CHECKOUT_SESSION_ID}');
-  assert.equal(webUrls.cancel, 'https://velvetviking.co.uk/pricing?checkout=cancelled');
+  // The website, which moved to sacoro.app on 20 November 2026 (VVV_MARKETING_ORIGIN's default).
+  assert.equal(webUrls.cancel, 'https://sacoro.app/pricing?checkout=cancelled');
   ['https://evil.example/', 'APP', 'app ', null, undefined, {}].forEach(x =>
     assert.deepEqual(P.returnUrls(cfg, x), webUrls, JSON.stringify(x) + ' moved the return address'));
 
