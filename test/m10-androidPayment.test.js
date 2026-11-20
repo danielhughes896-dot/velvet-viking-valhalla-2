@@ -68,7 +68,7 @@ function atTrial(a){
 // ---------------------------------------------------------------------------
 test('today\'s APK config carries no store marker, so it is the website-distributed app', () => {
   const cap = JSON.parse(read('capacitor.config.json'));
-  assert.equal(cap.server.url, 'https://app.velvetviking.co.uk', 'the shell no longer loads the live site');
+  assert.equal(cap.server.url, 'https://app.sacoro.app', 'the shell no longer loads the live site');
   const flat = JSON.stringify(cap);
   assert.equal(flat.indexOf('SACORO-Store-Build'), -1,
     'capacitor.config.json builds the website-distributed APK; the store marker belongs only in a store build');

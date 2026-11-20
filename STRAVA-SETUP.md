@@ -24,7 +24,7 @@ If you have never made an app there, it asks you to create one.
 | Application Name | Velvet Viking Sacoro |
 | Category | Training |
 | Website | `https://velvetviking.co.uk` |
-| **Authorization Callback Domain** | `app.velvetviking.co.uk` |
+| **Authorization Callback Domain** | `app.velvetviking.co.uk`, until `VVV_SITE_ORIGIN` moves (see below) |
 
 The callback domain is **the bare domain — no `https://`, no path**. Strava
 rejects the authorization if it does not match, and this is the single most
@@ -34,15 +34,22 @@ common thing to get wrong.
 `velvet-viking-valhalla-1.vercel.app`: a temporary Vercel hostname rather than
 the production domain, and the hostname of the **marketing website** project
 (`-1`) rather than the app (`-2`). The app is served at
-`app.velvetviking.co.uk`, and `redirectUri()` builds the return URL from
-`VVV_SITE_ORIGIN`, which is that host. An OAuth return sent to the website
-project would never reach `/api/strava-callback` at all.
+`app.sacoro.app` and, while every phone moves across, still at
+`app.velvetviking.co.uk` (founder, 20 November 2026). `redirectUri()` builds the
+return URL from `VVV_SITE_ORIGIN`, which stays `https://app.velvetviking.co.uk`
+until every tester has the build that loads `app.sacoro.app`: the callback
+returns to `/auth` on that host, which the current build and the new one both
+open. An OAuth return sent to the website project would never reach
+`/api/strava-callback` at all. **When `VVV_SITE_ORIGIN` moves to
+`https://app.sacoro.app`, change the callback domain to `app.sacoro.app` in the
+same minute**: Strava accepts one domain, and the two must agree.
 
 The redirect URI the server actually sends is therefore:
 
     https://app.velvetviking.co.uk/api/strava-callback
 
-and the Authorization Callback Domain must be its host, `app.velvetviking.co.uk`.
+(`https://app.sacoro.app/api/strava-callback` once `VVV_SITE_ORIGIN` moves), and
+the Authorization Callback Domain must be its host.
 See `STRAVA-DATA-CONTRACT.md` for the full derivation.
 
 That page then shows you a **Client ID** and a **Client Secret**. Leave the tab

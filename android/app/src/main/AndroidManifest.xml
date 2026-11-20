@@ -112,11 +112,24 @@
               deployment host is kept alongside it rather than replaced: the
               same deployment answers on both, both serve the same assetlinks
               file, and an athlete with an older link should not be stranded.
+
+              app.sacoro.app IS FIRST NOW (founder, 20 November 2026: the app
+              moves to app.sacoro.app). app.velvetviking.co.uk stays claimed for
+              the same reason the deployment host does: every link already in
+              an inbox names it, and the same deployment answers there too.
             -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="app.sacoro.app"
+                    android:pathPrefix="/auth" />
+                <data
+                    android:scheme="https"
+                    android:host="app.sacoro.app"
+                    android:pathPrefix="/start" />
                 <data
                     android:scheme="https"
                     android:host="app.velvetviking.co.uk"

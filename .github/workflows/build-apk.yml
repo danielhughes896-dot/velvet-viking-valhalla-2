@@ -5,7 +5,7 @@ name: Build Android APK
 # way."
 #
 # It does, and that is what makes this safe. capacitor.config.json sets
-# server.url to https://app.velvetviking.co.uk, so the Android app is a SHELL
+# server.url to https://app.sacoro.app, so the Android app is a SHELL
 # that loads the live site -- it does not bundle protected/. A content change
 # reaches a phone through the Vercel deploy, which happens on push and is
 # untouched by this file. Nothing about the app going stale was ever fixed by

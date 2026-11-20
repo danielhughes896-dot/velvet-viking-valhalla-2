@@ -39,7 +39,7 @@ subscription row. See `STORE-COMMERCIAL-BOUNDARY.md`.
 ## The native iOS project (generated 13 Nov 2026)
 
 `ios/` is a Capacitor 8 project for the same shell Android ships: it loads
-`https://app.velvetviking.co.uk`, so content reaches iPhones through the web
+`https://app.sacoro.app`, so content reaches iPhones through the web
 deploy, exactly as on Android.
 
 | | |
@@ -66,7 +66,7 @@ TestFlight.
 |---|---|
 | **Bundle id** | `com.velvetviking.valhalla` — same as Android, and available to register |
 | **Auth callback** | The custom scheme `com.velvetviking.valhalla://auth` already works and is what the runtime selects inside a native shell. It needs a `CFBundleURLTypes` entry in `Info.plist` and nothing else. |
-| **Universal Links** | Optional. `apple-app-site-association` served from `https://app.velvetviking.co.uk/.well-known/`, mirroring what `assetlinks.json` already does for Android. Not required for sign-in, because the custom scheme carries it. |
+| **Universal Links** | Optional. `apple-app-site-association` served from `https://app.sacoro.app/.well-known/`, mirroring what `assetlinks.json` already does for Android. Not required for sign-in, because the custom scheme carries it. |
 | **Payment boundary** | Already enforced. `renderSubscriptionActions()` and `/start` both suppress purchase surfaces inside any Capacitor shell — iOS included, with no further change. |
 | **Account deletion** | Apple has required in-app account deletion since 2022. It exists: Settings → Delete my account, server-side, immediate. |
 | **Legal / support URLs** | `https://velvetviking.co.uk/privacy`, `/terms`, `support@velvetviking.co.uk` |

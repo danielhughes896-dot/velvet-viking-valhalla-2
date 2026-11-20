@@ -3,7 +3,7 @@ name: Build iOS app
 # Founder: "We need to build an iOS app bundle now."
 #
 # Like Android, the iOS app is a SHELL: capacitor.config.json points it at
-# https://app.velvetviking.co.uk, so content reaches iPhones through the
+# https://app.sacoro.app, so content reaches iPhones through the
 # normal web deploy. This builds the shell itself, and only when asked:
 # a manual run from the Actions tab. macOS minutes cost about ten times
 # Linux minutes, so nothing here runs on an ordinary push.

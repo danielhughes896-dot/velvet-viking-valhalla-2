@@ -3,7 +3,10 @@
 `ANDROID-APP-LINKS.md` covers the signing key and App Link verification. This
 covers everything else Play asks for.
 
-The app is a **Capacitor WebView** pointed at `https://app.velvetviking.co.uk`.
+The app is a **Capacitor WebView** pointed at `https://app.sacoro.app` (it moved
+there from `https://app.velvetviking.co.uk` on 20 November 2026; the first launch
+of a build with the new address carries each phone's data across, see
+`test/moveToSacoroApp.test.js`).
 That single fact answers most of the store questions below, and it is why the
 release is small: there is almost no native surface.
 
@@ -16,9 +19,9 @@ release is small: there is almost no native surface.
 | Package | `com.velvetviking.valhalla` |
 | Namespace | `com.velvetviking.valhalla` |
 | minSdk / target / compile | 24 / 36 / 36 |
-| versionCode | `13` — **increment on every upload, and never reuse one** |
-| versionName | `1.10` |
-| Server URL | `https://app.velvetviking.co.uk` in **both** capacitor configs |
+| versionCode | `14` — **increment on every upload, and never reuse one** |
+| versionName | `1.13` (14 is the first build that loads `app.sacoro.app`) |
+| Server URL | `https://app.sacoro.app` in **both** capacitor configs, with `allowNavigation` for `app.velvetviking.co.uk` only |
 | Signing | the stable release keystore, with **no fallback** — a release build with any of the four `VVV_KEYSTORE_*` secrets missing fails outright rather than shipping debug-signed |
 | Backup | `allowBackup=false` |
 | Cleartext | `usesCleartextTraffic=false` (also the platform default at target 36) |
@@ -59,8 +62,9 @@ built APK carries whatever host was last synced.
 
 Two mechanisms, on purpose:
 
-- **App Links** (`autoVerify="true"`) on `app.velvetviking.co.uk/auth`,
-  `/start`, and the legacy `*.vercel.app/auth`. These only work once an
+- **App Links** (`autoVerify="true"`) on `app.sacoro.app/auth` and `/start`,
+  the previous `app.velvetviking.co.uk/auth` and `/start`, and the legacy
+  `*.vercel.app/auth`. These only work once an
   installed build's signing certificate matches the fingerprint published in
   `/.well-known/assetlinks.json`.
 - **Custom scheme** `com.velvetviking.valhalla://auth` — needs no verification

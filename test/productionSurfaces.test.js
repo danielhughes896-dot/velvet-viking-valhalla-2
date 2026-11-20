@@ -333,7 +333,11 @@ test('the app makes no claim about a Garmin feature it does not have', () => {
 // ===========================================================================
 // RELEASE PACKAGING — WHAT THE APK ACTUALLY POINTS AT
 // ===========================================================================
-const CANONICAL_HOST = 'app.velvetviking.co.uk';
+// The app moved here from app.velvetviking.co.uk (founder, 20 November 2026).
+// The old address stays claimed by App Links and reachable inside the app for
+// the one-time move of each phone's storage (test/moveToSacoroApp.test.js).
+const CANONICAL_HOST = 'app.sacoro.app';
+const PREVIOUS_HOST = 'app.velvetviking.co.uk';
 
 test('the native shell loads the canonical production domain, not a preview host', () => {
   /* THE DEFECT THIS PINS. Both capacitor.config.json files pointed the APK's
@@ -388,6 +392,9 @@ test('App Links claim the domain sign-in links are actually sent to', () => {
   const hosts = (verified.match(/android:host="([^"]+)"/g) || []).map(h => h.slice(14, -1));
   assert.ok(hosts.indexOf(CANONICAL_HOST) !== -1,
     'the verified filter does not claim ' + CANONICAL_HOST + ' — found ' + hosts.join(', '));
+  assert.equal(hosts[0], CANONICAL_HOST, 'the canonical host is not the first one claimed');
+  assert.ok(hosts.indexOf(PREVIOUS_HOST) !== -1,
+    'links already sent to ' + PREVIOUS_HOST + ' no longer open the app');
   /* The custom scheme is the fallback that works without domain verification
      and must survive every change to the filters above it. */
   assert.match(manifest, /android:scheme="com\.velvetviking\.valhalla"/);
