@@ -667,10 +667,26 @@ test('the painted Welcome is the journey\'s own, and goes with the first render'
   const a = fresh(); a.journeyAskProviders = () => {};
   const live = a.renderJourneyWelcome();
   ['jr-photo', 'jr-welcome-back', 'jr-crest', 'Your Journey Starts Here', 'Personalised training. Built around you.',
-   'Build My Plan', 'Existing Member', 'jr-cta', 'jr-member'].forEach(w => {
+   'Build My Plan', 'Existing Member', 'jr-cta', 'jr-existing'].forEach(w => {
     assert.ok(painted.indexOf(w) !== -1, 'the painted Welcome lost ' + w);
     assert.ok(live.indexOf(w) !== -1, 'the real Welcome lost ' + w + '; the two have drifted');
   });
   assert.match(fnSrc('clearBootSplash'), /'boot-splash', 'boot-welcome'/, 'the painted Welcome is never taken down');
   assert.match(RUNTIME, /html\[data-boot="welcome"\] #boot-splash, html\[data-boot="plain"\] #boot-splash\{display:none;\}/);
+});
+
+test('Existing Member and the "Already a member?" line each keep a class of their own', () => {
+  // 20 November 2026: Existing Member's class was renamed to .jr-member, which was
+  // already Make It Yours' "Already a member? Sign In" line, so each took the other's
+  // rule: the gap above the button grew from 12px to 34px and the line turned white.
+  const carriers = (cls) => [...RUNTIME.matchAll(new RegExp('class="[^"]*\\b' + cls + '\\b[^"]*"[^>]*>([^<]*)', 'g'))]
+    .map(m => m[1].trim());
+  const existing = carriers('jr-existing');
+  assert.ok(existing.length >= 2, 'the painted and the live Welcome both carry .jr-existing');
+  existing.forEach(t => assert.equal(t, 'Existing Member', 'only the Existing Member button carries .jr-existing'));
+  const member = carriers('jr-member');
+  assert.ok(member.length >= 1, 'Make It Yours carries .jr-member');
+  member.forEach(t => assert.equal(t, 'Already a member?', 'only the Sign In line carries .jr-member'));
+  assert.match(RUNTIME, /\n\s*\.jr-existing\{border-color:var\(--cherry-line\)/, 'Existing Member keeps its cherry line');
+  assert.match(RUNTIME, /\n\s*\.jr-member\{text-align:center;/, 'the Sign In line keeps its own rule');
 });
