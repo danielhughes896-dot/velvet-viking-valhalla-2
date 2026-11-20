@@ -655,8 +655,25 @@ function projectToEntitlementRow(resolution, current){
 
   const beta = grants.filter(function(g){ return g.source === 'admin_beta'; })[0];
   const comp = grants.filter(function(g){ return g.source === 'admin_comp'; })[0];
-  const override = beta ? 'beta' : (comp ? 'promo' : null);
-  const overrideSrc = beta || comp || null;
+  /* AN OVERRIDE SET BY HAND IS NOT A PURCHASE'S TO CLEAR (founder, 19
+     November 2026: "Leave the complimentary grants and permanent owner access
+     untouched. Do not reactivate retired beta access.").
+     'owner' is never derived from any grant, and the live 'promo' rows were
+     written by the operator (their comp grants carry the pre-rename product
+     code and read as invalid, see _products.js). This projection runs after a
+     subscription is written, so before that fix it never ran in production;
+     once purchases could be recorded, one by an owner or promo account would
+     have rewritten its override from grants alone and cleared it. An existing
+     'owner' or 'promo' override is therefore kept exactly as it stands, with
+     its own expiry. 'beta' is NOT kept: that programme is retired and
+     _access.js grants nothing for it. supabase-grandfather-projection.sql
+     makes the same promise about the owner. */
+  const kept = (cur.override === 'owner' || cur.override === 'promo') ? cur.override : null;
+  const override = kept || (beta ? 'beta' : (comp ? 'promo' : null));
+  const overrideSrc = kept ? null : (beta || comp || null);
+  const overrideUntil = kept
+    ? (cur.override_expires_at == null ? null : cur.override_expires_at)
+    : (overrideSrc ? overrideSrc.until : null);
 
   return {
     state: state,
@@ -669,7 +686,7 @@ function projectToEntitlementRow(resolution, current){
       : null,
     cancel_at_period_end: !!(r.commercialState === 'cancelled_active'),
     override: override,
-    override_expires_at: overrideSrc ? overrideSrc.until : null,
+    override_expires_at: overrideUntil,
     override_note: cur.override_note == null ? null : cur.override_note,
     provider: commercial.length ? (commercial[0].provider || null) : (cur.provider || null),
     provider_customer_id: cur.provider_customer_id == null ? null : cur.provider_customer_id,
