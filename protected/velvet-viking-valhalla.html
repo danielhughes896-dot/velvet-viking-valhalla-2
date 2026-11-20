@@ -3874,7 +3874,7 @@
   html[data-boot="welcome"] #boot-welcome{display:block; position:fixed; inset:0; z-index:90; overflow:hidden;}
   html[data-boot="welcome"] #boot-splash, html[data-boot="plain"] #boot-splash{display:none;}
   html[data-boot-native] #boot-welcome .jr-welcome-back,
-  html[data-boot-signed] #boot-welcome .jr-member{display:none;}
+  html[data-boot-signed] #boot-welcome .jr-existing{display:none;}
   .pe{position:relative; min-height:100vh; display:grid;
     grid-template-rows:1fr 1fr 1fr; justify-items:center; text-align:center;
     padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 36px;}
@@ -12646,8 +12646,11 @@
      (site audit: "Gold = brand, cherry = anything you act on", and this was
      the one gold-outlined button on the first screen): "change". A thin
      cherry line without the glow, so Build My Plan stays the stronger of
-     the two. */
-  .jr-member{border-color:var(--cherry-line); color:#FFFFFF;}
+     the two. Its own class: it was first called .jr-member, which is already
+     Make It Yours' "Already a member? Sign In" line, and each took the
+     other's styling (the gap above this button grew from 12px to 34px;
+     that line turned white). */
+  .jr-existing{border-color:var(--cherry-line); color:#FFFFFF;}
 
   /* ---------- 2 AND 3. THE OPTION ROWS ----------
      The builder's own option row (.bld-purpose button): the tile, its lift,
@@ -12905,7 +12908,7 @@
      greet with it (see #boot-welcome in the stylesheet). renderJourneyWelcome()'s
      own markup with nothing to press: the real screen replaces it on the first
      render, so a tap before then is a tap on a picture. -->
-<div id="boot-welcome" aria-hidden="true" inert><div class="jr jr-welcome"><div class="jr-photo" role="presentation"></div><span class="jr-back jr-welcome-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19.5" y1="12" x2="5" y2="12"/><polyline points="11,6 5,12 11,18"/></svg></span><div class="jr-welcome-body"><div class="jr-crest"></div><h1 class="jr-title">Your Journey Starts Here</h1><p class="jr-lede">Personalised training. Built around you.</p><span class="btn btn-primary btn-block jr-cta">Build My Plan</span><span class="btn btn-ghost btn-block jr-member">Existing Member</span></div></div></div>
+<div id="boot-welcome" aria-hidden="true" inert><div class="jr jr-welcome"><div class="jr-photo" role="presentation"></div><span class="jr-back jr-welcome-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19.5" y1="12" x2="5" y2="12"/><polyline points="11,6 5,12 11,18"/></svg></span><div class="jr-welcome-body"><div class="jr-crest"></div><h1 class="jr-title">Your Journey Starts Here</h1><p class="jr-lede">Personalised training. Built around you.</p><span class="btn btn-primary btn-block jr-cta">Build My Plan</span><span class="btn btn-ghost btn-block jr-existing">Existing Member</span></div></div></div>
 <div id="toast-mount"></div>
 <script>
 'use strict';
@@ -87568,7 +87571,7 @@ function renderJourneyWelcome(memberOnly){
       (memberOnly ? '' : '<button type="button" class="btn btn-primary btn-block jr-cta" data-action="journey-start">Build My Plan</button>')+
       /* A member already signed in has nothing to sign in to. */
       (cloudConfigured() && !cloudSignedIn()
-        ? '<button type="button" class="btn btn-ghost btn-block jr-member" data-action="journey-member">Existing Member</button>'
+        ? '<button type="button" class="btn btn-ghost btn-block jr-existing" data-action="journey-member">Existing Member</button>'
         : '')+
     '</div>'+
   '</div>';
