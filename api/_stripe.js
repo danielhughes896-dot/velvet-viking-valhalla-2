@@ -99,7 +99,7 @@ function config(env){
        are never mistaken for production ones in the ledger. */
     environment: /^sk_live_/.test(secret) ? 'production' : 'sandbox',
     appOrigin: String(e.VVV_SITE_ORIGIN || '').trim().replace(/\/+$/, ''),
-    marketingOrigin: String(e.VVV_MARKETING_ORIGIN || 'https://velvetviking.co.uk').trim().replace(/\/+$/, '')
+    marketingOrigin: String(e.VVV_MARKETING_ORIGIN || 'https://sacoro.app').trim().replace(/\/+$/, '')
   };
 }
 

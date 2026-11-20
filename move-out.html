@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>SACORO</title>
+<style>html,body{margin:0;height:100%;background:#121316;}</style>
+<!-- THE OLD ADDRESS'S HALF OF THE ONE-TIME MOVE to app.sacoro.app. The whole
+     story is beside <script id="move-in"> in protected/velvet-viking-valhalla.html.
+
+     Opened only by the installed app, at the old address, with the nonce the
+     new address made. It reads this address's localStorage and goes straight
+     back to the new address with it in the URL fragment. It never sends
+     anything anywhere else: the destination is fixed below, not taken from
+     the request.
+
+     IT ACTS ONLY WHEN THE NEW ADDRESS SENT IT HERE. document.referrer is set
+     by the browser, not by the page that links here, so another site cannot
+     make it read app.sacoro.app. Opened any other way, it hands over nothing
+     and simply goes to the new address. The old address's storage is left as
+     it was: copying is enough, and it is the safety net if anything fails.
+
+     It is never too long to open. Compressed, a full localStorage is far
+     inside the length any WebView opens; if it ever were not, the largest
+     entries stay behind (the plan itself is also in the cloud and comes back
+     on sign-in) rather than the athlete being stranded on this page. -->
+<script>
+(function(){
+  var NEW = 'https://app.sacoro.app';
+  var OLD_HOST = 'app.velvetviking.co.uk';
+  var LIMIT = 1500000;   // characters of fragment
+  function go(packed, n){
+    location.replace(packed ? NEW + '/#vvv-move=' + packed + '&n=' + n : NEW + '/');
+  }
+  function base64url(buf){
+    var bytes = new Uint8Array(buf), bin = '';
+    for (var i = 0; i < bytes.length; i += 0x8000){
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function pack(data){
+    var json = JSON.stringify(data);
+    if (typeof CompressionStream === 'undefined') return Promise.resolve('j' + encodeURIComponent(json));
+    var stream = new Blob([json]).stream().pipeThrough(new CompressionStream('deflate'));
+    return new Response(stream).arrayBuffer().then(function(buf){ return 'z' + base64url(buf); });
+  }
+  function fit(data){
+    return pack(data).then(function(p){
+      var keys = Object.keys(data);
+      if (p.length <= LIMIT || !keys.length) return p;
+      keys.sort(function(a, b){ return data[b].length - data[a].length; });
+      delete data[keys[0]];
+      return fit(data);
+    });
+  }
+
+  var m = /^#n=([A-Za-z0-9_-]{16,64})$/.exec(location.hash || '');
+  var fromNew = String(document.referrer || '').indexOf(NEW + '/') === 0;
+  if (!m || !fromNew || location.hostname !== OLD_HOST) return go(null);
+
+  var data = {};
+  try {
+    var ls = window.localStorage;
+    for (var i = 0; i < ls.length; i++){
+      var k = ls.key(i);
+      if (k !== 'vvv_move_nonce' && k !== 'vvv_moved' && k !== 'vvv_move_tries') data[k] = ls.getItem(k);
+    }
+  } catch (e) {}
+  fit(data).then(function(p){ go(p, m[1]); }, function(){ go('j' + encodeURIComponent('{}'), m[1]); });
+})();
+</script>
+</head>
+<body></body>
+</html>

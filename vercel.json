@@ -44,6 +44,7 @@
     { "src": "/admin", "dest": "/admin.html" },
     { "src": "/privacy(?:\\.html)?", "status": 308, "headers": { "Location": "https://velvetviking.co.uk/privacy" } },
     { "src": "/terms", "dest": "/terms.html" },
+    { "src": "/move-out", "dest": "/move-out.html" },
     { "src": "/\\.well-known/assetlinks\\.json", "dest": "/assetlinks.json" },
 
     { "handle": "filesystem" }

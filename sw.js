@@ -162,6 +162,13 @@ self.addEventListener('fetch', function(event){
 
   if (req.mode !== 'navigate') return;
 
+  /* THE ONE-TIME MOVE'S PAGE IS NEVER ANSWERED WITH THE SHELL. /move-out hands
+     this address's storage to app.sacoro.app (see move-out.html). Offline,
+     the shell below would open the old app in its place, at the old address,
+     and the move would silently not happen; left to the network, it simply
+     fails and the new address tries again on the next launch. */
+  if (url.pathname === '/move-out') return;
+
   event.respondWith(
     /* NETWORK FIRST. The gate is authoritative whenever it can be reached. */
     fetch(req).then(function(resp){
