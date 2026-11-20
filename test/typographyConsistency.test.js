@@ -185,8 +185,15 @@ test('Cinzel sets the wordmark and nothing else', () => {
      The claim this law makes has not moved in any of its three versions:
      Cinzel sets the MARK and never a heading. There are three places the
      mark is drawn in the app, and it is the same face in all of them. */
-  assert.deepEqual(rules.sort(), ['.bm-word', '.pe-name', '.wc-wordmark'],
-    'Cinzel is setting something other than a wordmark -- it is a mark, not a heading face');
+  /* ---- AND THE JOURNEY'S TITLES ----
+     Founder, 20 November 2026, agreeing with the site audit ("the brand
+     changes at the door"): the website sets its headings in Cinzel, and the
+     first-time journey a visitor walks in from it now does too. That is one
+     rule with one selector list, and the law below still holds everywhere
+     else: inside the app proper, Cinzel sets the mark and never a heading. */
+  const JOURNEY_TITLES = '.jr-title, .jr-slide-title, .modal-card.bld-modal .modal-head h2';
+  assert.deepEqual(rules.sort(), ['.bm-word', '.pe-name', '.wc-wordmark', JOURNEY_TITLES].sort(),
+    'Cinzel is setting something other than a wordmark or the journey titles -- it is a mark, not a heading face');
   /* And the same weight, or it is three marks again. */
   ['.bm-word', '.pe-name', '.wc-wordmark'].forEach(sel => {
     const rule = new RegExp(sel.replace('.', '\\.') + "\\{[^}]*font-family:'Cinzel',serif; font-weight:(\\d+)").exec(css);
