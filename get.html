@@ -39,6 +39,16 @@
      as the other four pages set it. This page keeps the <h1> element, because
      it is the page's only heading, and gives up its own styling of it. */
   .blurb{font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:20px 0 26px;}
+  /* WHAT THE VISITOR CAME FOR, FIRST. Founder, 19 November 2026: Start Free
+     Trial on the website landed here on a page that never said "trial" and
+     opened on an Android security warning. The trial is named at the top,
+     with the three real steps to it; the length is the catalogue's own
+     (api/_products.js TRIAL_DAYS), which test/accountUxCopy.test.js checks. */
+  .trial-intro{margin:22px 0 24px;}
+  .trial-head{font-family:'Cinzel',serif; font-weight:700; font-size:21px; line-height:1.25;
+    letter-spacing:.04em; text-transform:uppercase; color:#FFFFFF; margin:0 0 14px;}
+  .trial-steps{max-width:330px; margin:0 auto; text-align:left; font-size:13.5px; line-height:1.6;}
+  .trial-steps li{margin-bottom:5px;}
   .card{
     background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);
     padding:20px 18px; margin-bottom:14px; text-align:left;
@@ -113,9 +123,17 @@
     <div class="vvv-rule"></div>
   </div>
 
-  <p class="blurb" id="blurb">
-    Endurance coaching built around your goal, your training and what you actually do.
-  </p>
+  <div class="trial-intro" id="trial-intro">
+    <h2 class="trial-head">Start your 7-day free trial</h2>
+    <ol class="trial-steps">
+      <li><b>Get the app</b> below.</li>
+      <li><b>Build your plan</b> around your goal and the days you can train.</li>
+      <li><b>Choose monthly or annual.</b> Your first 7 days are free, and you won't be charged if you cancel before they end.</li>
+    </ol>
+  </div>
+  <!-- Shown instead of the trial steps when the athlete arrives part way
+       through the journey (?from=journey): the plan is already made. -->
+  <p class="blurb" id="blurb" hidden></p>
 
   <!-- Android: install the APK -->
   <div class="card" id="card-android" hidden>
@@ -128,9 +146,8 @@
       Download the App
     </a>
     <p class="note">
-      Android will ask you to <b>allow installs from your browser</b>. That's expected,
-      it just means the app doesn't come from the Play Store. Tap allow, then open the
-      downloaded file.
+      Android checks you're happy to install an app from outside the Play Store.
+      Tap <b>Allow</b>, then open the file.
     </p>
   </div>
 
@@ -178,9 +195,7 @@
   <div class="other" id="other-platform"></div>
 
   <p class="foot">
-    SACORO needs an account. Signing in backs your plan up and lets you use it on more than
-    one device: your plan and email are stored securely in your SACORO account, with a working
-    copy on your own device. You can also back up any time from Settings, then Export Full Backup.
+    SACORO needs an account. Your plan is saved to it, so it's backed up and follows you to any device.
     <!-- The commercial Terms, the document api/_agreements.js names as in
          force; the private-beta Terms went with the beta (founder,
          18 November 2026: "Get rid of the private beta stuff"). -->
@@ -227,6 +242,8 @@
      and Launch the App opens the journey's Welcome for somebody new. */
   var fromJourney = /(?:^|[?&])from=journey(?:&|$)/.test(location.search || '');
   if (fromJourney){
+    document.getElementById('trial-intro').hidden = true;
+    document.getElementById('blurb').hidden = false;
     document.getElementById('blurb').textContent =
       'Your plan is ready. Take SACORO with you, or carry on here in your browser.';
     document.getElementById('web-launch').textContent = 'Continue in the Browser';

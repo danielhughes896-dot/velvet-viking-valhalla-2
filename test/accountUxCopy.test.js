@@ -201,8 +201,16 @@ test('get.html no longer claims no account is needed', () => {
   const flat = html.replace(/\s+/g, ' ');
   assert.doesNotMatch(flat, /no account\s*needed/i);
   assert.doesNotMatch(flat, /nothing is uploaded/i);
-  assert.doesNotMatch(flat, /subscription/i, 'no commercial claims before commercial activation');
-  assert.doesNotMatch(flat, /\btrial\b/i, 'no trial claims before a trial exists');
+  assert.doesNotMatch(flat, /subscription/i, 'the install page sells nothing itself');
+  /* THE TRIAL EXISTS NOW, AND THE PAGE NAMES IT. This used to forbid the word
+     "trial" here "before a trial exists". Subscriptions are live and the
+     founder (19 November 2026) asked for Start Free Trial to land on a page
+     that says what it is. The claim must be the catalogue's own length. */
+  const days = Number((fs.readFileSync(path.join(__dirname, '..', 'api', '_products.js'), 'utf8').match(/const TRIAL_DAYS = (\d+);/) || [])[1]);
+  assert.ok(days > 0, 'the catalogue states a trial length');
+  for (const m of flat.matchAll(/(\d+)-day free trial|first (\d+) days are free/gi)) {
+    assert.equal(Number(m[1] || m[2]), days, 'every trial length on the install page matches the catalogue');
+  }
   assert.doesNotMatch(flat, /strava/i, 'no Strava claims on an unrelated install page');
   assert.match(flat, /SACORO needs an account/i, 'founder: an account is required, and every page says so');
 });

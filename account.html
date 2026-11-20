@@ -57,10 +57,13 @@
 
   <div id="pane-signin">
     <h1 id="headline">Sign in to SACORO</h1>
-    <p id="lede">SACORO needs an account so your training block is tied to you and can follow you between devices. We email you a sign-in link, so there is no password for you to create or remember. New to SACORO? Enter your email here too: you build your plan straight after signing in.</p>
+    <!-- ONE LINE BEFORE THE BOX (founder, 19 November 2026): it was three
+         sentences of explanation before somebody could type their email. -->
+    <p id="lede">Enter your email and we'll send you a sign-in link, so there's no password for you to create or remember.</p>
     <label for="email">Email</label>
     <input type="email" id="email" placeholder="Your email address" autocomplete="email" inputmode="email">
     <button type="button" id="send" class="vvv-btn">Email Me a Sign-In Link</button>
+    <p class="vvv-quiet" id="new-note">New to SACORO? Use the same box. You'll build your plan straight after.</p>
     <div class="vvv-msg" id="msg"></div>
     <!-- THE DOCUMENTS, named because this can be the first page somebody sees.
          A sentence, not a gate -- no checkbox, nothing pre-ticked. They live on
@@ -204,6 +207,7 @@
   var why = (function(){
     try{ return new URLSearchParams(location.search).get('why') || ''; }catch(e){ return ''; }
   })();
+  if (why) $('new-note').hidden = true;
   if (why === 'locked'){
     $('headline').textContent = 'Your access has ended';
     $('lede').textContent = 'Your training plan and history are safe and still stored. Sign in to see your account, or get in touch if you think this is wrong.';
