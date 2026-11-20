@@ -31,7 +31,7 @@ absence is a deliberate off state, not a misconfiguration.
 
 | Name | Secret | Purpose | Launch | Source |
 |---|---|---|---|---|
-| `VVV_SITE_ORIGIN` | no | Where this deployment thinks it lives: `https://app.velvetviking.co.uk`, and `https://app.sacoro.app` from the day the phone apps move there (founder, 20 November 2026). Stripe success URLs, the Strava and Garmin callbacks and the auth callback are built from it, so the Strava Authorization Callback Domain changes with it. Checkout **refuses** without it rather than guessing. | **REQUIRED** | you |
+| `VVV_SITE_ORIGIN` | no | Where this deployment thinks it lives: `https://app.velvetviking.co.uk`. The app also answers at `https://app.sacoro.app`, which the phone apps load from build 14 (founder, 20 November 2026); this stays on the old address until every tester has that build, then moves to `https://app.sacoro.app`. Stripe success URLs, the Strava and Garmin callbacks and the auth callback are built from it, so the Strava Authorization Callback Domain changes with it, in the same minute. Checkout **refuses** without it rather than guessing. | **REQUIRED** | you |
 | `VVV_MARKETING_ORIGIN` | no | The website, `https://sacoro.app`. Where a cancelled web checkout returns to. Defaults to that value. | recommended | you |
 
 ## Stripe — the web commercial rail

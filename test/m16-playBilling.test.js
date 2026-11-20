@@ -1035,9 +1035,10 @@ test('the manifest names the BILLING permission, and the build carries the curre
   assert.ok(Number(v[1]) >= 8, 'Play requires Billing Library 8 or later for new uploads');
 });
 
-test('versionCode 13, versionName 1.12: Play requires a new version for every upload', () => {
+test('versionCode 14, versionName 1.13: Play requires a new version for every upload', () => {
+  // 14 is the build that loads app.sacoro.app (founder, 20 November 2026).
   const gradle = read('android/app/build.gradle');
-  assert.match(gradle, /versionCode 13\s+versionName "1\.12"/);
+  assert.match(gradle, /versionCode 14\s+versionName "1\.13"/);
 });
 
 test('the plugin is registered, and it never acknowledges a purchase on the device', () => {
