@@ -68914,9 +68914,17 @@ function openSetupModal(){
   }
   bldParked = null;
   var su = state.setup || {};
+  /* THE DEFAULT IS THE SAME ONE THE SCREEN SHOWS. The distance grid below
+     ticks Full Marathon for an athlete who has not chosen yet
+     ((su.distanceKey||'full')), and so do the experience cards; this mirrored
+     <select>, which is what the plan is actually built from, marked nothing
+     selected, so the browser fell back to its first option, 5K. Somebody
+     who accepted the ticked Full Marathon got a 5K block (found walking the
+     journey from the website, 20 November 2026). Both now start from the
+     same default. */
   var distOptions = DISTANCE_ORDER.map(function(k){
     var p = DISTANCE_PROFILES[k];
-    return '<option value="'+k+'" '+(su.distanceKey===k?'selected':'')+'>'+p.label+'</option>';
+    return '<option value="'+k+'" '+((su.distanceKey||'full')===k?'selected':'')+'>'+p.label+'</option>';
   }).join('');
   var benchDist = (su.benchmark && su.benchmark.distanceKey) || '5k';
   var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
@@ -70654,6 +70662,11 @@ function openRecalibrateModal(){
 }
 function handleRecalibrateSuggest(){
   var benchDist = document.getElementById('rc-bench-dist').value;
+  // An empty time is not a typing mistake (see handleSuggestGoals).
+  if (!document.getElementById('rc-bench-time').value.trim()){
+    showToast('Suggestions come from a recent 5K or 10K time. Enter one above, or set your own target below');
+    return;
+  }
   var benchSec = parseBenchmarkTime(document.getElementById('rc-bench-time').value.trim());
   if (!benchSec){ showToast('Enter your time as minutes and seconds, e.g. 23.25 or 23:25'); return; }
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
@@ -70735,6 +70748,16 @@ function fillUnaskedGoals(goals, benchDist, benchSec, distanceKey){
 function bldSkipsTargets(){ return bldPurposeNow() === 'base'; }
 function handleSuggestGoals(){
   var benchDist = document.getElementById('su-bench-dist').value;
+  /* AN EMPTY BENCHMARK IS NOT A TYPING MISTAKE. Somebody who tapped I Haven't
+     Run One and then Suggest Goals From Benchmark was told how to type a
+     time ("Enter your time as minutes and seconds"), for a time they had
+     just said they do not have. Say what the suggestion needs instead, and
+     the other way through. A time that is there but unreadable still gets
+     the typing help below. */
+  if (!document.getElementById('su-bench-time').value.trim()){
+    showToast('Suggestions come from a recent 5K or 10K time. Add one in Benchmark, or set your own target below');
+    return;
+  }
   var benchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
   if (!benchSec){ showToast('Enter your time as minutes and seconds, e.g. 23.25 or 23:25'); return; }
   var distKey = document.getElementById('su-distance').value;

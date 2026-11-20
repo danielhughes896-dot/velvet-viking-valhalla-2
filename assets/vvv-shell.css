@@ -200,7 +200,9 @@ a{color:#FFFFFF;}
 .vvv-msg.err{color:var(--danger-ink);}
 .vvv-msg.ok{color:#FFFFFF;}
 .vvv-foot{margin-top:26px; text-align:center; font-size:11.5px; color:var(--ink-faint);}
-.vvv-foot a{color:var(--ink-faint);}
+/* A 44px tap round a word-sized link, the way /get's footer already does it;
+   the negative margin gives the room back, so nothing moves. */
+.vvv-foot a{color:var(--ink-faint); display:inline-block; padding:14px 6px; margin:-14px -6px;}
 .vvv-hidden{display:none;}
 
 /* ONE ACTION STYLE BEFORE THE APP OPENS. The app's primary is liquid glass
@@ -212,4 +214,28 @@ a{color:#FFFFFF;}
   -webkit-backdrop-filter:blur(18px) saturate(150%); backdrop-filter:blur(18px) saturate(150%);
   border:1px solid var(--cherry); color:#FFFFFF;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.06), 0 0 16px var(--cherry-dim);
+}
+
+/* ---------- pressed ----------
+   THE APP'S OWN PRESS, so a tap feels the same before the app opens as after
+   it (founder, 20 November 2026: "the clickable tabs and options could show a
+   action that looks like it's being pressed"). The app sinks every button to
+   .98 under the finger; here the cherry glass button also takes a cherry wash,
+   a ghost button a faint light one, and a text link dims. Sinking is instant
+   so a quick tap still shows it; letting go springs back. The website uses the
+   same press, so the whole crossing from website to app answers alike. */
+:where(button, .btn, .vvv-btn, [role="button"]){
+  transition:scale .22s cubic-bezier(.22,1.2,.36,1), background-color .15s, filter .15s;
+}
+:where(button, .btn, .vvv-btn, [role="button"]):not(:disabled):not([disabled]):active{
+  scale:.98; transition-duration:0s;
+}
+.vvv-btn:not(.vvv-btn-ghost):not(:disabled):not([disabled]):active,
+.btn:not(.btn-ghost):active{
+  background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,0) 55%), color-mix(in srgb, var(--cherry) 30%, rgba(8,8,11,.26));
+}
+.vvv-btn-ghost:not(:disabled):active, .btn-ghost:active{background:rgba(255,255,255,.06);}
+:where(a:not(.btn):not(.vvv-btn)):active{opacity:.6;}
+@media (prefers-reduced-motion: reduce){
+  :where(button, .btn, .vvv-btn, [role="button"]):not(:disabled):not([disabled]):active{scale:none; opacity:.75;}
 }
