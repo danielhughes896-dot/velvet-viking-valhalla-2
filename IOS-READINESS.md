@@ -69,7 +69,7 @@ TestFlight.
 | **Universal Links** | Optional. `apple-app-site-association` served from `https://app.sacoro.app/.well-known/`, mirroring what `assetlinks.json` already does for Android. Not required for sign-in, because the custom scheme carries it. |
 | **Payment boundary** | Already enforced. `renderSubscriptionActions()` and `/start` both suppress purchase surfaces inside any Capacitor shell — iOS included, with no further change. |
 | **Account deletion** | Apple has required in-app account deletion since 2022. It exists: Settings → Delete my account, server-side, immediate. |
-| **Legal / support URLs** | `https://velvetviking.co.uk/privacy`, `/terms`, `support@velvetviking.co.uk` |
+| **Legal / support URLs** | `https://velvetviking.co.uk/privacy`, `/terms`, `support@sacoro.app` |
 
 ## Privacy manifest (`PrivacyInfo.xcprivacy`)
 
