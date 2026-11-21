@@ -13,6 +13,7 @@
 
 const crypto = require('crypto');
 const HC = require('./_health-consent.js');
+const Origins = require('./_origins.js');
 
 const STRAVA_AUTHORIZE_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL     = 'https://www.strava.com/oauth/token';
@@ -262,6 +263,21 @@ function siteOrigin(req){
 }
 function redirectUri(req){ return siteOrigin(req) + '/api/strava-callback'; }
 
+/* WHERE TO SEND A PERSON BACK TO (founder, 21 November 2026: the app moves to
+   app.sacoro.app; app.velvetviking.co.uk keeps working for older builds).
+   siteOrigin() above is the ONE address registered with Strava and Garmin.
+   This is the address the person is actually using, when it is one of the
+   app's own (_origins.js), so they come back signed in, and an old build
+   comes back to the address its App Link claims. Any other host falls back to
+   the pinned origin. Unpinned (previews, localhost) it is siteOrigin()
+   exactly, as it always was. */
+function returnOrigin(req){
+  const pinned = String(process.env.VVV_SITE_ORIGIN || '').trim().replace(/\/+$/, '');
+  if (!pinned) return siteOrigin(req);
+  const here = Origins.arrivalOrigin(req);
+  return Origins.isAppOrigin(here, pinned) ? Origins.trimOrigin(here) : pinned;
+}
+
 function readBody(req){
   let body = req.body || {};
   if (typeof body === 'string'){ try{ body = JSON.parse(body); }catch(e){ body = {}; } }
@@ -278,15 +294,24 @@ function readBody(req){
 function b64url(buf){ return Buffer.from(buf).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function unb64url(s){ return Buffer.from(String(s).replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8'); }
 
-function signState(uid, secret){
-  const payload = JSON.stringify({ u: uid, n: crypto.randomBytes(9).toString('hex'),
-                                   e: Math.floor(Date.now()/1000) + STATE_TTL_SEC });
-  const body = b64url(payload);
+/* The state also carries WHERE THE ATHLETE STARTED (`o`, from returnOrigin()),
+   so the callback, which always runs on the registered address, can send them
+   back to the address they were using. It is inside the MAC, so it cannot be
+   altered, and the callback still accepts only one of the app's own
+   addresses. A state with no `o` (issued before this existed) returns to
+   siteOrigin(), as every state did. */
+function signState(uid, secret, origin){
+  const claims = { u: uid, n: crypto.randomBytes(9).toString('hex'),
+                   e: Math.floor(Date.now()/1000) + STATE_TTL_SEC };
+  if (origin) claims.o = String(origin);
+  const body = b64url(JSON.stringify(claims));
   const mac  = b64url(crypto.createHmac('sha256', secret).update(body).digest());
   return body + '.' + mac;
 }
-function verifyState(state, secret){
-  if (!state || typeof state !== 'string') return null;
+/* The payload of a state this server signed, or null. Expiry is NOT checked
+   here: verifyState() checks it before any uid is believed. */
+function stateClaims(state, secret){
+  if (!state || typeof state !== 'string' || !secret) return null;
   const dot = state.lastIndexOf('.');
   if (dot < 1) return null;
   const body = state.slice(0, dot), mac = state.slice(dot+1);
@@ -295,8 +320,23 @@ function verifyState(state, secret){
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   let p;
   try{ p = JSON.parse(unb64url(body)); }catch(e){ return null; }
+  return (p && typeof p === 'object') ? p : null;
+}
+function verifyState(state, secret){
+  const p = stateClaims(state, secret);
   if (!p || !p.u || !p.e || p.e < Math.floor(Date.now()/1000)) return null;
   return p.u;
+}
+/* Where the athlete who started this authorization should be sent back to:
+   the address in a state this server signed, when it is one of the app's own.
+   '' otherwise, and the caller falls back to siteOrigin(). An expired state
+   still names a safe address (only this server could have written it), so a
+   slow approval on Strava's page is sent home rather than to the other
+   address. */
+function stateOrigin(state, secret){
+  const p = stateClaims(state, secret);
+  if (!p || !p.o) return '';
+  return Origins.isAppOrigin(p.o, process.env.VVV_SITE_ORIGIN) ? Origins.trimOrigin(p.o) : '';
 }
 
 /* ---------- identifying the VVV athlete ----------
@@ -702,8 +742,8 @@ module.exports = {
   stravaPermitted, stravaBetaSeats, stravaSeatsTaken,
   stravaMayConnect, stravaHasConnection,
   STRAVA_AUTHORIZE_URL, STRAVA_TOKEN_URL, STRAVA_DEAUTH_URL, STRAVA_API, STRAVA_SCOPE,
-  config, stravaEnabled, siteOrigin, redirectUri, readBody,
-  signState, verifyState, userIdFromRequest, verifyUser, diagLine,
+  config, stravaEnabled, siteOrigin, redirectUri, returnOrigin, readBody,
+  signState, verifyState, stateOrigin, userIdFromRequest, verifyUser, diagLine,
   projectOrigin, hostOf, projectRef, jwtIssuerHost, serviceKeyRef, resolveServiceKey,
   VVV_SUPABASE_URL, VVV_SUPABASE_REF,
   sb, getConnection, getConnectionByAthlete, saveConnection, deleteConnection,

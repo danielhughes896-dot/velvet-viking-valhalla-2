@@ -24,7 +24,7 @@ If you have never made an app there, it asks you to create one.
 | Application Name | Velvet Viking Sacoro |
 | Category | Training |
 | Website | `https://velvetviking.co.uk` |
-| **Authorization Callback Domain** | `app.velvetviking.co.uk`, until `VVV_SITE_ORIGIN` moves (see below) |
+| **Authorization Callback Domain** | `app.sacoro.app` (it was `app.velvetviking.co.uk` until `VVV_SITE_ORIGIN` moved; see below) |
 
 The callback domain is **the bare domain — no `https://`, no path**. Strava
 rejects the authorization if it does not match, and this is the single most
@@ -33,22 +33,23 @@ common thing to get wrong.
 **CORRECTED — this was wrong twice over.** It previously read
 `velvet-viking-valhalla-1.vercel.app`: a temporary Vercel hostname rather than
 the production domain, and the hostname of the **marketing website** project
-(`-1`) rather than the app (`-2`). The app is served at
-`app.sacoro.app` and, while every phone moves across, still at
-`app.velvetviking.co.uk` (founder, 20 November 2026). `redirectUri()` builds the
-return URL from `VVV_SITE_ORIGIN`, which stays `https://app.velvetviking.co.uk`
-until every tester has the build that loads `app.sacoro.app`: the callback
-returns to `/auth` on that host, which the current build and the new one both
-open. An OAuth return sent to the website project would never reach
-`/api/strava-callback` at all. **When `VVV_SITE_ORIGIN` moves to
-`https://app.sacoro.app`, change the callback domain to `app.sacoro.app` in the
-same minute**: Strava accepts one domain, and the two must agree.
+(`-1`) rather than the app (`-2`). An OAuth return sent to the website project
+would never reach `/api/strava-callback` at all.
+
+**Two addresses, one callback** (founder, 21 November 2026). The app is served
+at `app.sacoro.app` and, until it is retired, still at `app.velvetviking.co.uk`
+for builds 13 and earlier. Strava accepts one callback domain, so
+`redirectUri()` builds the return URL from `VVV_SITE_ORIGIN` alone, and **when
+`VVV_SITE_ORIGIN` changes, the callback domain changes with it, in the same
+minute**. The athlete still comes back to the address they started from: the
+signed `state` remembers it, and `/api/strava-callback` sends them to `/auth`
+there, which their build opens as an App Link.
 
 The redirect URI the server actually sends is therefore:
 
-    https://app.velvetviking.co.uk/api/strava-callback
+    https://app.sacoro.app/api/strava-callback
 
-(`https://app.sacoro.app/api/strava-callback` once `VVV_SITE_ORIGIN` moves), and
+(`https://app.velvetviking.co.uk/api/strava-callback` before the switch), and
 the Authorization Callback Domain must be its host.
 See `STRAVA-DATA-CONTRACT.md` for the full derivation.
 
@@ -184,14 +185,23 @@ protection.
 
 This is the step that makes runs appear without pressing Sync.
 
-1. Open the VVV app in your phone browser and make sure you are **signed in**.
+1. Open `https://app.sacoro.app` in a browser and make sure you are
+   **signed in** there.
 2. In the same browser, go to:
 
 ```
-https://velvet-viking-valhalla-1.vercel.app/admin
+https://app.sacoro.app/admin
 ```
 
 3. Tap **Create subscription**. A successful reply looks like `{"id":123456}`.
+   Strava will deliver to `VVV_SITE_ORIGIN` + `/api/strava-webhook`.
+
+**Moving the subscription to a new address** (step 4d of the move to
+`app.sacoro.app`): after `VVV_SITE_ORIGIN` has changed and the redeploy has
+finished, tap **View subscription** and note the id (its `callback_url` still
+names the old address), **Delete subscription** with that id, then **Create
+subscription**. A run uploaded in the few seconds between the two is still
+picked up the next time the app opens.
 
 That page is owner-only deployment administration. It is not linked from
 anywhere in the app, it holds no credentials of its own, and it is not the thing

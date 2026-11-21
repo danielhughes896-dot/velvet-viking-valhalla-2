@@ -23,6 +23,7 @@
 
 const crypto = require('crypto');
 const Prod = require('./_products.js');
+const Origins = require('./_origins.js');
 
 const API = 'https://api.stripe.com/v1';
 
@@ -306,10 +307,24 @@ async function ensureCustomer(cfg, uid, email, existingCustomerId, opts){
   return { ok: true, customerId: r.data.id, created: true };
 }
 
+/* WHICH OF THE APP'S ADDRESSES (founder, 21 November 2026: the app moves to
+   app.sacoro.app, and app.velvetviking.co.uk keeps working for older builds).
+   The configuration for one request: the athlete comes back to the address
+   they started from, when it is one of the app's own (_origins.js), because
+   that is where they are signed in. Any other address leaves the pinned
+   VVV_SITE_ORIGIN in place. Without VVV_SITE_ORIGIN nothing changes and
+   checkout still refuses rather than guessing. */
+function atOrigin(cfg, origin){
+  if (!cfg || !cfg.appOrigin) return cfg;
+  if (!Origins.isAppOrigin(origin, cfg.appOrigin)) return cfg;
+  return Object.assign({}, cfg, { appOrigin: Origins.trimOrigin(origin) });
+}
+
 /* ---------- where Stripe sends the athlete afterwards ----------
    Two fixed answers, chosen by the server. A client may ask for the app
-   return and nothing else: no URL, host or path from a request ever reaches
-   Stripe, so this cannot become an open redirect.
+   return and nothing else: no URL or path from a request ever reaches Stripe,
+   and its host only chooses between the app's own two addresses (atOrigin,
+   above), so this cannot become an open redirect.
 
    THE WEBSITE. Success returns the athlete to THIS deployment, which serves
    /account and can therefore resolve their new entitlement. The session id
@@ -886,7 +901,7 @@ function normaliseEvent(stripeEvent){
 
 module.exports = {
   API, PROVIDER, MAX_SKEW_SEC,
-  config, encode, call, ensureCustomer, createCheckoutSession, returnUrls, priceFor, PROVIDER, CONDITION_OF,
+  config, atOrigin, encode, call, ensureCustomer, createCheckoutSession, returnUrls, priceFor, PROVIDER, CONDITION_OF,
   verifyPrice, chargedAmountOf, expectedProductRef, INTERVAL_OF,
   pauseCollection, resumeCollection, createPortalSession,
   fetchCheckoutSession, fetchSubscription, cancelAtPeriodEnd, clearCancelAtPeriodEnd,

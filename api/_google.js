@@ -521,12 +521,23 @@ function decodePart(part){
  *
  *   RS256, signed by a key in Google's published set (kid)
  *   iss  accounts.google.com or https://accounts.google.com
- *   aud  exactly VVV_GOOGLE_RTDN_AUDIENCE
+ *   aud  exactly VVV_GOOGLE_RTDN_AUDIENCE (or exactly one of several listed there)
  *   email exactly VVV_GOOGLE_RTDN_SERVICE_ACCOUNT, and email_verified
  *   exp in the future, iat not in the future (a minute of skew either way)
  *
  * Without the audience and the service account configured nothing verifies:
- * "any Google-signed token" is not authentication of OUR subscription. */
+ * "any Google-signed token" is not authentication of OUR subscription.
+ *
+ * MORE THAN ONE AUDIENCE, FOR A MOVE (founder, 21 November 2026: the app
+ * moves to app.sacoro.app). VVV_GOOGLE_RTDN_AUDIENCE may list several,
+ * separated by spaces or commas, and a token naming any one of them passes.
+ * Pub/Sub's audience defaults to the push endpoint's URL, so moving the
+ * endpoint can change it: listing the old and the new URL first means no
+ * notification is refused while the subscription is edited. Each entry is
+ * still matched exactly. */
+function audiences(v){
+  return String(v || '').split(/[\s,]+/).filter(Boolean);
+}
 async function verifyPushToken(token, expect, opts){
   const e = expect || {};
   if (!e.audience || !e.email) return { ok: false, reason: 'not_configured' };
@@ -558,7 +569,8 @@ async function verifyPushToken(token, expect, opts){
   const nowSec = e.nowSec != null ? e.nowSec : Math.floor(Date.now() / 1000);
   if (ISSUERS.indexOf(claims.iss) === -1) return { ok: false, reason: 'bad_issuer' };
   const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-  if (aud.indexOf(e.audience) === -1) return { ok: false, reason: 'bad_audience' };
+  const wanted = audiences(e.audience);
+  if (!aud.some(function(a){ return wanted.indexOf(a) !== -1; })) return { ok: false, reason: 'bad_audience' };
   if (claims.email !== e.email) return { ok: false, reason: 'bad_email' };
   if (claims.email_verified !== true && claims.email_verified !== 'true') return { ok: false, reason: 'email_unverified' };
   if (!(Number(claims.exp) > nowSec - MAX_SKEW_SEC)) return { ok: false, reason: 'expired' };
@@ -606,6 +618,6 @@ module.exports = {
   serviceAccountAssertion, accessToken, resetTokenCache, call,
   tokenLooksValid, productLooksValid, fetchSubscription, acknowledge,
   inFreeTrial, subscriptionFacts,
-  googleCerts, resetCertCache, verifyPushToken, decodePush, notificationTarget,
+  googleCerts, resetCertCache, audiences, verifyPushToken, decodePush, notificationTarget,
   ref, log
 };

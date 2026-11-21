@@ -461,7 +461,7 @@ they are absent, and every caller treats null as *this cannot be purchased yet*.
 | `STRIPE_WEBHOOK_SECRET` | the signing secret from the endpoint above |
 | `VVV_PRICE_WEB_STANDARD_MONTHLY` | the monthly `price_…` id |
 | `VVV_PRICE_WEB_STANDARD_YEARLY` | the yearly `price_…` id |
-| `VVV_SITE_ORIGIN` | the deployment origin Checkout returns to. Checkout **refuses** rather than guessing it. |
+| `VVV_SITE_ORIGIN` | the deployment origin Checkout returns to. An athlete paying from the app's other address (`api/_origins.js`) returns there instead, where they are signed in. Checkout **refuses** rather than guessing it. |
 | `VVV_MARKETING_ORIGIN` | where a cancelled checkout returns to |
 | `VVV_COMMERCE_ENABLED` | `1` — **may anyone be charged.** Leave unset until the test-mode pass below is green. |
 | `VVV_COMMERCIAL_REQUIRED` | `1` — **is entitlement enforced.** Separate switch, switched on at a different moment: enforcement first with beta overrides in place, selling second. |

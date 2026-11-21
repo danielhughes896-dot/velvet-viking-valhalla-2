@@ -43,7 +43,11 @@ async function handleStart(req, res, cfg, uid){
     // silently reusing a grant the athlete may have removed on Strava's side.
     approval_prompt: 'force',
     scope: S.STRAVA_SCOPE,
-    state: S.signState(uid, cfg.clientSecret)
+    /* redirect_uri above is the one address registered with Strava; the
+       state remembers the address this athlete is using, so the callback
+       sends them back there (founder, 21 November 2026: older builds stay
+       on app.velvetviking.co.uk). */
+    state: S.signState(uid, cfg.clientSecret, S.returnOrigin(req))
   });
   S.json(res, 200, { url: S.STRAVA_AUTHORIZE_URL + '?' + params.toString() });
 }

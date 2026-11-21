@@ -204,7 +204,9 @@ server honours whatever grace Google reports and adds nothing.
       `projects/sacoro-billing/topics/sacoro-play-billing`; notifications for
       subscriptions (all of them).
    3. Create a **push subscription** on that topic:
-      - endpoint **`https://app.velvetviking.co.uk/api/billing-webhook?rail=google`**
+      - endpoint **`https://app.sacoro.app/api/billing-webhook?rail=google`**
+        (it was `https://app.velvetviking.co.uk/...` until step 4d of the move;
+        see "Moving the push endpoint" below)
       - **Enable authentication**, with a service account for the push (for
         example `rtdn-push@sacoro-billing.iam.gserviceaccount.com`; the Pub/Sub
         service agent needs Service Account Token Creator on it if Google
@@ -239,6 +241,24 @@ server honours whatever grace Google reports and adds nothing.
 
 ---
 
+### Moving the push endpoint (step 4d of the move to app.sacoro.app)
+
+Pub/Sub's audience defaults to the endpoint URL, so editing the endpoint can
+change the audience every notification carries. In this order, nothing is
+refused:
+
+1. Vercel: set `VVV_GOOGLE_RTDN_AUDIENCE` to its current value, a space, and
+   `https://app.sacoro.app/api/billing-webhook?rail=google`. Redeploy.
+2. Google Cloud, Pub/Sub, the push subscription, Edit: endpoint
+   `https://app.sacoro.app/api/billing-webhook?rail=google`. Leave the audience
+   blank or set it to that same URL.
+3. Play Console, Monetization setup: **Send test notification**. The
+   subscription's delivery metrics show it acknowledged.
+4. When the old address is retired, remove its URL from
+   `VVV_GOOGLE_RTDN_AUDIENCE` and redeploy.
+
+---
+
 ## 4. Vercel environment variables (names)
 
 | Name | Value |
@@ -247,7 +267,7 @@ server honours whatever grace Google reports and adds nothing.
 | `VVV_GOOGLE_ACCOUNT_ID_SECRET` | a long random string generated once (for example `openssl rand -base64 48`); never change it after launch |
 | `VVV_PRICE_GOOGLE_STANDARD_MONTHLY` | `sacoro_standard:monthly` |
 | `VVV_PRICE_GOOGLE_STANDARD_YEARLY` | `sacoro_standard:annual` |
-| `VVV_GOOGLE_RTDN_AUDIENCE` | the push subscription's audience, exactly (the endpoint URL above unless you set another) |
+| `VVV_GOOGLE_RTDN_AUDIENCE` | the push subscription's audience, exactly (the endpoint URL above unless you set another). Several may be listed, separated by spaces, and a notification for any one of them is accepted: that is how the endpoint moves without refusing anything |
 | `VVV_GOOGLE_RTDN_SERVICE_ACCOUNT` | the push subscription's service account email |
 
 Existing switches still apply: `VVV_COMMERCE_ENABLED` must be on for the app
