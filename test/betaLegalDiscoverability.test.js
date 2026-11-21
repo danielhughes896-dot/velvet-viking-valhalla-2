@@ -30,7 +30,9 @@ const CANON_PRIVACY = 'https://velvetviking.co.uk/privacy';
    says is in force on every view. */
 const CANON_TERMS = 'https://velvetviking.co.uk/terms';
 const OLD_BETA_TERMS = 'https://velvetviking.co.uk/beta-terms';
-const SUPPORT = 'support@velvetviking.co.uk';
+// SACORO's own address since 21 November 2026 (founder); the legal documents'
+// addresses (above) are unchanged.
+const SUPPORT = 'support@sacoro.app';
 
 const TODAY = '2026-08-17';
 function app() {

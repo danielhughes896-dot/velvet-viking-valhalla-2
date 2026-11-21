@@ -124,7 +124,7 @@ Also declare:
 
 - **Data is encrypted in transit** — yes.
 - **Users can request data deletion** — yes, and the route is **in-app**:
-  Settings → Delete my account. Also `support@velvetviking.co.uk`.
+  Settings → Delete my account. Also `support@sacoro.app`.
 - **Users can request their data** — yes, in-app export.
 - **Committed to the Play Families policy** — not applicable; not aimed at
   children.
@@ -148,7 +148,7 @@ deleted and what is retained. `LEGAL-FACTS.md` §6 has the exact facts.
 | Title | Velvet Viking Sacoro |
 | Short description | *(Website supplies; must match the site's positioning)* |
 | Category | Health & Fitness |
-| Contact email | `support@velvetviking.co.uk` |
+| Contact email | `support@sacoro.app` (since 21 November 2026; change it in Play Console too) |
 | Privacy policy | `https://velvetviking.co.uk/privacy` |
 | Terms | `https://velvetviking.co.uk/terms` |
 | Ads | none |

@@ -155,7 +155,7 @@ identifier shapes.
 | Expected user volume | *(user supplies — be honest and small; an inflated number invites scrutiny)* |
 | Privacy policy URL | `https://velvetviking.co.uk/privacy` |
 | Terms URL | `https://velvetviking.co.uk/terms` |
-| Support/contact | `support@velvetviking.co.uk` |
+| Support/contact | `support@sacoro.app` |
 
 **The privacy policy must be live and must mention Garmin before the
 application is submitted.** A reviewer checks. It currently must not claim

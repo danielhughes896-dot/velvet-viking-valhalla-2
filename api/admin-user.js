@@ -1,5 +1,6 @@
 // Owner-only beta-tester deletion. This exists for exactly one commitment:
-// a tester emails support@velvetviking.co.uk to withdraw, and their account and
+// a tester emails support@sacoro.app (or the older support@velvetviking.co.uk)
+// to withdraw, and their account and
 // server-side training data have to go even though they will never open the app
 // again to press Delete Account themselves.
 //

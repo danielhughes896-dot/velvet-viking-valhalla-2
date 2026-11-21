@@ -274,7 +274,7 @@ test('Settings carries the whole legal and support surface', () => {
      row and opens the mail app. See betaLegalDiscoverability. */
   assert.match(settings, /data-action="open-legal" data-doc="privacy"/);
   assert.match(settings, /data-action="open-legal" data-doc="terms"/);
-  assert.match(settings, /data-action="open-contact"[\s\S]*?support@velvetviking\.co\.uk/);
+  assert.match(settings, /data-action="open-contact"[\s\S]*?support@sacoro\.app/);
   const went = [];
   a.isNativeApp = () => false;
   a.window.open = u => { went.push(u); return {}; };
