@@ -1076,7 +1076,8 @@ test('the documents say what is now true', () => {
   ['sacoro_standard', 'monthly', 'annual', 'free-trial-7d', 'com.android.vending.BILLING',
    'VVV_GOOGLE_PLAY_SERVICE_ACCOUNT', 'VVV_GOOGLE_ACCOUNT_ID_SECRET', 'VVV_GOOGLE_RTDN_AUDIENCE',
    'VVV_GOOGLE_RTDN_SERVICE_ACCOUNT', 'VVV_PRICE_GOOGLE_STANDARD_MONTHLY', 'VVV_PRICE_GOOGLE_STANDARD_YEARLY',
-   'projects/sacoro-billing/topics/sacoro-play-billing', 'https://app.velvetviking.co.uk/api/billing-webhook?rail=google',
+   /* the endpoint moved to app.sacoro.app in step 4d (founder, 21 November 2026) */
+   'projects/sacoro-billing/topics/sacoro-play-billing', 'https://app.sacoro.app/api/billing-webhook?rail=google',
    'play_store_build', 'internal testing', 'Check Again', 'Reference', 'google_http_403', 'no location\n   check']
     .forEach(s => assert.ok(doc.indexOf(s) !== -1, 'GOOGLE-PLAY-BILLING.md does not mention ' + s));
   const boundary = read('STORE-COMMERCIAL-BOUNDARY.md');

@@ -67,7 +67,9 @@ async function handle(req, res){
   }
 
   const cfg = S.config();
-  const stripe = P.config();
+  /* Back to the address this athlete is using, when it is one of the app's
+     own (founder, 21 November 2026); otherwise VVV_SITE_ORIGIN, as before. */
+  const stripe = P.atOrigin(P.config(), S.returnOrigin(req));
 
   if (!A.commerceEnabled()) return S.json(res, 503, { error: 'unavailable', code: 'commerce_disabled' });
   if (!stripe.hasSecret)    return S.json(res, 503, { error: 'unavailable', code: 'provider_not_configured' });

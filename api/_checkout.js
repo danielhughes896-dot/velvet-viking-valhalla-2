@@ -193,7 +193,9 @@ function purchasableNow(env){
 
 async function handle(req, res){
   const cfg = S.config();
-  const stripe = P.config();
+  /* The payment page returns to the address this athlete is using, when it is
+     one of the app's own (P.atOrigin); otherwise to VVV_SITE_ORIGIN. */
+  const stripe = P.atOrigin(P.config(), S.returnOrigin(req));
   const method = String(req.method || 'GET').toUpperCase();
 
   if (method === 'GET'){

@@ -101,12 +101,19 @@ product has no use for.
 ## Callback domain — the values to configure
 
 `redirectUri()` is `VVV_SITE_ORIGIN + '/api/strava-callback'`, and
-`VVV_SITE_ORIGIN` is `https://app.velvetviking.co.uk` (see `ENVIRONMENT.md`).
+`VVV_SITE_ORIGIN` is `https://app.sacoro.app` from switch day (see
+`ENVIRONMENT.md`; it was `https://app.velvetviking.co.uk`).
 
 | | Value |
 |---|---|
-| **Redirect URI** (built by the server) | `https://app.velvetviking.co.uk/api/strava-callback` |
-| **Authorization Callback Domain** (Strava dashboard) | `app.velvetviking.co.uk` |
+| **Redirect URI** (built by the server) | `https://app.sacoro.app/api/strava-callback` |
+| **Authorization Callback Domain** (Strava dashboard) | `app.sacoro.app` |
+
+The athlete is sent back to `/auth` on the address they started from, not to
+`VVV_SITE_ORIGIN`: the signed `state` carries it (`signState`, `stateOrigin`),
+and only the app's own two addresses are accepted (`api/_origins.js`). Builds
+13 and earlier load `app.velvetviking.co.uk` and claim only that host as an App
+Link, so this is what brings them back into the app.
 
 Bare domain — **no scheme, no path, no trailing slash**. Strava matches the
 host of the redirect URI against this string.
@@ -115,7 +122,8 @@ host of the redirect URI against this string.
 `velvet-viking-valhalla-1.vercel.app`, which is wrong twice over: it is a
 temporary Vercel hostname rather than the production domain, and `-1` is the
 **marketing website** project, not the app. The app is `-2`, served at
-`app.velvetviking.co.uk`. An OAuth return to the website project would not
+`app.sacoro.app` (and `app.velvetviking.co.uk` until it is retired). An OAuth
+return to the website project would not
 reach `/api/strava-callback` at all.
 
 ---

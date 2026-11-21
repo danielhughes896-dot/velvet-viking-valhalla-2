@@ -25,8 +25,14 @@ function back(res, origin, outcome){
 
 async function handle(req, res){
   const cfg = S.config();
-  const origin = S.siteOrigin(req);
   const q = req.query || {};
+  /* BACK TO THE ADDRESS THE ATHLETE STARTED FROM. Strava always sends them
+     here, to the one registered address, but the app has two (founder,
+     21 November 2026): build 14 and a browser on app.sacoro.app, builds 13
+     and earlier on app.velvetviking.co.uk, whose App Link claims only that
+     host. The signed state says which; anything else returns to
+     siteOrigin(), as it always did. */
+  const origin = S.stateOrigin(q.state, cfg.clientSecret) || S.siteOrigin(req);
 
   if (req.method !== 'GET'){
     res.setHeader('Allow', 'GET');
