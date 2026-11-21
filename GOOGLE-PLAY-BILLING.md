@@ -205,8 +205,8 @@ server honours whatever grace Google reports and adds nothing.
       subscriptions (all of them).
    3. Create a **push subscription** on that topic:
       - endpoint **`https://app.sacoro.app/api/billing-webhook?rail=google`**
-        (it was `https://app.velvetviking.co.uk/...` until step 4d of the move;
-        see "Moving the push endpoint" below)
+        (it was `https://app.velvetviking.co.uk/api/billing-webhook?rail=google`
+        until step 4d of the move; see "Moving the push endpoint" below)
       - **Enable authentication**, with a service account for the push (for
         example `rtdn-push@sacoro-billing.iam.gserviceaccount.com`; the Pub/Sub
         service agent needs Service Account Token Creator on it if Google
