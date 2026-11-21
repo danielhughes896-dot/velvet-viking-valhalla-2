@@ -273,7 +273,8 @@ Every failure now shows a short `Code:` under the message. Match it here:
 | `AUTH_VERIFY_404` | `VVV_SUPABASE_URL` points at the REST URL, not the project URL | Vercel → `VVV_SUPABASE_URL` |
 | `AUTH_HEADER_MISSING` | the sign-in header never reached the function | a proxy/deployment problem, not your session |
 | `AUTH_UNAVAILABLE` | Supabase was unreachable from the server | nothing is wrong — retry shortly |
-| `OWNER_MISMATCH` | you are signed in as someone other than the configured owner | Vercel → `VVV_OWNER_USER_ID` |
+| `OWNER_MISMATCH` | you are signed in as someone other than the configured owner; the page shows the id of the account you are signed in as | Vercel → `VVV_OWNER_USER_ID`: paste that id if this is the owner's account, then redeploy |
+| `OWNER_MALFORMED` | the setting is not a user id at all, so nobody can match it | Vercel → `VVV_OWNER_USER_ID`, then redeploy |
 | `OWNER_NOT_CONFIGURED` | no owner is set | Vercel → `VVV_OWNER_USER_ID`, then redeploy |
 
 The Vercel function log carries the same code plus the project host it

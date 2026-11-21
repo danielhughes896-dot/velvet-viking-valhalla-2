@@ -25,7 +25,7 @@ absence is a deliberate off state, not a misconfiguration.
 | `VVV_SUPABASE_ANON_KEY` | no (publishable) | The browser's key. Ships in the client; RLS is what protects the data, not this. | **REQUIRED** | Supabase → API |
 | `VVV_SUPABASE_SERVICE_ROLE_KEY` | **YES** | Server-only. Bypasses RLS. Never reaches a browser, a log or a repository. | **REQUIRED** | Supabase → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | **YES** | Fallback name, read only if the `VVV_` one is absent. Present because a Vercel integration may set this name. Prefer the namespaced one. | optional | Supabase → API |
-| `VVV_OWNER_USER_ID` | no | The owner account's uid. Gates every administrative route and is substituted into `supabase-entitlement.sql`. | **REQUIRED** | Supabase → Authentication → Users |
+| `VVV_OWNER_USER_ID` | no | The owner account's uid. Gates every administrative route and is substituted into `supabase-entitlement.sql`. Spaces, quotes and capitals around the id are ignored (they used to make `/admin` refuse the owner); anything that is not a user id matches nobody, and `/admin` says `OWNER_MALFORMED`. | **REQUIRED** | Supabase → Authentication → Users, or `/admin`, which shows the signed-in account's id |
 
 ## Site origins
 
