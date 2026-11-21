@@ -43,7 +43,10 @@ function creds(cfg){
 
 async function handle(req, res){
   const cfg = S.config();
-  const ownerId = process.env.VVV_OWNER_USER_ID || '';
+  /* VVV_OWNER_USER_ID, read through S.ownerConfig(): stray spaces, quotes and
+     capitals from pasting are dropped, the id itself must match in full. */
+  const owner = S.ownerConfig();
+  const ownerId = owner.id;
 
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
@@ -65,9 +68,15 @@ async function handle(req, res){
   // Fail closed. With no owner configured there is no such thing as an
   // authorised caller, so administration is simply unavailable rather than
   // open to the first signed-in account that finds the route.
-  if (!ownerId){
+  if (owner.state === 'missing'){
     log('OWNER_NOT_CONFIGURED');
     return S.json(res, 503, { error: 'owner_not_configured', code: 'OWNER_NOT_CONFIGURED' });
+  }
+  // Set, but not a user id: nobody can match it, and saying so is about the
+  // setting, not about any account.
+  if (owner.state === 'malformed'){
+    log('OWNER_MALFORMED');
+    return S.json(res, 503, { error: 'owner_misconfigured', code: 'OWNER_MALFORMED' });
   }
 
   const who = await S.verifyUser(req, cfg);

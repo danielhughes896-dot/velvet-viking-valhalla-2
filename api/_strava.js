@@ -278,6 +278,30 @@ function returnOrigin(req){
   return Origins.isAppOrigin(here, pinned) ? Origins.trimOrigin(here) : pinned;
 }
 
+/* THE DEPLOYMENT'S OWNER, read one way by every owner-only route
+   (_strava-admin.js, admin-user.js).
+
+   Founder, 21 November 2026: /admin answered OWNER_MISMATCH to the owner,
+   signed in as the account the database itself marks as the owner. Both routes
+   compared VVV_OWNER_USER_ID exactly as stored, so a value pasted into Vercel
+   with a space or line break at either end, wrapped in quotes, or in capitals
+   could never equal the id Supabase returns, which is lower case. Those are
+   dropped here, and nothing else is: the rule is still one Supabase user id,
+   matched in full. A value that is not a user id at all matches nobody, and
+   is reported as 'malformed' so the page can say what is wrong with the
+   setting rather than with the person signed in. */
+const OWNER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+function ownerConfig(envObj){
+  const raw = String(((envObj || process.env).VVV_OWNER_USER_ID) || '');
+  const id = raw.trim().replace(/^["']+|["']+$/g, '').trim().toLowerCase();
+  if (!id) return { state: 'missing', id: '' };
+  return OWNER_ID_RE.test(id) ? { state: 'ok', id: id } : { state: 'malformed', id: '' };
+}
+function isOwner(uid, envObj){
+  const o = ownerConfig(envObj);
+  return o.state === 'ok' && typeof uid === 'string' && uid === o.id;
+}
+
 function readBody(req){
   let body = req.body || {};
   if (typeof body === 'string'){ try{ body = JSON.parse(body); }catch(e){ body = {}; } }
@@ -742,7 +766,7 @@ module.exports = {
   stravaPermitted, stravaBetaSeats, stravaSeatsTaken,
   stravaMayConnect, stravaHasConnection,
   STRAVA_AUTHORIZE_URL, STRAVA_TOKEN_URL, STRAVA_DEAUTH_URL, STRAVA_API, STRAVA_SCOPE,
-  config, stravaEnabled, siteOrigin, redirectUri, returnOrigin, readBody,
+  config, stravaEnabled, siteOrigin, redirectUri, returnOrigin, ownerConfig, isOwner, readBody,
   signState, verifyState, stateOrigin, userIdFromRequest, verifyUser, diagLine,
   projectOrigin, hostOf, projectRef, jwtIssuerHost, serviceKeyRef, resolveServiceKey,
   VVV_SUPABASE_URL, VVV_SUPABASE_REF,

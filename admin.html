@@ -1,66 +1,89 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>VVV — deployment admin</title>
+<title>SACORO Admin</title>
 <!--
   Owner-only deployment administration. Deliberately NOT part of the app:
-  nothing in Velvet Viking links here, it adds no Settings control,
-  and it is not athlete product surface.
+  nothing in SACORO links here, it adds no Settings control, and it is not
+  athlete product surface.
 
   It holds no credential of its own. It reuses the Supabase session the owner
   already has on this origin and sends it as an Authorization header; the
-  server alone decides whether that user is the owner. Anyone else who finds
-  this URL can load the page and get 404s from every action, which is the
-  point -- the page is not the security boundary, the server is.
+  server alone decides whether that user is the owner (VVV_OWNER_USER_ID, read
+  through ownerConfig() in api/_strava.js). Anyone else who finds this URL can
+  load the page and get 404s from every action, which is the point: the page
+  is not the security boundary, the server is.
+
+  SACORO'S LOOK (founder, 21 November 2026: "Why is that so old looking?").
+  It used to carry its own brown and gold palette, the Velvet Viking name and
+  the private beta's wording. It now takes everything from the shared shell
+  (assets/vvv-shell.css), as /account, /get and /terms do, and keeps only its
+  own layout here.
 -->
+<link rel="icon" href="/assets/favicon.png">
+<meta name="theme-color" content="#121316">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/vvv-shell.css">
 <style>
-  :root{ color-scheme: dark; }
-  body{ margin:0; padding:22px; background:#15110D; color:#EDE3D0; line-height:1.55;
-        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:15px; }
-  main{ max-width:520px; margin:0 auto; }
-  h1{ font-size:17px; margin:0 0 4px; }
-  p{ color:#B3A48C; font-size:13px; margin:0 0 16px; }
-  button{ display:block; width:100%; margin:0 0 10px; padding:13px 16px; font-size:15px;
-          border-radius:9px; border:1px solid #3A3128; background:#231C16; color:#EDE3D0; }
-  button:active{ filter:brightness(1.25); }
-  input{ width:100%; box-sizing:border-box; margin:0 0 10px; padding:12px 14px; font-size:15px;
-         border-radius:9px; border:1px solid #3A3128; background:#1B1610; color:#EDE3D0; }
-  pre{ white-space:pre-wrap; overflow-wrap:anywhere; background:#1B1610; border:1px solid #3A3128;
-       border-radius:9px; padding:12px 14px; font-size:12px; color:#B3A48C; margin:16px 0 0; }
-  .who{ font-size:12px; color:#8A7C68; margin:0 0 18px; }
+  /* Page-specific only. Colour, type, controls and the pressed state come from
+     the shared shell. */
+  body{padding:calc(28px + env(safe-area-inset-top,0px)) 18px calc(40px + env(safe-area-inset-bottom,0px));}
+  .vvv-shell{max-width:460px;}
+  .vvv-brand{margin-bottom:16px;}
+  .vvv-shell p.adm-who{font-size:12.5px; line-height:1.5; text-align:center; margin:0 0 22px; overflow-wrap:anywhere;}
+  /* The app's tile: the same face, rim and lift as its cards. */
+  .adm-card{background:var(--t-tile); border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+            box-shadow:var(--t-lift); padding:20px 18px; margin:0 0 16px;}
+  .adm-card h2{font-size:17px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin:0 0 8px;}
+  .vvv-shell .adm-card p{font-size:13.5px; margin:0;}
+  .vvv-shell .adm-card label{margin:18px 0 6px;}
+  .vvv-shell .adm-card input{margin:0;}
+  /* Destructive: the shell's quiet outline, in the danger ink, never the cherry action. */
+  .vvv-btn.adm-danger{color:var(--danger-ink); border-color:rgba(224,160,160,.5);}
+  .adm-out{margin:16px 0 0; padding:12px 14px; border-radius:12px; background:rgba(0,0,0,.28);
+           border:1px solid var(--line); color:var(--ink); font-family:var(--num-face);
+           font-size:12px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere;}
+  .adm-out:empty{display:none;}
+  .adm-out.err{color:var(--danger-ink); border-color:rgba(224,160,160,.35);}
+  .vvv-shell p.adm-note{font-size:12px; line-height:1.6; margin:16px 0 0;}
 </style>
 </head>
 <body>
-<main>
-  <h1>Strava webhook subscription</h1>
-  <p>Deployment administration. Sign in to Velvet Viking in this browser
-     first — this page uses that session and holds no credentials of its own.</p>
-  <div class="who" id="who">Checking your session…</div>
+<main class="vvv-shell">
+  <header class="vvv-brand compact">
+    <div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"></span><p class="vvv-wordmark">SACORO</p><span class="vvv-dot" aria-hidden="true"></span></div>
+    <p class="vvv-by">Admin</p>
+    <div class="vvv-rule"></div>
+  </header>
+  <p class="adm-who" id="who">Checking your session…</p>
 
-  <button type="button" id="view">View subscription</button>
-  <button type="button" id="create">Create subscription</button>
-  <input type="text" id="sub-id" inputmode="numeric" placeholder="subscription id to delete">
-  <button type="button" id="del">Delete subscription</button>
+  <section class="adm-card" aria-labelledby="strava-h">
+    <h2 id="strava-h">Strava webhook</h2>
+    <p>Strava sends each new activity here once a subscription exists, and it allows one. To move it to a new address: View, then Delete it, then Create.</p>
+    <button type="button" class="vvv-btn vvv-btn-ghost" id="view">View subscription</button>
+    <label for="sub-id">Subscription id</label>
+    <input type="text" id="sub-id" inputmode="numeric" autocomplete="off" placeholder="Filled in by View">
+    <button type="button" class="vvv-btn vvv-btn-ghost adm-danger" id="del">Delete subscription</button>
+    <button type="button" class="vvv-btn" id="create">Create subscription</button>
+    <pre class="adm-out" id="out-strava" aria-live="polite"></pre>
+  </section>
 
-  <pre id="out">Ready.</pre>
-
-  <h1 style="margin-top:34px;">Delete a beta tester</h1>
-  <p>For a withdrawal request received at support@sacoro.app (or the older support@velvetviking.co.uk). Look the
-     address up first and check what comes back — deletion cannot be undone.</p>
-
-  <input type="email" id="del-email" inputmode="email" autocapitalize="off"
-         autocomplete="off" spellcheck="false" placeholder="tester@example.com">
-  <button type="button" id="user-lookup">Look up this address</button>
-  <button type="button" id="user-delete" style="border-color:#7A2E2E; background:#2A1616;">
-    Delete this account permanently</button>
-
-  <p style="margin-top:14px;">This erases the account and every server-side
-     record we hold for it. It cannot reach the copy on the tester's own phone
-     or browser, or any backup in their own Google account — the response says
-     so explicitly, and that wording matters when answering them.</p>
+  <section class="adm-card" aria-labelledby="account-h">
+    <h2 id="account-h">Delete an account</h2>
+    <p>For a deletion request sent to support@sacoro.app. Look the address up first and check what comes back. Deletion cannot be undone.</p>
+    <label for="del-email">Email address</label>
+    <input type="email" id="del-email" inputmode="email" autocapitalize="off"
+           autocomplete="off" spellcheck="false" placeholder="name@example.com">
+    <button type="button" class="vvv-btn vvv-btn-ghost" id="user-lookup">Look up this address</button>
+    <button type="button" class="vvv-btn vvv-btn-ghost adm-danger" id="user-delete">Delete this account permanently</button>
+    <pre class="adm-out" id="out-account" aria-live="polite"></pre>
+    <p class="adm-note">This erases the account and every record the server holds for it. It cannot reach what is kept on the person's own phone or browser, or any backup in their own Google account. The response says so, and that matters when you reply to them.</p>
+  </section>
 </main>
 <script>
 (function(){
@@ -69,23 +92,27 @@
      The live failure this fixes: this page used to read the persisted
      vvv_cloud_session snapshot and send its access_token verbatim. Supabase
      access tokens last an hour; the refresh token lasts far longer. So once the
-     access token aged out, every admin request was rejected -- while the page
+     access token aged out, every admin request was rejected, while the page
      still said "Signed in as ..." because the identity line came from the same
      stale snapshot. Reopening the app could not help when /admin was open in a
      different browser than the installed app, because that is a different
      localStorage.
 
-     These two constants are public by design -- they are the same values the
-     app itself ships -- and the session they unlock is the owner's own. No
+     These two constants are public by design (they are the same values the
+     app itself ships) and the session they unlock is the owner's own. No
      server secret, owner id or Strava credential is here or ever could be. */
   var SUPABASE_URL = 'https://eqiydxissphygnycpouu.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_PLiExuCqvMmjYwal4DtFQA_m4eZuCd-';
   var SESSION_KEY = 'vvv_cloud_session';
   var SKEW_MS = 60000;
 
-  var out = document.getElementById('out');
+  var outStrava = document.getElementById('out-strava');
+  var outAccount = document.getElementById('out-account');
   var busy = false;
-  function show(x){ out.textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2); }
+  function show(out, x, isError){
+    out.textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2);
+    out.classList.toggle('err', !!isError);
+  }
 
   function getSession(){
     try{ return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }
@@ -93,6 +120,18 @@
   }
   function putSession(s){
     try{ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }catch(e){}
+  }
+  /* This account's own Supabase id, from its own session: what the owner
+     pastes into VVV_OWNER_USER_ID. It is the signed-in person's own id, never
+     the configured owner's, which this page cannot know. */
+  function ownId(){
+    var sess = getSession();
+    if (sess && sess.user_id) return String(sess.user_id);
+    try{
+      var part = String((sess && sess.access_token) || '').split('.')[1] || '';
+      var claims = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+      return claims && claims.sub ? String(claims.sub) : '';
+    }catch(e){ return ''; }
   }
 
   /* Exchange the refresh token for a new access token and write the result back
@@ -119,7 +158,7 @@
   }
 
   /* A currently valid access token, or a reason there is not one.
-     force=true refreshes even when the stored expiry still looks healthy --
+     force=true refreshes even when the stored expiry still looks healthy:
      used once after a server 401, which is the only reliable way to handle a
      token that is expired in fact but not according to this device's clock. */
   function accessToken(force){
@@ -133,68 +172,71 @@
 
   /* Every outcome carries a short code so a live failure can be read off this
      page and matched against the Vercel function log without either of them
-     containing anything sensitive. The codes are the whole point: "your session
-     has expired" was previously shown for problems that had nothing to do with
-     the session, which is what made this take three attempts to pin down. */
+     containing anything sensitive. "Your session has expired" was once shown
+     for problems that had nothing to do with the session, which is what made
+     that failure take three attempts to pin down. */
+  var OWNER_FIX = 'set VVV_OWNER_USER_ID in Vercel to the owner’s account id, then redeploy.';
   var MESSAGE = {
-    AUTH_NO_SESSION:       'Not signed in. Open Velvet Viking in THIS browser, sign in, then reload this page.',
-    AUTH_SESSION_EXPIRED:  'Your session has expired. Sign in to VVV again in this browser, then reload this page.',
-    AUTH_REFRESH_FAILED:   'Your session could not be renewed. Sign in to VVV again in this browser, then reload this page.',
-    AUTH_NETWORK:          'Could not reach the server — check your connection and try again.',
-    AUTH_HEADER_MISSING:   'The sign-in header did not reach the server. This is a deployment problem, not your session.',
-    AUTH_JWT_MALFORMED:    'The stored sign-in token is not readable. Sign in to VVV again in this browser.',
-    AUTH_PROJECT_MISMATCH: 'This deployment verifies sign-ins against a different Supabase project than the app uses. Check SUPABASE_URL in Vercel.',
-    AUTH_ANON_KEY_REJECTED:'Supabase refused this deployment’s API key. Check SUPABASE_ANON_KEY in Vercel.',
-    AUTH_VERIFY_404:       'The Supabase auth endpoint was not found. Check SUPABASE_URL in Vercel — it must be the project URL, not the REST URL.',
-    AUTH_VERIFY_401:       'Supabase rejected the sign-in token. Sign in to VVV again in this browser, then reload this page.',
-    AUTH_VERIFY_403:       'Supabase refused the sign-in token. Sign in to VVV again in this browser, then reload this page.',
-    AUTH_UNAVAILABLE:      'Supabase could not be reached from the server. Nothing is wrong with your session — try again shortly.',
-    OWNER_MISMATCH:        'Not authorised for this deployment.',
-    OWNER_NOT_CONFIGURED:  'No owner is configured for this deployment. Set VVV_OWNER_USER_ID in Vercel and redeploy.',
-    STRAVA_NOT_CONFIGURED: 'Strava is not configured on this server yet.',
-    SUPABASE_KEY_UNUSABLE: 'This deployment has no usable Supabase service key for the Velvet Viking project. Set VVV_SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy.',
+    AUTH_NO_SESSION:       'Not signed in. Open SACORO in this browser, sign in, then reload this page.',
+    AUTH_SESSION_EXPIRED:  'Your session has expired. Sign in to SACORO again in this browser, then reload this page.',
+    AUTH_REFRESH_FAILED:   'Your session could not be renewed. Sign in to SACORO again in this browser, then reload this page.',
+    AUTH_NETWORK:          'Could not reach the server. Check your connection and try again.',
+    AUTH_HEADER_MISSING:   'The sign-in header did not reach the server. That is a deployment problem, not your session.',
+    AUTH_JWT_MALFORMED:    'The stored sign-in is not readable. Sign in to SACORO again in this browser.',
+    AUTH_PROJECT_MISMATCH: 'This deployment checks sign-ins against a different Supabase project than the app uses. Check VVV_SUPABASE_URL in Vercel; without it, the right project is used.',
+    AUTH_ANON_KEY_REJECTED:'Supabase refused this deployment’s API key. Check VVV_SUPABASE_ANON_KEY in Vercel.',
+    AUTH_VERIFY_404:       'The Supabase sign-in address was not found. Check VVV_SUPABASE_URL in Vercel: it must be the project address, not the REST address.',
+    AUTH_VERIFY_401:       'Supabase rejected the sign-in. Sign in to SACORO again in this browser, then reload this page.',
+    AUTH_VERIFY_403:       'Supabase refused the sign-in. Sign in to SACORO again in this browser, then reload this page.',
+    AUTH_UNAVAILABLE:      'Supabase could not be reached from the server. Nothing is wrong with your session; try again shortly.',
+    OWNER_MISMATCH:        'This account is not the owner set for this deployment. If it should be, ' + OWNER_FIX,
+    OWNER_MALFORMED:       'VVV_OWNER_USER_ID in Vercel is set, but not to an account id, so nobody can match it. To fix it, ' + OWNER_FIX,
+    OWNER_NOT_CONFIGURED:  'No owner is set for this deployment. To fix it, ' + OWNER_FIX,
+    STRAVA_NOT_CONFIGURED: 'Strava is not set up on this server yet.',
+    SUPABASE_KEY_UNUSABLE: 'This deployment has no usable Supabase service key for SACORO’s project. Set VVV_SUPABASE_SERVICE_ROLE_KEY in Vercel, then redeploy.',
     VERIFY_TOKEN_NOT_CONFIGURED: 'STRAVA_WEBHOOK_VERIFY_TOKEN is not set on this server.',
-    STRAVA_UNAVAILABLE:    'Could not reach Strava — try again shortly.',
-    STRAVA_DISABLED:       'Strava is switched off for the private beta (VVV_STRAVA_ENABLED is not on). View and Delete still work; Create does not.',
-    no_such_user:          'No account exists for that address on this deployment.',
+    STRAVA_UNAVAILABLE:    'Could not reach Strava. Try again shortly.',
+    STRAVA_DISABLED:       'Strava is switched off on this server (VVV_STRAVA_ENABLED is not on). View and Delete still work; Create does not.',
+    no_such_user:          'No account exists for that address.',
     bad_email:             'That does not look like an email address.',
     confirmation_required: 'The deletion was not confirmed, so nothing was deleted.',
-    lookup_failed:         'Could not read the user list from Supabase. Nothing was deleted.'
+    lookup_failed:         'Could not read the account list from Supabase. Nothing was deleted.'
   };
-  function fail(code){
-    show((MESSAGE[code] || 'Request failed.') + '\n\nCode: ' + code);
+  function fail(out, code){
+    var text = (MESSAGE[code] || 'Request failed.');
+    /* For the three owner codes, this account's own id, ready to paste. */
+    if (/^OWNER_/.test(code) && ownId()) text += '\n\nThis account’s id:\n' + ownId();
+    show(out, text + '\n\nCode: ' + code, true);
   }
 
   function identify(){
     var sess = getSession();
     var el = document.getElementById('who');
     if (!sess || !sess.access_token){
-      el.textContent = 'Not signed in — open the app in this browser, sign in, then come back.';
+      el.textContent = 'Not signed in. Open SACORO in this browser, sign in, then come back.';
       return;
     }
     // Say only what is actually known. A stored email proves who signed in
-    // once, not that the session still works -- claiming otherwise is what
-    // made the original failure so confusing.
-    var aged = !sess.expires_at || Date.now() >= sess.expires_at - SKEW_MS;
-    el.textContent = 'Signed in as ' + (sess.email || sess.user_id || 'this account') +
-                     (aged ? ' — session needs refreshing, which happens automatically' : '');
+    // once, not that the session still works.
+    el.textContent = 'Signed in as ' + (sess.email || sess.user_id || 'this account');
   }
   identify();
 
   function send(body, token, route){
-    return fetch(route || '/api/strava-admin', {
+    return fetch(route, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify(body)
     });
   }
 
-  function call(body, route){
+  /* One request at a time; its answer lands under the section that asked. */
+  function call(body, route, out, done){
     if (busy) return;
     busy = true;
-    show('Working…');
+    show(out, 'Working…');
     accessToken(false).then(function(a){
-      if (a.code){ fail(a.code); return null; }
+      if (a.code){ fail(out, a.code); return null; }
       return send(body, a.token, route).then(function(r){
         // A 401 here means the server asked Supabase and Supabase said no. The
         // stored expiry can be wrong (clock skew, a token revoked early), so
@@ -206,52 +248,70 @@
         });
       }).then(function(r){
         if (!r) return;
-        if (r.forced){ fail(r.forced); return; }
+        if (r.forced){ fail(out, r.forced); return; }
         return r.json().catch(function(){ return {}; }).then(function(d){
           // The server names the case; it is always more specific than a status.
-          if (!r.ok) return fail(d.code || ('HTTP_' + r.status));
-          show(d);
+          if (!r.ok) return fail(out, d.code || ('HTTP_' + r.status));
+          if (done) done(d); else show(out, d);
         });
       });
     }).catch(function(e){
-      show('Request failed: ' + e.message);
+      show(out, 'Request failed: ' + e.message, true);
     }).then(function(){ busy = false; identify(); });
   }
 
+  /* ---------- the Strava webhook ---------- */
+  var STRAVA = '/api/strava-admin';
   document.getElementById('view').addEventListener('click', function(){
-    call({ action: 'subscription_view' });
+    call({ action: 'subscription_view' }, STRAVA, outStrava, function(d){
+      var subs = Array.isArray(d.subscriptions) ? d.subscriptions : null;
+      if (!subs) return show(outStrava, d);
+      if (!subs.length) return show(outStrava, 'No subscription. Create subscription makes one.');
+      // Exactly one is what Strava allows; its id goes straight into the field.
+      if (subs.length === 1 && subs[0] && subs[0].id != null)
+        document.getElementById('sub-id').value = String(subs[0].id);
+      show(outStrava, subs.map(function(s){
+        return 'Subscription ' + s.id + '\nDelivers to ' + (s.callback_url || 'an address Strava did not give');
+      }).join('\n\n'));
+    });
   });
   document.getElementById('create').addEventListener('click', function(){
-    call({ action: 'subscription_create' });
+    call({ action: 'subscription_create' }, STRAVA, outStrava, function(d){
+      show(outStrava, d && d.id != null ? 'Created subscription ' + d.id + '.' : d);
+    });
   });
   document.getElementById('del').addEventListener('click', function(){
     var id = document.getElementById('sub-id').value.trim();
-    if (!id){ show('Enter the id shown by View subscription.'); return; }
-    call({ action: 'subscription_delete', id: id });
+    if (!id){ show(outStrava, 'Enter the id View shows, or press View to fill it in.', true); return; }
+    call({ action: 'subscription_delete', id: id }, STRAVA, outStrava, function(d){
+      show(outStrava, d && d.deleted ? 'Deleted subscription ' + id + '.' : d);
+    });
   });
 
-  /* Beta-tester deletion. Two steps on purpose: the lookup shows exactly what
-     is held for that address, so the destructive call is made against something
-     the operator has actually seen rather than an address they typed. */
+  /* ---------- deleting an account ----------
+     Two steps on purpose: the lookup shows exactly what is held for that
+     address, so the destructive call is made against something the operator
+     has actually seen rather than an address they typed. */
+  var USERS = '/api/admin-user';
   function targetEmail(){
     var v = (document.getElementById('del-email').value || '').trim().toLowerCase();
-    if (!v || v.indexOf('@') < 1){ show('Enter the tester\u2019s email address.'); return null; }
+    if (!v || v.indexOf('@') < 1){ show(outAccount, 'Enter the person’s email address.', true); return null; }
     return v;
   }
   document.getElementById('user-lookup').addEventListener('click', function(){
     var email = targetEmail();
-    if (email) call({ action: 'user_lookup', email: email }, '/api/admin-user');
+    if (email) call({ action: 'user_lookup', email: email }, USERS, outAccount);
   });
   document.getElementById('user-delete').addEventListener('click', function(){
     var email = targetEmail();
     if (!email) return;
     // Typed, not clicked. An owner-authenticated page is exactly where a
     // mis-click would be most expensive.
-    if (window.prompt('Permanently delete ' + email + ' and all their server-side data?\n\nType DELETE to confirm.') !== 'DELETE'){
-      show('Cancelled — nothing was deleted.');
+    if (window.prompt('Permanently delete ' + email + ' and everything the server holds for it?\n\nType DELETE to confirm.') !== 'DELETE'){
+      show(outAccount, 'Cancelled. Nothing was deleted.');
       return;
     }
-    call({ action: 'user_delete', email: email, confirm: 'DELETE' }, '/api/admin-user');
+    call({ action: 'user_delete', email: email, confirm: 'DELETE' }, USERS, outAccount);
   });
 })();
 </script>

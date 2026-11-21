@@ -89,7 +89,10 @@ async function holdings(cfg, uid){
 
 module.exports = async function handler(req, res){
   const cfg = S.config();
-  const ownerId = process.env.VVV_OWNER_USER_ID || '';
+  /* VVV_OWNER_USER_ID, read through S.ownerConfig(): stray spaces, quotes and
+     capitals from pasting are dropped, the id itself must match in full. */
+  const owner = S.ownerConfig();
+  const ownerId = owner.id;
 
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
@@ -103,9 +106,13 @@ module.exports = async function handler(req, res){
   // Fail closed: with no owner configured there is no authorised caller, so
   // this is simply unavailable rather than open to the first account that
   // finds the route.
-  if (!ownerId){
+  if (owner.state === 'missing'){
     log('OWNER_NOT_CONFIGURED');
     return S.json(res, 503, { error: 'owner_not_configured', code: 'OWNER_NOT_CONFIGURED' });
+  }
+  if (owner.state === 'malformed'){
+    log('OWNER_MALFORMED');
+    return S.json(res, 503, { error: 'owner_misconfigured', code: 'OWNER_MALFORMED' });
   }
 
   const who = await S.verifyUser(req, cfg);
