@@ -289,6 +289,13 @@ test('the offer is made only to a browser at the old address with something to m
   assert.equal(appAt('app.velvetviking.co.uk', Object.assign({ vvv_moved_out: 'x' }, withSession)).browserMoveApplies(), false, 'already moved');
   assert.equal(appAt('app.sacoro.app', withSession).browserMoveApplies(), false, 'the new address');
   assert.equal(appAt('app.velvetviking.co.uk', withSession, true).browserMoveApplies(), false, 'the installed app moves itself');
+  /* Journey-only mode (no gate cookie yet) refuses every tap outside the
+     journey, so the sheet's buttons would do nothing there. Found in the
+     live rehearsal, 21 November 2026. */
+  const journey = appAt('app.velvetviking.co.uk', withSession);
+  journey.JOURNEY_ONLY_MODE = true;
+  assert.equal(journey.browserMoveApplies(), false, 'not offered where its buttons would be refused');
+  assert.equal(journey.journeyOnlyAllows('browser-move-go'), false, 'which is why');
 });
 
 test('Continue saves first, then goes to the new address\'s move page', () => {

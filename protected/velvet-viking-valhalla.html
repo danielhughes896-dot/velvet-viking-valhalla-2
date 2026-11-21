@@ -33639,6 +33639,11 @@ var BROWSER_MOVE_NEW = 'https://app.sacoro.app';
 var BROWSER_MOVE_OLD_HOST = 'app.velvetviking.co.uk';
 function browserMoveApplies(){
   if (isNativeApp()) return false;
+  /* NOT IN JOURNEY-ONLY MODE. There the gate has no cookie for this browser
+     yet, and every tap outside the journey is refused (JOURNEY_ONLY_ACTIONS),
+     so a sheet would show buttons that do nothing. A browser with a sign-in
+     is given its cookie and reloads into the full app, and is asked then. */
+  try{ if (JOURNEY_ONLY_MODE) return false; }catch(e){}
   try{
     if (!window.location || window.location.hostname !== BROWSER_MOVE_OLD_HOST) return false;
     var ls = window.localStorage;
