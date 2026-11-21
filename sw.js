@@ -168,6 +168,9 @@ self.addEventListener('fetch', function(event){
      and the move would silently not happen; left to the network, it simply
      fails and the new address tries again on the next launch. */
   if (url.pathname === '/move-out') return;
+  /* The browser move's two pages likewise (move-in.html, hand-over.html):
+     answered with the shell they would open the app instead of moving. */
+  if (url.pathname === '/move-in' || url.pathname === '/hand-over') return;
 
   event.respondWith(
     /* NETWORK FIRST. The gate is authoritative whenever it can be reached. */

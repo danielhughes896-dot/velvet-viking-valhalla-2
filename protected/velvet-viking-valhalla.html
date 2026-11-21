@@ -47,6 +47,24 @@
     return new Response(stream).text().then(JSON.parse);
   }
   try {
+    /* A BROWSER THAT HAS MOVED (founder, 21 November 2026: the browser move,
+       hand-over.html and move-in.html). Once this browser's data has been
+       handed to app.sacoro.app and the new address has said so, the old
+       address marks itself moved, and from then on sends this browser
+       straight on, to the same path, before anything here can load or
+       write. Nothing travels in the address but the address. The installed
+       app never gets here (it is moved by its own half below), and ?stay=1
+       keeps a browser at the old address, whose data is still there. */
+    if (location.hostname === OLD.replace('https://', '')){
+      if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) &&
+          window.localStorage.getItem('vvv_moved_out') &&
+          !/(^|&)stay=1(&|$)/.test(String(location.search || '').replace(/^\?/, ''))){
+        document.documentElement.style.background = '#121316';
+        window.stop();
+        location.replace('https://' + HERE + location.pathname + location.search + location.hash);
+      }
+      return;
+    }
     if (location.hostname !== HERE) return;
     var ls = window.localStorage;
     var back = /^#vvv-move=([^&]*)&n=([A-Za-z0-9_-]{16,64})$/.exec(location.hash || '');
@@ -33606,6 +33624,52 @@ function nativeUpdateAvailable(){
   var installed = nativeInstalledBuild();
   if (installed === null) return false;
   return installed < LATEST_NATIVE_BUILD;
+}
+
+/* ---------- THE BROWSER MOVE: WHAT THE OLD ADDRESS OFFERS ----------
+   Founder, 21 November 2026: "Go ahead with the browser move." The installed
+   app moved itself to app.sacoro.app (<script id="move-in">); a browser at
+   app.velvetviking.co.uk keeps its plan, notes and settings here, and is
+   offered the move instead: a sheet once per visit and a row at the top of
+   Settings, both leading to app.sacoro.app/move-in, where one tap brings the
+   data across (move-in.html and hand-over.html tell the rest). Only a
+   browser with something to move is asked: a sign-in or a plan. Once moved,
+   this address sends the browser on by itself (the top of <head>). */
+var BROWSER_MOVE_NEW = 'https://app.sacoro.app';
+var BROWSER_MOVE_OLD_HOST = 'app.velvetviking.co.uk';
+function browserMoveApplies(){
+  if (isNativeApp()) return false;
+  try{
+    if (!window.location || window.location.hostname !== BROWSER_MOVE_OLD_HOST) return false;
+    var ls = window.localStorage;
+    if (ls.getItem('vvv_moved_out')) return false;
+    return !!(ls.getItem(CLOUD_SESSION_KEY) || ls.getItem(STORAGE_KEY));
+  }catch(e){ return false; }
+}
+function browserMoveSheetBody(){
+  return '<div class="stg-sheet-say">SACORO now lives at app.sacoro.app.</div>'+
+    '<div class="field-hint">Your plan, notes and settings are kept in this browser at the old address. '+
+      'Bring them with you in two taps, and stay signed in. After that, this address takes you straight to the new one.</div>'+
+    '<div class="stg-sheet-acts">'+
+      '<button type="button" class="btn btn-ghost" data-action="close-stg-sheet">Not now</button>'+
+      '<button type="button" class="btn btn-primary" data-action="browser-move-go">Continue</button>'+
+    '</div>';
+}
+function browserMoveGo(){
+  // Whatever is waiting to be saved is saved first: it is what is moved.
+  try{ flushSave(); }catch(e){}
+  try{ window.location.assign(BROWSER_MOVE_NEW + '/move-in'); }catch(e){}
+}
+/* Once per visit, and never over another sheet: the Settings row is always
+   there for an athlete who says Not now. */
+function browserMoveOffer(){
+  if (!browserMoveApplies()) return;
+  try{
+    if (window.sessionStorage.getItem('sacoro.moveOffered')) return;
+    window.sessionStorage.setItem('sacoro.moveOffered', '1');
+  }catch(e){}
+  if (typeof document === 'undefined' || !document.getElementById || document.getElementById('modal-overlay')) return;
+  openStgSheet('moved');
 }
 
 /* ---------- saving files out of the app ----------
@@ -85939,6 +86003,8 @@ var STG_SHEETS = {
      the row (what is kept, and Clear Memory). Both titled as approved. */
   memoryconsent: { title:'Coach Memory',   body:function(){ return coachMemoryConsentBody(); } },
   memory:        { title:'Coach Memory',   body:function(){ return coachMemorySheetBody(); } },
+  /* The browser move's offer, at the old address only (browserMoveApplies). */
+  moved:         { title:'SACORO Has Moved', body:function(){ return browserMoveSheetBody(); } },
   signout:       { title:'Sign Out',       body:function(){ return signOutSheetBody(); },       back:'account' },
   deleteaccount: { title:'Delete Account', body:function(){ return deleteAccountSheetBody(); }, back:'account' }
 };
@@ -86536,6 +86602,15 @@ function renderSettingsHubView(){
         pill:'UPDATE AVAILABLE', pillTone:'is-gold',
         href:PLAY_STORE_URL, external:true })
     : '';
+  /* THE SAME PLACE, FOR A BROWSER AT THE OLD ADDRESS: the browser move,
+     absent everywhere else. Never beside the notice above, which is the
+     installed app's alone. */
+  if (!appUpdate && browserMoveApplies()){
+    appUpdate = stgRow({ title:'SACORO Has Moved',
+      sub:'Bring this browser’s data to app.sacoro.app',
+      pill:'NEW ADDRESS', pillTone:'is-gold',
+      attrs:'data-action="browser-move-open"' });
+  }
 
   /* ALWAYS THERE, unlike the notice above it. Founder: "Add an app update
      tab. Or search for updates." The notice appears only when this build
@@ -91111,6 +91186,8 @@ document.addEventListener('click', function(e){
     case 'reset-plan': handleResetPlan(); break;
     case 'reset-plan-keep': handleResetPlanArm(false); break;
     case 'reset-plan-confirm': handleResetPlanConfirm(); break;
+    case 'browser-move-open': openStgSheet('moved'); break;
+    case 'browser-move-go': browserMoveGo(); break;
     case 'check-app-update': checkForAppUpdate(); break;
     case 'apply-app-update': applyAppUpdate(); break;
     case 'close-modal': vtCloseBack(function(){ if (!stgCloseSub()) dismissModal(); }); break;
@@ -92003,6 +92080,9 @@ function init(){
   }catch(e){}
   try{
     Promise.resolve(cloudInitReady).catch(function(){}).then(function(){
+      /* A browser at the old address is offered the move, once per visit,
+         after the opening has settled (browserMoveOffer). */
+      try { window.setTimeout(browserMoveOffer, 1200); } catch(e){}
       if (handleStravaReturn()) return;
       /* Availability arrives on the SAME round trip as connection status, so
          opening the app costs no extra request and the two can never disagree.

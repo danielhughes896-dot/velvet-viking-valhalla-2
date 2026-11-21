@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>SACORO</title>
+<style>
+  html,body{margin:0; min-height:100%; background:#121316; color:#F4F1EA;
+    font:500 15px/1.5 'Oswald','Helvetica Neue',Arial,sans-serif;}
+  p{max-width:320px; margin:40vh auto 0; padding:0 24px; text-align:center;}
+</style>
+<!-- THE OLD ADDRESS'S HALF OF THE BROWSER MOVE (founder, 21 November 2026:
+     "Go ahead with the browser move").
+
+     The installed app moved itself (move-out.html and <script id="move-in">);
+     a browser has to be moved differently, because a browser keeps history
+     and the data includes the sign-in, so it must never travel in an address.
+     It travels by postMessage between two windows instead:
+
+       1. app.sacoro.app/move-in (move-in.html) opens THIS page in a small
+          window, with a nonce it made, when the athlete taps "Bring my data
+          across".
+       2. This page, at the old address, reads this address's localStorage
+          and posts it straight to the window that opened it, addressed to
+          https://app.sacoro.app only. The browser refuses to deliver it to
+          any other opener, so another site that opens this page gets
+          nothing.
+       3. The new address writes it, and answers. Only on that answer is this
+          address marked as moved (vvv_moved_out), which from then on sends
+          this browser on to app.sacoro.app (the top of the app's <head>).
+
+     One message from the visible window to the waiting one, and no reply
+     needed to finish the copy: a phone may pause a tab that is not showing,
+     and the waiting tab simply reads the message when it is shown again.
+     This address's own storage is left as it was: copying is enough, and it
+     is the safety net if anything fails. -->
+</head>
+<body>
+<p id="say"></p>
+<script>
+(function(){
+  var NEW = 'https://app.sacoro.app';
+  var OLD_HOST = 'app.velvetviking.co.uk';
+  var CONTROL = { vvv_move_nonce: 1, vvv_moved: 1, vvv_move_tries: 1, vvv_moved_out: 1 };
+  function say(t){ var p = document.getElementById('say'); if (p) p.textContent = t; }
+  function shut(){
+    try { window.close(); } catch (e) {}
+    // A window the browser will not close says so instead.
+    setTimeout(function(){ say('Done. You can close this tab.'); }, 400);
+  }
+
+  var m = /^#n=([A-Za-z0-9_-]{16,64})$/.exec(location.hash || '');
+  var opener = null;
+  try { opener = window.opener; } catch (e) { opener = null; }
+  if (location.hostname !== OLD_HOST || !m || !opener){
+    // Opened any other way: nothing is handed over.
+    say('Nothing to move from here.');
+    return;
+  }
+
+  var data = {};
+  try {
+    var ls = window.localStorage;
+    for (var i = 0; i < ls.length; i++){
+      var k = ls.key(i);
+      if (k != null && !CONTROL[k]) data[k] = ls.getItem(k);
+    }
+  } catch (e) {}
+
+  var answered = false;
+  window.addEventListener('message', function(ev){
+    if (ev.origin !== NEW || ev.source !== opener) return;
+    var a = ev.data || {};
+    if (a.type !== 'sacoro-hand-over-ok' || a.nonce !== m[1]) return;
+    answered = true;
+    if (a.outcome === 'moved' || a.outcome === 'merged'){
+      try { window.localStorage.setItem('vvv_moved_out', new Date().toISOString()); } catch (e) {}
+    }
+    shut();
+  });
+
+  try {
+    opener.postMessage({ type: 'sacoro-hand-over', nonce: m[1], data: data }, NEW);
+  } catch (e) {
+    say('This window could not reach app.sacoro.app. Close it and try again.');
+    return;
+  }
+  say('Moving your data to app.sacoro.app…');
+  // The copy does not depend on the answer; only the marking above does.
+  setTimeout(function(){ if (!answered) shut(); }, 3000);
+})();
+</script>
+</body>
+</html>

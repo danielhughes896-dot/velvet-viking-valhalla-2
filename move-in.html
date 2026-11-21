@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en-GB" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>SACORO</title>
+<!-- THE NEW ADDRESS'S HALF OF THE BROWSER MOVE. The whole story is beside
+     hand-over.html, the old address's half.
+
+     A browser using SACORO at app.velvetviking.co.uk is sent here by the
+     app's "SACORO Has Moved" sheet. One tap opens the old address's
+     /hand-over in a small window (a tap, because a browser opens a window
+     only for one), which posts that address's storage back here. It is
+     accepted only from https://app.velvetviking.co.uk, only from the window
+     this page opened, and only with the nonce this page made.
+
+     WHAT IS WRITTEN. If this address holds none of SACORO's data, everything
+     is copied, sign-in included, as the installed app's move does. If it
+     already holds some (somebody who signed in here first), nothing here is
+     overwritten: only what is missing is added, and only when both sides
+     are the same account or this side is signed out. A different account
+     signed in here gets nothing at all. -->
+<link rel="icon" href="/assets/favicon.png">
+<meta name="theme-color" content="#121316">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/vvv-shell.css">
+<style>
+  body{display:flex; align-items:center; justify-content:center;
+       padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(24px + env(safe-area-inset-bottom,0px));}
+  .vvv-shell p.mv-state{font-size:13.5px; line-height:1.6; margin:16px 0 0; min-height:1.6em;}
+  .vvv-shell p.mv-state.err{color:var(--danger-ink);}
+  .vvv-shell .vvv-btn-ghost{text-decoration:none;}
+</style>
+</head>
+<body>
+<main class="vvv-shell">
+  <div class="vvv-brand">
+    <div class="vvv-lockup"><span class="vvv-dot" aria-hidden="true"></span><p class="vvv-wordmark">SACORO</p><span class="vvv-dot" aria-hidden="true"></span></div>
+    <p class="vvv-by">By Velvet Viking</p>
+    <div class="vvv-rule"></div>
+  </div>
+  <h1>Bring your data across</h1>
+  <p>SACORO has moved here from app.velvetviking.co.uk. Your plan, notes and settings are still in this browser at the old address. One tap copies them here, and you stay signed in. A small window opens for a moment and closes by itself.</p>
+  <button type="button" class="vvv-btn" id="bring">Bring my data across</button>
+  <a class="vvv-btn vvv-btn-ghost" id="skip" href="/">Open SACORO without it</a>
+  <p class="mv-state" id="state" role="status" aria-live="polite"></p>
+</main>
+<script>
+(function(){
+  var OLD = 'https://app.velvetviking.co.uk';
+  var HERE = 'app.sacoro.app';
+  var CONTROL = { vvv_move_nonce: 1, vvv_moved: 1, vvv_move_tries: 1, vvv_moved_out: 1 };
+  var SESSION = 'vvv_cloud_session';
+  /* What makes the old address worth moving: a sign-in or a plan, or the
+     things kept only on the device. Anything else is not a move. */
+  var MEANINGFUL = ['vvv_cloud_session', 'velvet-viking-generator-v2', 'vvv_plan_archive', 'sacoro.coachNote.v1'];
+  var APP_KEY = /^(vvv|velvet-viking|sacoro\.|vv-)/;
+
+  // The same page at the old address belongs here.
+  if (location.hostname === OLD.replace('https://', '')){ location.replace('https://' + HERE + '/move-in'); return; }
+
+  var stateEl = document.getElementById('state');
+  var bring = document.getElementById('bring');
+  function say(t, err){ stateEl.textContent = t; stateEl.classList.toggle('err', !!err); }
+  function uidOf(raw){
+    try { var s = JSON.parse(raw || 'null'); return s && s.user_id ? String(s.user_id) : ''; }
+    catch (e) { return ''; }
+  }
+  function nonce(){
+    var b = new Uint8Array(18);
+    crypto.getRandomValues(b);
+    return btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  /* What the old address sent, written by the rules above. */
+  function write(data){
+    var ls = window.localStorage;
+    var keys = Object.keys(data).filter(function(k){ return typeof data[k] === 'string' && !CONTROL[k]; });
+    if (!MEANINGFUL.some(function(k){ return keys.indexOf(k) !== -1; })) return { outcome: 'nothing', wrote: 0 };
+    var hasOwn = false;
+    for (var i = 0; i < ls.length; i++){
+      var k = ls.key(i);
+      if (k != null && !CONTROL[k] && APP_KEY.test(k)){ hasOwn = true; break; }
+    }
+    if (hasOwn){
+      var mine = uidOf(ls.getItem(SESSION)), theirs = uidOf(data[SESSION]);
+      if (mine && theirs && mine !== theirs) return { outcome: 'other-account', wrote: 0 };
+    }
+    var wrote = 0;
+    keys.forEach(function(k){
+      if (!hasOwn || ls.getItem(k) === null){ ls.setItem(k, data[k]); wrote++; }
+    });
+    ls.setItem('vvv_moved', '1');
+    return { outcome: hasOwn ? 'merged' : 'moved', wrote: wrote };
+  }
+
+  var pending = null, popup = null, watch = null;
+  function settle(){
+    pending = null;
+    if (watch){ clearInterval(watch); watch = null; }
+    bring.disabled = false;
+  }
+  function report(r){
+    if (r.outcome === 'moved' || r.outcome === 'merged'){
+      bring.disabled = true;
+      say(r.outcome === 'moved'
+        ? 'Done. Your plan, notes and settings are here, and you are still signed in. Opening SACORO…'
+        : 'Done. Everything that was not here yet has been added. Opening SACORO…');
+      setTimeout(function(){ location.replace('/'); }, 900);
+    } else if (r.outcome === 'nothing'){
+      say('There was nothing to bring across from the old address.');
+    } else if (r.outcome === 'other-account'){
+      say('This browser is signed in to a different account here, so nothing was copied. Sign out of SACORO here first, then try again.', true);
+    } else {
+      say('The copy did not finish, so nothing was changed. Try again.', true);
+    }
+  }
+
+  window.addEventListener('message', function(ev){
+    if (!pending || ev.origin !== OLD || !popup || ev.source !== popup) return;
+    var m = ev.data || {};
+    if (m.type !== 'sacoro-hand-over' || m.nonce !== pending || !m.data || typeof m.data !== 'object') return;
+    var sent = pending, r;
+    try { r = write(m.data); } catch (e) { r = { outcome: 'failed', wrote: 0 }; }
+    try { ev.source.postMessage({ type: 'sacoro-hand-over-ok', nonce: sent, outcome: r.outcome }, OLD); } catch (e) {}
+    settle();
+    report(r);
+  });
+
+  bring.addEventListener('click', function(){
+    if (pending) return;
+    var n = nonce();
+    popup = null;
+    try { popup = window.open(OLD + '/hand-over#n=' + n, 'sacoro-hand-over'); } catch (e) { popup = null; }
+    if (!popup){
+      say('Your browser stopped the window opening. Allow pop-ups for app.sacoro.app, then tap again.', true);
+      return;
+    }
+    pending = n;
+    bring.disabled = true;
+    say('Copying your data…');
+    /* A window that closes without handing anything over is said so, once
+       a waiting tab has had a moment to read what it was sent. */
+    watch = setInterval(function(){
+      if (!pending || !popup || !popup.closed) return;
+      clearInterval(watch); watch = null;
+      setTimeout(function(){
+        if (pending === n){ settle(); say('The old address did not answer. Try again.', true); }
+      }, 2500);
+    }, 500);
+  });
+})();
+</script>
+</body>
+</html>
